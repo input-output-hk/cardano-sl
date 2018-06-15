@@ -132,7 +132,7 @@ soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
 
 
 spec :: Spec
-spec = withDefConfiguration $ do
+spec = withDefConfiguration $ \_ -> do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Test instances" $ do

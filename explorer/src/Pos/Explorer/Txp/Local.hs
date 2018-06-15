@@ -15,9 +15,9 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Core (BlockVersionData, EpochIndex, Timestamp)
 import           Pos.Core.Txp (TxAux (..), TxId)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                                      StateLockMetrics, withStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp.Logic.Local (txNormalizeAbstract, txProcessTransactionAbstract)
 import           Pos.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra, withTxpLocalData)
@@ -43,16 +43,18 @@ eTxProcessTransaction ::
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        , CanJsonLog m
        )
-    => (TxId, TxAux)
+    => ProtocolMagic
+    -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransaction itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock itw
+eTxProcessTransaction pm itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock pm itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)
-    => (TxId, TxAux)
+    => ProtocolMagic
+    -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock itw = getCurrentSlot >>= \case
+eTxProcessTransactionNoLock pm itw = getCurrentSlot >>= \case
     Nothing   -> pure $ Left ToilSlotUnknown
     Just slot -> do
         -- First get the current @SlotId@ so we can calculate the time.
@@ -70,15 +72,14 @@ eTxProcessTransactionNoLock itw = getCurrentSlot >>= \case
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure ELocalToilM ()
     processTx' mTxTimestamp bvd epoch tx =
-        eProcessTx bvd epoch tx (TxExtra Nothing mTxTimestamp)
+        eProcessTx pm bvd epoch tx (TxExtra Nothing mTxTimestamp)
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
-eTxNormalize ::
-       forall ctx m. (ETxpLocalWorkMode ctx m)
-    => m ()
-eTxNormalize = do
+eTxNormalize
+    :: forall ctx m . (ETxpLocalWorkMode ctx m) => ProtocolMagic -> m ()
+eTxNormalize pm = do
     extras <- MM.insertionsMap . view eemLocalTxsExtra <$> withTxpLocalData getTxpExtra
     txNormalizeAbstract buildExplorerExtraLookup (normalizeToil' extras)
   where
@@ -90,4 +91,4 @@ eTxNormalize = do
         -> ELocalToilM ()
     normalizeToil' extras bvd epoch txs =
         let toNormalize = HM.toList $ HM.intersectionWith (,) txs extras
-        in eNormalizeToil bvd epoch toNormalize
+        in eNormalizeToil pm bvd epoch toNormalize

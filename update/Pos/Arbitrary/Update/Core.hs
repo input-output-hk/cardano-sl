@@ -17,7 +17,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
-import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
                                   UpdateProposalToSign (..), UpdateVote (..), mkUpdateProposalWSign,
@@ -27,6 +26,7 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary
@@ -41,8 +41,8 @@ instance Arbitrary SystemTag where
 genUpdateVote :: ProtocolMagic -> Gen UpdateVote
 genUpdateVote pm = mkUpdateVote pm <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance HasProtocolMagic => Arbitrary UpdateVote where
-    arbitrary = genUpdateVote protocolMagic
+instance Arbitrary UpdateVote where
+    arbitrary = genUpdateVote dummyProtocolMagic
     shrink = genericShrink
 
 genUpdateProposal :: ProtocolMagic -> Gen UpdateProposal
@@ -63,8 +63,8 @@ genUpdateProposal pm = do
             upAttributes
             ss
 
-instance HasProtocolMagic => Arbitrary UpdateProposal where
-    arbitrary = genUpdateProposal protocolMagic
+instance Arbitrary UpdateProposal where
+    arbitrary = genUpdateProposal dummyProtocolMagic
     shrink = genericShrink
 
 instance Arbitrary UpdateProposalToSign where
@@ -88,6 +88,6 @@ genUpdatePayload pm = UpdatePayload <$> genMaybeUpdateProposal <*> listOf (genUp
         , (3, Just <$> genUpdateProposal pm)
         ]
 
-instance HasProtocolMagic => Arbitrary UpdatePayload where
-    arbitrary = genUpdatePayload protocolMagic
+instance Arbitrary UpdatePayload where
+    arbitrary = genUpdatePayload dummyProtocolMagic
     shrink = genericShrink

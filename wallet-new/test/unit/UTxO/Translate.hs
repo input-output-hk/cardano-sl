@@ -7,6 +7,7 @@ module UTxO.Translate (
   , runTranslate
   , runTranslateNoErrors
   , withConfig
+  , withProtocolMagic
   , mapTranslateErrors
   , catchTranslateErrors
   , catchSomeTranslateErrors
@@ -30,10 +31,11 @@ import           Universum
 import           Pos.Block.Error
 import           Pos.Block.Types
 import           Pos.Core
+import           Pos.Core.Chrono
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Core.Chrono
 
 import           Util.Validated
 import           UTxO.Context
@@ -58,9 +60,10 @@ import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConf
 -------------------------------------------------------------------------------}
 
 data TranslateEnv = TranslateEnv {
-      teContext :: TransCtxt
-    , teConfig  :: Dict HasConfiguration
-    , teUpdate  :: Dict HasUpdateConfiguration
+      teContext       :: TransCtxt
+    , teProtocolMagic :: ProtocolMagic
+    , teConfig        :: Dict HasConfiguration
+    , teUpdate        :: Dict HasUpdateConfiguration
     }
 
 newtype TranslateT e m a = TranslateT {
@@ -94,13 +97,14 @@ instance Monad m => MonadGState (TranslateT e m) where
 -- pure exceptions.
 runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
 runTranslateT (TranslateT ta) =
-    withDefConfiguration $
+    withDefConfiguration $ \pm ->
     withDefUpdateConfiguration $
       let env :: TranslateEnv
           env = TranslateEnv {
-                    teContext = initContext initCardanoContext
-                  , teConfig  = Dict
-                  , teUpdate  = Dict
+                    teContext       = initContext (initCardanoContext pm)
+                  , teProtocolMagic = pm
+                  , teConfig        = Dict
+                  , teUpdate        = Dict
                   }
       in do ma <- runReaderT (runExceptT ta) env
             case ma of
@@ -123,6 +127,11 @@ withConfig f = do
     Dict <- TranslateT $ asks teConfig
     Dict <- TranslateT $ asks teUpdate
     f
+
+-- | Pull the ProtocolMagic from the TranslateEnv
+withProtocolMagic
+    :: Monad m => (ProtocolMagic -> TranslateT e m a) -> TranslateT e m a
+withProtocolMagic = (TranslateT (asks teProtocolMagic) >>=)
 
 -- | Map errors
 mapTranslateErrors :: Functor m
@@ -188,9 +197,11 @@ verifyBlocksPrefix blocks = do
     CardanoContext{..} <- asks tcCardano
     let tip         = ccHash0
         currentSlot = Nothing
-    verify $ Verify.verifyBlocksPrefix
-        tip
-        currentSlot
-        ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
-        (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
-        blocks
+    withProtocolMagic $ \pm ->
+      verify $ Verify.verifyBlocksPrefix
+          pm
+          tip
+          currentSlot
+          ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
+          (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
+          blocks

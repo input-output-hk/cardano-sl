@@ -26,9 +26,9 @@ import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
-                           getSlotIndex, protocolMagic)
+                           getSlotIndex)
 import           Pos.Core.Block (Block)
-import           Pos.Crypto (pskDelegatePk)
+import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
@@ -62,12 +62,14 @@ type BlockTxpGenMode g ctx m =
 -- Intermediate results will be forced. Blocks can be generated, written to
 -- disk, then collected by using '()' as the monoid and 'const ()' as the
 -- injector, for example.
-genBlocks ::
-       forall g ctx m t . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
-    => BlockGenParams
+genBlocks
+    :: forall g ctx m t
+     . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
+    => ProtocolMagic
+    -> BlockGenParams
     -> (Maybe Blund -> t)
     -> RandT g m t
-genBlocks params inj = do
+genBlocks pm params inj = do
     ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
   where
@@ -78,7 +80,7 @@ genBlocks params inj = do
         let finishEOS = toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
         foldM' genOneBlock mempty [startEOS .. finishEOS]
 
-    genOneBlock t eos = ((t <>) . inj) <$> genBlock eos
+    genOneBlock t eos = ((t <>) . inj) <$> genBlock pm eos
 
     foldM' combine = go
       where
@@ -87,28 +89,29 @@ genBlocks params inj = do
 
 -- Generate a valid 'Block' for the given epoch or slot (genesis block
 -- in the former case and main block the latter case) and apply it.
-genBlock ::
-       forall g ctx m.
-       ( RandomGen g
+genBlock
+    :: forall g ctx m
+     . ( RandomGen g
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        )
-    => EpochOrSlot
+    => ProtocolMagic
+    -> EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock eos = do
+genBlock pm eos = do
     let epoch = eos ^. epochIndexL
-    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
+    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot pm epoch)
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
         EpochOrSlot (Left _) -> do
             tipHeader <- lift DB.getTipHeader
             let slot0 = SlotId epoch minBound
-            let genesisBlock = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
+            let genesisBlock = mkGenesisBlock pm (Right tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
-            genPayload slot
+            genPayload pm slot
             leader <-
                 lift $ maybeThrow
                     (BGInternal "no leader")
@@ -138,16 +141,16 @@ genBlock eos = do
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal slot proxySkInfo >>= \case
+        createMainBlockInternal pm slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply :: Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
-        verifyBlocksPrefix (one block) >>= \case
+        verifyBlocksPrefix pm (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                applyBlocksUnsafe (ShouldCallBListener True) (one blund) (Just pollModifier)
-                normalizeMempool
+                applyBlocksUnsafe pm (ShouldCallBListener True) (one blund) (Just pollModifier)
+                normalizeMempool pm
                 pure blund

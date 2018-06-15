@@ -22,8 +22,9 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (HasCoreConfiguration, HasGenesisData, epochIndexL)
+import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic, epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
@@ -40,7 +41,6 @@ import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..), GlobalTo
                                UtxoModifier, applyToil, defGlobalToilState, gtsUtxoModifier,
                                rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------
@@ -49,11 +49,11 @@ import qualified Pos.Util.Modifier as MM
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
-txpGlobalSettings :: HasGenesisData => TxpGlobalSettings
-txpGlobalSettings =
+txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpGlobalSettings
+txpGlobalSettings pm =
     TxpGlobalSettings
-    { tgsVerifyBlocks = verifyBlocks
-    , tgsApplyBlocks = applyBlocksWith (processBlundsSettings False applyToil)
+    { tgsVerifyBlocks = verifyBlocks pm
+    , tgsApplyBlocks = applyBlocksWith pm (processBlundsSettings False applyToil)
     , tgsRollbackBlocks = rollbackBlocks
     }
 
@@ -63,13 +63,14 @@ txpGlobalSettings =
 
 verifyBlocks ::
        forall m. (TxpGlobalVerifyMode m)
-    => Bool
+    => ProtocolMagic
+    -> Bool
     -> OldestFirst NE TxpBlock
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
-verifyBlocks verifyAllIsKnown newChain = runExceptT $ do
+verifyBlocks pm verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
     let verifyPure :: [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
-        verifyPure = runExceptT . verifyToil bvd epoch verifyAllIsKnown
+        verifyPure = runExceptT . verifyToil pm bvd epoch verifyAllIsKnown
         foldStep ::
                (UtxoModifier, [TxpUndo])
             -> TxpBlock
@@ -159,13 +160,14 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
-    => ProcessBlundsSettings extraEnv extraState m
+    => ProtocolMagic
+    -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith settings blunds = do
+applyBlocksWith pm settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- verifyBlocks False blocks
+        verdict <- verifyBlocks pm False blocks
         whenLeft verdict $
             assertionFailed .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)

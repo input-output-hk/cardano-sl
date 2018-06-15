@@ -45,10 +45,10 @@ instance Yaml.FromJSON WalletsConfig where
 -- | Reads Wallets configuration from the local .yaml-file.
 getWalletsConfig :: FilePath -> IO WalletsConfig
 getWalletsConfig pathToConfig =
-    (Yaml.decodeFile pathToConfig :: IO (Maybe WalletsConfig)) >>= \case
-        Nothing   -> reportAboutInvalidConfig
-        Just conf -> return conf
+    (Yaml.decodeFileEither pathToConfig :: IO (Either Yaml.ParseException WalletsConfig)) >>= \case
+        Left e     -> reportAboutInvalidConfig (show e)
+        Right conf -> return conf
   where
-    reportAboutInvalidConfig :: IO a
-    reportAboutInvalidConfig = error . toText $
-        "Unable to read endpoints configuration " <> pathToConfig
+    reportAboutInvalidConfig :: String -> IO a
+    reportAboutInvalidConfig str = error . toText $
+        "Unable to read endpoints configuration " <> pathToConfig <> ": " <> str

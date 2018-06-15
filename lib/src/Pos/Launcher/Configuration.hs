@@ -105,7 +105,7 @@ instance Default ConfigurationOptions where
 withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
     => ConfigurationOptions
-    -> (HasConfigurations => NtpConfiguration -> m r)
+    -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
     logInfo ("using configurations: " <> show co)

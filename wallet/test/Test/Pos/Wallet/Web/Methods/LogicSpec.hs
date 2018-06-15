@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Test.Pos.Wallet.Web.Methods.LogicSpec
@@ -19,7 +19,7 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = withDefConfigurations $ \_ ->
+spec = withDefConfigurations $ \_ _ ->
        describe "Pos.Wallet.Web.Methods" $ do
     prop emptyWalletOnStarts emptyWallet
   where

@@ -31,6 +31,7 @@ import qualified Data.HashMap.Strict as HM
 import           Mockable (CurrentTime, Mockable)
 import           Pos.Core (HeaderHash)
 import           Pos.Core.Txp (TxAux, TxId)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Slotting (MonadSlots (..))
@@ -129,8 +130,8 @@ clearTxpMemPool txpData = do
 type family MempoolExt (m :: * -> *) :: *
 
 class Monad m => MonadTxpLocal m where
-    txpNormalize :: m ()
-    txpProcessTx :: (TxId, TxAux) -> m (Either ToilVerFailure ())
+    txpNormalize :: ProtocolMagic -> m ()
+    txpProcessTx :: ProtocolMagic -> (TxId, TxAux) -> m (Either ToilVerFailure ())
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m

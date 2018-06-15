@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.2.0
+version:             1.3.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -157,7 +157,7 @@ library
                       , constraints
                       , containers
                       , contravariant
-                      , cryptonite >= 0.23 && <= 0.24
+                      , cryptonite >= 0.23
                       , data-default
                       , directory
                       , ed25519

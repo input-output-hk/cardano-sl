@@ -57,6 +57,7 @@ import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), Slo
                            StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants, vssMaxTTL,
                                          vssMinTTL)
+import           Pos.Core.Limits (stripHashMap)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), pcSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
@@ -64,8 +65,6 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMa
 import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment), Threshold,
                              VssPublicKey, checkSig, genSharedSecret, getDhSecret, secretToDhSecret,
                              sign, toPublic, verifySecret)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Core.Limits (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -209,12 +208,12 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 --
 -- #checkSig
 verifyCommitmentSignature
-    :: (HasProtocolMagic)
-    => EpochIndex
+    :: ProtocolMagic
+    -> EpochIndex
     -> SignedCommitment
     -> Bool
-verifyCommitmentSignature epoch (pk, comm, commSig) =
-    checkSig protocolMagic SignCommitment pk (epoch, comm) commSig
+verifyCommitmentSignature pm epoch (pk, comm, commSig) =
+    checkSig pm SignCommitment pk (epoch, comm) commSig
 
 -- CHECK: @verifySignedCommitment
 -- | Verify SignedCommitment using public key and epoch index.
@@ -222,13 +221,13 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: (HasProtocolMagic)
-    => EpochIndex
+    :: ProtocolMagic
+    -> EpochIndex
     -> SignedCommitment
     -> VerificationRes
-verifySignedCommitment epoch sc@(_, comm, _) = do
+verifySignedCommitment pm epoch sc@(_, comm, _) = do
     verifyGeneric
-        [ ( verifyCommitmentSignature epoch sc
+        [ ( verifyCommitmentSignature pm epoch sc
           , "commitment has bad signature (e. g. for wrong epoch)")
         , ( verifyCommitment comm
           , "commitment itself is bad (e. g. no shares")

@@ -20,7 +20,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
-import           Pos.Crypto.Configuration (HasProtocolMagic, ProtocolMagic (..), protocolMagic)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
                                      unsafeCheatingHashCoerce, withHash)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
@@ -37,11 +37,11 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, Re
 
 import           Pos.Util.Orphans ()
 
+import           Test.Pos.Crypto.Arbitrary.Unsafe ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
                                                      sublistN)
-
-import           Test.Pos.Crypto.Arbitrary.Unsafe ()
 
 deriving instance Arbitrary ProtocolMagic
 
@@ -166,29 +166,29 @@ genRedeemSignature pm genA = redeemSign pm <$> genSignTag <*> genSecretKey <*> g
     genSecretKey :: Gen RedeemSecretKey
     genSecretKey = arbitrary
 
-instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signature a) where
-    arbitrary = genSignature protocolMagic arbitrary
+instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
+    arbitrary = genSignature dummyProtocolMagic arbitrary
 
-instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
-    arbitrary = genRedeemSignature protocolMagic arbitrary
+instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+    arbitrary = genRedeemSignature dummyProtocolMagic arbitrary
 
-instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signed a) where
-    arbitrary = mkSigned protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
+instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
+    arbitrary = mkSigned dummyProtocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasProtocolMagic, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
-    arbitrary = liftA3 (createProxyCert protocolMagic) arbitrary arbitrary arbitrary
+instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+    arbitrary = liftA3 (createProxyCert dummyProtocolMagic) arbitrary arbitrary arbitrary
 
-instance (HasProtocolMagic, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
-    arbitrary = liftA3 (createPsk protocolMagic) arbitrary arbitrary arbitrary
+instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+    arbitrary = liftA3 (createPsk dummyProtocolMagic) arbitrary arbitrary arbitrary
 
-instance (HasProtocolMagic, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
     arbitrary = do
         delegateSk <- arbitrary
         issuerSk <- arbitrary
         w <- arbitrary
-        let psk = createPsk protocolMagic issuerSk (toPublic delegateSk) w
-        proxySign protocolMagic SignProxySK delegateSk psk <$> arbitrary
+        let psk = createPsk dummyProtocolMagic issuerSk (toPublic delegateSk) w
+        proxySign dummyProtocolMagic SignProxySK delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets

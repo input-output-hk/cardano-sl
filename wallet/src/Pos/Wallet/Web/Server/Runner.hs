@@ -25,7 +25,10 @@ import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
+import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
@@ -42,8 +45,6 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
-import           Cardano.NodeIPC (startNodeJsIPC)
-import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 
 -- | 'WalletWebMode' runner.
 runWRealMode
@@ -51,14 +52,15 @@ runWRealMode
        ( HasConfigurations
        , HasCompileInfo
        )
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> ConnectionsVar
     -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> Production a
-runWRealMode db conn syncRequests res action = Production $
-    runRealMode res $ \diffusion ->
+runWRealMode pm db conn syncRequests res action = Production $
+    runRealMode pm res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode diffusion)
 
@@ -66,13 +68,14 @@ walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Diffusion WalletWebMode
+    => ProtocolMagic
+    -> Diffusion WalletWebMode
     -> TVar NtpStatus
     -> Bool                    -- ^ whether to include genesis keys
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
     let
       portCallback :: Word16 -> IO ()
@@ -86,7 +89,7 @@ walletServeWebFull diffusion ntpStatus debug address mTlsParams = do
 
         wwmc <- walletWebModeContext
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode diffusion ntpStatus (convertHandler wwmc)
+            walletServer @WalletWebModeContext @WalletWebMode pm diffusion ntpStatus (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)

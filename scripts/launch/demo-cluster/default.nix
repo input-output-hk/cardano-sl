@@ -19,7 +19,7 @@ let
   executables =  {
     corenode = "${iohkPkgs.cardano-sl-node-static}/bin/cardano-node-simple";
     wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-integration-test";
+    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
     keygen = "${iohkPkgs.cardano-sl-tools}/bin/cardano-keygen";
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };

@@ -21,6 +21,7 @@ import qualified Data.Text as T
 import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks, verifyAndApplyBlocks)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core.Chrono (NE, OldestFirst)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump, dbPureReset)
 import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, BlockEvent' (..),
@@ -29,10 +30,11 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, Bl
                                            SnapshotOperation (..), beaInput, beaOutValid, berInput,
                                            berOutValid)
 import           Pos.Txp (MonadTxpLocal)
-import           Pos.Core.Chrono (NE, OldestFirst)
 import           Pos.Util.Util (eitherToThrow, lensOf)
+
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -61,7 +63,7 @@ verifyAndApplyBlocks' ::
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
         (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks True blocks
+            verifyAndApplyBlocks dummyProtocolMagic True blocks
         return ()
   where
     blocks = fst <$> blunds
@@ -86,7 +88,7 @@ runBlockEvent (BlkEvApply ev) =
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
 runBlockEvent (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks (ev ^. berInput))
+    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of

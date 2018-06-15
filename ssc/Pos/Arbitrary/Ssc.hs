@@ -34,7 +34,6 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), Si
                                SscPayload (..), SscProof (..), mkCommitmentsMap)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic, randomNumberInRange,
                              toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdExplicit, isOpeningIdExplicit,
                                isSharesIdExplicit, mkSignedCommitment)
@@ -44,9 +43,9 @@ import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
 
-import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), sublistN)
-
 import           Test.Pos.Crypto.Arbitrary (genSignature)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), sublistN)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -66,7 +65,7 @@ newtype BadSignedCommitment = BadSignedComm
     { getBadSignedC :: SignedCommitment
     } deriving (Generic, Show, Eq)
 
-instance HasProtocolMagic => Arbitrary BadSignedCommitment where
+instance Arbitrary BadSignedCommitment where
     arbitrary = BadSignedComm <$> do
         pk <- arbitrary
         sig <- arbitrary
@@ -131,8 +130,8 @@ genCommitmentsMap pm = mkCommitmentsMap <$> listOf (genSignedCommitment pm)
 genSignedCommitment :: ProtocolMagic -> Gen SignedCommitment
 genSignedCommitment pm = (,,) <$> arbitrary <*> arbitrary <*> genSignature pm arbitrary
 
-instance HasProtocolMagic => Arbitrary CommitmentsMap where
-    arbitrary = genCommitmentsMap protocolMagic
+instance Arbitrary CommitmentsMap where
+    arbitrary = genCommitmentsMap dummyProtocolMagic
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
@@ -169,8 +168,8 @@ genSscPayload pm =
         , CertificatesPayload <$> genVssCertificatesMap pm
         ]
 
-instance (HasProtocolMagic) => Arbitrary SscPayload where
-    arbitrary = genSscPayload protocolMagic
+instance Arbitrary SscPayload where
+    arbitrary = genSscPayload dummyProtocolMagic
     shrink = genericShrink
 
 -- | We need the 'ProtocolConstants' because they give meaning to 'SlotId'.
@@ -197,31 +196,31 @@ genSscPayloadForSlot pm pc slot
         arbitrary
     genValidCert SlotId{..} (sk, pk) = mkVssCertificate pm sk pk $ siEpoch + 5
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscPayloadDependsOnSlot where
-    arbitrary = pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot protocolMagic protocolConstants)
+instance HasProtocolConstants => Arbitrary SscPayloadDependsOnSlot where
+    arbitrary = pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot dummyProtocolMagic protocolConstants)
 
 genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
 genVssCertificatesMap pm = do
     certs <- listOf (genVssCertificate pm)
     pure $ mkVssCertificatesMapLossy certs
 
-instance HasProtocolMagic => Arbitrary VssCertificatesMap where
-    arbitrary = genVssCertificatesMap protocolMagic
+instance Arbitrary VssCertificatesMap where
+    arbitrary = genVssCertificatesMap dummyProtocolMagic
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertData where
+instance HasProtocolConstants => Arbitrary VssCertData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscGlobalState where
+instance HasProtocolConstants => Arbitrary SscGlobalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary SscSecretStorage where
+instance Arbitrary SscSecretStorage where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary TossModifier where
+instance Arbitrary TossModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -233,7 +232,7 @@ instance Arbitrary SscTag where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary MCCommitment where
+instance Arbitrary MCCommitment where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -245,11 +244,11 @@ instance Arbitrary MCShares where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary MCVssCertificate where
+instance Arbitrary MCVssCertificate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary (DataMsg MCCommitment) where
+instance Arbitrary (DataMsg MCCommitment) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -261,6 +260,6 @@ instance Arbitrary (DataMsg MCShares) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary (DataMsg MCVssCertificate) where
+instance Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink

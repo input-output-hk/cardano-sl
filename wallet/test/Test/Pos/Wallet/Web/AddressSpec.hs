@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Test.Pos.Wallet.Web.AddressSpec
@@ -33,7 +33,7 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ ->
+spec = withDefConfigurations $ \_ _ ->
     describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $

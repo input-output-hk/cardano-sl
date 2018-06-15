@@ -26,7 +26,7 @@ import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguratio
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (hash)
+import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..), SerializedBlock)
@@ -96,11 +96,12 @@ type LogicWorkMode ctx m =
 logicFull
     :: forall ctx m .
        ( LogicWorkMode ctx m )
-    => StakeholderId
+    => ProtocolMagic
+    -> StakeholderId
     -> SecurityParams
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull ourStakeholderId securityParams jsonLogTx =
+logicFull pm ourStakeholderId securityParams jsonLogTx =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
@@ -138,23 +139,23 @@ logicFull ourStakeholderId securityParams jsonLogTx =
         getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()
-        postBlockHeader = Block.handleUnsolicitedHeader
+        postBlockHeader = Block.handleUnsolicitedHeader pm
 
         postPskHeavy :: ProxySKHeavy -> m Bool
-        postPskHeavy = Delegation.handlePsk
+        postPskHeavy = Delegation.handlePsk pm
 
         postTx = KeyVal
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm jsonLogTx txAux
             }
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
             , handleInv = Update.isProposalNeeded . unTagged
             , handleReq = Update.getLocalProposalNVotes . unTagged
-            , handleData = Update.handleProposal
+            , handleData = Update.handleProposal pm
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
@@ -163,7 +164,7 @@ logicFull ourStakeholderId securityParams jsonLogTx =
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
             , handleInv = \(Tagged (id, pk, dec)) -> Update.isVoteNeeded id pk dec
             , handleReq = \(Tagged (id, pk, dec)) -> Update.getLocalVote id pk dec
-            , handleData = Update.handleVote
+            , handleData = Update.handleVote pm
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)
@@ -172,25 +173,25 @@ logicFull ourStakeholderId securityParams jsonLogTx =
             CommitmentMsg
             (\(MCCommitment (pk, _, _)) -> addressHash pk)
             (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
-            (\(MCCommitment comm) -> sscProcessCommitment comm)
+            (\(MCCommitment comm) -> sscProcessCommitment pm comm)
 
         postSscOpening = postSscCommon
             OpeningMsg
             (\(MCOpening key _) -> key)
             (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
-            (\(MCOpening key open) -> sscProcessOpening key open)
+            (\(MCOpening key open) -> sscProcessOpening pm key open)
 
         postSscShares = postSscCommon
             SharesMsg
             (\(MCShares key _) -> key)
             (\id tm -> MCShares id <$> tm ^. tmShares . at id)
-            (\(MCShares key shares) -> sscProcessShares key shares)
+            (\(MCShares key shares) -> sscProcessShares pm key shares)
 
         postSscVssCert = postSscCommon
             VssCertificateMsg
             (\(MCVssCertificate vc) -> getCertId vc)
             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
-            (\(MCVssCertificate cert) -> sscProcessCertificate cert)
+            (\(MCVssCertificate cert) -> sscProcessCertificate pm cert)
 
         postSscCommon
             :: ( Buildable err, Buildable contents )

@@ -1,59 +1,25 @@
 -- | Transaction metadata conform the wallet specification
 module Cardano.Wallet.Kernel.DB.TxMeta (
     -- * Transaction metadata
-    TxMeta(..)
-    -- ** Lenses
-  , txMetaId
-  , txMetaAmount
-  , txMetaInputs
-  , txMetaOutputs
-  , txMetaCreationAt
-  , txMetaIsLocal
-  , txMetaIsOutgoing
+    module Types
+
+  -- * Handy re-export to not leak our current choice of storage backend.
+  , openMetaDB
   ) where
 
+import qualified Cardano.Wallet.Kernel.DB.Sqlite as ConcreteStorage
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types as Types
 import           Universum
 
-import           Control.Lens.TH (makeLenses)
+-- Concrete instantiation of 'MetaDBHandle'
 
-import qualified Pos.Core as Core
-
-{-------------------------------------------------------------------------------
-  Transaction metadata
--------------------------------------------------------------------------------}
-
--- | Transaction metadata
---
--- NOTE: This does /not/ live in the acid-state database (and consequently
--- does not need a 'SafeCopy' instance), because this will grow without bound.
-data TxMeta = TxMeta {
-      -- | Transaction ID
-      _txMetaId         :: Core.TxId
-
-      -- | Total amount
-      --
-      -- TODO: What does this mean?
-    , _txMetaAmount     :: Core.Coin
-
-      -- | Transaction inputs
-    , _txMetaInputs     :: NonEmpty (Core.Address, Core.Coin)
-
-      -- | Transaction outputs
-    , _txMetaOutputs    :: NonEmpty (Core.Address, Core.Coin)
-
-      -- | Transaction creation time
-    , _txMetaCreationAt :: Core.Timestamp
-
-      -- | Is this a local transaction?
-      --
-      -- A transaction is local when /all/ of its inputs and outputs are
-      -- to and from addresses owned by this wallet.
-    , _txMetaIsLocal    :: Bool
-
-      -- | Is this an outgoing transaction?
-      --
-      -- A transaction is outgoing when it decreases the wallet's balance.
-    , _txMetaIsOutgoing :: Bool
-    }
-
-makeLenses ''TxMeta
+openMetaDB :: FilePath -> IO MetaDBHandle
+openMetaDB fp = do
+    conn <- ConcreteStorage.newConnection fp
+    return MetaDBHandle {
+          closeMetaDB   = ConcreteStorage.closeMetaDB conn
+        , migrateMetaDB = ConcreteStorage.unsafeMigrateMetaDB conn
+        , getTxMeta     = ConcreteStorage.getTxMeta conn
+        , putTxMeta     = ConcreteStorage.putTxMeta conn
+        , getTxMetas    = ConcreteStorage.getTxMetas conn
+        }

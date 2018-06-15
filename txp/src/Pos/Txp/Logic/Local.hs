@@ -28,15 +28,14 @@ import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
                               logWarning)
 
-import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, siEpoch)
+import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, ProtocolMagic, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (MonadSlots (..))
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                                      StateLockMetrics, withStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
@@ -62,9 +61,9 @@ type TxpProcessTransactionMode ctx m =
 -- only.
 txProcessTransaction
     :: ( TxpProcessTransactionMode ctx m)
-    => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
+    => ProtocolMagic -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransaction pm itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock pm itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -73,9 +72,10 @@ txProcessTransactionNoLock
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => (TxId, TxAux)
+    => ProtocolMagic
+    -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock =
+txProcessTransactionNoLock pm =
     txProcessTransactionAbstract buildContext processTxHoisted
   where
     buildContext :: Utxo -> TxAux -> m ()
@@ -86,7 +86,7 @@ txProcessTransactionNoLock =
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
-    processTxHoisted = mapExceptT extendLocalToilM ... processTx
+    processTxHoisted = mapExceptT extendLocalToilM ... processTx pm
 
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
@@ -174,20 +174,21 @@ txNormalize
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => m ()
+    => ProtocolMagic -> m ()
 txNormalize =
-    txNormalizeAbstract buildContext normalizeToilHoisted
+    txNormalizeAbstract buildContext . normalizeToilHoisted
   where
     buildContext :: Utxo -> [TxAux] -> m ()
     buildContext _ _ = pure ()
 
     normalizeToilHoisted ::
-           BlockVersionData
+           ProtocolMagic
+        -> BlockVersionData
         -> EpochIndex
         -> HashMap TxId TxAux
         -> ExtendedLocalToilM () () ()
-    normalizeToilHoisted bvd epoch txs =
-        extendLocalToilM $ normalizeToil bvd epoch $ HM.toList txs
+    normalizeToilHoisted pm bvd epoch txs =
+        extendLocalToilM $ normalizeToil pm bvd epoch $ HM.toList txs
 
 txNormalizeAbstract ::
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)

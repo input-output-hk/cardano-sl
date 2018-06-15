@@ -18,6 +18,7 @@ in
 , forceDontCheck ? false
 , enableProfiling ? false
 , enableDebugging ? false
+, enableBenchmarks ? true
 , allowCustomConfig ? true
 }:
 
@@ -46,6 +47,12 @@ let
       kill $TAILPID
     '';
   });
+  # Enables building but not running of benchmarks when
+  # enableBenchmarks argument is true.
+  buildWithBenchmarks = drv: if enableBenchmarks
+    then doBenchmark (appendConfigureFlag drv "--enable-benchmarks")
+    else drv;
+
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
       patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
@@ -76,7 +83,7 @@ let
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
+      cardano-sl-wallet-new = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;

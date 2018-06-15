@@ -22,25 +22,23 @@ import qualified Test.QuickCheck as QC
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (EpochIndex, SlotId (..), StakeholderId,
-                           Timestamp (..), VssCertificate (..), VssCertificatesMap (..),
-                           blkSecurityParam, bvdMpcThd, getOurSecretKey, getOurStakeholderId,
-                           getSlotIndex, lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
-                           slotSecurityParam, vssMaxTTL)
+import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..),
+                           VssCertificate (..), VssCertificatesMap (..), blkSecurityParam,
+                           bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
+                           memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
+                           vssMaxTTL)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, getCommitmentsMap)
-import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
-import           Pos.Crypto.Configuration (protocolMagic)
+import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey, randomNumber,
+                             runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Infra.Binary ()
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (recoveryCommGuard)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.Slotting (defaultOnNewSlotParams, getCurrentSlot,
                                      getSlotStartEmpatically, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
-                                         logWarningS)
+import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
@@ -65,8 +63,8 @@ sscWorkers
   :: ( SscMode ctx m
      , HasMisbehaviorMetrics ctx
      )
-  => [Diffusion m -> m ()]
-sscWorkers = [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
+  => ProtocolMagic -> [Diffusion m -> m ()]
+sscWorkers pm = [onNewSlotSsc pm, checkForIgnoredCommitmentsWorker]
 
 shouldParticipate :: SscMode ctx m => EpochIndex -> m Bool
 shouldParticipate epoch = do
@@ -84,18 +82,19 @@ shouldParticipate epoch = do
 onNewSlotSsc
     :: ( SscMode ctx m
        )
-    => Diffusion m
+    => ProtocolMagic
+    -> Diffusion m
     -> m ()
-onNewSlotSsc = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
+onNewSlotSsc pm = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
                 atomically . readTVar . scBehavior
-            checkNSendOurCert (sendSscCert diffusion)
-            onNewSlotCommitment slotId (sendSscCommitment diffusion)
-            onNewSlotOpening (sbSendOpening behavior) slotId (sendSscOpening diffusion)
-            onNewSlotShares (sbSendShares behavior) slotId (sendSscShares diffusion)
+            checkNSendOurCert pm (sendSscCert diffusion)
+            onNewSlotCommitment pm slotId (sendSscCommitment diffusion)
+            onNewSlotOpening pm (sbSendOpening behavior) slotId (sendSscOpening diffusion)
+            onNewSlotShares pm (sbSendShares behavior) slotId (sendSscShares diffusion)
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
@@ -103,9 +102,10 @@ checkNSendOurCert
     :: forall ctx m.
        ( SscMode ctx m
        )
-    => (VssCertificate -> m ())
+    => ProtocolMagic
+    -> (VssCertificate -> m ())
     -> m ()
-checkNSendOurCert sendCert = do
+checkNSendOurCert pm sendCert = do
     ourId <- getOurStakeholderId
     let sendCertDo resend slot = do
             if resend then
@@ -115,7 +115,7 @@ checkNSendOurCert sendCert = do
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
             ourVssCertificate <- getOurVssCertificate slot
-            sscProcessOurMessage (sscProcessCertificate ourVssCertificate)
+            sscProcessOurMessage (sscProcessCertificate pm ourVssCertificate)
             _ <- sendCert ourVssCertificate
             logDebugS "Announced our VssCertificate."
 
@@ -148,7 +148,7 @@ checkNSendOurCert sendCert = do
                 ourVssKeyPair <- getOurVssKeyPair
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
-                        mkVssCertificate protocolMagic ourSk vssKey .
+                        mkVssCertificate pm ourSk vssKey .
                         (+) (vssMaxTTL - 1) . siEpoch
                 return $ createOurCert slot
 
@@ -159,10 +159,11 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 onNewSlotCommitment
     :: ( SscMode ctx m
        )
-    => SlotId
+    => ProtocolMagic
+    -> SlotId
     -> (SignedCommitment -> m ())
     -> m ()
-onNewSlotCommitment slotId@SlotId {..} sendCommitment
+onNewSlotCommitment pm slotId@SlotId {..} sendCommitment
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
         ourId <- getOurStakeholderId
@@ -183,7 +184,7 @@ onNewSlotCommitment slotId@SlotId {..} sendCommitment
     onNewSlotCommDo = do
         ourSk <- getOurSecretKey
         logDebugS $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret ourSk slotId
+        generated <- generateAndSetNewSecret pm ourSk slotId
         case generated of
             Nothing -> logWarningS "I failed to generate secret for SSC"
             Just comm -> do
@@ -191,18 +192,19 @@ onNewSlotCommitment slotId@SlotId {..} sendCommitment
               sendOurCommitment comm
 
     sendOurCommitment comm = do
-        sscProcessOurMessage (sscProcessCommitment comm)
+        sscProcessOurMessage (sscProcessCommitment pm comm)
         sendOurData sendCommitment CommitmentMsg comm siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: ( SscMode ctx m
        )
-    => SscOpeningParams
+    => ProtocolMagic
+    -> SscOpeningParams
     -> SlotId
     -> (Opening -> m ())
     -> m ()
-onNewSlotOpening params SlotId {..} sendOpening
+onNewSlotOpening pm params SlotId {..} sendOpening
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
         ourId <- getOurStakeholderId
@@ -225,18 +227,19 @@ onNewSlotOpening params SlotId {..} sendOpening
             SscOpeningNormal -> pure (Just open)
             SscOpeningWrong  -> Just <$> liftIO (QC.generate QC.arbitrary)
         whenJust mbOpen' $ \open' -> do
-            sscProcessOurMessage (sscProcessOpening ourId open')
+            sscProcessOurMessage (sscProcessOpening pm ourId open')
             sendOurData sendOpening OpeningMsg open' siEpoch 2
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: ( SscMode ctx m
        )
-    => SscSharesParams
+    => ProtocolMagic
+    -> SscSharesParams
     -> SlotId
     -> (InnerSharesMap -> m ())
     -> m ()
-onNewSlotShares params SlotId {..} sendShares = do
+onNewSlotShares pm params SlotId {..} sendShares = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
@@ -258,7 +261,7 @@ onNewSlotShares params SlotId {..} sendShares = do
                     shares & partsOf each %~ reverse
         unless (HM.null shares') $ do
             let lShares = fmap (map asBinary) shares'
-            sscProcessOurMessage (sscProcessShares ourId lShares)
+            sscProcessOurMessage (sscProcessShares pm ourId lShares)
             sendOurData sendShares SharesMsg lShares siEpoch 4
 
 sscProcessOurMessage
@@ -299,10 +302,11 @@ generateAndSetNewSecret
     :: forall ctx m.
        ( SscMode ctx m
        )
-    => SecretKey
+    => ProtocolMagic
+    -> SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
-generateAndSetNewSecret sk SlotId {..} = do
+generateAndSetNewSecret pm sk SlotId {..} = do
     richmen <- getSscRichmen "generateAndSetNewSecret" siEpoch
     certs <- getStableCerts siEpoch
     inAssertMode $ do
@@ -344,7 +348,7 @@ generateAndSetNewSecret sk SlotId {..} = do
                     Right keys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
                             genCommitmentAndOpening threshold keys
-                        let signedComm = mkSignedCommitment protocolMagic sk siEpoch comm
+                        let signedComm = mkSignedCommitment pm sk siEpoch comm
                         SS.putOurSecret signedComm open siEpoch
                         pure (Just signedComm)
 

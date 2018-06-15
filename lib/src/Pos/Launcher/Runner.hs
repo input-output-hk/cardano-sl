@@ -30,8 +30,7 @@ import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeo
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
-import           Pos.Crypto (toPublic)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
+import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
 import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..), hoistDiffusion)
 import           Pos.Infra.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
@@ -68,10 +67,12 @@ runRealMode
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => NodeResources ext
+    => ProtocolMagic
+    -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode nr@NodeResources {..} act = runServer
+runRealMode pm nr@NodeResources {..} act = runServer
+    pm
     ncNodeParams
     (EkgNodeMetrics nrEkgStore)
     ncShutdownContext
@@ -84,26 +85,25 @@ runRealMode nr@NodeResources {..} act = runServer
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull ourStakeholderId securityParams jsonLog
+    logic = logicFull pm ourStakeholderId securityParams jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
         let diffusion' = hoistDiffusion liftIO diffusion
-         in elimRealMode nr diffusion (act diffusion')
+         in elimRealMode pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding a Production (IO).
 elimRealMode
-    :: forall t ext .
-       ( HasConfigurations
-       , HasCompileInfo
-       )
-    => NodeResources ext
+    :: forall t ext
+     . HasCompileInfo
+    => ProtocolMagic
+    -> NodeResources ext
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode NodeResources {..} diffusion action = runProduction $ do
+elimRealMode pm NodeResources {..} diffusion action = runProduction $ do
     Mtl.runReaderT action (rmc nrJsonLogConfig)
   where
     NodeContext {..} = nrContext
@@ -115,7 +115,7 @@ elimRealMode NodeResources {..} diffusion action = runProduction $ do
         , prpLoggerConfig    = ncLoggerConfig
         , prpCompileTimeInfo = compileInfo
         , prpTrace           = wlogTrace "reporter"
-        , prpProtocolMagic   = protocolMagic
+        , prpProtocolMagic   = pm
         }
     rmc jlConf = RealModeContext
         nrDBs
@@ -136,19 +136,19 @@ elimRealMode NodeResources {..} diffusion action = runProduction $ do
 -- number.
 runServer
     :: forall t .
-       ( HasProtocolMagic
-       , HasProtocolConstants
+       ( HasProtocolConstants
        , HasBlockConfiguration
        , HasNodeConfiguration
        , HasUpdateConfiguration
        )
-    => NodeParams
+    => ProtocolMagic
+    -> NodeParams
     -> EkgNodeMetrics
     -> ShutdownContext
     -> (Diffusion IO -> Logic IO)
     -> (Diffusion IO -> IO t)
     -> IO t
-runServer NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
+runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
     diffusionLayerFull fdconf
                        npNetworkConfig
                        (Just ekgNodeMetrics)
@@ -164,7 +164,7 @@ runServer NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdow
 
   where
     fdconf = FullDiffusionConfiguration
-        { fdcProtocolMagic = protocolMagic
+        { fdcProtocolMagic = pm
         , fdcProtocolConstants = protocolConstants
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion

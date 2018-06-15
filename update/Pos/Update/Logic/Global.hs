@@ -17,9 +17,10 @@ import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
-                           NumSoftwareVersion, SoftwareVersion (..), StakeholderId, addressHash, HasProtocolConstants,
-                           blockVersionL, epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL,
-                           HasProtocolMagic)
+                           HasProtocolConstants, NumSoftwareVersion, ProtocolMagic,
+                           SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
+                           epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
@@ -36,7 +37,6 @@ import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBP
                                   processGenesisBlock, recordBlockIssuance, reportUnexpectedError,
                                   rollbackUS, runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------
@@ -91,21 +91,22 @@ usApplyBlocks
     :: ( MonadThrow m
        , USGlobalApplyMode ctx m
        )
-    => OldestFirst NE UpdateBlock
+    => ProtocolMagic
+    -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks blocks modifierMaybe =
+usApplyBlocks pm blocks modifierMaybe =
     withUSLogger $
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- usVerifyBlocks False blocks
+            verdict <- usVerifyBlocks pm False blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- usVerifyBlocks False blocks
+                verdict <- usVerifyBlocks pm False blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
@@ -155,17 +156,18 @@ usVerifyBlocks ::
        , MonadUnliftIO m
        , MonadReporting m
        )
-    => Bool
+    => ProtocolMagic
+    -> Bool
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks verifyAllIsKnown blocks =
+usVerifyBlocks pm verifyAllIsKnown blocks =
     withUSLogger $
     reportUnexpectedError $
     processRes <$> run (runExceptT action)
   where
     action = do
         lastAdopted <- getAdoptedBV
-        mapM (verifyBlock lastAdopted verifyAllIsKnown) blocks
+        mapM (verifyBlock pm lastAdopted verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::
@@ -175,13 +177,14 @@ usVerifyBlocks verifyAllIsKnown blocks =
     processRes (Right undos, modifier) = Right (modifier, undos)
 
 verifyBlock
-    :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolMagic, HasProtocolConstants)
-    => BlockVersion -> Bool -> UpdateBlock -> m USUndo
-verifyBlock _ _ (ComponentBlockGenesis genBlk) =
+    :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolConstants)
+    => ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
+verifyBlock _ _ _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
+verifyBlock pm lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload
+            pm
             lastAdopted
             verifyAllIsKnown
             (Right header)

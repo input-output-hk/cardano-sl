@@ -37,7 +37,7 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, H
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
                            getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.DB (getPskByIssuer)
@@ -68,12 +68,12 @@ blkWorkers
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => [Diffusion m -> m ()]
-blkWorkers =
-    [ blkCreatorWorker
+    => ProtocolMagic -> [Diffusion m -> m ()]
+blkWorkers pm =
+    [ blkCreatorWorker pm
     , informerWorker
-    , retrievalWorker
-    , recoveryTriggerWorker
+    , retrievalWorker pm
+    , recoveryTriggerWorker pm
     ]
 
 informerWorker
@@ -104,11 +104,11 @@ informerWorker =
 blkCreatorWorker
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
-       ) => Diffusion m -> m ()
-blkCreatorWorker =
+       ) => ProtocolMagic -> Diffusion m -> m ()
+blkCreatorWorker pm =
     \diffusion -> onNewSlot onsp $ \slotId ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
-        blockCreator slotId diffusion `catchAny` onBlockCreatorException
+        blockCreator pm slotId diffusion `catchAny` onBlockCreatorException
   where
     onBlockCreatorException = reportOrLogE "blockCreator failed: "
     onsp :: OnNewSlotParams
@@ -120,11 +120,11 @@ blockCreator
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => SlotId -> Diffusion m -> m ()
-blockCreator (slotId@SlotId {..}) diffusion = do
+    => ProtocolMagic -> SlotId -> Diffusion m -> m ()
+blockCreator pm (slotId@SlotId {..}) diffusion = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlockAndApply siEpoch
+    mGenBlock <- createGenesisBlockAndApply pm siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jsonLog $ jlCreatedBlock (Left createdBlk)
@@ -176,20 +176,21 @@ blockCreator (slotId@SlotId {..}) diffusion = do
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
            | weAreLeader ->
-                 onNewSlotWhenLeader slotId Nothing diffusion
+                 onNewSlotWhenLeader pm slotId Nothing diffusion
            | heavyWeAreDelegate ->
                  let pske = swap <$> dlgTransM
-                 in onNewSlotWhenLeader slotId pske diffusion
+                 in onNewSlotWhenLeader pm slotId pske diffusion
            | otherwise -> pass
 
 onNewSlotWhenLeader
     :: ( BlockWorkMode ctx m
        )
-    => SlotId
+    => ProtocolMagic
+    -> SlotId
     -> ProxySKBlockInfo
     -> Diffusion m
     -> m ()
-onNewSlotWhenLeader slotId pske diffusion = do
+onNewSlotWhenLeader pm slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -209,7 +210,7 @@ onNewSlotWhenLeader slotId pske diffusion = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlockAndApply slotId pske
+        createdBlock <- createMainBlockAndApply pm slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do
@@ -227,8 +228,8 @@ recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        )
-    => Diffusion m -> m ()
-recoveryTriggerWorker diffusion = do
+    => ProtocolMagic -> Diffusion m -> m ()
+recoveryTriggerWorker pm diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
     -- TBD why 3 seconds? Why delay at all? Come on, we can do better.
@@ -238,7 +239,7 @@ recoveryTriggerWorker diffusion = do
         doTrigger <- needTriggerRecovery <$> getSyncStatusK
         when doTrigger $ do
             logInfo "Triggering recovery because we need it"
-            triggerRecovery diffusion
+            triggerRecovery pm diffusion
 
         -- Sometimes we want to trigger recovery just in case. Maybe
         -- we're just 5 slots late, but nobody wants to send us
@@ -253,7 +254,7 @@ recoveryTriggerWorker diffusion = do
             logInfo "Checking if we need recovery as a safety measure"
             whenM (needTriggerRecovery <$> getSyncStatus 5) $ do
                 logInfo "Triggering recovery as a safety measure"
-                triggerRecovery diffusion
+                triggerRecovery pm diffusion
 
         -- We don't want to ask for tips too frequently.
         -- E.g. there may be a tip processing mistake so that we

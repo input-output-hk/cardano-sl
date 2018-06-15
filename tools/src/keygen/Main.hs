@@ -17,10 +17,10 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), RichSecrets (..),
-                           addressHash, ccGenesis, coreConfiguration, generateFakeAvvm,
-                           generateRichSecrets, mkVssCertificate, vcSigningKey, vssMaxTTL,
-                           protocolMagic)
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), ProtocolMagic,
+                           RichSecrets (..), addressHash, ccGenesis, coreConfiguration,
+                           generateFakeAvvm, generateRichSecrets, mkVssCertificate, vcSigningKey,
+                           vssMaxTTL)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, fullPublicKeyF,
                              hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
@@ -127,13 +127,13 @@ generateKeysByGenesis GenKeysOptions{..} = do
 
 genVssCert
     :: (HasConfigurations, WithLogger m, MonadIO m)
-    => FilePath -> m ()
-genVssCert path = do
+    => ProtocolMagic -> FilePath -> m ()
+genVssCert pm path = do
     us <- readUserSecret path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
-                 protocolMagic
+                 pm
                  primKey
                  (asBinary (toVssPublicKey vssKey))
                  (vssMaxTTL - 1)
@@ -152,12 +152,12 @@ main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
-    usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ \_ -> do
+    usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ \_ pm -> do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk
             GenerateKey path        -> genPrimaryKey path
-            GenerateVss path        -> genVssCert path
+            GenerateVss path        -> genVssCert pm path
             ReadKey path            -> readKey path
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg

@@ -14,7 +14,7 @@ import           System.Wlog (logInfo)
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Core (gdBootStakeholders, genesisData)
-import           Pos.Crypto (encToSecret)
+import           Pos.Crypto (ProtocolMagic, encToSecret)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCountRange)
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
@@ -25,8 +25,8 @@ import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)
 
 
-generateBlocks :: MonadAuxxMode m => GenBlocksParams -> m ()
-generateBlocks GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
+generateBlocks :: MonadAuxxMode m => ProtocolMagic -> GenBlocksParams -> m ()
+generateBlocks pm GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 
@@ -41,9 +41,9 @@ generateBlocks GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ 
                 , _bgpTxGenParams     = def & tgpTxCountRange .~ (0,0)
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
-                , _bgpTxpGlobalSettings = txpGlobalSettings
+                , _bgpTxpGlobalSettings = txpGlobalSettings pm
                 }
-    withCompileInfo def $ evalRandT (genBlocks bgenParams (const ())) (mkStdGen seed)
+    withCompileInfo def $ evalRandT (genBlocks pm bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     logInfo $ "Generated with seed " <> show seed

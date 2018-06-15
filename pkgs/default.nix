@@ -16560,6 +16560,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-infra
+, containers
 , hedgehog
 , kademlia
 , memory
@@ -16570,7 +16571,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-infra-test";
-version = "1.1.0";
+version = "1.3.0";
 src = ./../infra/test;
 libraryHaskellDepends = [
 base
@@ -16579,6 +16580,7 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-infra
+containers
 hedgehog
 kademlia
 memory

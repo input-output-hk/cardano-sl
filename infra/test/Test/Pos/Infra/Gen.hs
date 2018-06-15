@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Test.Pos.Infra.Gen
@@ -18,13 +19,14 @@ module Test.Pos.Infra.Gen
 
 import           Universum
 
+import qualified Data.Map as DM
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Network.Kademlia.HashNodeId (genNonce, hashAddress)
 
-import           Pos.Core (EpochIndex)
+import           Pos.Core (EpochIndex (..))
 import           Pos.Crypto.Random (deterministic)
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
                                                       InvMsg (..),
@@ -36,7 +38,7 @@ import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
                                            SlottingData,
                                            createSlottingDataUnsafe)
 
-import           Test.Pos.Core.Gen (genEpochIndex, genTimeDiff)
+import           Test.Pos.Core.Gen (genTimeDiff)
 
 ----------------------------------------------------------------------------
 -- DHT Generators
@@ -71,16 +73,31 @@ genEpochSlottingData :: Gen EpochSlottingData
 genEpochSlottingData = EpochSlottingData <$> genMillisecond <*> genTimeDiff
 
 genSlottingData :: Gen SlottingData
-genSlottingData = createSlottingDataUnsafe <$> genMap
+genSlottingData =
+    createSlottingDataUnsafe <$> genEpochIndexDataMap range
   where
-    genMap :: Gen (Map EpochIndex EpochSlottingData)
-    genMap = Gen.map Range.constantBounded genEpochIndexDataPair
+    -- Constructing a SlottingData requires at least two epochs
+    -- or else 'createSlottingDataUnsafe' will throw an error.
+    range = Range.constant 2 100
 
-genEpochIndexDataPair :: Gen (EpochIndex, EpochSlottingData)
-genEpochIndexDataPair = do
-    i <- genEpochIndex
-    sd <- genEpochSlottingData
-    pure (i, sd)
+genEpochIndexDataMap
+    :: Range Word64
+    -> Gen (Map EpochIndex EpochSlottingData)
+genEpochIndexDataMap range =
+    DM.fromList <$> genEpochIndexDataPairs range
+
+genEpochIndexDataPair :: Word64 -> Gen (EpochIndex, EpochSlottingData)
+genEpochIndexDataPair x = (EpochIndex x,) <$> genEpochSlottingData
+
+genEpochIndexDataPairs
+    :: Range Word64
+    -> Gen [(EpochIndex, EpochSlottingData)]
+genEpochIndexDataPairs range = do
+    len <- Gen.integral range
+    foldM
+        (\xs i -> (: xs) <$> genEpochIndexDataPair i)
+        []
+        [0..len]
 
 ----------------------------------------------------------------------------
 -- Helper Generators

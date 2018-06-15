@@ -21,6 +21,7 @@ library
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-infra
+                     , containers
                      , hedgehog
                      , kademlia
                      , memory

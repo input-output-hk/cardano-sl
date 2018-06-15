@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- | CREATE operations on HD wallets
 module Cardano.Wallet.Kernel.DB.HdWallet.Create (
     -- * Errors
@@ -8,12 +10,19 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Create (
   , createHdRoot
   , createHdAccount
   , createHdAddress
+    -- * Initial values
+  , initHdRoot
+  , initHdAccount
+  , initHdAddress
   ) where
 
 import           Universum
 
 import           Control.Lens (at, (.=))
 import           Data.SafeCopy (base, deriveSafeCopy)
+
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%), sformat, build)
 
 import qualified Pos.Core as Core
 
@@ -35,7 +44,10 @@ data CreateHdRootError =
 -- | Errors thrown by 'createHdAccount'
 data CreateHdAccountError =
     -- | The specified wallet could not be found
-    CreateHdAccountUnknown UnknownHdRoot
+    CreateHdAccountUnknownRoot UnknownHdRoot
+
+    -- | Account already exists
+  | CreateHdAccountExists HdAccountId
 
 -- | Errors thrown by 'createHdAddress'
 data CreateHdAddressError =
@@ -54,79 +66,33 @@ deriveSafeCopy 1 'base ''CreateHdAddressError
 -------------------------------------------------------------------------------}
 
 -- | Create a new wallet
---
--- The encrypted secret key of the wallet is assumed to be stored elsewhere in
--- some kind of secure key storage; here we ask for the hash of the public key
--- only (i.e., a 'HdRootId'). It is the responsibility of the caller to use the
--- 'BackupPhrase' and (optionally) the 'SpendingPassword' to create a new key
--- add it to the key storage. This is important, beacuse these are secret
--- bits of information that should never end up in the DB log.
---
--- NOTE: The wallet initially has no accounts (see 'createHdAccount').
-createHdRoot :: HdRootId
-             -> WalletName
-             -> HasSpendingPassword
-             -> AssuranceLevel
-             -> InDb Core.Timestamp
-             -> Update' HdWallets CreateHdRootError ()
-createHdRoot rootId name hasPass assurance created =
+createHdRoot :: HdRoot -> Update' HdWallets CreateHdRootError ()
+createHdRoot hdRoot =
     zoom hdWalletsRoots $ do
       exists <- gets $ IxSet.member rootId
       when exists $ throwError $ CreateHdRootExists rootId
       at rootId .= Just hdRoot
   where
-    hdRoot :: HdRoot
-    hdRoot = HdRoot {
-          _hdRootId          = rootId
-        , _hdRootName        = name
-        , _hdRootHasPassword = hasPass
-        , _hdRootAssurance   = assurance
-        , _hdRootCreatedAt   = created
-        }
+    rootId = hdRoot ^. hdRootId
 
--- | Create a new account in the specified wallet
---
--- It is the responsibility of the caller to check the wallet's spending
--- password.
---
--- TODO: If any key derivation is happening when creating accounts, should we
--- store a public key or an address or something?
-createHdAccount :: HdRootId
-                -> AccountName
-                -> Checkpoint
-                -> Update' HdWallets CreateHdAccountError HdAccountId
-createHdAccount rootId name checkpoint = do
-    -- Check that the root ID exists
-    zoomHdRootId CreateHdAccountUnknown rootId $
+-- | Create a new account
+createHdAccount :: HdAccount -> Update' HdWallets CreateHdAccountError ()
+createHdAccount hdAccount = do
+    -- Check that the root ID exiwests
+    zoomHdRootId CreateHdAccountUnknownRoot rootId $
       return ()
-    -- Create the new account
-    zoom hdWalletsAccounts $ do
-      numAccounts <- gets $ IxSet.size . IxSet.getEQ rootId
-      let accIx = HdAccountIx (fromIntegral numAccounts)
-          accId = HdAccountId rootId accIx
-      at accId .= Just (hdAccount accId)
-      return accId
-  where
-    hdAccount :: HdAccountId -> HdAccount
-    hdAccount accId = HdAccount {
-          _hdAccountId          = accId
-        , _hdAccountName        = name
-        , _hdAccountCheckpoints = checkpoint :| []
-        }
 
--- | Create a new address in the specified account
---
--- Since the DB does not contain the private key of the wallet, we cannot
--- do the actual address derivation here; this will be the responsibility of
--- the caller (which will require the use of the spending password, if
--- one exists).
---
--- Similarly, it will be the responsibility of the caller to pick a random
--- address index, as we do not have access to a random number generator here.
-createHdAddress :: HdAddressId
-                -> InDb Core.Address
-                -> Update' HdWallets CreateHdAddressError ()
-createHdAddress addrId address = do
+    zoom hdWalletsAccounts $ do
+      exists <- gets $ IxSet.member accountId
+      when exists $ throwError $ CreateHdAccountExists accountId
+      at accountId .= Just hdAccount
+  where
+    accountId = hdAccount ^. hdAccountId
+    rootId    = accountId ^. hdAccountIdParent
+
+-- | Create a new address
+createHdAddress :: HdAddress -> Update' HdWallets CreateHdAddressError ()
+createHdAddress hdAddress = do
     -- Check that the account ID exists
     zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $
       return ()
@@ -136,10 +102,88 @@ createHdAddress addrId address = do
       when exists $ throwError $ CreateHdAddressExists addrId
       at addrId .= Just hdAddress
   where
-    hdAddress :: HdAddress
-    hdAddress = HdAddress {
-          _hdAddressId       = addrId
-        , _hdAddressAddress  = address
-        , _hdAddressIsUsed   = error "TODO: _hdAddressIsUsed"
-        , _hdAddressIsChange = error "TODO: _hdAddressIsChange"
-        }
+    addrId = hdAddress ^. hdAddressId
+
+{-------------------------------------------------------------------------------
+  Initial values
+-------------------------------------------------------------------------------}
+
+-- | New wallet
+--
+-- The encrypted secret key of the wallet is assumed to be stored elsewhere in
+-- some kind of secure key storage; here we ask for the hash of the public key
+-- only (i.e., a 'HdRootId'). It is the responsibility of the caller to use the
+-- 'BackupPhrase' and (optionally) the 'SpendingPassword' to create a new key
+-- add it to the key storage. This is important, because these are secret
+-- bits of information that should never end up in the DB log.
+initHdRoot :: HdRootId
+           -> WalletName
+           -> HasSpendingPassword
+           -> AssuranceLevel
+           -> InDb Core.Timestamp
+           -> HdRoot
+initHdRoot rootId name hasPass assurance created = HdRoot {
+      _hdRootId          = rootId
+    , _hdRootName        = name
+    , _hdRootHasPassword = hasPass
+    , _hdRootAssurance   = assurance
+    , _hdRootCreatedAt   = created
+    }
+
+-- | New account
+--
+-- It is the responsibility of the caller to check the wallet's spending
+-- password.
+--
+-- TODO: If any key derivation is happening when creating accounts, should we
+-- store a public key or an address or something?
+initHdAccount :: HdAccountId
+              -> Checkpoint
+              -> HdAccount
+initHdAccount accountId checkpoint = HdAccount {
+      _hdAccountId          = accountId
+    , _hdAccountName        = defName
+    , _hdAccountCheckpoints = checkpoint :| []
+    }
+  where
+    defName = AccountName $ sformat ("Account: " % build)
+                                    (accountId ^. hdAccountIdIx)
+
+-- | New address in the specified account
+--
+-- Since the DB does not contain the private key of the wallet, we cannot
+-- do the actual address derivation here; this will be the responsibility of
+-- the caller (which will require the use of the spending password, if
+-- one exists).
+--
+-- Similarly, it will be the responsibility of the caller to pick a random
+-- address index, as we do not have access to a random number generator here.
+initHdAddress :: HdAddressId
+              -> InDb Core.Address
+              -> HdAddress
+initHdAddress addrId address = HdAddress {
+      _hdAddressId       = addrId
+    , _hdAddressAddress  = address
+    , _hdAddressIsUsed   = error "TODO: _hdAddressIsUsed"
+    , _hdAddressIsChange = error "TODO: _hdAddressIsChange"
+    }
+
+{-------------------------------------------------------------------------------
+  Pretty printing
+-------------------------------------------------------------------------------}
+
+instance Buildable CreateHdRootError where
+    build (CreateHdRootExists rootId)
+        = bprint ("CreateHdRootError::CreateHdRootExists "%build) rootId
+
+instance Buildable CreateHdAccountError where
+    build (CreateHdAccountUnknownRoot (UnknownHdRoot rootId))
+        = bprint ("CreateHdAccountError::CreateHdAccountUnknownRoot "%build) rootId
+    build (CreateHdAccountExists accountId)
+        = bprint ("CreateHdAccountError::CreateHdAccountExists "%build) accountId
+
+instance Buildable CreateHdAddressError where
+  build (CreateHdAddressUnknown unknownRoot)
+      = bprint ("CreateHdAddressUnknown: "%build) unknownRoot
+  build (CreateHdAddressExists addressId)
+      = bprint ("CreateHdAddressExists: "%build) addressId

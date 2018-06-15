@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.DB.Util.AcidState (
     -- * Zooming
   , zoom
   , zoomDef
+  , zoomCreate
   , zoomAll
     -- ** Convenience re-exports
   , throwError
@@ -69,6 +70,20 @@ zoomDef def l upd = StateT $ \large -> do
     case mSmall of
       Nothing    -> runStateT def large
       Just small -> fmap update <$> runStateT upd small
+
+
+-- | Run an update on part of the state.
+--
+-- If the specified part does not exist, use the default provided,
+-- then only apply the update.
+zoomCreate :: st'                   -- ^ Default state
+           -> Lens' st (Maybe st')  -- ^ Index the state
+           -> Update' st' e a       -- ^ Action to run on the smaller state
+           -> Update' st  e a
+zoomCreate def l upd = StateT $ \large -> do
+    let update small' = large & l .~ Just small'
+        small         = fromMaybe def (large ^. l)
+    fmap update <$> runStateT upd small
 
 -- | Run an update on /all/ parts of the state.
 --

@@ -102,9 +102,9 @@ applyBlock (prefBlock, _bMeta) checkpoints
 
         (utxo'', balance'') = updateUtxo prefBlock (utxo', utxoBalance')
         pending''           = updatePending prefBlock pending'
-        -- TODO applyBlock.updateExpected
+        -- TODO(@uroboros/ryan) applyBlock.updateExpected/updateBlockMeta
+        -- (as part of CBR-150 Extend pure data layer to support rollback)
         expected''          = checkpoints ^. currentExpected
-        -- TODO applyBlock.updateBlockMeta
         blockMeta''         = checkpoints ^. currentBlockMeta
 
 -- | Update (utxo,balance) with the given prefiltered block

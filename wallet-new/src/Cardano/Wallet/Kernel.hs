@@ -173,10 +173,9 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,
 
         insertESK _arg = insertWalletESK pw walletId esk >> return (Right accountIds)
 
--- TODO find a home for this
 -- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
 getCurrentTimestamp :: IO Timestamp
-getCurrentTimestamp = Timestamp . round . (* 1000) <$> getPOSIXTime
+getCurrentTimestamp = Timestamp . round . (* 1000000) <$> getPOSIXTime
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation
@@ -184,7 +183,7 @@ getCurrentTimestamp = Timestamp . round . (* 1000) <$> getPOSIXTime
 
 -- | Prefilter the block for each esk in the `WalletESK` map.
 --   Return a unified Map of accountId and prefiltered blocks (representing multiple ESKs)
--- TODO optimisation: we are prefiltering the block n times for n keys, change this to be a single pass
+-- TODO(@uroboros/ryan) optimisation: we are prefiltering the block n times for n keys, change this to be a single pass
 prefilterBlock' :: PassiveWallet
                 -> ResolvedBlock
                 -> IO (Map HdAccountId PrefilteredBlock)
@@ -204,7 +203,7 @@ applyBlock :: PassiveWallet
 applyBlock pw@PassiveWallet{..} b
     = do
         blocksByAccount <- prefilterBlock' pw b
-        -- TODO proper initialisation
+        -- TODO(@uroboros/ryan) do proper metadata initialisation (as part of CBR-239: Support history tracking and queries)
         let blockMeta = BlockMeta . InDb $ Map.empty
 
         -- apply block to all Accounts in all Wallets
@@ -212,11 +211,11 @@ applyBlock pw@PassiveWallet{..} b
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
 --
---   TODO: this will be the responsibility of @matt-noonan's worker thread
+--   TODO(@matt-noonan) this will be the responsibility of the worker thread (as part of CBR-243: Wallet restoration)
 applyBlocks :: PassiveWallet
             -> OldestFirst [] ResolvedBlock
             -> IO ()
-applyBlocks pw = mapM_ (applyBlock pw)
+applyBlocks = mapM_ . applyBlock
 
 {-------------------------------------------------------------------------------
   Active wallet

@@ -123,7 +123,7 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
 -- * For every address encountered in the block outputs, create an HdAddress if it
 -- does not already exist.
 --
--- TODO: Move BlockMeta inside PrefilteredBlock
+-- TODO(@uroboros/ryan) Move BlockMeta inside PrefilteredBlock (as part of CBR-239: Support history tracking and queries)
 applyBlock :: (Map HdAccountId PrefilteredBlock, BlockMeta) -> Update DB ()
 applyBlock (blocksByAccount,meta) = runUpdateNoErrors $ zoom dbHdWallets $
     createPrefiltered
@@ -217,7 +217,7 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
                 , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
                 , _checkpointExpected    = InDb Map.empty
                 , _checkpointPending     = Pending . InDb $ Map.empty
-                -- TODO proper BlockMeta initialisation
+                -- TODO(@uroboros/ryan) proper BlockMeta initialisation (as part of CBR-239: Support history tracking and queries)
                 , _checkpointBlockMeta   = BlockMeta . InDb $ Map.empty
                 }
 

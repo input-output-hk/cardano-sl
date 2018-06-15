@@ -160,10 +160,10 @@ prefilterResolvedTxPairs wid xs = map f $ prefilter wid selectAddr xs
 --   Returns the matching HdAddressId, which embeds the parent HdAccountId
 --   discovered for the matching item.
 --
--- TODO: `selectOwnAddresses` calls `decryptAddress`, which extracts
---       the AccountId from the Tx Attributes. This is not sufficient since it
---       doesn't actually _verify_ that the Tx belongs to the AccountId.
---       We need to add verification (see `deriveLvl2KeyPair`).
+-- TODO(@uroboros/ryan) `selectOwnAddresses` calls `decryptAddress`, which extracts
+-- the AccountId from the Tx Attributes. This is not sufficient since it
+-- doesn't actually _verify_ that the Tx belongs to the AccountId.
+-- We need to add verification (see `deriveLvl2KeyPair`).
 prefilter :: WalletKey
      -> (a -> Address)      -- ^ address getter
      -> [a]                 -- ^ list to filter

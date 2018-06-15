@@ -79,7 +79,6 @@ retrievalWorker pm diffusion = do
                 -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
-
         -- Exception handlers are installed locally, on the 'thingToDoNext',
         -- to ensure that network troubles, for instance, do not kill the
         -- worker.

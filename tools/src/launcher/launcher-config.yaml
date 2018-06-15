@@ -25,6 +25,9 @@ nodeArgs:
   - "--configuration-key"
   - "mainnet_dryrun_full"
 
+# Path to directory where state is stored
+statePath: ./
+
 # Path to directory with all DBs used by the node. The launcher
 # needs it to record information about installed updates.
 nodeDbPath: db-mainnet-staging

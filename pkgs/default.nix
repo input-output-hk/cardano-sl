@@ -15250,7 +15250,6 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
-, cardano-sl-block-test
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-db
@@ -15266,10 +15265,8 @@ license = stdenv.lib.licenses.mit;
 , conduit
 , containers
 , cpphs
-, criterion
 , cryptonite
 , data-default
-, deepseq
 , directory
 , ekg-core
 , ether
@@ -15350,10 +15347,43 @@ unordered-containers
 libraryToolDepends = [
 cpphs
 ];
+doHaddock = false;
+description = "Cardano SL - block processing";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-block-bench" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, cardano-sl-binary
+, cardano-sl-block
+, cardano-sl-block-test
+, cardano-sl-core
+, cardano-sl-crypto
+, criterion
+, deepseq
+, formatting
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-block-bench";
+version = "1.2.0";
+src = ./../block/bench;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
+isLibrary = false;
+isExecutable = false;
 benchmarkHaskellDepends = [
 base
 bytestring
 cardano-sl-binary
+cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
@@ -15363,7 +15393,7 @@ formatting
 universum
 ];
 doHaddock = false;
-description = "Cardano SL - block processing";
+description = "Cardano SL - block benchmark";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -15405,6 +15435,10 @@ mkDerivation {
 pname = "cardano-sl-block-test";
 version = "1.3.0";
 src = ./../block/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 base
 bytestring
@@ -15690,12 +15724,9 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
-, cardano-sl-block
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-delegation
-, cardano-sl-ssc
 , cpphs
 , cryptonite
 , cryptonite-openssl
@@ -15718,12 +15749,9 @@ libraryHaskellDepends = [
 base
 bytestring
 cardano-sl-binary
-cardano-sl-block
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-delegation
-cardano-sl-ssc
 cryptonite
 cryptonite-openssl
 hedgehog
@@ -16651,6 +16679,7 @@ pname = "cardano-sl-lrc-test";
 version = "1.3.0";
 src = ./../lrc/test;
 configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -18022,6 +18051,7 @@ x509
 x509-store
 ];
 executableHaskellDepends = [
+acid-state
 aeson
 aeson-diff
 aeson-pretty
@@ -18036,6 +18066,7 @@ cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-util
 cardano-sl-wallet
+conduit
 containers
 exceptions
 formatting

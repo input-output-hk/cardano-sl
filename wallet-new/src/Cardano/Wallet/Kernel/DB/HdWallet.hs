@@ -15,6 +15,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdRoot(..)
   , HdAccount(..)
   , HdAddress(..)
+    -- ** Initialiser
+  , initHdWallets
     -- ** Lenses
   , hdWalletsRoots
   , hdWalletsAccounts
@@ -30,6 +32,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdRootCreatedAt
   , hdAccountId
   , hdAccountName
+  , hdAccountCurrentCheckpoint
   , hdAccountCheckpoints
   , hdAddressId
   , hdAddressAddress
@@ -49,6 +52,12 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomHdRootId
   , zoomHdAccountId
   , zoomHdAddressId
+    -- * Zoom variations that create on request
+  , zoomOrCreateHdRoot
+  , zoomOrCreateHdAccount
+  , zoomOrCreateHdAddress
+  , assumeHdRootExists
+  , assumeHdAccountExists
   ) where
 
 import           Universum
@@ -57,6 +66,9 @@ import           Control.Lens (at)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (base, deriveSafeCopy)
+
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%), build)
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
@@ -221,6 +233,9 @@ hdAddressAccountId = hdAddressId . hdAddressIdParent
 hdAddressRootId :: Lens' HdAddress HdRootId
 hdAddressRootId = hdAddressAccountId . hdAccountIdParent
 
+hdAccountCurrentCheckpoint :: Lens' HdAccount Checkpoint
+hdAccountCurrentCheckpoint = hdAccountCheckpoints . currentCheckpoint
+
 {-------------------------------------------------------------------------------
   Unknown identifiers
 -------------------------------------------------------------------------------}
@@ -282,7 +297,7 @@ instance HasPrimKey HdAddress where
 
 type HdRootIxs    = '[]
 type HdAccountIxs = '[HdRootId]
-type HdAddressIxs = '[HdRootId, HdAccountId]
+type HdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
 
 type instance IndicesOf HdRoot    = HdRootIxs
 type instance IndicesOf HdAccount = HdAccountIxs
@@ -302,9 +317,10 @@ instance IxSet.Indexable (HdAddressId ': HdAddressIxs)
     indices = ixList
                 (ixFun ((:[]) . view hdAddressRootId))
                 (ixFun ((:[]) . view hdAddressAccountId))
+                (ixFun ((:[]) . view (hdAddressAddress . fromDb)))
 
 {-------------------------------------------------------------------------------
-  Zoom to parts of a HD wallet
+  Top-level HD wallet structure
 -------------------------------------------------------------------------------}
 
 -- | All wallets, accounts and addresses in the HD wallets
@@ -319,6 +335,13 @@ data HdWallets = HdWallets {
 
 deriveSafeCopy 1 'base ''HdWallets
 makeLenses ''HdWallets
+
+initHdWallets :: HdWallets
+initHdWallets = HdWallets emptyIxSet emptyIxSet emptyIxSet
+
+{-------------------------------------------------------------------------------
+  Zoom to existing parts of a HD wallet
+-------------------------------------------------------------------------------}
 
 zoomHdRootId :: forall e a.
                 (UnknownHdRoot -> e)
@@ -357,3 +380,83 @@ zoomHdAddressId embedErr addrId =
 
     embedErr' :: UnknownHdAccount -> e
     embedErr' = embedErr . embedUnknownHdAccount
+
+{-------------------------------------------------------------------------------
+  Zoom to parts of the wallet, creating them if they don't exist
+-------------------------------------------------------------------------------}
+
+-- | Variation on 'zoomHdRootId' that creates the 'HdRoot' if it doesn't exist
+--
+-- Precondition: @newRoot ^. hdRootId == rootId@
+zoomOrCreateHdRoot :: HdRoot
+                   -> HdRootId
+                   -> Update' HdRoot    e a
+                   -> Update' HdWallets e a
+zoomOrCreateHdRoot newRoot rootId upd =
+    zoomCreate newRoot (hdWalletsRoots . at rootId) $ upd
+
+-- | Variation on 'zoomHdAccountId' that creates the 'HdAccount' if it doesn't exist
+--
+-- Precondition: @newAccount ^. hdAccountId == accountId@
+zoomOrCreateHdAccount :: (HdRootId -> Update' HdWallets e ())
+                      -> HdAccount
+                      -> HdAccountId
+                      -> Update' HdAccount e a
+                      -> Update' HdWallets e a
+zoomOrCreateHdAccount checkRootExists newAccount accId upd = do
+    checkRootExists $ accId ^. hdAccountIdParent
+    zoomCreate newAccount (hdWalletsAccounts . at accId) $ upd
+
+-- | Variation on 'zoomHdAddressId' that creates the 'HdAddress' if it doesn't exist
+--
+-- Precondition: @newAddress ^. hdAddressId == AddressId@
+zoomOrCreateHdAddress :: (HdAccountId -> Update' HdWallets e ())
+                      -> HdAddress
+                      -> HdAddressId
+                      -> Update' HdAddress e a
+                      -> Update' HdWallets e a
+zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
+    checkAccountExists $ addrId ^. hdAddressIdParent
+    zoomCreate newAddress (hdWalletsAddresses . at addrId) $ upd
+
+-- | Assume that the given HdRoot exists
+--
+-- Helper function which can be used as an argument to 'zoomOrCreateHdAccount'
+assumeHdRootExists :: HdRootId -> Update' HdWallets e ()
+assumeHdRootExists _id = return ()
+
+-- | Assume that the given HdAccount exists
+--
+-- Helper function which can be used as an argument to 'zoomOrCreateHdAddress'
+assumeHdAccountExists :: HdAccountId -> Update' HdWallets e ()
+assumeHdAccountExists _id = return ()
+
+{-------------------------------------------------------------------------------
+  Pretty printing
+-------------------------------------------------------------------------------}
+
+instance Buildable HdRootId where
+    build (HdRootId keyInDb)
+        = bprint ("HdRootId: "%build) (_fromDb keyInDb)
+
+instance Buildable HdAccountIx where
+    build (HdAccountIx ix)
+        = bprint ("HdAccountIx: "%build) ix
+
+instance Buildable HdAccountId where
+    build (HdAccountId parentId accountIx)
+        = bprint ("HdAccountId: "%build%", "%build) parentId accountIx
+
+instance Buildable HdAddressIx where
+    build (HdAddressIx ix)
+        = bprint ("HdAddressIx: "%build) ix
+
+instance Buildable HdAddressId where
+    build (HdAddressId parentId addressIx)
+        = bprint ("HdAddressId: "%build%", "%build) parentId addressIx
+
+instance Buildable UnknownHdAccount where
+    build (UnknownHdAccountRoot rootId)
+        = bprint ("UnknownHdAccountRoot: "%build) rootId
+    build (UnknownHdAccount accountId)
+        = bprint ("UnknownHdAccount accountId: "%build) accountId

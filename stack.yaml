@@ -32,6 +32,7 @@ packages:
 - delegation
 - block
 - block/test
+- block/bench
 - lib
 - generator
 - client
@@ -218,26 +219,28 @@ apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl-auxx:       -Werror -fwarn-redundant-constraints
-  cardano-sl-block:      -Werror -fwarn-redundant-constraints
-  cardano-sl-client:     -Werror -fwarn-redundant-constraints
-  cardano-sl-core:       -Werror -fwarn-redundant-constraints
-  cardano-sl-db:         -Werror -fwarn-redundant-constraints
-  cardano-sl-delegation: -Werror -fwarn-redundant-constraints
-  cardano-sl-explorer:   -Werror -fwarn-redundant-constraints
-  cardano-sl-generator:  -Werror -fwarn-redundant-constraints
-  cardano-sl-infra:      -Werror -fwarn-redundant-constraints
-  cardano-sl-lrc-test:   -Werror
-  cardano-sl-lrc:        -Werror -fwarn-redundant-constraints
-  cardano-sl-node:       -Werror -fwarn-redundant-constraints
-  cardano-sl-ssc:        -Werror -fwarn-redundant-constraints
-  cardano-sl-tools:      -Werror -fwarn-redundant-constraints
-  cardano-sl-txp:        -Werror -fwarn-redundant-constraints
-  cardano-sl-update:     -Werror -fwarn-redundant-constraints
-  cardano-sl-util:       -Werror -fwarn-redundant-constraints
-  cardano-sl-wallet-new: -Werror -fwarn-redundant-constraints
-  cardano-sl-wallet:     -Werror -fwarn-redundant-constraints
-  cardano-sl:            -Werror -fwarn-redundant-constraints
+  cardano-sl-auxx:        -Werror -fwarn-redundant-constraints
+  cardano-sl-block:       -Werror -fwarn-redundant-constraints
+  cardano-sl-block-test:  -Werror -fwarn-redundant-constraints
+  cardano-sl-block-bench: -Werror -fwarn-redundant-constraints
+  cardano-sl-client:      -Werror -fwarn-redundant-constraints
+  cardano-sl-core:        -Werror -fwarn-redundant-constraints
+  cardano-sl-db:          -Werror -fwarn-redundant-constraints
+  cardano-sl-delegation:  -Werror -fwarn-redundant-constraints
+  cardano-sl-explorer:    -Werror -fwarn-redundant-constraints
+  cardano-sl-generator:   -Werror -fwarn-redundant-constraints
+  cardano-sl-infra:       -Werror -fwarn-redundant-constraints
+  cardano-sl-lrc-test:    -Werror -fwarn-redundant-constraints
+  cardano-sl-lrc:         -Werror -fwarn-redundant-constraints
+  cardano-sl-node:        -Werror -fwarn-redundant-constraints
+  cardano-sl-ssc:         -Werror -fwarn-redundant-constraints
+  cardano-sl-tools:       -Werror -fwarn-redundant-constraints
+  cardano-sl-txp:         -Werror -fwarn-redundant-constraints
+  cardano-sl-update:      -Werror -fwarn-redundant-constraints
+  cardano-sl-util:        -Werror -fwarn-redundant-constraints
+  cardano-sl-wallet-new:  -Werror -fwarn-redundant-constraints
+  cardano-sl-wallet:      -Werror -fwarn-redundant-constraints
+  cardano-sl:             -Werror -fwarn-redundant-constraints
 
 # The 'swagger2' has a broken Haddock with GHC 8.0. We can remove this flag
 # when we have upgraded to GHC >= 8.2

@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where
@@ -14,9 +13,9 @@ import           Pos.Core (pcEpochSlots)
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Lrc (followTheSatoshi)
 
-import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
-import           Test.Pos.Crypto.Arbitrary ()
 import           Bench.Configuration (benchProtocolConstants)
+import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
 type UtxoSize = Int
 

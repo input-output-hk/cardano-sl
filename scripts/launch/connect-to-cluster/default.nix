@@ -64,6 +64,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
   fi
+  export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
 
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs

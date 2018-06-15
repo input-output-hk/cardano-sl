@@ -1,5 +1,5 @@
 name:                cardano-sl-ssc
-version:             1.2.0
+version:             1.2.1
 synopsis:            Cardano SL - shared seed computation
 description:         Cardano SL - shared seed computation
 license:             MIT

@@ -172,6 +172,7 @@ while [[ $i -lt $panesCnt ]]; do
         echo "updaterArgs: [bash]"                        >> $CONFIG_PATH
         echo "updateArchive: $updater_file"               >> $CONFIG_PATH
         echo "nodeTimeoutSec: 5"                          >> $CONFIG_PATH
+        echo "statePath: $run_dir"                        >> $CONFIG_PATH
         echo "configuration:"                             >> $CONFIG_PATH
         echo "  filePath: lib/configuration.yaml"         >> $CONFIG_PATH
         echo "  key: default"                             >> $CONFIG_PATH

@@ -29,12 +29,14 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 
 
-
-data StreamEntry = StreamEnd | StreamBlock Block
+-- | Datatype used for the queue of blocks, produced by network streaming and
+-- then consumed by a continuation resonsible for writing blocks to store.
+-- StreamEnd signals end of stream.
+data StreamEntry = StreamEnd | StreamBlock !Block
 
 data DiffusionHealth = DiffusionHealth {
-    dhStreamWriteQueue :: Gauge
-  , dhStreamWindow     :: Gauge
+    dhStreamWriteQueue :: !Gauge -- Number of blocks stored in the block stream write queue
+  , dhStreamWindow     :: !Gauge -- Current Stream Window size.
   }
 
 -- | The interface to a diffusion layer, i.e. some component which takes care

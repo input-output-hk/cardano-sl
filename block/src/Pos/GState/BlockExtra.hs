@@ -113,6 +113,7 @@ instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
 -- Loops on forward links
 ----------------------------------------------------------------------------
 
+-- | Creates a Producer for blocks from a given HeaderHash.
 streamBlocks
     :: ( Monad m )
     => (HeaderHash -> m (Maybe SerializedBlock))

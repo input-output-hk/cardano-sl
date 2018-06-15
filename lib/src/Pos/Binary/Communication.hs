@@ -84,6 +84,10 @@ serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
 serializeMsgSerializedBlock (MsgSerializedBlock b) = "\x82\x0" <> unSerialized b
 serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
 
+-- Serialize `MsgSerializedBlock` with the property
+-- ```
+-- serialize (MsgStreamBlock b) = serializeMsgStreamBlock (MsgSerializedBlock $ serialize b)
+-- ```
 serializeMsgStreamBlock :: MsgSerializedBlock -> LBS.ByteString
 serializeMsgStreamBlock (MsgSerializedBlock b)   = "\x82\x0" <> LBS.fromStrict (unSerialized b)
 serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t)

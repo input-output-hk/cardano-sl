@@ -273,6 +273,8 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
               Just (MsgBlock block) -> do
                   retrieveBlocksDo conv bvd (i - 1) (block : acc)
 
+-- | Stream some blocks from the network.
+-- Returns Nothing if streaming is disabled by the client or not supported by the peer.
 streamBlocks
     :: forall t .
        Trace IO (Severity, Text)
@@ -334,12 +336,11 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -> Conc.TBQueue StreamEntry
         -> ConversationActions MsgGetBlocks MsgBlock
         -> IO ()
-    requestBatch fallBack blockChan _ = do
+    requestBatch fallBack _ _ = do
         -- The peer doesn't support streaming, we need to fall back to batching but
         -- the current conversation is unusable since there is no way for us to learn
         -- which blocks we shall fetch.
         atomically $ writeTVar fallBack True
-        atomically $ Conc.writeTBQueue blockChan StreamEnd
         return ()
 
     requestBlocksConversation
@@ -369,12 +370,12 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -> IO ()
     retrieveBlocks bvd blockChan conv window = do
         window' <- if window < halfStreamWindow
-                          then do
-                              let w' = streamWindow
-                              traceWith logTrace (Debug, sformat ("Updating Window: "%int%" to "%int) window w')
-                              send conv $ MsgUpdate $ MsgStreamUpdate $ w'
-                              return (w' - 1)
-                    else return $ window - 1
+            then do
+                let w' = streamWindow
+                traceWith logTrace (Debug, sformat ("Updating Window: "%int%" to "%int) window w')
+                send conv $ MsgUpdate $ MsgStreamUpdate $ w'
+                return (w' - 1)
+            else return $ window - 1
         block <- retrieveBlock bvd conv
         case block of
              MsgStreamNoBlock t -> do

@@ -336,7 +336,6 @@ test-suite cardano-test
                      , lens
                      , mtl
                      , network-transport
-                     , network-transport-tcp
                      , network-transport-inmemory
                      , pipes
                      , pvss

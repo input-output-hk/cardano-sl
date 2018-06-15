@@ -218,15 +218,6 @@ blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(block
           StreamBlock !b -> do
               loop n (b : recvBlocks) (streamWindow, wqgM, blockChan)
 
-
--- It's surprisingly cumbersome to give a non-orphan 'NFData' instance on
--- 'BlockHeader', since we have that 'Blockchain' typeclass with a bunch of
--- data families. 'BHeaderHash GenesisBlockchain', for instance, must have
--- an 'NFData' instance, but in that module we don't yet know that this is
--- in fact 'HeaderHash' ~ 'Crypto.Digest Blake2b_256'.
--- Anyway, there's a whole saga of pain caused by that silly abstraction.
---instance NFData BlockHeader
-
 -- Generate a list of n+1 blocks
 generateBlocks :: Int -> NonEmpty Block
 generateBlocks blocks =

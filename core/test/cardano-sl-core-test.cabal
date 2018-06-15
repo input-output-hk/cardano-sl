@@ -14,18 +14,23 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Core.Bi
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.Gen
 
   build-depends:       QuickCheck
                      , base
+                     , base16-bytestring
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-util
                      , containers
+                     , cardano-sl-util-test
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , hedgehog
@@ -66,7 +71,7 @@ library
                        MonadFailDesugaring
                        GADTs
 
-  ghc-options:         -Wall
+  ghc-options:
                        -O2
 
   build-tools: cpphs >= 1.19

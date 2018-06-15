@@ -3,7 +3,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Test.Pos.Crypto.Bi
-    ( tests
+    ( constantByteString
+    , getBytes
+    , tests
     ) where
 
 import           Universum

@@ -142,6 +142,7 @@ module Test.Pos.Core.Gen
 
 import           Universum
 
+import           Data.ByteString.Base16 as B16
 import           Data.Coerce (coerce)
 import           Data.Either (either)
 import           Data.Fixed (Fixed (..))
@@ -764,6 +765,11 @@ genTxHash = do
   sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
   pure (coerce (hash sampleText :: Hash Text))
 
+genTxId :: Gen TxId
+genTxId = genBase16Text >>= pure . decodeHash >>= either error pure
+    where
+        genBase16Text = decodeUtf8 @Text @ByteString <$> genBase16Bs
+
 genTxIn :: Gen TxIn
 genTxIn = Gen.choice gens
   where
@@ -997,6 +1003,9 @@ customHashMapGen
 customHashMapGen keyGen valGen =
     HM.fromList
         <$> (Gen.list (Range.constant 1 10) $ (,) <$> keyGen <*> valGen)
+
+genBase16Bs :: Gen ByteString
+genBase16Bs = B16.encode <$> genBytes 32
 
 genBytes :: Int -> Gen ByteString
 genBytes n = Gen.bytes (Range.singleton n)

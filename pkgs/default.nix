@@ -16560,12 +16560,12 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-infra
+, cardano-sl-util-test
 , containers
 , hedgehog
 , kademlia
 , memory
 , stdenv
-, time-units
 , universum
 }:
 mkDerivation {
@@ -16580,11 +16580,11 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-infra
+cardano-sl-util-test
 containers
 hedgehog
 kademlia
 memory
-time-units
 universum
 ];
 doHaddock = false;
@@ -17627,6 +17627,7 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , formatting
+, hedgehog
 , hspec
 , mtl
 , QuickCheck
@@ -17649,6 +17650,7 @@ bytestring
 cardano-sl-util
 cryptonite
 formatting
+hedgehog
 hspec
 mtl
 QuickCheck

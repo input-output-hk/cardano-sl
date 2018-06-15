@@ -20,7 +20,6 @@ module Test.Pos.Infra.Gen
 import           Universum
 
 import qualified Data.Map as DM
-import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -39,6 +38,7 @@ import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
                                            createSlottingDataUnsafe)
 
 import           Test.Pos.Core.Gen (genTimeDiff)
+import           Test.Pos.Util.Gen (genMillisecond)
 
 ----------------------------------------------------------------------------
 -- DHT Generators
@@ -98,11 +98,3 @@ genEpochIndexDataPairs range = do
         (\xs i -> (: xs) <$> genEpochIndexDataPair i)
         []
         [0..len]
-
-----------------------------------------------------------------------------
--- Helper Generators
-----------------------------------------------------------------------------
-
-genMillisecond :: Gen Millisecond
-genMillisecond =
-    fromMicroseconds <$> (toInteger <$> Gen.int Range.constantBounded)

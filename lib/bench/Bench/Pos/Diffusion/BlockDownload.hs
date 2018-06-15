@@ -5,7 +5,7 @@
 -- later if need be.
 -- Currently only the batched block requests are wired up. The streaming
 -- definition is not yet available.
-
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BangPatterns #-}
@@ -34,27 +34,28 @@ import           Node (NodeId)
 import qualified Node
 import           Pipes (each)
 
-import           Pos.Arbitrary.Block.Generate (generateMainBlock)
-import           Pos.Binary (serialize)
+import           Pos.Binary (serialize, serialize')
 import           Pos.Core (BlockVersion (..), Block, HeaderHash, BlockHeader)
 import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.Network.Types (Bucket (..))
-import qualified Pos.Network.Policy as Policy
+import           Pos.DB.Class (SerializedBlock, Serialized (..))
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                                      FullDiffusionInternals (..),
                                      RunFullDiffusionInternals (..),
                                      diffusionLayerFullExposeInternals)
-import qualified Pos.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
-import           Pos.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
+import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
+import qualified Pos.Infra.Network.Policy as Policy
+import           Pos.Infra.Network.Types (Bucket (..))
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Types as Logic (Logic (..))
 import           Pos.Logic.Pure (pureLogic)
-import           Pos.Reporting.Health.Types (HealthStatus (..))
 
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (wlogTrace, noTrace)
+import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
 --
@@ -112,16 +113,19 @@ serverLogic
     -> NonEmpty BlockHeader
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
-    { getBlock = const (pure (Just arbitraryBlock))
+    { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
     , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
     , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
-          blocks <- readIORef streamIORef
-          each blocks
+          bs <-  readIORef streamIORef
+          each $ map serializedBlock bs
     }
+
+serializedBlock :: Block -> SerializedBlock
+serializedBlock = Serialized . serialize'
 
 -- Modify a pure logic layer so that the LCA computation (suffix not in the
 -- chain) always gives the entire thing. This makes the batch block requester

@@ -27,11 +27,14 @@ module Pos.Ssc.Mem
 import           Universum
 
 import           Control.Monad.Morph (hoist)
+import           Control.Monad.Trans.Writer (WriterT (..))
 import qualified Crypto.Random as Rand
---import           Pos.Util.Log (NamedPureLogger, WithLogger, launchNamedPureLog)
+import           Data.DList (DList)
+import qualified Data.DList as DList
 
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState, sscGlobal, sscLocal)
-import           Pos.Util.Trace (TraceIO)
+import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Unstructured (LogItem)
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
@@ -48,12 +51,11 @@ askSscMem = view (lensOf @SscMemTag)
 -- | Applies state changes to given var.
 syncingStateWith
     :: TVar s
-    -> StateT s ({-NamedPureLogger-} STM) a
-    -> {-NamedPureLogger-} STM a
+    -> StateT s STM a
+    -> STM a
 syncingStateWith var action = do
-    oldV <- {-lift $-} readTVar var
+    oldV <- readTVar var
     (res, newV) <- runStateT action oldV
-    {-lift $-}
     writeTVar var newV
     return res
 
@@ -61,11 +63,12 @@ syncingStateWith var action = do
 -- Local
 ----------------------------------------------------------------------------
 
-type SscLocalQuery a =
-    forall m . (MonadReader SscLocalData m) => m a
+type SscLocalQuery a = forall m . Monad m =>
+    Trace m LogItem ->
+    ReaderT SscLocalData m a
 
 type SscLocalUpdate a =
-    forall m . (MonadState SscLocalData m, Rand.MonadRandom m) => m a
+    WriterT (DList LogItem) (StateT SscLocalData (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
 
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -82,21 +85,25 @@ sscRunLocalQuery action = do
 sscRunLocalSTM
     :: forall ctx m a.
        (MonadSscMem ctx m, MonadIO m)
-    => StateT SscLocalData ({-NamedPureLogger-} STM) a -> m a
-sscRunLocalSTM action = do
+    => Trace m LogItem 
+    -> WriterT (DList LogItem) (StateT SscLocalData STM) a
+    -> m a
+sscRunLocalSTM logTrace action = do
     localVar <- sscLocal <$> askSscMem
-    --launchNamedPureLog atomically $ syncingStateWith localVar action
-    atomically $ syncingStateWith localVar action
+    (a, logItems) <- atomically $ syncingStateWith localVar $ runWriterT action
+    forM_ (DList.toList logItems) (traceWith logTrace)
+    pure a
 
 ----------------------------------------------------------------------------
 -- Global
 ----------------------------------------------------------------------------
 
-type SscGlobalQuery a =
-    forall m . (MonadReader SscGlobalState m) => m a
+type SscGlobalQuery a = forall m . Monad m =>
+    Trace m LogItem ->
+    ReaderT SscGlobalState m a
 
 type SscGlobalUpdate a =
-    forall m . (MonadState SscGlobalState m, Rand.MonadRandom m) => m a
+    WriterT (DList LogItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -110,17 +117,19 @@ sscRunGlobalQuery action = do
 
 sscRunGlobalUpdate
     :: (MonadSscMem ctx m, Rand.MonadRandom m, MonadIO m)
-    => StateT SscGlobalState
-       ({-NamedPureLogger-} (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    => Trace m LogItem
+    -> WriterT (DList LogItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
     -> m a
-sscRunGlobalUpdate action = do
+sscRunGlobalUpdate logTrace action = do
     globalVar <- sscGlobal <$> askSscMem
     seed <- Rand.drgNew
-    --launchNamedPureLog atomically $
-    atomically $
+    (a, logItems) <- atomically $
         syncingStateWith globalVar $
+        runWriterT $
         executeMonadBaseRandom seed action
+    forM_ (DList.toList logItems) (traceWith logTrace)
+    pure a
   where
     -- (... MonadPseudoRandom) a -> (... n) a
     executeMonadBaseRandom seed =
-       hoist $ {-hoist-} (pure . fst . Rand.withDRG seed)
+       hoist $ hoist (pure . fst . Rand.withDRG seed)

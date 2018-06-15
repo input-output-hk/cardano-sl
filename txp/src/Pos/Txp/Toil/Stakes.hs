@@ -20,16 +20,16 @@ import           Pos.Txp.Base (txOutStake)
 import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake, setStake, setTotalStake)
 
 -- | Apply transactions to stakes.
-applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
+applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM [StakeholderId]
 applyTxsToStakes txun = do
     let (txOutPlus, txInMinus) = concatStakes txun
-    void $ recomputeStakes txOutPlus txInMinus
+    recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to stakes.
-rollbackTxsStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
+rollbackTxsStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM [StakeholderId]
 rollbackTxsStakes txun = do
     let (txOutMinus, txInPlus) = concatStakes txun
-    void $ recomputeStakes txInPlus txOutMinus
+    recomputeStakes txInPlus txOutMinus
 
 ----------------------------------------------------------------------------
 -- Helpers

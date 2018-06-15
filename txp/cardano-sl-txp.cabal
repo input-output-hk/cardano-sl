@@ -78,6 +78,7 @@ library
                      , cardano-sl-util-test
                      , conduit
                      , containers
+                     , contravariant
                      , data-default
                      , ekg-core
                      , ether

@@ -22,9 +22,7 @@ module Pos.Util.Trace
     ) where
 
 import           Universum hiding (trace, newEmptyMVar)
---import           Control.Concurrent.MVar (newEmptyMVar, withMVar)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
---import qualified Data.Text.IO as TIO
 import qualified Pos.Util.Log as Log
 
 -- | Abstracts logging.
@@ -58,19 +56,6 @@ traceWith = trace
 -- doesn't force the logged messages.
 noTrace :: Applicative m => Trace m a
 noTrace = Trace $ Op $ const (pure ())
-
-{-
--- | Trace lines to stdout, without concurrency control.
-stdoutTrace :: Trace IO Text
-stdoutTrace = Trace $ Op $ TIO.putStrLn
-
--- | Trace lines to stdout, with concurrency control.
-stdoutTraceConcurrent :: IO (Trace IO Text)
-stdoutTraceConcurrent = do
-    mv <- newEmptyMVar :: IO (MVar ())
-    let traceIt = \txt -> withMVar mv $ \_ -> TIO.putStrLn txt
-    pure $ Trace $ Op $ traceIt
--}
 
 -- | A 'Trace' that uses logging from @Pos.Util.Log@
 logTrace :: Log.LoggingHandler -> Log.LoggerName -> TraceIO

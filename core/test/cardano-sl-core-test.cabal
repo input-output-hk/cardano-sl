@@ -24,6 +24,8 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
+                     , cardano-sl-util
+                     , containers
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , hedgehog

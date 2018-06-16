@@ -30,33 +30,5 @@ library
 
   default-language:    Haskell2010
 
-  default-extensions:  DeriveDataTypeable
-                       DeriveGeneric
-                       DeriveFunctor
-                       DeriveFoldable
-                       DeriveTraversable
-                       GeneralizedNewtypeDeriving
-                       StandaloneDeriving
-                       FlexibleContexts
-                       FlexibleInstances
-                       MultiParamTypeClasses
-                       FunctionalDependencies
-                       DefaultSignatures
-                       NoImplicitPrelude
-                       OverloadedStrings
-                       RecordWildCards
-                       TypeApplications
-                       TupleSections
-                       ViewPatterns
-                       LambdaCase
-                       MultiWayIf
-                       ConstraintKinds
-                       UndecidableInstances
-                       BangPatterns
-                       TemplateHaskell
-                       ScopedTypeVariables
-                       MonadFailDesugaring
-                       GADTs
-
   ghc-options:         -Wall
                        -O2

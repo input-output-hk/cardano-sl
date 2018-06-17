@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Account
        , genSaveRootKey
        , genUniqueAccountId
        , genUniqueAddress
+       , genUniqueAddressIndex
        , deriveAddressSK
        , deriveAddress
        , AccountMode
@@ -196,6 +197,20 @@ genUniqueAddress ws genSeed passphrase wCAddr@AccountId{..} =
     mkAddress cwamAddressIndex =
         deriveAddress passphrase wCAddr cwamAddressIndex
     notFit _idx addr = doesWAddressExist ws Ever addr
+
+-- | This is for external wallet: we already have an address,
+-- we just need a unique index for it.
+genUniqueAddressIndex
+    :: AccountMode ctx m
+    => WalletSnapshot
+    -> WAddressMeta
+    -> m Word32
+genUniqueAddressIndex ws newAddrMeta = do
+    addrIndex <- liftIO $ randomRIO (firstHardened, maxBound)
+    if doesWAddressExist ws Ever newAddrMeta
+        then throwM . RequestError $ sformat ("genUniqueAddressIndex: address "%build%" is already exists")
+                                             newAddrMeta
+        else return addrIndex
 
 deriveAddressSK
     :: AccountMode ctx m

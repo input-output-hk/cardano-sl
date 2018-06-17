@@ -106,7 +106,11 @@ data WalletClient m
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
     , redeemAda
-        :: WalletId -> AccountIndex -> Redemption -> Resp m Transaction
+         :: WalletId -> AccountIndex -> Redemption -> Resp m Transaction
+    , postAddressPath
+         :: WalletId -> AccountIndex -> Resp m AddressPath
+    , postStoreAddress
+         :: WalletId -> AccountIndex -> Text -> m (Either ClientError ())
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -230,6 +234,10 @@ hoistClient phi wc = WalletClient
         \x y -> phi . updateAccount wc x y
     , redeemAda =
         \x y -> phi . redeemAda wc x y
+    , postAddressPath =
+        \x -> phi . postAddressPath wc x
+    , postStoreAddress =
+        \x addr -> phi . postStoreAddress wc x addr
     , postTransaction =
         phi . postTransaction wc
     , getTransactionIndexFilterSorts =

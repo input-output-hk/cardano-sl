@@ -23,7 +23,6 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
@@ -63,6 +62,7 @@ import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty, msgL
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Block.Arbitrary.Message ()
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)

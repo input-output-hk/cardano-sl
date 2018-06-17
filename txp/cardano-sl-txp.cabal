@@ -69,6 +69,7 @@ library
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
@@ -152,6 +153,7 @@ test-suite test
   build-depends:       base
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-txp

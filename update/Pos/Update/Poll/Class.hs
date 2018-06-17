@@ -18,7 +18,6 @@ import           Pos.Core.Update (UpId)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         DecidedProposalState, ProposalState, UndecidedProposalState)
---import           Pos.Util.Trace (TraceIO)
 
 
 ----------------------------------------------------------------------------

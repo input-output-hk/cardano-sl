@@ -32,7 +32,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalS
                                         ProposalState (..), UndecidedProposalState (..),
                                         bvsIsConfirmed, cpsSoftwareVersion, psProposal)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Log (WithLogger, logWarning)
+--import           Pos.Util.Log (WithLogger, logWarning)
 import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ instance (MonadPollRead m) =>
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (MonadPollRead m, WithLogger m) =>
+instance MonadPollRead m =>
          MonadPoll (PollT m) where
     putBVState bv st = ether $ pmBVsL %= MM.insert bv st
     delBVState bv = ether $ pmBVsL %= MM.delete bv
@@ -129,8 +129,8 @@ instance (MonadPollRead m, WithLogger m) =>
         bvs <- getBVState bv
         adoptedBVD <- getAdoptedBVData
         case bvs of
-            Nothing ->
-                logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+            Nothing -> return ()
+                --TODO logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
             Just (bvsModifier -> bvm) ->
                 pmAdoptedBVFullL .= Just (bv, applyBVM bvm adoptedBVD)
     setLastConfirmedSV SoftwareVersion {..} = ether $

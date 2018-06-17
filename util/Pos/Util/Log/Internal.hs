@@ -16,6 +16,7 @@ module Pos.Util.Log.Internal
 import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
 
 import qualified Data.Text as T
+import           Data.Time (getCurrentTime, UTCTime)
 import           Universum hiding (newMVar)
 
 import qualified Katip as K
@@ -71,7 +72,7 @@ modifyLinesLogged lh f = do
     putMVar (getLSI lh) $ LoggingHandlerInternal cfg env $ f counter
 
 updateConfig :: LoggingHandler -> LoggerConfig -> IO ()
-updateConfig lh lc = modifyMVar_ (getLSI lh) $ \LoggingHandlerInternal{..} -> do
+updateConfig lh lc = modifyMVar_ (getLSI lh) $ \LoggingHandlerInternal{..} ->
     return $ LoggingHandlerInternal (Just lc) lsiLogEnv lsiLinesLogged
 
 -- | create internal state given a configuration @LoggerConfig@
@@ -85,10 +86,13 @@ registerBackends :: LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
 registerBackends lh scribes = do
     LoggingHandlerInternal cfg _ counter <- takeMVar (getLSI lh)
     le0 <- K.initLogEnv (s2kname "cardano-sl") "production"
-    le <- register scribes le0
+    le1 <- return $ updateEnv le0 getCurrentTime
+    le <- register scribes le1
     putMVar (getLSI lh) $ LoggingHandlerInternal cfg (Just le) counter
       where
         register :: [(T.Text, K.Scribe)] -> K.LogEnv -> IO K.LogEnv
         register [] le = return le
         register ((n, s):scs) le =
             register scs =<< K.registerScribe n s K.defaultScribeSettings le
+        updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
+        updateEnv le f = le { K._logEnvTimer = f }

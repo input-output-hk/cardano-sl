@@ -17,8 +17,9 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Trace
---import           Pos.Util.Trace.Unstructured (logDebug, logInfo, logWarning, logError)
+import qualified Pos.Util.Trace as Tr
+import qualified Pos.Util.Trace.Named as Tn
+import qualified Pos.Util.Trace.Unstructured as Tu
 
 nominalDiffTimeToMicroseconds :: POSIXTime -> Microsecond
 nominalDiffTimeToMicroseconds = fromMicroseconds . round . (* 1000000)
@@ -26,13 +27,13 @@ nominalDiffTimeToMicroseconds = fromMicroseconds . round . (* 1000000)
 prop_small :: Property
 prop_small =
     monadicIO $ do
-        (diffTime,_) <- run (run_logging Debug 1 20 10)
+        (diffTime,_) <- run (run_logging Log.Debug 1 20 10)
         assert (diffTime > 0)
 
 prop_large :: Property
 prop_large =
     monadicIO $ do
-        (diffTime,_) <- run (run_logging Debug 100 200 100)
+        (diffTime,_) <- run (run_logging Log.Debug 100 200 100)
         assert (diffTime > 0)
 
 -- | Count as many lines as you itented to log.
@@ -41,7 +42,7 @@ prop_lines =
     monadicIO $ do
         let n0 = 20
             n1 = 1
-        (_, linesLogged) <- run (run_logging Debug 10 n0 n1)
+        (_, linesLogged) <- run (run_logging Log.Debug 10 n0 n1)
         -- multiply by 5 because we log 5 different messages (no * n1) times
         assert (linesLogged == n0 * n1 * 5)
 
@@ -51,7 +52,7 @@ prop_sev =
     monadicIO $ do
         let n0 = 20
             n1 = 1
-        (_, linesLogged) <- run (run_logging Warning 10 n0 n1)
+        (_, linesLogged) <- run (run_logging Log.Warning 10 n0 n1)
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
         assert (linesLogged == n0 * n1 * 2)
 
@@ -60,14 +61,14 @@ run_logging sev n n0 n1= do
     startTime <- getPOSIXTime
 {- -}
     lh <- Log.setupLogging (defaultTestConfiguration sev)
-    let logTrace' = logTrace lh "processXYZ"
+    let logTrace' = Tr.logTrace lh "processXYZ"
     forM_ [1..n0] $ \_ ->
         forM_ [1..n1] $ \_ -> do
-            traceWith (logDebug logTrace') msg
-            traceWith (logInfo logTrace') msg
-            traceWith (logNotice logTrace') msg
-            traceWith (logWarning logTrace') msg
-            traceWith (logError logTrace') msg
+            Tr.traceWith (Tr.logDebug logTrace') msg
+            Tr.traceWith (Tr.logInfo logTrace') msg
+            Tr.traceWith (Tr.logNotice logTrace') msg
+            Tr.traceWith (Tr.logWarning logTrace') msg
+            Tr.traceWith (Tr.logError logTrace') msg
 {- -}
     endTime <- getPOSIXTime
     threadDelay $ fromIntegral (5000 * n0)
@@ -82,14 +83,38 @@ run_logging sev n n0 n1= do
 -- | example: setup trace
 example_setup :: IO ()
 example_setup = do
-    logTrace' <- setupLogging (defaultTestConfiguration Log.Debug) "example"
-    traceWith logTrace' (Info, "entering")
+    logTrace' <- Tr.setupLogging (defaultTestConfiguration Log.Debug) "example"
+    Tr.traceWith logTrace' (Log.Info, "entering")
     complexWork logTrace' "42"
-    traceWith logTrace' (Info, "done.")
+    Tr.traceWith logTrace' (Log.Info, "done.")
     where
         --complexWork :: MonadIO m => TraceIO -> Text -> m ()
         complexWork tr msg = do
-            traceWith tr (Debug, "let's see: " `append` msg)
+            Tr.traceWith tr (Log.Debug, "let's see: " `append` msg)
+
+-- | example: unstructured trace
+example_unstructured :: IO ()
+example_unstructured = do
+    logTrace' <- Tu.setupLogging (defaultTestConfiguration Log.Debug) "unstructured"
+    Tu.logInfo logTrace' "entering"
+    complexWork logTrace' "42"
+    Tu.logInfo logTrace' "done."
+    where
+        --complexWork :: MonadIO m => TraceIO -> Text -> m ()
+        complexWork tr msg = do
+            Tu.logDebug tr ("let's see: " `append` msg)
+
+-- | example: named context trace
+example_named :: IO ()
+example_named = do
+    logTrace' <- Tn.setupLogging (defaultTestConfiguration Log.Debug) "named"
+    Tn.logInfo logTrace' "entering"
+    complexWork logTrace' "42"
+    Tn.logInfo logTrace' "done."
+    where
+        --complexWork :: MonadIO m => TraceIO -> Text -> m ()
+        complexWork tr msg = do
+            Tn.logDebug tr ("let's see: " `append` msg)
 
 
 spec :: Spec
@@ -112,4 +137,10 @@ spec = describe "Trace" $ do
 
     it "demonstrating setup and initialisation of logging" $
         example_setup
+
+    it "demonstrating unstructured logging" $
+        example_unstructured
+
+    it "demonstrating named context logging" $
+        example_named
 

@@ -4,15 +4,15 @@
 {-# LANGUAGE GADTSyntax #-}
 
 module Pos.Util.Trace.Unstructured
-    ( Severity (..)
-    , LogItem (..)
+    ( LogItem (..)
     , LogPrivacy (..)
 
     , publicLogItem
     , privateLogItem
     , publicPrivateLogItem
 
-    , traceLogItem
+    --, traceLogItem
+    , setupLogging
 
     , logDebug
     , logError
@@ -40,15 +40,16 @@ module Pos.Util.Trace.Unstructured
     , logNoticeSP
     , logWarningSP
 
-    , logException
-    , bracketWithLogging
+    --, logException
+    --, bracketWithLogging
 
     ) where
 
 import           Universum
-import qualified Control.Exception as E
+--import qualified Control.Exception as E
 
-import           Pos.Util.Log   (Severity (..))
+import           Data.Functor.Contravariant (Op (..){-, contramap-})
+import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
 
 
@@ -59,27 +60,28 @@ data LogPrivacy where
     Private :: LogPrivacy
     -- | To public and private logs.
     Both    :: LogPrivacy
+    deriving (Show)
 
 -- | An unstructured log item.
 data LogItem = LogItem
     { liPrivacy    :: LogPrivacy
-    , liSeverity   :: Severity
+    , liSeverity   :: Log.Severity
     , liMessage    :: Text
-    }
+    } deriving (Show)
 
-publicLogItem :: (Severity, Text) -> LogItem
+publicLogItem :: (Log.Severity, Text) -> LogItem
 publicLogItem = uncurry (LogItem Public)
 
-privateLogItem :: (Severity, Text) -> LogItem
+privateLogItem :: (Log.Severity, Text) -> LogItem
 privateLogItem = uncurry (LogItem Private)
 
-publicPrivateLogItem :: (Severity, Text) -> LogItem
+publicPrivateLogItem :: (Log.Severity, Text) -> LogItem
 publicPrivateLogItem = uncurry (LogItem Both)
 
 traceLogItem
     :: Trace m LogItem
     -> LogPrivacy
-    -> Severity
+    -> Log.Severity
     -> Text
     -> m ()
 traceLogItem logTrace privacy severity message =
@@ -93,27 +95,27 @@ traceLogItem logTrace privacy severity message =
 
 logDebug, logInfo, logNotice, logWarning, logError
     :: Trace m LogItem -> Text -> m ()
-logDebug logTrace   = traceLogItem logTrace Both Debug
-logInfo logTrace    = traceLogItem logTrace Both Info
-logNotice logTrace  = traceLogItem logTrace Both Notice
-logWarning logTrace = traceLogItem logTrace Both Warning
-logError logTrace   = traceLogItem logTrace Both Error
+logDebug logTrace   = traceLogItem logTrace Both Log.Debug
+logInfo logTrace    = traceLogItem logTrace Both Log.Info
+logNotice logTrace  = traceLogItem logTrace Both Log.Notice
+logWarning logTrace = traceLogItem logTrace Both Log.Warning
+logError logTrace   = traceLogItem logTrace Both Log.Error
 
 logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP
     :: Trace m LogItem -> Text -> m ()
-logDebugP logTrace   = traceLogItem logTrace Public Debug
-logInfoP logTrace    = traceLogItem logTrace Public Info
-logNoticeP logTrace  = traceLogItem logTrace Public Notice
-logWarningP logTrace = traceLogItem logTrace Public Warning
-logErrorP logTrace   = traceLogItem logTrace Public Error
+logDebugP logTrace   = traceLogItem logTrace Public Log.Debug
+logInfoP logTrace    = traceLogItem logTrace Public Log.Info
+logNoticeP logTrace  = traceLogItem logTrace Public Log.Notice
+logWarningP logTrace = traceLogItem logTrace Public Log.Warning
+logErrorP logTrace   = traceLogItem logTrace Public Log.Error
 
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS
     :: Trace m LogItem -> Text -> m ()
-logDebugS logTrace   = traceLogItem logTrace Private Debug
-logInfoS logTrace    = traceLogItem logTrace Private Info
-logNoticeS logTrace  = traceLogItem logTrace Private Notice
-logWarningS logTrace = traceLogItem logTrace Private Warning
-logErrorS logTrace   = traceLogItem logTrace Private Error
+logDebugS logTrace   = traceLogItem logTrace Private Log.Debug
+logInfoS logTrace    = traceLogItem logTrace Private Log.Info
+logNoticeS logTrace  = traceLogItem logTrace Private Log.Notice
+logWarningS logTrace = traceLogItem logTrace Private Log.Warning
+logErrorS logTrace   = traceLogItem logTrace Private Log.Error
 
 type SecuredText = LogSecurityLevel -> Text
 
@@ -126,7 +128,7 @@ data LogSecurityLevel where
 traceLogItemSP
     :: Applicative m
     => Trace m LogItem
-    -> Severity
+    -> Log.Severity
     -> SecuredText
     -> m ()
 traceLogItemSP logTrace severity securedText =
@@ -135,12 +137,27 @@ traceLogItemSP logTrace severity securedText =
 
 logDebugSP, logInfoSP, logNoticeSP, logWarningSP, logErrorSP
     :: Applicative m => Trace m LogItem -> SecuredText -> m ()
-logDebugSP logTrace   = traceLogItemSP logTrace Debug
-logInfoSP logTrace    = traceLogItemSP logTrace Info
-logNoticeSP logTrace  = traceLogItemSP logTrace Notice
-logWarningSP logTrace = traceLogItemSP logTrace Warning
-logErrorSP logTrace   = traceLogItemSP logTrace Error
+logDebugSP logTrace   = traceLogItemSP logTrace Log.Debug
+logInfoSP logTrace    = traceLogItemSP logTrace Log.Info
+logNoticeSP logTrace  = traceLogItemSP logTrace Log.Notice
+logWarningSP logTrace = traceLogItemSP logTrace Log.Warning
+logErrorSP logTrace   = traceLogItemSP logTrace Log.Error
 
+-- | setup logging and return a Trace
+setupLogging :: Log.LoggerConfig -> Log.LoggerName -> IO (Trace IO LogItem)
+setupLogging lc ln = do
+    lh <- Log.setupLogging lc
+    return $ unstructuredTrace ln lh
+
+unstructuredTrace :: Log.LoggerName -> Log.LoggingHandler -> Trace IO LogItem
+unstructuredTrace ln lh = Trace $ Op $ \logitem ->
+    let --privacy = liPrivacy (lnItem namedLogitem)
+        severity = liSeverity logitem
+        message = liMessage logitem
+    in
+    Log.usingLoggerName lh ln $ Log.logMessage severity message
+
+{-
 -- | Log an exception if it's raised.
 -- FIXME should not define here.
 logException :: Trace IO Text -> IO a -> IO a
@@ -165,3 +182,4 @@ bracketWithLogging logTrace msg acquire release = E.bracket acquire' release'
     -- itself.
     acquire'   = acquire <* traceWith logTrace ("<bracketWithLogging:before> " <> msg)
     release' r = traceWith logTrace ("<bracketWithLogging:after> " <> msg) *> release r
+-}

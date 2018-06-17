@@ -63,16 +63,16 @@ logTrace lh loggerName = Trace $ Op $ \(severity, txt) ->
     Log.usingLoggerName lh loggerName $ Log.logMessage severity txt
 
 logDebug :: TraceIO -> Trace IO Text
-logDebug lt = contramap ((,) Log.Debug) lt
+logDebug = contramap ((,) Log.Debug)
 
 logInfo :: TraceIO -> Trace IO Text
-logInfo lt = contramap ((,) Log.Info) lt
+logInfo = contramap ((,) Log.Info)
 
 logWarning :: TraceIO -> Trace IO Text
-logWarning lt = contramap ((,) Log.Warning) lt
+logWarning = contramap ((,) Log.Warning)
 
 logNotice :: TraceIO -> Trace IO Text
-logNotice lt = contramap ((,) Log.Notice) lt
+logNotice = contramap ((,) Log.Notice)
 
 logError :: TraceIO -> Trace IO Text
-logError lt = contramap ((,) Log.Error) lt
+logError = contramap ((,) Log.Error)

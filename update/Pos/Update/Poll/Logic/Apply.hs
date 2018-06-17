@@ -35,8 +35,9 @@ import           Pos.Update.Poll.Logic.Version (verifyAndApplyProposalBVS, verif
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProposalState (..),
                                         DpsExtra (..), ProposalState (..),
                                         UndecidedProposalState (..), UpsExtra (..), psProposal)
-import           Pos.Util.Log (WithLogger, logDebug, logInfo, logNotice)
+--import           Pos.Util.Log (WithLogger, logDebug, logInfo, logNotice)
 import           Pos.Util.Some (Some (..))
+import           Pos.Util.Trace (TraceIO, traceWith, Severity (..))
 
 type ApplyMode m =
     ( MonadError PollVerFailure m
@@ -58,13 +59,14 @@ type ApplyMode m =
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
 verifyAndApplyUSPayload ::
-       (ApplyMode m, HasProtocolConstants, HasProtocolMagic, WithLogger m)
-    => BlockVersion
+       (MonadIO m, ApplyMode m, HasProtocolConstants, HasProtocolMagic)
+    => TraceIO
+    -> BlockVersion
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> UpdatePayload
     -> m ()
-verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+verifyAndApplyUSPayload tr lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
     either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload protocolMagic upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
@@ -79,7 +81,7 @@ verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayl
         let otherGroups = NE.groupWith uvProposalId otherVotes
         -- When there is proposal in payload, it's verified and applied.
         whenJust upProposal $
-            verifyAndApplyProposal verifyAllIsKnown slotOrHeader curPropVotes
+            verifyAndApplyProposal tr verifyAllIsKnown slotOrHeader curPropVotes
         -- Then we also apply votes from other groups.
         -- ChainDifficulty is needed, because proposal may become approved
         -- and then we'll need to track whether it becomes confirmed.
@@ -94,10 +96,12 @@ verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayl
         Left _           -> pass
         Right mainHeader -> do
             applyImplicitAgreement
+                tr
                 (mainHeader ^. headerSlotL)
                 (mainHeader ^. difficultyL)
                 (mainHeader ^. headerHashG)
             applyDepthCheck
+                tr
                 (mainHeader ^. epochIndexL)
                 (mainHeader ^. headerHashG)
                 (mainHeader ^. difficultyL)
@@ -151,13 +155,14 @@ resolveVoteStake epoch totalStake vote = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: (MonadError PollVerFailure m, MonadPoll m, WithLogger m)
-    => Bool
+    :: (MonadIO m, MonadError PollVerFailure m, MonadPoll m)
+    => TraceIO
+    -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
-verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
+verifyAndApplyProposal tr verifyAllIsKnown slotOrHeader votes
                            up@UnsafeUpdateProposal {..} = do
     let !upId = hash up
     let !upFromId = addressHash upFrom
@@ -196,26 +201,27 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     -- When necessary, we also check that proposal itself has enough
     -- positive votes to be included into block.
     when (isRight slotOrHeader) $
-        verifyProposalStake totalStake votesAndStakes upId
+        verifyProposalStake tr totalStake votesAndStakes upId
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
 -- Here we check that proposal has at least 'bvdUpdateProposalThd' stake of
 -- total stake in all positive votes for it.
 verifyProposalStake
-    :: (MonadPollRead m, MonadError PollVerFailure m, WithLogger m)
-    => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
-verifyProposalStake totalStake votesAndStakes upId = do
+    :: (MonadIO m, MonadPollRead m, MonadError PollVerFailure m)
+    => TraceIO
+    -> Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
+verifyProposalStake tr totalStake votesAndStakes upId = do
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
     let threshold = applyCoinPortionUp thresholdPortion totalStake
     let thresholdInt = coinToInteger threshold
     let votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
-    logDebug $
+    liftIO $ traceWith tr (Debug,
         sformat
             ("Verifying stake for proposal "%shortHashF%
              ", threshold is "%int%", voted stake is "%int)
-            upId thresholdInt votesSum
+            upId thresholdInt votesSum)
     when (votesSum < thresholdInt) $
         throwError
             PollSmallProposalStake
@@ -231,7 +237,7 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: ApplyMode m
+    :: (MonadIO m, ApplyMode m)
     => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
@@ -281,9 +287,10 @@ verifyAndApplyVoteDo cd ups vote = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: (MonadPoll m, HasProtocolConstants, WithLogger m)
-    => SlotId -> ChainDifficulty -> HeaderHash -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
+    :: (MonadIO m, MonadPoll m, HasProtocolConstants)
+    => TraceIO
+    -> SlotId -> ChainDifficulty -> HeaderHash -> m ()
+applyImplicitAgreement tr (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
     let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
     -- There is no one implicit agreed proposal
@@ -297,8 +304,8 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
         let upId = hash $ upsProposal ups
             status | dpsDecision decided = "approved"
                    | otherwise = "rejected"
-        logInfo $ sformat ("Proposal "%build%" is implicitly "%builder)
-            upId status
+        liftIO $ traceWith tr (Info, sformat ("Proposal "%build%" is implicitly "%builder)
+            upId status)
     makeImplicitlyDecided ups@UndecidedProposalState {..} =
         DecidedProposalState
         { dpsUndecided = ups
@@ -312,9 +319,10 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: forall m . (ApplyMode m, HasProtocolConstants, WithLogger m)
-    => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck epoch hh (ChainDifficulty cd)
+    :: forall m . (MonadIO m, ApplyMode m, HasProtocolConstants)
+    => TraceIO
+    -> EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
+applyDepthCheck tr epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
@@ -384,9 +392,9 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
                confirmBlockVersion epoch bv
-               logInfo $ sformat (build%" is competing now") bv
+               liftIO $ traceWith tr (Info, sformat (build%" is competing now") bv)
            | otherwise -> do
                delBVState bv
-               logInfo $ sformat ("State of "%build%" is deleted") bv
+               liftIO $ traceWith tr (Info, sformat ("State of "%build%" is deleted") bv)
         deactivateProposal upId
-        logNotice $ sformat ("Proposal "%shortHashF%" is "%builder) upId status
+        liftIO $ traceWith tr (Notice, sformat ("Proposal "%shortHashF%" is "%builder) upId status)

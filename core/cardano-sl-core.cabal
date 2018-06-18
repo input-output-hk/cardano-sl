@@ -303,8 +303,10 @@ test-suite test
                      , unordered-containers
                      , vector
 
-  ghc-options:         -threaded
+  ghc-options:
+                       -threaded
                        -rtsopts
+                       -Wall
 
 
   -- linker speed up for linux

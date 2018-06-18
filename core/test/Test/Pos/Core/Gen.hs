@@ -212,7 +212,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                                   UpdateProposal (..), UpdateProposals,
                                   UpdateProposalToSign  (..), UpdateVote (..),
                                   UpId, VoteId, mkUpdateVote)
-import           Pos.Crypto (deterministic, Hash, ProtocolMagic, hash, safeCreatePsk, sign)
+import           Pos.Crypto (decodeHash, deterministic, Hash, ProtocolMagic, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (Attributes (..), mkAttributes)
 import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..),
                              MerkleTree (..))
@@ -457,10 +457,10 @@ genCoeff = do
     pure $ Coeff (MkFixed integer)
 
 genCoin :: Gen Coin
-genCoin = Coin <$> Gen.word64 Range.constantBounded
+genCoin = Coin <$> Gen.word64 (Range.constant 0 100000000)
 
 genCoinPortion :: Gen CoinPortion
-genCoinPortion = CoinPortion <$> Gen.word64 Range.constantBounded
+genCoinPortion = CoinPortion <$> Gen.word64 (Range.constant 1 1000)
 
 genScript :: Gen Script
 genScript = Script <$> genScriptVersion <*> gen32Bytes
@@ -770,6 +770,9 @@ genTxId = genBase16Text >>= pure . decodeHash >>= either error pure
     where
         genBase16Text = decodeUtf8 @Text @ByteString <$> genBase16Bs
 
+--genTxId :: Gen TxId
+--genTxId = coerce <$> genTxHash
+
 genTxIn :: Gen TxIn
 genTxIn = Gen.choice gens
   where
@@ -778,7 +781,7 @@ genTxIn = Gen.choice gens
            ]
 
 genTxInList :: Gen (NonEmpty TxIn)
-genTxInList = Gen.nonEmpty (Range.constant 1 100) genTxIn
+genTxInList = Gen.nonEmpty (Range.constant 1 20) genTxIn
 
 genTxOut :: Gen TxOut
 genTxOut = TxOut <$> genAddress <*> genCoin
@@ -788,9 +791,6 @@ genTxOutAux = TxOutAux <$> genTxOut
 
 genTxOutList :: Gen (NonEmpty TxOut)
 genTxOutList = Gen.nonEmpty (Range.constant 1 100) genTxOut
-
-genTxId :: Gen TxId
-genTxId = coerce <$> genTxHash
 
 -- TODO decide range
 genTxPayload :: ProtocolMagic -> Gen TxPayload

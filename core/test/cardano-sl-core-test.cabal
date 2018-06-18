@@ -73,6 +73,7 @@ library
 
   ghc-options:
                        -O2
+                       -Wall
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

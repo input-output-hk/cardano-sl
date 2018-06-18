@@ -78,7 +78,7 @@ golden_Signature = goldenTestBi sig "test/golden/Signature"
     sig        = sign (ProtocolMagic 0) SignForTestingOnly skey ()
 
 genUnitSignature :: Gen (Signature ())
-genUnitSignature = genSignature $ pure ()
+genUnitSignature = genSignature (ProtocolMagic 0) (pure ())
 
 roundTripSignatureBi :: Property
 roundTripSignatureBi = eachOf 1000 genUnitSignature roundTripsBiBuildable
@@ -98,7 +98,7 @@ golden_Signed = goldenTestBi signed "test/golden/Signed"
 
 roundTripSignedBi :: Property
 roundTripSignedBi = eachOf 1000 genUnitSigned roundTripsBiShow
-    where genUnitSigned = genSigned $ pure ()
+    where genUnitSigned = genSigned (pure ())
 
 --------------------------------------------------------------------------------
 -- EncryptedSecretKey
@@ -156,7 +156,7 @@ golden_RedeemSignature = goldenTestBi rsig "test/golden/RedeemSignature"
     rsig     = redeemSign (ProtocolMagic 0) SignForTestingOnly rsk ()
 
 genUnitRedeemSignature :: Gen (RedeemSignature ())
-genUnitRedeemSignature = genRedeemSignature $ pure ()
+genUnitRedeemSignature = genRedeemSignature (ProtocolMagic 0) (pure ())
 
 roundTripRedeemSignatureBi :: Property
 roundTripRedeemSignatureBi =

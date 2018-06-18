@@ -16,6 +16,7 @@ module Pos.Util.CompileInfo
 
 import           Universum
 
+import           Control.Exception.Safe (handleJust)
 import           Data.Default (Default (def))
 import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text as T
@@ -26,6 +27,7 @@ import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import           System.Environment (lookupEnv)
 import           System.Exit (ExitCode (..))
+import           System.IO.Error (ioeGetErrorType, isDoesNotExistErrorType)
 import           System.Process (readProcessWithExitCode)
 
 
@@ -58,12 +60,13 @@ retrieveCompileTimeInfo = do
     TH.lift cti
   where
     retrieveGit :: IO String
-    retrieveGit =
-        lookupEnv "GITREV" >>= maybe retrieveFromGitExecutable pure
-    retrieveFromGitExecutable :: IO String
-    retrieveFromGitExecutable = do
+    retrieveGit = lookupEnv "GITREV" >>= maybe runGitRevParse pure
+    runGitRevParse :: IO String
+    runGitRevParse = handleJust missingGit (const $ pure zeroRev) $ do
         (exitCode, output, _) <-
             readProcessWithExitCode "git" ["rev-parse", "--verify", "HEAD"] ""
         pure $ case exitCode of
             ExitSuccess -> output
-            _           -> "Couldn't fetch git revision"
+            _           -> zeroRev
+    zeroRev = "0000000000000000000000000000000000000000"
+    missingGit e = if isDoesNotExistErrorType (ioeGetErrorType e) then Just () else Nothing

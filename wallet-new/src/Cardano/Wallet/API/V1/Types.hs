@@ -34,6 +34,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
+  , WalletType (..)
   , WalletOperation (..)
   , SpendingPassword
   , ExternalWallet (..)
@@ -813,6 +814,29 @@ instance Arbitrary SyncState where
                     , pure Synced
                     ]
 
+-- | 'Wallet' type.
+data WalletType
+    = WalletRegular  -- | Regular Cardano wallet.
+    | WalletExternal -- | External wallet (mobile app or hardware wallet).
+    deriving (Bounded, Enum, Eq, Ord, Show, Generic)
+
+instance Arbitrary WalletType where
+    arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Wallet@ prefix.
+deriveJSON Serokell.defaultOptions { A.constructorTagModifier = drop 6 . map C.toLower
+                                   } ''WalletType
+
+instance ToSchema WalletType where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "WalletType") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["regular", "external"]
+
+deriveSafeBuildable ''WalletType
+instance BuildableSafeGen WalletType where
+    buildSafeGen _ WalletRegular  = "regular"
+    buildSafeGen _ WalletExternal = "external"
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
@@ -824,6 +848,7 @@ data Wallet = Wallet {
     , walCreatedAt                  :: !(V1 Core.Timestamp)
     , walAssuranceLevel             :: !AssuranceLevel
     , walSyncState                  :: !SyncState
+    , walType                       :: !WalletType
     } deriving (Eq, Ord, Show, Generic)
 
 --
@@ -871,11 +896,14 @@ instance ToSchema Wallet where
             --^ "The assurance level of the wallet."
             & "syncState"
             --^ "The sync state for this wallet."
+            & "type"
+            --^ "Wallet type: regular wallet or external one (mobile app or hardware wallet)."
         )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
@@ -889,10 +917,12 @@ instance BuildableSafeGen Wallet where
     %" id="%buildSafe sl
     %" name="%buildSafe sl
     %" balance="%buildSafe sl
+    %" type="%buildSafe sl
     %" }")
     walId
     walName
     walBalance
+    walType
 
 instance Buildable [Wallet] where
     build = bprint listJson

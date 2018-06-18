@@ -13,6 +13,7 @@ module Pos.Wallet.Web.Methods.Logic
        , getAccounts
 
        , doesWalletExist
+       , isWalletExternal
        , createWalletSafe
        , newAccount
        , newAccountIncludeUnready
@@ -336,6 +337,13 @@ doesWalletExist
 doesWalletExist wId = do
     (_, _, ws) <- getSnapshots
     return $ isJust $ getWalletMetaIncludeUnready ws True wId
+
+-- | Node stores public key to identify external wallets,
+-- it is a 'Left'-variant here.
+isWalletExternal
+    :: MonadWalletLogicRead ctx m
+    => CId Wal -> m Bool
+isWalletExternal wId = findKey wId >>= pure . isLeft
 
 createWalletSafe
     :: MonadWalletLogic ctx m

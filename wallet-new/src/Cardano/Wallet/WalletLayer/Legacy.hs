@@ -185,9 +185,12 @@ pwlGetWallet wId = do
 
     cWId        <- migrate wId
     wallet      <- V0.getWallet cWId
+    itIsExternal <- V0.isWalletExternal cWId
 
-    let mbWallet = do walletInfo  <- getWalletInfo cWId ws
-                      migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+    let mbWallet = do
+            walletInfo <- getWalletInfo cWId ws
+            let walletType = if itIsExternal then WalletExternal else WalletRegular
+            migrate (wallet, walletInfo, walletType, Nothing @ChainDifficulty)
     return $ case mbWallet of
                   Nothing -> Left (GetWalletErrorNotFound wId)
                   Just w  -> Right w

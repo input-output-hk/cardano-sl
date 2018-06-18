@@ -264,10 +264,13 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.CborSpec
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
                        Test.Pos.Core.LimitsSpec
+                       Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
 
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe

@@ -100,7 +100,7 @@ If this is the first time you are initializing the nix-shell, install `ghc` firs
 
 After that, in order to build Cardano SL with wallet capabilities, run the following script:
 
-    [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh
+    [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh --system-ghc
 
 Dependency version collisions have been encountered on macOS. If you run into something
 [like this](https://github.com/input-output-hk/cardano-sl/issues/2230#issuecomment-354881696),

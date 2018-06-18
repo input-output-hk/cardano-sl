@@ -15928,6 +15928,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , aeson
 , base
+, base58-bytestring
 , binary
 , bytestring
 , canonical-json
@@ -15977,6 +15978,7 @@ configureFlags = [
 libraryHaskellDepends = [
 aeson
 base
+base58-bytestring
 binary
 bytestring
 canonical-json
@@ -17582,6 +17584,7 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unliftio
 , unordered-containers
+, vector
 , wai
 , wai-websockets
 , warp
@@ -17658,6 +17661,7 @@ universum
 unix
 unliftio
 unordered-containers
+vector
 wai
 wai-websockets
 warp
@@ -17729,6 +17733,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl
 , cardano-sl-binary
 , cardano-sl-binary-test
+, cardano-sl-block
 , cardano-sl-chain
 , cardano-sl-client
 , cardano-sl-core
@@ -17842,6 +17847,7 @@ bytestring
 cardano-crypto
 cardano-sl
 cardano-sl-binary
+cardano-sl-block
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core

@@ -146,7 +146,7 @@ getAccountsIncludeUnready
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
 getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
-      void $ maybeThrow (noWallet cAddr) $
+      void $ maybeThrow (noSuchWallet cAddr) $
         getWalletMetaIncludeUnready ws includeUnready cAddr
     let accIds = maybe (getAccountIds ws) (getWalletAccountIds ws) mCAddr
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
@@ -155,10 +155,7 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
       accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey wid
       mapM (getAccountMod ws accMod) walAccIds
   where
-    noWallet cAddr = RequestError $
-        -- TODO No WALLET with id ...
-        -- dunno whether I can fix and not break compatible w/ daedalus
-        sformat ("No account with id "%build%" found") cAddr
+    noSuchWallet cAddr = NoSuchWalletError $ sformat build cAddr
 
 getAccounts
     :: MonadWalletLogicRead ctx m
@@ -352,8 +349,7 @@ createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     (mps, db, ws) <- getSnapshots
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
-    when wSetExists $
-        throwM $ RequestError "Wallet with that mnemonics already exists"
+    when wSetExists $ throwM (DuplicateWalletError $ sformat build cid)
     curTime <- liftIO getPOSIXTime
     createWallet db cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
@@ -365,13 +361,11 @@ markWalletReady
   => CId Wal -> Bool -> m NoContent
 markWalletReady cid isReady = do
     (_, db, ws) <- getSnapshots
-    _ <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws True cid
+    _ <- maybeThrow noSuchWallet $ getWalletMetaIncludeUnready ws True cid
     setWalletReady db cid isReady
     return NoContent
   where
-    noWallet = RequestError $
-        sformat ("markWalletReady: No wallet with that id "%build%" found") cid
-
+    noSuchWallet = NoSuchWalletError $ sformat build cid
 
 ----------------------------------------------------------------------------
 -- Deleters

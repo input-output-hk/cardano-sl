@@ -606,6 +606,14 @@ instance Ord EstimatedCompletionTime where
 instance Arbitrary EstimatedCompletionTime where
     arbitrary = EstimatedCompletionTime . MeasuredIn <$> arbitrary
 
+deriveSafeBuildable ''EstimatedCompletionTime
+instance BuildableSafeGen EstimatedCompletionTime where
+    buildSafeGen _ (EstimatedCompletionTime (MeasuredIn w)) = bprint ("{"
+        %" quantity="%build
+        %" unit=milliseconds"
+        %" }")
+        w
+
 instance ToJSON EstimatedCompletionTime where
     toJSON (EstimatedCompletionTime (MeasuredIn w)) =
         object [ "quantity" .= toJSON w
@@ -645,6 +653,14 @@ instance Ord SyncThroughput where
 
 instance Arbitrary SyncThroughput where
     arbitrary = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput <$> arbitrary
+
+deriveSafeBuildable ''SyncThroughput
+instance BuildableSafeGen SyncThroughput where
+    buildSafeGen _ (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) = bprint ("{"
+        %" quantity="%build
+        %" unit=blocksPerSecond"
+        %" }")
+        blocks
 
 instance ToJSON SyncThroughput where
     toJSON (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) =
@@ -692,7 +708,14 @@ instance ToSchema SyncProgress where
 deriveSafeBuildable ''SyncProgress
 -- Nothing secret to redact for a SyncProgress.
 instance BuildableSafeGen SyncProgress where
-    buildSafeGen _ sp = bprint build sp
+    buildSafeGen sl SyncProgress {..} = bprint ("{"
+        %" estimatedCompletionTime="%buildSafe sl
+        %" throughput="%buildSafe sl
+        %" percentage="%buildSafe sl
+        %" }")
+        spEstimatedCompletionTime
+        spThroughput
+        spPercentage
 
 instance Arbitrary SyncProgress where
   arbitrary = SyncProgress <$> arbitrary
@@ -881,7 +904,7 @@ instance Arbitrary AccountIndex where
 deriveSafeBuildable ''AccountIndex
 -- Nothing secret to redact for a AccountIndex.
 instance BuildableSafeGen AccountIndex where
-    buildSafeGen _ = bprint build
+    buildSafeGen _ = bprint build . getAccIndex
 
 instance ToParamSchema AccountIndex where
     toParamSchema _ = mempty

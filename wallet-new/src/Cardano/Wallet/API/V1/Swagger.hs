@@ -186,6 +186,9 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
 
 instance ToParamSchema WalletId
 
+instance ToSchema Core.Address where
+    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
+
 instance ToParamSchema Core.Address where
   toParamSchema _ = mempty
     & type_ .~ SwaggerString

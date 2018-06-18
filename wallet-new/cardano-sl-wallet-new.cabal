@@ -128,6 +128,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-networking
+                     , cardano-sl-node-ipc
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
@@ -153,7 +154,6 @@ library
                      , mtl
                      , neat-interpolation
                      , network-transport
-                     , node-ipc
                      , optparse-applicative
                      , QuickCheck
                      , reflection

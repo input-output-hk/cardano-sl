@@ -47,11 +47,6 @@ let
       kill $TAILPID
     '';
   });
-  # Enables building but not running of benchmarks when
-  # enableBenchmarks argument is true.
-  buildWithBenchmarks = drv: if enableBenchmarks
-    then doBenchmark (appendConfigureFlag drv "--enable-benchmarks")
-    else drv;
 
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
@@ -65,7 +60,7 @@ let
         ];
       });
 
-      cardano-sl = overrideCabal (buildWithBenchmarks super.cardano-sl) (drv: {
+      cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
@@ -77,16 +72,13 @@ let
         };
       });
 
-      cardano-sl-networking = buildWithBenchmarks super.cardano-sl-networking;
-      cardano-sl-block-bench = buildWithBenchmarks super.cardano-sl-block-bench;
-      cardano-sl-explorer = buildWithBenchmarks super.cardano-sl-explorer;
       cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
+      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -118,7 +110,15 @@ let
         # This will be the default in nixpkgs since
         # https://github.com/NixOS/nixpkgs/issues/29011
         enableSharedExecutables = false;
-      } // optionalAttrs (args ? src) {
+      } // optionalAttrs (enableBenchmarks && localLib.isCardanoSL args.pname) ({
+        # Enables building but not running of benchmarks for all
+        # cardano-sl packages when enableBenchmarks argument is true.
+        doBenchmark = true;
+        configureFlags = (args.configureFlags or []) ++ ["--enable-benchmarks"];
+      } // optionalAttrs (localLib.isBenchmark args) {
+        # Provide a dummy installPhase for benchmark packages.
+        installPhase = "mkdir -p $out";
+      }) // optionalAttrs (args ? src) {
         src = let
            cleanSourceFilter = with pkgs.stdenv;
              name: type: let baseName = baseNameOf (toString name); in ! (
@@ -167,6 +167,11 @@ let
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
     });
+    all-cardano-sl = pkgs.buildEnv {
+      name = "all-cardano-sl";
+      paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
+      ignoreCollisions = true;
+    };
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "avieth";

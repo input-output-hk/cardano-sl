@@ -16611,6 +16611,47 @@ description = "Cardano SL - infrastructural";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-infra-test" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-crypto
+, cardano-sl-infra
+, cardano-sl-util-test
+, containers
+, hedgehog
+, kademlia
+, memory
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-infra-test";
+version = "1.3.0";
+src = ./../infra/test;
+libraryHaskellDepends = [
+base
+bytestring
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-infra
+cardano-sl-util-test
+containers
+hedgehog
+kademlia
+memory
+universum
+];
+doHaddock = false;
+description = "Cardano SL - generators for cardano-sl-infra";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-lrc" = callPackage
 ({
   mkDerivation
@@ -17661,6 +17702,7 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , formatting
+, hedgehog
 , hspec
 , mtl
 , QuickCheck
@@ -17683,6 +17725,7 @@ bytestring
 cardano-sl-util
 cryptonite
 formatting
+hedgehog
 hspec
 mtl
 QuickCheck

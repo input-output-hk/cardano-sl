@@ -24,11 +24,12 @@ import           Universum
 
 import           Control.Exception (ErrorCall (..), Exception (..))
 import           Pos.ReportServer.Report (ReportType (..))
-import qualified Pos.Util.Log as Log
 
 import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
 import           Pos.Reporting.MemState ()
+import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Unstructured (LogItem, Severity (..), publicPrivateLogItem)
 
 -- | Encapsulates the sending of a report, with potential for side-effects.
 newtype Reporter m = Reporter
@@ -65,11 +66,11 @@ reportError = report . RError
 --
 -- NOTE: it doesn't rethrow an exception. If you are sure you need it,
 -- you can rethrow it by yourself.
-reportOrLog :: (Log.WithLogger m, MonadReporting m) => Log.Severity -> Text -> SomeException -> m ()
-reportOrLog severity prefix exc =
+reportOrLog :: (MonadReporting m) => Trace m LogItem -> Severity -> Text -> SomeException -> m ()
+reportOrLog logTrace severity prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
-        Nothing  -> Log.logMessage severity $ prefix <> pretty exc
+        Nothing  -> traceWith logTrace (publicPrivateLogItem (severity, prefix <> pretty exc))
   where
     tryCast ::
            forall e. Exception e
@@ -77,9 +78,9 @@ reportOrLog severity prefix exc =
     tryCast = toText . displayException <$> fromException @e exc
 
 -- | A version of 'reportOrLog' which uses 'Error' severity.
-reportOrLogE :: (Log.WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
-reportOrLogE = reportOrLog Log.Error
+reportOrLogE :: (MonadReporting m) => Trace m LogItem -> Text -> SomeException -> m ()
+reportOrLogE logTrace = reportOrLog logTrace Error
 
 -- | A version of 'reportOrLog' which uses 'Warning' severity.
-reportOrLogW :: (Log.WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
-reportOrLogW = reportOrLog Log.Warning
+reportOrLogW :: (MonadReporting m) => Trace m LogItem -> Text -> SomeException -> m ()
+reportOrLogW logTrace = reportOrLog logTrace Warning

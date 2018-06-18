@@ -39,7 +39,7 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (defaultOnNewSlotParams, getCurrentSlot, getSlotStartEmpatically,
-                               onNewSlot)
+                               onNewSlotNoLogging)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..), SscSharesParams (..))
@@ -96,7 +96,7 @@ onNewSlotSsc
     => Trace m (LogNamed LogItem)
     -> Diffusion m
     -> m ()
-onNewSlotSsc namedLogTrace = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
+onNewSlotSsc namedLogTrace = \diffusion -> onNewSlotNoLogging defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard logTrace "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate logTrace $ siEpoch slotId) $ do
@@ -184,9 +184,9 @@ onNewSlotCommitment logTrace slotId@SlotId {..} sendCommitment
             [ not . hasCommitment ourId <$> sscGetGlobalState
             , memberVss ourId <$> getStableCerts siEpoch]
         if shouldSendCommitment then
-            logDebugS "We should send commitment"
+            logDebugS logTrace "We should send commitment"
         else
-            logDebugS "We shouldn't send commitment"
+            logDebugS logTrace "We shouldn't send commitment"
         when shouldSendCommitment $ do
             ourCommitment <- SS.getOurCommitment siEpoch
             let stillValidMsg = "We shouldn't generate secret, because we have already generated it"
@@ -205,7 +205,7 @@ onNewSlotCommitment logTrace slotId@SlotId {..} sendCommitment
               sendOurCommitment comm
 
     sendOurCommitment comm = do
-        sscProcessOurMessage logTrace (sscProcessCommitment comm)
+        sscProcessOurMessage logTrace (sscProcessCommitment logTrace comm)
         sendOurData logTrace sendCommitment CommitmentMsg comm siEpoch 0
 
 -- Openings-related part of new slot processing
@@ -415,7 +415,7 @@ checkForIgnoredCommitmentsWorker
     -> m ()
 checkForIgnoredCommitmentsWorker logTrace = \_ -> do
     counter <- newTVarIO 0
-    onNewSlot defaultOnNewSlotParams (checkForIgnoredCommitmentsWorkerImpl logTrace counter)
+    onNewSlotNoLogging defaultOnNewSlotParams (checkForIgnoredCommitmentsWorkerImpl logTrace counter)
 
 -- This worker checks whether our commitments appear in blocks. This check
 -- is done only if we actually should participate in SSC. It's triggered if

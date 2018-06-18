@@ -22,7 +22,7 @@ import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting.Class (MonadSlots)
-import           Pos.Slotting.Util (defaultOnNewSlotParams, onNewSlotLogging)
+import           Pos.Slotting.Util (defaultOnNewSlotParams, onNewSlotNoLogging)
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logNotice)
 import           Pos.Util.Trace.Wlog (LogNamed, named)
@@ -56,7 +56,7 @@ dumpKademliaStateWorker
     -> KademliaDHTInstance
     -> Diffusion m
     -> m ()
-dumpKademliaStateWorker logTrace kademliaInst = \_ -> onNewSlot onsp $ \slotId ->
+dumpKademliaStateWorker logTrace kademliaInst = \_ -> onNewSlotNoLogging onsp $ \slotId ->
     when (isTimeToDump slotId) $ recoveryCommGuard (named logTrace) "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice (named logTrace) $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId

@@ -16,7 +16,7 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.Internal (getLinesLogged)
-import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.LoggerConfig (defaultTestConfiguration, defaultInteractiveConfiguration)
 import qualified Pos.Util.Trace as Tr
 import qualified Pos.Util.Trace.Named as Tn
 import qualified Pos.Util.Trace.Unstructured as Tu
@@ -107,14 +107,18 @@ example_unstructured = do
 -- | example: named context trace
 example_named :: IO ()
 example_named = do
-    logTrace' <- Tn.setupLogging (defaultTestConfiguration Log.Debug) "named"
+    logTrace' <- Tn.setupLogging (defaultInteractiveConfiguration Log.Debug) "named"
     Tn.logInfo logTrace' "entering"
-    complexWork logTrace' "42"
+    complexWork (Tn.appendName "complex" logTrace') "42"
+    -- ^ the named context will include "complex" in the logged message
     Tn.logInfo logTrace' "done."
     where
         --complexWork :: MonadIO m => TraceIO -> Text -> m ()
         complexWork tr msg = do
             Tn.logDebug tr ("let's see: " `append` msg)
+            if msg == "42" then
+                 complexWork (Tn.appendName "work" tr) "done."
+            else return ()
 
 
 spec :: Spec

@@ -5,12 +5,8 @@
 
 module Pos.Util.Trace.Named
     ( LogNamed (..)
-    --, namedTrace
     , setupLogging
-    , modifyName
     , appendName
-    , setName
-    , named
     -- * log functions
     , logDebug
     , logError
@@ -21,6 +17,7 @@ module Pos.Util.Trace.Named
 
 import           Universum
 import           Data.Functor.Contravariant (Op (..), contramap)
+import qualified Data.Text as T
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
 import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..), LogPrivacy (..))
@@ -30,11 +27,6 @@ data LogNamed item = LogNamed
     { lnName :: Log.LoggerName
     , lnItem :: item
     } deriving (Show)
-
-{-
-namedItem :: Log.LoggerName -> TrU.LogItem -> LogNamed TrU.LogItem
-namedItem ln li = LogNamed {lnName=ln, lnItem=li}
--}
 
 traceNamedItem
     :: Trace m (LogNamed TrU.LogItem)
@@ -62,18 +54,13 @@ modifyName k = contramap f
     f (LogNamed name item) = LogNamed (k name) item
 
 appendName :: Log.LoggerName -> Trace m (LogNamed i) -> Trace m (LogNamed i)
-appendName lname = modifyName (<> lname)
+appendName lname = modifyName (\e -> ('.' `T.cons` lname) <> e)
 
+{-
 setName :: Log.LoggerName -> Trace m (LogNamed i) -> Trace m (LogNamed i)
 setName name = modifyName (const name)
+-}
 
--- | Use a 'LogNamed'. A typical usage pattern is
---
---     named . appendName "world" . appendName "hello" $ wlogTrace
---       :: Trace IO LogItem
---
---   which will use the "hello"."world" logger name.
---
 named :: Trace m (LogNamed i) -> Trace m i
 named = contramap (LogNamed mempty)
 
@@ -82,19 +69,12 @@ setupLogging :: Log.LoggerConfig -> Log.LoggerName -> IO (Trace IO (LogNamed TrU
 setupLogging lc ln = do
     lh <- Log.setupLogging lc
     let nt = namedTrace lh
-    return $ setName ln nt
+    return $ appendName ln nt
 
--- FIXME needs exporting of 'logMCond' and 'LogHandlerTag' from
--- Pos.Util.Log or rewriting wlogTrace according to Katip API.
--- This removal breaks only 'lib/src/Pos/Launcher/Runner.hs'.
--- | A general log-warper-backed 'Trace', which allows for logging to public,
--- private, or both, and the choice of a 'LoggerName'.
--- NB: log-warper uses global shared mutable state. You have to initialize it
--- or else 'wlogTrace' won't do anything.
 namedTrace :: Log.LoggingHandler -> Trace IO (LogNamed TrU.LogItem)
 namedTrace lh = Trace $ Op $ \namedLogitem ->
     let --privacy = liPrivacy (lnItem namedLogitem)
-        loggerName = lnName namedLogitem
+        loggerName = T.tail $ lnName namedLogitem
         severity = TrU.liSeverity (lnItem namedLogitem)
         message = TrU.liMessage (lnItem namedLogitem)
     in

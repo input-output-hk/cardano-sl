@@ -266,9 +266,6 @@ test-suite cardano-test
                        -- Pos.Block testing
                        Test.Pos.Block.Identity.SafeCopySpec
 
-                       -- Core
-                       Test.Pos.Core.SlottingSpec
-
                        Test.Pos.Slotting.TypesSpec
 
                        -- Ssc

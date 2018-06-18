@@ -10,15 +10,14 @@ import           Test.Hspec (Expectation, Spec, anyErrorCall, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (===), (==>))
 
-import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), flattenSlotId,
-                           unflattenSlotId)
+import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), defaultCoreConfiguration,
+                           flattenSlotId, withGenesisSpec, unflattenSlotId)
 
-import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Slotting" $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

@@ -270,6 +270,7 @@ test-suite test
                        Test.Pos.Core.CoinSpec
                        Test.Pos.Core.LimitsSpec
                        Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
 
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe

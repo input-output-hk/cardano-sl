@@ -112,6 +112,7 @@ library
                      , aeson
                      , aeson-pretty
                      , async
+                     , base16-bytestring
                      , bytestring
                      , cardano-sl
                      , cardano-sl-block
@@ -129,6 +130,7 @@ library
                      , conduit
                      , connection
                      , containers
+                     , cryptonite
                      , data-default
                      , data-default-class
                      , exceptions

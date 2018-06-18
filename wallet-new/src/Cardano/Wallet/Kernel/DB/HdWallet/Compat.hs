@@ -32,7 +32,7 @@ hdRootsFromWalletStorage ws = do
      let wMeta = WS._wiMeta wi :: WebTypes.CWalletMeta
      rId <- case cIdWalToHdRootId cwalId of
         Nothing -> Left "cIdToHdRootId: bad 'CId Wal'"
-        Just x -> pure (Hdw.HdRootId (InDb x))
+        Just x -> pure x
      pure (Hdw.HdRoot
         { Hdw._hdRootId = rId
         , Hdw._hdRootName = Hdw.WalletName (WebTypes.cwName wMeta)

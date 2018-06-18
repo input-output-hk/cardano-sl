@@ -26,14 +26,10 @@ with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
-  addGitRev = subject:
-    subject.overrideAttrs (
-      drv: {
-        GITREV = gitrev;
-        librarySystemDepends = (drv.librarySystemDepends or []) ++ [ pkgs.git ];
-        executableSystemDepends = (drv.executableSystemDepends or []) ++ [ pkgs.git ];
-      }
-    );
+  justStaticExecutablesGitRev = import ./scripts/set-git-rev {
+    inherit pkgs gitrev;
+    inherit (cardanoPkgs) ghc;
+  };
   addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
     testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
     preCheck = ''
@@ -72,21 +68,19 @@ let
         };
       });
 
-      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-wallet-static = justStaticExecutablesGitRev super.cardano-sl-wallet;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
-      # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
-      cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
-      cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
-      cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
+      cardano-sl-auxx = justStaticExecutablesGitRev super.cardano-sl-auxx;
+      cardano-sl-wallet-new = justStaticExecutablesGitRev super.cardano-sl-wallet-new;
+      cardano-sl-tools = justStaticExecutablesGitRev (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-      })));
+      }));
 
-      cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
-      cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
-      cardano-report-server-static = justStaticExecutables self.cardano-report-server;
+      cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
+      cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
+      cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin
       # This is needed for macOS binary not to fail during update system (using http-client-tls)

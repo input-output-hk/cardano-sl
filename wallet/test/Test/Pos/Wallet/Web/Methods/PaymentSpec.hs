@@ -14,7 +14,6 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
 import           Universum
 
 import           Control.Exception.Safe (try)
-import           Data.Default (def)
 import           Data.List ((!!), (\\))
 import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
@@ -61,7 +60,7 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = withCompileInfo def $
+spec = withCompileInfo $
        withDefConfigurations $ \_ _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do

@@ -45,7 +45,6 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens (lens, makeClassy, makeLensesWith)
-import           Data.Default (def)
 import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Data.Time.Units (TimeUnit (..))
@@ -506,9 +505,9 @@ instance MonadBListener BlockTestMode where
 type instance MempoolExt BlockTestMode = EmptyMempoolExt
 
 instance HasConfigurations => MonadTxpLocal (BlockGenMode EmptyMempoolExt BlockTestMode) where
-    txpNormalize = withCompileInfo def $ txNormalize
-    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+    txpNormalize = withCompileInfo $ txNormalize
+    txpProcessTx = withCompileInfo $ txProcessTransactionNoLock
 
 instance HasConfigurations => MonadTxpLocal BlockTestMode where
-    txpNormalize = withCompileInfo def $ txNormalize
-    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+    txpNormalize = withCompileInfo $ txNormalize
+    txpProcessTx = withCompileInfo $ txProcessTransactionNoLock

@@ -45,13 +45,14 @@ hdRootsFromWalletStorage ws = do
             InDb (review Core.timestampSeconds (WS._wiCreationTime wi))
         })
 
-cIdWalToHashPublicKey :: CId Wal -> Maybe (AbstractHash Blake2b_224 PublicKey)
+cIdWalToHashPublicKey
+  :: WebTypes.CId WebTypes.Wal -> Maybe (AbstractHash Blake2b_224 PublicKey)
 cIdWalToHashPublicKey (WebTypes.CId (WebTypes.CHash t0)) = do
    bs0 <- decodeBase16 (T.encodeUtf8 t0)
    dig <- digestFromByteString bs0
    pure (AbstractHash dig)
 
-cIdWalToHdRootId :: CId Wal -> Maybe Hdw.HdRootId
+cIdWalToHdRootId :: WebTypes.CId WebTypes.Wal -> Maybe Hdw.HdRootId
 cIdWalToHdRootId = fmap (Hdw.HdRootId . InDb) . cIdWalToHashPublicKey
 
 decodeBase16 :: B.ByteString -> Maybe B.ByteString

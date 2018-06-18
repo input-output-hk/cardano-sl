@@ -3,17 +3,19 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Restore
   ) where
 
 
-import Crypto.Hash (Blake2b_224)
+import Crypto.Hash (Blake2b_224, digestFromByteString)
+import qualified Data.Text.Encoding as T
 import System.Wlog (Severity)
 import Universum
 
 import qualified Pos.Core as Core
-import Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, PublicKey)
+import Pos.Crypto
+  (AbstractHash(AbstractHash), EncryptedSecretKey, PassPhrase, PublicKey)
 import qualified Pos.Txp.Toil.Types
 import Pos.Wallet.Web.Account (genSaveRootKey)
 import Pos.Wallet.Web.ClientTypes
   (CId, CWallet (..), CWalletInit (..), CWalletMeta (..), Wal, mkCCoin,
-   CWalletAssurance(CWANormal, CWAStrict), encToCId)
+   CWalletAssurance(CWANormal, CWAStrict), CHash(CHash), CId(CId), encToCId)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 
 import Cardano.Wallet.Kernel
@@ -38,7 +40,9 @@ restoreWalletFromSeed logf passphrase cwInit = do
   let cWM :: CWalletMeta = cwInitMeta cwInit
   esk :: EncryptedSecretKey <- genSaveRootKey passphrase (cwBackupPhrase cwInit)
   let cIdWal :: CId Wal = encToCId esk
-  let cIdWalToHashPublicKey :: CId Wal -> AbstractHash Blake2b_224 PublicKey = undefined
+  ah <- case cIdWalToHashPublicKey cIdWal of
+     Nothing -> error "TODO error 400 something"
+     Just x -> pure x
   bracketPassiveWallet logf $ \pw -> do
      ea <- liftIO $ createWalletHdRnd
         (pw :: PassiveWallet)
@@ -47,7 +51,8 @@ restoreWalletFromSeed logf passphrase cwInit = do
         (case cwAssurance cWM of
             CWAStrict -> HdW.AssuranceLevelStrict
             CWANormal -> HdW.AssuranceLevelNormal)
-        (cIdWalToHashPublicKey cIdWal, esk)
+        (ah, esk)
+        -- TODO: Utxo
         (mempty :: Pos.Txp.Toil.Types.Utxo)
      case ea of
         Left _ -> error "TODO error 400 something"
@@ -62,6 +67,9 @@ restoreWalletFromSeed logf passphrase cwInit = do
               , cwPassphraseLU = let InDb x = HdW._hdRootCreatedAt hdRoot
                                  in view Core.timestampSeconds x }
 
+cIdWalToHashPublicKey :: CId Wal -> Maybe (AbstractHash Blake2b_224 PublicKey)
+cIdWalToHashPublicKey (CId (CHash t0)) = do
+   AbstractHash <$> digestFromByteString (T.encodeUtf8 t0)
 
 -- restoreWallet :: ( L.MonadWalletLogic ctx m
 --                  , MonadUnliftIO m

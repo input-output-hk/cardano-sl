@@ -21,7 +21,8 @@ import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount (..), NewWallet (..), V1 (..), Wallet,
-                                              WalletId, WalletOperation (..), WalletUpdate)
+                                              WalletId, WalletOperation (..), WalletType (..),
+                                              WalletUpdate)
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
@@ -152,10 +153,12 @@ pwlGetWallet wId = do
 
     cWId        <- migrate wId
     wallet      <- V0.getWallet cWId
+    itIsExternal <- V0.isWalletExternal cWId
 
     pure $ do
-        walletInfo  <- getWalletInfo cWId ws
-        migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+        walletInfo <- getWalletInfo cWId ws
+        let walletType = if itIsExternal then WalletExternal else WalletRegular
+        migrate (wallet, walletInfo, walletType, Nothing @ChainDifficulty)
 
 --instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
 

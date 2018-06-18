@@ -66,8 +66,8 @@ instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmp
         ]
     eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
-instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
-    eitherMigrate (V0.CWallet{..}, OldStorage.WalletInfo{..}, currentBlockchainHeight) =
+instance Migrate (V0.CWallet, OldStorage.WalletInfo, V1.WalletType, Maybe Core.ChainDifficulty) V1.Wallet where
+    eitherMigrate (V0.CWallet{..}, OldStorage.WalletInfo{..}, walletType, currentBlockchainHeight) =
         V1.Wallet <$> eitherMigrate cwId
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
@@ -76,6 +76,7 @@ instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty)
                   <*> eitherMigrate _wiCreationTime
                   <*> eitherMigrate (V0.cwAssurance _wiMeta)
                   <*> eitherMigrate (_wiSyncState, _wiSyncStatistics, currentBlockchainHeight)
+                  <*> pure walletType
 
 instance Migrate (OldStorage.WalletSyncState, OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.SyncState where
     eitherMigrate (wss, stats, currentBlockchainHeight) =

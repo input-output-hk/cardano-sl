@@ -269,6 +269,7 @@ test-suite test
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
                        Test.Pos.Core.LimitsSpec
+                       Test.Pos.Core.SeedSpec
 
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe

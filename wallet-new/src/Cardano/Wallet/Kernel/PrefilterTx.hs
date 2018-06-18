@@ -145,7 +145,7 @@ prefilterUtxo' wid utxo
 prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId PrefilteredUtxo
 prefilterUtxo rootId esk utxo = map toPrefilteredUtxo (prefilterUtxo' wKey utxo)
     where
-        wKey = (WalletIdHdRnd rootId, eskToWalletDecrCredentials esk)
+        wKey = (WalletIdHdRnd rootId, keyToWalletDecrCredentials $ Right esk)
 
 -- | Prefilter resolved transaction pairs
 prefilterResolvedTxPairs :: WalletKey

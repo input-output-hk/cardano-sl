@@ -16,7 +16,6 @@ import qualified Data.Text.Encoding as T
 
 import qualified Pos.Core as Core
 import Pos.Crypto (AbstractHash(AbstractHash), PublicKey)
-import Pos.Crypto.Hashing (decodeAbstractHash)
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import qualified Pos.Wallet.Web.State.Storage as WS
 

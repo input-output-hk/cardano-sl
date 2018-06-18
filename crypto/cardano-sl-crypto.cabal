@@ -19,6 +19,7 @@ library
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
+                       Pos.Crypto.Limits
                        Pos.Crypto.Orphans
                        Pos.Crypto.Random
                        Pos.Crypto.SecretSharing

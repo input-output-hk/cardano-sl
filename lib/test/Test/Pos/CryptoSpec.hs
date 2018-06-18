@@ -17,8 +17,8 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
 import           Pos.Binary (AsBinary, Bi)
-import           Pos.Communication.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey,
-                                           mlSecret, mlSignature, mlVssPublicKey)
+import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey, mlSecret,
+                                    mlSignature, mlVssPublicKey)
 import qualified Pos.Crypto as Crypto
 import           Pos.SafeCopy ()
 import           Pos.Ssc ()

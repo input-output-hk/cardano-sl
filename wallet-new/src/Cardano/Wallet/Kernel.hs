@@ -24,6 +24,8 @@ module Cardano.Wallet.Kernel (
   , ActiveWallet -- opaque
   , bracketActiveWallet
   , newPending
+  -- * Misc
+  , getCurrentTimestamp
   ) where
 
 import           Universum hiding (State, init)
@@ -157,25 +159,23 @@ createWalletHdRnd :: PassiveWallet
                   -> AssuranceLevel
                   -> (AddressHash PublicKey, EncryptedSecretKey)
                   -> Utxo
-                  -> IO (Either HD.CreateHdRootError [HdAccountId])
+                  -> IO (Either HD.CreateHdRootError (HdRoot, [HdAccountId]))
 createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,esk) utxo = do
     created <- InDb <$> getCurrentTimestamp
+    let rootId = HD.HdRootId (InDb pk)
     let newRoot = HD.initHdRoot rootId name spendingPassword assuranceLevel created
-
+    let utxoByAccount = prefilterUtxo rootId esk utxo
     res <- update' _wallets $ CreateHdWallet newRoot utxoByAccount
-    either (return . Left) insertESK res
-    where
-        utxoByAccount = prefilterUtxo rootId esk utxo
-        accountIds    = Map.keys utxoByAccount
-
-        rootId        = HD.HdRootId . InDb $ pk
-        walletId      = WalletIdHdRnd rootId
-
-        insertESK _arg = insertWalletESK pw walletId esk >> return (Right accountIds)
+    case res of
+       Left e -> pure (Left e)
+       Right () ->  do
+          let walletId = WalletIdHdRnd rootId
+          insertWalletESK pw walletId esk
+          pure (Right (newRoot, Map.keys utxoByAccount))
 
 -- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
-getCurrentTimestamp :: IO Timestamp
-getCurrentTimestamp = Timestamp . round . (* 1000000) <$> getPOSIXTime
+getCurrentTimestamp :: MonadIO m => m Timestamp
+getCurrentTimestamp = Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation

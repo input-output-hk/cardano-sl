@@ -27,6 +27,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
+  , WalletName
   , AssuranceLevel (..)
   , NewWallet (..)
   , WalletUpdate (..)

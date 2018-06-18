@@ -11,7 +11,6 @@ module Cardano.Wallet.Kernel.Actions
     , isValidState
     ) where
 
-import           Universum
 import           Control.Monad.Morph (MFunctor(hoist))
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan

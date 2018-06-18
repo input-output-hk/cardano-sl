@@ -22,6 +22,7 @@ library
                        Pos.Crypto.Limits
                        Pos.Crypto.Orphans
                        Pos.Crypto.Random
+                       Pos.Crypto.SafeCopy
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Signing
                        Pos.Crypto.Signing.Redeem
@@ -48,6 +49,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-util
                      , cborg
+                     , cereal
                      , cryptonite
                      , cryptonite-openssl
                      , data-default
@@ -59,6 +61,7 @@ library
                      , mtl
                      , pvss
                      , reflection
+                     , safecopy
                      , safe-exceptions
                      , scrypt
                      , serokell-util

@@ -247,10 +247,10 @@ proxy verbose local remote = loop
           resp <- fwdLoadCall verbose local remote msg'
           reply resp
           loop
-        LoadDLL path | isAbsolute path -> do
-          resp <- fwdLoadCall verbose local remote msg'
-          reply resp
-          loop
+        -- LoadDLL path | isAbsolute path -> do
+        --   resp <- fwdLoadCall verbose local remote msg'
+        --   reply resp
+        --   loop
         Shutdown{}    -> fwdCall msg' >> return ()
         _other        -> fwdCall msg' >>= reply >> loop
 

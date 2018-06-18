@@ -1,8 +1,10 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Delegation types.
 
-module Pos.Arbitrary.Delegation
+module Test.Pos.Delegation.Arbitrary
        ( genDlgPayload
        ) where
 

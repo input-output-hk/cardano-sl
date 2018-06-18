@@ -27,7 +27,6 @@ import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Delegation (genDlgPayload)
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
                                     genSscPayloadForSlot)
 import           Pos.Arbitrary.Update (genUpdatePayload)
@@ -44,6 +43,7 @@ import           Pos.Data.Attributes (areAttributesKnown)
 
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Txp.Arbitrary (genTxPayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot

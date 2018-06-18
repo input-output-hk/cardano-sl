@@ -31,6 +31,7 @@ packages:
 - txp/test
 - update
 - delegation
+- delegation/test
 - block
 - block/test
 - block/bench

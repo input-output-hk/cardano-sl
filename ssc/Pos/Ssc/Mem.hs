@@ -68,7 +68,9 @@ type SscLocalQuery a = forall m . Monad m =>
     ReaderT SscLocalData m a
 
 type SscLocalUpdate a =
-    forall m . (MonadState SscLocalData m, Rand.MonadRandom m) => m a
+    {-forall m . (MonadState SscLocalData m, Rand.MonadRandom m) => m a -}
+    WriterT (DList LogItem) (StateT SscLocalData (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+
 
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.

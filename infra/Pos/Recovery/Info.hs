@@ -14,9 +14,10 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
-import           Pos.Util.Log (WithLogger, logDebug)
 
 import           Pos.Core (SlotCount, SlotId, slotIdF, slotSecurityParam, HasProtocolConstants)
+import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.
@@ -92,13 +93,13 @@ getSyncStatusK = getSyncStatus lagBehindParam
 -- kinda synchronized with the network.  It is useful for workers
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo m, WithLogger m, HasProtocolConstants)
-    => Text -> m () -> m ()
-recoveryCommGuard actionName action =
+    :: (MonadRecoveryInfo m, HasProtocolConstants)
+    => Trace m LogItem -> Text -> m () -> m ()
+recoveryCommGuard logTrace actionName action =
     getSyncStatusK >>= \case
         SSKindaSynced -> action
         status ->
-            logDebug $
+            logDebug logTrace $
             sformat ("recoveryCommGuard: we are skipping action '"%stext%
                      "', because "%build) actionName status
 

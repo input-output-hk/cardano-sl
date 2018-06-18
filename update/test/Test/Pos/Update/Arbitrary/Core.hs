@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for Update System core types.
 
-module Pos.Arbitrary.Update.Core
+module Test.Pos.Update.Arbitrary.Core
        ( genUpdatePayload
        , genUpdateVote
        , genUpdateProposal

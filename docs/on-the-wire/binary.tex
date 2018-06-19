@@ -492,9 +492,9 @@ of verification for the various components in the block body.
     \}
 
     <$\bbodies$> = \{
-    \fld txPayload :: $\lists{\txs}\times\lists{\lists{\twit}}$
+    \fld txPayload :: $\lists{\txs\times\lists{\twit}}$
     \fld sscPayload :: $\ssc$
-    \fld dlgPayload ::$\dlg$
+    \fld dlgPayload ::$\lists{\dlg}$
     \fld updPayload :: $\upd$
     \}
 
@@ -507,7 +507,7 @@ of verification for the various components in the block body.
   \end{grammar}
 \end{figure}
 
-\subsection{Epoch Boundary Blocks}
+\subsubsection{Epoch Boundary Blocks}
 
 In addition to regular blocks, epoch boundary blocks contain a list of slot
 leaders for a given epoch. They are not conventionally distributed as part of
@@ -561,6 +561,11 @@ of the on-the-wire protocol.
   \textit{RFC 7049 Concise Binary Object Representation}.
   \url{http://cbor.io}
 
+\bibitem{cddl}
+  \textit{Concise data definition language (CDDL): a notational
+    convention to express CBOR data structures}
+  \url{https://tools.ietf.org/html/draft-ietf-cbor-cddl-00}
+
 \end{thebibliography}
 
 \begin{appendices}
@@ -570,19 +575,24 @@ of the on-the-wire protocol.
   This section documents the current binary serialisation format, as of
   2018-06-03.
 
-  The current blockchain is serialized using CBOR\cite{cbor}. Primitive types
-  are mapped to their CBOR equivalents: the various sized word types are mapped
-  to unsigned integer types of the correct size. Arbitrary precision integers
-  are encoded as unsigned 64-bit values if they fit within this length,
-  otherwise as a bignum as per section 2.4.2 of the CBOR spec. Booleans are
-  encoded as CBOR major type 7 with additional values of 20 for False and 21 for
-  True, as per section 2.3.
+  The current blockchain is serialized using CBOR\cite{cbor}. Consequently we
+  present the current description as a CDDL\cite{cddl} document. Terms in use
+  below should be interpreted in that context and with reference to Appendix E
+  of \cite{cddl}, which defines a standard prelude available to such things.
 
-  $\String$ and $\Bytes$ types are encoded as major types 3 and 2 respectively.
+  % Primitive types
+  % are mapped to their CBOR equivalents: the various sized word types are mapped
+  % to unsigned integer types of the correct size. Arbitrary precision integers
+  % are encoded as unsigned 64-bit values if they fit within this length,
+  % otherwise as a bignum as per section 2.4.2 of the CBOR spec. Booleans are
+  % encoded as CBOR major type 7 with additional values of 20 for False and 21 for
+  % True, as per section 2.3.
 
-  Arrays are stored as CBOR major type 4.
+  % $\String$ and $\Bytes$ types are encoded as major types 3 and 2 respectively.
 
-  Blake2b-256 hashes are stored directly as an array of 32 bytes.
+  % Arrays are stored as CBOR major type 4.
+
+  % Blake2b-256 hashes are stored directly as an array of 32 bytes.
 
   \subsection{Addresses}
 

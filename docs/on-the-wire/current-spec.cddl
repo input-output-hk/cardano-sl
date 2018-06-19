@@ -1,0 +1,169 @@
+mainblock = [ "header" : blockheader
+            , "body" : blockbody
+            , "extra" : any
+            ]
+
+u8 = #0.24(uint)
+u16 = #0.25(uint)
+u32 = #0.26(uint)
+u64 = #0.64(uint)
+
+; Basic Cardano Types
+
+blake2b-256 = bytes .size 256
+
+txid = blake2b-256
+blockid = blake2b-256
+updid = blake2b-256
+hash = blake2b-256
+
+blake2b-224 = bytes .size 224
+
+addressid = blake2b-224
+stakeholderid = blake2b-224
+
+epochid = u64
+slotid = [ epoch: epochid, slot : u64 ]
+
+pubkey = bytes
+signature = bytes
+
+; Attributes - at the moment we do not bother deserialising these, since they
+; don't contain anything
+
+attributes = any
+
+; Addresses
+
+addrdistr = [1] / [0, stakeholderid]
+
+addrtype = &("PubKey" : 0, "Script" : 1, "Redeem" : 2) / (u64 .gt 2)
+addrattr = any ;;TODO
+address = [ [addressid, addrattr, addrtype], u64 ]
+
+; Transactions
+
+txin = [0, [txid, u32]] / [u8 .ne 0, bytes]
+
+tx = [[txin], [addressid, u64], attributes]
+
+txproof = [u32, hash, hash]
+
+twit = [0, [pubkey, signature]]
+     / [1, [[u16, bytes], [u16, bytes]]
+     / [2, [pubkey, signature]]
+     / [u8 .gt 2, bytes]
+
+; Shared Seed Computation
+
+vsspubkey = bytes ; This is encoded using the 'Binary' instance for Scrape.PublicKey
+vsssec = bytes ; This is encoded using the 'Binary' instance for Scrape.Secret
+vssenc = bytes ; This is encoded using the 'Binary' instance for Scrape.EncryptedSi
+vssdec = bytes ; This is encoded using the 'Binary' instance for Scrape.DecryptedShare
+vssproof = bytes ; This is encoded using the 'Binary' instance for Scrape.Proof
+
+ssccomm = [vsspubkey, [{vsspubkey => vssenc},vssproof], signature]
+ssccomms = #6.258([* [addressid, ssccomm]])
+
+sscopen = [addressid, vsssec]
+sscopens = #6.258([* sscopen])
+
+sscshare = [addressid, [addressid, [* vssdec]]]
+sscshares = #6.258([* sscshare])
+
+ssccert = [vsspubkey, pubkey, epochid, signature]
+ssccerts = #6.258([* ssccert])
+
+ssc = [0, ssccomms, ssccerts]
+    / [1, sscopens, ssccerts]
+    / [2, sscshares, ssccerts]
+    / [3, ssccerts]
+
+sscproof = [0, [hash, hash]]
+         / [1, [hash, hash]]
+         / [2, [hash, hash]]
+         / [3, hash]
+
+
+; Delegation
+
+dlg = [ epoch : epochid
+      , issuer : publickey
+      , delegate : publickey
+      , certificate : signature
+      ]
+
+dlgsig = [dlg, signature]
+
+lwdlg = [ epochRange : [epochid, epochid]
+        , issuer : publickey
+        , delegate : publickey
+        , certificate : signature
+        ]
+
+lwdlgsig = [lwdlg, signature]
+
+; Updates
+
+bver = [u16, u16, u8]
+
+txfeepol = [0, [bigint, bigint]]
+         / [u8 .gt 0, bytes]
+
+bvermod = [ ? scriptVersion : u16
+          , ? slotDuration : bigint
+          , ? maxBlockSize : bigint
+          , ? maxHeaderSize  : bigint
+          , ? maxTxSize : bigint
+          , ? maxProposalSize : bigint
+          , ? mpcThd : u64
+          , ? heavyDelThd : u64
+          , ? updateVoteThd : u64
+          , ? updateProposalThd : u64
+          , ? updateImplicit : u64
+          , ? softForkRule : [u64, u64, u64]
+          , ? txFeePolicy : txfeepol
+          , ? unlockStakeEpoch : epochid
+          ]
+
+updata = [ hash, hash, hash, hash ]
+
+upprop = [ "blockVersion" : bver
+         , "blockVersionMod" : bvermod
+         , "softwareVersion" : [ text, u32 ]
+         , "data" : #6.258([text, updata])
+         , "attributes" : attributes
+         , "from" : pubkey
+         , "signature" : signature
+         ]
+
+upvote = [ "voter" : pubkey
+         , "proposalId" : updid
+         , "vote" : bool
+         , "signature" : signature
+         ]
+
+up = [ ? "proposal" :  upprop
+     , votes : [* upvote]
+     ]
+
+; Blocks
+
+blocksig = [0, signature]
+         / [1, lwdlgsig]
+         / [2, dlsig]
+
+blockcons = [slotid, pubkey, u64, blocksig]
+
+blockheader = [ "protocolMagic" : u32
+              , "blockVersion" : bver
+              , "softwareVersion" : [ text, u32 ]
+              , "extraProof" : hash
+              , "attributes" : attributes
+              ]
+
+blockbody = [ "txPayload" : [* [tx, [* twit]]]
+            , "sscPayload" : ssc
+            , "dlgPayload" : [* dlg]
+            , "updPayload" : up
+            ]

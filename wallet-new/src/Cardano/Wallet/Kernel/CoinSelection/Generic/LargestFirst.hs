@@ -22,9 +22,10 @@ import           Cardano.Wallet.Kernel.CoinSelection.Generic
 largestFirst :: (Monad m, PickFromUtxo utxo)
              => Int                 -- ^ Maximum number of inputs
              -> [Output (Dom utxo)] -- ^ Outputs to include
-             -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
+             -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
+                  [CoinSelResult (Dom utxo)]
 largestFirst = coinSelPerGoal $ \maxNumInputs goal ->
-    defCoinSelResult goal <$> 
+    defCoinSelResult goal <$>
       atLeast maxNumInputs (outVal goal)
 
 {-------------------------------------------------------------------------------
@@ -46,11 +47,13 @@ largestFirst = coinSelPerGoal $ \maxNumInputs goal ->
 atLeast :: forall utxo m. (Monad m, PickFromUtxo utxo)
         => Int
         -> Value (Dom utxo)
-        -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
+        -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m (SelectedUtxo (Dom utxo))
 atLeast maxNumInputs targetMin = do
     utxo <- get
     case go emptySelection utxo (pickLargest maxNumInputs utxo) of
-      Nothing -> throwError CoinSelHardErr
+      Nothing -> throwError $ CoinSelHardErrUtxoExhausted
+                                (utxoBalance utxo)
+                                targetMin
       Just (selected, remainingUtxo) -> do
         put remainingUtxo
         return selected

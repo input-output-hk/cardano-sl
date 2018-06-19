@@ -91,7 +91,7 @@ import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum
 
-import           Cardano.Wallet.Kernel.Util
+import           Cardano.Wallet.Kernel.Util (at, restrictKeys, withoutKeys)
 import           Util.Validated
 
 {-------------------------------------------------------------------------------

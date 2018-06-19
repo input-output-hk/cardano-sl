@@ -37,7 +37,7 @@ import           Cardano.Wallet.Kernel.CoinSelection.Generic
 --
 -- Invariant: none of the nested 'Utxo' should be empty.
 newtype SortedUtxo dom = SortedUtxo {
-      sorted  :: Map (Value dom) (Map (Input dom) (Output dom))
+      sorted :: Map (Value dom) (Map (Input dom) (Output dom))
     }
 
 instance CoinSelDom dom => PickFromUtxo (SortedUtxo dom) where
@@ -45,6 +45,7 @@ instance CoinSelDom dom => PickFromUtxo (SortedUtxo dom) where
 
   pickRandom  = error "pickRandom not implemented for SortedUtxo"
   pickLargest = nLargest
+  utxoBalance = balance
 
 {-------------------------------------------------------------------------------
   Basic operations

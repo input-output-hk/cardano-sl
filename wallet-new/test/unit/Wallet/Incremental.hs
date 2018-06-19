@@ -26,7 +26,8 @@ import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
-import           Cardano.Wallet.Kernel.Util
+import           Cardano.Wallet.Kernel.Util (disjoint)
+
 import           UTxO.DSL
 import           Wallet.Abstract
 import qualified Wallet.Basic as Basic

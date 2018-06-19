@@ -15,6 +15,7 @@ module InputSelection.FromGeneric (
 
 import           Universum
 
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build)
@@ -54,6 +55,7 @@ instance CoinSelDom (DSL h a) => PickFromUtxo (DSL.Utxo h a) where
                       mapRandom (DSL.utxoToMap u)
   pickLargest n u = fmap (bimap identity DSL.utxoFromMap) $
                       nLargestFromMapBy DSL.outVal n (DSL.utxoToMap u)
+  utxoBalance     = Value . DSL.utxoBalance
 
 {-------------------------------------------------------------------------------
   Auxiliary: safe wrapper around values
@@ -92,7 +94,7 @@ runCoinSelT :: forall utxo e h a m.
             => a      -- ^ Change address
             -> CoinSelT utxo e m [CoinSelResult (Dom utxo)]
             -> utxo   -- ^ Available UTxO
-            -> m (Either e ((DSL.Transaction h a, TxStats), utxo))
+            -> m (Either e (DSL.Transaction h a, TxStats, utxo))
 runCoinSelT changeAddr policy utxo = do
     mSelection <- unwrapCoinSelT policy utxo
     case mSelection of
@@ -100,7 +102,7 @@ runCoinSelT changeAddr policy utxo = do
       Right (cssWithDust, utxo') -> do
           let css = map (coinSelRemoveDust valueZero) cssWithDust
           tx <- mkTx changeAddr css
-          return $ Right ((tx, deriveTxStats css), utxo')
+          return $ Right (tx, deriveTxStats css, utxo')
 
 mkTx :: forall h a m. (GenHash m, CoinSelDom (DSL h a))
      => a -> [CoinSelResult (DSL h a)] -> m (DSL.Transaction h a)
@@ -136,18 +138,20 @@ random :: (MonadRandom m, GenHash m, Dom utxo ~ DSL h a, PickFromUtxo utxo)
        => PrivacyMode
        -> a     -- ^ Change address
        -> Int   -- ^ Maximum number of inputs
-       -> CoinSelPolicy utxo m (DSL.Transaction h a, TxStats)
+       -> CoinSelPolicy utxo m (DSL.Transaction h a, TxStats, utxo)
 random privacy changeAddr maxInps =
       runCoinSelT changeAddr
     . Generic.random privacy maxInps
+    . NE.toList
 
 largestFirst :: (GenHash m, Dom utxo ~ DSL h a, PickFromUtxo utxo)
              => a     -- ^ Change address
              -> Int   -- ^ Maximum number of inputs
-             -> CoinSelPolicy utxo m (DSL.Transaction h a, TxStats)
+             -> CoinSelPolicy utxo m (DSL.Transaction h a, TxStats, utxo)
 largestFirst changeAddr maxInps =
       runCoinSelT changeAddr
     . Generic.largestFirst maxInps
+    . NE.toList
 
 {-------------------------------------------------------------------------------
   Pretty-printing

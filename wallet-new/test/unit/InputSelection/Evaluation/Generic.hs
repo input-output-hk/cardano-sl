@@ -67,6 +67,7 @@ import           Universum
 import           Control.Lens ((%=), (+=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Data.Conduit
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Text.IO as Text
 import           Formatting (build, sformat, (%))
@@ -137,7 +138,6 @@ class ( PickFromUtxo utxo
       , Buildable utxo
       ) => IsUtxo utxo where
   utxoSize    :: utxo -> Int
-  utxoBalance :: utxo -> Value (Dom utxo)
   utxoOutputs :: utxo -> [Value (Dom utxo)]
   utxoFromMap :: Map (Input (Dom utxo)) (Output (Dom utxo)) -> utxo
   utxoToMap   :: utxo -> Map (Input (Dom utxo)) (Output (Dom utxo))
@@ -145,7 +145,6 @@ class ( PickFromUtxo utxo
 
 instance (CoinSelDom dom, ValueToDouble dom) => IsUtxo (SortedUtxo dom) where
   utxoSize    = Sorted.size
-  utxoBalance = Sorted.balance
   utxoOutputs = Sorted.outputs
   utxoFromMap = Sorted.fromMap
   utxoToMap   = Sorted.toMap
@@ -332,7 +331,7 @@ data CoinSelSummary dom = CoinSelSummary {
 -- | Composite coin selection policy
 data CompSelPolicy utxo m = CompSelPolicy {
       -- | Current policy
-      currentPolicy :: CoinSelPolicy utxo m (CoinSelSummary (Dom utxo))
+      currentPolicy :: CoinSelPolicy utxo m (CoinSelSummary (Dom utxo), utxo)
 
       -- | Tell the policy we reached the end of a slot
       --
@@ -350,7 +349,7 @@ data NextPolicy utxo m =
       ChangePolicy (utxo -> utxo') (CompSelPolicy utxo' m)
 
 simpleCompPolicy :: forall utxo m. IsUtxo utxo
-                 => CoinSelPolicy utxo m (CoinSelSummary (Dom utxo))
+                 => CoinSelPolicy utxo m (CoinSelSummary (Dom utxo), utxo)
                  -> CompSelPolicy utxo m
 simpleCompPolicy p = go
   where
@@ -360,8 +359,8 @@ simpleCompPolicy p = go
 firstThen :: forall utxo utxo' m.
              (IsUtxo utxo, IsUtxo utxo', Dom utxo ~ Dom utxo')
           => Int
-          -> CoinSelPolicy utxo  m (CoinSelSummary (Dom utxo))
-          -> CoinSelPolicy utxo' m (CoinSelSummary (Dom utxo'))
+          -> CoinSelPolicy utxo  m (CoinSelSummary (Dom utxo) , utxo)
+          -> CoinSelPolicy utxo' m (CoinSelSummary (Dom utxo'), utxo')
           -> CompSelPolicy utxo  m
 firstThen changeAfter p p' = goP changeAfter
   where
@@ -441,7 +440,7 @@ intPolicy shouldRender =
 
     -- Interpret single event
     intEvent :: IsUtxo utxo'
-             => CoinSelPolicy utxo' m (CoinSelSummary (Dom utxo'))
+             => CoinSelPolicy utxo' m (CoinSelSummary (Dom utxo'), utxo')
              -> Event (Dom utxo')
              -> StrictStateT (IntState utxo') m Bool
     intEvent f = \case
@@ -456,7 +455,7 @@ intPolicy shouldRender =
         return True
       Pay outs -> do
         utxo <- use stUtxo
-        mtx  <- lift $ f outs utxo
+        mtx  <- lift $ f (NE.fromList outs) utxo
         case mtx of
           Right (CoinSelSummary{..}, utxo') -> do
             stUtxo                   .= utxo'

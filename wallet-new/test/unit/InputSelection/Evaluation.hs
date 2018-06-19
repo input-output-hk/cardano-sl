@@ -38,7 +38,6 @@ instance ValueToDouble (DSL h a) where
 
 instance (Hash h a, Buildable a) => IsUtxo (Utxo h a) where
   utxoSize    = DSL.utxoSize
-  utxoBalance = Value . DSL.utxoBalance
   utxoOutputs = map (Value . DSL.outVal . snd) . DSL.utxoToList
   utxoFromMap = DSL.utxoFromMap
   utxoToMap   = DSL.utxoToMap
@@ -51,17 +50,17 @@ instance (Hash h a, Buildable a) => IsUtxo (Utxo h a) where
 -- | Wrap coin selection policy to return information required by evaluator
 wrap :: forall utxo h a m. (Eq a, Hash h a, Monad m)
      => Proxy utxo
-     -> (a -> Int -> CoinSelPolicy utxo m (Transaction h a, TxStats))
-     -> (a -> Int -> CoinSelPolicy utxo m (CoinSelSummary (DSL h a)))
-wrap _p f changeAddr maxNumInputs outs utxo =
-    fmap aux <$> f changeAddr maxNumInputs outs utxo
+     -> (a -> Int -> CoinSelPolicy utxo m (Transaction h a, TxStats, utxo))
+     -> (a -> Int -> CoinSelPolicy utxo m (CoinSelSummary (DSL h a), utxo))
+wrap _p f changeAddr maxNumInputs outs initUtxo =
+    fmap aux <$> f changeAddr maxNumInputs outs initUtxo
   where
-    aux :: ((Transaction h a, TxStats), utxo)
+    aux :: (Transaction h a, TxStats, utxo)
         -> (CoinSelSummary (DSL h a), utxo)
-    aux = bimap summarize identity
+    aux (tr, stats, finalUtxo) = (summarize tr stats, finalUtxo)
 
-    summarize :: (Transaction h a, TxStats) -> CoinSelSummary (DSL h a)
-    summarize (tr, stats) = CoinSelSummary {
+    summarize :: Transaction h a -> TxStats -> CoinSelSummary (DSL h a)
+    summarize tr stats = CoinSelSummary {
           csSummaryStats     = stats
         , csSummaryOurChange = ourChange tr
         }

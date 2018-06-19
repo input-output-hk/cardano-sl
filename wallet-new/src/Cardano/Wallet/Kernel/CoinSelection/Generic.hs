@@ -4,11 +4,15 @@
 module Cardano.Wallet.Kernel.CoinSelection.Generic (
     -- * Domain
     CoinSelDom(..)
+  , Rounding(..)
   , UtxoEntry
   , unsafeValueAdd
   , unsafeValueSub
+  , unsafeValueSum
+  , unsafeValueAdjust
     -- * Monad
   , CoinSelT -- opaque
+  , coinSelLiftExcept
   , mapCoinSelErr
   , unwrapCoinSelT
   , wrapCoinSelT
@@ -23,6 +27,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , CoinSelResult(..)
   , defCoinSelResult
   , coinSelInputSet
+  , coinSelOutputs
   , coinSelCountInputs
   , coinSelRemoveDust
   , coinSelPerGoal
@@ -45,17 +50,22 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.Except (Except, MonadError (..))
 import           Crypto.Number.Generate (generateBetween)
 import           Crypto.Random (MonadRandom (..))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
 
+import           Cardano.Wallet.Kernel.Util (withoutKeys)
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 
 {-------------------------------------------------------------------------------
   Abstract domain
 -------------------------------------------------------------------------------}
+
+data Rounding = RoundUp | RoundDown
 
 class ( Ord (Value dom)
       , Ord (Input dom)
@@ -68,12 +78,15 @@ class ( Ord (Value dom)
   type Output  dom = o | o -> dom
   type Value   dom = v | v -> dom
 
-  outVal :: Output dom -> Value dom
+  outVal    :: Output dom -> Value dom
+  outSetVal :: Value dom -> Output dom -> Output dom
 
-  valueZero :: Value dom
-  valueAdd  :: Value dom -> Value dom -> Maybe (Value dom)
-  valueSub  :: Value dom -> Value dom -> Maybe (Value dom)
-  valueMult :: Value dom -> Int -> Maybe (Value dom)
+  valueZero   :: Value dom                                             -- ^ @0@
+  valueAdd    :: Value dom -> Value dom -> Maybe (Value dom)           -- ^ @a + b@
+  valueSub    :: Value dom -> Value dom -> Maybe (Value dom)           -- ^ @a - b@
+  valueMult   :: Value dom -> Int -> Maybe (Value dom)                 -- ^ @a * b@
+  valueRatio  :: Value dom -> Value dom -> Double                      -- ^ @a / b@
+  valueAdjust :: Rounding -> Double -> Value dom -> Maybe (Value dom)  -- ^ @a * b@
 
   -- | Absolute distance between two values
   --
@@ -89,6 +102,14 @@ unsafeValueAdd x y = fromMaybe (error "unsafeValueAdd: overflow") $
 unsafeValueSub :: CoinSelDom dom => Value dom -> Value dom -> Value dom
 unsafeValueSub x y = fromMaybe (error "unsafeValueSub: underflow") $
     valueSub x y
+
+unsafeValueSum :: CoinSelDom dom => [Value dom] -> Value dom
+unsafeValueSum = foldl' unsafeValueAdd valueZero
+
+unsafeValueAdjust :: CoinSelDom dom
+                  => Rounding -> Double -> Value dom -> Value dom
+unsafeValueAdjust r x y = fromMaybe (error "unsafeValueAdjust: out of range") $
+    valueAdjust r x y
 
 {-------------------------------------------------------------------------------
   Coin selection monad
@@ -115,6 +136,10 @@ instance MonadTrans (CoinSelT utxo e) where
 
 instance MonadRandom m => MonadRandom (CoinSelT utxo e m) where
   getRandomBytes = lift . getRandomBytes
+
+coinSelLiftExcept :: Monad m => Except e a -> CoinSelT utxo e m a
+coinSelLiftExcept (ExceptT (Identity (Left err))) = throwError err
+coinSelLiftExcept (ExceptT (Identity (Right a)))  = return a
 
 -- | Change errors
 mapCoinSelErr :: Monad m
@@ -158,7 +183,30 @@ catchJust classify act handler = wrapCoinSelT $ \st -> do
 -- | This input selection request is unsatisfiable
 --
 -- These are errors we cannot recover from.
-data CoinSelHardErr = CoinSelHardErr
+data CoinSelHardErr dom =
+    -- | Payment to receiver insufficient to cover fee
+    --
+    -- We record the original output and the fee it needed to cover.
+    --
+    -- Only applicable using 'ReceiverPaysFees' regulation
+    CoinSelHardErrOutputCannotCoverFee (Output dom) (Value dom)
+
+    -- | Attempt to pay into a redeem-only address
+  | CoinSelHardErrOutputIsRedeemAddress (Output dom)
+
+    -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
+  | CoinSelHardErrCannotCoverFee
+
+    -- | UTxO exhausted during input selection
+    --
+    -- We record the balance of the UTxO as well as the size of the payment
+    -- we tried to make.
+    --
+    -- See also 'CoinSelHardErrCannotCoverFee'
+  | CoinSelHardErrUtxoExhausted (Value dom) (Value dom)
+
+    -- | UTxO depleted using input selection
+  | CoinSelHardErrUtxoDepleted
 
 -- | The input selection request failed
 --
@@ -167,15 +215,16 @@ data CoinSelHardErr = CoinSelHardErr
 data CoinSelSoftErr = CoinSelSoftErr
 
 -- | Union of the two kinds of input selection failures
-data CoinSelErr =
-    CoinSelErrHard CoinSelHardErr
+data CoinSelErr dom =
+    CoinSelErrHard (CoinSelHardErr dom)
   | CoinSelErrSoft CoinSelSoftErr
 
 -- | Specialization of 'catchJust'
 catchJustSoft :: Monad m
-              => CoinSelT utxo CoinSelErr m a
-              -> (CoinSelSoftErr -> CoinSelT utxo CoinSelHardErr m a)
-              -> CoinSelT utxo CoinSelHardErr m a
+              => CoinSelT utxo (CoinSelErr (Dom utxo)) m a
+              -> (CoinSelSoftErr ->
+                    CoinSelT utxo (CoinSelHardErr (Dom utxo)) m a)
+              -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m a
 catchJustSoft = catchJust $ \e -> case e of
                                     CoinSelErrHard e' -> Left  e'
                                     CoinSelErrSoft e' -> Right e'
@@ -190,9 +239,9 @@ catchJustSoft = catchJust $ \e -> case e of
 -- for different domains will return different kinds of results (signed
 -- transaction, DSL transaction along with statistics, etc.)
 type CoinSelPolicy utxo m a =
-       [Output (Dom utxo)]
+       NonEmpty (Output (Dom utxo))
     -> utxo  -- ^ Available UTxO
-    -> m (Either CoinSelHardErr (a, utxo))
+    -> m (Either (CoinSelHardErr (Dom utxo)) a)
 
 {-------------------------------------------------------------------------------
   Coin selection result
@@ -234,6 +283,9 @@ coinSelCountInputs = selectedCount . coinSelInputs
 
 coinSelInputSet :: CoinSelDom dom => CoinSelResult dom -> Set (Input dom)
 coinSelInputSet = selectedInputs . coinSelInputs
+
+coinSelOutputs :: CoinSelDom dom => CoinSelResult dom -> [Value dom]
+coinSelOutputs cs = outVal (coinSelOutput cs) : coinSelChange cs
 
 -- | Filter out any outputs from the coin selection that are smaller than
 -- or equal to the dust threshold
@@ -326,6 +378,11 @@ class CoinSelDom (Dom utxo) => PickFromUtxo utxo where
   -- UTxO should be forced.
   pickLargest :: Int -> utxo -> [(UtxoEntry (Dom utxo), utxo)]
 
+  -- | Compute UTxO balance
+  --
+  -- This is used only for error reporting.
+  utxoBalance :: utxo -> Value (Dom utxo)
+
   -- default definitions for maps
 
   default pickRandom :: forall m.
@@ -338,6 +395,10 @@ class CoinSelDom (Dom utxo) => PickFromUtxo utxo where
   default pickLargest :: utxo ~ Map (Input (Dom utxo)) (Output (Dom utxo))
                       => Int -> utxo -> [(UtxoEntry (Dom utxo), utxo)]
   pickLargest = nLargestFromMapBy outVal
+
+  default utxoBalance :: utxo ~ Map (Input (Dom utxo)) (Output (Dom utxo))
+                      => utxo -> Value (Dom utxo)
+  utxoBalance = unsafeValueSum . map outVal . Map.elems
 
 {-------------------------------------------------------------------------------
   Helper functions for defining instances
@@ -420,8 +481,33 @@ nLargestFromListBy f n = \xs ->
     dropOne (Just (_:as)) = Just as
 
 {-------------------------------------------------------------------------------
-  Auxiliary
+  Pretty-printing
 -------------------------------------------------------------------------------}
 
-withoutKeys :: Ord k => Map k a -> Set k -> Map k a
-m `withoutKeys` s = m `Map.difference` Map.fromSet (const ()) s
+instance CoinSelDom dom => Buildable (CoinSelHardErr dom) where
+  build (CoinSelHardErrOutputCannotCoverFee out val) = bprint
+    ( "CoinSelHardErrOutputCannotCoverFee"
+    % "{ output: " % build
+    % ", value:  " % build
+    % "}"
+    )
+    out
+    val
+  build (CoinSelHardErrOutputIsRedeemAddress out) = bprint
+    ( "CoinSelHardErrOutputIsRedeemAddress"
+    % "{ output: " % build
+    % "}"
+    )
+    out
+  build (CoinSelHardErrCannotCoverFee) = bprint
+    ( "CoinSelHardErrCannotCoverFee" )
+  build (CoinSelHardErrUtxoExhausted bal val) = bprint
+    ( "CoinSelHardErrUtxoExhausted"
+    % "{ balance: " % build
+    % ", value:   " % build
+    % "}"
+    )
+    bal
+    val
+  build (CoinSelHardErrUtxoDepleted) = bprint
+    ( "CoinSelHardErrUtxoDepleted" )

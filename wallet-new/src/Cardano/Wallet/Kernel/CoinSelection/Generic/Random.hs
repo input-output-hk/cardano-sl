@@ -3,6 +3,7 @@
 module Cardano.Wallet.Kernel.CoinSelection.Generic.Random (
     PrivacyMode(..)
   , random
+  , findRandomOutput
   ) where
 
 import           Universum
@@ -31,7 +32,7 @@ random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
        => PrivacyMode         -- ^ Hide change addresses?
        -> Int                 -- ^ Maximum number of inputs
        -> [Output (Dom utxo)] -- ^ Outputs to include
-       -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
+       -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m [CoinSelResult (Dom utxo)]
 random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
     defCoinSelResult goal <$>
       inRange maxNumInputs (target privacyMode (outVal goal))
@@ -74,7 +75,7 @@ data TargetRange dom = TargetRange {
 inRange :: (PickFromUtxo utxo, MonadRandom m)
         => Int
         -> TargetRange (Dom utxo)
-        -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
+        -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m (SelectedUtxo (Dom utxo))
 inRange maxNumInputs TargetRange{..} = do
         atLeastWithFallback maxNumInputs targetMin
     >>= improve maxNumInputs targetAim targetMax
@@ -85,7 +86,8 @@ inRange maxNumInputs TargetRange{..} = do
 atLeastWithFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
                     => Int
                     -> Value (Dom utxo)
-                    -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
+                    -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
+                         (SelectedUtxo (Dom utxo))
 atLeastWithFallback maxNumInputs targetMin =
     atLeastNoFallback    maxNumInputs targetMin `catchJustSoft` \_ ->
     LargestFirst.atLeast maxNumInputs targetMin
@@ -96,11 +98,12 @@ atLeastWithFallback maxNumInputs targetMin =
 atLeastNoFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
                   => Int
                   -> Value (Dom utxo)
-                  -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
+                  -> CoinSelT utxo (CoinSelErr (Dom utxo)) m
+                       (SelectedUtxo (Dom utxo))
 atLeastNoFallback maxNumInputs targetMin = go emptySelection
   where
     go :: SelectedUtxo (Dom utxo)
-       -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
+       -> CoinSelT utxo (CoinSelErr (Dom utxo)) m (SelectedUtxo (Dom utxo))
     go selected
       | selectedCount selected > maxNumInputs =
           throwError $ CoinSelErrSoft CoinSelSoftErr
@@ -182,12 +185,13 @@ improve maxNumInputs targetAim targetMax = go
 
 -- | Select a random output
 findRandomOutput :: (MonadRandom m, PickFromUtxo utxo)
-                 => CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo))
+                 => CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
+                      (UtxoEntry (Dom utxo))
 findRandomOutput = do
     mIO <- tryFindRandomOutput Just
     case mIO of
       Just io -> return io
-      Nothing -> throwError CoinSelHardErr
+      Nothing -> throwError CoinSelHardErrUtxoDepleted
 
 -- | Find a random output, and return it if it satisfies the predicate
 --

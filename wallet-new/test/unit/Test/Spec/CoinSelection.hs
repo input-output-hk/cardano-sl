@@ -25,13 +25,16 @@ import qualified Text.Tabl as Tabl
 
 import           Pos.Core (HasConfiguration)
 import qualified Pos.Core as Core
+import           Pos.Crypto (SecretKey)
 import qualified Pos.Txp as Core
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection.Policies (defaultPolicy, largestFirst,
-                                                               utxoBalance, utxoRestrictToInputs)
-import           Cardano.Wallet.Kernel.CoinSelection.Types
+import           Cardano.Wallet.Kernel.CoinSelection (Cardano, CoinSelHardErr, CoinSelPolicy,
+                                                      CoinSelectionOptions (..),
+                                                      ExpenseRegulation (..), MkTx, largestFirst,
+                                                      mkStdTx, newOptions, random)
+import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance, utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 
 {-------------------------------------------------------------------------------
@@ -159,7 +162,7 @@ genTxOut opts =
 
         finalise :: NonEmpty Core.TxOut -> Gen (NonEmpty Core.TxOut)
         finalise acc = do
-            let slack = (stakeNeeded opts) `Core.unsafeSubCoin` (getTotal $ paymentAmount acc)
+            let slack = (stakeNeeded opts) `Core.unsafeSubCoin` (paymentAmount acc)
             addr  <- arbitrary `suchThat` (not . Core.isRedeemAddress)
             return $ (Core.TxOut addr slack) `cons` acc
 
@@ -169,7 +172,7 @@ genTxOut opts =
             False -> do
                 o <- genOne
                 let acc' = o `cons` acc
-                case getTotal $ paymentAmount acc' of
+                case paymentAmount acc' of
                     bal | bal >= stakeNeeded opts && stakeGenerationTarget opts == AtLeast -> return acc'
                     bal | bal >= stakeNeeded opts && stakeGenerationTarget opts == Exactly ->
                             finalise acc
@@ -207,15 +210,6 @@ genPayee amountToCover =
 instance (Buildable a, Buildable b) => Buildable (Either a b) where
     build (Right r) = bprint ("Right " % F.build) r
     build (Left l)  = bprint ("Left "  % F.build) l
-
-instance Buildable [CoinSelectionFailure Core.Address] where
-    build = bprint (listJsonIndent 4)
-
-paymentAmount :: NonEmpty Core.TxOut -> TotalOutput
-paymentAmount = TotalOutput . Core.unsafeIntegerToCoin
-                            . Core.sumCoins
-                            . map Core.txOutValue
-                            . toList
 
 {-------------------------------------------------------------------------------
   Rendering test failures in an helpful way to debug problems
@@ -266,7 +260,7 @@ renderUtxoAndPayees utxo outputs =
 
       footer :: [Row]
       footer = ["Total", "Total"] : [[T.pack . show . Core.getCoin . utxoBalance $ utxo
-                                    , T.pack . show . Core.getCoin . getTotal . paymentAmount $ outputs
+                                    , T.pack . show . Core.getCoin . paymentAmount $ outputs
                                     ]]
 
 renderTx :: NonEmpty Core.TxOut
@@ -314,9 +308,9 @@ renderTx payees utxo tx =
 
       footer :: [Row]
       footer = replicate 4 "Total" : [[T.pack . show . Core.getCoin . utxoBalance $ utxo
-                                     , T.pack . show . Core.getCoin . getTotal . paymentAmount $ payees
+                                     , T.pack . show . Core.getCoin . paymentAmount $ payees
                                      , T.pack . show . Core.getCoin . utxoBalance $ pickedInputs
-                                     , T.pack . show . Core.getCoin . getTotal . paymentAmount $ txOutputs
+                                     , T.pack . show . Core.getCoin . paymentAmount $ txOutputs
                                      ]]
 
 sortedUtxo :: [(Core.TxIn, Core.TxOutAux)]
@@ -426,7 +420,7 @@ feeWasPayed SenderPaysFee originalUtxo originalOutputs tx =
                     "\n\n"
               )
               (< utxoBalance originalUtxo)
-              (getTotal (paymentAmount txOutputs))
+              (paymentAmount txOutputs)
 feeWasPayed ReceiverPaysFee _ originalOutputs tx =
     let txOutputs = Core._txOutputs . Core.taTx $ tx
         amended   = removeChangeAddresses originalOutputs txOutputs
@@ -459,21 +453,28 @@ isChangeAddress original x =
   Combinators to assemble properties easily
 -------------------------------------------------------------------------------}
 
-type Policy =  CoinSelectionOptions
-            -> Gen Core.Address
-            -> Core.Utxo
-            -> NonEmpty Core.TxOut
-            -> Gen (Either [CoinSelectionFailure Core.Address] Core.TxAux)
+type Policy = CoinSelectionOptions
+           -> Gen Core.Address
+           -> MkTx Gen
+           -> Int
+           -> CoinSelPolicy Core.Utxo Gen Core.TxAux
 
 type RunResult = ( Core.Utxo
                  , NonEmpty Core.TxOut
-                 , Either (ShowThroughBuild [CoinSelectionFailure Core.Address]) Core.TxAux
+                 , Either (ShowThroughBuild (CoinSelHardErr Cardano)) Core.TxAux
                  )
 
 newtype InitialBalance = InitialBalance Word64
 newtype Pay = Pay Word64
 
-pay :: (Word64 -> Gen Core.Utxo)
+maxNumInputs :: Int
+maxNumInputs = 300
+
+mkTx :: Core.HasProtocolMagic => SecretKey -> MkTx Gen
+mkTx key = mkStdTx (\_addr -> Right (fakeSigner key))
+
+pay :: Core.HasProtocolMagic
+    => (Word64 -> Gen Core.Utxo)
     -> (Word64 -> Gen (NonEmpty Core.TxOut))
     -> (Int -> NonEmpty Core.Coin -> Core.Coin)
     -> (CoinSelectionOptions -> CoinSelectionOptions)
@@ -485,11 +486,19 @@ pay genU genP feeFunction adjustOptions (InitialBalance bal) (Pay amount) policy
     utxo  <- genU bal
     payee <- genP amount
     key   <- arbitrary
-    let options = adjustOptions (newOptions feeFunction (\_ -> Right $ fakeSigner key))
-    res <- bimap STB identity <$> policy options (genUniqueChangeAddress utxo payee) utxo payee
+    let options = adjustOptions (newOptions feeFunction)
+    res <- bimap STB identity <$>
+             policy
+               options
+               (genUniqueChangeAddress utxo payee)
+               (mkTx key)
+               maxNumInputs
+               (fmap Core.TxOutAux payee)
+               utxo
     return (utxo, payee, res)
 
-payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
+payOne :: Core.HasProtocolMagic
+       => (Int -> NonEmpty Core.Coin -> Core.Coin)
        -> (CoinSelectionOptions -> CoinSelectionOptions)
        -> InitialBalance
        -> Pay
@@ -497,7 +506,8 @@ payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
        -> Gen RunResult
 payOne = pay genUtxoWithAtLeast genPayee
 
-payBatch :: (Int -> NonEmpty Core.Coin -> Core.Coin)
+payBatch :: Core.HasProtocolMagic
+         => (Int -> NonEmpty Core.Coin -> Core.Coin)
          -> (CoinSelectionOptions -> CoinSelectionOptions)
          -> InitialBalance
          -> Pay
@@ -506,7 +516,7 @@ payBatch :: (Int -> NonEmpty Core.Coin -> Core.Coin)
 payBatch = pay genUtxoWithAtLeast genPayees
 
 receiverPays :: CoinSelectionOptions -> CoinSelectionOptions
-receiverPays o = o & csoExpenseRegulation .~ ReceiverPaysFee
+receiverPays o = o { csoExpenseRegulation = ReceiverPaysFee }
 
 spec :: HasConfiguration => Spec
 spec =
@@ -539,38 +549,38 @@ spec =
                 payBatch minFee receiverPays (InitialBalance 1000) (Pay 100) largestFirst
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
 
-        withMaxSuccess 1000 $ describe "defaultPolicy" $ do
+        withMaxSuccess 1000 $ describe "random" $ do
             prop "one payee, SenderPaysFee, fee = 0" $ forAll (
-                payOne freeLunch identity (InitialBalance 1000) (Pay 100) defaultPolicy
+                payOne freeLunch identity (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "one payee, ReceiverPaysFee, fee = 0" $ forAll (
-                payOne freeLunch receiverPays (InitialBalance 1000) (Pay 100) defaultPolicy
+                payOne freeLunch receiverPays (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, SenderPaysFee, fee = 0" $ forAll (
-                payBatch freeLunch identity (InitialBalance 1000) (Pay 100) defaultPolicy
+                payBatch freeLunch identity (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, ReceiverPaysFee, fee = 0" $ forAll (
-                payBatch freeLunch receiverPays (InitialBalance 1000) (Pay 100) defaultPolicy
+                payBatch freeLunch receiverPays (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
 
             -- minimal fee. It doesn't make sense to use it for 'ReceiverPaysFee', because
             -- rounding will essentially cause the computed @epsilon@ will be 0 for each
             -- output. For those cases, we use the 'linear' fee policy.
             prop "one payee, SenderPaysFee, fee = 1 Lovelace" $ forAll (
-                payOne minFee identity (InitialBalance 1000) (Pay 100) defaultPolicy
+                payOne minFee identity (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
             prop "multiple payees, SenderPaysFee, fee = 1 Lovelace" $ forAll (
-                payBatch minFee identity (InitialBalance 1000) (Pay 100) defaultPolicy
+                payBatch minFee identity (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
 
             -- linear fee
             prop "one payee, ReceiverPaysFee, fee = linear" $ forAll (
-                payOne linearFee receiverPays (InitialBalance 1000) (Pay 100) defaultPolicy
+                payOne linearFee receiverPays (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
             prop "multiple payees, ReceiverPaysFee, fee = linear" $ forAll (
-                payBatch linearFee receiverPays (InitialBalance 1000) (Pay 100) defaultPolicy
+                payBatch linearFee receiverPays (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]

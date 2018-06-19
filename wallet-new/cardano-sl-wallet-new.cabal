@@ -65,10 +65,9 @@ library
                        Cardano.Wallet.Kernel.CoinSelection
                        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                        Cardano.Wallet.Kernel.CoinSelection.Generic
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
                        Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
                        Cardano.Wallet.Kernel.CoinSelection.Generic.Random
-                       Cardano.Wallet.Kernel.CoinSelection.Policies
-                       Cardano.Wallet.Kernel.CoinSelection.Types
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet

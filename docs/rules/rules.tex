@@ -79,6 +79,8 @@
 \newcommand{\txids}{\idsof{\txs}}
 \newcommand{\txinit}{\txs_{\!\mathsf{init}}}
 \newcommand{\blocks}{\mathcal{B}}
+\newcommand{\rblocks}{\mathcal{B}_r}
+\newcommand{\bblocks}{\mathcal{B}_b}
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
 \newcommand{\bootstrapstakeholders}{\mathcal{A}_{\mathsf{bootstrap}}}
@@ -378,10 +380,12 @@ as it is.\improvement{We may want to add something about protocol
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
   which is not in the image of $\id∈ \blocks ⟶ \blockids$.
 
-  A block $b∈\blocks$
-  consists of\improvement{I'm ignoring epoch boundary blocks, and the
-    genesis block. Genesis block is not really important, but epoch
-    boundary blocks may become relevant for this specification}
+  Block come in two flavours \emph{regular blocks} and \emph{epoch
+    boundary blocks}, defined below.
+
+\item[Regular block]
+  A regular block $b∈\rblocks ⊆ \blocks$
+  consists of
   \begin{record}
   \item[predecessor] A block identifier
   \item[slot number] The slot at which the block has been issued
@@ -435,6 +439,22 @@ as it is.\improvement{We may want to add something about protocol
     \end{description}
 
   \end{record}
+\item[Epoch boundary blocks] An epoch boundary block
+  $b∈\bblocks⊆\blocks$ consists in
+  \begin{record}
+  \item[predecessor] A block identifier
+  \item[slot number] The slot at which the boundary takes place
+  \end{record}
+
+  \begin{implementationhint}
+    In Cardano, boundary blocks contain a lot more information but (up
+    to the injectivity-of-hashes hypothesis) this information is
+    determined by the above. It will affect however the actual hash of
+    the epoch boundary block, it is therefore infeasible to concretise
+    an epoch boundary block without knowing the blockchain up to the
+    predecessor. The concretisation of epoch boundary block is
+    therefore not a pure function.
+  \end{implementationhint}
 
 \end{description}
 
@@ -1476,4 +1496,4 @@ requirement of Cardano. Therefore this constraint should be weakened.
 \end{document}
 
 %  LocalWords:  combinator summands repartition unallocated mempool
-%  LocalWords:  stateful decrypted monoid
+%  LocalWords:  stateful decrypted monoid Cardano injectivity

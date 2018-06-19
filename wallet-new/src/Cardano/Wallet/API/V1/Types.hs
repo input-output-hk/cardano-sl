@@ -81,6 +81,8 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
+import           Data.Semigroup (Semigroup)
+
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
@@ -391,9 +393,12 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Semigroup (V1 Core.PassPhrase) where
+    V1 a <> V1 b = V1 (a <> b)
+
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
-    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+    mappend = (<>)
 
 type WalletName = Text
 

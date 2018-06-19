@@ -14782,6 +14782,7 @@ version = "1.3.0";
 src = ./../lib;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15045,6 +15046,7 @@ version = "1.3.0";
 src = ./../auxx;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -15199,6 +15201,7 @@ version = "1.3.0";
 src = ./../binary;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15315,6 +15318,7 @@ version = "1.3.0";
 src = ./../binary/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15409,6 +15413,7 @@ version = "1.3.0";
 src = ./../block;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15487,6 +15492,7 @@ version = "1.3.0";
 src = ./../block/bench;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = false;
@@ -15550,6 +15556,7 @@ version = "1.3.0";
 src = ./../block/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15633,6 +15640,7 @@ version = "1.3.0";
 src = ./../client;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15760,6 +15768,7 @@ version = "1.3.0";
 src = ./../core;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15887,6 +15896,7 @@ version = "1.3.0";
 src = ./../core/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15976,6 +15986,7 @@ version = "1.3.0";
 src = ./../crypto;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16065,6 +16076,7 @@ version = "1.3.0";
 src = ./../crypto/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16125,6 +16137,7 @@ version = "1.3.0";
 src = ./../db;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16207,6 +16220,7 @@ version = "1.3.0";
 src = ./../delegation;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16379,6 +16393,7 @@ version = "1.3.0";
 src = ./../explorer;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -16574,6 +16589,7 @@ version = "1.3.0";
 src = ./../generator;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16730,6 +16746,7 @@ version = "1.3.0";
 src = ./../infra;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16885,6 +16902,7 @@ version = "1.3.0";
 src = ./../lrc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16951,6 +16969,7 @@ version = "1.3.0";
 src = ./../lrc/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17028,6 +17047,7 @@ version = "1.3.0";
 src = ./../networking;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -17142,6 +17162,7 @@ version = "1.3.0";
 src = ./../node;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = false;
@@ -17187,6 +17208,7 @@ version = "1.3.0";
 src = ./../node-ipc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17259,6 +17281,7 @@ version = "1.3.0";
 src = ./../ssc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17395,6 +17418,7 @@ version = "1.3.0";
 src = ./../tools;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -17555,6 +17579,7 @@ version = "1.3.0";
 src = ./../txp;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17662,6 +17687,7 @@ version = "1.3.0";
 src = ./../txp/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17739,6 +17765,7 @@ version = "1.3.0";
 src = ./../update;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17898,6 +17925,7 @@ version = "1.3.0";
 src = ./../util;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -17999,6 +18027,7 @@ version = "1.3.0";
 src = ./../util/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -18116,6 +18145,7 @@ version = "1.3.0";
 src = ./../wallet;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -18356,6 +18386,7 @@ version = "1.3.0";
 src = ./../wallet-new;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;

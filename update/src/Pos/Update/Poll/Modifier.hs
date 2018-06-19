@@ -79,7 +79,8 @@ modifyPollModifier pmOld pmNew = PollModifier
 
 
 instance Semigroup PollModifier where
+    (<>) = modifyPollModifier
 
 instance Monoid PollModifier where
     mempty = def
-    mappend = modifyPollModifier
+    mappend = (<>)

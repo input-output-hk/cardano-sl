@@ -14,6 +14,8 @@ import           Universum
 
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
+import           Pipes (Producer)
+import           Pipes.Internal (unsafeHoist)
 
 import           Pos.Block.Logic (GetHashesRangeError, GetHeadersFromManyToError)
 import           Pos.Communication (NodeId, TxMsgContents)
@@ -33,6 +35,7 @@ data Logic m = Logic
       ourStakeholderId   :: StakeholderId
       -- | Get serialized block, perhaps from a database.
     , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+    , streamBlocks       :: HeaderHash -> Producer SerializedBlock m ()
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
@@ -96,9 +99,11 @@ data Logic m = Logic
     , securityParams     :: SecurityParams
     }
 
-hoistLogic :: (forall x . m x -> n x) -> Logic m -> Logic n
+-- | We have to hoist a pipes producer, so the Monad constraint arises.
+hoistLogic :: Monad m => (forall x . m x -> n x) -> Logic m -> Logic n
 hoistLogic nat logic = logic
     { getSerializedBlock = nat . getSerializedBlock logic
+    , streamBlocks = unsafeHoist nat . streamBlocks logic
     , getBlockHeader = nat . getBlockHeader logic
     , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
@@ -172,10 +177,11 @@ dummyKeyVal = KeyVal
     }
 
 -- | A diffusion layer that does nothing, and probably crashes the program.
-dummyLogic :: Applicative m => Logic m
+dummyLogic :: Monad m => Logic m
 dummyLogic = Logic
     { ourStakeholderId   = error "dummy: no stakeholder id"
     , getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
+    , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
     , getLcaMainChain    = \_ -> pure (OldestFirst [])

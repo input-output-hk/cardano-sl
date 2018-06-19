@@ -37,3 +37,22 @@ instance HasProtocolConstants => Arbitrary T.MsgHeaders where
 instance (HasProtocolConstants, HasGenesisHash) => Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink
+
+instance Arbitrary T.MsgStream where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary T.MsgStreamStart where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary T.MsgStreamUpdate where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance ( HasProtocolConstants
+         , HasGenesisHash
+         ) =>
+         Arbitrary T.MsgStreamBlock where
+    arbitrary = genericArbitrary
+    shrink = genericShrink

@@ -6,22 +6,25 @@
 
 module Pos.Binary.Communication
     ( serializeMsgSerializedBlock
+    , serializeMsgStreamBlock
     ) where
 
 import           Universum
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Word (Word32)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, enforceSize,
-                                   serialize')
+                                   serialize, serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
+                                    MsgHeaders (..), MsgStream (..), MsgStreamStart (..),
+                                    MsgStreamUpdate (..), MsgStreamBlock (..))
 import           Pos.Core (BlockVersion, HeaderHash)
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
@@ -80,6 +83,54 @@ instance Bi MsgBlock where
 serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
 serializeMsgSerializedBlock (MsgSerializedBlock b) = "\x82\x0" <> unSerialized b
 serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
+
+-- Serialize `MsgSerializedBlock` with the property
+-- ```
+-- serialize (MsgStreamBlock b) = serializeMsgStreamBlock (MsgSerializedBlock $ serialize b)
+-- ```
+serializeMsgStreamBlock :: MsgSerializedBlock -> LBS.ByteString
+serializeMsgStreamBlock (MsgSerializedBlock b)   = "\x82\x0" <> LBS.fromStrict (unSerialized b)
+serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t)
+
+deriveSimpleBi ''MsgStreamStart [
+    Cons 'MsgStreamStart [
+        Field [| mssFrom   :: [HeaderHash] |],
+        Field [| mssTo     :: HeaderHash |],
+        Field [| mssWindow :: Word32 |]
+    ]]
+
+deriveSimpleBi ''MsgStreamUpdate [
+    Cons 'MsgStreamUpdate [
+        Field [| msuWindow :: Word32 |]
+    ]]
+
+instance Bi MsgStream where
+    encode = \case
+        (MsgStart s)  -> encodeListLen 2 <> encode (0 :: Word8) <> encode s
+        (MsgUpdate u) -> encodeListLen 2 <> encode (1 :: Word8) <> encode u
+    decode = do
+        enforceSize "MsgStream" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStart  <$> decode
+            1 -> MsgUpdate <$> decode
+            t -> cborError $ "MsgStream wrong tag: " <> show t
+
+instance Bi MsgStreamBlock where
+    encode = \case
+        (MsgStreamBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        (MsgStreamNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+        MsgStreamEnd -> encodeListLen 2 <> encode (2 :: Word8) <> encode (0 :: Word8)
+    decode = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStreamBlock <$> decode
+            1 -> MsgStreamNoBlock <$> decode
+            2 -> do
+                 (_ :: Word8 )<- decode
+                 pure MsgStreamEnd
+            t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.

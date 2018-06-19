@@ -839,6 +839,11 @@ defined in this sections are also used in
 Section~\ref{sec:adding-block}. Therefore this section and
 Section~\ref{sec:adding-block} are mutually recursive.
 
+Functions which project fields from regular blocks are extended to
+epoch boundary blocks by returning the natural trivial value. For
+instance, for an epoch boundary block $b$,
+$\transactions{b}=\emptylist$
+
 \begin{description}
 \item[Last epoch index] For a valid chain, we write
   $$

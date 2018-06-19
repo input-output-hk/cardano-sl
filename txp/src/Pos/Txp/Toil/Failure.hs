@@ -60,6 +60,7 @@ data ToilVerFailure
     | ToilUnknownAttributes !UnparsedFields
     | ToilNonBootstrapDistr !(NonEmpty Address)
     | ToilRepeatedInput
+    | ToilEmptyAfterFilter
     deriving (Show, Eq)
 
 instance TypeError (DisallowException ToilVerFailure) =>
@@ -125,6 +126,9 @@ instance Buildable ToilVerFailure where
         "transaction tries to spend an unspent input more than once"
     build (ToilUnknownInput inpId txIn) =
        bprint ("vtcVerifyAllIsKnown is True, but the input #"%int%" "%build%" is unknown") inpId txIn
+
+    build ToilEmptyAfterFilter =
+       "transaction list is empty after filtering out asset-locked source addresses"
 
 ----------------------------------------------------------------------------
 -- WitnessVerFailure

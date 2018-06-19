@@ -21,13 +21,14 @@ import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Slotting (logNewSlotWorker)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Ssc.Worker (sscWorkers)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Worker (usWorkers)
 import           Pos.WorkMode (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: forall ext ctx m
-     . WorkMode ctx m
+    :: forall ext ctx m .
+       (HasTxpConfiguration, WorkMode ctx m)
     => ProtocolMagic
     -> NodeResources ext
     -> [Diffusion m -> m ()]

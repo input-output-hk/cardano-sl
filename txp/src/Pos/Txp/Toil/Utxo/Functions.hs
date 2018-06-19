@@ -13,6 +13,8 @@ import           Universum
 import           Control.Lens (_Left)
 import           Control.Monad.Except (throwError)
 import qualified Data.List.NonEmpty as NE
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
@@ -80,9 +82,10 @@ data VerifyTxUtxoRes = VerifyTxUtxoRes
 verifyTxUtxo
     :: ProtocolMagic
     -> VTxContext
+    -> Set Address
     -> TxAux
     -> ExceptT ToilVerFailure UtxoM VerifyTxUtxoRes
-verifyTxUtxo protocolMagic ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
+verifyTxUtxo protocolMagic ctx@VTxContext {..} lockedAssets ta@(TxAux UnsafeTx {..} witnesses) = do
     let unknownTxInMB = find (isTxInUnknown . snd) $ zip [0..] (toList _txInputs)
     case (vtcVerifyAllIsKnown, unknownTxInMB) of
         (True, Just (inpId, txIn)) -> throwError $
@@ -98,10 +101,10 @@ verifyTxUtxo protocolMagic ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses
                  { vturUndo = map (fmap snd) resolvedInputs
                  , vturFee = Nothing
                  }
-        _               -> do
+        (_, Nothing) -> do
             -- Case when all inputs are known
             minimalReasonableChecks
-            resolvedInputs <- mapM resolveInput _txInputs
+            resolvedInputs <- filterAssetLocked =<< mapM resolveInput _txInputs
             liftEither $ do
                 txFee <- verifySums resolvedInputs _txOutputs
                 verifyKnownInputs protocolMagic ctx resolvedInputs ta
@@ -116,6 +119,31 @@ verifyTxUtxo protocolMagic ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses
         verifyConsistency _txInputs witnesses
         verifyOutputs ctx ta
 
+    -- Until multisig addresses are available (which is supposed to be before decentralisation)
+    -- all Ada are secured by single cryptographic signatures. In addition, before
+    -- decentralisation, all blocks are being mined/minted by IOHK, Emurgo and the Cardano
+    -- Foundation. These machines are run by the IOHK devops team and all run the same version
+    -- of the software. Before decentralisation, the lockedAssets can provide extra protection for
+    -- the Ada held by these entities. It is intended that this lockedAssets functionality will be
+    -- removed after multisig addresses are available but before decentralisation.
+    --
+    -- After decentralisation, anyone can modify the code to add or remove similar functionality,
+    -- but the decentralised nature of the network should make any such action irrelevant.
+    filterAssetLocked
+        :: NonEmpty (TxIn, TxOutAux)
+        -> ExceptT ToilVerFailure UtxoM (NonEmpty (TxIn, TxOutAux))
+    filterAssetLocked xs =
+        case NE.filter notAssetLockedSrcAddr xs of
+            [] -> throwError ToilEmptyAfterFilter
+            (y:ys) -> pure (y :| ys)
+
+    -- Return `True` iff none of the source addresses are in the lockedAssets set.
+    notAssetLockedSrcAddr :: (txin, TxOutAux) -> Bool
+    notAssetLockedSrcAddr (_, tao) =
+        txOutAddress (toaOut tao) `Set.notMember` lockedAssets
+
+
+-- | For a given TxIn, look up the TxOutAux that it is spending.
 resolveInput :: TxIn -> ExceptT ToilVerFailure UtxoM (TxIn, TxOutAux)
 resolveInput txIn =
     (txIn, ) <$> (note (ToilNotUnspent txIn) =<< lift (utxoGet txIn))

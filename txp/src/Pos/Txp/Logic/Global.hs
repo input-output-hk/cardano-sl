@@ -32,6 +32,7 @@ import qualified Pos.DB.GState.Stakes as DB
 import           Pos.Exception (assertionFailed)
 import           Pos.Txp.Base (flattenTxPayload)
 import qualified Pos.Txp.DB as DB
+import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
 import           Pos.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpCommonMode, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
@@ -70,7 +71,8 @@ verifyBlocks ::
 verifyBlocks pm verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
     let verifyPure :: [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
-        verifyPure = runExceptT . verifyToil pm bvd epoch verifyAllIsKnown
+        verifyPure = runExceptT
+            . verifyToil pm bvd (tcAssetLockedSrcAddrs txpConfiguration) epoch verifyAllIsKnown
         foldStep ::
                (UtxoModifier, [TxpUndo])
             -> TxpBlock

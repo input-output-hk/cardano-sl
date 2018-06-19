@@ -30,8 +30,9 @@ import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSetti
 import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources, loggerBracket, runNode,
-                               runRealMode, withConfigurations)
+                               NodeResources (..), bracketNodeResources,
+                               loggerBracket, runNode, runRealMode, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
@@ -54,7 +55,7 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $ \ntpConfig pm ->
+    withConfigurations blPath conf $ \ntpConfig pm ->
     withCompileInfo $(retrieveCompileTimeInfo) $ do
         CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
@@ -74,6 +75,9 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
                 Production (runExplorerRealMode pm nr (runNode pm nr plugins))
   where
+
+    blPath :: Maybe AssetLockPath
+    blPath = AssetLockPath <$> cnaAssetLockPath
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs

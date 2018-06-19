@@ -1,6 +1,6 @@
 -- | Pos.Crypto specification
 
-module Test.Pos.CryptoSpec
+module Test.Pos.Crypto.CryptoSpec2
        ( spec
        ) where
 
@@ -16,12 +16,11 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, pro
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
-import           Pos.Binary (AsBinary, Bi)
+import           Pos.Binary.Class (AsBinary, Bi)
+import qualified Pos.Crypto as Crypto
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey, mlSecret,
                                     mlSignature, mlVssPublicKey)
-import qualified Pos.Crypto as Crypto
-import           Pos.SafeCopy ()
-import           Pos.Ssc ()
+import           Pos.Crypto.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
                                           serDeserId)

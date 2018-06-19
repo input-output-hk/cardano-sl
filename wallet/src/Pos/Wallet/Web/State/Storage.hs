@@ -106,6 +106,8 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
+import qualified Data.Acid as Acid
+
 import           Control.Arrow ((***))
 import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non', to, toListOf,
                                traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
@@ -380,8 +382,8 @@ instance Default WalletStorage where
         , _wsBalances        = mempty
         }
 
-type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (MonadState WalletStorage m) => m a
+type Query a = forall m. MonadReader WalletStorage m => m a
+type Update a = forall m. MonadState WalletStorage m => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -720,7 +722,7 @@ removeNextUpdate :: Update ()
 removeNextUpdate = wsReadyUpdates %= drop 1
 
 -- | Reset the whole database to clean state completely. Used only in testing and debugging.
-testReset :: Update ()
+testReset :: Acid.Update WalletStorage ()
 testReset = put def
 
 -- | Legacy transaction, no longer used. For existing Db tx logs only. Now use

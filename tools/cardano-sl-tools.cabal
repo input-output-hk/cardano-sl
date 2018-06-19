@@ -41,6 +41,7 @@ executable dbgen
   if !flag(for-installer)
    build-depends:      base >= 4.7 && < 5
                      , acid-state
+                     , acid-state-exts
                      , aeson
                      , ansi-terminal
                      , bytestring

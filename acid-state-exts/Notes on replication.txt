@@ -1,0 +1,83 @@
+Node set
+
+Order events
+
+Serialize events
+
+return results
+
+
+
+Statements:
+  Nodes have identity.
+  The cluster consists of 1 to 3 nodes.
+  Update events may not return until they are guaranteed to be durable.
+  An Update event is durable when it has been serialized on two nodes.
+
+
+Shared read/write channel. Assume no dropped messages.
+
+
+NewEvent {event} {counter}
+MyOrderCounter {counter}
+MySerializeCounter {counter}
+
+An update event has order when it's {counter} is lower than any reported MyOrderCounter.
+Ordered updates may be serialized but their results may not be given to the user.
+An update event is considered permanently serialized when it's {counter} is lower than the smallest
+reported MySerializeCounter of any node majority.
+
+Each node knows which events are guaranteed to have been serialized.
+Each node knows how many events they themselves have on disk.
+We need to pick a number ranging between the two above numbers and have the cluster agree on it.
+
+1: 4 7 -> 4 7
+2: 4 6 -> 4 6
+3: 2 5 -> 4 5
+
+1,2 -> 6
+1,3 -> 5
+1,2,3 -> 6
+2,3 -> 5
+
+4 7 -> 6 7
+4 6 -> 6 6
+
+4 7 -> 4 7 -> 6 6 -> set status:running
+4 6 -> 4 6 -> 6 6 -> set status:running
+2 5 -> 4 5 ->  -
+
+4 6 -> 4 6 -> 5 5 -> set status:running
+2 5 -> 4 5 -> 5 5 -> set status:running
+
+4 7 -> 4 7 -> 5 5 -> set status:running
+2 5 -> 4 5 -> 5 5 -> set status:running
+
+4 5
+
+Boot mode:
+  MySerializeCounter {counter}
+    Set my guaranteed_serialized to 'max new old'.
+  When a majority has reported in, pick the highest have_serialized number that will give a majority and set guaranteed_serialized counter.
+  When guaranteed_serialized == have_serialized
+    go to running mode
+
+How to unserialize:
+  Undo checkpoints after cutoff point
+    unrollUntil
+  Undo events after cutoff point
+    unrollTo
+    Cut to a specific log number
+
+
+
+Continue mode:
+  
+
+Cluster channel:
+  NewNode {identity} {counter} {eventcounter}
+  DelNode {identity} {counter}
+  ClusterNodes {counter}
+  NewEvent {event} {counter}
+  MyOrderCounter {counter}
+  MySerializeCounter {counter} {counter}

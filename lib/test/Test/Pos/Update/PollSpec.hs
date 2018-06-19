@@ -14,6 +14,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll
                                   (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
                            HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Core.Update (UpId, UpdateProposal (..))
@@ -23,12 +24,12 @@ import           Pos.Update.BlockVersion (applyBVM)
 import qualified Pos.Update.Poll as Poll
 import qualified Pos.Util.Modifier as MM
 
+import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Helpers ()
 import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Poll" $ do
+spec = withDefConfiguration $ \_ -> describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop

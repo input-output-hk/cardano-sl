@@ -1,6 +1,6 @@
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -59,8 +59,8 @@ instance (HasConfiguration, HasTxpConfiguration) =>
 
 instance (HasConfiguration, HasTxpConfiguration) =>
          MonadTxpLocal ExplorerProd where
-    txpNormalize = lift $ lift txpNormalize
-    txpProcessTx = lift . lift . txpProcessTx
+    txpNormalize = lift . lift . txpNormalize
+    txpProcessTx pm = lift . lift . txpProcessTx pm
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.

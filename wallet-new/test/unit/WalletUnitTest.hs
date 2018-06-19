@@ -6,8 +6,6 @@ import           Universum
 import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
-import           Pos.Core (HasConfiguration)
-
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
@@ -18,6 +16,7 @@ import qualified Test.Spec.Models
 import qualified Test.Spec.Submission
 import qualified Test.Spec.Translation
 import qualified Test.Spec.WalletWorker
+import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -42,10 +41,11 @@ _showContext = do
   Tests proper
 -------------------------------------------------------------------------------}
 
-tests :: HasConfiguration => Spec
+tests :: Spec
 tests = describe "Wallet unit tests" $ do
     Test.Spec.Translation.spec
     Test.Spec.Models.spec
     Test.Spec.Kernel.spec
     Test.Spec.WalletWorker.spec
     Test.Spec.Submission.spec
+    txMetaStorageSpecs

@@ -21,16 +21,18 @@ module Pos.Launcher.Resource
 import           Universum
 
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
+import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
 import qualified Data.Time as Time
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..))
-import           System.IO (BufferMode (..), Handle, hClose, hSetBuffering)
+import           System.IO (BufferMode (..), hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
 import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
                               logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
                               setupLogging, showTidB)
 
+import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (mkSlogContext)
@@ -46,10 +48,10 @@ import           Pos.Infra.DHT.Real (KademliaParams (..))
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Reporting (initializeMisbehaviorMetrics)
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
-import           Pos.Infra.Slotting (SimpleSlottingStateVar,
-                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (newStateLock)
+import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
@@ -75,14 +77,14 @@ import qualified System.Wlog as Logger
 
 -- | This data type contains all resources used by node.
 data NodeResources ext = NodeResources
-    { nrContext    :: !NodeContext
-    , nrDBs        :: !NodeDBs
-    , nrSscState   :: !SscState
-    , nrTxpState   :: !(GenericTxpLocalData ext)
-    , nrDlgState   :: !DelegationVar
-    , nrJLogHandle :: !(Maybe Handle)
-    -- ^ Handle for JSON logging (optional).
-    , nrEkgStore   :: !Metrics.Store
+    { nrContext       :: !NodeContext
+    , nrDBs           :: !NodeDBs
+    , nrSscState      :: !SscState
+    , nrTxpState      :: !(GenericTxpLocalData ext)
+    , nrDlgState      :: !DelegationVar
+    , nrJsonLogConfig :: !JsonLogConfig
+    -- ^ Config for optional JSON logging.
+    , nrEkgStore      :: !Metrics.Store
     }
 
 ----------------------------------------------------------------------------
@@ -149,13 +151,18 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
         logDebug "Created DLG var"
         sscState <- mkSscState
         logDebug "Created SSC var"
-        nrJLogHandle <-
+        jsonLogHandle <-
             case npJLFile of
                 Nothing -> pure Nothing
                 Just fp -> do
                     h <- openFile fp WriteMode
-                    liftIO $ hSetBuffering h NoBuffering
+                    liftIO $ hSetBuffering h LineBuffering
                     return $ Just h
+        jsonLogConfig <- maybe
+            (pure JsonLogDisabled)
+            jsonLogConfigFromHandle
+            jsonLogHandle
+        logDebug "JSON configuration initialized"
 
         logDebug "Finished allocating node resources!"
         return NodeResources
@@ -164,6 +171,7 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
             , nrSscState = sscState
             , nrTxpState = txpVar
             , nrDlgState = dlgVar
+            , nrJsonLogConfig = jsonLogConfig
             , ..
             }
 
@@ -171,7 +179,12 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
 releaseNodeResources ::
        NodeResources ext -> Production ()
 releaseNodeResources NodeResources {..} = do
-    whenJust nrJLogHandle (liftIO . hClose)
+    case nrJsonLogConfig of
+        JsonLogDisabled -> return ()
+        JsonLogConfig mVarHandle _ -> do
+            h <- takeMVar mVarHandle
+            (liftIO . hClose) h
+            putMVar mVarHandle h
     closeNodeDBs nrDBs
     releaseNodeContext nrContext
 
@@ -289,6 +302,14 @@ allocateNodeContext ancd txpSettings ekgStore = do
     peersVar <- newTVarIO mempty
     logDebug "Created peersVar"
     mm <- initializeMisbehaviorMetrics ekgStore
+
+    logDebug ("Dequeue policy to core:  " <> (show ((ncDequeuePolicy networkConfig) NodeCore)))
+        `catch` \(ErrorCall msg) -> logDebug (toText msg)
+    logDebug ("Dequeue policy to relay: " <> (show ((ncDequeuePolicy networkConfig) NodeRelay)))
+        `catch` \(ErrorCall msg) -> logDebug (toText msg)
+    logDebug ("Dequeue policy to edge: " <> (show ((ncDequeuePolicy networkConfig) NodeEdge)))
+        `catch` \(ErrorCall msg) -> logDebug (toText msg)
+
 
     logDebug "Finished allocating node context!"
     let ctx =

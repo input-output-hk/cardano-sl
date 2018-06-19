@@ -11,7 +11,6 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (try)
@@ -33,7 +32,7 @@ import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Txp (TxFee (..))
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.Web.Account (myRootAddresses)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
                                              NewBatchPayment (..), Wal)
@@ -46,9 +45,9 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
+
 import           Test.Pos.Configuration (withDefConfigurations)
-
-
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
                                                     splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
@@ -63,7 +62,7 @@ deriving instance Eq CTx
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $ \_ ->
+       withDefConfigurations $ \_ _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
         describe "Submitting a payment when restoring" rejectPaymentIfRestoringSpec
@@ -96,7 +95,7 @@ newPaymentFixture = do
     let walId = rootsWIds !! idx
     let pswd = passphrases !! idx
     let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
-    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
+    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ (fmap fst . uncons) <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
     ws <- WS.askWalletSnapshot
@@ -121,12 +120,11 @@ newPaymentFixture = do
 
 -- | Assess that if we try to submit a payment when the wallet is restoring,
 -- the backend prevents us from doing that.
-rejectPaymentIfRestoringSpec :: (HasCompileInfo, HasConfigurations) => Spec
+rejectPaymentIfRestoringSpec :: HasConfigurations => Spec
 rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
     PaymentFixture{..} <- newPaymentFixture
-    res <- lift $ try (newPaymentBatch submitTxTestMode pswd batch)
+    res <- lift $ try (newPaymentBatch dummyProtocolMagic submitTxTestMode pswd batch)
     liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
-
 
 -- | Test one single, successful payment.
 oneNewPaymentBatchSpec :: HasConfigurations => Spec
@@ -138,7 +136,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     randomSyncTip <- liftIO $ generate arbitrary
     WS.setWalletSyncTip db walId randomSyncTip
 
-    void $ lift $ newPaymentBatch submitTxTestMode pswd batch
+    void $ lift $ newPaymentBatch dummyProtocolMagic submitTxTestMode pswd batch
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear

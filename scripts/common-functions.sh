@@ -281,7 +281,6 @@ function bench_cmd {
   local time=$3
   local conc=$4
   local delay=$5
-  local sendmode=$6
   ensure_run
 
   echo -n "$(find_binary cardano-auxx)"
@@ -289,7 +288,9 @@ function bench_cmd {
   echo -n " --peer 127.0.0.1:$(get_port $((i-1)))"
   echo -n " $(logs "" node_auxx.log)"
   echo -n " --system-start $system_start"
-  echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode ./tps-sent.csv\""
+  # First arg is the number of transactions with input from genesis block and
+  # the second is the total number of transactions to be sent.
+  echo -n " cmd --commands \"send-to-all-genesis $time $time $conc $delay ./tps-sent.csv\""
   echo -n " --configuration-key bench "
   echo -n " --rebuild-db "
 

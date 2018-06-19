@@ -51,6 +51,7 @@ import qualified Servant
 import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 
 import           Pos.Context (HasNodeContext)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util (lensOf)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
@@ -114,10 +115,11 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
 
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
-                    => WalletBackendParams
+                    => ProtocolMagic
+                    -> WalletBackendParams
                     -> TVar NtpStatus
                     -> Plugin WalletWebMode
-legacyWalletBackend WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
+legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
       logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
@@ -146,12 +148,14 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
             if isDebugMode walletRunMode then
               Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer
                 (V0.convertHandler ctx)
+                pm
                 diffusion
                 ntpStatus
                 walletRunMode
             else
               Servant.serve API.walletAPI $ LegacyServer.walletServer
                 (V0.convertHandler ctx)
+                pm
                 diffusion
                 ntpStatus
 
@@ -226,9 +230,9 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive = pure $ 
     lower env = runProduction . (`runReaderT` env)
 
 -- | A @Plugin@ to resubmit pending transactions.
-resubmitterPlugin :: HasConfigurations => Plugin WalletWebMode
-resubmitterPlugin = [\diffusion -> askWalletDB >>= \db ->
-                        startPendingTxsResubmitter db (sendTx diffusion)]
+resubmitterPlugin :: HasConfigurations => ProtocolMagic -> Plugin WalletWebMode
+resubmitterPlugin pm = [\diffusion -> askWalletDB >>= \db ->
+                        startPendingTxsResubmitter pm db (sendTx diffusion)]
 
 -- | A @Plugin@ to notify frontend via websockets.
 notifierPlugin :: HasConfigurations => Plugin WalletWebMode
@@ -255,4 +259,3 @@ corsMiddleware = cors (const $ Just policy)
         { corsRequestHeaders = ["Content-Type"]
         , corsMethods = "PUT" : simpleMethods
         }
-

@@ -21,7 +21,7 @@ import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
-import           Pos.Crypto (pskDelegatePk)
+import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -30,6 +30,7 @@ import           Pos.Infra.Slotting (waitSystemStart)
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Txp (bootDustThreshold)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
@@ -104,14 +105,16 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
 -- Initialization, running of workers, running of plugins.
 runNode
     :: ( HasCompileInfo
+       , HasTxpConfiguration
        , WorkMode ctx m
        )
-    => NodeResources ext
+    => ProtocolMagic
+    -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode nr plugins = runNode' nr workers' plugins
+runNode pm nr plugins = runNode' nr workers' plugins
   where
-    workers' = allWorkers nr
+    workers' = allWorkers pm nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

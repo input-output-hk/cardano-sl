@@ -37,7 +37,7 @@ import           Pos.GState.BlockExtra (isBlockInMainChain)
 import           Pos.Infra.Slotting (MonadSlots (..), getCurrentSlotFlat,
                                      slotFromTimestamp)
 import           Pos.Util (_neHead)
-import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Core.Chrono (NE, OldestFirst (..))
 
 -- | Find LCA of headers list and main chain, including oldest
 -- header's parent hash. Acts as it would iterate from newest to
@@ -181,7 +181,7 @@ calcChainQualityFixedTime = do
     calcChainQualityFixedTimeDo olderSlotId currentSlotId (OldestFirst lastSlots) =
         case findIndex (>= olderSlotId) lastSlots of
             Just firstNew
-                | firstNew > 0 || head lastSlots == Just olderSlotId ->
+                | firstNew > 0 || fmap fst (uncons lastSlots) == Just olderSlotId ->
                     let blockCount = fromIntegral (length lastSlots - firstNew)
                     in calcChainQuality blockCount olderSlotId currentSlotId
             -- All slots are less than 'olderSlotId', something is bad.

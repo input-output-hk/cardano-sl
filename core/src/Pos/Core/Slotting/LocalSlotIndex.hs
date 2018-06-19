@@ -8,6 +8,7 @@ module Pos.Core.Slotting.LocalSlotIndex
 
        , localSlotIndexMinBound
        , localSlotIndexMaxBound
+       , localSlotIndices
 
        , unsafeMkLocalSlotIndex
        , unsafeMkLocalSlotIndexExplicit
@@ -52,6 +53,13 @@ localSlotIndexMinBound = UnsafeLocalSlotIndex 0
 
 localSlotIndexMaxBound :: ProtocolConstants -> LocalSlotIndex
 localSlotIndexMaxBound pc = UnsafeLocalSlotIndex (fromIntegral (pcEpochSlots pc) - 1)
+
+-- | All local slot indices for the given number of slots in epoch, in ascending
+-- order.
+localSlotIndices :: SlotCount -> [LocalSlotIndex]
+localSlotIndices slotsInEpoch = fmap UnsafeLocalSlotIndex [0..upperBound]
+  where
+    upperBound = fromIntegral slotsInEpoch - 1
 
 mkLocalSlotIndex_ :: SlotCount -> Word16 -> Maybe LocalSlotIndex
 mkLocalSlotIndex_ es idx

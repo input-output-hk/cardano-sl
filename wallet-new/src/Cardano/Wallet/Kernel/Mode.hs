@@ -17,6 +17,7 @@ import           Pos.Block.Slog
 import           Pos.Block.Types
 import           Pos.Context
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
@@ -32,11 +33,9 @@ import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
-import           Pos.Util.Chrono
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..),
-                                             applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
@@ -97,12 +96,13 @@ instance MonadBListener WalletMode where
 -------------------------------------------------------------------------------}
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
-              => NodeResources ()
+              => ProtocolMagic
+              -> NodeResources ()
               -> PassiveWalletLayer Production
               -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
-runWalletMode nr wallet action =
-    Production $ runRealMode nr $ \diffusion ->
+runWalletMode pm nr wallet action =
+    Production $ runRealMode pm nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a

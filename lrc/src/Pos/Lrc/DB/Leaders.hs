@@ -20,7 +20,7 @@ import           Universum
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Binary.Core ()
-import           Pos.Core (EpochIndex, HasProtocolConstants, SlotId (SlotId),
+import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount, SlotId (SlotId),
                            SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi, putBi, toRocksOps)
@@ -54,15 +54,15 @@ putLeadersForEpoch epoch leaders = do
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders :: MonadDB m => m ()
-prepareLrcLeaders =
+prepareLrcLeaders :: MonadDB m => SlotCount -> m ()
+prepareLrcLeaders epochSlots =
     -- Initialization flag was added with CSE-240.
     unlessM isLrcDbInitialized $ do
         hasLeadersForEpoch0 <- hasLeaders 0
         if not hasLeadersForEpoch0 then
             -- The node is not initialized at all. Only need to put leaders
             -- for the first epoch.
-            putLeadersForEpoch 0 genesisLeaders
+            putLeadersForEpoch 0 (genesisLeaders epochSlots)
         else
             -- The node was initialized before CSE-240.
             -- Need to migrate data for all epochs.

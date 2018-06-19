@@ -1,20 +1,17 @@
-{-# LANGUAGE Rank2Types #-}
+module Bench.Configuration
+    ( benchProtocolConstants
+    , benchProtocolMagic
+    ) where
 
-module Bench.Configuration (benchConf, giveCoreConf) where
+import           Pos.Core (ProtocolConstants (..), ProtocolMagic (..), VssMaxTTL (..),
+                           VssMinTTL (..))
 
-import           Universum
+benchProtocolConstants :: ProtocolConstants
+benchProtocolConstants = ProtocolConstants
+    { pcK = 2
+    , pcVssMinTTL = VssMinTTL 2
+    , pcVssMaxTTL = VssMaxTTL 6
+    }
 
-import qualified Data.Aeson as J
-import           Pos.Core (HasConfiguration, withGenesisSpec)
-import           Pos.Launcher.Configuration (Configuration (..))
-import           Pos.Util.Config (embedYamlConfigCT)
-
-benchConf :: Configuration
-benchConf = case J.fromJSON $ J.Object jobj of
-              J.Error str    -> error $ toText str
-              J.Success conf -> conf
-  where
-    jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")
-
-giveCoreConf :: (HasConfiguration => r) -> r
-giveCoreConf = withGenesisSpec 0 (ccCore benchConf)
+benchProtocolMagic :: ProtocolMagic
+benchProtocolMagic = ProtocolMagic 55550001

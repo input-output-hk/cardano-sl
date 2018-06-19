@@ -12,7 +12,7 @@ module Cardano.Wallet.API.Indices where
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types
-import           Data.String.Conv (toS)
+import qualified Data.Text as T
 import           GHC.TypeLits
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
@@ -32,7 +32,7 @@ instance ToIndex Wallet WalletId where
     accessIx Wallet{..} = walId
 
 instance ToIndex Wallet Core.Coin where
-    toIndex _ x = case readMaybe (toS x) of
+    toIndex _ x = case readMaybe (T.unpack x) of
         Nothing -> Nothing
         Just c  | c > Core.maxCoinVal -> Nothing
         Just c  -> Just (Core.mkCoin c)

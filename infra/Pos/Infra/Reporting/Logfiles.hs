@@ -60,7 +60,9 @@ readLogFile logConfig = case mLogFile of
     -- first one.
     basepath = fromMaybe "./" $ logConfig ^. lcBasePath
     allFiles = map ((</> basepath) . snd) $ Log.retrieveLogFiles logConfig
-    mLogFile = head $ filter (".pub" `isSuffixOf`) allFiles
+    mLogFile = case filter (".pub" `isSuffixOf`) allFiles of
+                 [] -> Nothing
+                 (f:_) -> Just f
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2

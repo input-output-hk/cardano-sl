@@ -14,7 +14,7 @@ module Pos.Ssc.Functions
        , getStableCertsPure
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
@@ -22,12 +22,12 @@ import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
-import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants,
-                           IsMainHeader, SlotId (..), StakeholderId, VssCertificatesMap,
-                           genesisVssCerts, headerSlotL, HasProtocolMagic)
+import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, IsMainHeader,
+                           SlotId (..), StakeholderId, VssCertificatesMap, genesisVssCerts,
+                           headerSlotL)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), SscPayload (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId, isSharesId,
                                verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.Error (SscVerifyError (..))
@@ -69,9 +69,9 @@ hasVssCertificate id = VCD.member id . _sgsVssCertificates
 --
 -- We also do some general sanity checks.
 verifySscPayload
-    :: (MonadError SscVerifyError m, HasProtocolConstants, HasProtocolMagic)
-    => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifySscPayload eoh payload = case payload of
+    :: (MonadError SscVerifyError m, HasProtocolConstants)
+    => ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+verifySscPayload pm eoh payload = case payload of
     CommitmentsPayload comms certs -> do
         whenHeader eoh isComm
         commChecks comms
@@ -111,7 +111,7 @@ verifySscPayload eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkComm = isVerSuccess . verifySignedCommitment epochId
+        let checkComm = isVerSuccess . verifySignedCommitment pm epochId
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)

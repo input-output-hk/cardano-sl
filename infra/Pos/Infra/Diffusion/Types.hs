@@ -22,7 +22,7 @@ import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                                                           emptySubscriptionStates)
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 
 
 

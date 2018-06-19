@@ -7,7 +7,7 @@ module Pos.Update.Poll.Logic.Softfork
        , processGenesisBlock
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (MonadError, throwError)
 import qualified Data.HashSet as HS

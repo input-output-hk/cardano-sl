@@ -33,11 +33,6 @@ import           Pos.Core.Common (Address, Coeff (..), Coin (..), CoinPortion (.
                                   StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
                                   decodeTextAddress, getCoinPortion, unsafeGetCoin)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
-import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
-import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
-                                         GenesisDelegation (..), GenesisNonAvvmBalances (..),
-                                         GenesisProtocolConstants (..),
-                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..))
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc (VssCertificate (..), VssCertificatesMap (..),
@@ -48,6 +43,14 @@ import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPu
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature, redeemPkB64UrlF)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
+
+import           Pos.Core.Genesis.AvvmBalances (GenesisAvvmBalances (..))
+import           Pos.Core.Genesis.Data (GenesisData (..))
+import           Pos.Core.Genesis.Delegation (GenesisDelegation (..), recreateGenesisDelegation)
+import           Pos.Core.Genesis.NonAvvmBalances (GenesisNonAvvmBalances (..))
+import           Pos.Core.Genesis.ProtocolConstants (GenesisProtocolConstants (..))
+import           Pos.Core.Genesis.VssCertificatesMap (GenesisVssCertificatesMap (..))
+import           Pos.Core.Genesis.WStakeholders (GenesisWStakeholders (..))
 
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types

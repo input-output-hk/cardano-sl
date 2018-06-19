@@ -19,7 +19,6 @@ import           Formatting (sformat)
 import qualified Serokell.Aeson.Options as S (defaultOptions)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Aeson.Crypto ()
 import           Pos.Aeson.Fee ()
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Core ()

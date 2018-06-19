@@ -13,13 +13,15 @@ import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
+import           Pos.Core (epochSlots)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
-import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions, HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -34,6 +36,7 @@ import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
+
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
@@ -41,33 +44,33 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletB
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
 
-
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
 defaultLoggerName = "node"
 
 {-
    Most of the code below has been copied & adapted from wallet/node/Main.hs as a path
-   of least resistance to make the wallet-new prototype independent (to an extend)
+   of least resistance to make the wallet-new prototype independent (to an extent)
    from breaking changes to the current wallet.
 -}
 
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
-                 => SscParams
+                 => ProtocolMagic
+                 -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> WalletBackendParams
                  -> Production ()
-actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
+actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
-                txpGlobalSettings
-                initNodeDBs $ \nr@NodeResources {..} -> do
+                (txpGlobalSettings pm)
+                (initNodeDBs pm epochSlots) $ \nr@NodeResources {..} -> do
                     syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-                    runWRealMode db conn syncQueue nr (mainAction ntpStatus nr)
+                    runWRealMode pm db conn syncQueue nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
@@ -82,7 +85,7 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
 
     runNodeWithInit ntpStatus init' nr diffusion = do
         _ <- init'
-        runNode nr (plugins ntpStatus) diffusion
+        runNode pm nr (plugins ntpStatus) diffusion
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -93,32 +96,33 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
-                , Plugins.legacyWalletBackend wArgs ntpStatus
+                , Plugins.legacyWalletBackend pm wArgs ntpStatus
                 , Plugins.walletDocumentation wArgs
                 , Plugins.acidCleanupWorker wArgs
                 , Plugins.syncWalletWorker
-                , Plugins.resubmitterPlugin
+                , Plugins.resubmitterPlugin pm
                 , Plugins.notifierPlugin
                 ]
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
-                    => SscParams
+                    => ProtocolMagic
+                    -> SscParams
                     -> NodeParams
                     -> NewWalletBackendParams
                     -> Production ()
-actionWithNewWallet sscParams nodeParams params =
+actionWithNewWallet pm sscParams nodeParams params =
     bracketNodeResources
         nodeParams
         sscParams
-        txpGlobalSettings
-        initNodeDBs $ \nr -> do
+        (txpGlobalSettings pm)
+        (initNodeDBs pm epochSlots) $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
       bracketKernelPassiveWallet logMessage' $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
-        Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
+        Kernel.Mode.runWalletMode pm nr wallet (mainAction wallet nr)
   where
     mainAction
         :: PassiveWalletLayer Production
@@ -130,7 +134,7 @@ actionWithNewWallet sscParams nodeParams params =
         :: PassiveWalletLayer Production
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
-    runNodeWithInit w nr = runNode nr (plugins w)
+    runNodeWithInit w nr = runNode pm nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
@@ -152,29 +156,32 @@ actionWithNewWallet sscParams nodeParams params =
 startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
-startEdgeNode WalletStartupOptions{..} =
-  withConfigurations conf $ \ntpConfig -> do
+startEdgeNode wso =
+  withConfigurations blPath conf $ \ntpConfig pm -> do
       (sscParams, nodeParams) <- getParameters ntpConfig
-      case wsoWalletBackendParams of
+      case wsoWalletBackendParams wso of
         WalletLegacy legacyParams ->
-          actionWithWallet sscParams nodeParams ntpConfig legacyParams
+          actionWithWallet pm sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet sscParams nodeParams newParams
+          actionWithNewWallet pm sscParams nodeParams newParams
   where
     getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
     getParameters ntpConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
+      currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-      let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
+      let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart wsoNodeArgs ntpConfig
+      CLI.printInfoOnStart (wsoNodeArgs wso) ntpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)
 
     conf :: ConfigurationOptions
-    conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
+    conf = CLI.configurationOptions $ CLI.commonArgs (wsoNodeArgs wso)
+
+    blPath :: Maybe AssetLockPath
+    blPath = AssetLockPath <$> CLI.cnaAssetLockPath (wsoNodeArgs wso)
 
     nodeArgs :: CLI.NodeArgs
     nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }

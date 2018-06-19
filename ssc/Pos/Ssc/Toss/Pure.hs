@@ -12,7 +12,7 @@ module Pos.Ssc.Toss.Pure
        , supplyPureTossEnv
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, uses, (%=), (.=))
 import qualified Crypto.Random as Rand

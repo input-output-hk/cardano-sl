@@ -21,7 +21,7 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Arrow ((&&&))
 import           Data.Default (def)
@@ -31,17 +31,17 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, shown)
 import           Prelude (Show (..))
 
-import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.DB.Resolved
+import           Cardano.Wallet.Kernel.Types
 
 import           Pos.Block.Logic
 import           Pos.Client.Txp
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.Crypto
 import           Pos.Ssc (defaultSscPayload)
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Util.Chrono
 
 import           UTxO.Bootstrap
 import           UTxO.Context
@@ -78,13 +78,13 @@ data IntCtxt h = IntCtxt {
       -- | Ledger we have interpreted so far
       --
       -- This is needed to resolve DSL hashes to DSL transactions.
-      icLedger :: DSL.Ledger h Addr
+      icLedger    :: DSL.Ledger h Addr
 
       -- | Mapping from DSL hashes to Cardano hashes
-    , icHashes :: Map (h (DSL.Transaction h Addr)) TxId
+    , icHashes    :: Map (h (DSL.Transaction h Addr)) TxId
 
       -- | Slot number for the next block to be translated
-    , icNextSlot :: SlotId
+    , icNextSlot  :: SlotId
 
       -- | The header of the last block we translated
       --
@@ -350,15 +350,17 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
         case classifyInputs inps of
           Left err ->
             throwError err
-          Right (InputsRegular inps') -> withConfig $
+          Right (InputsRegular inps') -> withProtocolMagic $ \pm -> withConfig $
             return . either absurd identity $
               makeMPubKeyTx
+                pm
                 (Right . FakeSigner . regKpSec)
                 (NE.fromList inps')
                 (NE.fromList outs)
-          Right (InputsRedeem (kp, inp)) -> withConfig $
+          Right (InputsRedeem (kp, inp)) -> withProtocolMagic $ \pm -> withConfig $
             return $
               makeRedemptionTx
+                pm
                 (redKpSec kp)
                 (NE.fromList [inp])
                 (NE.fromList outs)
@@ -396,19 +398,21 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
         -- figure out who needs to sign the block
         BlockSignInfo{..} <- asks $ blockSignInfoForSlot slotId
 
-        withConfig $
-          createMainBlockPure
-            blockSizeLimit
-            prev
-            (Just (bsiPSK, bsiLeader))
-            slotId
-            bsiKey
-            (RawPayload
-                (toList ts)
-                (defaultSscPayload (siSlot slotId)) -- TODO
-                dlgPayload
-                updPayload
-              )
+        withProtocolMagic $ \pm ->
+          withConfig $
+            createMainBlockPure
+              pm
+              blockSizeLimit
+              prev
+              (Just (bsiPSK, bsiLeader))
+              slotId
+              bsiKey
+              (RawPayload
+                  (toList ts)
+                  (defaultSscPayload (siSlot slotId)) -- TODO
+                  dlgPayload
+                  updPayload
+                )
 
       -- TODO: Get this value from somewhere rather than hardcoding it
       blockSizeLimit = 2 * 1024 * 1024 -- 2 MB

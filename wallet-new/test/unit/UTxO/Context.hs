@@ -44,7 +44,6 @@ import           Serokell.Util (listJson, mapJson, pairF)
 import           Serokell.Util.Base16 (base16F)
 import           Universum
 
-import           Pos.Block.Base
 import           Pos.Core
 import           Pos.Crypto
 import           Pos.Lrc.Genesis
@@ -76,12 +75,12 @@ data CardanoContext = CardanoContext {
     , ccHash0    :: HeaderHash
     }
 
-initCardanoContext :: HasConfiguration => CardanoContext
-initCardanoContext = CardanoContext{..}
+initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
+initCardanoContext pm = CardanoContext{..}
   where
-    ccLeaders  = genesisLeaders
+    ccLeaders  = genesisLeaders epochSlots
     ccStakes   = genesisStakes
-    ccBlock0   = genesisBlock0 protocolMagic (GenesisHash genesisHash) ccLeaders
+    ccBlock0   = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
     ccData     = genesisData
     ccUtxo     = unGenesisUtxo genesisUtxo
     ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $
@@ -399,10 +398,10 @@ data AddrInfo = AddrInfo {
       addrInfoMasterKey :: Maybe EncKeyPair
 
       -- | The key for this particular address
-    , addrInfoAddrKey :: SomeKeyPair
+    , addrInfoAddrKey   :: SomeKeyPair
 
       -- | The Cardano address
-    , addrInfoCardano :: Address
+    , addrInfoCardano   :: Address
     }
 
 -- | Mapping between our addresses and Cardano addresses

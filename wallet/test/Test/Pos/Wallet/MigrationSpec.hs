@@ -21,7 +21,6 @@ import           Test.Hspec (Spec, describe, it, shouldNotBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, oneof, (===))
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
                                              CHash (..), CId (..), CProfile (..), CTxId (..),
                                              CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
@@ -31,6 +30,7 @@ import           Pos.Wallet.Web.State.Acidic (openState)
 import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Pos.Wallet.Web.State.Storage
 
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary ()
 
 --------------------------------------------------------------------------------

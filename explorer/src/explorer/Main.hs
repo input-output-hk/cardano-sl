@@ -21,6 +21,8 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
+import           Pos.Core (epochSlots)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -30,6 +32,7 @@ import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources,
                                loggerBracket, runNode, runRealMode, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
@@ -55,7 +58,7 @@ main = do
 action :: ExplorerNodeArgs -> Production ()
 --action :: (MonadIO m, Log.WithLogger m) => ExplorerNodeArgs -> m ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $ \ntpConfig ->
+    withConfigurations blPath conf $ \ntpConfig pm ->
     withCompileInfo $(retrieveCompileTimeInfo) $ do
         CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
@@ -71,24 +74,28 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , updateTriggerWorker
                 ]
         bracketNodeResources currentParams sscParams
-            explorerTxpGlobalSettings
-            explorerInitDB $ \nr@NodeResources {..} ->
-                Production (runExplorerRealMode nr (runNode nr plugins))
+            (explorerTxpGlobalSettings pm)
+            (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
+                Production (runExplorerRealMode pm nr (runNode pm nr plugins))
   where
+
+    blPath :: Maybe AssetLockPath
+    blPath = AssetLockPath <$> cnaAssetLockPath
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => NodeResources ExplorerExtraModifier
+        => ProtocolMagic
+        -> NodeResources ExplorerExtraModifier
         -> (Diffusion ExplorerProd -> ExplorerProd ())
         -> IO ()
-    runExplorerRealMode nr@NodeResources{..} go =
+    runExplorerRealMode pm nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
-         in runRealMode nr $ \diffusion ->
+         in runRealMode pm nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) diffusion))
 
     nodeArgs :: NodeArgs

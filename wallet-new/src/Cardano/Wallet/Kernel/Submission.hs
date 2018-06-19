@@ -47,7 +47,7 @@ module Cardano.Wallet.Kernel.Submission (
     , exponentialBackoff
     ) where
 
-import           Universum
+import           Universum hiding (elems)
 
 import           Control.Lens (Getter, to)
 import           Control.Lens.TH

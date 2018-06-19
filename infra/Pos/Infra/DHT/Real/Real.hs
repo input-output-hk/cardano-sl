@@ -11,10 +11,10 @@ module Pos.Infra.DHT.Real.Real
        ) where
 
 
-import           Nub (ordNub)
--- We'll take 'catch' from Control.Exception
--- Universum uses the one from Control.Exception.Safe
-import           Universum hiding (catch)
+-- We'll take 'try' and 'catch' from Control.Exception
+-- Universum uses those from Control.Exception.Safe, but in here we never
+-- squelch async exceptions so it's ok.
+import           Universum hiding (try, catch)
 
 import           Control.Concurrent (threadDelay)
 import           Control.Exception (throwIO, try, catch)
@@ -29,12 +29,11 @@ import qualified Network.Kademlia.Tree as K (toView)
 import           Serokell.Util (listJson)
 import           System.Directory (doesFileExist)
 
-import           Pos.Binary.Class (Bi (..), decodeFull)
+import           Pos.Binary.Class (decodeFull)
 import           Pos.Infra.Binary.DHTModel ()
-import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast,
-                                          enhancedMessageTimeout)
-import           Pos.Infra.DHT.Model.Types (DHTData, DHTException (..), DHTKey,
-                                            DHTNode (..), randomDHTKey)
+import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast, enhancedMessageTimeout)
+import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey, DHTNode (..),
+                                            randomDHTKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams (..))
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)
@@ -51,10 +50,7 @@ stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
 -- | Start 'KademliaDHTInstance' with 'KademliaParams'.
 startDHTInstance
-    :: ( Bi DHTData
-       , Bi DHTKey
-       )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> KademliaParams
     -> NetworkAddress -- ^ Default NetworkAddress to bind.
     -> IO KademliaDHTInstance
@@ -157,10 +153,7 @@ toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPo
 -- | Attempt to join a Kademlia network by contacting this list of peers.
 --   If none of them are up, throw 'AllPeersUnavailable'.
 kademliaJoinNetwork
-    :: ( Bi DHTKey
-       , Bi DHTData
-       )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> KademliaDHTInstance
     -> [NetworkAddress]
     -> IO ()
@@ -172,10 +165,7 @@ kademliaJoinNetwork logTrace inst (node : nodes) = do
         Right _                   -> return ()
 
 kademliaJoinNetwork'
-    :: ( Bi DHTKey
-       , Bi DHTData
-       )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> KademliaDHTInstance
     -> NetworkAddress
     -> IO ()
@@ -194,10 +184,7 @@ kademliaJoinNetwork' logTrace inst peer = do
 -- | Attempt to join a Kademlia network by contacting this list of peers.
 --   If none of them are up, a warning is logged but no exception is thrown.
 kademliaJoinNetworkNoThrow
-    :: ( Bi DHTKey
-       , Bi DHTData
-       )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> KademliaDHTInstance
     -> [NetworkAddress]
     -> IO ()
@@ -211,10 +198,7 @@ kademliaJoinNetworkNoThrow logTrace inst peers =
 -- | Attempt to join a Kademlia network by contacting this list of peers.
 --   If none of them are up, retry after a fixed delay.
 kademliaJoinNetworkRetry
-    :: ( Bi DHTKey
-       , Bi DHTData
-       )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> KademliaDHTInstance
     -> [NetworkAddress]
     -> Second

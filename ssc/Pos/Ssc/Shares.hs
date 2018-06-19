@@ -6,6 +6,8 @@ module Pos.Ssc.Shares
        ( getOurShares
        ) where
 
+import           Universum hiding (id)
+
 import           Crypto.Random (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))

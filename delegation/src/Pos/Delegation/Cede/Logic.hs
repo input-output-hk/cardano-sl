@@ -20,12 +20,12 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy,
-                           StakeholderId, addressHash, gbhConsensus)
+import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy, StakeholderId, addressHash,
+                           gbhConsensus)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
                                  mcdSignature)
-import           Pos.Crypto (HasProtocolMagic, ProxySecretKey (..), PublicKey,
-                             psigPsk, protocolMagic, validateProxySecretKey)
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey, psigPsk,
+                             validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Types (DlgMemPool, isRevokePsk)
@@ -151,16 +151,17 @@ newtype CheckForCycle = CheckForCycle Bool
 
 -- | Verify consistent heavy PSK.
 dlgVerifyPskHeavy ::
-       (HasProtocolMagic, MonadCedeRead m)
-    => RichmenSet
+       (MonadCedeRead m)
+    => ProtocolMagic
+    -> RichmenSet
     -> CheckForCycle
     -> EpochIndex
     -> ProxySKHeavy
     -> ExceptT Text m ()
-dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) curEpoch psk = do
+dlgVerifyPskHeavy pm richmen (CheckForCycle checkCycle) curEpoch psk = do
 
     -- First: internal validation of the proxy secret key.
-    validateProxySecretKey protocolMagic psk
+    validateProxySecretKey pm psk
 
     let iPk = pskIssuerPk psk
     let dPk = pskDelegatePk psk

@@ -17,8 +17,7 @@ import           Formatting (int, sformat, (%))
 
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
                                   mkCoin, sumCoins, unsafeGetCoin)
-import           Pos.Core.Configuration (epochSlots, HasProtocolConstants)
-import           Pos.Core.Slotting (LocalSlotIndex (..))
+import           Pos.Core.Slotting (LocalSlotIndex (..), SlotCount, localSlotIndices)
 import           Pos.Crypto (deterministic, randomNumber)
 
 -- Note: The "Satoshi" is the smallest indivisble unit of a Bitcoin.
@@ -49,8 +48,8 @@ coinIndexOffset c = over _CoinIndex (+ unsafeGetCoin c)
 
 -- | Assign a local slot index to each value in a list, starting with
 -- @LocalSlotIndex 0@.
-assignToSlots :: HasProtocolConstants => [a] -> [(LocalSlotIndex, a)]
-assignToSlots = zip [minBound..]
+assignToSlots :: SlotCount -> [a] -> [(LocalSlotIndex, a)]
+assignToSlots epochSlots = zip (localSlotIndices epochSlots)
 
 -- | Sort values by their local slot indices, then strip the indices.
 arrangeBySlots :: [(LocalSlotIndex, a)] -> [a]
@@ -225,15 +224,16 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 -- specifies which addresses should count as “owning” funds for the purposes
 -- of follow-the-satoshi.
 followTheSatoshiM
-    :: forall m . (Monad m, HasProtocolConstants)
-    => SharedSeed
+    :: forall m . (Monad m)
+    => SlotCount
+    -> SharedSeed
     -> Coin
     -> ConduitT (StakeholderId, Coin) Void m SlotLeaders
-followTheSatoshiM _ totalCoins
+followTheSatoshiM _ _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
-followTheSatoshiM (SharedSeed seed) totalCoins = do
+followTheSatoshiM epochSlots (SharedSeed seed) totalCoins = do
     ftsState <- ftsStateInit <$> nextStakeholder
-    let sortedCoinIndices = sortWith snd (assignToSlots coinIndices)
+    let sortedCoinIndices = sortWith snd (assignToSlots epochSlots coinIndices)
     res <- evaluatingStateT ftsState $ findLeaders sortedCoinIndices
     pure . fromList . arrangeBySlots $ res
   where
@@ -275,8 +275,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 -- testing this pure version as a proxy for the one above is insufficient.
 -- The monadic version needs to be tested in conjunction with the same conduit
 -- source that will feed it values in the real system.
-followTheSatoshi :: (HasProtocolConstants) => SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
-followTheSatoshi seed stakes
+followTheSatoshi :: SlotCount -> SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
+followTheSatoshi epochSlots seed stakes
     | totalCoins > coinToInteger maxBound =
         error $ sformat
         ("followTheSatoshi: total stake exceeds limit ("%int%" > "%int%")")
@@ -284,7 +284,7 @@ followTheSatoshi seed stakes
     | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
     | otherwise =
           runConduitPure $ CL.sourceList stakes .|
-                           followTheSatoshiM seed totalCoinsCoin
+                           followTheSatoshiM epochSlots seed totalCoinsCoin
   where
     totalCoins = sumCoins $ map snd stakes
     totalCoinsCoin = mkCoin $ fromInteger totalCoins

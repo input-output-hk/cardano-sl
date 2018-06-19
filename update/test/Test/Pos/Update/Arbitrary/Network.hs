@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Update System networking types.

@@ -25,8 +25,8 @@ import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 import           Test.Pos.Update.Arbitrary ()
+import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Poll" $ do

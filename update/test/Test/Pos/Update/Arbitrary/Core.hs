@@ -1,3 +1,6 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Update System core types.
@@ -11,14 +14,17 @@ module Test.Pos.Update.Arbitrary.Core
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf, listOf1, oneof)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf,
+                                  listOf1, oneof)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                                                    genericShrink)
 
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
-import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
-                                  UpdatePayload (..), UpdateProposal (..),
-                                  UpdateProposalToSign (..), UpdateVote (..), mkUpdateProposalWSign,
+import           Pos.Core.Update (BlockVersionModifier, SystemTag (..),
+                                  UpdateData (..), UpdatePayload (..),
+                                  UpdateProposal, UpdateProposalToSign (..),
+                                  UpdateVote (..), mkUpdateProposalWSign,
                                   mkUpdateVote)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
@@ -80,7 +86,10 @@ instance Arbitrary UpdateData where
     shrink = genericShrink
 
 genUpdatePayload :: ProtocolMagic -> Gen UpdatePayload
-genUpdatePayload pm = UpdatePayload <$> genMaybeUpdateProposal <*> listOf (genUpdateVote pm)
+genUpdatePayload pm =
+    UpdatePayload
+        <$> genMaybeUpdateProposal
+        <*> listOf (genUpdateVote pm)
   where
     -- Arbitrary1 instance for Maybe uses these frequencies.
     genMaybeUpdateProposal = frequency

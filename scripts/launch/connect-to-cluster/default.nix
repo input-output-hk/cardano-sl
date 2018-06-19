@@ -37,6 +37,10 @@ let
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
     };
+    testnet = {
+      relays = "relays.cardano-testnet.iohkdev.io";
+      confKey = "testnet_full";
+    };
     demo = {
       confKey = "dev";
       relays = "127.0.0.1";
@@ -58,15 +62,11 @@ let
       valency: 1
       fallbacks: 7
   '';
-  configFiles = pkgs.runCommand "cardano-config" {} ''
-    mkdir -pv $out
-    cd $out
-    cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.srcroot + "/log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
-    cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
-  '';
+  configFiles = iohkPkgs.cardano-sl-config;
+  configurationArgs = pkgs.lib.concatStringsSep " " [
+    "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
+    "--configuration-key ${environments.${environment}.confKey}"
+  ];
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   #!${pkgs.stdenv.shell} -e
 
@@ -96,18 +96,18 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
       --configuration-key ${environments.${environment}.confKey} \
-      --configuration-file ${configFiles}/configuration.yaml
+      --configuration-file ${configFiles}/lib/configuration.yaml
   fi
   ''}
 
   ${executables.${executable}}                                     \
-    --configuration-file ${configFiles}/configuration.yaml         \
+    --configuration-file ${configFiles}/lib/configuration.yaml \
     --configuration-key ${environments.${environment}.confKey}     \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
     ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
     ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
-    --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
-    --topology "${configFiles}/topology.yaml"                      \
+    --log-config ${configFiles}/log-configs/connect-to-cluster.yaml \
+    --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \

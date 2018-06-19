@@ -14956,7 +14956,7 @@ devnet: &devnet
     networkDiameter: 18 # should be slightly less than slot duration
     recoveryHeadersMessage: 200 # should be greater than k
 
-michaelnet: &michaelnet
+streamingnet: &streamingnet
   <<: *devnet
   node:
     <<: *devnet_node

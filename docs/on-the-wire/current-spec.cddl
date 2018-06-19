@@ -1,12 +1,15 @@
-mainblock = [ "header" : blockheader
+block = [0, mainblock]
+      / [1, any]
+
+mainblock = [ "header" : blockhead
             , "body" : blockbody
             , "extra" : any
             ]
 
-u8 = #0.24(uint)
-u16 = #0.25(uint)
-u32 = #0.26(uint)
-u64 = #0.64(uint)
+u8 = uint .lt 256
+u16 = uint .lt 65536
+u32 = uint
+u64 = uint
 
 ; Basic Cardano Types
 
@@ -50,7 +53,7 @@ tx = [[txin], [addressid, u64], attributes]
 txproof = [u32, hash, hash]
 
 twit = [0, [pubkey, signature]]
-     / [1, [[u16, bytes], [u16, bytes]]
+     / [1, [[u16, bytes], [u16, bytes]]]
      / [2, [pubkey, signature]]
      / [u8 .gt 2, bytes]
 
@@ -88,16 +91,16 @@ sscproof = [0, [hash, hash]]
 ; Delegation
 
 dlg = [ epoch : epochid
-      , issuer : publickey
-      , delegate : publickey
+      , issuer : pubkey
+      , delegate : pubkey
       , certificate : signature
       ]
 
 dlgsig = [dlg, signature]
 
 lwdlg = [ epochRange : [epochid, epochid]
-        , issuer : publickey
-        , delegate : publickey
+        , issuer : pubkey
+        , delegate : pubkey
         , certificate : signature
         ]
 
@@ -151,16 +154,28 @@ up = [ ? "proposal" :  upprop
 
 blocksig = [0, signature]
          / [1, lwdlgsig]
-         / [2, dlsig]
+         / [2, dlgsig]
 
 blockcons = [slotid, pubkey, u64, blocksig]
 
-blockheader = [ "protocolMagic" : u32
-              , "blockVersion" : bver
+blockheadex = [ "blockVersion" : bver
               , "softwareVersion" : [ text, u32 ]
               , "extraProof" : hash
               , "attributes" : attributes
               ]
+
+blockproof = [ "txProof" : txproof
+             , "sscProof" : sscproof
+             , "dlgProof" : hash
+             , "updProof" : hash
+             ]
+
+blockhead = [ "protocolMagic" : u32
+            , "prevBlock" : blockid
+            , "bodyProof" : blockproof
+            , "consensusData" : blockcons
+            , "extraData" : blockheadex
+            ]
 
 blockbody = [ "txPayload" : [* [tx, [* twit]]]
             , "sscPayload" : ssc

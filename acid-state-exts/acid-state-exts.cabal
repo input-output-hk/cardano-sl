@@ -12,11 +12,6 @@ Build-type:          Simple
 Cabal-version:       >=1.10
 tested-with:         GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.1
 Extra-source-files:
-        CHANGELOG.md
-        examples/*.hs
-        examples/errors/*.hs
-        src-win32/*.hs
-        src-unix/*.hs
 
 Source-repository head
   type:          git
@@ -27,11 +22,6 @@ Library
                        Serokell.AcidState.ExtendedState
                        Serokell.AcidState.Instances
                        Serokell.AcidState.Util
-                       Data.AcidExts
-
-  Other-modules:
-                       Paths_acid_state_exts
-
 
   Build-depends:       array,
                        acid-state,

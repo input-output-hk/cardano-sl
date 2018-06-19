@@ -15105,6 +15105,10 @@ mkDerivation {
 pname = "cardano-sl-binary";
 version = "1.3.0";
 src = ./../binary;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 base
 binary
@@ -15214,6 +15218,10 @@ mkDerivation {
 pname = "cardano-sl-binary-test";
 version = "1.3.0";
 src = ./../binary/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 aeson
 base
@@ -15766,6 +15774,10 @@ mkDerivation {
 pname = "cardano-sl-core-test";
 version = "1.3.0";
 src = ./../core/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 base
 bytestring
@@ -15843,6 +15855,10 @@ mkDerivation {
 pname = "cardano-sl-crypto";
 version = "1.3.0";
 src = ./../crypto;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 aeson
 base
@@ -15921,6 +15937,10 @@ mkDerivation {
 pname = "cardano-sl-crypto-test";
 version = "1.3.0";
 src = ./../crypto/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 base
 bytestring
@@ -16878,6 +16898,10 @@ mkDerivation {
 pname = "cardano-sl-networking";
 version = "1.3.0";
 src = ./../networking;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -17468,6 +17492,10 @@ mkDerivation {
 pname = "cardano-sl-txp-test";
 version = "1.3.0";
 src = ./../txp/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 base
 cardano-sl-binary
@@ -17764,6 +17792,10 @@ mkDerivation {
 pname = "cardano-sl-util-test";
 version = "1.3.0";
 src = ./../util/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 attoparsec
 base
@@ -57499,6 +57531,10 @@ mkDerivation {
 pname = "node-ipc";
 version = "1.3.0";
 src = ./../node-ipc;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 aeson
 base

@@ -18,7 +18,7 @@ import           Control.Monad (forM, forM_)
 
 import           Data.Foldable (foldlM)
 --import           Data.Functor.Contravariant (contramap)
-import           Data.Text (Text)
+--import           Data.Text (Text)
 import           Data.Time.Units (Microsecond)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
@@ -34,8 +34,9 @@ import           Node (Conversation (..), ConversationActions (..), Node (Node),
                        simpleNodeEndPoint)
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (Trace, TraceIO, logTrace, logInfo)
 import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig
+import           Pos.Util.Trace.Named
 
 import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
                                         logMeasure)
@@ -59,7 +60,13 @@ main = do
             argsParser
             empty
 
-    Log.loadLogConfig logsPrefix logConfig
+    --Log.loadLogConfig logsPrefix logConfig
+    lc1 <- case logConfig of
+              Nothing -> return $ defaultInteractiveConfiguration Log.Debug
+              Just lc0 -> parseLoggerConfig lc0
+    lc <- setLogPrefix logsPrefix lc1
+    logTrace <- setupLogging lc "bench-sender"
+
     setLocaleEncoding utf8
 
     transport <- do
@@ -79,11 +86,11 @@ main = do
             startTime <- round . (* 1000000) <$> getPOSIXTime
 
             -- TODO: is it good idea to start (recipients number * thread number) threads?
-            let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
+            let pingWorkers = liftA2 (pingSender logTrace prngWork payloadBound startTime msgRate)
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
 
-            node logTrace' (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
+            node (appendName "node" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
                 NodeAction (const []) $ \converse -> () <$ do
                     drones <- forM nodeIds (startDrone node')
                     forConcurrently pingWorkers ($ converse) `concurrently` do
@@ -94,22 +101,16 @@ main = do
 
   where
 
-    logTrace' :: TraceIO
-    logTrace' = logTrace "sender"
-
-    logInfo_ :: Trace IO Text
-    logInfo_ = logInfo logTrace'
-
-    pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) converse =
-        foldlM (pingSenderOnce payloadBound msgRate msgStartId peerId converse)
+    pingSender logTrace gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) converse =
+        foldlM (pingSenderOnce logTrace payloadBound msgRate msgStartId peerId converse)
                (gen, PingState startTimeMcs 0)
                msgIds
 
-    pingSenderOnce payloadBound msgRate msgStartId peerId converse (gen, !pingState) msgId = do
+    pingSenderOnce logTrace payloadBound msgRate msgStartId peerId converse (gen, !pingState) msgId = do
         let sMsgId = msgStartId + msgId
             (i, gen') = randomR (0, payloadBound) gen
             payload = Payload i
-        logMeasure logInfo_ PingSent sMsgId payload
+        logMeasure (appendName "sent" logTrace) PingSent sMsgId payload
         converseWith converse peerId $ \_ -> Conversation $ \cactions -> do
             send cactions (Ping sMsgId payload)
             recv cactions maxBound >>= \case

@@ -14,7 +14,7 @@ import           Control.Applicative (empty)
 import           Control.Monad (unless)
 
 --import           Data.Functor.Contravariant (contramap)
-import           Data.Text (Text)
+--import           Data.Text (Text)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen)
@@ -26,8 +26,9 @@ import           Node (ConversationActions (..), Listener (..), NodeAction (..),
                        defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
 import           ReceiverOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, TraceIO, logTrace, logInfo)
 import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig
+import           Pos.Util.Trace.Named
 
 main :: IO ()
 main = do
@@ -39,7 +40,13 @@ main = do
             argsParser
             empty
 
-    Log.loadLogConfig logsPrefix logConfig
+    --Log.loadLogConfig logsPrefix logConfig
+    lc1 <- case logConfig of
+              Nothing -> return $ defaultInteractiveConfiguration Log.Debug
+              Just lc0 -> parseLoggerConfig lc0
+    lc <- setLogPrefix logsPrefix lc1
+    logTrace <- setupLogging lc "bench-receiver"
+
     setLocaleEncoding utf8
 
     transport <- do
@@ -50,23 +57,17 @@ main = do
 
     let prng = mkStdGen 0
 
-    node logTrace' (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
-        NodeAction (const [pingListener noPong]) $ \_ -> do
+    node (appendName "node" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
+        NodeAction (const [pingListener logTrace noPong]) $ \_ -> do
             threadDelay (duration * 1000000)
   where
 
-    logTrace' :: TraceIO
-    logTrace' = logTrace "receiver"
-
-    logInfo_ :: Trace IO Text
-    logInfo_ = logInfo logTrace'
-
-    pingListener noPong =
+    pingListener logTrace noPong =
         Listener $ \_ _ cactions -> do
             (mid, payload) <- recv cactions maxBound >>= \case
                 Just (Ping mid payload) -> return (mid, payload)
                 _ -> throwString "Expected a ping"
-            logMeasure logInfo_ PingReceived mid payload
+            logMeasure (appendName "ping" logTrace) PingReceived mid payload
             unless noPong $ do
-                logMeasure logInfo_ PongSent mid payload
+                logMeasure (appendName "pong" logTrace) PongSent mid payload
                 send cactions (Pong mid payload)

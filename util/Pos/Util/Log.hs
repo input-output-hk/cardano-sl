@@ -150,17 +150,17 @@ setupLogging lc = do
                 lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
                 basepath = _lc ^. lcBasePath
             forM lhs (\lh -> case (lh ^. lhBackend) of
-                    FileJsonBE -> do  -- TODO
-                        scribe <- mkFileScribe
-                                      (fromMaybe "" basepath)
+                    FileJsonBE -> do
+                        putStrLn ("creating JSON backend ..." :: Text)
+                        scribe <- mkJsonFileScribe
+                                      (fromMaybe "." basepath)
                                       (fromMaybe "<unk>" $ lh ^. lhFpath)
-                                      True
                                       (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (lh ^. lhName, scribe)
                     FileTextBE -> do
                         scribe <- mkFileScribe
-                                      (fromMaybe "" basepath)
+                                      (fromMaybe "." basepath)
                                       (fromMaybe "<unk>" $ lh ^. lhFpath)
                                       True
                                       (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
@@ -232,10 +232,6 @@ loggerBracket lh name f = do
             Nothing -> error "logging not yet initialized. Abort."
             Just le -> bracket (return le) K.closeScribes $
                           \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
-
-setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
-setLogPrefix Nothing lc     = return lc
-setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
 -- | for compatibility (TODO check if still referenced)
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO LoggingHandler

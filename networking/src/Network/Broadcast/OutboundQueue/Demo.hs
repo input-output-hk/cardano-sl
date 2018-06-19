@@ -17,11 +17,12 @@ import           Data.Function
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.String (fromString)
-import           Data.Text (Text)
+import           Data.Text (Text, append)
 import           Formatting (sformat, shown, (%))
 
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (TraceIO, traceWith, logTrace)
+import           Pos.Util.LoggerConfig
+import           Pos.Util.Trace.Named
 
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ
@@ -44,21 +45,21 @@ runEnqueue = id
 relayDemo :: IO ()
 relayDemo = do
     --updateGlobalLogger "*production*" (setLevel noticePlus)
-    lh <- Log.setupLogging (mempty :: Log.LoggerConfig)
+    logTrace <- setupLogging (defaultInteractiveConfiguration Log.Debug) "relayDemo"
 
-    let block :: Text -> [Node] -> Enqueue () -> Enqueue ()
-        block label nodes act = do
-          Log.usingLoggerName lh (fromString "outboundqueue-production") $ Log.logNotice label
+    let block :: TraceNamed IO -> Text -> [Node] -> Enqueue () -> Enqueue ()
+        block logTrace' label nodes act = do
+          logNotice (appendName "outboundqueue-production" logTrace') label
           act
           mapM_ (OutQ.flush . nodeOutQ) nodes
           threadDelay 500000
 
     -- Set up some test nodes
     (nodeC1, nodeC2, nodeR, nodeEs, nodeC3) <- do
-      nodeC1 <- newNode lh (C 1) NodeCore  (CommsDelay 0)
-      nodeC2 <- newNode lh (C 2) NodeCore  (CommsDelay 0)
-      nodeR  <- newNode lh (R 1) NodeRelay (CommsDelay 0)
-      nodeEs <- forM [1 .. 9] $ \n -> newNode lh (E n) NodeEdge (CommsDelay 0)
+      nodeC1 <- newNode (appendName "C1" logTrace) (C 1) NodeCore  (CommsDelay 0)
+      nodeC2 <- newNode (appendName "C2" logTrace) (C 2) NodeCore  (CommsDelay 0)
+      nodeR  <- newNode (appendName "R" logTrace) (R 1) NodeRelay (CommsDelay 0)
+      nodeEs <- forM [1 .. 9] $ \n -> newNode (appendName ("E" `append` fromString (show n)) logTrace) (E n) NodeEdge (CommsDelay 0)
 
       setPeers nodeR  (nodeC1 : nodeC2 : nodeEs)
       setPeers nodeC1 [nodeR]
@@ -67,19 +68,19 @@ relayDemo = do
       -- Two core nodes that communicate directly with each other
       -- (disjoint from the nodes we set up above)
 
-      nodeC3 <- newNode lh (C 3) NodeCore (CommsDelay 0)
-      nodeC4 <- newNode lh (C 4) NodeCore (CommsDelay 1000000)
+      nodeC3 <- newNode (appendName "C3" logTrace) (C 3) NodeCore (CommsDelay 0)
+      nodeC4 <- newNode (appendName "C4" logTrace) (C 4) NodeCore (CommsDelay 1000000)
 
       setPeers nodeC3 [nodeC4]
       return (nodeC1, nodeC2, nodeR, nodeEs, nodeC3)
 
     runEnqueue $ do
 
-      block "* Basic relay test: edge to core" [nodeR] $ do
-        send lh Asynchronous (nodeEs !! 0) (MsgTransaction OriginSender) (MsgId 0)
+      block logTrace "* Basic relay test: edge to core" [nodeR] $ do
+        send logTrace Asynchronous (nodeEs !! 0) (MsgTransaction OriginSender) (MsgId 0)
 
-      block "* Basic relay test: code to edge" [nodeR] $ do
-        send lh Asynchronous nodeC1 (MsgAnnounceBlockHeader OriginSender) (MsgId 100)
+      block logTrace "* Basic relay test: code to edge" [nodeR] $ do
+        send logTrace Asynchronous nodeC1 (MsgAnnounceBlockHeader OriginSender) (MsgId 100)
 
       -- In order to test rate limiting, we send a message from all of the edge
       -- nodes at once. These should then arrive at the (single) core node one
@@ -90,35 +91,35 @@ relayDemo = do
       -- edge nodes would stop those messages from being enqueued (unless we
       -- are lucky and they get enqueued in the gap between de dequeuer removing
       -- a message from the queue and it actually adding to the in-flight).
-      block "* Rate limiting" [nodeR] $ do
+      block logTrace "* Rate limiting" [nodeR] $ do
         forM_ (zip nodeEs [200..209]) $ \(nodeE, n) ->
-          send lh Asynchronous nodeE (MsgTransaction OriginSender) (MsgId n)
+          send logTrace Asynchronous nodeE (MsgTransaction OriginSender) (MsgId n)
 
-      block "* Priorities" [nodeR] $ do
+      block logTrace "* Priorities" [nodeR] $ do
         -- We schedule two transactions and a block header in quick succession.
         -- Although we enqueue the transactions before the block header, we
         -- should see in the output that the block headers are given priority.
         forM_ [300, 303 .. 309] $ \n -> do
-          send lh Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId n)
-          send lh Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId (n + 1))
-          send lh Asynchronous nodeR (MsgAnnounceBlockHeader OriginSender) (MsgId (n + 2))
+          send logTrace Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId n)
+          send logTrace Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId (n + 1))
+          send logTrace Asynchronous nodeR (MsgAnnounceBlockHeader OriginSender) (MsgId (n + 2))
           threadDelay 2500000
 
-      block "* Latency masking (and sync API)" [nodeC2] $ do
+      block logTrace "* Latency masking (and sync API)" [nodeC2] $ do
         -- Core to core communication is allowed higher concurrency
         -- (We cannot send two blocks at a time though, because then MaxAhead
         -- would not be satisfiable).
         forM_ [400, 402 .. 408] $ \n -> do
-          send lh Asynchronous nodeC3 (MsgAnnounceBlockHeader OriginSender) (MsgId n)
-          send lh Synchronous  nodeC3 (MsgMPC OriginSender)                 (MsgId (n + 1))
+          send logTrace Asynchronous nodeC3 (MsgAnnounceBlockHeader OriginSender) (MsgId n)
+          send logTrace Synchronous  nodeC3 (MsgMPC OriginSender)                 (MsgId (n + 1))
 
-      block "* Sending to specific nodes" nodeEs $ do
+      block logTrace "* Sending to specific nodes" nodeEs $ do
         -- This will send to the relay node
-        send lh Asynchronous nodeC1 (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
+        send logTrace Asynchronous nodeC1 (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
         -- Edge nodes can never send to core nodes
-        send lh Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
+        send logTrace Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
 
-      Log.usingLoggerName lh (fromString "outboundqueue-demo") $ Log.logNotice "End of demo"
+      logNotice (appendName "outboundqueue-demo" logTrace) "End of demo"
 
 {-------------------------------------------------------------------------------
   Model of a node
@@ -138,9 +139,9 @@ instance Eq Node where
     n1 == n2 = nodeId n1 == nodeId n2
 
 -- | Create a new node, and spawn dequeue worker and forwarding listener
-newNode :: Log.LoggingHandler -> NodeId_ -> NodeType -> CommsDelay -> IO Node
-newNode lh nodeId_ nodeType commsDelay = do
-    let logTrace' = logTrace lh (fromString (show nodeId_))
+newNode :: TraceNamed IO -> NodeId_ -> NodeType -> CommsDelay -> IO Node
+newNode logTrace nodeId_ nodeType commsDelay = do
+    let logTrace' = appendName (fromString (show nodeId_)) logTrace
     nodeOutQ     <- OutQ.new logTrace'
                              demoEnqueuePolicy
                              demoDequeuePolicy
@@ -155,7 +156,7 @@ newNode lh nodeId_ nodeType commsDelay = do
     return node
 
 -- | Worker that monitors the queue and sends all enqueued messages
-nodeDequeueWorker :: TraceIO -> Node -> Dequeue ()
+nodeDequeueWorker :: TraceNamed IO -> Node -> Dequeue ()
 nodeDequeueWorker _ node =
     OutQ.dequeueThread (nodeOutQ node) sendMsg
   where
@@ -163,30 +164,30 @@ nodeDequeueWorker _ node =
     sendMsg msg nodeId = msgSend msg nodeId
 
 -- | Listener that forwards any new messages that arrive at the node
-nodeForwardListener :: TraceIO -> Node -> Enqueue ()
+nodeForwardListener :: TraceNamed IO -> Node -> Enqueue ()
 nodeForwardListener logTrace' node = forever $ do
     msgData <- recvNodeId (nodeId node)
     added   <- addToMsgPool (nodeMsgPool node) msgData
     let msgObj = mkMsgObj msgData
     if not added then
       --Log.usingLoggerName (fromString "outboundqueue-demo") $ Log.logDebug $ discarded msgObj
-      traceWith logTrace' (Log.Debug, discarded msgObj)
+        logDebug logTrace' (discarded msgObj)
     else do
       --Log.usingLoggerName (fromString "outboundqueue-demo") $ Log.logNotice $ received msgObj
-      traceWith logTrace' (Log.Notice, received msgObj)
-      let sender = msgSender msgData
-          forwardMsgType = case msgType msgData of
-            MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
-            MsgRequestBlocks _       -> Nothing
-            MsgRequestBlockHeaders _ -> Nothing
-            MsgTransaction _         -> Just (MsgTransaction (OriginForward sender))
-            MsgMPC _                 -> Just (MsgMPC (OriginForward sender))
-      case forwardMsgType of
-        Nothing -> return ()
-        Just msgType' -> void $
-          OutQ.enqueue (nodeOutQ node)
-                       msgType'
-                       msgObj
+        logNotice logTrace' (received msgObj)
+        let sender = msgSender msgData
+            forwardMsgType = case msgType msgData of
+                MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
+                MsgRequestBlocks _       -> Nothing
+                MsgRequestBlockHeaders _ -> Nothing
+                MsgTransaction _         -> Just (MsgTransaction (OriginForward sender))
+                MsgMPC _                 -> Just (MsgMPC (OriginForward sender))
+        case forwardMsgType of
+            Nothing -> return ()
+            Just msgType' -> void $
+              OutQ.enqueue (nodeOutQ node)
+                           msgType'
+                           msgObj
   where
     received, discarded :: MsgObj -> Text
     received  = sformat (shown % ": received "  % formatMsg) (nodeId node)
@@ -212,9 +213,9 @@ data SendFailed = SendFailedAddToPool
 instance Exception SendFailed
 
 -- | Send a message from the specified node
-send :: Log.LoggingHandler -> Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
-send lh sync from msgType msgId = do
-    Log.usingLoggerName lh (fromString "outboundqueue-demo") $ Log.logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+send :: TraceNamed IO -> Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
+send logTrace' sync from msgType msgId = do
+    logNotice (appendName "outboundqueue-demo" logTrace') $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
     added <- addToMsgPool (nodeMsgPool from) msgData
     unless added $ throwIO SendFailedAddToPool
     enqueue (nodeOutQ from) msgType msgObj

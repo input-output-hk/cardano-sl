@@ -28,7 +28,8 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), Meas
 import           LogReaderOptions (Args (..), argsParser)
 
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (Trace, Severity (..), traceWith, logTrace)
+import           Pos.Util.LoggerConfig
+import           Pos.Util.Trace.Named
 
 
 
@@ -36,9 +37,9 @@ type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
 
 type RowId = Int
 
-analyze :: Trace IO (Severity, Text) -> FilePath -> Measures -> IO Measures
+analyze :: TraceNamed IO -> FilePath -> Measures -> IO Measures
 analyze logTrace_ file initialMeasures = runResourceT $ pipeline
-    
+
   where
 
     pipelineSource :: ConduitT () (Text, RowId) (ResourceT IO) ()
@@ -60,7 +61,7 @@ analyze logTrace_ file initialMeasures = runResourceT $ pipeline
     saveMeasure :: Measures -> (Text, RowId) -> ResourceT IO Measures
     saveMeasure !measures (row, rowid) = case parseOnly (logMessageParser measureInfoParser) row of
         Left err -> do
-            liftIO $ traceWith logTrace_ $ (,) Warning $
+            liftIO $ logWarning logTrace_ $
                 sformat ("Parse error at file "%F.build%" (line "%F.int%"): "%F.build)
                 file rowid err
             pure measures
@@ -117,7 +118,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = do
-    let logTrace' = logTrace "LogReader"
+    logTrace' <- setupLogging (defaultInteractiveConfiguration Log.Debug) "LogReader"
     Args{..} <- liftIO getOptions
     measures <- foldrM (analyze logTrace') M.empty inputFiles
     printMeasures resultFile measures

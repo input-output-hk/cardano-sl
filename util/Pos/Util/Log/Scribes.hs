@@ -3,12 +3,14 @@ module Pos.Util.Log.Scribes
     ( mkStdoutScribe
     , mkDevNullScribe
     , mkFileScribe
+    , mkJsonFileScribe
     ) where
 
 import           Universum hiding (fromString)
 
 import           Control.Exception.Safe (catchIO)
 
+import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Text.Lazy.Builder
 import qualified Data.Text.Lazy.IO as T
 import           Katip.Core
@@ -27,11 +29,29 @@ import qualified Pos.Util.Log.Internal as Internal
 
 
 
--- | global lock for file Scribe
+-- | global lock for file Scribes
 {-# NOINLINE lock #-}
 lock :: MVar ()
 lock = unsafePerformIO $ newMVar ()
 
+
+-- | create a katip scribe for logging to a file (JSON)
+mkJsonFileScribe :: FilePath -> FilePath -> Severity -> Verbosity -> IO Scribe
+mkJsonFileScribe bp fp s v = do
+    putStrLn $ "making JSON scribe on " ++ (bp </> fp)
+    h <- catchIO (openFile (bp </> fp) WriteMode) $
+            \e -> do
+                putStrLn $ "error while opening log @ " ++ (bp </> fp)
+                putStrLn $ "exception: " ++ show e
+                return stdout    -- fallback to standard output in case of exception
+    hSetBuffering h LineBuffering
+    _lock <- newMVar ()
+    let logger :: forall a. LogItem a => Item a -> IO ()
+        logger item =
+          when (permitItem s item) $
+              bracket_ (takeMVar _lock) (putMVar _lock ()) $
+                T.hPutStrLn h $ encodeToLazyText $ itemJson v item
+    pure $ Scribe logger (hFlush h)
 
 -- | create a katip scribe for logging to a file
 -- calls '_mkFileScribe'

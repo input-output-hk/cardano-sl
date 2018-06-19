@@ -33,7 +33,7 @@ import           Data.Data (Data)
 import           Data.Functor (($>))
 import           Data.Int (Int64)
 import           Data.Monoid ((<>))
-import           Data.Text (Text)
+--import           Data.Text (Text)
 import           Data.Text.Buildable (Buildable (build))
 import           Data.Time.Units (toMicroseconds)
 
@@ -43,7 +43,7 @@ import           Prelude hiding (takeWhile)
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
-import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Named
 
 -- * Transfered data types
 
@@ -75,10 +75,10 @@ instance Binary Payload where
 
 -- * Util
 
-logMeasure :: (MonadIO m) => Trace IO Text -> MeasureEvent -> MsgId -> Payload -> m ()
+logMeasure :: (MonadIO m) => TraceNamed IO -> MeasureEvent -> MsgId -> Payload -> m ()
 logMeasure logTrace miEvent miId miPayload = do
     miTime <- toMicroseconds <$> realTime
-    liftIO $ traceWith logTrace $ F.sformat F.build $ LogMessage MeasureInfo{..}
+    liftIO $ logInfo logTrace $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
 {-
 defaultLogConfig :: Log.LoggerConfig

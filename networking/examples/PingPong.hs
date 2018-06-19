@@ -25,8 +25,9 @@ import           Network.Transport (closeTransport)
 import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
-import           Pos.Util.Trace (TraceIO, setupLogging, Severity (..))
+import           Pos.Util.Trace.Named
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.
@@ -102,13 +103,13 @@ main = do
     let prng3 = mkStdGen 2
     let prng4 = mkStdGen 3
 
-    traceIO <- setupLogging (defaultInteractiveConfiguration Debug) "Discovery"
+    logTrace <- setupLogging (defaultInteractiveConfiguration Log.Debug) "Discovery"
 
-    putStrLn $ "Starting nodes"
-    node traceIO (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-         prng1 binaryPacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
+    logInfo logTrace "Starting nodes"
+    node (appendName "node1" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+          prng1 binaryPacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \converse1 -> do
-            node traceIO (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+            node (appendName "node2" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                   prng2 binaryPacking (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \converse2 -> do
                     tid1 <- forkIO $ worker (nodeId node1) prng3 [nodeId node2] converse1
@@ -118,5 +119,5 @@ main = do
                     killThread tid1
                     killThread tid2
                     putStrLn $ "Stopping nodes"
-    putStrLn $ "All done."
+    logInfo logTrace "All done."
     closeTransport transport

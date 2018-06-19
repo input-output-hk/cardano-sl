@@ -24,6 +24,7 @@ module Pos.Util.LoggerConfig
        -- * functions
        , parseLoggerConfig
        , retrieveLogFiles
+       , setLogPrefix
        ) where
 
 import           Data.Yaml as Y
@@ -157,6 +158,11 @@ parseLoggerConfig :: MonadIO m => FilePath -> m LoggerConfig
 parseLoggerConfig lcPath =
     liftIO $ join $ either throwM return <$> Y.decodeFileEither lcPath
 
+-- | set log prefix
+setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO LoggerConfig
+setLogPrefix Nothing lc     = return lc
+setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
+
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
@@ -182,7 +188,13 @@ defaultInteractiveConfiguration minSeverity =
                 _lhBackend = StdoutBE,
                 _lhName = "console",
                 _lhFpath = Nothing,
-                _lhMinSeverity = Just minSeverity } ]
+                _lhMinSeverity = Just minSeverity }
+                          , LogHandler {
+                _lhBackend = FileJsonBE,
+                _lhName = "json",
+                _lhFpath = Just "node.json",
+                _lhMinSeverity = Just minSeverity }
+                          ]
           }
     in
     LoggerConfig{..}

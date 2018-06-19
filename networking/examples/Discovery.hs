@@ -19,7 +19,7 @@ import           Control.Monad (forM, forM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
-import           Data.Functor.Contravariant (contramap)
+--import           Data.Functor.Contravariant (contramap)
 import qualified Data.Set as S
 import           Data.Void (Void, absurd)
 import           GHC.Generics (Generic)
@@ -29,8 +29,9 @@ import           Network.Transport (Transport (..))
 import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
-import           Pos.Util.Trace (TraceIO, setupLogging, Severity (..))
+import           Pos.Util.Trace.Named
 import           System.Environment (getArgs)
 import           System.Random
 
@@ -85,7 +86,7 @@ listeners anId peerData = [pongListener]
         putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions (Pong "")
 
-makeNode :: TraceIO
+makeNode :: TraceNamed IO
          -> Transport
          -> Int
          -> IO ThreadId
@@ -125,7 +126,7 @@ main = do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
-    traceIO <- setupLogging (defaultInteractiveConfiguration Debug) "Discovery"
+    logTrace <- setupLogging (defaultInteractiveConfiguration Log.Debug) "Discovery"
 
     let params = TCP.defaultTCPParameters { TCP.tcpCheckPeerHost = True }
     transport <- do
@@ -134,7 +135,7 @@ main = do
         either throwIO return transportOrError
 
     putStrLn $ "Spawning " ++ show number ++ " nodes"
-    nodeThreads <- forM [0..number] (makeNode traceIO transport)
+    nodeThreads <- forM [0..number] (makeNode logTrace transport)
 
     putStrLn "Hit return to stop"
     _ <- getChar

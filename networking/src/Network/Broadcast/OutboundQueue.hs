@@ -108,7 +108,8 @@ import qualified System.Metrics as Monitoring
 import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
 
-import           Pos.Util.Trace (Trace, traceWith, Severity (..))
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace.Named
 
 
 import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
@@ -377,7 +378,7 @@ data OutboundQ msg nid buck = ( FormatMsg msg
                               , Show buck
                               ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
-      qTrace           :: Trace IO (Severity, Text)
+      qTrace           :: TraceNamed IO
 
       -- | Enqueuing policy
     , qEnqueuePolicy   :: EnqueuePolicy nid
@@ -462,7 +463,7 @@ new :: forall msg nid buck.
        , Ord buck
        , Show buck
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> EnqueuePolicy nid
     -> DequeuePolicy
     -> FailurePolicy nid
@@ -568,14 +569,14 @@ enumFailures = mconcat [
     , [Some (FailedBucketFull b) | b <- [minBound .. maxBound]]
     ]
 
-failureSeverity :: Failure msg nid buck fmt -> Severity
-failureSeverity FailedEnqueueAll     = Error
-failureSeverity FailedEnqueueOne     = Error
-failureSeverity FailedAllSends       = Error
-failureSeverity FailedCherishLoop    = Error
-failureSeverity FailedChooseAlt      = Warning
-failureSeverity FailedSend           = Warning
-failureSeverity (FailedBucketFull _) = Warning
+failureSeverity :: Failure msg nid buck fmt -> Log.Severity
+failureSeverity FailedEnqueueAll     = Log.Error
+failureSeverity FailedEnqueueOne     = Log.Error
+failureSeverity FailedAllSends       = Log.Error
+failureSeverity FailedCherishLoop    = Log.Error
+failureSeverity FailedChooseAlt      = Log.Warning
+failureSeverity FailedSend           = Log.Warning
+failureSeverity (FailedBucketFull _) = Log.Warning
 
 failureCounter :: Failure msg nid buck fmt -> QHealth buck -> Counter
 failureCounter failure QHealth{..} =
@@ -639,11 +640,11 @@ logFailure :: OutboundQ msg nid buck
            -> fmt
            -> IO ()
 logFailure OutQ{..} failure fmt = do
-    traceWith qTrace (failureSeverity failure, failureFormat failure fmt)
+    logMessage qTrace (failureSeverity failure) (failureFormat failure fmt)
     Counter.inc $ failureCounter failure qHealth
 
 logDebugOQ :: OutboundQ msg nid buck -> Text -> IO ()
-logDebugOQ OutQ{..} txt = traceWith qTrace (Debug, txt)
+logDebugOQ OutQ{..} txt = logMessage qTrace Log.Debug txt
 
 {-------------------------------------------------------------------------------
   EKG metrics

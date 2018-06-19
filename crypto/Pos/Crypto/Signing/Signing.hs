@@ -146,7 +146,7 @@ proxySign pm t sk@(SecretKey delegateSk) psk m
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify
-    :: (Bi w, Bi a)
+    :: Bi a
     => ProtocolMagic -> SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
 proxyVerify pm t ProxySignature{..} omegaPred m =
     predCorrect && sigValid

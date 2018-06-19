@@ -47,9 +47,9 @@ bracketPassiveWallet logFunction f =
       -- TODO (temporary): build a sample wallet from a backup phrase
       _ <- liftIO $ do
         let backup = BackupPhrase
-                     { bpToList = ["squirrel", "material", "silly",   "twice",
-                                    "direct",  "slush",    "pistol",  "razor",
-                                    "become",  "junk",     "kingdom", "flee" ]
+                     { bpToList = ["just",     "person",  "occur",   "liberty",
+                                   "bless",    "degree",  "private", "fruit",
+                                   "favorite", "aerobic", "goat",    "toddler"]
                      }
             Right (esk, _keyPair) = safeKeysFromPhrase emptyPassphrase backup
             pk = error "TODO: need `AddressHash PublicKey` along with ESK to create a wallet"

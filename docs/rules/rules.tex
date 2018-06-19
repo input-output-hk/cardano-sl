@@ -642,7 +642,10 @@ A sequence $b₁,…,b_n$ is said to be a \emph{valid chain} if
 $b₁,…,b_{n-1}$ is a valid chain,
 and $b_n$ is a \emph{valid extension} of $b₁,…,b_{n-1}$.
 
-A block $b$ is said to be a valid extension of a valid chain
+\subsection{Boundary block}
+\label{sec:boundary-block}
+
+A boundary block $b∈\bblocks$ is a valid extension of a valid chain
 $b_1,…,b_n$ if all of the following hold
 \begin{description}
 \item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the predecessor
@@ -651,6 +654,25 @@ $b_1,…,b_n$ if all of the following hold
   slot.
 \item[Not past slot] The slot number of $b$ is larger than the slot.
   number of $b_n$
+\item[At boundary] Let $s$ be the slot number of $b$, $\epochslot{s} =
+  0$ (note that it implies, in particular, that $\epoch{b_n}<\epoch{s}$).
+\end{description}
+
+\subsection{Regular block}
+\label{sec:regular-blocks}
+
+A regular block $b∈\rblocks$ is a valid extension of a valid chain
+$b_1,…,b_n$ if all of the following hold
+\begin{description}
+\item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the predecessor
+  of $b$ is the genesis identifier $b₀$.
+\item[Not future slot] The slot number is no larger than the current
+  slot.
+\item[Not past slot] The slot number of $b$ is larger than the slot.
+  number of $b_n$
+\item[No boundary-crossing] Let $s_b$ be the slot number of $b$ and
+  $s_n$ be the slot number of $b_n$, then $\epoch{s_b}=\epoch{s_n}$
+  (this condition imposes that epochs be started by epoch boundary blocks).
 \item[Issuer] Let $i$ be the issuer of $b$, and let $l$ be the slot
   leader at the slot of $b$:
   $$

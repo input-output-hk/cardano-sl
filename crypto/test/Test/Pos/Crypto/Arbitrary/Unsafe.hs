@@ -46,7 +46,7 @@ instance ArbitraryUnsafe VssKeyPair where
 instance ArbitraryUnsafe VssPublicKey where
     arbitraryUnsafe = toVssPublicKey <$> arbitraryUnsafe
 
-instance (HashAlgorithm algo, Bi a) =>
+instance HashAlgorithm algo =>
          ArbitraryUnsafe (AbstractHash algo a) where
     arbitraryUnsafe = unsafeAbstractHash <$>
         choose (minBound, maxBound :: Word64)

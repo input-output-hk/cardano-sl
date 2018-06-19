@@ -102,7 +102,7 @@ instance Bi SecretKey => Eq SecretKey where
 instance Show SecretKey where
     show sk = "<secret of " ++ show (toPublic sk) ++ ">"
 
-instance Bi PublicKey => B.Buildable PublicKey where
+instance B.Buildable PublicKey where
     build = bprint ("pub:"%shortPublicKeyHexF)
 
 instance B.Buildable SecretKey where

@@ -2,6 +2,8 @@
 {-# LANGUAGE RankNTypes          #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+-- Need this to avoid a warning on the `typeName` helper function.
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Test.Pos.Binary.Helpers
        ( IdTestingRequiredClassesAlmost
@@ -74,7 +76,7 @@ binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 
 -- | Machinery to test we perform "flat" encoding.
-cborFlatTermValid :: (Show a, Bi a) => a -> Property
+cborFlatTermValid :: Bi a => a -> Property
 cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
 
 -- Test that serialized 'a' has canonical representation, i.e. if we're able to
@@ -119,6 +121,8 @@ type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 identityTest :: forall a. (IdTestingRequiredClassesAlmost a) => (a -> Property) -> Spec
 identityTest fun = prop (typeName @a) fun
   where
+    -- GHC 8.2.2 says the `Typeable x` constraint is not necessary, but won't compile
+    -- this without it.
     typeName :: forall x. Typeable x => String
     typeName = show $ typeRep (Proxy @a)
 
@@ -222,7 +226,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 ----------------------------------------------------------------------------
 
 msgLenLimitedCheck
-    :: (Show a, Bi a) => Limit a -> a -> Property
+    :: Bi a => Limit a -> a -> Property
 msgLenLimitedCheck limit msg =
     let sz = BS.length . serialize' $ msg
     in if sz <= fromIntegral limit

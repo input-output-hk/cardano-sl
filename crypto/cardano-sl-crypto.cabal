@@ -113,6 +113,7 @@ test-suite test
                        Test.Pos.Crypto.Bi
                        Test.Pos.Crypto.Arbitrary
                        Test.Pos.Crypto.Arbitrary.Unsafe
+                       Test.Pos.Crypto.CborSpec
                        Test.Pos.Crypto.CryptoSpec
                        Test.Pos.Crypto.CryptoSpec2
                        Test.Pos.Crypto.Dummy

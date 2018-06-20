@@ -38,7 +38,7 @@ Library
                        hashable,
                        mtl,
                        network,
-                       safecopy >= 0.6,
+                       safecopy >= 0.9.4,
                        stm >= 2.4,
                        template-haskell,
                        th-expand-syns >= 0.4.1 && < 0.5,

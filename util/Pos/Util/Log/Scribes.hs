@@ -38,7 +38,6 @@ lock = unsafePerformIO $ newMVar ()
 -- | create a katip scribe for logging to a file (JSON)
 mkJsonFileScribe :: FilePath -> FilePath -> Severity -> Verbosity -> IO Scribe
 mkJsonFileScribe bp fp s v = do
-    putStrLn $ "making JSON scribe on " ++ (bp </> fp)
     h <- catchIO (openFile (bp </> fp) WriteMode) $
             \e -> do
                 putStrLn $ "error while opening log @ " ++ (bp </> fp)

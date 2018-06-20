@@ -10,6 +10,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
 import           Test.QuickCheck (Gen, arbitrary, generate)
 
+import qualified Pos.Core as Core
 import           Pos.Crypto.Signing (PublicKey, encToPublic, encodeBase58PublicKey)
 import           Pos.Util.BackupPhrase (safeKeysFromPhrase)
 
@@ -49,31 +50,40 @@ randomExternalWallet walletOp =
     orFail =
         either (error . show) identity
 
+randomExternalWalletWithPublicKey :: WalletOperation -> PublicKey -> IO NewExternalWallet
+randomExternalWalletWithPublicKey walletOp publicKey =
+    generate $
+        NewExternalWallet
+            <$> pure (encodeBase58PublicKey publicKey)
+            <*> arbitrary
+            <*> pure "External Wallet"
+            <*> pure walletOp
+
 createWalletCheck :: WalletClient IO -> NewWallet -> IO Wallet
 createWalletCheck wc newWallet = do
-    result <- fmap wrData <$> postWallet wc newWallet
-    result `shouldPrism` _Right
+    response <- fmap wrData <$> postWallet wc newWallet
+    response `mustBe` _OK
 
 createExternalWalletCheck :: WalletClient IO -> NewExternalWallet -> IO Wallet
 createExternalWalletCheck wc newExtWallet = do
-    result <- fmap wrData <$> postExternalWallet wc newExtWallet
-    result `shouldPrism` _Right
+    response <- fmap wrData <$> postExternalWallet wc newExtWallet
+    response `mustBe` _OK
 
-firstAccountAndId :: WalletClient IO -> Wallet -> IO (Account, WalletAddress)
-firstAccountAndId wc wallet = do
-    toAccts <- accountsInWallet wc wallet
-    let (toAcct : _) = toAccts
-        (toAddr : _) = accAddresses toAcct
-    pure (toAcct, toAddr)
+getFirstAccountAndAddress :: WalletClient IO -> Wallet -> IO (Account, WalletAddress)
+getFirstAccountAndAddress wc wallet = do
+    accounts <- getAccountsInWallet wc wallet
+    let (fstAccount : _) = accounts
+        (fstAddress : _) = accAddresses fstAccount
+    pure (fstAccount, fstAddress)
 
 firstAccountInExtWallet :: WalletClient IO -> Wallet -> IO Account
 firstAccountInExtWallet wc wallet = do
-    toAccts <- accountsInWallet wc wallet
-    let (fstAcct : _) = toAccts
-    pure fstAcct
+    accounts <- getAccountsInWallet wc wallet
+    let (fstAccount : _) = accounts
+    pure fstAccount
 
-accountsInWallet :: WalletClient IO -> Wallet -> IO [Account]
-accountsInWallet wc wallet = do
+getAccountsInWallet :: WalletClient IO -> Wallet -> IO [Account]
+getAccountsInWallet wc wallet = do
     etoAccts <- getAccounts wc (walId wallet)
     toAccts <- fmap wrData etoAccts `shouldPrism` _Right
     toAccts `shouldSatisfy` (not . null)
@@ -118,6 +128,12 @@ lockedWallet :: WalletId
 lockedWallet =
     WalletId "Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4"
 
+getWalletBalanceInLovelaces :: WalletClient IO -> Wallet -> IO Word64
+getWalletBalanceInLovelaces wc wallet = do
+    response <- getWallet wc (walId wallet)
+    sameWallet <- response `mustBe` _OK
+    pure . Core.getCoin . unV1 . walBalance . wrData $ sameWallet
+
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar
 {-# NOINLINE genesisRef #-}
@@ -129,6 +145,17 @@ shouldPrism a b = do
     pure x
 
 infixr 8 `shouldPrism`
+
+_OK :: Prism (Either c a) (Either c b) a b
+_OK = _Right
+
+_Failed :: Prism (Either a c) (Either b c) a b
+_Failed = _Left
+
+mustBe :: Show s => s -> Prism' s a -> IO a
+mustBe = shouldPrism
+
+infixr 8 `mustBe`
 
 shouldPrism_ :: Show s => s -> Prism' s a -> IO ()
 shouldPrism_ a b =

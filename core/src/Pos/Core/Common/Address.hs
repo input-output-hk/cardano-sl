@@ -8,6 +8,7 @@ module Pos.Core.Common.Address
        , addressF
        , addressDetailedF
        , decodeTextAddress
+       , addrToBase58Text
 
        -- * Spending data checks
        , checkAddrSpendingData
@@ -190,6 +191,9 @@ addressDetailedF =
 -- base58
 addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
+
+addrToBase58Text :: Address -> Text
+addrToBase58Text = decodeUtf8 . addrToBase58
 
 addrToBase58 :: Address -> ByteString
 addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'

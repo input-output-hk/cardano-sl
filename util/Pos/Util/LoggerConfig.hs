@@ -239,4 +239,3 @@ defaultTestConfiguration minSeverity =
           }
     in
     LoggerConfig{..}
-

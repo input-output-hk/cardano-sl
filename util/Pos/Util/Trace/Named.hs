@@ -1,7 +1,7 @@
 -- | 'Trace' for named logging.
 
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Pos.Util.Trace.Named
     ( TraceNamed
@@ -19,6 +19,7 @@ module Pos.Util.Trace.Named
     ) where
 
 import           Universum
+
 import           Data.Functor.Contravariant (Op (..), contramap)
 import qualified Data.Text as T
 import qualified Pos.Util.Log as Log
@@ -98,13 +99,15 @@ setupLogging lc ln = do
 
 namedTrace :: Log.LoggingHandler -> TraceNamed IO --Trace IO (LogNamed TrU.LogItem)
 namedTrace lh = Trace $ Op $ \namedLogitem ->
-    let --privacy = liPrivacy (lnItem namedLogitem)
+    let privacy = TrU.liPrivacy (lnItem namedLogitem)
         loggerName = T.tail $ lnName namedLogitem
         severity = TrU.liSeverity (lnItem namedLogitem)
         message = TrU.liMessage (lnItem namedLogitem)
     in
-    Log.usingLoggerName lh loggerName $ Log.logMessage severity message
-    -- ^ pass message to underlying logging
+    case privacy of
+        Both    -> Log.usingLoggerName lh loggerName $ Log.logMessage severity message
+        -- ^ pass to every logging scribe
+        Private -> Log.usingLoggerName lh loggerName $ Log.logMessage severity message
 
 {- testing:
 

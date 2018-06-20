@@ -31,7 +31,7 @@ module Pos.Ssc.Toss.Base
        , verifyEntriesGuardM
        ) where
 
-import           Universum
+import           Universum hiding (id, keys)
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.ST (ST, runST)

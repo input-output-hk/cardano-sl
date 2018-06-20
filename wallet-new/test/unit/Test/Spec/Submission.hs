@@ -5,7 +5,7 @@ module Test.Spec.Submission (
   , dependentTransactions
   ) where
 
-import           Universum
+import           Universum hiding (elems)
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,

@@ -26,13 +26,11 @@ import           Pos.Core.Configuration.GeneratedSecrets as E
 import           Pos.Core.Configuration.GenesisData as E
 import           Pos.Core.Configuration.GenesisHash as E
 import           Pos.Core.Configuration.Protocol as E
+import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation, GenesisInitializer (..),
+                                   GenesisProtocolConstants (..), GenesisSpec (..),
+                                   genesisProtocolConstantsToProtocolConstants, mkGenesisDelegation)
 import           Pos.Core.Genesis.Canonical (SchemaError)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
-import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
-import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
-                                         GenesisInitializer (..), GenesisProtocolConstants (..),
-                                         GenesisSpec (..),
-                                         genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
@@ -40,8 +38,7 @@ import           Pos.Util.Util (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
-    ( HasProtocolMagic
-    , HasCoreConfiguration
+    ( HasCoreConfiguration
     , HasGenesisData
     , HasGenesisHash
     , HasGeneratedSecrets
@@ -77,7 +74,6 @@ withCoreConfigurations
     :: forall m r.
        ( MonadThrow m
        , MonadIO m
-       , Canonical.FromJSON (Either SchemaError) GenesisData
        )
     => CoreConfiguration
     -> FilePath
@@ -88,7 +84,7 @@ withCoreConfigurations
     -> Maybe Integer
     -- ^ Optional seed which overrides one from testnet initializer if
     -- provided.
-    -> (HasConfiguration => m r)
+    -> (HasConfiguration => ProtocolMagic -> m r)
     -> m r
 withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act = case ccGenesis of
     -- If a 'GenesisData' source file is given, we check its hash against the
@@ -117,13 +113,12 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
                      (show theGenesisHash) (show expectedHash)
 
         withCoreConfiguration conf $
-            withProtocolMagic pm $
             withProtocolConstants pc $
             withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
             withGenesisData theGenesisData $
             withGenesisHash theGenesisHash $
             withGeneratedSecrets Nothing $
-            act
+            act pm
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
     -- it's a testnet initializer) and then make a 'GenesisData' from it.
@@ -151,18 +146,17 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 withGenesisSpec
     :: Timestamp
     -> CoreConfiguration
-    -> (HasConfiguration => r)
+    -> (HasConfiguration => ProtocolMagic -> r)
     -> r
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
     GCSrc {} -> error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
-        withProtocolMagic pm $
         withProtocolConstants pc $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
             let
                 -- Generate
                 GeneratedGenesisData {..} =
-                    generateGenesisData protocolMagic (gsInitializer spec) (gsAvvmDistr spec)
+                    generateGenesisData pm (gsInitializer spec) (gsAvvmDistr spec)
 
                 -- Unite with generated
                 finalHeavyDelegation :: GenesisDelegation
@@ -189,7 +183,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
              in withCoreConfiguration conf $
                   withGenesisHash theGenesisHash $
                   withGeneratedSecrets (Just ggdSecrets) $
-                  withGenesisData theGenesisData val
+                  withGenesisData theGenesisData $ val pm
       where
         pm = gpcProtocolMagic (gsProtocolConstants spec)
         pc = genesisProtocolConstantsToProtocolConstants (gsProtocolConstants spec)

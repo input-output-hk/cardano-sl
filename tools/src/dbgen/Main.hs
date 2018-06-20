@@ -14,20 +14,19 @@ import           Universum
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
+import           Data.Time.Units (fromMicroseconds)
 import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
                                  gtSscParams)
-import           Pos.Core (Timestamp (..))
+import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
-                                          topologyDequeuePolicy,
-                                          topologyEnqueuePolicy,
-                                          topologyFailurePolicy)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+                                          topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Infra.Reporting (noReporter)
 import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
@@ -39,7 +38,6 @@ import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
-import           Serokell.Util (sec)
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
 import           CLI (CLI (..))
@@ -61,11 +59,12 @@ defaultNetworkConfig ncTopology = NetworkConfig {
 
 newRealModeContext
     :: HasConfigurations
-    => NodeDBs
+    => ProtocolMagic
+    -> NodeDBs
     -> ConfigurationOptions
     -> FilePath
     -> Production (RealModeContext ())
-newRealModeContext dbs confOpts secretKeyPath = do
+newRealModeContext pm dbs confOpts secretKeyPath = do
     let nodeArgs = NodeArgs {
       behaviorConfigPath = Nothing
     }
@@ -81,6 +80,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
     let cArgs@CommonNodeArgs {..} = CommonNodeArgs {
            dbPath                 = Just "node-db"
          , rebuildDB              = True
+         , cnaAssetLockPath       = Nothing
          , devGenesisSecretI      = Nothing
          , keyfilePath            = secretKeyPath
          , networkConfigOpts      = networkOps
@@ -105,7 +105,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
     nodeParams <- getNodeParams loggerName cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @() nodeParams gtParams txpGlobalSettings initNodeDBs $ \NodeResources{..} ->
+    bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState
                         <*> pure nrTxpState
@@ -119,17 +119,18 @@ newRealModeContext dbs confOpts secretKeyPath = do
 
 walletRunner
     :: HasConfigurations
-    => ConfigurationOptions
+    => ProtocolMagic
+    -> ConfigurationOptions
     -> NodeDBs
     -> FilePath
     -> WalletDB
     -> UberMonad a
     -> IO a
-walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
+walletRunner pm confOpts dbs secretKeyPath ws act = runProduction $ do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
                                  <*> liftIO newTQueueIO
-                                 <*> newRealModeContext dbs confOpts secretKeyPath
+                                 <*> newRealModeContext pm dbs confOpts secretKeyPath
     runReaderT act wwmc
 
 newWalletState :: MonadIO m => Bool -> FilePath -> m WalletDB
@@ -145,7 +146,7 @@ instance HasLoggerName IO where
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
 newConfig :: CLI -> ConfigurationOptions
 newConfig CLI{..} = defaultConfigurationOptions {
-      cfoSystemStart  = Timestamp . sec <$> systemStart
+      cfoSystemStart  = Timestamp . fromMicroseconds . fromIntegral . (*) 1000000 <$> systemStart
     , cfoFilePath     = configurationPath
     , cfoKey          = toText configurationProf
     }
@@ -157,7 +158,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ \_ -> do
+    withConfigurations Nothing cfg $ \_ pm -> do
         when showStats (showStatsAndExit walletPath)
 
         say $ bold "Starting the modification of the wallet..."
@@ -169,7 +170,7 @@ main = do
         ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
         let generatedWallet = generateWalletDB cli spec
-        walletRunner cfg dbs secretKeyPath ws generatedWallet
+        walletRunner pm cfg dbs secretKeyPath ws generatedWallet
         closeState ws
 
         showStatsData "after" walletPath

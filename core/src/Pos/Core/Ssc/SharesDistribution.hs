@@ -4,7 +4,7 @@ module Pos.Core.Ssc.SharesDistribution
        ( SharesDistribution
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))

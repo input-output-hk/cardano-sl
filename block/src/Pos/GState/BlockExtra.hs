@@ -17,7 +17,7 @@ module Pos.GState.BlockExtra
        , initGStateBlockExtra
        ) where
 
-import           Universum
+import           Universum hiding (init)
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
@@ -34,7 +34,7 @@ import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (
                          dbSerializeValue, getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------

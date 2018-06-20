@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where
@@ -9,14 +8,14 @@ import           Formatting (int, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum
 
-import           Pos.Arbitrary.Core.Unsafe ()
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (pcEpochSlots)
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Lrc (followTheSatoshi)
 
-import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
+import           Bench.Configuration (benchProtocolConstants)
+import           Test.Pos.Core.Arbitrary.Unsafe ()
 import           Test.Pos.Crypto.Arbitrary ()
-import           Bench.Configuration (giveCoreConf)
+import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
 type UtxoSize = Int
 
@@ -25,10 +24,11 @@ type UtxoSize = Int
 arbitraryUtxoOfSize :: UtxoSize -> Gen [(StakeholderId, Coin)]
 arbitraryUtxoOfSize n = take n <$> infiniteListOf arbitraryUnsafe
 
-ftsBench :: HasConfiguration => UtxoSize -> Benchmark
-ftsBench n = env genArgs $ bench msg . whnf (uncurry followTheSatoshi)
+ftsBench :: UtxoSize -> Benchmark
+ftsBench n = env genArgs $ bench msg . whnf (uncurry (followTheSatoshi epochSlots))
     where genArgs = generate $ (,) <$> arbitrary <*> arbitraryUtxoOfSize n
           msg = toString $ sformat ("followTheSatoshi: Utxo of size "%int) n
+          epochSlots = pcEpochSlots benchProtocolConstants
 
 ftsConfig :: Config
 ftsConfig = defaultConfig
@@ -36,4 +36,4 @@ ftsConfig = defaultConfig
     }
 
 runBenchmark :: IO ()
-runBenchmark = giveCoreConf $ defaultMainWith ftsConfig $ map ftsBench [1000, 10000, 100000]
+runBenchmark = defaultMainWith ftsConfig $ map ftsBench [1000, 10000, 100000]

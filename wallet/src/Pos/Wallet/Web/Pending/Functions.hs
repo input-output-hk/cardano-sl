@@ -85,6 +85,7 @@ isReclaimableFailure (SaveTxToilFailure tvf) = case tvf of
     ToilUnknownAttributes{}  -> False
     ToilNonBootstrapDistr{}  -> False
     ToilRepeatedInput{}      -> False
+    ToilEmptyAfterFilter     -> False
 
 usingPtxCoords :: (CId Wal -> TxId -> a) -> PendingTx -> a
 usingPtxCoords f PendingTx{..} = f _ptxWallet _ptxTxId

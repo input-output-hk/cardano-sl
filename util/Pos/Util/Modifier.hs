@@ -33,7 +33,7 @@ module Pos.Util.Modifier
        , toHashMap
        ) where
 
-import           Universum hiding (filter, mapMaybe, toList)
+import           Universum hiding (filter, mapMaybe, toList, keys)
 import qualified Universum
 
 import           Data.Hashable (Hashable)

@@ -5,8 +5,7 @@
 module Pos.Ssc.Base
        (
          -- * Helpers
-         genCommitmentAndOpening
-       , isCommitmentIdExplicit
+         isCommitmentIdExplicit
        , isCommitmentId
        , isCommitmentIdxExplicit
        , isCommitmentIdx
@@ -41,33 +40,26 @@ module Pos.Ssc.Base
        , defaultSscPayload
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
-import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix (inRange)
-import qualified Data.List.NonEmpty as NE
-import           Formatting (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
-import           Pos.Binary.Class (asBinary, biSize, fromBinary)
+import           Pos.Binary.Class (biSize, fromBinary)
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
                            StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
-import           Pos.Core.Configuration (HasProtocolConstants, vssMaxTTL, vssMinTTL,
-                                         protocolConstants)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
-                                             pcSlotSecurityParam)
+import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants, vssMaxTTL,
+                                         vssMinTTL)
+import           Pos.Core.Limits (stripHashMap)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), pcSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
                                VssCertificatesMap (..), mkCommitmentsMapUnsafe)
-import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment),
-                             Threshold, VssPublicKey, checkSig, genSharedSecret,
-                             getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Util.Limits (stripHashMap)
+import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment), Threshold,
+                             checkSig, getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -80,27 +72,6 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 -- shares, when verifying shares, and when recovering the secret.
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
-
--- | Generate random SharedSeed.
-genCommitmentAndOpening
-    :: Rand.MonadRandom m
-    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
-genCommitmentAndOpening t pks
-    | t <= 1 = error $ sformat
-        ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
-    | t >= n - 1 = error $ sformat
-        ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%
-         " (n = "%build%")") t n
-    | otherwise = convertRes <$> genSharedSecret t pks
-  where
-    n = fromIntegral (length pks)
-    convertRes (secret, proof, shares) =
-        ( Commitment
-          { commProof = proof
-          , commShares = HM.fromList $ map toPair $ NE.groupWith fst shares
-          }
-        , Opening $ asBinary secret)
-    toPair ne@(x:|_) = (asBinary (fst x), NE.map (asBinary . snd) ne)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
@@ -211,12 +182,12 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 --
 -- #checkSig
 verifyCommitmentSignature
-    :: (HasProtocolMagic)
-    => EpochIndex
+    :: ProtocolMagic
+    -> EpochIndex
     -> SignedCommitment
     -> Bool
-verifyCommitmentSignature epoch (pk, comm, commSig) =
-    checkSig protocolMagic SignCommitment pk (epoch, comm) commSig
+verifyCommitmentSignature pm epoch (pk, comm, commSig) =
+    checkSig pm SignCommitment pk (epoch, comm) commSig
 
 -- CHECK: @verifySignedCommitment
 -- | Verify SignedCommitment using public key and epoch index.
@@ -224,13 +195,13 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: (HasProtocolMagic)
-    => EpochIndex
+    :: ProtocolMagic
+    -> EpochIndex
     -> SignedCommitment
     -> VerificationRes
-verifySignedCommitment epoch sc@(_, comm, _) = do
+verifySignedCommitment pm epoch sc@(_, comm, _) = do
     verifyGeneric
-        [ ( verifyCommitmentSignature epoch sc
+        [ ( verifyCommitmentSignature pm epoch sc
           , "commitment has bad signature (e. g. for wrong epoch)")
         , ( verifyCommitment comm
           , "commitment itself is bad (e. g. no shares")

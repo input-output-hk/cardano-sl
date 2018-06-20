@@ -12,8 +12,7 @@ import           Universum
 import           Formatting (sformat, (%))
 
 import           Pos.Communication.Message ()
-import           Pos.Core (protocolMagic)
-import           Pos.Crypto (SafeSigner, hash, hashHexF)
+import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (sendUpdateProposal, sendVote))
 import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkUpdateVoteSafe)
@@ -29,14 +28,15 @@ submitVote diffusion = Diffusion.sendVote diffusion
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: MinWorkMode m
-    => Diffusion m
+    :: (MinWorkMode m)
+    => ProtocolMagic
+    -> Diffusion m
     -> [SafeSigner]
     -> UpdateProposal
     -> m ()
-submitUpdateProposal diffusion ss prop = do
+submitUpdateProposal pm diffusion ss prop = do
     let upid  = hash prop
-    let votes = [mkUpdateVoteSafe protocolMagic signer upid True | signer <- ss]
+    let votes = [mkUpdateVoteSafe pm signer upid True | signer <- ss]
     sendUpdateProposal diffusion upid prop votes
 
 -- Send UpdateProposal to given address.

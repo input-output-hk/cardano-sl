@@ -1,14 +1,14 @@
-{-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Module which provides `MonadWalletWebMode` instance for tests
@@ -53,7 +53,6 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..), largestHDAddressBoot)
 import           Pos.Core.Txp (TxAux)
@@ -68,21 +67,15 @@ import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Reporting (MonadReporting (..))
-import           Pos.Infra.Shutdown (HasShutdownContext (..),
-                                     ShutdownContext (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, SimpleSlottingStateVar,
-                                     mkSimpleSlottingStateVar)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
-                                     newStateLock)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                                                JsonLogConfig (..),
-                                                MemPoolModifyReason,
-                                                jsonLogDefault)
+import           Pos.Infra.Shutdown (HasShutdownContext (..), ShutdownContext (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..), newStateLock)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
+                                                MemPoolModifyReason, jsonLogDefault)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
@@ -104,16 +97,15 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
-import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, openMemState)
+import           Pos.Wallet.Web.State (WalletDB, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
-                                            HasTestParams (..), TestParams (..),
-                                            btcSystemStartL, btcTxpMemL,
-                                            currentTimeSlottingTestDefault,
+                                            HasTestParams (..), TestParams (..), btcSystemStartL,
+                                            btcTxpMemL, currentTimeSlottingTestDefault,
                                             getCurrentSlotBlockingTestDefault,
                                             getCurrentSlotInaccurateTestDefault,
                                             getCurrentSlotTestDefault, initBlockTestContext)
@@ -234,7 +226,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasDlgConfiguration)
+    :: (HasConfiguration, HasDlgConfiguration, Testable a)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -242,16 +234,17 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasDlgConfiguration)
+instance (HasConfiguration, HasDlgConfiguration, Testable a)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+       (HasConfiguration, HasDlgConfiguration, Testable a)
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec
-walletPropertySpec description wp = prop description (walletPropertyToProperty arbitrary wp)
+walletPropertySpec description wp =
+    prop description (walletPropertyToProperty arbitrary wp)
 
 ----------------------------------------------------------------------------
 -- Instances derived from BlockTestContext
@@ -372,7 +365,8 @@ instance HasNodeType WalletTestContext where
 instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (StateLockMetrics MemPoolModifyReason) where
     lensOf = wtcStateLockMetrics_L
 
-instance WalletDbReader WalletTestContext WalletTestMode
+-- This never made any sense. WalletDbReader is a type synonym.
+-- instance WalletDbReader WalletTestContext WalletTestMode
 
 instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)

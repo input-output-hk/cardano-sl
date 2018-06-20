@@ -16,7 +16,6 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    encodeUnknownCborDataItem, enforceSize, matchSize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Script ()
-import           Pos.Binary.Crypto ()
 import           Pos.Binary.Merkle ()
 import qualified Pos.Core.Common as Common
 import qualified Pos.Core.Txp as T

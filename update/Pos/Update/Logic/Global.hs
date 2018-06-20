@@ -17,9 +17,10 @@ import           Data.Functor.Contravariant (contramap)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
-                           NumSoftwareVersion, SoftwareVersion (..), StakeholderId, addressHash, HasProtocolConstants,
-                           blockVersionL, epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL,
-                           HasProtocolMagic)
+                           HasProtocolConstants, NumSoftwareVersion, ProtocolMagic,
+                           SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
+                           epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
@@ -36,12 +37,10 @@ import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBP
                                   processGenesisBlock, recordBlockIssuance, reportUnexpectedError,
                                   rollbackUS, runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Trace (Trace, natTrace)
+--import           Pos.Util.Trace (Trace, natTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, publicPrivateLogItem)
--- FIXME: (by avieth) remove wlog dependency
-import           Pos.Util.Trace.Wlog (LogNamed, modifyName, named)
+import           Pos.Util.Trace.Named (TraceNamed, appendName)
 
 ----------------------------------------------------------------------------
 -- UpdateBlock
@@ -54,8 +53,7 @@ type UpdateBlock = ComponentBlock UpdatePayload
 ----------------------------------------------------------------------------
 
 type USGlobalVerifyMode ctx m =
-    ( --WithLogger m
-      MonadIO m
+    ( MonadIO m
     , MonadReader ctx m
     , HasLrcContext ctx
     , HasUpdateConfiguration
@@ -73,8 +71,9 @@ type USGlobalApplyMode ctx m =
 -- Implementation
 ----------------------------------------------------------------------------
 
-withUSLogger :: Trace m (LogNamed t) -> Trace m t
-withUSLogger = named . modifyName (<> "us")
+--withUSLogger :: Trace m (LogNamed t) -> Trace m t
+--withUSLogger = named . modifyName (<> "us")
+withUSLogger = appendName "us"
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread
@@ -94,23 +93,24 @@ withUSLogger = named . modifyName (<> "us")
 usApplyBlocks
     :: ( MonadThrow m
        , USGlobalApplyMode ctx m
-       --, WithLogger m
        )
-    => Trace m (LogNamed LogItem)
+    => TraceNamed m
+    => ProtocolMagic
     -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks logTrace blocks modifierMaybe =
+usApplyBlocks logTrace0 pm blocks modifierMaybe =
+    let logTrace = withUSLogger logTrace0
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- usVerifyBlocks logTrace False blocks
+            verdict <- usVerifyBlocks logTrace pm False blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- usVerifyBlocks logTrace False blocks
+                verdict <- usVerifyBlocks logTrace pm False blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
@@ -124,13 +124,12 @@ usApplyBlocks logTrace blocks modifierMaybe =
 -- head.
 usRollbackBlocks
     :: ( USGlobalApplyMode ctx m
-       --, WithLogger m
        )
-    => TraceIO
+    => TraceNamed m
     -> NewestFirst NE (UpdateBlock, USUndo)
     -> m [DB.SomeBatchOp]
-usRollbackBlocks tr blunds =
-    --withUSLogger $
+usRollbackBlocks logTrace0 blunds =
+    let logTrace = withUSLogger logTrace0
     processModifier =<<
         (runDBPoll . execPollT def $ mapM_ ((rollbackUS tr) . snd) blunds)
 
@@ -164,20 +163,20 @@ usVerifyBlocks ::
        , DB.MonadDBRead m
        , MonadUnliftIO m
        , MonadReporting m
-       --, WithLogger m
        )
-    => TraceIO
+    => TraceNamed m
+    -> ProtocolMagic
     -> Bool
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks tr verifyAllIsKnown blocks =
-    --withUSLogger $
+usVerifyBlocks logTrace0 pm verifyAllIsKnown blocks =
+    let logTrace = withUSLogger logTrace0
     reportUnexpectedError $
     processRes <$> run (runExceptT action)
   where
     action = do
         lastAdopted <- getAdoptedBV
-        mapM (verifyBlock tr lastAdopted verifyAllIsKnown) blocks
+        mapM (verifyBlock logTrace pm lastAdopted verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::
@@ -187,22 +186,16 @@ usVerifyBlocks tr verifyAllIsKnown blocks =
     processRes (Right undos, modifier) = Right (modifier, undos)
     logTrace' = withUSLogger logTrace
 
-verifyBlock ::
-    ( USGlobalVerifyMode ctx m
-    , MonadPoll m
-    , MonadError PollVerFailure m
-    , HasProtocolMagic
-    , HasProtocolConstants
-    --, WithLogger m
-    )
-    => TraceIO
-    -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
-verifyBlock _ _ _ (ComponentBlockGenesis genBlk) =
+verifyBlock
+    :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolConstants)
+    => TraceNamed m -> ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
+verifyBlock _ _ _ _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock tr lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
+verifyBlock logTrace pm lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload
-            tr
+            logTrace
+            pm
             lastAdopted
             verifyAllIsKnown
             (Right header)
@@ -226,7 +219,7 @@ usCanCreateBlock ::
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasUpdateConfiguration
-       , WithLogger m
+       -- TODO , WithLogger m
        )
     => m Bool
 usCanCreateBlock =

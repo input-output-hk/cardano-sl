@@ -10,7 +10,7 @@ module Pos.Block.Lrc
        , lrcSingleShot
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)
@@ -26,17 +26,16 @@ import           Pos.Util.Log (logDebug, logInfo, logWarning)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
-                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
-                           HasProtocolConstants, HasProtocolMagic, SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
+                           blkSecurityParam, crucialSlot, epochIndexL, epochSlots, getEpochOrSlot)
+import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
+import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Lrc.Consumer (LrcConsumer (..))
@@ -51,11 +50,11 @@ import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
 import           Pos.Ssc.Message (SscMessageConstraints)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 
@@ -65,7 +64,8 @@ import           Pos.Util.Util (HasLens (..))
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ctx m =
-    ( LrcMode ctx m
+    ( HasTxpConfiguration
+    , LrcMode ctx m
     , MonadSscMem ctx m
     , MonadSlots ctx m
     , MonadBlockApply ctx m
@@ -77,12 +77,12 @@ type LrcModeFull ctx m =
 -- block for this epoch is not known, LrcError will be thrown.
 -- It assumes that 'StateLock' is taken already.
 lrcSingleShot
-    :: forall ctx m.
-       ( LrcModeFull ctx m
-       , HasMisbehaviorMetrics ctx
-       )
-    => EpochIndex -> m ()
-lrcSingleShot epoch = do
+    :: forall ctx m
+     . (LrcModeFull ctx m, HasMisbehaviorMetrics ctx)
+    => ProtocolMagic
+    -> EpochIndex
+    -> m ()
+lrcSingleShot pm epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
     logDebug $ sformat
         ("lrcSingleShot is trying to acquire LRC lock, the epoch is "
@@ -108,7 +108,7 @@ lrcSingleShot epoch = do
                     , expectedRichmenComp)
         when need $ do
             logInfo "LRC is starting actual computation"
-            lrcDo epoch filteredConsumers
+            lrcDo pm epoch filteredConsumers
             logInfo "LRC has finished actual computation"
         putEpoch epoch
         logInfo ("LRC has updated LRC DB" <> for_thEpochMsg)
@@ -132,18 +132,15 @@ tryAcquireExclusiveLock epoch lock action =
     doAction _       = action >> releaseLock epoch
 
 lrcDo
-    :: forall ctx m.
-       ( LrcModeFull ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       , HasGenesisHash
+    :: forall ctx m
+     . ( LrcModeFull ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => EpochIndex -> [LrcConsumer m] -> m ()
-lrcDo epoch consumers = do
+    => ProtocolMagic
+    -> EpochIndex
+    -> [LrcConsumer m]
+    -> m ()
+lrcDo pm epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
@@ -185,7 +182,7 @@ lrcDo epoch consumers = do
         then coerce (nonEmpty @a) l
         else Nothing
 
-    applyBack blunds = applyBlocksUnsafe scb blunds Nothing
+    applyBack blunds = applyBlocksUnsafe pm scb blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
@@ -200,7 +197,7 @@ lrcDo epoch consumers = do
         -- and outer viewers mustn't know about it.
         ShouldCallBListener False
     withBlocksRolledBack blunds =
-        bracket_ (rollbackBlocksUnsafe bsc scb blunds)
+        bracket_ (rollbackBlocksUnsafe pm bsc scb blunds)
                  (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ctx m . LrcMode ctx m => EpochIndex -> m ()
@@ -226,7 +223,7 @@ leadersComputationDo epochId seed =
     unlessM (LrcDB.hasLeaders epochId) $ do
         totalStake <- GS.getRealTotalStake
         leaders <-
-            runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
+            runConduitRes $ GS.stakeSource .| followTheSatoshiM epochSlots seed totalStake
         LrcDB.putLeadersForEpoch epochId leaders
 
 --------------------------------------------------------------------------------

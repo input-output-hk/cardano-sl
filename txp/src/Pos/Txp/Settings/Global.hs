@@ -19,11 +19,12 @@ import           Universum
 import           Pos.Util.Log (WithLogger)
 
 import           Pos.Core (ComponentBlock)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Infra.Slotting (MonadSlots)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
-import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem)
 
@@ -34,11 +35,13 @@ type TxpCommonMode m =
     )
 
 type TxpGlobalVerifyMode m =
-    ( TxpCommonMode m
+    ( HasTxpConfiguration
+    , TxpCommonMode m
     )
 
 type TxpGlobalApplyMode ctx m =
-    ( TxpCommonMode m
+    ( HasTxpConfiguration
+    , TxpCommonMode m
     , MonadSlots ctx m  -- TODO: I don't like it (@gromak)
     )
 

@@ -84,6 +84,7 @@ dev: &dev
 
   txp: &dev_txp
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
 
   dlg: &dev_dlg
     dlgCacheParam: 500
@@ -281,6 +282,7 @@ mainnet_base: &mainnet_base
 
   txp: &mainnet_base_txp
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
 
   dlg: &mainnet_base_dlg
     dlgCacheParam: 500
@@ -14776,7 +14778,7 @@ mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 6
+    applicationVersion: 7
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14786,7 +14788,7 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 6
+    applicationVersion: 7
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14796,7 +14798,7 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 6
+    applicationVersion: 7
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14821,7 +14823,7 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 11
+    applicationVersion: 12
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14831,7 +14833,7 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 11
+    applicationVersion: 12
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14841,7 +14843,7 @@ mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 11
+    applicationVersion: 12
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

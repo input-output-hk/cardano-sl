@@ -14,7 +14,7 @@ module Pos.Ssc.Toss.Pure
        , pureTossWithEnvTrace
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, uses, (%=), (.=))
 import           Control.Monad.Trans.Writer (WriterT (..))

@@ -18,7 +18,6 @@ import           Data.List (zipWith)
 import qualified Data.Map.Strict as M
 
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
 import           Pos.Core (AddrStakeDistribution (..), Address (..), Coin, CoinPortion,
                            GenesisData (..), HasGenesisData, StakeholderId, StakesList,
                            aaStakeDistribution, addrAttributesUnwrapped, applyCoinPortionDown,

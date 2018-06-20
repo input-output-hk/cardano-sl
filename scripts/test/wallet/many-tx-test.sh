@@ -13,7 +13,7 @@ money=100000000
 
 echo -e "\\nLooking for key files $key1"
 
-echo -e "\nResetting wallet database..."
+echo -e "\\nResetting wallet database..."
 curl -k --cert scripts/tls-files/client.pem https://127.0.0.1:8090/api/test/reset -d "" &> /dev/null
 
 

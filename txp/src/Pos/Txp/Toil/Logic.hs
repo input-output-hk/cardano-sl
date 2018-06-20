@@ -14,15 +14,15 @@ module Pos.Txp.Toil.Logic
        , processTx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (ExceptT, mapExceptT, throwError)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
-                           BlockVersionData (..), EpochIndex, StakeholderId, addrAttributesUnwrapped,
-                           isBootstrapEraBVD, isRedeemAddress, HasProtocolMagic, HasGenesisData)
+                           BlockVersionData (..), EpochIndex, HasGenesisData, ProtocolMagic,
+                           addrAttributesUnwrapped, isBootstrapEraBVD, isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
@@ -54,30 +54,29 @@ import           Pos.Util (liftEither)
 -- witnesses, addresses, attributes) must be known. Otherwise unknown
 -- data is just ignored.
 verifyToil ::
-       (HasProtocolMagic)
-    => BlockVersionData
+       ProtocolMagic
+    -> BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> Bool
     -> [TxAux]
     -> ExceptT ToilVerFailure UtxoM TxpUndo
-verifyToil bvd curEpoch verifyAllIsKnown =
-    mapM (verifyAndApplyTx bvd curEpoch verifyAllIsKnown . withTxId)
+verifyToil pm bvd lockedAssets curEpoch verifyAllIsKnown =
+    mapM (verifyAndApplyTx pm bvd lockedAssets curEpoch verifyAllIsKnown . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM [StakeholderId]
-applyToil [] = pure []
+applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
+applyToil [] = pass
 applyToil txun = do
-    sids <- applyTxsToStakes txun
+    _ <- applyTxsToStakes txun
     utxoMToGlobalToilM $ mapM_ (applyTxToUtxo' . withTxId . fst) txun
-    pure sids
 
 -- | Rollback transactions from one block.
-rollbackToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM [StakeholderId]
+rollbackToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 rollbackToil txun = do
-    sids <- rollbackTxsStakes txun
+    _ <- rollbackTxsStakes txun
     utxoMToGlobalToilM $ mapM_ Utxo.rollbackTxUtxo $ reverse txun
-    pure sids
 
 ----------------------------------------------------------------------------
 -- Local
@@ -86,34 +85,41 @@ rollbackToil txun = do
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 processTx ::
-       (HasTxpConfiguration, HasProtocolMagic)
-    => BlockVersionData
+       HasTxpConfiguration
+    => ProtocolMagic
+    -> BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> (TxId, TxAux)
     -> ExceptT ToilVerFailure LocalToilM TxUndo
-processTx bvd curEpoch tx@(id, aux) = do
+processTx pm bvd lockedAssets curEpoch tx@(id, aux) = do
     whenM (lift $ hasTx id) $ throwError ToilKnown
     whenM ((>= memPoolLimitTx) <$> lift memPoolSize) $
         throwError (ToilOverwhelmed memPoolLimitTx)
-    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx bvd curEpoch True tx
+    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx pm bvd lockedAssets curEpoch True tx
     undo <$ lift (putTxWithUndo id aux undo)
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeToil ::
-       (HasTxpConfiguration, HasProtocolMagic)
-    => BlockVersionData
+       HasTxpConfiguration
+    => ProtocolMagic
+    -> BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> [(TxId, TxAux)]
     -> LocalToilM ()
-normalizeToil bvd curEpoch txs = mapM_ normalize ordered
+normalizeToil pm bvd lockedAssets curEpoch txs = mapM_ normalize ordered
   where
+    -- If there is a cycle in the tx list, topsortTxs returns Nothing.
+    -- Why is that not an error? And if its not an error, why bother
+    -- top-sorting them anyway?
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, txAux) = WithHash (taTx txAux) i
     normalize ::
            (TxId, TxAux)
         -> LocalToilM ()
-    normalize = void . runExceptT . processTx bvd curEpoch
+    normalize = void . runExceptT . processTx pm bvd lockedAssets curEpoch
 
 ----------------------------------------------------------------------------
 -- Verify and Apply logic
@@ -122,15 +128,16 @@ normalizeToil bvd curEpoch txs = mapM_ normalize ordered
 -- Note: it doesn't consider/affect stakes! That's because we don't
 -- care about stakes for local txp.
 verifyAndApplyTx ::
-       (HasProtocolMagic)
-    => BlockVersionData
+       ProtocolMagic
+    -> BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> Bool
     -> (TxId, TxAux)
     -> ExceptT ToilVerFailure UtxoM TxUndo
-verifyAndApplyTx adoptedBVD curEpoch verifyVersions tx@(_, txAux) = do
+verifyAndApplyTx pm adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
     whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
-    vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo ctx txAux
+    vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo pm ctx lockedAssets txAux
     liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
     lift $ applyTxToUtxo' tx
     pure vturUndo

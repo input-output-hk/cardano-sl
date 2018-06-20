@@ -12,13 +12,11 @@ module Pos.Infra.Communication.Relay.Class
 
 import           Node.Message.Class (Message)
 import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Limit (Limit (..))
 import           Universum
 
-import           Pos.Infra.Communication.Limits.Types (Limit)
-import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg, Msg,
-                                                         NodeId)
-import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
-                                                      InvOrData, MempoolMsg,
+import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg, Msg, NodeId)
+import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                       ReqMsg, ReqOrRes)
 import           Pos.Infra.Network.Types (Origin)
 

@@ -19,10 +19,10 @@ import qualified Pos.Util.Log as Log
 
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), RichSecrets (..),
-                           addressHash, ccGenesis, coreConfiguration, generateFakeAvvm,
-                           generateRichSecrets, mkVssCertificate, vcSigningKey, vssMaxTTL,
-                           protocolMagic)
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), ProtocolMagic,
+                           RichSecrets (..), addressHash, ccGenesis, coreConfiguration,
+                           generateFakeAvvm, generateRichSecrets, mkVssCertificate, vcSigningKey,
+                           vssMaxTTL)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, fullPublicKeyF,
                              hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
@@ -135,7 +135,7 @@ genVssCert path = do
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
-                 protocolMagic
+                 pm
                  primKey
                  (asBinary (toVssPublicKey vssKey))
                  (vssMaxTTL - 1)

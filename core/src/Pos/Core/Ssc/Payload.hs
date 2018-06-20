@@ -3,7 +3,7 @@ module Pos.Core.Ssc.Payload
        , checkSscPayload
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (MonadError)
 import qualified Data.HashMap.Strict as HM

@@ -7,7 +7,7 @@ module Pos.Update.Poll.DBPoll
        , runDBPoll
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)

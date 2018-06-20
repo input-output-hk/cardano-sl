@@ -26,9 +26,8 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ProxySKHeavy, addressHash,
-                           bvdMaxBlockSize, epochIndexL, headerHash)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey)
+import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize, epochIndexL, headerHash)
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
 import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPskHeavy,
@@ -125,19 +124,20 @@ processProxySKHeavy
        , HasLens' ctx StateLock
        , MonadMask m
        )
-    => ProxySKHeavy -> m PskHeavyVerdict
-processProxySKHeavy psk =
+    => ProtocolMagic -> ProxySKHeavy -> m PskHeavyVerdict
+processProxySKHeavy pm psk =
     withStateLockNoMetrics LowPriority $ \_stateLockHeader ->
-        processProxySKHeavyInternal psk
+        processProxySKHeavyInternal pm psk
 
 -- | Main logic of heavy psk processing, doesn't have
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
        forall ctx m. (ProcessHeavyConstraint ctx m)
-    => ProxySKHeavy
+    => ProtocolMagic
+    -> ProxySKHeavy
     -> m PskHeavyVerdict
-processProxySKHeavyInternal psk = do
+processProxySKHeavyInternal pm psk = do
     curTime <- microsecondsToUTC <$> currentTime
     dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
@@ -165,7 +165,7 @@ processProxySKHeavyInternal psk = do
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
         runExceptT $
-        dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk
+        dlgVerifyPskHeavy pm richmen (CheckForCycle True) headEpoch psk
 
     -- Here the memory state is the same.
     runDelegationStateAction $ do

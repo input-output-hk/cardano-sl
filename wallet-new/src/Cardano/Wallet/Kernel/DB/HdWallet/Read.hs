@@ -25,12 +25,14 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
     -- | Single wallets/accounts/addresses
   , readHdRoot
   , readHdAccount
+  , readHdAccountCurrentCheckpoint
   , readHdAddress
   ) where
 
-import           Universum
+import           Universum hiding (toList)
 
 import           Control.Lens (at)
+import           Data.Foldable (toList)
 
 import           Pos.Core (Coin, sumCoins)
 
@@ -38,6 +40,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+
+{-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}
 
 {-------------------------------------------------------------------------------
   Infrastructure
@@ -73,7 +77,7 @@ check f g = using' f (const g)
 hdRootBalance :: HdRootId -> HdQuery Integer
 hdRootBalance rootId = sumCoins
                      . map hdAccountBalance
-                     . toList
+                     . Data.Foldable.toList
                      . IxSet.getEQ rootId
                      . view hdWalletsAccounts
 
@@ -136,6 +140,11 @@ readHdAccount accId = aux . view (at accId) . readAllHdAccounts
   where
     aux :: Maybe a -> Either UnknownHdAccount a
     aux = maybe (Left (UnknownHdAccount accId)) Right
+
+-- | Look up the specified account and return the current checkpoint
+readHdAccountCurrentCheckpoint :: HdAccountId -> HdQueryErr UnknownHdAccount Checkpoint
+readHdAccountCurrentCheckpoint accId db
+    = view hdAccountCurrentCheckpoint <$> readHdAccount accId db
 
 -- | Look up the specified address
 readHdAddress :: HdAddressId -> HdQueryErr UnknownHdAddress HdAddress

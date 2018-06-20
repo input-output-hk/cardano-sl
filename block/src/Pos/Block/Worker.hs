@@ -11,10 +11,10 @@ import           Universum
 
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay)
-import           Serokell.Util (enumerate, listJson, pairF, sec)
+import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 import           Pos.Util.Log (logDebug, logError, logInfo, logWarning)
@@ -36,7 +36,8 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, H
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
                            getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
-import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
+import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.DB (getPskByIssuer)
@@ -44,24 +45,19 @@ import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
-import           Pos.Infra.Reporting (MetricMonitor (..), MetricMonitorState,
-                                      HasMisbehaviorMetrics, noReportMonitor,
-                                      recordValue, reportOrLogE)
-import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
-                                          needTriggerRecovery,
+import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                           recoveryCommGuard)
-import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
-                                          OnNewSlotParams (..),
-                                          currentTimeSlotting,
-                                          defaultOnNewSlotParams,
-                                          getSlotStartEmpatically, onNewSlot)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..), MetricMonitorState,
+                                      noReportMonitor, recordValue, reportOrLogE)
+import           Pos.Infra.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
+                                     currentTimeSlotting, defaultOnNewSlotParams,
+                                     getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util.Chrono (OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -72,12 +68,12 @@ blkWorkers
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => [Diffusion m -> m ()]
-blkWorkers =
-    [ blkCreatorWorker
+    => ProtocolMagic -> [Diffusion m -> m ()]
+blkWorkers pm =
+    [ blkCreatorWorker pm
     , informerWorker
-    , retrievalWorker
-    , recoveryTriggerWorker
+    , retrievalWorker pm
+    , recoveryTriggerWorker pm
     ]
 
 informerWorker
@@ -108,11 +104,11 @@ informerWorker =
 blkCreatorWorker
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
-       ) => Diffusion m -> m ()
-blkCreatorWorker =
+       ) => ProtocolMagic -> Diffusion m -> m ()
+blkCreatorWorker pm =
     \diffusion -> onNewSlot onsp $ \slotId ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
-        blockCreator slotId diffusion `catchAny` onBlockCreatorException
+        blockCreator pm slotId diffusion `catchAny` onBlockCreatorException
   where
     onBlockCreatorException = reportOrLogE "blockCreator failed: "
     onsp :: OnNewSlotParams
@@ -124,11 +120,11 @@ blockCreator
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => SlotId -> Diffusion m -> m ()
-blockCreator (slotId@SlotId {..}) diffusion = do
+    => ProtocolMagic -> SlotId -> Diffusion m -> m ()
+blockCreator pm (slotId@SlotId {..}) diffusion = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlockAndApply siEpoch
+    mGenBlock <- createGenesisBlockAndApply pm siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jsonLog $ jlCreatedBlock (Left createdBlk)
@@ -180,20 +176,21 @@ blockCreator (slotId@SlotId {..}) diffusion = do
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
            | weAreLeader ->
-                 onNewSlotWhenLeader slotId Nothing diffusion
+                 onNewSlotWhenLeader pm slotId Nothing diffusion
            | heavyWeAreDelegate ->
                  let pske = swap <$> dlgTransM
-                 in onNewSlotWhenLeader slotId pske diffusion
+                 in onNewSlotWhenLeader pm slotId pske diffusion
            | otherwise -> pass
 
 onNewSlotWhenLeader
     :: ( BlockWorkMode ctx m
        )
-    => SlotId
+    => ProtocolMagic
+    -> SlotId
     -> ProxySKBlockInfo
     -> Diffusion m
     -> m ()
-onNewSlotWhenLeader slotId pske diffusion = do
+onNewSlotWhenLeader pm slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -213,7 +210,7 @@ onNewSlotWhenLeader slotId pske diffusion = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlockAndApply slotId pske
+        createdBlock <- createMainBlockAndApply pm slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do
@@ -231,17 +228,18 @@ recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        )
-    => Diffusion m -> m ()
-recoveryTriggerWorker diffusion = do
+    => ProtocolMagic -> Diffusion m -> m ()
+recoveryTriggerWorker pm diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
-    delay $ sec 3
+    -- TBD why 3 seconds? Why delay at all? Come on, we can do better.
+    delay (3 :: Second)
 
     repeatOnInterval $ do
         doTrigger <- needTriggerRecovery <$> getSyncStatusK
         when doTrigger $ do
             logInfo "Triggering recovery because we need it"
-            triggerRecovery diffusion
+            triggerRecovery pm diffusion
 
         -- Sometimes we want to trigger recovery just in case. Maybe
         -- we're just 5 slots late, but nobody wants to send us
@@ -256,7 +254,7 @@ recoveryTriggerWorker diffusion = do
             logInfo "Checking if we need recovery as a safety measure"
             whenM (needTriggerRecovery <$> getSyncStatus 5) $ do
                 logInfo "Triggering recovery as a safety measure"
-                triggerRecovery diffusion
+                triggerRecovery pm diffusion
 
         -- We don't want to ask for tips too frequently.
         -- E.g. there may be a tip processing mistake so that we
@@ -264,14 +262,14 @@ recoveryTriggerWorker diffusion = do
         -- headers. Or it may happen that we will receive only
         -- useless broken tips for some reason (attack?). This
         -- will minimize risks and network load.
-        when (doTrigger || triggerSafety) $ delay $ sec 20
+        when (doTrigger || triggerSafety) $ delay (20 :: Second)
   where
     repeatOnInterval action = void $ do
-        delay $ sec 1
+        delay (1 :: Second)
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
         void $ action `catchAny` \e -> do
             reportOrLogE "recoveryTriggerWorker" e
-            delay $ sec 15
+            delay (15 :: Second)
         repeatOnInterval action
 
 ----------------------------------------------------------------------------
@@ -400,7 +398,7 @@ cqkMetricMonitor st isBootstrapEra =
     classifier :: Microsecond -> Maybe Double -> Double -> Maybe Bool
     classifier timePassed prevVal newVal
         -- report at most once per 400 sec, unless decreased
-        | not decreased && timePassed < sec 400 = Nothing
+        | not decreased && timePassed < fromMicroseconds 400000000 = Nothing
         | newVal < criticalThreshold = Just True
         | newVal < nonCriticalThreshold = Just False
         | otherwise = Nothing

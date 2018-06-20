@@ -16,8 +16,8 @@ module Pos.Wallet.Web.Pending.Submission
 import           Universum
 
 import           Control.Exception.Safe (Handler (..), catches, onException)
+import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
-import           Serokell.Util (hour)
 import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
@@ -25,6 +25,7 @@ import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
@@ -105,12 +106,13 @@ type TxSubmissionMode ctx m = ( TxMode m )
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: TxSubmissionMode ctx m
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> (TxAux -> m Bool)
     -> PtxSubmissionHandlers m
     -> PendingTx
     -> m ()
-submitAndSavePtx db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -118,7 +120,8 @@ submitAndSavePtx db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     now <- getCurrentTimestamp
     if | PtxApplying poolInfo <- _ptxCond,
          Just creationTime <- poolInfo ^. thTimestamp,
-         diffTimestamp now creationTime > hour 1 -> do
+         -- 1 hour, 3600 seconds
+         diffTimestamp now creationTime > fromMicroseconds 3600000000 -> do
            let newCond = PtxWontApply "1h limit exceeded" poolInfo
            void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
            logInfo $
@@ -127,7 +130,7 @@ submitAndSavePtx db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
                       _ptxTxId
        | otherwise -> do
            addOnlyNewPendingTx db ptx
-           (saveTx (_ptxTxId, _ptxTxAux)
+           (saveTx pm (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
            ack <- submitTx _ptxTxAux

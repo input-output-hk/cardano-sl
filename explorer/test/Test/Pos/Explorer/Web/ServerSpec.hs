@@ -13,9 +13,8 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (arbitrary, counterexample, forAll, (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
-import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
-import           Pos.Core (EpochIndex (..), HasConfiguration)
+import           Pos.Core (EpochIndex (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
@@ -28,6 +27,8 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 -- Orphan mockable instances.
 import           Pos.Util.Mockable ()
+
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 
@@ -39,7 +40,7 @@ import           Test.Pos.Configuration (withDefConfigurations)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
 spec :: Spec
-spec = withDefConfigurations $ \_ -> do
+spec = withDefConfigurations $ \_ _ -> do
     describe "Pos.Explorer.Web.Server" $ do
         blocksTotalSpec
         blocksPagesTotalSpec
@@ -58,18 +59,23 @@ spec = withDefConfigurations $ \_ -> do
 -- that blocksTotal could be less than 1.
 blocksTotalSpec :: HasConfigurations => Spec
 blocksTotalSpec =
-    describe "getBlockDifficulty"
-    $ modifyMaxSuccess (const 200) $ do
-        prop "created blocks means block size > 0" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
-            let mainBlock   = Right blk
-                blocksTotal = getBlockDifficulty mainBlock
-            in counterexample ("Total blocks sizes: " <> show blocksTotal <>
-                               "\n\nBlock: " <> show blk) $
-                 blocksTotal > 0
+    describe "getBlockDifficulty" $ modifyMaxSuccess (const 200) $ do
+        prop "created blocks means block size > 0" $ emptyBlk $ \blk0 ->
+            leftToCounter blk0 $ \blk ->
+                let mainBlock   = Right blk
+                    blocksTotal = getBlockDifficulty mainBlock
+                in  counterexample
+                        (  "Total blocks sizes: "
+                        <> show blocksTotal
+                        <> "\n\nBlock: "
+                        <> show blk
+                        )
+                    $ blocksTotal
+                    > 0
 
 -- | A spec with the simple test that @getBlocksPagesTotal@ works correct.
 -- It shows that two equal algorithms should work the same.
-blocksPagesTotalSpec :: HasConfiguration => Spec
+blocksPagesTotalSpec :: Spec
 blocksPagesTotalSpec =
     describe "divRoundUp"
     $ modifyMaxSuccess (const 10000) $ do
@@ -87,32 +93,41 @@ blocksPagesTotalSpec =
 -- real issue of performance here is the block creation speed.
 blocksTotalUnitSpec :: HasConfigurations => Spec
 blocksTotalUnitSpec =
-    describe "getBlocksTotal"
-    $ modifyMaxSuccess (const 200) $ do
-        prop "block total == created number of blockchain blocks" $
-            forAll arbitrary $ \(testParams) ->
-            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+    describe "getBlocksTotal" $ modifyMaxSuccess (const 200) $ do
+        prop "block total == created number of blockchain blocks"
+            $ forAll arbitrary
+            $ \(testParams) ->
+                  forAll generateValidBlocksSlotsNumber
+                      $ \(totalBlocksNumber, slotsPerEpoch) -> monadicIO $ do
 
-                monadicIO $ do
+                            -- We replace the "real" blockchain with our custom
+                            -- generated one.
+                            mode <- lift $ generateValidExplorerMockableMode
+                                totalBlocksNumber
+                                slotsPerEpoch
 
-                  -- We replace the "real" blockchain with our custom generated one.
-                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
+                            -- The extra context so we can mock the functions.
+                            let extraContext :: ExtraContext
+                                extraContext = makeMockExtraCtx mode
 
-                  -- The extra context so we can mock the functions.
-                  let extraContext :: ExtraContext
-                      extraContext = makeMockExtraCtx mode
+                            -- We run the function in @BlockTestMode@ so we
+                            -- don't need to define a million instances.
+                            let blockExecution :: IO Integer
+                                blockExecution = runExplorerTestMode
+                                    testParams
+                                    extraContext
+                                    getBlocksTotal
 
-                  -- We run the function in @BlockTestMode@ so we don't need to define
-                  -- a million instances.
-                  let blockExecution :: IO Integer
-                      blockExecution = runExplorerTestMode testParams extraContext getBlocksTotal
+                            -- We finally run it as @PropertyM@ and check if it
+                            -- holds.
+                            blocksTotal <- run blockExecution
 
-                  -- We finally run it as @PropertyM@ and check if it holds.
-                  blocksTotal <- run blockExecution
-
-                  -- And we assert that the generated blockchain total block count is equal
-                  -- to the expected explorer API result.
-                  assert $ blocksTotal == fromIntegral totalBlocksNumber
+                            -- And we assert that the generated blockchain total
+                            -- block count is equal to the expected explorer API
+                            -- result.
+                            assert
+                                $  blocksTotal
+                                == fromIntegral totalBlocksNumber
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocks pages could be < 1.
@@ -334,5 +349,3 @@ blocksTotalFunctionalSpec =
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
                   assert $ blocksTotal >= 0
-
-

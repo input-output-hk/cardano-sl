@@ -22,20 +22,14 @@ fi
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.
-#projects="core db lrc infra update ssc godtossing txp"
-#to_build=''
-
-#for prj in $projects; do
-#  to_build="$to_build cardano-sl-$prj"
-#done
 
 for trgt in $targets; do
-  # echo "Prebuilding dependencies for $trgt, quietly.."
-  # nix-shell -A $trgt --run true --no-build-output --cores 0 --max-jobs 4 default.nix ||
-  #         echo "Prebuild failed!"
-
   echo "Building $trgt verbosely.."
-  nix-build -A "$trgt" -o "$trgt.root" --argstr gitrev "$BUILDKITE_COMMIT" --argstr buildId "$BUILDKITE_BUILD_NUMBER"
+  nix-build -A "$trgt" -o "$trgt.root" \
+      --argstr gitrev "$BUILDKITE_COMMIT" \
+      --argstr buildId "$BUILDKITE_BUILD_NUMBER" \
+      --arg enableBenchmarks true
+
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
 #      stack test --nix --fast --jobs=2 --coverage \
@@ -44,12 +38,3 @@ for trgt in $targets; do
 #    fi
 
 done
-
-#if [[ "$OS_NAME" == "linux" && "$BUILDKITE_BRANCH" == "master" && "$BUILDKITE_PULL_REQUEST" == "false" ]]; then
-  # XXX: DEVOPS-728 this won't work, unless `GITHUB_CARDANO_DOCS_ACCESS_2` and `GITHUB_CARDANO_DOCS_ACCESS` vars are supplied
-  #
-  #./update-wallet-web-api-docs.sh
-  #./update-explorer-web-api-docs.sh
-  #./update-cli-docs.sh
-  #./update-haddock.sh
-#fi

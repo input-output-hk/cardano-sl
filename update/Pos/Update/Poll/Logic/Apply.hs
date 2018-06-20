@@ -6,6 +6,8 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
@@ -14,12 +16,12 @@ import           Formatting (build, builder, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, IsMainHeader (..),
-                           SlotId (siEpoch), SoftwareVersion (..), addressHash, applyCoinPortionUp,
-                           blockVersionL, coinToInteger, difficultyL, epochIndexL, flattenSlotId,
-                           headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin,
-                           HasProtocolConstants, HasProtocolMagic)
-import           Pos.Core.Configuration (blkSecurityParam, protocolMagic)
+import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HasProtocolConstants, HeaderHash,
+                           IsMainHeader (..), ProtocolMagic, SlotId (siEpoch), SoftwareVersion (..),
+                           addressHash, applyCoinPortionUp, blockVersionL, coinToInteger,
+                           difficultyL, epochIndexL, flattenSlotId, headerHashG, headerSlotL,
+                           sumCoins, unflattenSlotId, unsafeIntegerToCoin)
+import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
                                   UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
                                   checkUpdatePayload)
@@ -59,16 +61,17 @@ type ApplyMode m =
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
 verifyAndApplyUSPayload ::
-       (MonadIO m, ApplyMode m, HasProtocolConstants, HasProtocolMagic)
-    => TraceIO
+       (ApplyMode m, HasProtocolConstants)
+    => TraceNamed m
+    -> ProtocolMagic
     -> BlockVersion
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> UpdatePayload
     -> m ()
-verifyAndApplyUSPayload tr lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+verifyAndApplyUSPayload logTrace pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
-    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload protocolMagic upp)
+    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload pm upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
 
     unless isEmptyPayload $ do
@@ -81,7 +84,7 @@ verifyAndApplyUSPayload tr lastAdopted verifyAllIsKnown slotOrHeader upp@UpdateP
         let otherGroups = NE.groupWith uvProposalId otherVotes
         -- When there is proposal in payload, it's verified and applied.
         whenJust upProposal $
-            verifyAndApplyProposal tr verifyAllIsKnown slotOrHeader curPropVotes
+            verifyAndApplyProposal logTrace verifyAllIsKnown slotOrHeader curPropVotes
         -- Then we also apply votes from other groups.
         -- ChainDifficulty is needed, because proposal may become approved
         -- and then we'll need to track whether it becomes confirmed.

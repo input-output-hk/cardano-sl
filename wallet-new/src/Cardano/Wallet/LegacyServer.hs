@@ -14,6 +14,7 @@ import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 
 import           Ntp.Client (NtpStatus)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo)
@@ -25,26 +26,28 @@ import           Servant
 -- with Servant.
 walletServer :: (HasConfigurations, HasCompileInfo)
              => (forall a. WalletWebMode a -> Handler a)
+             -> ProtocolMagic
              -> Diffusion WalletWebMode
              -> TVar NtpStatus
              -> Server WalletAPI
-walletServer natV0 diffusion ntpStatus = v0Handler :<|> v1Handler
+walletServer natV0 pm diffusion ntpStatus = v0Handler :<|> v1Handler
   where
-    v0Handler    = V0.handlers natV0 diffusion ntpStatus
-    v1Handler    = V1.handlers natV0 diffusion ntpStatus
+    v0Handler    = V0.handlers natV0 pm diffusion ntpStatus
+    v1Handler    = V1.handlers natV0 pm diffusion ntpStatus
 
 
 walletDevServer
     :: (HasConfigurations, HasCompileInfo)
     => (forall a. WalletWebMode a -> Handler a)
+    -> ProtocolMagic
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
     -> RunMode
     -> Server WalletDevAPI
-walletDevServer natV0 diffusion ntpStatus runMode = devHandler :<|> walletHandler
+walletDevServer natV0 pm diffusion ntpStatus runMode = devHandler :<|> walletHandler
   where
     devHandler    = Dev.handlers natV0 runMode
-    walletHandler = walletServer natV0 diffusion ntpStatus
+    walletHandler = walletServer natV0 pm diffusion ntpStatus
 
 
 walletDocServer

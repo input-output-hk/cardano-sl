@@ -1,5 +1,5 @@
 name:                cardano-sl-txp-test
-version:             1.0.0
+version:             1.3.0
 synopsis:            Cardano SL - arbitrary instances for cardano-sl-txp
 description:         Cardano SL - arbitrary instances for cardano-sl-txp
 license:             MIT
@@ -21,6 +21,7 @@ library
                      , base
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-infra

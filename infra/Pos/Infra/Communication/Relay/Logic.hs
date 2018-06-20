@@ -38,33 +38,24 @@ import           Node.Message.Class (Message)
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Infra.Communication.Limits.Instances (mlResMsg, mlReqMsg,
-                                                           mlInvMsg, mlDataMsg,
-                                                           mlMempoolMsg)
-import           Pos.Infra.Communication.Limits.Types (Limit, mlEither)
+import           Pos.Binary.Limit (Limit, mlEither)
+import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
+                                                           mlReqMsg, mlResMsg)
 import           Pos.Infra.Communication.Listener (listenerConv)
-import           Pos.Infra.Communication.Protocol (Conversation (..),
-                                                   ConversationActions (..),
-                                                   EnqueueMsg, ListenerSpec,
-                                                   MkListeners, Msg, NodeId,
-                                                   Origin (..), OutSpecs,
-                                                   constantListeners, convH,
-                                                   toOutSpecs, waitForDequeues,
-                                                   waitForConversations,
-                                                   recvLimited)
-import           Pos.Infra.Communication.Relay.Class (DataParams (..),
-                                                      InvReqDataParams (..),
-                                                      MempoolParams (..),
-                                                      Relay (..))
+import           Pos.Infra.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                                   EnqueueMsg, ListenerSpec, MkListeners, Msg,
+                                                   NodeId, Origin (..), OutSpecs, constantListeners,
+                                                   convH, recvLimited, toOutSpecs,
+                                                   waitForConversations, waitForDequeues)
+import           Pos.Infra.Communication.Relay.Class (DataParams (..), InvReqDataParams (..),
+                                                      MempoolParams (..), Relay (..))
 import           Pos.Infra.Communication.Relay.Types (PropagationMsg (..))
 import           Pos.Infra.Communication.Relay.Util (expectData, expectInv)
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
-                                                      InvMsg (..), InvOrData,
-                                                      MempoolMsg (..),
-                                                      ReqMsg (..), ReqOrRes,
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
+                                                      MempoolMsg (..), ReqMsg (..), ReqOrRes,
                                                       ResMsg (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 data InvReqCommunicationException =
       UnexpectedRequest

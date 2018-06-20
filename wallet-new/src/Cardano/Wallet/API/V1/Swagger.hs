@@ -36,7 +36,6 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
-import           Data.String.Conv
 import           Data.Swagger hiding (Example, Header, example)
 import           Data.Swagger.Declare
 import qualified Data.Text as T
@@ -98,7 +97,7 @@ instance HasSwagger (argA a :> argB a :> res) =>
 
 instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subApi) where
     toSwagger _ =
-        let newTags    = map toS (symbolVals (Proxy @tags))
+        let newTags    = map toText (symbolVals (Proxy @tags))
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
 
@@ -770,14 +769,14 @@ Make sure to carefully read the section about [Pagination](#section/Pagination) 
 leverage the API capabilities.
 |]
   where
-    createAccount    = toS $ encodePretty $ genExample @(WalletResponse Account)
-    createAddress    = toS $ encodePretty $ genExample @(WalletResponse WalletAddress)
-    createWallet     = toS $ encodePretty $ genExample @(WalletResponse Wallet)
-    readAccounts     = toS $ encodePretty $ genExample @(WalletResponse [Account])
-    readAddresses    = toS $ encodePretty $ genExample @(WalletResponse [Address])
-    readFees         = toS $ encodePretty $ genExample @(WalletResponse EstimatedFees)
-    readNodeInfo     = toS $ encodePretty $ genExample @(WalletResponse NodeInfo)
-    readTransactions = toS $ encodePretty $ genExample @(WalletResponse [Transaction])
+    createAccount    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Account)
+    createAddress    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse WalletAddress)
+    createWallet     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Wallet)
+    readAccounts     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Account])
+    readAddresses    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Address])
+    readFees         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
+    readNodeInfo     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
+    readTransactions = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
 
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
@@ -844,7 +843,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
-    { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
+    { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
     , deMnemonicExample       = T.intercalate ", " . map (surroundedBy "\"") . bpToList $ genExample
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription

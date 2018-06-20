@@ -36,7 +36,7 @@ import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig
-import           Pos.Util.Trace.Named(TraceNamed, setupLogging, appendName)
+import           Pos.Util.Trace.Named(setupLogging, appendName)
 
 import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
                                         logMeasure)

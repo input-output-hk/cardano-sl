@@ -1,6 +1,6 @@
 -- | Post-mortem tool main.
 
-import           Universum
+import           Universum hiding (last)
 
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Csv as C (encode)

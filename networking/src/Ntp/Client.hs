@@ -18,32 +18,31 @@ module Ntp.Client
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (withAsync, async, concurrently, forConcurrently, race)
 import           Control.Concurrent.STM (TVar, check, modifyTVar')
 import           Control.Exception.Safe (Exception, catchAny, handleAny)
-import           Control.Lens ((%=), (.=), _Just)
 import           Control.Monad (forever)
-import           Control.Monad.State (gets)
 import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (catMaybes, isNothing)
-import           Data.Time.Units (TimeUnit, Microsecond, Second, toMicroseconds)
+import           Data.Time.Units (TimeUnit, Microsecond, toMicroseconds)
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
-import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace.Named (TraceNamed, setupLogging, appendName, logDebug, logError, logInfo, logWarning)
 
-import           Mockable (realTime)
-import           Ntp.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
+import           Ntp.Packet (NtpPacket (..), NtpOffset, evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
 
 data NtpStatus =
       -- | The difference between ntp time and local system time
-      NtpDrift Microsecond
+      NtpDrift NtpOffset
       -- | NTP client has send requests to the servers
     | NtpSyncPending
       -- | NTP is not available: the client has not received any respond within
@@ -57,7 +56,7 @@ data NtpClientSettings = NtpClientSettings
       -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how long to wait between to send requests to the servers
-    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
+    , ntpSelection       :: NonEmpty NtpOffset -> NtpOffset
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list
@@ -65,13 +64,16 @@ data NtpClientSettings = NtpClientSettings
 
 data NtpClient = NtpClient
     { ncSockets  :: TVar Sockets
-      -- ^ ntp client sockets: ipv4 / ipv6 / both
-    , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
-      -- ^ ntp client state, list of received values
-    , ncStatus          :: TVar NtpStatus
-      -- ^ got time callback (margin, time when client sent request)
+      -- ^ Ntp client sockets: ipv4 / ipv6 / both.
+    , ncState    :: TVar (Maybe [NtpOffset])
+      -- ^ List of ntp offsets and origin times (i.e. time when a request was
+      -- send) received from ntp servers since last polling interval.
+    , ncStatus   :: TVar NtpStatus
+      -- ^ Ntp status: holds `NtpOffset` or a status of ntp client:
+      -- `NtpSyncPending`, `NtpSyncUnavailable`.  It is computed from `ncState`
+      -- once all responses arrived.
     , ncSettings :: NtpClientSettings
-      -- ^ client configuration
+      -- ^ Ntp client configuration.
     }
 
 mkNtpClient :: MonadIO m => NtpClientSettings -> TVar NtpStatus -> Sockets -> m NtpClient
@@ -85,6 +87,7 @@ data NoHostResolved = NoHostResolved
 
 instance Exception NoHostResolved
 
+{-
 usingNtpLogger :: Log.LoggingHandler -> Log.LogContextT IO a -> IO a
 usingNtpLogger lh = Log.usingLoggerName lh "NtpClient"
 
@@ -99,35 +102,27 @@ logInfo lh = usingNtpLogger lh . Log.logInfo
 
 logDebug :: Log.LoggingHandler -> Text -> IO ()
 logDebug lh = usingNtpLogger lh . Log.logDebug
+-}
 
 -- |
 -- Handle results.  It is either when all ntp servers responded or when
 -- `ntpResponseTimeout` has passed since the request where send.  If none of the servers responded `ncState`
-handleCollectedResponses :: Log.LoggingHandler -> NtpClient -> IO ()
-handleCollectedResponses lh cli = do
+handleCollectedResponses :: TraceNamed IO -> NtpClient -> IO ()
+handleCollectedResponses logTrace cli = do
     mres <- readTVarIO (ncState cli)
     case mres of
         Nothing        -> do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
-            logError lh "Protocol error: responses are not awaited"
+            logError logTrace "Protocol error: responses are not awaited"
         Just []        -> do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
-            logWarning lh "No servers responded"
+            logWarning logTrace "No server responded"
         Just responses -> handleE `handleAny` do
-            let time = ntpMeanSelection (ncSettings cli) responses
-            logInfo lh $ sformat ("Evaluated clock offset "%shown%
-                " mcs for request at "%shown%" mcs")
-                (toMicroseconds $ fst time)
-                (toMicroseconds $ snd time)
-            handler time
+            let ntpOffset = ntpSelection (ncSettings cli) $ NE.fromList $ responses
+            logInfo logTrace $ sformat ("Evaluated clock offset "%shown%"mcs") (toMicroseconds ntpOffset)
+            atomically $ writeTVar (ncStatus cli) (NtpDrift $ ntpOffset)
   where
-    handleE = logError lh . sformat ("ntpMeanSelection: "%shown)
-
-    handler :: (Microsecond, Microsecond) -> IO ()
-    handler (newMargin, transmitTime) = do
-        let ntpTime = transmitTime + newMargin
-        localTime <- realTime
-        atomically $ writeTVar (ncStatus cli) (NtpDrift $ ntpTime - localTime)
+    handleE = logError logTrace . sformat ("ntpSelection: "%shown)
 
 
 allResponsesGathered :: NtpClient -> STM Bool
@@ -140,8 +135,8 @@ allResponsesGathered cli = do
 
 -- |
 -- Low level primitive which sends a request to a single ntp server.
-doSend :: Log.LoggingHandler -> NtpClient -> SockAddr -> IO ()
-doSend lh cli addr = do
+doSend :: TraceNamed IO -> NtpClient -> SockAddr -> IO ()
+doSend logTrace cli addr = do
     sock   <- readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
     handleAny handleE . void $ sendDo addr sock (LBS.toStrict packet)
@@ -156,7 +151,7 @@ doSend lh cli addr = do
 
     -- just log; socket closure is handled by receiver
     handleE =
-        logWarning lh . sformat ("Failed to send to "%shown%": "%shown) addr
+        logWarning logTrace . sformat ("Failed to send to "%shown%": "%shown) addr
 
 -- |
 -- Every `ntpPollDelay` send request to the list of `ntpServers`.  Before
@@ -164,31 +159,32 @@ doSend lh cli addr = do
 -- requests wait until either all servers respond or `ntpResponseTimeout`
 -- passes.  If at least one server responded `handleCollectedResponses` will
 -- update `ncStatus` in `NtpClient`.
-startSend :: Log.LoggingHandler -> NtpClient -> [SockAddr] -> IO ()
-startSend lh cli addrs = do
+startSend :: TraceNamed IO -> NtpClient -> [SockAddr] -> IO ()
+startSend logTrace cli addrs = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll = ntpPollDelay (ncSettings cli)
 
     atomically $ writeTVar (ncStatus cli) NtpSyncPending
 
-    _ <- concurrently (threadDelay poll) $ do
-        logDebug lh "Sending requests"
-        atomically . modifyTVarS (ncState cli) $ identity .= Just []
-        let sendRequests = forConcurrently addrs (doSend lh cli)
+    -- poll :: Microsecond
+    _ <- concurrently (threadDelay (fromIntegral poll)) $ do
+        logDebug logTrace "Sending requests"
+        atomically . modifyTVar' (ncState cli) $ (const $ Just [])
+        let sendRequests = forConcurrently addrs (doSend logTrace cli)
         let waitTimeout = void $ timeout respTimeout
                     (atomically $ check =<< allResponsesGathered cli)
 
         withAsync sendRequests $ \_ -> waitTimeout
 
-        logDebug lh "Collecting responses"
-        handleCollectedResponses lh cli
-        atomically . modifyTVarS (ncState cli) $ identity .= Nothing
+        logDebug logTrace "Collecting responses"
+        handleCollectedResponses logTrace cli
+        atomically $ modifyTVar' (ncState cli) (const Nothing)
 
-    startSend lh cli addrs
+    startSend logTrace cli addrs
 
 -- Try to create IPv4 and IPv6 socket.
-mkSockets :: Log.LoggingHandler -> NtpClientSettings -> IO Sockets
-mkSockets lh settings = do
+mkSockets :: TraceNamed IO -> NtpClientSettings -> IO Sockets
+mkSockets logTrace settings = do
     (sock1MB, sock2MB) <- doMkSockets `catchAny` handlerE
     whenJust sock1MB logging
     whenJust sock2MB logging
@@ -197,11 +193,11 @@ mkSockets lh settings = do
         (Just sock1, Nothing)    -> pure $ IPv4Sock sock1
         (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
         (_, _)                   -> do
-            logWarning lh "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
-            threadDelay (5 :: Second)
-            mkSockets lh settings
+            logWarning logTrace "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
+            threadDelay 5000000
+            mkSockets logTrace settings
   where
-    logging (_, addrInfo) = logInfo lh $
+    logging (_, addrInfo) = logInfo logTrace $
         sformat ("Created socket (family/addr): "%shown%"/"%shown)
                 (addrFamily addrInfo) (addrAddress addrInfo)
     doMkSockets :: IO (Maybe (Socket, AddrInfo), Maybe (Socket, AddrInfo))
@@ -210,43 +206,44 @@ mkSockets lh settings = do
         (,) <$> createAndBindSock selectIPv4 serveraddrs
             <*> createAndBindSock selectIPv6 serveraddrs
     handlerE e = do
-        logWarning lh $
+        logWarning logTrace $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
-        threadDelay (5 :: Second)
+        threadDelay 5000000
         doMkSockets
 
-handleNtpPacket :: Log.LoggingHandler -> NtpClient -> NtpPacket -> IO ()
-handleNtpPacket lh cli packet = do
-    logDebug lh $ sformat ("Got packet "%shown) packet
+handleNtpPacket :: TraceNamed IO -> NtpClient -> NtpPacket -> IO ()
+handleNtpPacket logTrace cli packet = do
+    logDebug logTrace $ sformat ("Got packet "%shown) packet
 
     clockOffset <- evalClockOffset packet
 
-    logDebug lh $ sformat ("Received time delta "%shown%" mcs")
+    logDebug logTrace $ sformat ("Received time delta "%shown%" mcs")
         (toMicroseconds clockOffset)
 
-    late <- atomically . modifyTVarS (ncState cli) $ do
-        _Just %= ((clockOffset, ntpOriginTime packet) :)
-        gets isNothing
-    when late $
-        logWarning lh "Response was too late"
+    late <- atomically $ do
+        modifyTVar' (ncState cli) $ fmap (clockOffset : )
+        isNothing <$> readTVar (ncState cli)
 
-doReceive :: Log.LoggingHandler -> Socket -> NtpClient -> IO ()
-doReceive lh sock cli = forever $ do
+    when late $
+        logWarning logTrace "Response was too late"
+
+doReceive :: TraceNamed IO -> Socket -> NtpClient -> IO ()
+doReceive logTrace sock cli = forever $ do
     (received, _) <- recvFrom sock ntpPacketSize
     let eNtpPacket = decodeOrFail $ LBS.fromStrict received
     case eNtpPacket of
         Left  (_, _, err)    ->
-            logWarning lh $ sformat ("Error while receiving time: "%shown) err
+            logWarning logTrace $ sformat ("Error while receiving time: "%shown) err
         Right (_, _, packet) ->
-            handleNtpPacket lh cli packet `catchAny` handleE
+            handleNtpPacket logTrace cli packet `catchAny` handleE
   where
-    handleE = logWarning lh . sformat ("Error while handle packet: "%shown)
+    handleE = logWarning logTrace . sformat ("Error while handle packet: "%shown)
 
 -- |
 -- Start listening for responses on the socket `ncSockets
-startReceive :: Log.LoggingHandler -> NtpClient -> IO ()
-startReceive lh cli = do
+startReceive :: TraceNamed IO -> NtpClient -> IO ()
+startReceive logTrace cli = do
     sockets <- readTVarIO $ ncSockets cli
     case sockets of
         BothSock sIPv4 sIPv6 ->
@@ -254,13 +251,13 @@ startReceive lh cli = do
         IPv4Sock sIPv4 -> runDoReceive True sIPv4
         IPv6Sock sIPv6 -> runDoReceive False sIPv6
   where
-    runDoReceive isIPv4 sock = doReceive lh sock cli `catchAny` handleE isIPv4 sock
+    runDoReceive isIPv4 sock = doReceive logTrace sock cli `catchAny` handleE isIPv4 sock
     -- got error while receiving data, retrying in 5 sec
     handleE isIPv4 sock e = do
-        logDebug lh $ sformat ("doReceive failed on socket"%shown%
+        logDebug logTrace $ sformat ("doReceive failed on socket"%shown%
                             ", reason: "%shown%
                             ", recreate socket in 5 sec") sock e
-        threadDelay (5 :: Second)
+        threadDelay 5000000
         serveraddrs <- udpLocalAddresses
         newSockMB <-
             if isIPv4 then
@@ -268,7 +265,7 @@ startReceive lh cli = do
             else
                 traverse (overwriteSocket IPv6Sock . fst) =<< createAndBindSock selectIPv6 serveraddrs
         case newSockMB of
-            Nothing      -> logWarning lh "Recreating of socket failed" >> handleE isIPv4 sock e
+            Nothing      -> logWarning logTrace "Recreating of socket failed" >> handleE isIPv4 sock e
             Just newSock -> runDoReceive isIPv4 newSock
     overwriteSocket constr sock = sock <$
         (atomically .
@@ -281,30 +278,30 @@ startReceive lh cli = do
 -- and will lisent for responses.  The `ncStatus` will be updated every
 -- `ntpPollDelay` with the most recent value.  It should be run in a seprate
 -- thread, since it will block infinitelly.
-spawnNtpClient :: Log.LoggingHandler -> NtpClientSettings -> TVar NtpStatus -> IO ()
-spawnNtpClient lh settings ncStatus =
+spawnNtpClient :: TraceNamed IO -> NtpClientSettings -> TVar NtpStatus -> IO ()
+spawnNtpClient logTrace settings ncStatus =
     withSocketsDoLifted $
-      bracket (mkSockets lh settings) closeSockets $ \sock -> do
+      bracket (mkSockets logTrace settings) closeSockets $ \sock -> do
         cli <- mkNtpClient settings ncStatus sock
 
         addrs <- catMaybes <$> mapM (resolveHost $ socketsToBoolDescr sock)
                                     (ntpServers settings)
         when (null addrs) $ throwM NoHostResolved
-        () <$ startReceive lh cli `concurrently`
-              startSend lh cli addrs `concurrently`
-              logInfo lh "Launched NTP client"
+        () <$ startReceive (appendName "receive" logTrace) cli `concurrently`
+              startSend (appendName "send" logTrace) cli addrs `concurrently`
+              logInfo logTrace "Launched NTP client"
   where
     closeSockets sockets = do
-        logInfo lh "NTP client is stopped"
+        logInfo logTrace "NTP client is stopped"
         forM_ (socketsToList sockets) close
     resolveHost sockDescr host = do
         maddr <- resolveNtpHost host sockDescr
         case maddr of
             Nothing   -> do
-                logWarning lh $ sformat ("Host "%shown%" is not resolved") host
+                logWarning logTrace $ sformat ("Host "%shown%" is not resolved") host
                 pure Nothing
             Just addr -> do
-                logInfo lh $ sformat ("Host "%shown%" is resolved: "%shown) host addr
+                logInfo logTrace $ sformat ("Host "%shown%" is resolved: "%shown) host addr
                 pure $ Just addr
 
 
@@ -312,9 +309,9 @@ spawnNtpClient lh settings ncStatus =
 -- `NtpStatus`.
 withNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
 withNtpClient ntpSettings = do
-    lh <- liftIO $ Log.setupLogging $ defaultInteractiveConfiguration Log.Debug
+    logTrace <- liftIO $ setupLogging (defaultInteractiveConfiguration Log.Debug) "NtpClient"
     ntpStatus <- newTVarIO NtpSyncPending
-    _ <- liftIO $ async (spawnNtpClient lh ntpSettings ntpStatus)
+    _ <- liftIO $ async (spawnNtpClient logTrace ntpSettings ntpStatus)
     return ntpStatus
 
 {-
@@ -360,4 +357,4 @@ mergeSockets (IPv4Sock _) (IPv4Sock s)    = IPv4Sock s
 mergeSockets _ _                          = error "Unexpected state of mergeSockets"
 
 timeout :: TimeUnit t => t -> IO a -> IO (Maybe a)
-timeout t io = rightToMaybe <$> race (threadDelay t) io
+timeout t io = rightToMaybe <$> race (threadDelay (fromIntegral (toMicroseconds t))) io

@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             1.2.0
+version:             1.3.0
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -69,6 +69,7 @@ library
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
@@ -152,6 +153,7 @@ test-suite test
   build-depends:       base
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-txp

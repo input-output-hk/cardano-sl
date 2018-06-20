@@ -24,8 +24,9 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (listJson)
 
-import           Pos.Core (HasCoreConfiguration, HasGenesisData, StakeholderId, epochIndexL)
+import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic, epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
@@ -33,6 +34,7 @@ import qualified Pos.DB.GState.Stakes as DB
 import           Pos.Exception (assertionFailed)
 import           Pos.Txp.Base (flattenTxPayload)
 import qualified Pos.Txp.DB as DB
+import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
 import           Pos.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpCommonMode, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
@@ -42,11 +44,11 @@ import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..), GlobalTo
                                UtxoModifier, applyToil, defGlobalToilState, gtsUtxoModifier,
                                rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug, publicPrivateLogItem)
 
+{-
 logCreatedStakeholderIdsAfterToil
     :: Applicative m
     => Trace m LogItem
@@ -55,6 +57,7 @@ logCreatedStakeholderIdsAfterToil
 logCreatedStakeholderIdsAfterToil logTrace createdStakes =
     unless (null createdStakes) $
         logDebug logTrace (sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes)
+-}
 
 ----------------------------------------------------------------------------
 -- Settings
@@ -62,11 +65,11 @@ logCreatedStakeholderIdsAfterToil logTrace createdStakes =
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
-txpGlobalSettings :: HasGenesisData => TxpGlobalSettings
-txpGlobalSettings =
+txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpGlobalSettings
+txpGlobalSettings pm =
     TxpGlobalSettings
-    { tgsVerifyBlocks = \_ -> verifyBlocks
-    , tgsApplyBlocks = \logTrace -> applyBlocksWith logTrace (processBlundsSettings False ((fmap . fmap) (logCreatedStakeholderIdsAfterToil logTrace) applyToil))
+    { tgsVerifyBlocks = \_ -> verifyBlocks pm
+    , tgsApplyBlocks =  \logTrace -> applyBlocksWith logTrace pm (processBlundsSettings False applyToil)
     , tgsRollbackBlocks = rollbackBlocks
     }
 
@@ -76,13 +79,15 @@ txpGlobalSettings =
 
 verifyBlocks ::
        forall m. (TxpGlobalVerifyMode m)
-    => Bool
+    => ProtocolMagic
+    -> Bool
     -> OldestFirst NE TxpBlock
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
-verifyBlocks verifyAllIsKnown newChain = runExceptT $ do
+verifyBlocks pm verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
     let verifyPure :: [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
-        verifyPure = runExceptT . verifyToil bvd epoch verifyAllIsKnown
+        verifyPure = runExceptT
+            . verifyToil pm bvd (tcAssetLockedSrcAddrs txpConfiguration) epoch verifyAllIsKnown
         foldStep ::
                (UtxoModifier, [TxpUndo])
             -> TxpBlock
@@ -176,17 +181,18 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
-       (TxpGlobalApplyMode ctx m, Default extraState)
+       (TxpGlobalApplyMode ctx m, MonadIO m, Default extraState)
     => Trace m LogItem
+    -> ProtocolMagic
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith logTrace settings blunds = do
+applyBlocksWith logTrace pm settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- verifyBlocks False blocks
+        verdict <- verifyBlocks pm False blocks
         whenLeft verdict $
-            assertionFailed (contramap publicPrivateLogItem logTrace ) .
+            assertionFailed (contramap publicPrivateLogItem logTrace) .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     processBlunds settings (getOldestFirst blunds)
 
@@ -212,7 +218,8 @@ rollbackBlocks ::
     -> NewestFirst NE TxpBlund
     -> m SomeBatchOp
 rollbackBlocks logTrace (NewestFirst blunds) =
-    processBlunds (processBlundsSettings True ((fmap . fmap ) (logCreatedStakeholderIdsAfterToil logTrace) rollbackToil)) blunds
+    --processBlunds (processBlundsSettings True ((fmap . fmap ) (logCreatedStakeholderIdsAfterToil logTrace) rollbackToil)) blunds
+    processBlunds (processBlundsSettings True rollbackToil) blunds
 
 ----------------------------------------------------------------------------
 -- Helpers

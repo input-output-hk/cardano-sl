@@ -22,7 +22,7 @@ import           Formatting (sformat, shown, (%))
 
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug, logNotice, setupLogging)
 
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ

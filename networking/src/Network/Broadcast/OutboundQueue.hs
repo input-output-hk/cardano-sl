@@ -109,7 +109,7 @@ import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
 
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (TraceNamed, logMessage)
 
 
 import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)

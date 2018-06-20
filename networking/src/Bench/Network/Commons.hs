@@ -43,7 +43,7 @@ import           Prelude hiding (takeWhile)
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 -- * Transfered data types
 

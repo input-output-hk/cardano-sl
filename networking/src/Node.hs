@@ -71,7 +71,7 @@ import qualified Node.Internal as LL
 import           Node.Message.Class (Message (..), MessageCode, Packing, Serializable (..), pack,
                                      unpack)
 import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logInfo)
 import           System.Random (StdGen)
 
 

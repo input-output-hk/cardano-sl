@@ -71,7 +71,7 @@ import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (appendName, setupLogging)
 
 -- | Run a computation, but kill it if it takes more than a given number of
 --   Microseconds to complete. If that happens, log using a given string

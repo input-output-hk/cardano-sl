@@ -74,7 +74,7 @@ import           GHC.Generics (Generic)
 import qualified Network.Transport as NT
 import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
 import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logWarning)
 import qualified System.Metrics.Distribution as Metrics (Distribution)
 import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Distribution as Metrics.Distribution

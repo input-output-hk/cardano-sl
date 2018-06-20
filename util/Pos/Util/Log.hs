@@ -22,6 +22,7 @@ module Pos.Util.Log
        -- * Do logging
        , loggerBracket
        , usingLoggerName
+       , usingLoggerNames
        -- * Functions
        , logDebug
        , logInfo
@@ -197,11 +198,13 @@ setupLogging lc = do
     @
 -}
 usingLoggerName :: LoggingHandler -> LoggerName -> LogContextT IO a -> IO a
-usingLoggerName lh name f = do
+usingLoggerName lh name f = usingLoggerNames lh [name] f
+usingLoggerNames :: LoggingHandler -> [LoggerName] -> LogContextT IO a -> IO a
+usingLoggerNames lh names f = do
     mayle <- Internal.getLogEnv lh
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
-            Just le -> K.runKatipContextT le () (Internal.s2kname name) $ f
+            Just le -> K.runKatipContextT le () (Internal.s2knames names) $ f
 
 {-| bracket logging
 

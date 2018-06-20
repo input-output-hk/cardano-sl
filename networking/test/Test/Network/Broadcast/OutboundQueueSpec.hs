@@ -25,7 +25,7 @@ import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, pro
 import qualified Test.QuickCheck as QC
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (setupLogging)
 
 arbitraryNodeType :: Gen NodeType
 arbitraryNodeType = QC.elements [minBound .. maxBound]

@@ -28,7 +28,7 @@ import           Node.Message.Binary (binaryPacking)
 import           ReceiverOptions (Args (..), argsParser)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (setupLogging, appendName)
 
 main :: IO ()
 main = do

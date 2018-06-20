@@ -28,8 +28,8 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), Meas
 import           LogReaderOptions (Args (..), argsParser)
 
 import qualified Pos.Util.Log as Log
-import           Pos.Util.LoggerConfig
-import           Pos.Util.Trace.Named
+import           Pos.Util.LoggerConfig (jsonInteractiveConfiguration)
+import           Pos.Util.Trace.Named (TraceNamed, setupLogging, logWarning)
 
 
 
@@ -118,7 +118,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = do
-    logTrace' <- setupLogging (defaultInteractiveConfiguration Log.Debug) "LogReader"
+    logTrace' <- setupLogging (jsonInteractiveConfiguration Log.Debug) "LogReader"
     Args{..} <- liftIO getOptions
     measures <- foldrM (analyze logTrace') M.empty inputFiles
     printMeasures resultFile measures

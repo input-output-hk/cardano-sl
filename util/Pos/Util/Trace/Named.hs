@@ -20,7 +20,6 @@ module Pos.Util.Trace.Named
 
 import           Universum
 import           Data.Functor.Contravariant (Op (..), contramap)
-import qualified Data.Text as T
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
 import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..), LogPrivacy (..))
@@ -30,7 +29,7 @@ type TraceNamed m = Trace m (LogNamed TrU.LogItem)
 
 -- | Attach a 'LoggerName' to something.
 data LogNamed item = LogNamed
-    { lnName :: Log.LoggerName
+    { lnName :: [Log.LoggerName]
     , lnItem :: item
     } deriving (Show)
 
@@ -71,7 +70,7 @@ logWarningP logTrace = traceNamedItem logTrace TrU.Public Log.Warning
 logErrorP logTrace   = traceNamedItem logTrace TrU.Public Log.Error
 
 modifyName
-    :: (Log.LoggerName -> Log.LoggerName)
+    :: ([Log.LoggerName] -> [Log.LoggerName])
     -> TraceNamed m
     -> TraceNamed m
 modifyName k = contramap f
@@ -79,7 +78,7 @@ modifyName k = contramap f
     f (LogNamed name item) = LogNamed (k name) item
 
 appendName :: Log.LoggerName -> TraceNamed m -> TraceNamed m
-appendName lname = modifyName (\e -> ('.' `T.cons` lname) <> e)
+appendName lname = modifyName (\e -> [lname] <> e)
 
 {-
 setName :: Log.LoggerName -> TraceNamed m -> TraceNamed m
@@ -99,11 +98,11 @@ setupLogging lc ln = do
 namedTrace :: Log.LoggingHandler -> TraceNamed IO --Trace IO (LogNamed TrU.LogItem)
 namedTrace lh = Trace $ Op $ \namedLogitem ->
     let --privacy = liPrivacy (lnItem namedLogitem)
-        loggerName = T.tail $ lnName namedLogitem
+        loggerNames =  lnName namedLogitem
         severity = TrU.liSeverity (lnItem namedLogitem)
         message = TrU.liMessage (lnItem namedLogitem)
     in
-    Log.usingLoggerName lh loggerName $ Log.logMessage severity message
+    Log.usingLoggerNames lh loggerNames $ Log.logMessage severity message
     -- ^ pass message to underlying logging
 
 {- testing:
@@ -116,7 +115,7 @@ traceWith logTrace' ni
 traceWith (named $ appendName "more" logTrace') li
 
 
-logTrace' <- setupLogging (Pos.Util.LoggerConfig.defaultInteractiveConfiguration Log.Debug) "named"
+logTrace' <- setupLogging (Pos.Util.LoggerConfig.jsonInteractiveConfiguration Log.Debug) "named"
 logDebug logTrace' "hello"
 logDebug (appendName "blabla" logTrace') "hello"
 -}

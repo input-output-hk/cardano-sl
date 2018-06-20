@@ -35,7 +35,7 @@ import           Node
 import           Node.Message.Binary (binaryPacking)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (appendName, setupLogging)
 import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..), TestState, deliveryTest,
                             expected, makeInMemoryTransport, makeTCPTransport, mkTestState,
                             modifyTestState, receiveAll, sendAll, timeout)

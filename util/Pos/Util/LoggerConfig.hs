@@ -9,6 +9,7 @@ module Pos.Util.LoggerConfig
        , BackendKind (..)
        , defaultTestConfiguration
        , defaultInteractiveConfiguration
+       , jsonInteractiveConfiguration
        -- * access
        , lcLoggerTree
        , lcRotation
@@ -72,7 +73,7 @@ data LogHandler = LogHandler
       -- ^ name of the handler
     , _lhFpath       :: !(Maybe FilePath)
       -- ^ file path
-    , _lhBackend     :: !BackendKind   -- T.Text
+    , _lhBackend     :: !BackendKind
       -- ^ describes the backend (scribe for katip) to be loaded
     , _lhMinSeverity :: !(Maybe Severity)
       -- ^ the minimum severity to be logged
@@ -83,7 +84,7 @@ instance FromJSON LogHandler where
     parseJSON = withObject "log handler" $ \o -> do
         (_lhName :: T.Text) <- o .: "name"
         (_lhFpath :: Maybe FilePath) <- fmap normalise <$> o .:? "filepath"
-        (_lhBackend :: BackendKind {-T.Text-}) <- o .: "backend"
+        (_lhBackend :: BackendKind) <- o .: "backend"
         (_lhMinSeverity :: Maybe Severity) <- o .:? "severity"
         pure LogHandler{..}
 
@@ -180,6 +181,24 @@ retrieveLogFiles lc =
 -- output to console and minimum Debug severity
 defaultInteractiveConfiguration :: Severity -> LoggerConfig
 defaultInteractiveConfiguration minSeverity =
+    let _lcRotation = Nothing
+        _lcBasePath = Nothing
+        _lcLoggerTree = LoggerTree {
+            _ltMinSeverity = Debug,
+            _ltHandlers = [ LogHandler {
+                _lhBackend = StdoutBE,
+                _lhName = "console",
+                _lhFpath = Nothing,
+                _lhMinSeverity = Just minSeverity }
+                          ]
+          }
+    in
+    LoggerConfig{..}
+
+-- | @LoggerConfig@ used in benchmarks
+-- output to console and as JSON to file
+jsonInteractiveConfiguration :: Severity -> LoggerConfig
+jsonInteractiveConfiguration minSeverity =
     let _lcRotation = Nothing
         _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {

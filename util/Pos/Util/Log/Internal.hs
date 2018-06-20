@@ -3,6 +3,7 @@ module Pos.Util.Log.Internal
        ( newConfig
        , registerBackends
        , s2kname
+       , s2knames
        , sev2klog
        , updateConfig
        , getConfig
@@ -37,6 +38,8 @@ sev2klog = \case
 -- | translate Name to @Katip.Namespace@
 s2kname :: Text -> K.Namespace
 s2kname s = K.Namespace [s]
+s2knames :: [Text] -> K.Namespace
+s2knames s = K.Namespace s
 
 
 -- | Our internal state

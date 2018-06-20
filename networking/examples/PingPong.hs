@@ -27,7 +27,7 @@ import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
-import           Pos.Util.Trace.Named
+import           Pos.Util.Trace.Named (setupLogging, appendName, logInfo)
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.

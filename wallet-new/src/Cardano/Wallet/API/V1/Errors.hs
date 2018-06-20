@@ -78,6 +78,7 @@ data WalletError =
     | TxFailedToStabilize
     | InvalidPublicKey { weProblem :: !Text }
     | UnsignedTxCreationError
+    | TooBigTransaction
     | SignedTxSubmitError { weProblem :: !Text }
     | TxRedemptionDepleted
     -- | TxSafeSignerNotFound weAddress
@@ -291,6 +292,7 @@ sample =
   , WalletNotFound
   , WalletAlreadyExists
   , AddressNotFound
+  , TooBigTransaction
   , MissingRequiredParams (("wallet_id", "walletId") :| [])
   , CannotCreateAddress "Cannot create derivation path for new address in external wallet"
   , WalletIsNotReadyToProcessPayments sampleSyncProgress
@@ -331,6 +333,8 @@ describe = \case
         "Extended public key (for external wallet) is invalid."
     UnsignedTxCreationError ->
         "Unable to create unsigned transaction for an external wallet."
+    TooBigTransaction ->
+        "Transaction size is greater than 4096 bytes."
     SignedTxSubmitError _ ->
         "Unable to submit externally-signed transaction."
     TxRedemptionDepleted ->
@@ -376,6 +380,8 @@ toServantError err =
         InvalidPublicKey{} ->
             err403
         UnsignedTxCreationError{} ->
+            err500
+        TooBigTransaction{} ->
             err500
         SignedTxSubmitError{} ->
             err500

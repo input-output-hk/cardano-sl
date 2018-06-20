@@ -4,6 +4,7 @@ import           Universum
 
 import qualified Serokell.Util.Base16 as B16
 import           Formatting (build, sformat)
+import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Servant
@@ -149,9 +150,15 @@ newUnsignedTransaction pm pmt@Payment {..} = do
     -- sent to backend.
     batchPayment <- createBatchPayment pmt
     tx <- V0.newUnsignedTransaction pm batchPayment
-    let txInHexFormat = B16.encode $ serialize' tx
-        rawTx = RawTransaction txInHexFormat
-    pure $ single rawTx
+    let txAsBytes = serialize' tx
+    -- Transaction length cannot be greater than 4096 bytes.
+    -- This requirement is mandatory for hardware wallets like Ledger Nano S.
+    if BS.length txAsBytes > 4096
+        then throwM TooBigTransaction
+        else do
+            let txInHexFormat = B16.encode txAsBytes
+                rawTx = RawTransaction txInHexFormat
+            pure $ single rawTx
 
 -- | It is assumed that we received a transaction which was signed
 -- on the client side (mobile client or hardware wallet).

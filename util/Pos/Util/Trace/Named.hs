@@ -26,6 +26,7 @@ import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
 import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..), LogPrivacy (..))
 
+import           Pos.Util.Log.LogSafe (logMCond, selectPublicLogs, selectSecretLogs)
 
 type TraceNamed m = Trace m (LogNamed TrU.LogItem)
 
@@ -105,9 +106,16 @@ namedTrace lh = Trace $ Op $ \namedLogitem ->
         message = TrU.liMessage (lnItem namedLogitem)
     in
     case privacy of
-        Both    -> Log.usingLoggerName lh loggerName $ Log.logMessage severity message
+        TrU.Both    -> Log.usingLoggerName lh loggerName $ Log.logMessage severity message
         -- ^ pass to every logging scribe
-        Private -> Log.usingLoggerName lh loggerName $ Log.logMessage severity message
+        TrU.Public  -> Log.usingLoggerName lh loggerName $
+            logMCond lh severity message selectSecretLogs
+        -- ^ pass to logging scribes that are marked as
+        -- public (LogSecurityLevel == SecretLogLevel).
+        TrU.Private -> Log.usingLoggerName lh loggerName $
+            logMCond lh severity message selectSecretLogs
+        -- ^ pass to logging scribes that are marked as
+        -- private (LogSecurityLevel == SecretLogLevel).
 
 {- testing:
 

@@ -55,6 +55,8 @@ module Pos.Util.Log.LogSafe
        , buildUnsecure
        , getSecuredText
        , deriveSafeBuildable
+       , selectPublicLogs
+       , selectSecretLogs
        ) where
 
 import           Universum
@@ -70,8 +72,8 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
 
-import           Pos.Util.Log (CanLog (..), HasLoggerName (..), LogContext, Severity (..),
-                               WithLogger)
+import           Pos.Util.Log (CanLog (..), HasLoggerName (..), LogContext, LoggingHandler (..),
+                               Severity (..), WithLogger)
 import           Pos.Util.Log.Internal (getConfig, getLogEnv, sev2klog)
 import           Pos.Util.LoggerConfig (LogHandler (..), LogSecurityLevel (..), lcLoggerTree,
                                         lhName, ltHandlers)
@@ -103,27 +105,28 @@ selectPublicLogs = \case
 selectSecretLogs :: SelectionMode
 selectSecretLogs = not . selectPublicLogs
 
-logMCond :: (LogContext m) => Severity -> Text -> SelectionMode -> m ()
-logMCond sev msg cond = do
+logMCond :: (LogContext m) => LoggingHandler -> Severity -> Text -> SelectionMode -> m ()
+logMCond lh sev msg cond = do
     ctx <- K.getKatipContext
     ns  <- K.getKatipNamespace
-    logItemS ctx ns Nothing (sev2klog sev) cond $ K.logStr msg
+    logItemS lh ctx ns Nothing (sev2klog sev) cond $ K.logStr msg
 
 logItemS
     :: (K.LogItem a, K.Katip m)
-    => a
+    => LoggingHandler
+    -> a
     -> K.Namespace
     -> Maybe TH.Loc
     -> K.Severity
     -> SelectionMode
     -> K.LogStr
     -> m ()
-logItemS a ns loc sev cond msg = do
-    mayle <- liftIO getLogEnv
+logItemS lh a ns loc sev cond msg = do
+    mayle <- liftIO $ getLogEnv lh
     case mayle of
         Nothing              -> error "logging not yet initialized. Abort."
         Just le@K.LogEnv{..} -> do
-            maycfg <- liftIO getConfig
+            maycfg <- liftIO $ getConfig lh
             let cfg = case maycfg of
                     Nothing -> error "No Configuration for logging found. Abort."
                     Just c  -> c
@@ -155,8 +158,8 @@ logItemS a ns loc sev cond msg = do
 
 instance (WithLogger m, Reifies s SelectionMode) =>
          CanLog (SelectiveLogWrapped s m) where
-    dispatchMessage _ severity msg =
-        lift $ logMCond severity msg (reflect (Proxy @s))
+    dispatchMessage lh severity msg =
+        lift $ logMCond lh severity msg (reflect (Proxy @s))
 
 instance (K.Katip m) => K.Katip (SelectiveLogWrapped s m) where
     getLogEnv = lift K.getLogEnv
@@ -173,9 +176,9 @@ instance (K.KatipContext m) => K.KatipContext (SelectiveLogWrapped s m) where
   localKatipNamespace f a = lift $ K.localKatipNamespace f $ getSecureLogWrapped a
 
 instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
-    askLoggerName = SelectiveLogWrapped askLoggerName
-    modifyLoggerName foo (SelectiveLogWrapped m) =
-        SelectiveLogWrapped (modifyLoggerName foo m)
+    askLoggerName' = SelectiveLogWrapped askLoggerName'
+    modifyLoggerName' foo (SelectiveLogWrapped m) =
+        SelectiveLogWrapped (modifyLoggerName' foo m)
 
 -- instance (CanLog m) => CanLog (SelectiveLogWrapped s m) where
 --     dispatchMessage n s t = lift $ dispatchMessage n s t
@@ -202,7 +205,7 @@ logMessageS
 logMessageS severity t =
     reify selectSecretLogs $ \s ->
     execSecureLogWrapped s $ do
-        name <- askLoggerName
+        name <- askLoggerName'
         dispatchMessage name severity t
 
 ----------------------------------------------------------------------------
@@ -343,7 +346,7 @@ logMessageUnsafeP
 logMessageUnsafeP severity t =
     reify selectPublicLogs $ \s ->
     execSecureLogWrapped s $ do
-        name <- askLoggerName
+        name <- askLoggerName'
         dispatchMessage name severity t
 
 -- | Shortcut for 'logMessageUnsafeP' to use according severity.

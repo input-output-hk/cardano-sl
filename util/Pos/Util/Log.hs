@@ -66,11 +66,8 @@ type LoggerName = Text
 
 -- -- | compatibility
 class (MonadIO m, LogContext m) => CanLog m where
-    dispatchMessage :: LoggerName -> Severity -> Text -> m ()
+    dispatchMessage :: LoggingHandler -> Severity -> Text -> m ()
     dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
-
--- class (MonadIO m, LogContext m) => CanLog m where
---     dispatchMessage :: LoggerName -> Severity -> Text -> m ()
 
 class (MonadIO m, LogContext m) => HasLoggerName m where
     askLoggerName' :: m LoggerName

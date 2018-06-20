@@ -28,45 +28,45 @@ module Cardano.Wallet.Kernel (
 
 import           Universum hiding (State, init)
 
-import           Control.Lens.TH
 import           Control.Concurrent.MVar (modifyMVar_, withMVar)
+import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 
-import           Formatting (sformat, build)
+import           Formatting (build, sformat)
 
 import           System.Wlog (Severity (..))
 
 import           Data.Acid (AcidState)
-import           Data.Acid.Memory (openMemoryState)
 import           Data.Acid.Advanced (query', update')
+import           Data.Acid.Memory (openMemoryState)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..)
-                                                  , prefilterUtxo, prefilterBlock)
-import           Cardano.Wallet.Kernel.Types(WalletId (..), WalletESKs)
+import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), prefilterBlock,
+                                                    prefilterUtxo)
+import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
 
-import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB, dbHdWallets
-                                                   , CreateHdWallet (..)
-                                                   , ApplyBlock (..)
-                                                   , NewPending (..)
-                                                   , NewPendingError
-                                                   , Snapshot (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CreateHdWallet (..), DB,
+                                                     NewPending (..), NewPendingError,
+                                                     Snapshot (..), dbHdWallets, defDB)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
+import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
 import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
+import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
+import           Cardano.Wallet.Kernel.Submission (WalletSubmission, addPending,
+                                                   defaultResubmitFunction, exponentialBackoff,
+                                                   newWalletSubmission)
 
+import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))
 
-import           Pos.Core (Timestamp (..), TxAux (..), AddressHash, Coin)
-
-import           Pos.Crypto (EncryptedSecretKey, PublicKey)
-import           Pos.Txp (Utxo)
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Crypto (EncryptedSecretKey, PublicKey, hash)
+import           Pos.Txp (Utxo)
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -227,29 +227,49 @@ applyBlocks = mapM_ . applyBlock
 -- send new transactions.
 data ActiveWallet = ActiveWallet {
       -- | The underlying passive wallet
-      walletPassive   :: PassiveWallet
-
+      walletPassive    :: PassiveWallet
       -- | The wallet diffusion layer
-    , walletDiffusion :: WalletDiffusion
+    , walletDiffusion  :: WalletDiffusion
+      -- | The wallet submission layer
+    , walletSubmission :: MVar (WalletSubmission IO)
     }
 
 -- | Initialize the active wallet
-bracketActiveWallet :: MonadMask m
+bracketActiveWallet :: (MonadMask m, MonadIO m)
                     => PassiveWallet
                     -> WalletDiffusion
                     -> (ActiveWallet -> m a) -> m a
-bracketActiveWallet walletPassive walletDiffusion =
+bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
+    let rho = defaultResubmitFunction subFunction (exponentialBackoff 255 1.25)
+    walletSubmission <- newMVar (newWalletSubmission rho)
     bracket
       (return ActiveWallet{..})
       (\_ -> return ())
+      runActiveWallet
+    where
+        -- NOTE(adn) Discuss diffusion layer throttling with Alex & Duncan.
+        subFunction :: [TxAux] -> IO ()
+        subFunction [] = return ()
+        subFunction (tx:txs) = do
+            void $ (walletSendTx walletDiffusion) tx
+            subFunction txs
 
 -- | Submit a new pending transaction
 --
 -- Will fail if the HdAccountId does not exist or if some inputs of the
 -- new transaction are not available for spending.
+--
+-- If the pending transaction is successfully added to the wallet state, the
+-- submission layer is notified accordingly.
 newPending :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewPendingError ())
-newPending ActiveWallet{..} accountId tx
-  = update' (walletPassive ^. wallets) $ NewPending accountId (InDb tx)
+newPending ActiveWallet{..} accountId tx = do
+    res <- update' (walletPassive ^. wallets) $ NewPending accountId (InDb tx)
+    case res of
+        Left e -> return (Left e)
+        Right () -> do
+            let txId = hash . taTx $ tx
+            modifyMVar_ walletSubmission (return . addPending (singletonPending txId tx))
+            return $ Right ()
 
 {-------------------------------------------------------------------------------
   Wallet Account read-only API

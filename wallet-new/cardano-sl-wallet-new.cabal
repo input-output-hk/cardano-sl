@@ -84,6 +84,7 @@ library
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
+                       Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans

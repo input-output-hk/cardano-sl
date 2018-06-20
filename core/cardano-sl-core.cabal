@@ -289,11 +289,13 @@ test-suite test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cryptonite
                      , formatting
                      , generic-arbitrary
                      , hedgehog
                      , hspec
                      , hedgehog
+                     , pvss
                      , QuickCheck
                      , quickcheck-instances
                      , random

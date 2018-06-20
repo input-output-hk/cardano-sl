@@ -247,7 +247,6 @@ genBlockHeader pm pc =
 genBlockHeaderAttributes :: Gen BlockHeaderAttributes
 genBlockHeaderAttributes = pure $ mkAttributes ()
 
--- fails
 genBlockSignature :: ProtocolMagic -> ProtocolConstants -> Gen BlockSignature
 genBlockSignature pm pc = do
     Gen.choice

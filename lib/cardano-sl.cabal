@@ -280,7 +280,6 @@ test-suite cardano-test
                        -- Everything else
                        Test.Pos.Cbor.CborSpec
                        Test.Pos.ConstantsSpec
-                       Test.Pos.CryptoSpec
                        Test.Pos.Diffusion.BlockSpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec

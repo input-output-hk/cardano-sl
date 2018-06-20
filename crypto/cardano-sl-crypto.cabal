@@ -19,8 +19,10 @@ library
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
+                       Pos.Crypto.Limits
                        Pos.Crypto.Orphans
                        Pos.Crypto.Random
+                       Pos.Crypto.SafeCopy
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Signing
                        Pos.Crypto.Signing.Redeem
@@ -47,6 +49,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-util
                      , cborg
+                     , cereal
                      , cryptonite
                      , cryptonite-openssl
                      , data-default
@@ -58,6 +61,7 @@ library
                      , mtl
                      , pvss
                      , reflection
+                     , safecopy
                      , safe-exceptions
                      , scrypt
                      , serokell-util
@@ -107,7 +111,12 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Crypto.Bi
+                       Test.Pos.Crypto.Arbitrary
+                       Test.Pos.Crypto.Arbitrary.Unsafe
+                       Test.Pos.Crypto.CborSpec
                        Test.Pos.Crypto.CryptoSpec
+                       Test.Pos.Crypto.CryptoSpec2
+                       Test.Pos.Crypto.Dummy
                        Test.Pos.Crypto.Gen
 
   build-depends:       QuickCheck
@@ -118,12 +127,15 @@ test-suite test
                      , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-crypto
+                     , cardano-sl-util
                      , cardano-sl-util-test
                      , cryptonite
                      , formatting
+                     , generic-arbitrary
                      , hedgehog
                      , hspec
                      , memory
+                     , quickcheck-instances
                      , template-haskell
                      , text
                      , universum >= 0.1.11

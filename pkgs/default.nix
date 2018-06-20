@@ -15139,7 +15139,9 @@ libraryHaskellDepends = [
 base
 binary
 bytestring
+cardano-sl-util
 cborg
+cereal
 containers
 digest
 formatting
@@ -15149,6 +15151,7 @@ lens
 mtl
 QuickCheck
 safe-exceptions
+safecopy
 serokell-util
 tagged
 template-haskell
@@ -15853,12 +15856,14 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
+, cereal
 , cpphs
 , cryptonite
 , cryptonite-openssl
 , data-default
 , ed25519
 , formatting
+, generic-arbitrary
 , hashable
 , hedgehog
 , hspec
@@ -15867,8 +15872,10 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , pvss
 , QuickCheck
+, quickcheck-instances
 , reflection
 , safe-exceptions
+, safecopy
 , scrypt
 , serokell-util
 , stdenv
@@ -15896,6 +15903,7 @@ cardano-crypto
 cardano-sl-binary
 cardano-sl-util
 cborg
+cereal
 cryptonite
 cryptonite-openssl
 data-default
@@ -15908,6 +15916,7 @@ mtl
 pvss
 reflection
 safe-exceptions
+safecopy
 scrypt
 serokell-util
 text
@@ -15925,13 +15934,16 @@ bytestring
 cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
+cardano-sl-util
 cardano-sl-util-test
 cryptonite
 formatting
+generic-arbitrary
 hedgehog
 hspec
 memory
 QuickCheck
+quickcheck-instances
 template-haskell
 text
 universum

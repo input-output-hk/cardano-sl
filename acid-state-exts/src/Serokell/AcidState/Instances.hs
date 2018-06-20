@@ -18,10 +18,6 @@ import qualified Data.HashSet        as HS hiding (HashSet)
 import           Data.SafeCopy       (SafeCopy (..), contain, safeGet,
                                       safePut)
 
-#if !MIN_VERSION_safecopy(0,9,3)
-import qualified Data.List.NonEmpty  as NE
-#endif
-
 instance MonadThrow (Update s) where
     throwM = throw
 
@@ -32,17 +28,6 @@ instance (Eq a, Hashable a, SafeCopy a) => SafeCopy (HashSet a) where
 instance (Eq a, Hashable a, SafeCopy a, SafeCopy b) => SafeCopy (HashMap a b) where
     putCopy = contain . safePut . HM.toList
     getCopy = contain $ HM.fromList <$> safeGet
-
-#if !MIN_VERSION_safecopy(0,9,3)
-instance SafeCopy a => SafeCopy (NE.NonEmpty a) where
-    getCopy = contain $ do
-        xs <- safeGet
-        case NE.nonEmpty xs of
-            Nothing -> fail "getCopy@NonEmpty: list can't be empty"
-            Just xx -> return xx
-    putCopy = contain . safePut . NE.toList
-    errorTypeName _ = "NonEmpty"
-#endif
 
 #define SAFECOPY_TIME(T, TS)                     \
   instance SafeCopy T where {                    \

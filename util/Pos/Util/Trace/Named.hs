@@ -1,7 +1,7 @@
 -- | 'Trace' for named logging.
 
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Pos.Util.Trace.Named
     ( TraceNamed
@@ -19,11 +19,13 @@ module Pos.Util.Trace.Named
     ) where
 
 import           Universum
+
 import           Data.Functor.Contravariant (Op (..), contramap)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
 import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..), LogPrivacy (..))
 
+import           Pos.Util.Log.LogSafe (logMCond, selectPublicLogs, selectSecretLogs)
 
 type TraceNamed m = Trace m (LogNamed TrU.LogItem)
 
@@ -95,15 +97,24 @@ setupLogging lc ln = do
     let nt = namedTrace lh
     return $ appendName ln nt
 
-namedTrace :: Log.LoggingHandler -> TraceNamed IO --Trace IO (LogNamed TrU.LogItem)
+namedTrace :: Log.LoggingHandler -> TraceNamed IO
 namedTrace lh = Trace $ Op $ \namedLogitem ->
-    let --privacy = liPrivacy (lnItem namedLogitem)
-        loggerNames =  lnName namedLogitem
+    let loggerNames =  lnName namedLogitem
+        privacy  = TrU.liPrivacy  (lnItem namedLogitem)
         severity = TrU.liSeverity (lnItem namedLogitem)
-        message = TrU.liMessage (lnItem namedLogitem)
+        message  = TrU.liMessage  (lnItem namedLogitem)
     in
-    Log.usingLoggerNames lh loggerNames $ Log.logMessage severity message
-    -- ^ pass message to underlying logging
+    case privacy of
+        TrU.Both    -> Log.usingLoggerNames lh loggerNames $ Log.logMessage severity message
+        -- ^ pass to every logging scribe
+        TrU.Public  -> Log.usingLoggerNames lh loggerNames $
+            logMCond lh severity message selectPublicLogs
+        -- ^ pass to logging scribes that are marked as
+        -- public (LogSecurityLevel == PublicLogLevel).
+        TrU.Private -> Log.usingLoggerNames lh loggerNames $
+            logMCond lh severity message selectSecretLogs
+        -- ^ pass to logging scribes that are marked as
+        -- private (LogSecurityLevel == SecretLogLevel).
 
 {- testing:
 

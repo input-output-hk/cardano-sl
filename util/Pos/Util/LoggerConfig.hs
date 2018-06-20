@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -7,6 +8,7 @@ module Pos.Util.LoggerConfig
        , LogHandler (..)
        , LoggerTree (..)
        , BackendKind (..)
+       , LogSecurityLevel (..)
        , defaultTestConfiguration
        , defaultInteractiveConfiguration
        , jsonInteractiveConfiguration
@@ -21,6 +23,7 @@ module Pos.Util.LoggerConfig
        , lhBackend
        , lhName
        , lhFpath
+       , lhSecurityLevel
        , lhMinSeverity
        -- * functions
        , parseLoggerConfig
@@ -49,7 +52,6 @@ data BackendKind = FileTextBE
 instance ToJSON BackendKind
 instance FromJSON BackendKind where
 
-
 -- | @'RotationParameters'@ one of the two categories  used in the
 --   logging config, specifying the log rotation parameters
 data RotationParameters = RotationParameters
@@ -66,16 +68,26 @@ instance FromJSON RotationParameters where
 
 makeLenses ''RotationParameters
 
+data LogSecurityLevel
+    = SecretLogLevel
+    | PublicLogLevel
+    deriving (Eq, Show, Generic)
+
+deriving instance ToJSON LogSecurityLevel
+deriving instance FromJSON LogSecurityLevel
+
 -- | @'LogHandler'@ describes the output handler (file, stdout, ..)
 --
 data LogHandler = LogHandler
-    { _lhName        :: !T.Text
+    { _lhName          :: !T.Text
       -- ^ name of the handler
-    , _lhFpath       :: !(Maybe FilePath)
+    , _lhFpath         :: !(Maybe FilePath)
       -- ^ file path
-    , _lhBackend     :: !BackendKind
+    , _lhSecurityLevel :: !(Maybe LogSecurityLevel)
+      -- ^ file will be public or private
+    , _lhBackend       :: !BackendKind
       -- ^ describes the backend (scribe for katip) to be loaded
-    , _lhMinSeverity :: !(Maybe Severity)
+    , _lhMinSeverity   :: !(Maybe Severity)
       -- ^ the minimum severity to be logged
     } deriving (Generic,Show)
 
@@ -84,7 +96,8 @@ instance FromJSON LogHandler where
     parseJSON = withObject "log handler" $ \o -> do
         (_lhName :: T.Text) <- o .: "name"
         (_lhFpath :: Maybe FilePath) <- fmap normalise <$> o .:? "filepath"
-        (_lhBackend :: BackendKind) <- o .: "backend"
+        (_lhSecurityLevel :: Maybe LogSecurityLevel) <- o .:? "logsafety"
+        (_lhBackend :: BackendKind ) <- o .: "backend"
         (_lhMinSeverity :: Maybe Severity) <- o .:? "severity"
         pure LogHandler{..}
 
@@ -104,8 +117,16 @@ instance FromJSON LoggerTree where
         (manyFiles :: [FilePath]) <- map normalise <$> (o .:? "files" .!= [])
         handlers <- o .:? "handlers" .!= []
         let fileHandlers =
-              map (\fp -> LogHandler { _lhName=T.pack fp, _lhFpath=Just fp
-                                     , _lhBackend=FileTextBE, _lhMinSeverity=Just Debug }) $
+              map (\fp ->
+                let name = T.pack fp in
+                LogHandler { _lhName=name
+                           , _lhFpath=Just fp
+                           , _lhBackend=FileTextBE
+                           , _lhMinSeverity=Just Debug
+                           , _lhSecurityLevel=case ".pub" `T.isSuffixOf` name of
+                                True -> Just PublicLogLevel
+                                _    -> Just SecretLogLevel
+                           }) $
                 maybeToList singleFile ++ manyFiles
         let _ltHandlers = fileHandlers <> handlers
         (_ltMinSeverity :: Severity) <- o .: "severity" .!= Debug
@@ -115,7 +136,9 @@ instance Semigroup LoggerTree
 instance Monoid LoggerTree where
     mempty = LoggerTree { _ltMinSeverity = Debug
                    , _ltHandlers = [LogHandler { _lhName="node", _lhFpath=Just "node.log"
-                                               , _lhBackend=FileTextBE, _lhMinSeverity=Just Debug}]
+                                               , _lhBackend=FileTextBE
+                                               , _lhMinSeverity=Just Debug
+                                               , _lhSecurityLevel=Just PublicLogLevel}]
                    }
         --  default values
     mappend = (<>)
@@ -136,7 +159,6 @@ instance FromJSON LoggerConfig where
         _lcLoggerTree <- o .: "loggerTree"
         _lcBasePath <- o .:? "logdir"
         return LoggerConfig{..}
-
 
 instance Semigroup LoggerConfig
 instance Monoid LoggerConfig where
@@ -176,7 +198,6 @@ retrieveLogFiles lc =
     where
         lhs = lc ^. lcLoggerTree ^. ltHandlers ^.. each
 
-
 -- | @LoggerConfig@ used interactively
 -- output to console and minimum Debug severity
 defaultInteractiveConfiguration :: Severity -> LoggerConfig
@@ -189,6 +210,7 @@ defaultInteractiveConfiguration minSeverity =
                 _lhBackend = StdoutBE,
                 _lhName = "console",
                 _lhFpath = Nothing,
+                _lhSecurityLevel = Just SecretLogLevel,
                 _lhMinSeverity = Just minSeverity }
                           ]
           }
@@ -212,6 +234,7 @@ jsonInteractiveConfiguration minSeverity =
                 _lhBackend = FileJsonBE,
                 _lhName = "json",
                 _lhFpath = Just "node.json",
+                _lhSecurityLevel = Just SecretLogLevel,
                 _lhMinSeverity = Just minSeverity }
                           ]
           }
@@ -230,8 +253,8 @@ defaultTestConfiguration minSeverity =
                 _lhBackend = DevNullBE,
                 _lhName = "devnull",
                 _lhFpath = Nothing,
+                _lhSecurityLevel = Just SecretLogLevel,
                 _lhMinSeverity = Just minSeverity } ]
           }
     in
     LoggerConfig{..}
-

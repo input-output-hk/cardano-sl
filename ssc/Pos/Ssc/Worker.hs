@@ -39,7 +39,6 @@ import           Pos.Infra.Recovery.Info (recoveryCommGuard)
 import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.Slotting (defaultOnNewSlotParams, getCurrentSlot,
                                      getSlotStartEmpatically, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx, mkSignedCommitment)
@@ -57,6 +56,7 @@ import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
 import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc, scVssKeyPair,
                                 sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Util (getKeys, leftToPanic)
 
 sscWorkers

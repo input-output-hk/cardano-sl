@@ -14,10 +14,10 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay)
+import           Pos.Util.Log (logDebug, logError, logInfo, logWarning)
 import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
-import           Pos.Util.Log (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
@@ -53,11 +53,12 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..), OnNewSlotPara
                                      currentTimeSlotting, defaultOnNewSlotParams,
                                      getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
-import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Update.DB (getAdoptedBVData)
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.Log.LogSafe (logDebugS, logInfoS, logWarningS)
 
 ----------------------------------------------------------------------------
 -- All workers

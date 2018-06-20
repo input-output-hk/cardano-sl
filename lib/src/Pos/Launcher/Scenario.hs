@@ -27,7 +27,6 @@ import qualified Pos.GState as GS
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (waitSystemStart)
-import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Txp (bootDustThreshold)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
@@ -35,6 +34,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVe
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Log.LogSafe (logInfoS)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 

@@ -81,8 +81,8 @@ import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Infra.Util.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe,
-                                         logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Util.Log.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe,
+                                       logInfoSP, plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions

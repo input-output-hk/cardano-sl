@@ -7,8 +7,8 @@ module Pos.Util.Log.Internal
        , sev2klog
        , updateConfig
        , getConfig
-       , getLogEnv
        , getLinesLogged
+       , getLogEnv
        , incrementLinesLogged
        , modifyLinesLogged
        , LoggingHandler      --  only export name
@@ -17,13 +17,13 @@ module Pos.Util.Log.Internal
 import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
 
 import qualified Data.Text as T
-import           Data.Time (getCurrentTime, UTCTime)
+import           Data.Time (UTCTime, getCurrentTime)
 import           Universum hiding (newMVar)
 
 import qualified Katip as K
 
 import           Pos.Util.Log.Severity
-import           Pos.Util.LoggerConfig (LoggerConfig)
+import           Pos.Util.LoggerConfig (LoggerConfig (..))
 
 
 -- | translate Severity to @Katip.Severity@
@@ -60,7 +60,7 @@ newtype LoggingHandler = LoggingHandler
 getConfig :: LoggingHandler -> IO (Maybe LoggerConfig)
 getConfig lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiConfig
 
-getLogEnv:: LoggingHandler -> IO (Maybe K.LogEnv)
+getLogEnv :: LoggingHandler -> IO (Maybe K.LogEnv)
 getLogEnv lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLogEnv
 
 getLinesLogged :: LoggingHandler -> IO Integer

@@ -1,0 +1,349 @@
+\documentclass{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb, stmaryrd, latexsym, amsthm, mathtools}
+\usepackage{mathpazo, times}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{natbib}
+% \usepackage{parskip} % very ugly with lemmas, invariants, etc without intervening text
+\usepackage[disable]{todonotes}
+\usepackage{slashed}
+\usepackage{tikz}
+\usepackage{forest}
+\usepackage{IEEEtrantools}
+\usepackage{microtype}
+
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=false,
+  linkcolor={blue},
+  citecolor={blue},
+  urlcolor={blue},
+  linkbordercolor={white},
+  citebordercolor={white},
+  urlbordercolor={white}
+}
+\usepackage[capitalise,noabbrev,nameinlink]{cleveref}
+
+% https://tex.stackexchange.com/questions/132823/ieeetrantools-clash-with-cleveref
+\makeatletter
+\let\if@IEEEissubequation\iffalse
+\makeatother
+
+\usetikzlibrary{arrows}
+
+\newcommand{\powerset}[1]{\mathbb{P}(#1)}
+\newcommand{\order}[1]{\mathcal{O}\left(#1\right)}
+\newcommand{\restrictdom}{\lhd}
+\newcommand{\subtractdom}{\mathbin{\slashed{\restrictdom}}}
+\newcommand{\restrictrange}{\rhd}
+
+\DeclareMathOperator{\dom}{dom}
+\DeclareMathOperator{\range}{range}
+\DeclareMathOperator*{\argmin}{arg\,min} % thin space, limits underneath in displays
+\DeclareMathOperator*{\minimum}{min}
+\DeclareMathOperator*{\maximum}{max}
+
+% Number within sections, and don't have separate counters for separate environments
+\theoremstyle{definition}{
+  \newtheorem{lemma}{Lemma}[section] % Number within sections
+  \newtheorem{definition}[lemma]{Definition}
+}
+\theoremstyle{theorem}{
+  \newtheorem{invariant}[lemma]{Invariant}
+  \newtheorem{proofobligation}[lemma]{Proof Obligation}
+}
+
+\Crefname{invariant}{Invariant}{Invariants}
+
+\numberwithin{equation}{lemma}
+
+\floatstyle{boxed}
+\restylefloat{figure}
+
+\lstset{basicstyle=\ttfamily\small}
+
+\raggedbottom
+
+\begin{document}
+
+\section{Introduction}
+
+This document is intended as a discussion, leading to a design, of IPC
+protocols for Cardano's Shelly release.
+
+The structure of the discussion is to look at the requirements and ideas for
+application-level protocols, before looking at how those can map onto lower
+level IPC protocols.
+
+\subsection{Scope}
+
+In scope for this discussion is IPC that Cardano nodes engage in. We do want
+to consider IPC between Cardano nodes and components such as wallets and
+explorers, but not between wallets/explorers and other components.
+
+Part of the discussion will be motivated by algorithms, data structures and
+resource constraints within nodes, such has how nodes can represent their
+blockchains, but this document is not primarily an analysis of those issues.
+
+There are two relatively clearly distinct use cases for IPC for Cardano nodes:
+\begin{itemize}
+\item IPC between Cardano nodes that are engaged in the high level Ouroboros
+      blockchain consensus protocol.
+\item IPC between a Cardano node and a `chain consumer' component such as a
+      wallet, explorer or other custom application.
+\end{itemize}
+
+It is plausible that both use cases could be served by the same protocol, but
+this is not a given a priori.
+
+\subsection{Goals}
+
+First and foremost the protocols need to achieve their information exchange
+requirements.
+
+For the node-to-node protocol this is driven by the functional and performance
+needs of Ouroboros. The node-to-node protocol is conducted in a P2P environment
+with very limited trust between peers. Though the node-to-node protocol is
+point-to-point, each node is expected to converse with several other nodes. A
+concern in this setting is asymmetric resource consumption attacks. Ease of
+implementation is a nice to have, but is subordinate to the other hard
+constraints.
+
+A node-to-consumer protocol is intended to support blockchain applications
+like wallets and explorers, or Cardano-specific caches or proxies. The setting
+here is that a consumer trusts a node (a `chain producer') and just wants to
+catch up and keep up with the blockchain of that producer. It is assumed that
+a consumer only consumes from one producer (or one of a related set of
+producers), so unlike in the node-to-node protocol there is no need to choose
+between different available chains. The producer may still not fully trust the
+consumer and does not want to be subject to highly asymmetric resource
+consumption attacks. In this use case, because of the wider range of
+applications that wish to consume the blockchain, having some options that are
+easy to implement is more important, even if this involves a trade-off with
+performance. That said, there are also use cases where tight integration is
+possible and making the most efficient use of resources is more desirable.
+
+\subsection{Why distinguish node-to-consumer}
+
+It is worth discussing briefly why it makes sense to consider a node-to-consumer
+protocol distinct from a node-to-node protocol.
+
+There are a number of applications that simply want to consume the blockchain,
+but are able to rely on a trusted or semi-trusted Cardano consensus node. These
+applications do not need to engage in the full consensus protocol, and may be
+happy to delegate the necessary chain validation.
+
+Examples include 3rd party applications that want to observe the blockchain.
+It may also include certain kinds of light client that wish to follow the
+blockchain but not do full validation.
+
+Once one considers a node-to-consumer protocol as a first class citizen then
+it opens up opportunities for different system architecture choices. The
+architecture of the original Cardano Mainnet release was entirely homogeneous:
+every node behaved the same, each trusted nothing but itself and paid the
+full networking and processing cost of engaging in the consensus protocol.
+In particular everything was integrated into a single process: the consensus
+algorithm itself, serving data to other peers and components such as the wallet
+or explorer. If we were to have a robust and efficient node-to-consumer
+protocol then we can make many other choices.
+
+With an efficient \emph{local} IPC protocol we can have applications like
+wallets and explorers as separate processes. Even for tightly integrated
+components it can make sense to run them in separate OS processes. The timing
+constraints for a consensus node are much easier to manage when it does not
+have to share CPU resources with chain consumers. There have been cases in
+production where a highly loaded wallet component takes more than its allowed
+allocation of CPU resources and causes the local node to miss its deadlines.
+By giving a consensus node a dedicated CPU core it becomes more plausible to
+provide the necessary hard real time guarantees. In addition, scaling on
+multi-core machines is significantly easier with multiple OS processes than
+with a multi-threaded OS process with a shared-heap. This could allow for
+larger capacity Cardano relay deployments where there are multiple network
+facing proxy processes that all get their chain from a single local consensus
+node.
+
+With an efficient \emph{network} IPC protocol we can do similar things but
+extend it across multiple machines. For example, clusters of relays operated
+by a single organisation may be also to operate more efficiently using a
+node-to-consumer protocol than a node-to-node protocol. Similarly it allows for
+wallet or explorer-like applications that need to scale out, and are able to
+make use of a trusted node.
+
+\section{Node-to-consumer protocols}
+
+TODO: cover notes on:
+\begin{itemize}
+\item chain producer representations and in-memory storage with high degrees of forking
+\item chain producer keeping state about consumers
+\item immutable vs volatile distinction in representation and protocols
+\item stateful protocol
+\item stateless protocol
+\item recursion as an indicator of completeness
+\item family of protocol variations for different environments: STM, IO, local IPC, remote IPC
+\item optimised case for immutable chain, e.g. shared files
+\item STM interface
+\item coping with talking to a load-balanced cluster of imperfectly synced producers
+\end{itemize}
+
+\section{Node-to-node protocol}
+
+The Ouroboros consensus protocol \citep{ouroboros-classic} describes what it
+needs from its network layer. That is:
+\begin{itemize}
+\item nodes that create a new block in a time slot need to be able to broadcast
+      their \emph{entire blockchain} to all other nodes, and;
+\item within each time slot, all nodes to collect \emph{all the blockchains}
+      they have received via broadcast and then to pick among them.
+\end{itemize}
+
+The challenge is to simulate this specification in bounded resources and to do
+so without opening up opportunities for new attacks at the network level. Such
+attacks might include preventing broadcast or local denial of service by making
+them consume excess resources (time, memory, network, CPU).
+
+Obviously na\"ively broadcasting entire chains is not something that can be
+done with bounded resources since there is no bound to the chain length.
+Obviously the intention is to communicate new blocks and to share and reuse the
+parts of the chain that have not changed, though this is easier said than done.
+
+There is however another dimension to the resource bounding problem. In a
+proof-of-work blockchain protocol it is expensive for adversarial parties to
+create lots of `fake' blocks, so there is in practice a limit on the number of
+such blocks that honest parties need to consider. In proof-of-stake blockchain
+protocols there is no such constraint: adversarial parties can create many
+signed blocks.
+
+\subsection{Drawbacks in the current Ouroboros network protocol implementation}
+
+The implementation establishes connections with a small number of other peers.
+There is no argument as to why this should ensure full (or even majority)
+connectivity of honest parties in the presence of a significant number of
+adversarial parties.
+
+\subsection{Broadcasting versus subscribing}
+
+It is tempting to consider pursuing an approach where each node subscribes to
+and follows the chains of a number of its peers and continuously selects
+between those chains following the Ouroboros chain validity and longest chain
+rules. This would allow us to impose constraints such as that each node only
+announces a single new block to its peers in each slot, since it would only be
+announcing the head of its own adopted chain. That obviously makes it easier
+for a node to bound its resource use since it only need consider N potential
+chains from the N peers it is subscribed to.
+
+It is not clear however that this is equivalent to what Ouroboros specifies:
+that chains be broadcast to everyone, and that each node looks at all chains
+that it receives within each time slot. By contrast the equivalence argument is
+much clearer if we broadcast the block header of each chain's head (via
+multicast or flooding over point-to-point links), and then chase down the rest
+of the chain back to an intersection point.
+
+We will restrict ourselves to algorithms that can plausibly be argued are
+equivalent to broadcasting chains.
+
+\subsection{Trying to bound Ouroboros network resource use}
+
+There are a few aspects to bounding network resource use in this setting.
+\begin{enumerate}
+\item We can try to establish some absolute bound on the required resources.
+\item With or without an absolute bound we can try to arrange things so that it
+      is difficult for an adversarial party to create a lot of work for honest
+      parties.
+\item If we cannot establish absolute resource bounds for a perfect simulation,
+      or the bounds might be too large for some instances, we can consider what
+      choices an instance with limited resources should make to achieve a good
+      enough simulation.
+\end{enumerate}
+
+Let us review ideas on each point in turn.
+
+\subsubsection{Trying to establish absolute bounds}
+
+There are a number of standard tricks here. For starters we can break up the
+blockchain into individual blocks, and blocks themselves into a small fixed
+size header and a larger variable sized body. The basic idea is then that we
+initiate a chain broadcast by broadcasting the block header for the head block
+in the chain.
+
+In PoW blockchain algorithms the header can contain the representation of a
+proof of work, while in PoS the header contains representation of the proof of
+stake: a signature showing that it was created by the appropriate party. In
+Ouroboros the PoS signature means that nodes that are up to date (at least
+within the same epoch) can verify that the header itself is plausible, and
+exclude incorrectly signed headers.
+
+A small fixed size header means that we can bound the network resource use
+to send or receive a single header, and can also bound the CPU resources needed
+to verify the header.
+
+Additionally:
+\begin{itemize}
+\item Ouroboros specifies that chains with blocks from slots in the future are
+      invalid. The signed block header contains the slot number so we can
+      exclude such chains just by looking at the block header of the head block
+      in the chain (which is the one we broadcast).
+\item Ouroboros specifies that when a node adopts a new chain it only ever
+      picks one strictly longer than its current one. The signed block header
+      contains the block number so by comparing the block number of the
+      broadcast header against the current length of the node's chain, we can
+      exclude chains that are shorter and so could never be picked.
+\item Ouroboros classic (but not BG) specifies that a node will only ever pick
+      a chain that diverges from its current chain within the last K blocks,
+      implying that forks can be at most K long. This places a bound (of K) on
+      the range in which a node needs to look for an intersection between the
+      new purported chain (represented by the header of its head block) and its
+      own current chain. This bounds the number of block headers that a node
+      would ever need to download to obtain all headers for the candidate chain.
+\item In Ouroboros classic, there is only ever one legitimate leader for each
+      time slot, and non-adversarial players never sign more than one block
+      for the slots in which they are the leader.
+\item In Ouroboros BG, the situation is similar: there can be more than one
+      legitimate leader for a time slot but the number of leaders in a slot
+      follows a distribution that makes a large number highly unlikely (and
+      this is not controlled by adversarial players).
+\item In both Ouroboros classic and BG it is possible for adversarial players
+      to sign multiple blocks for the same slot, but this is visible (so-called
+      `open adversarial behaviour').
+\end{itemize}
+
+The combination of these constraints would appear to place severe limitations
+on the number of plausibly valid chains that an adversary can create and try
+to get honest parties to chase.
+
+In particular, plausibly valid chains would have to start with a valid header
+that falls into a slot after the last block of the target victim's chain
+but only up to the current time slot. Plausibly valid chains can only extend
+back up to 2K slots. The most subtle constraint is that since the victim is
+able to assume that honest nodes do not sign more than one block per slot, then
+the adversary is only able to make use of unfilled slots and may only use each
+one in any fake chain once. The only unfilled slots are those empty slots
+within the victim's chain (at most K) and statistically roughly half of the
+slots in the range between the end of the victim node's chain and the current
+slot (because the adversary is assumed to control less than 50\% of stake).
+
+The implication is that provided that the victim keeps track of the last 2K
+slots it has seen and which keys were used to sign a valid block header in each
+slot, then it is possible for an honest party to bound the number of valid
+block headers used in any plausibly valid set of chains presented by an
+adversary.
+
+TODO: sketch a counting argument showing there are a limited number of slots
+and we can force the adversary into using them up or abandoning their attack
+for the time being.
+
+\subsubsection{Raising the difficulty for attackers}
+
+We would like to avoid consuming network resources downloading chains that
+we will later discover 
+
+\subsubsection{Judicious choices on resource use}
+
+
+One standard trick to 
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}

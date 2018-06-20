@@ -8,7 +8,7 @@ module Pos.Util.Log
        , LoggingHandler
        -- * Compatibility
        , CanLog(..)
-       , HasLoggerName(..)
+    --    , HasLoggerName(..)
        , WithLogger
        , LoggerNameBox(..)
        -- * Configuration
@@ -40,7 +40,7 @@ import           Universum
 import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
-import           Control.Monad.Writer (WriterT (..))
+-- import           Control.Monad.Writer (WriterT (..))
 
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig
@@ -60,7 +60,7 @@ import qualified Katip.Core as KC
 type LogContext = K.KatipContext
 type LogContextT = K.KatipContextT
 
-type WithLogger m = (CanLog m, HasLoggerName m)
+type WithLogger m = (CanLog m) --, HasLoggerName m)
 
 type LoggerName = Text
 
@@ -69,18 +69,18 @@ class (MonadIO m, LogContext m) => CanLog m where
     dispatchMessage :: LoggingHandler -> Severity -> Text -> m ()
     dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
 
-class (MonadIO m, LogContext m) => HasLoggerName m where
-    askLoggerName' :: m LoggerName
-    askLoggerName' = askLoggerName
-    setLoggerName' :: LoggerName -> m a -> m a
-    setLoggerName' = modifyLoggerName' . const
-    modifyLoggerName' :: (LoggerName -> LoggerName) -> m a -> m a
-    modifyLoggerName' f a = addLoggerName (f "cardano-sl")$ a
-instance (Monad m, HasLoggerName m) => HasLoggerName (ReaderT a m) where
-instance (Monad m, HasLoggerName m) => HasLoggerName (StateT a m) where
-instance (Monoid w, Monad m, HasLoggerName m) => HasLoggerName (WriterT w m) where
-instance (Monad m, HasLoggerName m) => HasLoggerName (ExceptT e m) where
-    askLoggerName'    = lift askLoggerName'
+-- class (MonadIO m, LogContext m) => HasLoggerName m where
+--     askLoggerName' :: m LoggerName
+--     askLoggerName' = askLoggerName
+--     setLoggerName' :: LoggerName -> m a -> m a
+--     setLoggerName' = modifyLoggerName' . const
+--     modifyLoggerName' :: (LoggerName -> LoggerName) -> m a -> m a
+--     modifyLoggerName' f a = addLoggerName (f "cardano-sl")$ a
+-- instance (Monad m, HasLoggerName m) => HasLoggerName (ReaderT a m) where
+-- instance (Monad m, HasLoggerName m) => HasLoggerName (StateT a m) where
+-- instance (Monoid w, Monad m, HasLoggerName m) => HasLoggerName (WriterT w m) where
+-- instance (Monad m, HasLoggerName m) => HasLoggerName (ExceptT e m) where
+--     askLoggerName'    = lift askLoggerName'
 
 newtype LoggerNameBox m a = LoggerNameBox
     { loggerNameBoxEntry :: ReaderT LoggerName m a
@@ -93,7 +93,7 @@ instance CanLog m => CanLog (ReaderT s m)
 instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
-instance HasLoggerName (LogContextT IO)
+-- instance HasLoggerName (LogContextT IO)
 
 
 -- | log a Text with severity

@@ -109,9 +109,9 @@ namedTrace lh = Trace $ Op $ \namedLogitem ->
         TrU.Both    -> Log.usingLoggerName lh loggerName $ Log.logMessage severity message
         -- ^ pass to every logging scribe
         TrU.Public  -> Log.usingLoggerName lh loggerName $
-            logMCond lh severity message selectSecretLogs
+            logMCond lh severity message selectPublicLogs
         -- ^ pass to logging scribes that are marked as
-        -- public (LogSecurityLevel == SecretLogLevel).
+        -- public (LogSecurityLevel == PublicLogLevel).
         TrU.Private -> Log.usingLoggerName lh loggerName $
             logMCond lh severity message selectSecretLogs
         -- ^ pass to logging scribes that are marked as

@@ -57,6 +57,7 @@ module Pos.Util.Log.LogSafe
        , deriveSafeBuildable
        , selectPublicLogs
        , selectSecretLogs
+       , logMCond
        ) where
 
 import           Universum
@@ -72,8 +73,7 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
 
-import           Pos.Util.Log (CanLog (..), HasLoggerName (..), LogContext, LoggingHandler (..),
-                               Severity (..), WithLogger)
+import           Pos.Util.Log (CanLog (..), LogContext, LoggingHandler, Severity (..), WithLogger)
 import           Pos.Util.Log.Internal (getConfig, getLogEnv, sev2klog)
 import           Pos.Util.LoggerConfig (LogHandler (..), LogSecurityLevel (..), lcLoggerTree,
                                         lhName, ltHandlers)
@@ -121,12 +121,12 @@ logItemS
     -> SelectionMode
     -> K.LogStr
     -> m ()
-logItemS lh a ns loc sev cond msg = do
-    mayle <- liftIO $ getLogEnv lh
+logItemS lhandler a ns loc sev cond msg = do
+    mayle <- liftIO $ getLogEnv lhandler
     case mayle of
         Nothing              -> error "logging not yet initialized. Abort."
         Just le@K.LogEnv{..} -> do
-            maycfg <- liftIO $ getConfig lh
+            maycfg <- liftIO $ getConfig lhandler
             let cfg = case maycfg of
                     Nothing -> error "No Configuration for logging found. Abort."
                     Just c  -> c
@@ -175,10 +175,10 @@ instance (K.KatipContext m) => K.KatipContext (SelectiveLogWrapped s m) where
 
   localKatipNamespace f a = lift $ K.localKatipNamespace f $ getSecureLogWrapped a
 
-instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
-    askLoggerName' = SelectiveLogWrapped askLoggerName'
-    modifyLoggerName' foo (SelectiveLogWrapped m) =
-        SelectiveLogWrapped (modifyLoggerName' foo m)
+-- instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
+--     askLoggerName' = SelectiveLogWrapped askLoggerName'
+--     modifyLoggerName' foo (SelectiveLogWrapped m) =
+--         SelectiveLogWrapped (modifyLoggerName' foo m)
 
 -- instance (CanLog m) => CanLog (SelectiveLogWrapped s m) where
 --     dispatchMessage n s t = lift $ dispatchMessage n s t
@@ -189,7 +189,7 @@ execSecureLogWrapped _ (SelectiveLogWrapped act) = act
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS
     :: (WithLogger m)
-    => Text -> m ()
+    => LoggingHandler -> Text -> m ()
 logDebugS   = logMessageS Debug
 logInfoS    = logMessageS Info
 logNoticeS  = logMessageS Notice
@@ -198,15 +198,15 @@ logErrorS   = logMessageS Error
 
 -- | Same as 'logMesssage', but log to secret logs.
 logMessageS
-    :: (HasLoggerName m, CanLog m)
+    :: CanLog m
     => Severity
+    -> LoggingHandler
     -> Text
     -> m ()
-logMessageS severity t =
+logMessageS severity lh t =
     reify selectSecretLogs $ \s ->
     execSecureLogWrapped s $ do
-        name <- askLoggerName'
-        dispatchMessage name severity t
+        dispatchMessage lh severity t
 
 ----------------------------------------------------------------------------
 -- Secure buildables
@@ -341,18 +341,18 @@ deriveSafeBuildable typeName =
 logMessageUnsafeP
     :: (WithLogger m)
     => Severity
+    -> LoggingHandler
     -> Text
     -> m ()
-logMessageUnsafeP severity t =
+logMessageUnsafeP severity lh t =
     reify selectPublicLogs $ \s ->
     execSecureLogWrapped s $ do
-        name <- askLoggerName'
-        dispatchMessage name severity t
+        dispatchMessage lh severity t
 
 -- | Shortcut for 'logMessageUnsafeP' to use according severity.
 logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP
     :: (WithLogger m)
-    => Text -> m ()
+    => LoggingHandler -> Text -> m ()
 logDebugUnsafeP   = logMessageUnsafeP Debug
 logInfoUnsafeP    = logMessageUnsafeP Info
 logNoticeUnsafeP  = logMessageUnsafeP Notice
@@ -368,15 +368,15 @@ getSecuredText = (&)
 -- | Same as 'logMesssageSP', put to public and secret logs securely.
 logMessageSP
     :: (WithLogger m)
-    => Severity -> SecuredText -> m ()
-logMessageSP severity securedText = do
-    logMessageS severity $ securedText SecretLogLevel
-    logMessageUnsafeP severity $ securedText PublicLogLevel
+    => Severity -> LoggingHandler -> SecuredText -> m ()
+logMessageSP severity lh securedText = do
+    logMessageS severity lh $ securedText SecretLogLevel
+    logMessageUnsafeP severity lh $ securedText PublicLogLevel
 
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugSP, logInfoSP, logNoticeSP, logWarningSP, logErrorSP
     :: (WithLogger m)
-    => SecuredText -> m ()
+    => LoggingHandler -> SecuredText -> m ()
 logDebugSP   = logMessageSP Debug
 logInfoSP    = logMessageSP Info
 logNoticeSP  = logMessageSP Notice

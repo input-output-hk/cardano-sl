@@ -7,6 +7,8 @@
 \usepackage{enumitem}
 \usepackage{syntax}
 \usepackage{hyperref}
+\usepackage{listings}
+\usepackage{microtype}
 
 \floatstyle{boxed}
 \restylefloat{figure}
@@ -594,18 +596,7 @@ of the on-the-wire protocol.
 
   % Blake2b-256 hashes are stored directly as an array of 32 bytes.
 
-  \subsection{Addresses}
-
-  Address types are encoded as a 64 bit unsigned integer.
-
-  \begin{tabular}[H]{c|c}
-    \textbf{u64} & $\agents_{\textbf{type}}$ \\
-    \hline \\
-    0 & PubKey \\
-    1 & Script \\
-    2 & Redeem \\
-    $i$ & Unknown $i$ \\
-  \end{tabular}
+  \lstinputlisting{current-spec.cddl}
 
 \end{appendices}
 \end{document}

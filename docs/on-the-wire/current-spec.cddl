@@ -1,8 +1,8 @@
-block = [0, mainblock]
-      / [1, any]
+block = [0, any]
+      / [1, mainblock]
 
 mainblock = [ "header" : blockhead
-            , "body" : blockbody
+            , "body" : any
             , "extra" : any
             ]
 
@@ -13,14 +13,14 @@ u64 = uint
 
 ; Basic Cardano Types
 
-blake2b-256 = bytes .size 256
+blake2b-256 = bytes .size 32
 
 txid = blake2b-256
 blockid = blake2b-256
 updid = blake2b-256
 hash = blake2b-256
 
-blake2b-224 = bytes .size 224
+blake2b-224 = bytes .size 28
 
 addressid = blake2b-224
 stakeholderid = blake2b-224
@@ -34,7 +34,7 @@ signature = bytes
 ; Attributes - at the moment we do not bother deserialising these, since they
 ; don't contain anything
 
-attributes = any
+attributes = {* any => any}
 
 ; Addresses
 
@@ -82,9 +82,9 @@ ssc = [0, ssccomms, ssccerts]
     / [2, sscshares, ssccerts]
     / [3, ssccerts]
 
-sscproof = [0, [hash, hash]]
-         / [1, [hash, hash]]
-         / [2, [hash, hash]]
+sscproof = [0, hash, hash]
+         / [1, hash, hash]
+         / [2, hash, hash]
          / [3, hash]
 
 
@@ -156,12 +156,12 @@ blocksig = [0, signature]
          / [1, lwdlgsig]
          / [2, dlgsig]
 
-blockcons = [slotid, pubkey, u64, blocksig]
+blockcons = [slotid, pubkey, [u64], blocksig]
 
 blockheadex = [ "blockVersion" : bver
               , "softwareVersion" : [ text, u32 ]
-              , "extraProof" : hash
               , "attributes" : attributes
+              , "extraProof" : hash
               ]
 
 blockproof = [ "txProof" : txproof
@@ -176,6 +176,14 @@ blockhead = [ "protocolMagic" : u32
             , "consensusData" : blockcons
             , "extraData" : blockheadex
             ]
+
+; blockhead = [ "protocolMagic" : u32
+;             , "prevBlock" : any
+;             , "bodyProof" : any
+;             , "consensusData" : any
+;             , "extraData" : blockheadex
+;             ]
+
 
 blockbody = [ "txPayload" : [* [tx, [* twit]]]
             , "sscPayload" : ssc

@@ -45,6 +45,7 @@ packages:
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
+- acid-state-exts
 
 - location:
     git: https://github.com/well-typed/cborg
@@ -91,6 +92,12 @@ packages:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
   extra-dep: true
+# Waiting on the flexible types PR to be merged:
+# https://github.com/acid-state/acid-state/pull/94
+- location:
+    git: https://github.com/parsonsmatt/acid-state
+    commit: 63ac55ae020655104936d8a90ccc6a939642cd0d
+  extra-dep: true
 
 # Required for explorer.
 # We forked it because it has some unacceptable version bounds. We didn't
@@ -121,13 +128,6 @@ packages:
     commit: fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55
   extra-dep: true
 
-# Because it includes a bunch of safecopy instances that we currently rely upon.
-# Also the 'Serokell.AcidState.ExtendedState' thing.
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 1049699df411c9584523ba7424cba1f3f82ac419
-  extra-dep: true
-
 - location:
     git: https://github.com/input-output-hk/haskell-hedgehog.git
     commit: 2c9e51804e8217dff89f5c32cbe0d79ce20bc508
@@ -144,7 +144,8 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-
+- cryptonite-openssl-0.7
+  # - acid-state-0.14.3
 # Very important! First release with a fix of 'race' and 'cancel'.
 #   https://github.com/simonmar/async/issues/59
 #   https://github.com/simonmar/async/issues/81

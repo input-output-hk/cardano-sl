@@ -4982,10 +4982,68 @@ license = stdenv.lib.licenses.bsd3;
 , cereal
 , containers
 , directory
+, extensible-exceptions
+, fetchgit
+, filelock
+, filepath
+, mtl
+, network
+, safecopy
+, stdenv
+, stm
+, template-haskell
+, th-expand-syns
+, unix
+}:
+mkDerivation {
+
+pname = "acid-state";
+version = "0.15.0";
+src = fetchgit {
+
+url = "https://github.com/parsonsmatt/acid-state";
+sha256 = "0a0j3wx0zycb8r4ng8i7s99868vd6q2q39m81wpl3n05sxmlgkfm";
+rev = "63ac55ae020655104936d8a90ccc6a939642cd0d";
+
+};
+libraryHaskellDepends = [
+array
+base
+bytestring
+cereal
+containers
+directory
+extensible-exceptions
+filelock
+filepath
+mtl
+network
+safecopy
+stm
+template-haskell
+th-expand-syns
+unix
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/acid-state/acid-state";
+description = "Add ACID guarantees to any serializable Haskell data structure";
+license = stdenv.lib.licenses.publicDomain;
+
+}) {};
+"acid-state-exts" = callPackage
+({
+  mkDerivation
+, acid-state
+, array
+, base
+, bytestring
+, cereal
+, containers
+, directory
 , exceptions
 , extensible-exceptions
 , extra
-, fetchgit
 , filelock
 , filepath
 , hashable
@@ -5002,16 +5060,11 @@ license = stdenv.lib.licenses.bsd3;
 }:
 mkDerivation {
 
-pname = "acid-state";
+pname = "acid-state-exts";
 version = "0.14.2";
-src = fetchgit {
-
-url = "https://github.com/serokell/acid-state.git";
-sha256 = "0gxy0n08mqq09c2gyzpp6fdxz13lx9xfr6ir2dwr705i3b0k4j8b";
-rev = "1049699df411c9584523ba7424cba1f3f82ac419";
-
-};
+src = ./../acid-state-exts;
 libraryHaskellDepends = [
+acid-state
 array
 base
 bytestring
@@ -5035,7 +5088,6 @@ unix
 unordered-containers
 ];
 doHaddock = false;
-doCheck = false;
 homepage = "https://github.com/acid-state/acid-state";
 description = "Add ACID guarantees to any serializable Haskell data structure";
 license = stdenv.lib.licenses.publicDomain;
@@ -14607,6 +14659,7 @@ license = stdenv.lib.licenses.bsd3;
 ({
   mkDerivation
 , acid-state
+, acid-state-exts
 , aeson
 , ansi-terminal
 , ansi-wl-pprint
@@ -14722,6 +14775,7 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 acid-state
+acid-state-exts
 aeson
 ansi-terminal
 ansi-wl-pprint
@@ -17191,6 +17245,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , acid-state
+, acid-state-exts
 , aeson
 , ansi-terminal
 , ansi-wl-pprint
@@ -17284,6 +17339,7 @@ universum
 ];
 executableHaskellDepends = [
 acid-state
+acid-state-exts
 aeson
 ansi-terminal
 ansi-wl-pprint
@@ -17865,6 +17921,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , acid-state
+, acid-state-exts
 , aeson
 , async
 , base
@@ -17952,6 +18009,7 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 acid-state
+acid-state-exts
 aeson
 async
 base
@@ -23031,6 +23089,7 @@ license = stdenv.lib.licenses.bsd3;
 ({
   mkDerivation
 , base
+, basement
 , bytestring
 , cryptonite
 , memory
@@ -23040,10 +23099,11 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "cryptonite-openssl";
-version = "0.6";
-sha256 = "a8cb97c96bfb3e7b7ff8d59629317882dbf3cea12ba978d8475c96a6c28750a6";
+version = "0.7";
+sha256 = "9e4e1c08264f26e602ef3054f3c827c3c65d153e5b9d68a0cb44f446ca0844f6";
 libraryHaskellDepends = [
 base
+basement
 bytestring
 cryptonite
 memory

@@ -20,10 +20,9 @@ import           Cardano.Wallet.Kernel.CoinSelection.Generic
 -- However, the lower level API 'atLeast' /is/ used as a fallback in the
 -- random input selection algorithm.
 largestFirst :: (Monad m, PickFromUtxo utxo)
-             => Int                 -- ^ Maximum number of inputs
+             => Word64              -- ^ Maximum number of inputs
              -> [Output (Dom utxo)] -- ^ Outputs to include
-             -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
-                  [CoinSelResult (Dom utxo)]
+             -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
 largestFirst = coinSelPerGoal $ \maxNumInputs goal ->
     defCoinSelResult goal <$>
       atLeast maxNumInputs (outVal goal)
@@ -45,9 +44,9 @@ largestFirst = coinSelPerGoal $ \maxNumInputs goal ->
 -- the random input selection to try and construct a more useful change output
 -- (provided we haven't used up all available inputs yet).
 atLeast :: forall utxo m. (Monad m, PickFromUtxo utxo)
-        => Int
+        => Word64
         -> Value (Dom utxo)
-        -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m (SelectedUtxo (Dom utxo))
+        -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 atLeast maxNumInputs targetMin = do
     utxo <- get
     case go emptySelection utxo (pickLargest maxNumInputs utxo) of

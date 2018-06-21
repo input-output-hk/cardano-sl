@@ -83,8 +83,12 @@ fromDistr FromDistrParams{..} = do
         h <- genHash
         liftQuickCheck $ Deposit . aux h <$> drawFromDistr' fromDistrDep
       where
-        aux :: Int -> Value -> Map (Input GivenHash World) (Output GivenHash World)
-        aux h val = Map.singleton (Input (GivenHash h) 0) (Output Us val)
+        aux :: Int   -- hash
+            -> Value -- value
+            -> Map (Input GivenHash World) (Output GivenHash World)
+        aux h val = let i = Input (GivenHash h) 0
+                        o = Output Us val
+                    in Map.singleton i o
 
     mkPay :: m (Event (DSL GivenHash World))
     mkPay =

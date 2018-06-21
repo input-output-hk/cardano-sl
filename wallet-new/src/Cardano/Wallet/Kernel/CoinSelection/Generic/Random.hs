@@ -30,9 +30,9 @@ data PrivacyMode = PrivacyModeOn | PrivacyModeOff
 -- available change outputs of around that size.
 random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
        => PrivacyMode         -- ^ Hide change addresses?
-       -> Int                 -- ^ Maximum number of inputs
+       -> Word64              -- ^ Maximum number of inputs
        -> [Output (Dom utxo)] -- ^ Outputs to include
-       -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m [CoinSelResult (Dom utxo)]
+       -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
 random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
     defCoinSelResult goal <$>
       inRange maxNumInputs (target privacyMode (outVal goal))
@@ -51,9 +51,9 @@ random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
         -- Minimum value: no change at all
         let targetMin = val
         -- Ideal case: change equal to the value
-        targetAim <- valueMult val 2
+        targetAim <- valueAdjust RoundUp 2.0 val
         -- Terminating condition: change twice the value
-        targetMax <- valueMult val 3
+        targetMax <- valueAdjust RoundUp 3.0 val
         return TargetRange{..}
 
 {-------------------------------------------------------------------------------
@@ -73,9 +73,9 @@ data TargetRange dom = TargetRange {
 -- end of the range, fallback on largest first to cover the minimum, then
 -- proceed as normal with random selection to try and improve the change amount.
 inRange :: (PickFromUtxo utxo, MonadRandom m)
-        => Int
+        => Word64
         -> TargetRange (Dom utxo)
-        -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m (SelectedUtxo (Dom utxo))
+        -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 inRange maxNumInputs TargetRange{..} = do
         atLeastWithFallback maxNumInputs targetMin
     >>= improve maxNumInputs targetAim targetMax
@@ -84,10 +84,9 @@ inRange maxNumInputs TargetRange{..} = do
 --
 -- Falls back on 'LargestFirst.atLeast' if we exceed 'maxNumInputs'
 atLeastWithFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
-                    => Int
+                    => Word64
                     -> Value (Dom utxo)
-                    -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
-                         (SelectedUtxo (Dom utxo))
+                    -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 atLeastWithFallback maxNumInputs targetMin =
     atLeastNoFallback    maxNumInputs targetMin `catchJustSoft` \_ ->
     LargestFirst.atLeast maxNumInputs targetMin
@@ -96,16 +95,15 @@ atLeastWithFallback maxNumInputs targetMin =
 --
 -- Fails if we exceed 'maxNumInputs'
 atLeastNoFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
-                  => Int
+                  => Word64
                   -> Value (Dom utxo)
-                  -> CoinSelT utxo (CoinSelErr (Dom utxo)) m
-                       (SelectedUtxo (Dom utxo))
+                  -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
 atLeastNoFallback maxNumInputs targetMin = go emptySelection
   where
     go :: SelectedUtxo (Dom utxo)
-       -> CoinSelT utxo (CoinSelErr (Dom utxo)) m (SelectedUtxo (Dom utxo))
+       -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
     go selected
-      | selectedCount selected > maxNumInputs =
+      | sizeToWord (selectedSize selected) > maxNumInputs =
           throwError $ CoinSelErrSoft CoinSelSoftErr
       | selectedBalance selected >= targetMin =
           return selected
@@ -117,7 +115,7 @@ atLeastNoFallback maxNumInputs targetMin = go emptySelection
 --
 -- This never throws an error.
 improve :: forall utxo e m. (PickFromUtxo utxo, MonadRandom m)
-        => Int                     -- ^ Total maximum number of inputs
+        => Word64                  -- ^ Total maximum number of inputs
         -> Value (Dom utxo)        -- ^ Total UTxO balance to aim for
         -> Value (Dom utxo)        -- ^ Maximum total UTxO balance
         -> SelectedUtxo (Dom utxo) -- ^ UTxO selected so far
@@ -173,7 +171,7 @@ improve maxNumInputs targetAim targetMax = go
                selectedBalance selected' <= targetMax
              ,   valueDist targetAim (selectedBalance selected')
                < valueDist targetAim (selectedBalance selected)
-             , selectedCount selected' <= maxNumInputs
+             , sizeToWord (selectedSize selected') <= maxNumInputs
              ]
            return selected'
          where
@@ -185,8 +183,7 @@ improve maxNumInputs targetAim targetMax = go
 
 -- | Select a random output
 findRandomOutput :: (MonadRandom m, PickFromUtxo utxo)
-                 => CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
-                      (UtxoEntry (Dom utxo))
+                 => CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo))
 findRandomOutput = do
     mIO <- tryFindRandomOutput Just
     case mIO of

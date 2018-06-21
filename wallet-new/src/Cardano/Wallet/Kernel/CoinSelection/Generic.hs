@@ -1,11 +1,19 @@
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilyDependencies     #-}
 
 module Cardano.Wallet.Kernel.CoinSelection.Generic (
     -- * Domain
-    CoinSelDom(..)
+    IsValue(..)
+  , CoinSelDom(..)
+  , StandardDom(..)
   , Rounding(..)
-  , UtxoEntry
+  , Fee(..)
+  , adjustFee
+  , unsafeFeeSum
+  , utxoEntryVal
+  , sizeOfEntries
   , unsafeValueAdd
   , unsafeValueSub
   , unsafeValueSum
@@ -14,6 +22,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , CoinSelT -- opaque
   , coinSelLiftExcept
   , mapCoinSelErr
+  , mapCoinSelUtxo
   , unwrapCoinSelT
   , wrapCoinSelT
     -- * Errors
@@ -27,11 +36,12 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , CoinSelResult(..)
   , defCoinSelResult
   , coinSelInputSet
+  , coinSelInputSize
   , coinSelOutputs
-  , coinSelCountInputs
   , coinSelRemoveDust
   , coinSelPerGoal
     -- * Generalization over UTxO representations
+  , StandardUtxo
   , PickFromUtxo(..)
     -- * Defining policies
   , SelectedUtxo(..)
@@ -42,6 +52,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , mapRandom
   , nLargestFromMapBy
   , nLargestFromListBy
+  , divvyFee
     -- * Convenience re-exports
   , MonadError(..)
   , MonadRandom
@@ -53,6 +64,7 @@ import           Universum
 import           Control.Monad.Except (Except, MonadError (..))
 import           Crypto.Number.Generate (generateBetween)
 import           Crypto.Random (MonadRandom (..))
+import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
@@ -67,33 +79,84 @@ import           Cardano.Wallet.Kernel.Util.StrictStateT
 
 data Rounding = RoundUp | RoundDown
 
-class ( Ord (Value dom)
-      , Ord (Input dom)
-        -- Buildable instances to aid debugging
+class Ord v => IsValue v where
+  valueZero   :: v                                   -- ^ @0@
+  valueAdd    :: v -> v -> Maybe v                   -- ^ @a + b@
+  valueSub    :: v -> v -> Maybe v                   -- ^ @a - b@
+  valueDist   :: v -> v -> v                         -- ^ @|a - b|@
+  valueRatio  :: v -> v -> Double                    -- ^ @a / b@
+  valueAdjust :: Rounding -> Double -> v -> Maybe v  -- ^ @a * b@
+
+class ( Ord (Input dom)
+      , IsValue (Value dom)
+        -- Buildable and Show instances to aid debugging and testing
       , Buildable (Input  dom)
       , Buildable (Output dom)
       , Buildable (Value  dom)
+      , Show (Value dom)
       ) => CoinSelDom dom where
-  type Input   dom = i | i -> dom
-  type Output  dom = o | o -> dom
-  type Value   dom = v | v -> dom
+  type Input     dom = i | i -> dom
+  type Output    dom = o | o -> dom
+  type UtxoEntry dom = e | e -> dom
+  type Value     dom = v | v -> dom
+
+  -- | Size of a UTxO
+  --
+  -- It is important to keep this abstract: when we introduce grouped domains,
+  -- then we need to be careful not to accidentally exceed the maximum number
+  -- of transaction inputs because we counted the /groups/ of inputs.
+  --
+  -- We therefore do /not/ want a 'sizeFromInt' method.
+  data Size dom :: *
 
   outVal    :: Output dom -> Value dom
-  outSetVal :: Value dom -> Output dom -> Output dom
+  outSubFee :: Fee dom -> Output dom -> Maybe (Output dom)
 
-  valueZero   :: Value dom                                             -- ^ @0@
-  valueAdd    :: Value dom -> Value dom -> Maybe (Value dom)           -- ^ @a + b@
-  valueSub    :: Value dom -> Value dom -> Maybe (Value dom)           -- ^ @a - b@
-  valueMult   :: Value dom -> Int -> Maybe (Value dom)                 -- ^ @a * b@
-  valueRatio  :: Value dom -> Value dom -> Double                      -- ^ @a / b@
-  valueAdjust :: Rounding -> Double -> Value dom -> Maybe (Value dom)  -- ^ @a * b@
+  utxoEntryInp :: UtxoEntry dom -> Input  dom
+  utxoEntryOut :: UtxoEntry dom -> Output dom
 
-  -- | Absolute distance between two values
-  --
-  -- NOTE: This should be a total function!
-  valueDist :: Value dom -> Value dom -> Value dom
+  sizeZero   :: Size dom
+  sizeIncr   :: UtxoEntry dom -> Size dom -> Size dom
+  sizeToWord :: Size dom -> Word64
 
-type UtxoEntry dom = (Input dom, Output dom)
+  -- default implementations
+
+  default utxoEntryInp :: StandardDom dom => UtxoEntry dom -> Input  dom
+  utxoEntryInp = fst
+
+  default utxoEntryOut :: StandardDom dom => UtxoEntry dom -> Output dom
+  utxoEntryOut = snd
+
+  default sizeZero :: StandardDom dom => Size dom
+  sizeZero = coerce (0 :: Word64)
+
+  default sizeIncr :: StandardDom dom => UtxoEntry dom -> Size dom -> Size dom
+  sizeIncr _ = coerce . ((+ 1) :: Word64 -> Word64) . coerce
+
+  default sizeToWord :: StandardDom dom => Size dom -> Word64
+  sizeToWord = coerce
+
+-- | Standard domain
+class ( CoinSelDom dom
+      , UtxoEntry dom ~ (Input dom, Output dom)
+      , Coercible (Size dom) Word64
+      , Coercible Word64 (Size dom)
+      ) => StandardDom dom where
+
+-- | Alias for 'Value'
+newtype Fee dom = Fee { getFee :: Value dom }
+
+adjustFee :: CoinSelDom dom => (Value dom -> Value dom) -> Fee dom -> Fee dom
+adjustFee f = Fee . f . getFee
+
+unsafeFeeSum :: CoinSelDom dom => [Fee dom] -> Fee dom
+unsafeFeeSum = Fee . unsafeValueSum . map getFee
+
+utxoEntryVal :: CoinSelDom dom => UtxoEntry dom -> Value dom
+utxoEntryVal = outVal . utxoEntryOut
+
+sizeOfEntries :: CoinSelDom dom => [UtxoEntry dom] -> Size dom
+sizeOfEntries = foldl' (flip sizeIncr) sizeZero
 
 unsafeValueAdd :: CoinSelDom dom => Value dom -> Value dom -> Value dom
 unsafeValueAdd x y = fromMaybe (error "unsafeValueAdd: overflow") $
@@ -149,6 +212,15 @@ mapCoinSelErr :: Monad m
 mapCoinSelErr f act = wrapCoinSelT $ \st ->
     bimap f identity <$> unwrapCoinSelT act st
 
+-- | Temporarily work with a different UTxO representation
+mapCoinSelUtxo :: Monad m
+               => (utxo' -> utxo)
+               -> (utxo -> utxo')
+               -> CoinSelT utxo  e m a
+               -> CoinSelT utxo' e m a
+mapCoinSelUtxo inj proj act = wrapCoinSelT $ \st ->
+    bimap identity (bimap identity proj) <$> unwrapCoinSelT act (inj st)
+
 -- | Unwrap the 'CoinSelT' stack
 unwrapCoinSelT :: CoinSelT utxo e m a -> utxo -> m (Either e (a, utxo))
 unwrapCoinSelT act = runExceptT . runStrictStateT (unCoinSelT act)
@@ -183,16 +255,18 @@ catchJust classify act handler = wrapCoinSelT $ \st -> do
 -- | This input selection request is unsatisfiable
 --
 -- These are errors we cannot recover from.
-data CoinSelHardErr dom =
+data CoinSelHardErr =
     -- | Payment to receiver insufficient to cover fee
     --
     -- We record the original output and the fee it needed to cover.
     --
     -- Only applicable using 'ReceiverPaysFees' regulation
-    CoinSelHardErrOutputCannotCoverFee (Output dom) (Value dom)
+    forall dom. CoinSelDom dom =>
+      CoinSelHardErrOutputCannotCoverFee (Output dom) (Fee dom)
 
     -- | Attempt to pay into a redeem-only address
-  | CoinSelHardErrOutputIsRedeemAddress (Output dom)
+  | forall dom. CoinSelDom dom =>
+      CoinSelHardErrOutputIsRedeemAddress (Output dom)
 
     -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
   | CoinSelHardErrCannotCoverFee
@@ -203,7 +277,8 @@ data CoinSelHardErr dom =
     -- we tried to make.
     --
     -- See also 'CoinSelHardErrCannotCoverFee'
-  | CoinSelHardErrUtxoExhausted (Value dom) (Value dom)
+  | forall dom. CoinSelDom dom =>
+      CoinSelHardErrUtxoExhausted (Value dom) (Value dom)
 
     -- | UTxO depleted using input selection
   | CoinSelHardErrUtxoDepleted
@@ -215,16 +290,15 @@ data CoinSelHardErr dom =
 data CoinSelSoftErr = CoinSelSoftErr
 
 -- | Union of the two kinds of input selection failures
-data CoinSelErr dom =
-    CoinSelErrHard (CoinSelHardErr dom)
+data CoinSelErr =
+    CoinSelErrHard CoinSelHardErr
   | CoinSelErrSoft CoinSelSoftErr
 
 -- | Specialization of 'catchJust'
 catchJustSoft :: Monad m
-              => CoinSelT utxo (CoinSelErr (Dom utxo)) m a
-              -> (CoinSelSoftErr ->
-                    CoinSelT utxo (CoinSelHardErr (Dom utxo)) m a)
-              -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m a
+              => CoinSelT utxo CoinSelErr m a
+              -> (CoinSelSoftErr -> CoinSelT utxo CoinSelHardErr m a)
+              -> CoinSelT utxo CoinSelHardErr m a
 catchJustSoft = catchJust $ \e -> case e of
                                     CoinSelErrHard e' -> Left  e'
                                     CoinSelErrSoft e' -> Right e'
@@ -241,7 +315,7 @@ catchJustSoft = catchJust $ \e -> case e of
 type CoinSelPolicy utxo m a =
        NonEmpty (Output (Dom utxo))
     -> utxo  -- ^ Available UTxO
-    -> m (Either (CoinSelHardErr (Dom utxo)) a)
+    -> m (Either CoinSelHardErr a)
 
 {-------------------------------------------------------------------------------
   Coin selection result
@@ -278,8 +352,8 @@ defCoinSelResult goal selected = CoinSelResult {
   where
     change = unsafeValueSub (selectedBalance selected) (outVal goal)
 
-coinSelCountInputs :: CoinSelResult dom -> Int
-coinSelCountInputs = selectedCount . coinSelInputs
+coinSelInputSize :: CoinSelResult dom -> Size dom
+coinSelInputSize = selectedSize . coinSelInputs
 
 coinSelInputSet :: CoinSelDom dom => CoinSelResult dom -> Set (Input dom)
 coinSelInputSet = selectedInputs . coinSelInputs
@@ -302,16 +376,16 @@ coinSelRemoveDust dust cs = cs {
 --
 -- NOTE: This is basically 'mapM', except that we thread the maximum nmber of
 -- inputs through.
-coinSelPerGoal :: forall m a dom. Monad m
-               => (Int -> a   -> m (CoinSelResult dom))
-               -> (Int -> [a] -> m [CoinSelResult dom])
+coinSelPerGoal :: forall m a dom. (Monad m, CoinSelDom dom)
+               => (Word64 -> a   -> m (CoinSelResult dom))
+               -> (Word64 -> [a] -> m [CoinSelResult dom])
 coinSelPerGoal f = go []
   where
-    go :: [CoinSelResult dom] -> Int -> [a] -> m [CoinSelResult dom]
+    go :: [CoinSelResult dom] -> Word64 -> [a] -> m [CoinSelResult dom]
     go acc _            []           = return acc
     go acc maxNumInputs (goal:goals) = do
         cs <- f maxNumInputs goal
-        go (cs:acc) (maxNumInputs - coinSelCountInputs cs) goals
+        go (cs:acc) (maxNumInputs - sizeToWord (coinSelInputSize cs)) goals
 
 {-------------------------------------------------------------------------------
   Helper data structture for defining coin selection policies
@@ -323,19 +397,19 @@ coinSelPerGoal f = go []
 --
 -- Invariants:
 --
--- > selectedCount   == length selectedEntries
--- > selectedBalance == foldr unsafeValueAdd valueZero selectedEntries
+-- > selectedSize    == sizeOfEntries  selectedEntries
+-- > selectedBalance == unsafeValueSum selectedEntries
 data SelectedUtxo dom = SelectedUtxo {
       selectedEntries :: ![UtxoEntry dom]
     , selectedBalance :: !(Value dom)
-    , selectedCount   :: !Int
+    , selectedSize    :: !(Size dom)
     }
 
 emptySelection :: CoinSelDom dom => SelectedUtxo dom
 emptySelection = SelectedUtxo {
       selectedEntries = []
     , selectedBalance = valueZero
-    , selectedCount   = 0
+    , selectedSize    = sizeZero
     }
 
 -- | Select an entry and prepend it to `selectedEntries`
@@ -344,18 +418,23 @@ emptySelection = SelectedUtxo {
 -- and hence that this cannot overflow `selectedBalance`.
 select :: CoinSelDom dom
        => UtxoEntry dom -> SelectedUtxo dom -> SelectedUtxo dom
-select (i, o) SelectedUtxo{..} = SelectedUtxo {
-      selectedEntries = (i, o) : selectedEntries
-    , selectedBalance = unsafeValueAdd selectedBalance (outVal o)
-    , selectedCount   = selectedCount + 1
+select io SelectedUtxo{..} = SelectedUtxo {
+      selectedEntries = io : selectedEntries
+    , selectedBalance = unsafeValueAdd selectedBalance (utxoEntryVal io)
+    , selectedSize    = sizeIncr io selectedSize
     }
 
 selectedInputs :: CoinSelDom dom => SelectedUtxo dom -> Set (Input dom)
-selectedInputs = Set.fromList . map fst . selectedEntries
+selectedInputs = Set.fromList . map utxoEntryInp . selectedEntries
 
 {-------------------------------------------------------------------------------
   Generalization over UTxO representations
 -------------------------------------------------------------------------------}
+
+-- | Shape of standard UTxO (map)
+class ( StandardDom (Dom utxo)
+      , Coercible utxo (Map (Input (Dom utxo)) (Output (Dom utxo)))
+      ) => StandardUtxo utxo where
 
 -- | Abstraction over selecting entries from a UTxO
 class CoinSelDom (Dom utxo) => PickFromUtxo utxo where
@@ -376,7 +455,7 @@ class CoinSelDom (Dom utxo) => PickFromUtxo utxo where
   -- in the list, in order, whether or not to use it, and use the UTxO
   -- associated with the last used entry as the new UTxO. Only this final
   -- UTxO should be forced.
-  pickLargest :: Int -> utxo -> [(UtxoEntry (Dom utxo), utxo)]
+  pickLargest :: Word64 -> utxo -> [(UtxoEntry (Dom utxo), utxo)]
 
   -- | Compute UTxO balance
   --
@@ -385,20 +464,20 @@ class CoinSelDom (Dom utxo) => PickFromUtxo utxo where
 
   -- default definitions for maps
 
-  default pickRandom :: forall m.
-                        ( utxo ~ Map (Input (Dom utxo)) (Output (Dom utxo))
-                        , MonadRandom m
-                        )
+  default pickRandom :: forall m. (StandardUtxo utxo, MonadRandom m)
                      => utxo -> m (Maybe (UtxoEntry (Dom utxo), utxo))
-  pickRandom = mapRandom
+  pickRandom = fmap (fmap (bimap identity coerce))
+             . mapRandom
+             . coerce
 
-  default pickLargest :: utxo ~ Map (Input (Dom utxo)) (Output (Dom utxo))
-                      => Int -> utxo -> [(UtxoEntry (Dom utxo), utxo)]
-  pickLargest = nLargestFromMapBy outVal
+  default pickLargest :: StandardUtxo utxo
+                      => Word64 -> utxo -> [(UtxoEntry (Dom utxo), utxo)]
+  pickLargest n = fmap (bimap identity coerce)
+                . nLargestFromMapBy outVal n
+                . coerce
 
-  default utxoBalance :: utxo ~ Map (Input (Dom utxo)) (Output (Dom utxo))
-                      => utxo -> Value (Dom utxo)
-  utxoBalance = unsafeValueSum . map outVal . Map.elems
+  default utxoBalance :: StandardUtxo utxo => utxo -> Value (Dom utxo)
+  utxoBalance = unsafeValueSum . map outVal . Map.elems . coerce
 
 {-------------------------------------------------------------------------------
   Helper functions for defining instances
@@ -418,7 +497,7 @@ mapRandom m
     withIx ix = Just (Map.elemAt ix m, Map.deleteAt ix m)
 
 nLargestFromMapBy :: forall k a b. (Ord b, Ord k)
-                  => (a -> b) -> Int -> Map k a -> [((k, a), Map k a)]
+                  => (a -> b) -> Word64 -> Map k a -> [((k, a), Map k a)]
 nLargestFromMapBy f n m =
     aux Set.empty $ nLargestFromListBy (f . snd) n (Map.toList m)
   where
@@ -432,9 +511,9 @@ nLargestFromMapBy f n m =
 -- | Return the @n@ largest elements of the list, from large to small.
 --
 -- @O(n)@
-nLargestFromListBy :: forall a b. Ord b => (a -> b) -> Int -> [a] -> [a]
+nLargestFromListBy :: forall a b. Ord b => (a -> b) -> Word64 -> [a] -> [a]
 nLargestFromListBy f n = \xs ->
-    let (firstN, rest) = splitAt n xs
+    let (firstN, rest) = splitAt (fromIntegral n) xs
         acc            = Map.fromListWith (++) $ map (\a -> (f a, [a])) firstN
     in go acc rest
   where
@@ -480,11 +559,28 @@ nLargestFromListBy f n = \xs ->
     dropOne (Just [_])    = Nothing
     dropOne (Just (_:as)) = Just as
 
+-- | Proportionally divide the fee over each output
+divvyFee :: forall dom a. CoinSelDom dom
+          => (a -> Value dom) -> Fee dom -> [a] -> [(Fee dom, a)]
+divvyFee _ _   [] = error "divvyFee: empty list"
+divvyFee f fee as = map (\a -> (feeForOut a, a)) as
+  where
+    -- All outputs are selected from well-formed UTxO, so their sum cannot
+    -- overflow
+    totalOut :: Value dom
+    totalOut = unsafeValueSum (map f as)
+
+    -- The ratio will be between 0 and 1 so cannot overflow
+    feeForOut :: a -> Fee dom
+    feeForOut a =
+        adjustFee (unsafeValueAdjust RoundUp (valueRatio (f a) totalOut)) fee
+
+
 {-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}
 
-instance CoinSelDom dom => Buildable (CoinSelHardErr dom) where
+instance Buildable CoinSelHardErr where
   build (CoinSelHardErrOutputCannotCoverFee out val) = bprint
     ( "CoinSelHardErrOutputCannotCoverFee"
     % "{ output: " % build
@@ -511,3 +607,6 @@ instance CoinSelDom dom => Buildable (CoinSelHardErr dom) where
     val
   build (CoinSelHardErrUtxoDepleted) = bprint
     ( "CoinSelHardErrUtxoDepleted" )
+
+instance CoinSelDom dom => Buildable (Fee dom) where
+  build = bprint build . getFee

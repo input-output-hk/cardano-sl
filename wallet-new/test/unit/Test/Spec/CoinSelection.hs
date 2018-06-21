@@ -20,7 +20,6 @@ import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, cou
 import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
 import qualified Formatting as F
-import           Serokell.Util.Text (listJsonIndent)
 import qualified Text.Tabl as Tabl
 
 import           Pos.Core (HasConfiguration)
@@ -30,7 +29,7 @@ import qualified Pos.Txp as Core
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection (Cardano, CoinSelHardErr, CoinSelPolicy,
+import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr, CoinSelPolicy,
                                                       CoinSelectionOptions (..),
                                                       ExpenseRegulation (..), MkTx, largestFirst,
                                                       mkStdTx, newOptions, random)
@@ -456,18 +455,18 @@ isChangeAddress original x =
 type Policy = CoinSelectionOptions
            -> Gen Core.Address
            -> MkTx Gen
-           -> Int
+           -> Word64
            -> CoinSelPolicy Core.Utxo Gen Core.TxAux
 
 type RunResult = ( Core.Utxo
                  , NonEmpty Core.TxOut
-                 , Either (ShowThroughBuild (CoinSelHardErr Cardano)) Core.TxAux
+                 , Either (ShowThroughBuild CoinSelHardErr) Core.TxAux
                  )
 
 newtype InitialBalance = InitialBalance Word64
 newtype Pay = Pay Word64
 
-maxNumInputs :: Int
+maxNumInputs :: Word64
 maxNumInputs = 300
 
 mkTx :: Core.HasProtocolMagic => SecretKey -> MkTx Gen

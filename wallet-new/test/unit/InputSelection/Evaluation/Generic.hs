@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Parts of the evaluator that are generic in choice of domain
 module InputSelection.Evaluation.Generic (
@@ -69,8 +70,9 @@ import           Control.Lens.TH (makeLenses)
 import           Data.Conduit
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
+import qualified Data.Text.Buildable
 import qualified Data.Text.IO as Text
-import           Formatting (build, sformat, (%))
+import           Formatting (bprint, build, sformat, shown, (%))
 import           System.Directory (createDirectory)
 import           System.FilePath ((<.>), (</>))
 import qualified System.IO.Error as IO
@@ -143,7 +145,7 @@ class ( PickFromUtxo utxo
   utxoToMap   :: utxo -> Map (Input (Dom utxo)) (Output (Dom utxo))
   utxoUnion   :: utxo -> utxo -> utxo
 
-instance (CoinSelDom dom, ValueToDouble dom) => IsUtxo (SortedUtxo dom) where
+instance (StandardDom dom, ValueToDouble dom) => IsUtxo (SortedUtxo dom) where
   utxoSize    = Sorted.size
   utxoOutputs = Sorted.outputs
   utxoFromMap = Sorted.fromMap
@@ -163,22 +165,22 @@ convertUtxo = utxoFromMap . utxoToMap
 -- This information is solely based on the current value of the system, and not
 -- affected by the system history. Consequently this does /NOT/ have a 'Monoid'
 -- instance.
-data SlotStats = SlotStats {
+data SlotStats dom = SlotStats {
       -- | Current UTxO size
       slotUtxoSize      :: !Int
 
       -- | Current UTxO balance
-    , slotUtxoBalance   :: !Double
+    , slotUtxoBalance   :: !(Value dom)
 
       -- | Current UTxO histogram
     , slotUtxoHistogram :: !Histogram
     }
 
-deriveSlotStats :: IsUtxo utxo => BinSize -> utxo -> SlotStats
+deriveSlotStats :: IsUtxo utxo => BinSize -> utxo -> SlotStats (Dom utxo)
 deriveSlotStats binSize utxo = SlotStats {
-      slotUtxoSize      = utxoSize                   utxo
-    , slotUtxoBalance   = valueToDouble (utxoBalance utxo)
-    , slotUtxoHistogram = utxoHistogram binSize      utxo
+      slotUtxoSize      = utxoSize              utxo
+    , slotUtxoBalance   = utxoBalance           utxo
+    , slotUtxoHistogram = utxoHistogram binSize utxo
     }
 
 utxoHistogram :: IsUtxo utxo => BinSize -> utxo -> Histogram
@@ -212,7 +214,7 @@ initOverallStats = OverallStats {
 -------------------------------------------------------------------------------}
 
 -- | Accumulated statistics at the end of each slot
-data AccSlotStats = AccSlotStats {
+data AccSlotStats dom = AccSlotStats {
       -- | Maximum UTxO histogram
       --
       -- While not particularly meaningful as statistic to display, this is
@@ -223,7 +225,7 @@ data AccSlotStats = AccSlotStats {
     , _accUtxoSize         :: !(TimeSeries Int)
 
       -- | Total balance of the UTxO over time
-    , _accUtxoBalance      :: !(TimeSeries Double)
+    , _accUtxoBalance      :: !(TimeSeries (Value dom))
 
       -- | Time series of the median change/payment ratio
     , _accMedianRatio      :: !(TimeSeries (Fixed E2))
@@ -232,7 +234,7 @@ data AccSlotStats = AccSlotStats {
 
 makeLenses ''AccSlotStats
 
-initAccSlotStats :: AccSlotStats
+initAccSlotStats :: AccSlotStats dom
 initAccSlotStats = AccSlotStats {
       _accUtxoMaxHistogram = Hist.empty
     , _accUtxoSize         = TS.empty
@@ -247,9 +249,9 @@ initAccSlotStats = AccSlotStats {
 -- not visible).
 stepAccStats :: SlotNr
              -> OverallStats
-             -> SlotStats
-             -> AccSlotStats
-             -> AccSlotStats
+             -> SlotStats    dom
+             -> AccSlotStats dom
+             -> AccSlotStats dom
 stepAccStats slotNr OverallStats{..} SlotStats{..} acc =
     acc & accUtxoMaxHistogram %~ Hist.max slotUtxoHistogram
         & accUtxoSize         %~ TS.insert slotNr slotUtxoSize
@@ -382,7 +384,7 @@ intPolicy :: forall utxo m. (IsUtxo utxo, Monad m)
           -> IntState utxo         -- Initial state
           -> CompSelPolicy utxo m  -- Initial policy
           -> ConduitT (Event (Dom utxo))
-                      (SlotNr, OverallStats, SlotStats)
+                      (SlotNr, OverallStats, SlotStats (Dom utxo))
                       m
                       OverallStats
 intPolicy shouldRender =
@@ -391,7 +393,7 @@ intPolicy shouldRender =
     deriveSlotStats' :: IsUtxo utxo'
                      => SlotNr
                      -> IntState utxo'
-                     -> (SlotNr, OverallStats, SlotStats)
+                     -> (SlotNr, OverallStats, SlotStats (Dom utxo'))
     deriveSlotStats' slot st = (
           slot
         , st ^. stStats
@@ -403,7 +405,7 @@ intPolicy shouldRender =
          -> IntState utxo'
          -> CompSelPolicy utxo' m
          -> ConduitT (Event (Dom utxo'))
-                     (SlotNr, OverallStats, SlotStats)
+                     (SlotNr, OverallStats, SlotStats (Dom utxo'))
                      m
                      OverallStats
     loop slot@SlotNr{..} !st policy@CompSelPolicy{..} = do
@@ -474,7 +476,7 @@ intPolicy shouldRender =
 -- When we render all frames, they should also use the same bounds for the
 -- animation to make any sense. This is also useful to have animations of
 -- _different_ policies use the same bounds.
-data Bounds = Bounds {
+data Bounds dom = Bounds {
       -- | Range of the UTxO
       _boundsUtxoHistogram :: SplitRanges Bin Count
 
@@ -482,13 +484,13 @@ data Bounds = Bounds {
     , _boundsUtxoSize      :: Ranges TS.OverallSlotNr Int
 
       -- | Range of the UTxO balance time series
-    , _boundsUtxoBalance   :: Ranges TS.OverallSlotNr Double
+    , _boundsUtxoBalance   :: Ranges TS.OverallSlotNr (Value dom)
 
       -- | Range of the transaction inputs
     , _boundsTxInputs      :: Ranges Int Int
 
       -- | Range of the median change/payment time series
-    , _boundsMedianRatio   :: Ranges TS.OverallSlotNr Double
+    , _boundsMedianRatio   :: Ranges TS.OverallSlotNr (Fixed E2)
     }
 
 makeLenses ''Bounds
@@ -508,7 +510,7 @@ makeLenses ''Bounds
 -- * For the change/payment ratio, we use a fixed yrange [0:2]. Anything below
 --   0 doesn't make sense (we use this for absent values); anything above 2
 --   isn't particularly interesting.
-deriveBounds :: OverallStats -> AccSlotStats -> Bounds
+deriveBounds :: CoinSelDom dom => OverallStats -> AccSlotStats dom -> Bounds dom
 deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
       _boundsUtxoHistogram = Hist.splitRanges 5 5 _accUtxoMaxHistogram
                            & Range.splitYRange . Range.lo .~ 0
@@ -517,7 +519,8 @@ deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
                            & Range.y . Range.lo .~ 0
     , _boundsUtxoSize      = TS.range (fromIntegral  <$> _accUtxoSize)
     , _boundsUtxoBalance   = TS.range _accUtxoBalance
-                           & Range.y . Range.hi %~ (\v -> v * 1.01)
+                           & Range.y . Range.lo .~ valueZero
+                           & Range.y . Range.hi %~ unsafeValueAdjust RoundUp 1.01
     , _boundsMedianRatio   = TS.range _accMedianRatio
                            & Range.y .~ Range 0 2
     }
@@ -553,8 +556,9 @@ data PlotInstr = PlotInstr {
     }
 
 -- | Render in gnuplot syntax
-renderPlotInstr :: BinSize    -- ^ Bin size (for width of the boxes)
-                -> Bounds     -- ^ Derived bounds
+renderPlotInstr :: CoinSelDom dom
+                => BinSize    -- ^ Bin size (for width of the boxes)
+                -> Bounds dom -- ^ Derived bounds
                 -> Text       -- ^ Set up the split X-axis
                 -> Text       -- ^ Reset the split X-axis
                 -> PlotInstr  -- ^ Plot instruction
@@ -642,7 +646,8 @@ renderPlotInstr utxoBinSize
     piFrame
 
 -- | Render a complete set of plot instructions
-writePlotInstrs :: PlotParams -> FilePath -> Bounds -> [PlotInstr] -> IO ()
+writePlotInstrs :: CoinSelDom dom
+                => PlotParams -> FilePath -> Bounds dom -> [PlotInstr] -> IO ()
 writePlotInstrs PlotParams{..} script bounds is = do
     withFile script WriteMode $ \h -> do
       Text.hPutStrLn h $ sformat
@@ -669,17 +674,18 @@ writePlotInstrs PlotParams{..} script bounds is = do
 -------------------------------------------------------------------------------}
 
 -- | Sink that writes statistics to disk
-writeStats :: forall m. MonadIO m
+writeStats :: forall m dom. MonadIO m
            => FilePath      -- ^ Prefix for the files to create
-           -> ConduitT (SlotNr, OverallStats, SlotStats) Void m
-                (AccSlotStats, [PlotInstr])
+           -> ConduitT (SlotNr, OverallStats, SlotStats dom) Void m
+                (AccSlotStats dom, [PlotInstr])
 writeStats prefix =
     loop initAccSlotStats [] 0
   where
-    loop :: AccSlotStats -- ^ Accumulated slot statistics
-         -> [PlotInstr]  -- ^ Accumulated plot instructions
-         -> Int          -- ^ Rendered frame counter
-         -> ConduitT (SlotNr, OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
+    loop :: AccSlotStats dom -- ^ Accumulated slot statistics
+         -> [PlotInstr]      -- ^ Accumulated plot instructions
+         -> Int              -- ^ Rendered frame counter
+         -> ConduitT (SlotNr, OverallStats, SlotStats dom) Void m
+              (AccSlotStats dom, [PlotInstr])
     loop !accSlotStats accInstrs frame = do
         mObs <- await
         case mObs of
@@ -692,7 +698,7 @@ writeStats prefix =
                 frame'        = frame + 1
             loop accSlotStats' accInstrs' frame'
 
-    go :: SlotNr -> Int -> OverallStats -> SlotStats -> IO PlotInstr
+    go :: SlotNr -> Int -> OverallStats -> SlotStats dom -> IO PlotInstr
     go slotNr frame OverallStats{..} SlotStats{..} = do
         Hist.writeFile (filepath <.> "histogram") slotUtxoHistogram
         Hist.writeFile (filepath <.> "txinputs") (txStatsNumInputs _overallTxStats)
@@ -721,7 +727,7 @@ evaluatePolicy :: (IsUtxo utxo, MonadIO m)
                -> CompSelPolicy utxo m -- ^ Policy to evaluate
                -> IntState utxo        -- ^ Initial state
                -> ConduitT () (Event (Dom utxo)) m ()
-               -> m (OverallStats, (AccSlotStats, [PlotInstr]))
+               -> m (OverallStats, (AccSlotStats (Dom utxo), [PlotInstr]))
 evaluatePolicy prefix shouldRender policy initState generator =
       runConduit $
         generator                               `fuse`
@@ -789,3 +795,10 @@ evaluateUsingEvents plotParams@PlotParams{..}
             (prefix' </> "mkframes.gnuplot")
             (deriveBounds overallStats accStats)
             plotInstr
+
+{-------------------------------------------------------------------------------
+  Orphans
+-------------------------------------------------------------------------------}
+
+instance Buildable (Fixed E2) where
+  build = bprint shown

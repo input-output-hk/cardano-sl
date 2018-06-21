@@ -4,6 +4,7 @@ module InputSelection.FromGeneric (
     -- * Instantiation of the generic infrastructure
     DSL
   , SafeValue(..)
+  , Size(..)
   , runCoinSelT
     -- * Wrap coin selection
     -- ** Random
@@ -19,8 +20,10 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build)
+import qualified Prelude
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
+import           Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped
 import qualified Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst as Generic
 import           Cardano.Wallet.Kernel.CoinSelection.Generic.Random (PrivacyMode (..))
 import qualified Cardano.Wallet.Kernel.CoinSelection.Generic.Random as Generic
@@ -35,27 +38,40 @@ import qualified UTxO.DSL as DSL
 
 data DSL (h :: * -> *) (a :: *)
 
+instance IsValue (SafeValue h a) where
+  valueZero   = safeZero
+  valueAdd    = safeAdd
+  valueSub    = safeSub
+  valueDist   = safeDist
+  valueRatio  = safeRatio
+  valueAdjust = safeAdjust
+
 instance (DSL.Hash h a, Buildable a) => CoinSelDom (DSL h a) where
-  type Input  (DSL h a) = DSL.Input  h a
-  type Output (DSL h a) = DSL.Output h a
-  type Value  (DSL h a) = SafeValue  h a
+  type    Input     (DSL h a) = DSL.Input  h a
+  type    Output    (DSL h a) = DSL.Output h a
+  type    Value     (DSL h a) = SafeValue  h a
+  type    UtxoEntry (DSL h a) = (DSL.Input h a, DSL.Output h a)
+  newtype Size      (DSL h a) = Size Word64
 
-  outVal = Value . DSL.outVal
+  outVal    = Value . DSL.outVal
+  outSubFee = \(Fee v) o -> outSetVal o <$> valueSub (outVal o) v
+     where
+       outSetVal o (Value v) = o {DSL.outVal = v}
 
-  valueZero = safeZero
-  valueAdd  = safeAdd
-  valueSub  = safeSub
-  valueMult = safeMult
-  valueDist = safeDist
+instance (DSL.Hash h a, Buildable a, Ord a) => HasAddress (DSL h a) where
+  type Address (DSL h a) = a
 
-instance CoinSelDom (DSL h a) => PickFromUtxo (DSL.Utxo h a) where
+  outAddr = DSL.outAddr
+
+instance (DSL.Hash h a, Buildable a) => StandardDom (DSL h a)
+instance (DSL.Hash h a, Buildable a) => StandardUtxo (DSL.Utxo h a)
+
+instance (DSL.Hash h a, Buildable a) => PickFromUtxo (DSL.Utxo h a) where
   type Dom (DSL.Utxo h a) = DSL h a
+  -- Use default implementations
 
-  pickRandom    u = fmap (bimap identity DSL.utxoFromMap) <$>
-                      mapRandom (DSL.utxoToMap u)
-  pickLargest n u = fmap (bimap identity DSL.utxoFromMap) $
-                      nLargestFromMapBy DSL.outVal n (DSL.utxoToMap u)
-  utxoBalance     = Value . DSL.utxoBalance
+instance (DSL.Hash h a, Buildable a, Ord a) => CanGroup (DSL.Utxo h a) where
+  -- Use default implementations
 
 {-------------------------------------------------------------------------------
   Auxiliary: safe wrapper around values
@@ -65,16 +81,16 @@ instance CoinSelDom (DSL h a) => PickFromUtxo (DSL.Utxo h a) where
 newtype SafeValue (h :: * -> *) a = Value { fromSafeValue :: DSL.Value }
   deriving (Eq, Ord)
 
+-- | Don't print the constructor, just the value
+instance Show (SafeValue h a) where
+  show = Prelude.show . fromSafeValue
+
 safeZero :: SafeValue h a
 safeZero = Value 0
 
--- | TODO: check for overflow
+-- TODO: check for overflow
 safeAdd :: SafeValue h a -> SafeValue h a -> Maybe (SafeValue h a)
 safeAdd (Value x) (Value y) = Just $ Value (x + y)
-
--- TODO: check for overflow
-safeMult :: SafeValue h a -> Int -> Maybe (SafeValue h a)
-safeMult (Value x) n = Just $ Value (x * fromIntegral n)
 
 safeSub :: SafeValue h a -> SafeValue h a -> Maybe (SafeValue h a)
 safeSub (Value x) (Value y) = do
@@ -84,6 +100,15 @@ safeSub (Value x) (Value y) = do
 safeDist :: SafeValue h a -> SafeValue h a -> SafeValue h a
 safeDist (Value x) (Value y) =
     Value $ if y <= x then x - y else y - x
+
+safeRatio :: SafeValue h a -> SafeValue h a -> Double
+safeRatio (Value x) (Value y) =
+    fromIntegral x / fromIntegral y
+
+-- TODO: check for underflow/overflow
+safeAdjust :: Rounding -> Double -> SafeValue h a -> Maybe (SafeValue h a)
+safeAdjust RoundUp   d (Value x) = Just $ Value $ ceiling (d * fromIntegral x)
+safeAdjust RoundDown d (Value x) = Just $ Value $ floor   (d * fromIntegral x)
 
 {-------------------------------------------------------------------------------
   Top-level coin selection
@@ -123,21 +148,14 @@ mkTx changeAddr css = do
     mkChangeOutput :: Value (DSL h a) -> DSL.Output h a
     mkChangeOutput (Value change) = DSL.Output changeAddr change
 
-deriveTxStats :: CoinSelDom (DSL h a) => [CoinSelResult (DSL h a)] -> TxStats
-deriveTxStats = deriveTxStats' computeRatio
-  where
-    computeRatio :: SafeValue h a -> SafeValue h a -> Fixed E2
-    computeRatio (Value val) (Value change) =
-        fromIntegral change / fromIntegral val
-
 {-------------------------------------------------------------------------------
   Wrap the generic coin selection algorithms
 -------------------------------------------------------------------------------}
 
 random :: (MonadRandom m, GenHash m, Dom utxo ~ DSL h a, PickFromUtxo utxo)
        => PrivacyMode
-       -> a     -- ^ Change address
-       -> Int   -- ^ Maximum number of inputs
+       -> a      -- ^ Change address
+       -> Word64 -- ^ Maximum number of inputs
        -> CoinSelPolicy utxo m (DSL.Transaction h a, TxStats, utxo)
 random privacy changeAddr maxInps =
       runCoinSelT changeAddr
@@ -145,8 +163,8 @@ random privacy changeAddr maxInps =
     . NE.toList
 
 largestFirst :: (GenHash m, Dom utxo ~ DSL h a, PickFromUtxo utxo)
-             => a     -- ^ Change address
-             -> Int   -- ^ Maximum number of inputs
+             => a      -- ^ Change address
+             -> Word64 -- ^ Maximum number of inputs
              -> CoinSelPolicy utxo m (DSL.Transaction h a, TxStats, utxo)
 largestFirst changeAddr maxInps =
       runCoinSelT changeAddr

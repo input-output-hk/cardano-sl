@@ -1,6 +1,6 @@
 module InputSelection.TxStats (
     TxStats(..)
-  , deriveTxStats'
+  , deriveTxStats
     -- * Convenience re-exports
   , Fixed
   , E2
@@ -105,19 +105,16 @@ fromPartialTxStats PartialTxStats{..} = TxStats{
 --
 -- We take as argument a function @f@ such that @f value change@ computes
 -- the change:value ratio
---
--- This is a generalization of 'deriveTxStats' primarily to show that
--- statistics derivation is not in fact dependent on the specific domain,
--- and could in principle be used on the Cardano domain.
-deriveTxStats' :: forall dom. CoinSelDom dom
-               => (Value dom -> Value dom -> Fixed E2)
-               -> [CoinSelResult dom] -> TxStats
-deriveTxStats' computeRatio = fromPartialTxStats . mconcat . map go
+deriveTxStats :: forall dom. CoinSelDom dom => [CoinSelResult dom] -> TxStats
+deriveTxStats = fromPartialTxStats . mconcat . map go
   where
     go :: CoinSelResult dom -> PartialTxStats
     go cs = PartialTxStats {
-          ptxStatsNumInputs = coinSelCountInputs cs
+          ptxStatsNumInputs = fromIntegral $ sizeToWord (coinSelInputSize cs)
         , ptxStatsRatios    = MultiSet.fromList $
                                 map (computeRatio (outVal (coinSelOutput cs)))
                                     (coinSelChange cs)
         }
+
+    computeRatio :: Value dom -> Value dom -> Fixed E2
+    computeRatio out change = realToFrac (valueRatio change out)

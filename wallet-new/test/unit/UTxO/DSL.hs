@@ -67,7 +67,7 @@ module UTxO.DSL (
   , utxoRestrictToAddr
   , utxoRestrictToInputs
   , utxoRemoveInputs
-  , utxoOutputForInput
+  , utxoLookup
   , utxoAmountForInput
   , utxoAddressForInput
     -- ** Chain
@@ -478,16 +478,16 @@ utxoToList = Map.toList . utxoToMap
 
 -- | For a given 'Input', return the 'Output' that contains the address of
 -- the owner and value for the 'Input'.
-utxoOutputForInput :: Hash h a => Input h a -> Utxo h a -> Maybe (Output h a)
-utxoOutputForInput i = Map.lookup i . utxoToMap
+utxoLookup :: Hash h a => Input h a -> Utxo h a -> Maybe (Output h a)
+utxoLookup i = Map.lookup i . utxoToMap
 
 -- | Look up the 'Value' amount for an 'Input' in the 'Utxo'.
 utxoAmountForInput :: Hash h a => Input h a -> Utxo h a -> Maybe Value
-utxoAmountForInput i = fmap outVal . utxoOutputForInput i
+utxoAmountForInput i = fmap outVal . utxoLookup i
 
 -- | Look up the @address@ to which the given 'Input' belongs.
 utxoAddressForInput :: Hash h a => Input h a -> Utxo h a -> Maybe a
-utxoAddressForInput i = fmap outAddr . utxoOutputForInput i
+utxoAddressForInput i = fmap outAddr . utxoLookup i
 
 -- | This returns the set of 'Input' that are currently unspent. This
 -- function discards the information about how much value is in the input

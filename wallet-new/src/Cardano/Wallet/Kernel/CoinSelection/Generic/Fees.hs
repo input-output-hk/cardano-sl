@@ -27,8 +27,6 @@ data ExpenseRegulation =
     -- and they wish to trasfer an @exact@ amount (or, for example, the max
     -- amount).
 
-type Fee dom = Value dom
-
 data FeeOptions dom = FeeOptions {
       -- | Estimate fees based on number of inputs and values of the outputs
       foEstimate          :: Int -> [Value dom] -> Fee dom
@@ -43,10 +41,9 @@ data FeeOptions dom = FeeOptions {
 adjustForFees :: forall utxo m. (CoinSelDom (Dom utxo), Monad m)
               => FeeOptions (Dom utxo)
               -> (Value (Dom utxo) ->
-                   CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
-                     (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
               -> [CoinSelResult (Dom utxo)]
-              -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
+              -> CoinSelT utxo CoinSelHardErr m
                    ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
 adjustForFees feeOptions pickUtxo css = do
     case foExpenseRegulation feeOptions of
@@ -64,20 +61,19 @@ adjustForFees feeOptions pickUtxo css = do
 receiverPaysFee :: forall dom. CoinSelDom dom
                 => Fee dom
                 -> [CoinSelResult dom]
-                -> Except (CoinSelHardErr dom) [CoinSelResult dom]
+                -> Except CoinSelHardErr [CoinSelResult dom]
 receiverPaysFee totalFee =
     mapM go . divvyFee (outVal . coinSelRequest) totalFee
   where
-    go :: (CoinSelResult dom, Fee dom)
-       -> Except (CoinSelHardErr dom) (CoinSelResult dom)
-    go (cs, fee) =
-        case valueSub (outVal request) fee of
-          Just newVal ->
-            return $ cs { coinSelOutput = outSetVal newVal request }
+    go :: (Fee dom, CoinSelResult dom)
+       -> Except CoinSelHardErr (CoinSelResult dom)
+    go (fee, cs) =
+        case outSubFee fee (coinSelRequest cs) of
+          Just newOut ->
+            return $ cs { coinSelOutput = newOut }
           Nothing ->
-            throwError $ CoinSelHardErrOutputCannotCoverFee request fee
-      where
-        request = coinSelRequest cs
+            throwError $
+              CoinSelHardErrOutputCannotCoverFee (coinSelRequest cs) fee
 
 {-------------------------------------------------------------------------------
   Sender pays fee
@@ -85,11 +81,10 @@ receiverPaysFee totalFee =
 
 senderPaysFee :: (Monad m, CoinSelDom (Dom utxo))
               => (Value (Dom utxo) ->
-                   CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
-                     (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
               -> Fee (Dom utxo)
               -> [CoinSelResult (Dom utxo)]
-              -> CoinSelT utxo (CoinSelHardErr (Dom utxo)) m
+              -> CoinSelT utxo CoinSelHardErr m
                    ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
 senderPaysFee pickUtxo totalFee css = do
     let (css', remainingFee) = feeFromChange totalFee css
@@ -104,9 +99,9 @@ coverRemainingFee pickUtxo fee = go emptySelection
     go :: SelectedUtxo (Dom utxo)
        -> CoinSelT utxo e m (SelectedUtxo (Dom utxo))
     go !acc
-      | selectedBalance acc >= fee = return acc
+      | selectedBalance acc >= getFee fee = return acc
       | otherwise = do
-          io <- pickUtxo (unsafeValueSub fee (selectedBalance acc))
+          io <- pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc)
           go (select io acc)
 
 -- | Attempt to pay the fee from change outputs, returning any fee remaining
@@ -128,14 +123,14 @@ feeFromChange :: forall dom. CoinSelDom dom
               -> [CoinSelResult dom]
               -> ([CoinSelResult dom], Fee dom)
 feeFromChange totalFee =
-      bimap identity unsafeValueSum
+      bimap identity unsafeFeeSum
     . unzip
     . map go
     . divvyFee (outVal . coinSelRequest) totalFee
   where
     -- | Adjust the change output, returning any fee remaining
-    go :: (CoinSelResult dom, Fee dom) -> (CoinSelResult dom, Fee dom)
-    go (cs, fee) =
+    go :: (Fee dom, CoinSelResult dom) -> (CoinSelResult dom, Fee dom)
+    go (fee, cs) =
         let (change', fee') = reduceChangeOutputs fee (coinSelChange cs)
         in (cs { coinSelChange = change' }, fee')
 
@@ -149,42 +144,30 @@ reduceChangeOutputs :: forall dom. CoinSelDom dom
                     => Fee dom -> [Value dom] -> ([Value dom], Fee dom)
 reduceChangeOutputs totalFee [] = ([], totalFee)
 reduceChangeOutputs totalFee cs =
-      bimap identity unsafeValueSum
+      bimap identity unsafeFeeSum
     . unzip
     . map go
     . divvyFee identity totalFee
     $ cs
   where
     -- Reduce single change output, returning remaining fee
-    go :: (Value dom, Fee dom) -> (Value dom, Fee dom)
-    go (change, fee) | change >= fee = (unsafeValueSub change fee, valueZero)
-                     | otherwise     = (valueZero, unsafeValueSub fee change)
+    go :: (Fee dom, Value dom) -> (Value dom, Fee dom)
+    go (fee, change)
+      | change >= getFee fee =
+          (unsafeValueSub change (getFee fee), Fee valueZero)
+      | otherwise =
+          (valueZero, adjustFee (`unsafeValueSub` change) fee)
 
 {-------------------------------------------------------------------------------
   Auxiliary
 -------------------------------------------------------------------------------}
 
--- | Proportionally divide the fee over each output
-divvyFee :: forall dom a. CoinSelDom dom
-          => (a -> Value dom) -> Fee dom -> [a] -> [(a, Fee dom)]
-divvyFee _ _   [] = error "divvyFee: empty list"
-divvyFee f fee as = map (\a -> (a, feeForOut a)) as
-  where
-    -- All outputs are selected from well-formed UTxO, so their sum cannot
-    -- overflow
-    totalOut :: Value dom
-    totalOut = unsafeValueSum (map f as)
-
-    -- The ratio will be between 0 and 1 so cannot overflow
-    feeForOut :: a -> Fee dom
-    feeForOut a = unsafeValueAdjust RoundUp (valueRatio (f a) totalOut) fee
-
 feeUpperBound :: CoinSelDom dom
-              => FeeOptions dom -> [CoinSelResult dom] -> Value dom
+              => FeeOptions dom -> [CoinSelResult dom] -> Fee dom
 feeUpperBound FeeOptions{..} css =
     foEstimate numInputs outputs
   where
-    numInputs = sum (map coinSelCountInputs css)
+    numInputs = fromIntegral $ sum (map (sizeToWord . coinSelInputSize) css)
     outputs   = concatMap coinSelOutputs css
 
 {-------------------------------------------------------------------------------

@@ -50,8 +50,8 @@ instance (Hash h a, Buildable a) => IsUtxo (Utxo h a) where
 -- | Wrap coin selection policy to return information required by evaluator
 wrap :: forall utxo h a m. (Eq a, Hash h a, Monad m)
      => Proxy utxo
-     -> (a -> Int -> CoinSelPolicy utxo m (Transaction h a, TxStats, utxo))
-     -> (a -> Int -> CoinSelPolicy utxo m (CoinSelSummary (DSL h a), utxo))
+     -> (a -> Word64 -> CoinSelPolicy utxo m (Transaction h a, TxStats, utxo))
+     -> (a -> Word64 -> CoinSelPolicy utxo m (CoinSelSummary (DSL h a), utxo))
 wrap _p f changeAddr maxNumInputs outs initUtxo =
     fmap aux <$> f changeAddr maxNumInputs outs initUtxo
   where
@@ -167,4 +167,6 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
 
     -- Initial UTxO for all these tests
     initUtxo :: Map (Input GivenHash World) (Output GivenHash World)
-    initUtxo = Map.singleton (Input (GivenHash 0) 0) (Output Us 1000000)
+    initUtxo = let i = Input (GivenHash 0) 0
+                   o = Output Us 1000000
+               in Map.singleton i o

@@ -81,10 +81,12 @@ insert :: SlotNr -> a -> TimeSeries a -> TimeSeries a
 insert slotNr a (TimeSeries m) = TimeSeries (Map.insert slotNr a m)
 
 -- | Bounds for a time series
-range :: forall a. (Num a, Ord a) => TimeSeries a -> Ranges OverallSlotNr a
+range :: forall a. Ord a => TimeSeries a -> Ranges OverallSlotNr a
 range (TimeSeries m) = Ranges {
-      _x = Range (minimum slots) (maximum slots)
-    , _y = Range 0 (maximum (Map.elems m))
+      _x = Range (minimum slots)
+                 (maximum slots)
+    , _y = Range (minimum (Map.elems m))
+                 (maximum (Map.elems m))
     }
   where
     slots :: [OverallSlotNr]

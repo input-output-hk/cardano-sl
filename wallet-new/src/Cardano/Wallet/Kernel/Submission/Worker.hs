@@ -1,41 +1,35 @@
 module Cardano.Wallet.Kernel.Submission.Worker (
-    runSubmissionLayer
+    tickSubmissionLayer
     ) where
 
 import           Universum
 
-import           Control.Concurrent (modifyMVar_, threadDelay, withMVar)
-import           Control.Concurrent.Async (wait, withAsync)
-import           Control.Exception.Safe (tryJust)
+import           Control.Concurrent (threadDelay)
+import qualified Data.Set as Set
 
-import           Cardano.Wallet.Kernel.Submission (SchedulingError, WalletSubmission, tick)
+import           Cardano.Wallet.Kernel.Submission (Evicted, WalletSubmission)
 
-import           Formatting (sformat)
-import qualified Formatting as F
 import           System.Wlog (Severity (..))
 
-runSubmissionLayer :: (Severity -> Text -> IO ())
-                   -> MVar (WalletSubmission IO)
-                   -> IO ()
-runSubmissionLayer logFunction submissionLayer = withAsync go wait
+
+tickSubmissionLayer :: forall m. (MonadCatch m, MonadIO m)
+                    => (Severity -> Text -> m ())
+                    -- ^ A logging function
+                    -> m (Evicted, WalletSubmission m)
+                    -- ^ A function to call at each 'tick'
+                    -> (Evicted -> WalletSubmission m -> m ())
+                    -- ^ A callback to run whenever we get evicted
+                    -- transactions back from the submission layer,
+                    -- together with the new state.
+                    -> m ()
+tickSubmissionLayer logFunction tick onEvicted = go
     where
-      go :: IO ()
+      go :: m ()
       go = do
-          threadDelay 1000000 -- Wait 1 second between the next tick.
-          logFunction Info "ticking..."
-          res <- tryJust justSchedulingError (withMVar submissionLayer (tick throwM))
-          case res of
-              Left schedulingError -> do
-                  handleSchedulingError schedulingError
-                  go
-              Right (_evicted, newState) -> do
-                  modifyMVar_ submissionLayer (return . const newState)
-                  -- TODO(adn) deal with evicted.
-                  return ()
-
-      handleSchedulingError :: SchedulingError -> IO ()
-      handleSchedulingError se =
-          logFunction Error (sformat F.shown se)
-
-      justSchedulingError :: SomeException -> Maybe SchedulingError
-      justSchedulingError = fromException
+          liftIO $ threadDelay 1000000 -- Wait 1 second between the next tick.
+          logFunction Debug "ticking..."
+          (evicted, newState) <- tick
+          unless (Set.null evicted) $ do
+              logFunction Debug "Calling onEvicted on the evicted transactions.."
+              onEvicted evicted newState
+          go

@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-} -- to enable... deriveSafeCopy 1 'base ''EncryptedSecretKey
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -13,6 +12,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , Snapshot(..)
     -- ** Spec mandated updates
   , NewPending(..)
+  , EvictPending(..)
   , ApplyBlock(..)
   , SwitchToFork(..)
     -- ** Updates on HD wallets
@@ -103,6 +103,18 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
     zoom hdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
+
+-- | Evicts the input transactions from the latest 'Checkpoint' of each of
+-- the accounts cointained in all the wallets.
+--
+-- The reason why this function doesn't take a 'HdRootId' as an argument
+-- is because the submission layer doesn't have the notion of \"which HdWallet
+-- is this transaction associated with?\", but it merely dispatch and evicts
+-- transactions for all the wallets managed by this edge node.
+evictPending :: InDb (Set Core.TxId) -> Update DB ()
+evictPending tx =
+    runUpdateNoErrors . zoomAll (dbHdWallets . hdWalletsAccounts) $
+        hdAccountCheckpoints %~ Spec.evictPending tx
 
 -- | Apply prefiltered block (indexed by HdAccountId) to the matching accounts.
 --
@@ -271,6 +283,7 @@ makeAcidic ''DB [
       'snapshot
       -- Updates on the "spec state"
     , 'newPending
+    , 'evictPending
     , 'applyBlock
     , 'switchToFork
       -- Updates on HD wallets

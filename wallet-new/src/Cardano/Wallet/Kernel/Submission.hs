@@ -23,7 +23,6 @@ module Cardano.Wallet.Kernel.Submission (
     , seToSend
     , seToConfirm
     , ScheduleEvictIfNotConfirmed (..)
-    , SchedulingError (..)
     , Slot (..)
     , SubmissionCount (..)
     , WalletSubmission (..)
@@ -59,11 +58,10 @@ import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Text.Buildable (build)
-import           Formatting (bprint, sformat, (%))
+import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Pos.Crypto.Hashing (WithHash (..))
 import           Pos.Txp.Topsort (topsortTxs)
-import qualified Prelude
 import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF)
 import           Test.QuickCheck
 
@@ -300,26 +298,23 @@ remPending ids ws = ws & over (wsState . wssPendingSet) (removePending ids)
 -- @N.B.@ The returned 'WalletSubmission' comes with an already-pruned
 -- local 'Pending' set, so it's not necessary to call 'remPending' afterwards.
 tick :: Monad m
-     => (forall a. SchedulingError -> m a)
-     -- ^ A callback to handle any potential error arising internally.
-     -> WalletSubmission m
+     => WalletSubmission m
      -- ^ The current 'WalletSubmission'.
      -> m (Evicted, WalletSubmission m)
      -- ^ The set of transactions upper layers will need to drop, together
      -- with the new 'WalletSubmission'.
-tick onError ws = do
+tick ws = do
     let wss         = ws  ^. wsState
         currentSlot = wss ^. wssCurrentSlot
         rho         = _wsResubmissionFunction ws
         pendingSet  = ws ^. wsState . wssPendingSet . pendingTransactions . fromDb
-    case tickSlot currentSlot ws of
-         Left e -> onError e
-         Right (toSend, toConfirm, newSchedule) -> do
-            schedule' <- rho currentSlot toSend newSchedule
-            let evicted = evictedThisSlot toConfirm pendingSet
-            let newState = ws & wsState . wssSchedule    .~ schedule'
-                              & wsState . wssCurrentSlot %~ mapSlot succ
-            return (evicted, remPending evicted newState)
+
+    let (toSend, toConfirm, newSchedule) = tickSlot currentSlot ws
+    schedule' <- rho currentSlot toSend newSchedule
+    let evicted = evictedThisSlot toConfirm pendingSet
+    let newState = ws & wsState . wssSchedule    .~ schedule'
+                      & wsState . wssCurrentSlot %~ mapSlot succ
+    return (evicted, remPending evicted newState)
     where
         evictedThisSlot :: [ScheduleEvictIfNotConfirmed]
                         -> M.Map Core.TxId Core.TxAux
@@ -332,21 +327,6 @@ tick onError ws = do
             case M.lookup txId pending of
                  Just _  -> Set.insert txId acc
                  Nothing -> acc
-
-data SchedulingError =
-    LoopDetected Pending
-    -- ^ The transactions in this 'Pending' set forms a cycle and they
-    -- couldn't be top-sorted.
-
-instance Exception SchedulingError
-
--- | Instance required for 'Exception'. Giving this one a proper 'Show' instance
--- (via deriving instance or otherwise) would imply a Show instance for 'Pending'.
--- However, when dealing with data types which includes sensible data (like in
--- this case, transactions) it's usually better to sacrify ghci-readiness in
--- favour of a bit more anonymity.
-instance Show SchedulingError where
-    show (LoopDetected pending) = toString $ sformat ("LoopDetected " % F.build) pending
 
 --
 --
@@ -382,20 +362,25 @@ tickSlot :: Slot
          -- ^ The current 'Slot'.
          -> WalletSubmission m
          -- ^ The 'WalletSubmissionState'.
-         -> Either SchedulingError ([ScheduleSend], [ScheduleEvictIfNotConfirmed], Schedule)
-         -- ^ An error if no schedule can be produced, or all the scheduled
-         -- transactions together with the new, updated 'Schedule'.
+         -> ([ScheduleSend], [ScheduleEvictIfNotConfirmed], Schedule)
+         -- ^ All the scheduled transactions together with the new
+         -- , updated 'Schedule'.
 tickSlot currentSlot ws =
     let (allEvents, schedule) = scheduledFor currentSlot (ws ^. wsState . wssSchedule)
         scheduledCandidates = filterNotConfirmed (allEvents ^. seToSend <> nursery schedule)
         localPending = ws ^. wsState . wssPendingSet
         topSorted  = topsortTxs toTx scheduledCandidates
     in case topSorted of
-            Nothing     -> Left (LoopDetected localPending)
+            Nothing     ->
+                let msg = "tickSlot, invariant violated: a loop was detected " <>
+                          "while trying to top-sort the pending transactions " <>
+                          "scheduled for slot " <> show currentSlot <> ". This " <>
+                          "indicates a bug in the transaction creation process."
+                in error msg
             Just sorted ->
                 let (send, cannotSend) = partitionSendable localPending sorted
                     newSchedule = schedule { _ssUnsentNursery = cannotSend }
-                in Right (send, allEvents ^. seToConfirm, newSchedule)
+                in (send, allEvents ^. seToConfirm, newSchedule)
     where
         nursery :: Schedule -> [ScheduleSend]
         nursery (Schedule _ n) = n

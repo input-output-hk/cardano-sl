@@ -11,7 +11,6 @@ import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
                                                 removePending)
 import           Cardano.Wallet.Kernel.Submission
-import           Control.Exception (toException)
 import           Control.Lens (to)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
@@ -30,7 +29,7 @@ import qualified Test.Pos.Txp.Arbitrary as Core
 
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, forAll, listOf,
                                   shuffle, vectorOf, (===))
-import           Test.QuickCheck.Property (counterexample, exception, property)
+import           Test.QuickCheck.Property (counterexample)
 import           Util (disjoint)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
@@ -120,7 +119,7 @@ doesNotContainPending p ws =
     in M.intersection localPending pending == mempty
 
 tick' :: WalletSubmission Identity -> (Evicted, WalletSubmission Identity)
-tick' ws = runIdentity $ tick (error "tick failed") ws
+tick' ws = runIdentity $ tick ws
 
 toTxIdSet :: Pending -> Set Core.TxId
 toTxIdSet p = S.fromList $ map fst (p ^. pendingTransactions . fromDb . to M.toList)
@@ -324,11 +323,10 @@ spec = do
                       -- everything for @currentSlot + 1@.
                       result = tickSlot nxtSlot submission
                   in case result of
-                          Left err -> property $ exception "tickSlot found a loop" (toException err)
-                          Right (toSend, _, _) -> conjoin [
-                                includeEvents "[a,b,c,d] not scheduled" scheduledEvents txs
-                              , S.fromList (toTxIds txs) `isSubsetOf` S.fromList (toTxIds toSend)
-                              ]
+                         (toSend, _, _) -> conjoin [
+                               includeEvents "[a,b,c,d] not scheduled" scheduledEvents txs
+                             , S.fromList (toTxIds txs) `isSubsetOf` S.fromList (toTxIds toSend)
+                             ]
 
           -- Given A,B,C,D where D `dependsOn` C `dependsOn` B `dependsOn` A,
           -- if [A,B,C] are scheduled on slot 2 and [D] on slot 1, we shouldn't
@@ -346,14 +344,13 @@ spec = do
                       -- everything for @currentSlot + 1@.
                       result = tickSlot nxtSlot submission
                   in case result of
-                          Left err -> property $ exception "tickSlot found a loop" (toException err)
-                          Right (toSend, _, _) -> conjoin [
-                                includeEvent "d scheduled" scheduledEvents d
-                              , failIf "is subset of"
-                                          (\x y -> not $ S.isSubsetOf x y)
-                                          (S.fromList (toTxIds [d]))
-                                          (S.fromList (toTxIds toSend))
-                              ]
+                         (toSend, _, _) -> conjoin [
+                               includeEvent "d scheduled" scheduledEvents d
+                             , failIf "is subset of"
+                                         (\x y -> not $ S.isSubsetOf x y)
+                                         (S.fromList (toTxIds [d]))
+                                         (S.fromList (toTxIds toSend))
+                             ]
 
           -- Given A,B,C,D where D `dependsOn` C `dependsOn` B `dependsOn` A, if:
           -- * [A,B] are scheduled on slot 1
@@ -371,7 +368,7 @@ spec = do
 
               forAll generator $ \(unSTB -> (submission1, [a,b,c,d])) ->
                   let slot1     = submission1 ^. getCurrentSlot
-                      Right (scheduledInSlot1, confirmed1, _) = tickSlot slot1 submission1
+                      (scheduledInSlot1, confirmed1, _) = tickSlot slot1 submission1
 
                       -- Let's assume that @A@ and @B@ finally are adopted,
                       -- and the wallet calls 'remPending' on them.
@@ -385,13 +382,13 @@ spec = do
                       -- schedule @D@, this slot, which will end up in the
                       -- nursery.
                       slot2 = submission2 ^. getCurrentSlot
-                      Right (scheduledInSlot2, confirmed2, _) = tickSlot slot2 submission2
+                      (scheduledInSlot2, confirmed2, _) = tickSlot slot2 submission2
                       (_, submission3) = tick' submission2
 
                       -- Finally, during slot 3, both @C@ and @D@ are sent.
 
                       slot3 = submission3 ^. getCurrentSlot
-                      Right (scheduledInSlot3, confirmed3, _) = tickSlot slot3 submission3
+                      (scheduledInSlot3, confirmed3, _) = tickSlot slot3 submission3
 
                   in conjoin [
                          slot1 === Slot 1

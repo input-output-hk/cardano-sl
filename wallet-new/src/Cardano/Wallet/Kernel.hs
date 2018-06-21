@@ -24,6 +24,7 @@ module Cardano.Wallet.Kernel (
   , ActiveWallet -- opaque
   , bracketActiveWallet
   , newPending
+  , evictPending
   ) where
 
 import           Universum hiding (State, init)
@@ -47,8 +48,9 @@ import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), prefi
 import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CreateHdWallet (..), DB,
-                                                     NewPending (..), NewPendingError,
-                                                     Snapshot (..), dbHdWallets, defDB)
+                                                     EvictPending (..), NewPending (..),
+                                                     NewPendingError, Snapshot (..), dbHdWallets,
+                                                     defDB)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -62,7 +64,7 @@ import           Cardano.Wallet.Kernel.Submission (WalletSubmission, addPending,
                                                    defaultResubmitFunction, exponentialBackoff,
                                                    newWalletSubmission)
 
-import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))
+import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..), TxId)
 
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, hash)
@@ -270,6 +272,10 @@ newPending ActiveWallet{..} accountId tx = do
             let txId = hash . taTx $ tx
             modifyMVar_ walletSubmission (return . addPending (singletonPending txId tx))
             return $ Right ()
+
+evictPending :: ActiveWallet -> Set TxId -> IO ()
+evictPending ActiveWallet{..} txids =
+    update' (walletPassive ^. wallets) $ EvictPending (InDb txids)
 
 {-------------------------------------------------------------------------------
   Wallet Account read-only API

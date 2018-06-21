@@ -11,13 +11,14 @@ module Pos.Ssc.Logic.VAR
        ) where
 
 import           Control.Lens ((.=), _Wrapped)
+import           Control.Monad.Writer (tell)
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph (hoist)
 import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
+import           Data.Functor.Contravariant (contramap)
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
-import           Pos.Util.Log (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()
@@ -38,10 +39,13 @@ import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem, sscRunGlobalUpdate)
 import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, rollbackSsc,
-                               runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
+                               runPureToss, supplyPureTossEnv, verifyAndApplySscPayload,
+                               pureTossTrace, pureTossWithEnvTrace)
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
+import           Pos.Util.Trace (Trace, traceWith, natTrace)
+import           Pos.Util.Trace.Unstructured (LogItem, logDebug, publicPrivateLogItem)
 
 ----------------------------------------------------------------------------
 -- Modes
@@ -49,7 +53,6 @@ import           Pos.Util.Lens (_neHead, _neLast)
 
 type SscVerifyMode m =
     ( MonadState SscGlobalState m
-    , WithLogger m
     , MonadError SscVerifyError m
     , Rand.MonadRandom m
     )
@@ -60,7 +63,7 @@ type SscGlobalVerifyMode ctx m =
     (HasSscConfiguration,
      MonadSscMem ctx m,
      MonadReader ctx m, HasLrcContext ctx,
-     MonadDBRead m, MonadGState m, WithLogger m, MonadReporting m,
+     MonadDBRead m, MonadGState m, MonadReporting m,
      MonadIO m, Rand.MonadRandom m)
 
 type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
@@ -73,12 +76,12 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 -- corresponds to application of given blocks. If blocks are invalid,
 -- this function will return 'Left' with appropriate error.
 -- All blocks must be from the same epoch.
-sscVerifyBlocks
-    :: SscGlobalVerifyMode ctx m
+sscVerifyBlocks :: SscGlobalVerifyMode ctx m
     => ProtocolMagic
+    -> Trace m LogItem
     -> OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
-sscVerifyBlocks pm blocks = do
+sscVerifyBlocks pm logTrace blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
     let differentEpochsMsg =
@@ -87,14 +90,15 @@ sscVerifyBlocks pm blocks = do
                 epoch
                 lastEpoch
     inAssertMode $ unless (epoch == lastEpoch) $
-        assertionFailed differentEpochsMsg
+        assertionFailed (contramap publicPrivateLogItem logTrace) differentEpochsMsg
     richmenSet <- getSscRichmen "sscVerifyBlocks" epoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar
     res <-
         runExceptT
-            (execStateT (sscVerifyAndApplyBlocks pm richmenSet bvd blocks) gs)
+            (execStateT (sscVerifyAndApplyBlocks pm (natTrace (lift . lift) logTrace) richmenSet bvd blocks) gs)
+
     case res of
         Left e
             | sscIsCriticalVerifyError e ->
@@ -112,46 +116,46 @@ sscVerifyBlocks pm blocks = do
 sscApplyBlocks
     :: SscGlobalApplyMode ctx m
     => ProtocolMagic
+    -> Trace m LogItem
     -> OldestFirst NE SscBlock
     -> Maybe SscGlobalState
     -> m [SomeBatchOp]
-sscApplyBlocks pm blocks (Just newState) = do
+sscApplyBlocks pm logTrace blocks (Just newState) = do
     inAssertMode $ do
         let hashes = map headerHash blocks
-        expectedState <- sscVerifyValidBlocks pm blocks
+        expectedState <- sscVerifyValidBlocks pm logTrace blocks
         if | newState == expectedState -> pass
-           | otherwise -> onUnexpectedVerify hashes
-    sscApplyBlocksFinish newState
-sscApplyBlocks pm blocks Nothing =
-    sscApplyBlocksFinish =<< sscVerifyValidBlocks pm blocks
+           | otherwise -> onUnexpectedVerify logTrace hashes
+    sscApplyBlocksFinish logTrace newState
+sscApplyBlocks pm logTrace blocks Nothing =
+    sscApplyBlocksFinish logTrace =<< sscVerifyValidBlocks pm logTrace blocks
 
 sscApplyBlocksFinish
     :: (SscGlobalApplyMode ctx m)
-    => SscGlobalState -> m [SomeBatchOp]
-sscApplyBlocksFinish gs = do
-    sscRunGlobalUpdate (put gs)
+    => Trace m LogItem -> SscGlobalState -> m [SomeBatchOp]
+sscApplyBlocksFinish logTrace gs = do
+    sscRunGlobalUpdate logTrace (put gs)
     inAssertMode $
-        logDebug $
+        logDebug logTrace $ 
         sformat ("After applying blocks SSC global state is:\n"%build) gs
     pure $ sscGlobalStateToBatch gs
 
 sscVerifyValidBlocks
     :: SscGlobalApplyMode ctx m
-    => ProtocolMagic
-    -> OldestFirst NE SscBlock
-    -> m SscGlobalState
-sscVerifyValidBlocks pm blocks =
-    sscVerifyBlocks pm blocks >>= \case
-        Left e -> onVerifyFailedInApply hashes e
+    => ProtocolMagic -> Trace m LogItem -> OldestFirst NE SscBlock -> m SscGlobalState
+sscVerifyValidBlocks pm logTrace blocks =
+    sscVerifyBlocks pm logTrace blocks >>= \case
+        Left e -> onVerifyFailedInApply logTrace hashes e
         Right newState -> return newState
   where
     hashes = map headerHash blocks
 
 onUnexpectedVerify
     :: forall m a.
-       (WithLogger m, MonadThrow m)
-    => OldestFirst NE HeaderHash -> m a
-onUnexpectedVerify hashes = assertionFailed msg
+       (MonadThrow m)
+    => Trace m LogItem -> OldestFirst NE HeaderHash -> m a
+onUnexpectedVerify logTrace hashes = 
+    assertionFailed (contramap publicPrivateLogItem logTrace) msg
   where
     fmt =
         "sscApplyBlocks: verfication of blocks "%listJson%
@@ -160,9 +164,10 @@ onUnexpectedVerify hashes = assertionFailed msg
 
 onVerifyFailedInApply
     :: forall m a.
-       (WithLogger m, MonadThrow m)
-    => OldestFirst NE HeaderHash -> SscVerifyError -> m a
-onVerifyFailedInApply hashes e = assertionFailed msg
+       (MonadThrow m)
+    => Trace m LogItem -> OldestFirst NE HeaderHash -> SscVerifyError -> m a
+onVerifyFailedInApply logTrace hashes e = 
+    assertionFailed (contramap publicPrivateLogItem logTrace) msg
   where
     fmt =
         "sscApplyBlocks: verification of blocks "%listJson%" failed: "%build
@@ -176,13 +181,13 @@ onVerifyFailedInApply hashes e = assertionFailed msg
 -- and apply them on success. Blocks must be from the same epoch.
 sscVerifyAndApplyBlocks
     :: (SscVerifyMode m, HasProtocolConstants, HasGenesisData)
-    => ProtocolMagic
+    => ProtocolMagic -> Trace m LogItem
     -> RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE SscBlock
     -> m ()
-sscVerifyAndApplyBlocks pm richmenStake bvd blocks =
-    verifyAndApplyMultiRichmen pm False (richmenData, bvd) blocks
+sscVerifyAndApplyBlocks pm logTrace richmenStake bvd blocks =
+    verifyAndApplyMultiRichmen pm logTrace False (richmenData, bvd) blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenStake)]
@@ -190,17 +195,18 @@ sscVerifyAndApplyBlocks pm richmenStake bvd blocks =
 verifyAndApplyMultiRichmen
     :: (SscVerifyMode m, HasProtocolConstants, HasGenesisData)
     => ProtocolMagic
+    -> Trace m LogItem
     -> Bool
     -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE SscBlock
     -> m ()
-verifyAndApplyMultiRichmen pm onlyCerts env =
-    tossToVerifier . hoist (supplyPureTossEnv env) .
+verifyAndApplyMultiRichmen pm logTrace onlyCerts env =
+    tossToVerifier logTrace . hoist (supplyPureTossEnv env) .
     mapM_ verifyAndApplyDo
   where
     verifyAndApplyDo (ComponentBlockGenesis header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (ComponentBlockMain header payload) =
-        verifyAndApplySscPayload pm (Right header) $
+        verifyAndApplySscPayload pm (natTrace lift pureTossWithEnvTrace) (Right header) $
         filterPayload payload
     filterPayload payload
         | onlyCerts = leaveOnlyCerts payload
@@ -219,15 +225,15 @@ verifyAndApplyMultiRichmen pm onlyCerts env =
 -- happen if these blocks haven't been applied before.
 sscRollbackBlocks
     :: SscGlobalApplyMode ctx m
-    => NewestFirst NE SscBlock -> m [SomeBatchOp]
-sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
+    => Trace m LogItem -> NewestFirst NE SscBlock -> m [SomeBatchOp]
+sscRollbackBlocks logTrace blocks = sscRunGlobalUpdate logTrace $ do
     sscRollbackU blocks
     sscGlobalStateToBatch <$> get
 
 sscRollbackU
   :: (HasProtocolConstants, HasGenesisData)
   => NewestFirst NE SscBlock -> SscGlobalUpdate ()
-sscRollbackU blocks = tossToUpdate $ rollbackSsc oldestEOS payloads
+sscRollbackU blocks = tossToUpdate $ rollbackSsc pureTossTrace oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads = NewestFirst $ mapMaybe extractPayload $ toList blocks
@@ -241,17 +247,20 @@ sscRollbackU blocks = tossToUpdate $ rollbackSsc oldestEOS payloads
 tossToUpdate :: PureToss a -> SscGlobalUpdate a
 tossToUpdate action = do
     oldState <- use identity
-    (res, newState) <- runPureTossWithLogger oldState action
+    (res, newState, logItems) <- runPureToss oldState action
+    tell logItems
     (identity .= newState) $> res
 
 tossToVerifier
     :: SscVerifyMode m
-    => ExceptT SscVerifyError PureToss a
+    => Trace m LogItem
+    -> ExceptT SscVerifyError PureToss a
     -> m a
-tossToVerifier action = do
+tossToVerifier logTrace action = do
     oldState <- use identity
-    (resOrErr, newState) <-
-        runPureTossWithLogger oldState $ runExceptT action
+    (resOrErr, newState, logItems) <-
+        runPureToss oldState $ runExceptT action
+    forM_ logItems (traceWith logTrace)
     case resOrErr of
         Left e    -> throwError e
         Right res -> (identity .= newState) $> res

@@ -8,6 +8,7 @@ module Pos.Util.Trace.Named
     , LogNamed (..)
     , TrU.LogItem
     , setupLogging
+    , named
     , namedTrace
     , appendName
     -- * log functions
@@ -17,6 +18,7 @@ module Pos.Util.Trace.Named
     , logInfo,    logInfoS,    logInfoP
     , logNotice,  logNoticeS,  logNoticeP
     , logWarning, logWarningS, logWarningP
+    , publicPrivateLogItem {-backwards compatibility -}
     ) where
 
 import           Universum
@@ -29,6 +31,9 @@ import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..), LogPrivacy (.
 import           Pos.Util.Log.LogSafe (logMCond, selectPublicLogs, selectSecretLogs)
 
 type TraceNamed m = Trace m (LogNamed TrU.LogItem)
+
+publicPrivateLogItem :: (Log.Severity, Text) -> TrU.LogItem
+publicPrivateLogItem = uncurry (TrU.LogItem TrU.Both)
 
 -- | Attach a 'LoggerName' to something.
 data LogNamed item = LogNamed

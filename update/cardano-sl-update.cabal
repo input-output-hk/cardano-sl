@@ -102,6 +102,7 @@ library
                      , contravariant
                      , data-default
                      , directory
+                     , dlist
                      , ether >= 0.5
                      , exceptions
                      , formatting

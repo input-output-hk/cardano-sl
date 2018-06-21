@@ -10,7 +10,11 @@ import           Control.Lens ((%=))
 import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Data.Time.Units (Second)
 import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
+<<<<<<< HEAD
 import           System.Wlog (WithLogger)
+=======
+import           Serokell.Util (sec)
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
 import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgMessageCacheTimeout)
@@ -20,6 +24,8 @@ import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Util (microsecondsToUTC)
 import           Pos.Util.LRU (filterLRU)
+import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Unstructured (LogItem)
 
 -- | This is a subset of 'WorkMode'.
 type DlgWorkerConstraint ctx m
@@ -29,7 +35,6 @@ type DlgWorkerConstraint ctx m
        , Mockable Delay m
        , HasShutdownContext ctx
        , MonadDelegation ctx m
-       , WithLogger m
        , MonadReporting m
        , MonadReader ctx m
        , Mockable CurrentTime m
@@ -37,12 +42,12 @@ type DlgWorkerConstraint ctx m
 
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (DlgWorkerConstraint ctx m) => [Diffusion m -> m ()]
-dlgWorkers = [\_ -> dlgInvalidateCaches]
+dlgWorkers :: (DlgWorkerConstraint ctx m) => Trace m LogItem -> [Diffusion m -> m ()]
+dlgWorkers logTrace = [\_ -> dlgInvalidateCaches logTrace]
 
 -- | Runs proxy caches invalidating action every second.
-dlgInvalidateCaches :: DlgWorkerConstraint ctx m => m ()
-dlgInvalidateCaches =
+dlgInvalidateCaches :: DlgWorkerConstraint ctx m => Trace m LogItem -> m ()
+dlgInvalidateCaches logTrace =
     -- When dlgInvalidateCaches calls itself directly, it leaks memory. The
     -- reason for that is that reference to dlgInvalidateCaches is kept in
     -- memory (by usage of dlgWorkers) and as it is executed it expands
@@ -51,8 +56,13 @@ dlgInvalidateCaches =
     -- size. Relevant GHC ticket: https://ghc.haskell.org/trac/ghc/ticket/13080
     fix $ \loop -> do
         -- REPORT:ERROR 'reportOrLogE' in delegation worker.
+<<<<<<< HEAD
         invalidate `catchAny` reportOrLogE "Delegation worker, error occurred: "
         delay (1 :: Second)
+=======
+        invalidate `catchAny` reportOrLogE logTrace "Delegation worker, error occurred: "
+        delay (sec 1)
+>>>>>>> vagoum/CBR-213/introduce_trace
         loop
   where
     invalidate = do

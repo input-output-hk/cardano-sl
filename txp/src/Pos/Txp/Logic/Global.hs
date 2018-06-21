@@ -24,7 +24,7 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (listJson)
 
-import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic, epochIndexL)
+import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic, StakeholderId, epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
@@ -48,7 +48,7 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug, publicPrivateLogItem)
 
-{-
+
 logCreatedStakeholderIdsAfterToil
     :: Applicative m
     => Trace m LogItem
@@ -57,7 +57,7 @@ logCreatedStakeholderIdsAfterToil
 logCreatedStakeholderIdsAfterToil logTrace createdStakes =
     unless (null createdStakes) $
         logDebug logTrace (sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes)
--}
+
 
 ----------------------------------------------------------------------------
 -- Settings
@@ -69,7 +69,7 @@ txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpGlobalSettings
 txpGlobalSettings pm =
     TxpGlobalSettings
     { tgsVerifyBlocks = \_ -> verifyBlocks pm
-    , tgsApplyBlocks =  \logTrace -> applyBlocksWith logTrace pm (processBlundsSettings False applyToil)
+    , tgsApplyBlocks =  \logTrace -> applyBlocksWith logTrace pm (processBlundsSettings False ((fmap . fmap) (logCreatedStakeholderIdsAfterToil logTrace) applyToil))
     , tgsRollbackBlocks = rollbackBlocks
     }
 
@@ -218,8 +218,8 @@ rollbackBlocks ::
     -> NewestFirst NE TxpBlund
     -> m SomeBatchOp
 rollbackBlocks logTrace (NewestFirst blunds) =
-    --processBlunds (processBlundsSettings True ((fmap . fmap ) (logCreatedStakeholderIdsAfterToil logTrace) rollbackToil)) blunds
-    processBlunds (processBlundsSettings True rollbackToil) blunds
+    processBlunds (processBlundsSettings True ((fmap . fmap ) (logCreatedStakeholderIdsAfterToil logTrace) rollbackToil)) blunds
+    --processBlunds (processBlundsSettings True rollbackToil) blunds
 
 ----------------------------------------------------------------------------
 -- Helpers

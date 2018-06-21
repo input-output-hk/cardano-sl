@@ -21,8 +21,8 @@ import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, withAsyncWithUnmask)
 import           Pos.Crypto.Random (randomNumber)
-import           Pos.Util.Log (WithLogger, logWarning)
-import           Pos.Util.Log.LogSafe (logWarningS)
+import           Pos.Util.Trace (Trace, traceWith)
+
 
 
 -- | Data type to represent waiting strategy for printing warnings
@@ -36,16 +36,16 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
+-- FIXME: Used for backwards compatibility with Mockable, tightly connected to
+-- removal of Trace
 type CanLogInParallel m =
-    (Mockable Delay m, Mockable Async m, MonadMask m, WithLogger m, MonadIO m)
+    (Mockable Delay m, Mockable Async m, MonadMask m, MonadIO m)
 
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction
-    :: forall m a.
-       CanLogInParallel m
-    => Bool -> WaitingDelta -> Text -> m a -> m a
-logWarningLongAction secure delta actionTag action =
+    :: forall m a. CanLogInParallel m => Trace m Text -> WaitingDelta -> Text -> m a -> m a
+logWarningLongAction logTrace delta actionTag action =
     -- Previous implementation was
     --
     --   bracket (fork $ waitAndWarn delta) killThread (const action)
@@ -62,9 +62,7 @@ logWarningLongAction secure delta actionTag action =
     -- this function is going to be called under 'mask'.
     withAsyncWithUnmask (\unmask -> unmask $ waitAndWarn delta) (const action)
   where
-    logFunc :: Text -> m ()
-    logFunc = bool logWarning logWarningS secure
-    printWarning t = logFunc $ sformat ("Action `"%stext%"` took more than "%shown)
+    printWarning t = traceWith logTrace $ sformat ("Action `"%stext%"` took more than "%shown)
                                        actionTag t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)
@@ -87,21 +85,21 @@ logWarningLongAction secure delta actionTag action =
 {- Helper functions to avoid dealing with data type -}
 
 -- | Specialization of 'logWarningLongAction' with 'WaitOnce'.
-logWarningWaitOnce :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitOnce = logWarningLongAction False . WaitOnce
+logWarningWaitOnce :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
+logWarningWaitOnce logTrace = logWarningLongAction logTrace . WaitOnce
 
 -- | Specialization of 'logWarningLongAction' with 'WaiLinear'.
-logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitLinear = logWarningLongAction False . WaitLinear
+logWarningWaitLinear :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
+logWarningWaitLinear logTrace = logWarningLongAction logTrace . WaitLinear
 
 -- | Secure version of 'logWarningWaitLinear'.
-logWarningSWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningSWaitLinear = logWarningLongAction True . WaitLinear
+logWarningSWaitLinear :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
+logWarningSWaitLinear logTrace  = logWarningLongAction logTrace . WaitLinear
 
 -- | Specialization of 'logWarningLongAction' with 'WaitGeometric'
 -- with parameter @1.3@. Accepts 'Second'.
-logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitInf = logWarningLongAction False . (`WaitGeometric` 1.3) . convertUnit
+logWarningWaitInf :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
+logWarningWaitInf logTrace = logWarningLongAction logTrace . (`WaitGeometric` 1.3) . convertUnit
 
 -- TODO remove MonadIO in preference to some `Mockable Random`
 -- | Wait random number of 'Microsecond'`s between min and max.

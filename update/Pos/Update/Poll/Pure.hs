@@ -10,6 +10,8 @@ module Pos.Update.Poll.Pure
 import           Universum
 
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
+import           Data.DList (DList)
+import qualified Data.DList as DList
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
@@ -22,18 +24,31 @@ import qualified Pos.Update.Poll.PollState as Poll
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
                                         UndecidedProposalState (..), cpsSoftwareVersion,
                                         propStateToEither, psProposal)
+<<<<<<< HEAD
 --import qualified Pos.Util.Log as Log
 --import           Pos.Util.Trace (TraceIO, traceWith, logDebug, logWarning)
+=======
+import           Pos.Util.Trace.Unstructured (LogItem, logWarning, logDebug)
+import           Pos.Util.Trace (Trace{-, natTrace, traceWith-})
+
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: StateT Poll.PollState Identity a
     } deriving (Functor, Applicative, Monad, MonadState Poll.PollState)
 
+<<<<<<< HEAD
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState)
 runPurePollWithLogger ps pp =
     let innerMonad = usingStateT ps . getPurePoll $ pp
     in  (\((a, finalState){-, logs-}) -> (a, finalState{-, logs-})) . runIdentity $ innerMonad
+=======
+runPurePollWithLogger :: Trace m LogItem -> Poll.PollState -> PurePoll a -> (a, Poll.PollState, DList LogItem)
+runPurePollWithLogger logTrace ps pp =
+    let innerMonad = usingStateT ps . getPurePoll $ pp
+    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . (traceWith logTrace)  innerMonad
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 {-
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
@@ -59,8 +74,13 @@ instance MonadPollRead PurePoll where
         propGetByApp appHashmap upIdHashmap =
             case HM.lookup an appHashmap of
                 Nothing -> do
+<<<<<<< HEAD
                     {-liftIO $ traceWith (logDebug trace) $
                         "getProposalsByApp: unknown application name " <> pretty an-}
+=======
+                    logDebug logTrace$
+                        "getProposalsByApp: unknown application name " <> pretty an
+>>>>>>> vagoum/CBR-213/introduce_trace
                     pure []
                 Just hashset -> do
                     let uidList = toList hashset
@@ -93,13 +113,18 @@ instance MonadPollRead PurePoll where
 instance MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
     delBVState bv = PurePoll $ Poll.psBlockVersions . at bv .= Nothing
-    setAdoptedBV bv = do
+    setAdoptedBV logTrace bv = do
         bvs <- getBVState bv
         case bvs of
             Nothing ->
+<<<<<<< HEAD
                 return ()
                 --Log.logWarning $
                 --    "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+=======
+                logWarning logTrace $
+                    "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+>>>>>>> vagoum/CBR-213/introduce_trace
             Just (bvsModifier -> bvm) -> PurePoll $ do
                 Poll.psAdoptedBV . _1 .= bv
                 Poll.psAdoptedBV . _2 %= applyBVM bvm

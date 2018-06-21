@@ -22,7 +22,11 @@ import           Control.Lens ((+=), (.=))
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph (hoist)
 import qualified Crypto.Random as Rand
+<<<<<<< HEAD
 import           Data.DList as DList (singleton)
+=======
+import qualified Data.DList as DList (singleton)
+>>>>>>> vagoum/CBR-213/introduce_trace
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (int, sformat, (%))
@@ -46,14 +50,14 @@ import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
-                              sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM, syncingStateWith)
+                              sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM)
 import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,
                                execTossT, hasCertificateToss, hasCommitmentToss, hasOpeningToss,
                                hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
                                supplyPureTossEnv, tmCertificates, tmCommitments, tmOpenings,
                                tmShares, verifyAndApplySscPayload, pureTossWithEnvTrace)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
-                                sscGlobal, sscLocal)
+                                sscGlobal)
 import           Pos.Util.Trace (Trace, natTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)
@@ -69,8 +73,13 @@ sscGetLocalPayload logTrace si = sscRunLocalQuery (sscGetLocalPayloadQ si logTra
 
 sscGetLocalPayloadQ
   :: (HasProtocolConstants)
+<<<<<<< HEAD
   => SlotId -> Trace m LogItem-> SscLocalQuery SscPayload
 sscGetLocalPayloadQ SlotId {..} logTrace= do
+=======
+  => SlotId -> SscLocalQuery SscPayload
+sscGetLocalPayloadQ SlotId {..} logTrace = do
+>>>>>>> vagoum/CBR-213/introduce_trace
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <- 
@@ -109,7 +118,6 @@ sscNormalize logTrace pm = do
     richmenData <- getSscRichmen "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
-    localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
     seed <- Rand.drgNew
 
@@ -128,6 +136,7 @@ sscNormalizeU
     -> BlockVersionData
     -> SscGlobalState
     -> SscLocalUpdate ()
+<<<<<<< HEAD
 sscNormalizeU pm (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
@@ -139,6 +148,18 @@ sscNormalizeU pm (epoch, stake) bvd gs = do
         normalizeToss
             (natTrace lift pureTossWithEnvTrace)
             pm epoch oldModifier
+=======
+sscNormalizeU (epoch, stake) bvd gs = do
+    oldModifier <- lift $ use ldModifier
+    let multiRichmen = HM.fromList [(epoch, stake)]
+        logTrace = contramap DList.singleton writerTrace
+    newModifier <-
+        evalPureTossWithLogger gs logTrace $ supplyPureTossEnv (multiRichmen, bvd) $
+        execTossT mempty $ normalizeToss
+        (natTrace lift pureTossWithEnvTrace)
+        epoch
+        oldModifier
+>>>>>>> vagoum/CBR-213/introduce_trace
     ldModifier .= newModifier
     ldEpoch .= epoch
     ldSize .= biSize newModifier
@@ -150,9 +171,13 @@ sscNormalizeU pm (epoch, stake) bvd gs = do
 -- | Check whether SSC data with given tag and public key can be added
 -- to current local data.
 sscIsDataUseful
+<<<<<<< HEAD
     :: forall ctx m. 
        ( MonadIO m
        , MonadSlots ctx m
+=======
+    :: forall ctx m .( MonadSlots ctx m
+>>>>>>> vagoum/CBR-213/introduce_trace
        , MonadSscMem ctx m
        , Rand.MonadRandom m
        , HasGenesisData
@@ -169,7 +194,16 @@ sscIsDataUseful logTrace tag id =
     sscIsDataUsefulDo OpeningMsg        = not <$> hasOpeningToss id
     sscIsDataUsefulDo SharesMsg         = not <$> hasSharesToss id
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
+<<<<<<< HEAD
     evalTossInMem :: TossT PureToss a -> m a
+=======
+    evalTossInMem
+        :: {-( MonadIO m
+           , MonadSscMem ctx m
+           , Rand.MonadRandom m
+           )
+        => -}TossT PureToss a -> m a
+>>>>>>> vagoum/CBR-213/introduce_trace
     evalTossInMem action = do
         gs <- sscRunGlobalQuery ask
         ld <- sscRunLocalQuery ask
@@ -192,6 +226,7 @@ type SscDataProcessingMode ctx m =
 
 -- | Process 'SignedCommitment' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
+<<<<<<< HEAD
 sscProcessCommitment
     :: SscDataProcessingMode ctx m
     => Trace m LogItem 
@@ -213,10 +248,29 @@ sscProcessOpening
     -> m (Either SscVerifyError ())
 sscProcessOpening logTrace pm id opening =
     sscProcessData logTrace pm OpeningMsg $
+=======
+sscProcessCommitment 
+    :: SscDataProcessingMode ctx m
+    => Trace m LogItem
+    -> SignedCommitment -> m (Either SscVerifyError ())
+sscProcessCommitment logTrace comm =
+    sscProcessData logTrace CommitmentMsg $
+    CommitmentsPayload (mkCommitmentsMap [comm]) mempty
+
+-- | Process 'Opening' received from network, checking it against
+-- current state (global + local) and adding to local state if it's valid.
+sscProcessOpening 
+    :: SscDataProcessingMode ctx m 
+    => Trace m LogItem
+    -> StakeholderId -> Opening -> m (Either SscVerifyError ())
+sscProcessOpening logTrace id opening =
+    sscProcessData logTrace OpeningMsg $
+>>>>>>> vagoum/CBR-213/introduce_trace
     OpeningsPayload (HM.fromList [(id, opening)]) mempty
 
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
+<<<<<<< HEAD
 sscProcessShares
     :: SscDataProcessingMode ctx m
     => Trace m LogItem 
@@ -248,6 +302,30 @@ sscProcessData
     -> SscPayload
     -> m (Either SscVerifyError ())
 sscProcessData logTrace pm tag payload =
+=======
+sscProcessShares 
+    :: SscDataProcessingMode ctx m
+    => Trace m LogItem
+    -> StakeholderId -> InnerSharesMap -> m (Either SscVerifyError ())
+sscProcessShares logTrace id shares =
+    sscProcessData logTrace SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
+
+-- | Process 'VssCertificate' received from network, checking it against
+-- current state (global + local) and adding to local state if it's valid.
+sscProcessCertificate 
+    :: SscDataProcessingMode ctx m
+     => Trace m LogItem
+     -> VssCertificate -> m (Either SscVerifyError ())
+sscProcessCertificate logTrace cert =
+    sscProcessData logTrace VssCertificateMsg $
+    CertificatesPayload (mkVssCertificatesMapSingleton cert)
+
+sscProcessData 
+    :: SscDataProcessingMode ctx m 
+    => Trace m LogItem 
+    ->SscTag -> SscPayload -> m (Either SscVerifyError ())
+sscProcessData logTrace tag payload =
+>>>>>>> vagoum/CBR-213/introduce_trace
     runExceptT $ do
         getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
@@ -257,12 +335,21 @@ sscProcessData logTrace pm tag payload =
         lift (tryGetSscRichmen epoch) >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
+<<<<<<< HEAD
+=======
+                -- (avieth): A 'Trace' for use by 'sscProcessDataDo', which here will
+                -- run in a 'WriterT' over 'STM' (with some state in between).
+>>>>>>> vagoum/CBR-213/introduce_trace
                 let logTrace' = contramap DList.singleton writerTrace
                 gs <- sscRunGlobalQuery ask
                 ExceptT $
                     sscRunLocalSTM logTrace $
                     executeMonadBaseRandom seed $
+<<<<<<< HEAD
                     sscProcessDataDo logTrace' pm (epoch, richmen) bvd gs payload
+=======
+                    sscProcessDataDo logTrace' (epoch, richmen) bvd gs payload
+>>>>>>> vagoum/CBR-213/introduce_trace
   where
     checkSlot Nothing = throwError CurrentSlotUnknown
     checkSlot (Just si@SlotId {..})
@@ -276,15 +363,25 @@ sscProcessData logTrace pm tag payload =
 
 sscProcessDataDo
     :: (MonadState SscLocalData m, HasGenesisData
+<<<<<<< HEAD
       , Rand.MonadRandom m, HasProtocolConstants)
     => Trace m LogItem 
     -> ProtocolMagic
+=======
+      , Rand.MonadRandom m, HasProtocolConstants
+      , HasProtocolMagic)
+    => Trace m LogItem 
+>>>>>>> vagoum/CBR-213/introduce_trace
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
     -> SscPayload
     -> m (Either SscVerifyError ())
+<<<<<<< HEAD
 sscProcessDataDo logTrace pm richmenData bvd gs payload =
+=======
+sscProcessDataDo logTrace richmenData bvd gs payload =
+>>>>>>> vagoum/CBR-213/introduce_trace
     runExceptT $ do
         storedEpoch <- use ldEpoch
         let givenEpoch = fst richmenData
@@ -308,12 +405,18 @@ sscProcessDataDo logTrace pm richmenData bvd gs payload =
             evalPureTossWithLogger gs logTrace $
             supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
+<<<<<<< HEAD
             execTossT oldTM $ 
             verifyAndApplySscPayload
                 pm
                 (natTrace (lift .lift) pureTossWithEnvTrace) 
                 (Left storedEpoch)
                 payload
+=======
+            execTossT oldTM $ verifyAndApplySscPayload 
+                (natTrace (lift . lift) pureTossWithEnvTrace)
+                (Left storedEpoch) payload
+>>>>>>> vagoum/CBR-213/introduce_trace
         ldModifier .= newTM
         -- If mempool was exhausted, it's easier to recompute total size.
         -- Otherwise (most common case) we don't want to spend time on it and

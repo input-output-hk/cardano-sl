@@ -18,6 +18,11 @@ import           Pos.Core.Update (UpId)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         DecidedProposalState, ProposalState, UndecidedProposalState)
+{-import           Pos.Util.Trace (Trace, natTrace)
+
+import           Pos.Util.Trace.Unstructured (LogItem{-, logDebug, logError, logWarning-})
+-}
+
 
 
 ----------------------------------------------------------------------------
@@ -26,7 +31,11 @@ import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalStat
 
 -- | Type class which provides function necessary for read-only
 -- verification of US data.
+<<<<<<< HEAD
 class Monad m => MonadPollRead m where
+=======
+class (Monad m) => MonadPollRead m where
+>>>>>>> vagoum/CBR-213/introduce_trace
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]
@@ -102,7 +111,7 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Put state of BlockVersion overriding if it exists.
     delBVState :: BlockVersion -> m ()
     -- ^ Delete BlockVersion and associated state.
-    setAdoptedBV :: BlockVersion -> m ()
+    setAdoptedBV :: {-Trace m LogItem -> -}BlockVersion -> m ()
     -- ^ Set last adopted block version. State is taken from competing states.
     setLastConfirmedSV :: SoftwareVersion -> m ()
     -- ^ Set last confirmed version of application.
@@ -127,7 +136,7 @@ instance {-# OVERLAPPABLE #-}
   where
     putBVState pv = lift . putBVState pv
     delBVState = lift . delBVState
-    setAdoptedBV = lift . setAdoptedBV
+    setAdoptedBV  =  lift . setAdoptedBV
     setLastConfirmedSV = lift . setLastConfirmedSV
     delConfirmedSV = lift . delConfirmedSV
     addConfirmedProposal = lift . addConfirmedProposal

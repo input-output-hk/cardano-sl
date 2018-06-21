@@ -20,10 +20,15 @@ import           Control.Lens (at, uses, (%=), (.=))
 import           Control.Monad.Trans.Writer (WriterT (..))
 import qualified Crypto.Random as Rand
 import           Data.DList (DList)
+<<<<<<< HEAD
 import           Data.DList as DList
 import           Data.Functor.Contravariant
 --import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger (..),
 --                               WithLogger, dispatchEvents, runNamedPureLog)
+=======
+import qualified Data.DList as DList
+import           Data.Functor.Contravariant (contramap)
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 import           Pos.Core (BlockVersionData, EpochIndex, HasGenesisData, HasProtocolConstants,
                            crucialSlot, genesisVssCerts)
@@ -36,6 +41,10 @@ import qualified Pos.Ssc.VssCertData as VCD
 import           Pos.Util.Trace (Trace, natTrace, traceWith)
 import           Pos.Util.Trace.Unstructured (LogItem)
 import           Pos.Util.Trace.Writer (writerTrace)
+<<<<<<< HEAD
+=======
+
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes
 type MultiRichmenSet   = HashMap EpochIndex RichmenSet
@@ -89,39 +98,70 @@ instance (HasProtocolConstants, HasGenesisData) => MonadToss PureToss where
     resetShares = PureToss $ sgsShares .= mempty
     setEpochOrSlot eos = PureToss $ sgsVssCertificates %= VCD.setLastKnownEoS eos
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> vagoum/CBR-213/introduce_trace
 pureTossTrace :: Trace PureToss LogItem
 pureTossTrace = contramap DList.singleton (natTrace PureToss writerTrace)
 
 pureTossWithEnvTrace :: Trace PureTossWithEnv LogItem
 pureTossWithEnvTrace = natTrace (PureTossWithEnv . ReaderT . const) pureTossTrace
+<<<<<<< HEAD
  
+=======
+
+
+>>>>>>> vagoum/CBR-213/introduce_trace
 runPureToss
     :: Rand.MonadRandom m
     => SscGlobalState
     -> PureToss a
+<<<<<<< HEAD
     -> m (a, SscGlobalState, DList LogItem)
+=======
+    -> m (a, SscGlobalState , DList LogItem)
+>>>>>>> vagoum/CBR-213/introduce_trace
 runPureToss gs (PureToss act) = do
     seed <- Rand.drgNew
     let ((res, newGS) , events) =
             fst . Rand.withDRG seed $    -- run MonadRandom
+<<<<<<< HEAD
             runWriterT $
+=======
+            runWriterT $                 -- run the DList Writer
+>>>>>>> vagoum/CBR-213/introduce_trace
             runStateT act gs             -- run State
     pure (res, newGS , events)
 
 runPureTossWithLogger
     :: Rand.MonadRandom m
     => SscGlobalState
+<<<<<<< HEAD
     -> Trace m LogItem 
     -> PureToss a
     -> m (a, SscGlobalState)
 runPureTossWithLogger gs logTrace act = do
     (res, newGS ,events) <- runPureToss gs act
     (res, newGS) <$ (forM_ events (traceWith logTrace))
+=======
+    -> Trace m LogItem
+    -> PureToss a
+    -> m (a, SscGlobalState)
+runPureTossWithLogger gs logTrace act = do
+    (res, newGS , events ) <- runPureToss gs act
+    (res, newGS) <$ (forM_ events (traceWith logTrace)) 
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 evalPureTossWithLogger
     :: Rand.MonadRandom m
     => SscGlobalState
+<<<<<<< HEAD
     -> Trace m LogItem
+=======
+    -> Trace m LogItem 
+>>>>>>> vagoum/CBR-213/introduce_trace
     -> PureToss a
     -> m a
 evalPureTossWithLogger g logTrace = fmap fst . runPureTossWithLogger g logTrace
@@ -129,10 +169,17 @@ evalPureTossWithLogger g logTrace = fmap fst . runPureTossWithLogger g logTrace
 execPureTossWithLogger
     :: Rand.MonadRandom m
     => SscGlobalState
+<<<<<<< HEAD
     -> Trace m LogItem
     -> PureToss a
     -> m SscGlobalState
 execPureTossWithLogger g logTrace = fmap snd . runPureTossWithLogger g logTrace 
+=======
+    -> Trace m LogItem 
+    -> PureToss a
+    -> m SscGlobalState
+execPureTossWithLogger g logTrace = fmap snd . runPureTossWithLogger g logTrace
+>>>>>>> vagoum/CBR-213/introduce_trace
 
 supplyPureTossEnv
     :: (MultiRichmenStakes, BlockVersionData)

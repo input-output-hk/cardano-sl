@@ -16,7 +16,7 @@ import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Data.Typeable (typeRep)
-import           Formatting (sformat)
+import           Formatting (sformat, build)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -195,7 +195,7 @@ instance Migrate V0.AccountId (V1.WalletId, V1.AccountIndex) where
         (,)
             <$> eitherMigrate (V0.aiWId accId)
             <*> first
-                    Errors.MigrationFailed
+                    (Errors.MigrationFailed . sformat build)
                     (V1.mkAccountIndex $ V0.aiIndex accId)
 
 instance Migrate V0.CAccountId V0.AccountId where

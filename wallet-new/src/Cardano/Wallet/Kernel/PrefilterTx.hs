@@ -4,7 +4,6 @@
 
 module Cardano.Wallet.Kernel.PrefilterTx
        ( PrefilteredBlock(..)
-       , PrefilteredUtxo
        , AddrWithId
        , prefilterBlock
        , prefilterUtxo
@@ -20,7 +19,7 @@ import           Serokell.Util (listJson, mapJson)
 
 import           Data.SafeCopy (base, deriveSafeCopy)
 
-import           Pos.Core (Address (..))
+import           Pos.Core (Address (..), TxId)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp.Toil.Types (Utxo)
@@ -29,9 +28,11 @@ import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
                      eskToWalletDecrCredentials, selectOwnAddresses)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
-                     ResolvedInput, ResolvedTx, rbTxs, rtxInputs, rtxOutputs)
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedInput, ResolvedTx,
+                                                    rbSlot, rbTxs, rtxInputs, rtxOutputs)
+import           Cardano.Wallet.Kernel.DB.BlockMeta
+
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
@@ -46,9 +47,6 @@ type UtxoWithAddrId = Map TxIn (TxOutAux,HdAddressId)
 --   the Address in the context of the Wallet/Accounts/Addresses hierarchy.
 type AddrWithId = (HdAddressId,Address)
 
--- | Utxo along with all (extended) addresses ocurring in the Utxo
-type PrefilteredUtxo = (Utxo,[AddrWithId])
-
 -- | Prefiltered block
 --
 -- A prefiltered block is a block that contains only inputs and outputs from
@@ -62,21 +60,29 @@ data PrefilteredBlock = PrefilteredBlock {
 
       -- | all output addresses present in the Utxo
     , pfbAddrs   :: [AddrWithId]
+
+      -- | Prefiltered block metadata
+    , pfbMeta    :: BlockMeta
     }
 
 deriveSafeCopy 1 'base ''PrefilteredBlock
 
 type WalletKey = (WalletId, WalletDecrCredentials)
 
-toPrefilteredUtxo :: UtxoWithAddrId -> PrefilteredUtxo
-toPrefilteredUtxo utxoWithAddrs = (Map.fromList utxo', addrs')
+-- | Produce Utxo along with all (extended) addresses and TxIds ocurring in the Utxo
+toPrefilteredUtxo :: UtxoWithAddrId -> (Utxo,[AddrWithId],[TxId])
+toPrefilteredUtxo utxoWithAddrs = (Map.fromList utxo', addrs', concat txIds')
     where
         toUtxo  (txIn,(txOutAux,_))         = (txIn,txOutAux)
         toAddrs (_   ,(txOutAux,addressId)) = (addressId, txOutAddress . toaOut $ txOutAux)
 
+        toTxId  ((TxInUtxo txId _),_)       = [txId]
+        toTxId  ((TxInUnknown _ _),_)       = []
+
         utxoWithAddrs' = Map.toList utxoWithAddrs
         utxo'  = map toUtxo  utxoWithAddrs'
         addrs' = map toAddrs utxoWithAddrs'
+        txIds' = map toTxId  utxoWithAddrs'
 
 -- | Prefilter the transactions of a resolved block for the given wallet.
 --
@@ -89,12 +95,16 @@ prefilterBlock wid esk block
     = Map.fromList $ map mkPrefBlock (Set.toList accountIds)
   where
     mkPrefBlock accId'
-        = (accId', PrefilteredBlock inps' outs' addrs')
+        = (accId', PrefilteredBlock inps' outs' addrs' blockMeta')
         where
             byAccountId accId'' def dict = fromMaybe def $ Map.lookup accId'' dict
 
-            inps'           =                    byAccountId accId' Set.empty inpAll
-            (outs', addrs') = toPrefilteredUtxo (byAccountId accId' Map.empty outAll)
+            inps'                   =                    byAccountId accId' Set.empty inpAll
+            (outs', addrs', txIds') = toPrefilteredUtxo (byAccountId accId' Map.empty outAll)
+
+            blockMeta' = mkBlockMeta txIds'
+
+    mkBlockMeta = BlockMeta . InDb . Map.fromList . map (,slotId)
 
     wdc :: WalletDecrCredentials
     wdc = eskToWalletDecrCredentials esk
@@ -109,6 +119,7 @@ prefilterBlock wid esk block
     inpAll = Map.unionsWith Set.union inps
     outAll = Map.unionsWith Map.union outs
 
+    slotId = block ^. rbSlot . fromDb
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
 -- | Prefilter the inputs and outputs of a resolved transaction
@@ -142,7 +153,7 @@ prefilterUtxo' wid utxo
                                         Map.singleton txIn (txOut, addressId))
 
 -- | Prefilter utxo using walletId and esk
-prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId PrefilteredUtxo
+prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId (Utxo,[AddrWithId],[TxId])
 prefilterUtxo rootId esk utxo = map toPrefilteredUtxo (prefilterUtxo' wKey utxo)
     where
         wKey = (WalletIdHdRnd rootId, eskToWalletDecrCredentials esk)

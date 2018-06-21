@@ -58,6 +58,10 @@ instance SafeCopy (InDb Core.Coin) where
   getCopy = error "TODO: getCopy for (InDb Core.Coin)"
   putCopy = error "TODO: putCopy for (InDb Core.Coin)"
 
+instance SafeCopy (InDb Core.SlotId) where
+  getCopy = error "TODO: getCopy for (InDb Core.SlotId)"
+  putCopy = error "TODO: putCopy for (InDb Core.SlotId)"
+
 instance SafeCopy (InDb (Map Core.TxId Core.TxAux)) where
   getCopy = error "TODO: getCopy for (InDb (Map Core.TxId Core.TxAux))"
   putCopy = error "TODO: putCopy for (InDb (Map Core.TxId Core.TxAux))"
@@ -65,6 +69,10 @@ instance SafeCopy (InDb (Map Core.TxId Core.TxAux)) where
 instance SafeCopy (InDb Core.TxAux) where
   getCopy = error "TODO: getCopy for (InDb Core.TxAux)"
   putCopy = error "TODO: putCopy for (InDb Core.TxAux)"
+
+instance SafeCopy (InDb Core.TxId) where
+  getCopy = error "TODO: getCopy for (InDb Core.TxId)"
+  putCopy = error "TODO: putCopy for (InDb Core.TxId)"
 
 instance SafeCopy (InDb Core.TxIn) where
   getCopy = error "TODO: getCopy for (InDb Core.TxIn)"

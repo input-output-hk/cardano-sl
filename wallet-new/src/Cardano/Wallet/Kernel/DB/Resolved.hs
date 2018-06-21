@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric, DeriveDataTypeable             #-}
+
 -- | Resolved blocks and transactions
 module Cardano.Wallet.Kernel.DB.Resolved (
     -- * Resolved blocks and transactions
@@ -8,6 +10,7 @@ module Cardano.Wallet.Kernel.DB.Resolved (
   , rtxInputs
   , rtxOutputs
   , rbTxs
+  , rbSlot
   ) where
 
 import           Universum
@@ -16,7 +19,8 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.Map as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, (%))
-import qualified Formatting.Buildable
+import           Formatting.Buildable
+
 import           Serokell.Util (listJson, mapJson)
 
 import qualified Pos.Core as Core
@@ -56,6 +60,9 @@ data ResolvedTx = ResolvedTx {
 data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
       _rbTxs  :: [ResolvedTx]
+
+      -- | Source MainBlock SlotId
+    , _rbSlot :: InDb Core.SlotId
     }
 
 makeLenses ''ResolvedTx

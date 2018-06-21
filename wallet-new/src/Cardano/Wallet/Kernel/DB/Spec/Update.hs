@@ -96,10 +96,10 @@ cancelPending txids checkpoints =
                 )
 
 -- | Apply the prefiltered block to the specified wallet
-applyBlock :: (PrefilteredBlock, BlockMeta)
+applyBlock :: PrefilteredBlock
            -> Checkpoints
            -> Checkpoints
-applyBlock (prefBlock, _bMeta) checkpoints
+applyBlock prefBlock checkpoints
     = Checkpoint {
           _checkpointUtxo           = InDb utxo''
         , _checkpointUtxoBalance    = InDb balance''
@@ -110,14 +110,17 @@ applyBlock (prefBlock, _bMeta) checkpoints
     where
         utxo'        = checkpoints ^. currentUtxo
         utxoBalance' = checkpoints ^. currentUtxoBalance
-        pending'     = checkpoints ^. currentPendingTxs
 
-        (utxo'', balance'') = updateUtxo prefBlock (utxo', utxoBalance')
-        pending''           = updatePending prefBlock pending'
-        -- TODO(@uroboros/ryan) applyBlock.updateExpected/updateBlockMeta
+        (utxo'', balance'') = updateUtxo      prefBlock (utxo', utxoBalance')
+        pending''           = updatePending   prefBlock (checkpoints ^. currentPendingTxs)
+        blockMeta''         = updateBlockMeta prefBlock (checkpoints ^. currentBlockMeta)
+        -- TODO(@uroboros/ryan) applyBlock.updateExpected
         -- (as part of CBR-150 Extend pure data layer to support rollback)
         expected''          = checkpoints ^. currentExpected
-        blockMeta''         = checkpoints ^. currentBlockMeta
+
+updateBlockMeta :: PrefilteredBlock -> BlockMeta -> BlockMeta
+updateBlockMeta PrefilteredBlock{..} meta
+    = pfbMeta `mappend` meta
 
 -- | Update (utxo,balance) with the given prefiltered block
 updateUtxo :: PrefilteredBlock -> (Utxo, Core.Coin) -> (Utxo, Core.Coin)
@@ -145,11 +148,11 @@ rollback = error "rollback"
 
 -- | Switch to a fork
 switchToFork :: Int  -- ^ Number of blocks to rollback
-             -> OldestFirst [] (PrefilteredBlock, BlockMeta)  -- ^ Blocks to apply
+             -> OldestFirst [] PrefilteredBlock  -- ^ Blocks to apply
              -> Checkpoints -> Checkpoints
 switchToFork = \n bs -> applyBlocks (getOldestFirst bs) . rollbacks n
   where
-    applyBlocks :: [(PrefilteredBlock, BlockMeta)] -> Checkpoints -> Checkpoints
+    applyBlocks :: [PrefilteredBlock] -> Checkpoints -> Checkpoints
     applyBlocks []     = identity
     applyBlocks (b:bs) = applyBlocks bs . applyBlock b
 

@@ -19,8 +19,6 @@ import           Formatting (bprint, build, builder, (%))
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                                    deriveSimpleBi, encodeListLen,
                                    enforceSize)
-import           Pos.Binary.Core.Ssc ()
-import           Pos.Binary.Core.Update ()
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Core.Txp (TxPayload, TxProof)

@@ -22,7 +22,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 import           Pos.Core.Common (StakeholderId, addressHash)
 
-import           Pos.Binary.Class (AsBinary)
+import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen, enforceSize)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, SignTag (SignVssCert), Signature,
                              VssPublicKey, checkSig, sign, toPublic)
@@ -70,6 +70,19 @@ instance Buildable VssCertificate where
 instance Hashable VssCertificate where
     hashWithSalt s UnsafeVssCertificate{..} =
         hashWithSalt s (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
+
+instance Bi VssCertificate where
+    encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
+                                     <> encode (vcExpiryEpoch vssCert)
+                                     <> encode (vcSignature vssCert)
+                                     <> encode (vcSigningKey vssCert)
+    decode = do
+        enforceSize "VssCertificate" 4
+        key <- decode
+        epo <- decode
+        sig <- decode
+        sky <- decode
+        pure $ UnsafeVssCertificate key epo sig sky
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.

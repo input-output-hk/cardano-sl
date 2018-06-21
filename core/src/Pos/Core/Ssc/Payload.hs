@@ -14,11 +14,13 @@ import           Serokell.Util (listJson)
 
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Ssc.CommitmentsMap
 import           Pos.Core.Ssc.OpeningsMap
 import           Pos.Core.Ssc.SharesMap
 import           Pos.Core.Ssc.VssCertificate (VssCertificate (vcExpiryEpoch))
 import           Pos.Core.Ssc.VssCertificatesMap
+import           Pos.Util.Util (cborError)
 
 -- | Payload included into blocks.
 data SscPayload
@@ -89,3 +91,21 @@ checkSscPayload
     -> SscPayload
     -> m ()
 checkSscPayload pm payload = checkVssCertificatesMap pm (spVss payload)
+
+
+-- TH-generated instances go to the end of the file
+
+deriveSimpleBi ''SscPayload [
+    Cons 'CommitmentsPayload [
+        Field [| spComms    :: CommitmentsMap     |],
+        Field [| spVss      :: VssCertificatesMap |] ],
+    Cons 'OpeningsPayload [
+        Field [| spOpenings :: OpeningsMap        |],
+        Field [| spVss      :: VssCertificatesMap |] ],
+    Cons 'SharesPayload [
+        Field [| spShares   :: SharesMap          |],
+        Field [| spVss      :: VssCertificatesMap |] ],
+    Cons 'CertificatesPayload [
+        Field [| spVss      :: VssCertificatesMap |] ]
+    ]
+

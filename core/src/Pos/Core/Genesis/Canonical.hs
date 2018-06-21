@@ -28,7 +28,6 @@ import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, 
                                       expectedButGotValue, fromJSField, fromJSObject, mkObject)
 
 import           Pos.Binary.Class (AsBinary (..))
-import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coeff (..), Coin (..), CoinPortion (..), SharedSeed (..),
                                   StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
                                   decodeTextAddress, getCoinPortion, unsafeGetCoin)

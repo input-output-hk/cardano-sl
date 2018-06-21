@@ -24,9 +24,8 @@ library
                        Pos.Aeson.Fee
                        Pos.Aeson.Genesis
 
-                       Pos.Binary.Core
-
                        Pos.Core
+                       Pos.Core.Binary
                        Pos.Core.Chrono
                        Pos.Core.Limits
 
@@ -59,10 +58,7 @@ library
 
   other-modules:
                        -- Binary
-                       Pos.Binary.Core.Address
-                       Pos.Binary.Core.Script
-                       Pos.Binary.Core.Ssc
-                       Pos.Binary.Core.Update
+                       Pos.Core.Binary.Orphans
 
                        -- Block
                        Pos.Core.Block.Genesis.Lens

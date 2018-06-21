@@ -41,7 +41,6 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
-import           Pos.Crypto.SafeCopy ()
 import           Pos.Crypto.SecretSharing (SecretProof)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))

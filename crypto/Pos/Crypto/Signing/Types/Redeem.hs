@@ -18,6 +18,8 @@ import           Data.Hashable (Hashable)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable as B
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
+                                safePut)
 import           Formatting (Format, bprint, fitLeft, later, (%), (%.))
 import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
@@ -38,11 +40,15 @@ deriveJSON defaultOptions ''RedeemPublicKey
 
 deriving instance Bi RedeemPublicKey
 
+deriveSafeCopySimple 0 'base ''RedeemPublicKey
+
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype RedeemSecretKey = RedeemSecretKey Ed25519.SecretKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
 deriving instance Bi RedeemSecretKey
+
+deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
 redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
@@ -81,6 +87,10 @@ instance B.Buildable (RedeemSignature a) where
 deriveJSON defaultOptions ''RedeemSignature
 
 deriving instance Typeable a => Bi (RedeemSignature a)
+
+instance SafeCopy (RedeemSignature a) where
+    putCopy (RedeemSignature sig) = contain $ safePut sig
+    getCopy = contain $ RedeemSignature <$> safeGet
 
 data AvvmPkError
     = ApeAddressFormat Text

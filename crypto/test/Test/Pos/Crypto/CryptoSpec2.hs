@@ -5,6 +5,7 @@ module Test.Pos.Crypto.CryptoSpec2
        ) where
 
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
+
 import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat)
@@ -65,6 +66,11 @@ spec = describe "Crypto" $ do
                 safeCopyTest @(AsBinary Crypto.Secret)
                 safeCopyTest @(AsBinary Crypto.DecShare)
                 safeCopyTest @(AsBinary Crypto.EncShare)
+
+                safeCopyTest @Crypto.ProtocolMagic
+                safeCopyTest @Crypto.HDAddressPayload
+                safeCopyTest @Crypto.SecretProof
+
             describe "msgLenLimitedTest" $ do
                 msgLenLimitedTest mlPublicKey
                 msgLenLimitedTest mlSecret

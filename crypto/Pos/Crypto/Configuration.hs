@@ -5,6 +5,7 @@ module Pos.Crypto.Configuration
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 
 -- | Magic number which should differ for different clusters. It's
 -- defined here, because it's used for signing. It also used for other
@@ -15,3 +16,5 @@ newtype ProtocolMagic = ProtocolMagic
 
 deriving instance ToJSON ProtocolMagic
 deriving instance FromJSON ProtocolMagic
+
+deriveSafeCopySimple 0 'base ''ProtocolMagic

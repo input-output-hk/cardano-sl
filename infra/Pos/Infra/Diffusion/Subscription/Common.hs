@@ -34,7 +34,7 @@ import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Formatting (sformat, shown, (%))
 import           Node.Message.Class (Message)
 import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
-import           Pos.Util.Log (Severity (..))
+--import           Pos.Util.Log (Severity (..))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
@@ -53,7 +53,7 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
                                                    mlMsgSubscribe,
                                                    mlMsgSubscribe1)
 import           Pos.Infra.Network.Types (Bucket (..), NodeType)
-import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug, logNotice)
 
 
 -- | While holding the MVar, update the outbound queue bucket with the new
@@ -169,7 +169,7 @@ withNetworkSubscription before middle keepalive after sendActions peer action = 
 --     ends.
 networkSubscribeTo'
     :: ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId bucket
     -> bucket
     -> NodeType -- ^ Type to attribute to the peer that is subscribed to.
@@ -179,28 +179,27 @@ networkSubscribeTo'
     -> SendActions
     -> NodeId
     -> IO Millisecond
-networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive subStates sendActions peer =
+networkSubscribeTo' logTrace0 oq bucket nodeType peersVar keepalive subStates sendActions peer =
     networkSubscribeTo before after doSubscription
-
   where
-
+    logTrace = appendName "subscribeTo" logTrace0
     doSubscription :: IO ()
     doSubscription = subscriptionEstablish middle keepalive' sendActions peer
 
     before = do
         updatePeersBucketSubscribe oq bucket peersVar (nodeType, peer)
         Status.subscribing subStates peer
-        traceWith logTrace (Notice, msgSubscribingTo peer)
+        logNotice logTrace $ msgSubscribingTo peer
 
     middle = Status.subscribed subStates peer
 
     keepalive' = do
         keepalive
-        traceWith logTrace (Debug, msgSendKeepalive peer)
+        logDebug logTrace $ msgSendKeepalive peer
 
     after reason duration _ = do
         updatePeersBucketUnsubscribe oq bucket peersVar (nodeType, peer)
-        traceWith logTrace (Notice, msgSubscriptionTerminated peer reason)
+        logNotice logTrace $ msgSubscriptionTerminated peer reason
         Status.terminated subStates peer
         pure duration
 
@@ -261,7 +260,7 @@ convMsgSubscribe1 subscribed conv = do
 subscriptionListener
     :: forall pack.
        ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> (ListenerSpec, OutSpecs)
@@ -273,17 +272,17 @@ subscriptionListener logTrace oq nodeType = listenerConv @Void logTrace oq $ \__
               (liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
               (\added -> when added $ do
                 void $ liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
-                traceWith logTrace (Debug, sformat ("subscriptionListener: removed "%shown) nodeId))
+                logDebug logTrace $ sformat ("subscriptionListener: removed "%shown) nodeId)
               (\added -> when added $ do -- if not added, close the conversation
-                  traceWith logTrace (Debug, sformat ("subscriptionListener: added "%shown) nodeId)
+                  logDebug logTrace $ sformat ("subscriptionListener: added "%shown) nodeId
                   fix $ \loop -> recvLimited conv mlMsgSubscribe >>= \case
                       Just MsgSubscribeKeepAlive -> do
-                          traceWith logTrace (Debug, sformat
+                          logDebug logTrace $ sformat
                               ("subscriptionListener: received keep-alive from "%shown)
-                              nodeId)
+                              nodeId
                           loop
-                      msg -> traceWith logTrace (Notice, expectedMsgFromGot MsgSubscribeKeepAlive nodeId msg))
-        msg -> traceWith logTrace (Notice, expectedMsgFromGot MsgSubscribe nodeId msg)
+                      msg -> logNotice logTrace $ expectedMsgFromGot MsgSubscribeKeepAlive nodeId msg)
+        msg -> logNotice logTrace $ expectedMsgFromGot MsgSubscribe nodeId msg
   where
     expectedMsgFromGot = sformat
             ("subscriptionListener: expected "%shown%" from "%shown%
@@ -293,7 +292,7 @@ subscriptionListener logTrace oq nodeType = listenerConv @Void logTrace oq $ \__
 subscriptionListener1
     :: forall pack.
        ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> (ListenerSpec, OutSpecs)
@@ -305,19 +304,19 @@ subscriptionListener1 logTrace oq nodeType = listenerConv @Void logTrace oq $ \_
           (liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
           (\added -> when added $ do
               void $ liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
-              traceWith logTrace (Debug, sformat ("subscriptionListener1: removed "%shown) nodeId))
+              logDebug logTrace $ sformat ("subscriptionListener1: removed "%shown) nodeId)
           (\added -> when added $ do -- if not added, close the conversation
-              traceWith logTrace (Debug, sformat ("subscriptionListener1: added "%shown) nodeId)
+              logDebug logTrace $ sformat ("subscriptionListener1: added "%shown) nodeId
               void $ recvLimited conv mlMsgSubscribe1)
 
 subscriptionListeners
     :: forall pack.
        ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> MkListeners
 subscriptionListeners logTrace oq nodeType = constantListeners
-    [ subscriptionListener  logTrace oq nodeType
-    , subscriptionListener1 logTrace oq nodeType
+    [ subscriptionListener  (appendName "subscriptionListener" logTrace) oq nodeType
+    , subscriptionListener1 (appendName "subscriptionListener1" logTrace) oq nodeType
     ]

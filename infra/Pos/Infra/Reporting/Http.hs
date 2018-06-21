@@ -26,7 +26,7 @@ import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
 import           Pos.Infra.Reporting.MemState ()
 import           Pos.Util.CompileInfo (CompileTimeInfo)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo, logWarning)
 import           Pos.Util.Util ((<//>))
 
 
@@ -80,7 +80,7 @@ sendReport pm compileInfo mLogFile reportType appName reportServerUri = do
 -- | Common code across node sending: tries to send logs to at least one
 -- reporting server.
 sendReportNodeImpl
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> ProtocolMagic
     -> CompileTimeInfo
     -> [Text]         -- ^ Report server URIs
@@ -97,9 +97,8 @@ sendReportNodeImpl logTrace protocolMagic compileInfo servers mLogFile reportTyp
         whenNotNull errors $ throwSE . NE.head
   where
     onNoServers =
-        traceWith logTrace
-            (Info
-            , "sendReportNodeImpl: not sending report " <>
+        logInfo logTrace $
+            ( "sendReportNodeImpl: not sending report " <>
               "because no reporting servers are specified"
             )
     throwSE (e :: SomeException) = throwM e
@@ -115,7 +114,7 @@ sendReportNodeImpl logTrace protocolMagic compileInfo servers mLogFile reportTyp
 -- FIXME then perhaps all of this reporting-related IO should be done in an
 -- isolated thread, rather than inline at the call site.
 reportNode
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> ProtocolMagic
     -> CompileTimeInfo
     -> [Text]         -- ^ Servers
@@ -131,20 +130,20 @@ reportNode logTrace protocolMagic compileInfo reportServers mLogs reportType =
 
     handler :: SomeException -> IO ()
     handler e =
-        traceWith logTrace $ (,) Error $
-        sformat ("Didn't manage to report "%shown%
-                 " because of exception '"%string%"' raised while sending")
+        logError logTrace $
+            sformat ("Didn't manage to report "%shown%
+                     " because of exception '"%string%"' raised while sending")
         reportType (displayException e)
 
     logReportType :: ReportType -> IO ()
-    logReportType (RCrash i) = traceWith logTrace (Error, "Reporting crash with code " <> show i)
+    logReportType (RCrash i) = logError logTrace $ "Reporting crash with code " <> show i
     logReportType (RError reason) =
-        traceWith logTrace (Error, "Reporting error with reason \"" <> reason <> "\"")
+        logError logTrace $ "Reporting error with reason \"" <> reason <> "\""
     logReportType (RMisbehavior True reason) =
-        traceWith logTrace (Error, "Reporting critical misbehavior with reason \"" <> reason <> "\"")
+        logError logTrace $ "Reporting critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RMisbehavior False reason) =
-        traceWith logTrace (Warning, "Reporting non-critical misbehavior with reason \"" <> reason <> "\"")
+        logWarning logTrace $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RInfo text) =
-        traceWith logTrace (Info, "Reporting info with text \"" <> text <> "\"")
+        logInfo logTrace $ "Reporting info with text \"" <> text <> "\""
     logReportType (RCustomReport{}) =
-        traceWith logTrace (Info, "Reporting custom report")
+        logInfo logTrace $ "Reporting custom report"

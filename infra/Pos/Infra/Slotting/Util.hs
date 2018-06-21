@@ -29,8 +29,8 @@ import           Universum
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, timeout)
-import           Pos.Util.Log (WithLogger, logDebug, logInfo, logNotice, logWarning,
-                               modifyLoggerName')
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logNotice, logWarning)
+                               --modifyLoggerName')
 
 import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
                            Timestamp (..), flattenSlotId, slotIdF)
@@ -233,14 +233,14 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
     shortDelay = 42
     recoveryRefreshDelay :: Millisecond
     recoveryRefreshDelay = 150
-    logTTW timeToWait = modifyLoggerName' (<> "slotting") $ logDebug $
-                 sformat ("Waiting for "%shown%" before new slot") timeToWait
+    logTTW timeToWait = {- modifyLoggerName' (<> "slotting") $-}
+                        logDebug $ sformat ("Waiting for "%shown%" before new slot") timeToWait
 
 logNewSlotWorker :: (MonadOnNewSlot ctx m, HasProtocolConstants) => m ()
 logNewSlotWorker =
     onNewSlotWithLogging defaultOnNewSlotParams $ \slotId -> do
-        modifyLoggerName' (<> "slotting") $
-            logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
+        --modifyLoggerName' (<> "slotting") $
+        logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.

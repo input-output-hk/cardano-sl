@@ -42,7 +42,7 @@ prop_lines =
         let n0 = 20
             n1 = 1
         (_, linesLogged) <- run (run_logging Debug 10 n0 n1)
-        -- multiply by 5 because we log 5 different messages (no * n1) times
+        -- multiply by 5 because we log 5 different messages (n0 * n1) times
         assert (linesLogged == n0 * n1 * 5)
 
 -- | Count as many lines as you itented to log.
@@ -86,28 +86,28 @@ prop_sevS =
             n1 = 1
         (_, linesLogged) <- run (run_loggingS Warning 10 n0 n1)
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
-        assert (linesLogged == n0 * n1 * 2)
+        assert (linesLogged == 0)
 
 run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_loggingS sev n n0 n1= do
         startTime <- getPOSIXTime
 {- -}
-        setupLogging $ defaultTestConfiguration sev
+        lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
-            usingLoggerName "test_log" $
+            usingLoggerName lh "test_log" $
                 forM_ [1..n1] $ \_ -> do
-                    logDebugS   msg
-                    logInfoS    msg
-                    logNoticeS  msg
-                    logWarningS msg
-                    logErrorS   msg
+                    logDebugS   lh msg
+                    logInfoS    lh msg
+                    logNoticeS  lh msg
+                    logWarningS lh msg
+                    logErrorS   lh msg
 
 {- -}
         endTime <- getPOSIXTime
         threadDelay 0500000
         diffTime <- return $ nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        linesLogged <- getLinesLogged
+        linesLogged <- getLinesLogged lh
         putStrLn $ "  lines logged :" ++ (show linesLogged)
         return (diffTime, linesLogged)
         where msg :: Text
@@ -159,6 +159,10 @@ spec = describe "Logging" $ do
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "Debug, Info and Notice messages must not be logged" $
         property prop_sev
+
+    modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
+      it "DebugS, InfoS, NoticeS, WarningS and ErrorS messages must not be logged in public logs" $
+        property prop_sevS
 
     it "demonstrating setup and initialisation of logging" $
         example_setup

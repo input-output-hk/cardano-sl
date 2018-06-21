@@ -70,6 +70,7 @@ import           Universum
 import           Control.Concurrent (myThreadId)
 import           Control.Lens (each)
 import           Control.Monad.Trans (MonadTrans)
+import           Data.Foldable (length, null)
 import           Data.Map.Strict (lookup)
 import           Data.Reflection (Reifies (..), reify)
 import qualified Data.Text.Buildable
@@ -102,7 +103,6 @@ instance MonadTrans (SelectiveLogWrapped s) where
 type SelectionMode = LogSecurityLevel -> Bool
 
 selectPublicLogs :: SelectionMode
--- selectPublicLogs = const False
 selectPublicLogs = \case
     PublicLogLevel -> True
     _              -> False
@@ -110,12 +110,15 @@ selectPublicLogs = \case
 selectSecretLogs :: SelectionMode
 selectSecretLogs = not . selectPublicLogs
 
+-- | conditionally log a message to all scribes if they match 'SelectionMode'
 logMCond :: (LogContext m) => LoggingHandler -> Severity -> Text -> SelectionMode -> m ()
 logMCond lh sev msg cond = do
     ctx <- K.getKatipContext
     ns  <- K.getKatipNamespace
     logItemS lh ctx ns Nothing (sev2klog sev) cond $ K.logStr msg
 
+-- | this emulates katip's 'logItem' function, but only outputs the message
+--   to scribes which match the 'SelectionMode'
 logItemS
     :: (K.LogItem a, K.Katip m)
     => LoggingHandler
@@ -172,13 +175,13 @@ instance (K.Katip m) => K.Katip (SelectiveLogWrapped s m) where
     localLogEnv f a = lift $ K.localLogEnv f $ getSecureLogWrapped a
 
 instance (K.KatipContext m) => K.KatipContext (SelectiveLogWrapped s m) where
-  getKatipContext = lift K.getKatipContext
+    getKatipContext = lift K.getKatipContext
 
-  localKatipContext f a = lift $ K.localKatipContext f $ getSecureLogWrapped a
+    localKatipContext f a = lift $ K.localKatipContext f $ getSecureLogWrapped a
 
-  getKatipNamespace = lift K.getKatipNamespace
+    getKatipNamespace = lift K.getKatipNamespace
 
-  localKatipNamespace f a = lift $ K.localKatipNamespace f $ getSecureLogWrapped a
+    localKatipNamespace f a = lift $ K.localKatipNamespace f $ getSecureLogWrapped a
 
 -- instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
 --     askLoggerName' = SelectiveLogWrapped askLoggerName'

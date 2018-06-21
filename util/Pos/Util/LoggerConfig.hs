@@ -49,8 +49,8 @@ data BackendKind = FileTextBE
                  | StdoutBE
                  | DevNullBE
                  deriving (Eq, Generic, Show)
-instance ToJSON BackendKind
-instance FromJSON BackendKind where
+deriving instance ToJSON BackendKind
+deriving instance FromJSON BackendKind
 
 -- | @'RotationParameters'@ one of the two categories  used in the
 --   logging config, specifying the log rotation parameters
@@ -68,10 +68,11 @@ instance FromJSON RotationParameters where
 
 makeLenses ''RotationParameters
 
-data LogSecurityLevel
-    = SecretLogLevel
-    | PublicLogLevel
-    deriving (Eq, Show, Generic)
+data LogSecurityLevel = SecretLogLevel
+                      -- ^ the log contains all messages (i.e. also 'logInfoS')
+                      | PublicLogLevel
+                      -- ^ the log only contains public messages (i.e. 'logInfo')
+                      deriving (Eq, Show, Generic)
 
 deriving instance ToJSON LogSecurityLevel
 deriving instance FromJSON LogSecurityLevel
@@ -96,7 +97,7 @@ instance FromJSON LogHandler where
     parseJSON = withObject "log handler" $ \o -> do
         (_lhName :: T.Text) <- o .: "name"
         (_lhFpath :: Maybe FilePath) <- fmap normalise <$> o .:? "filepath"
-        (_lhSecurityLevel :: Maybe LogSecurityLevel) <- o .:? "logsafety"
+        (_lhSecurityLevel :: Maybe LogSecurityLevel) <- o .:? "logsafety" .!= Just PublicLogLevel
         (_lhBackend :: BackendKind ) <- o .: "backend"
         (_lhMinSeverity :: Maybe Severity) <- o .:? "severity"
         pure LogHandler{..}
@@ -229,6 +230,7 @@ jsonInteractiveConfiguration minSeverity =
                 _lhBackend = StdoutBE,
                 _lhName = "console",
                 _lhFpath = Nothing,
+                _lhSecurityLevel = Just SecretLogLevel,
                 _lhMinSeverity = Just minSeverity }
                           , LogHandler {
                 _lhBackend = FileJsonBE,
@@ -253,7 +255,7 @@ defaultTestConfiguration minSeverity =
                 _lhBackend = DevNullBE,
                 _lhName = "devnull",
                 _lhFpath = Nothing,
-                _lhSecurityLevel = Just SecretLogLevel,
+                _lhSecurityLevel = Just PublicLogLevel,
                 _lhMinSeverity = Just minSeverity } ]
           }
     in

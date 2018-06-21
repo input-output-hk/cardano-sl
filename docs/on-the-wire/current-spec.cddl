@@ -61,19 +61,17 @@ twit = [0, #6.24(bytes .cbor ([pubkey, signature]))]
 ; Shared Seed Computation
 
 vsspubkey = bytes ; This is encoded using the 'Binary' instance for Scrape.PublicKey
-vsssec = bytes ; This is encoded using the 'Binary' instance for Scrape.Secret
-vssenc = bytes ; This is encoded using the 'Binary' instance for Scrape.EncryptedSi
+vsssec = bytes ; This is encoded using the 'Binary' instance for Scrape.Secret.
+vssenc = [bytes] ; This is encoded using the 'Binary' instance for Scrape.EncryptedSi. TODO work out why this seems to be in a length 1 array
 vssdec = bytes ; This is encoded using the 'Binary' instance for Scrape.DecryptedShare
-vssproof = bytes ; This is encoded using the 'Binary' instance for Scrape.Proof
+vssproof = [bytes, bytes, bytes, [* bytes]] ; This is encoded using the 'Binary' instance for Scrape.Proof
 
-ssccomm = [vsspubkey, [{vsspubkey => vssenc},vssproof], signature]
-ssccomms = #6.258([* [addressid, ssccomm]])
+ssccomm = [pubkey, [{vsspubkey => vssenc},vssproof], signature]
+ssccomms = #6.258([* ssccomm])
 
-sscopen = [addressid, vsssec]
-sscopens = #6.258([* sscopen])
+sscopens = {stakeholderid => vsssec}
 
-sscshare = [addressid, [addressid, [* vssdec]]]
-sscshares = #6.258([* sscshare])
+sscshares = {addressid => [addressid, [* vssdec]]}
 
 ssccert = [vsspubkey, pubkey, epochid, signature]
 ssccerts = #6.258([* ssccert])
@@ -184,7 +182,7 @@ blockhead = [ "protocolMagic" : u32
 ;             ]
 
 blockbody = [ "txPayload" : [* [tx, [* twit]]]
-            , "sscPayload" : any
+            , "sscPayload" : ssc
             , "dlgPayload" : any
             , "updPayload" : any
             ]

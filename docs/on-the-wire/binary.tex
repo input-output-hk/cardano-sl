@@ -327,13 +327,13 @@ cryptography scheme.
    \}
 
    <$\sscopen$> = \{
-   \fld openings :: $\agentids \rhu \vsssec$
-   \fld certificates :: $\agentids \rhu \ssccert$
+   \fld openings :: $\stakeholderids \rhu \vsssec$
+   \fld certificates :: $\lists{\ssccert}$
    \}
 
    <$\sscshare$> = \{
-   \fld shares :: $\agentids \rhu (\agentids \rhu \nelists{\vssdecshare})$
-   \fld certificates :: $\agentids \rhu \ssccert$
+   \fld shares :: $\stakeholderids \rhu (\stakeholderids \rhu \nelists{\vssdecshare})$
+   \fld certificates :: $\lists{\ssccert}$
    \}
 
    <$\ssccert$> = \{
@@ -343,10 +343,10 @@ cryptography scheme.
    \fld signature :: $\signature$
    \}
 
-   <$\ssc$> = Commitments $\agentids \rhu (\pubkey \times \ssccomm \times \signature)\times \agentids \rhu \ssccert$
+   <$\ssc$> = Commitments $(\pubkey \times \ssccomm \times \signature)\times \lists{\ssccert}$
    \alt Openings $\sscopen$
    \alt Shares $\sscshare$
-   \alt Certificates $\agentids \rhu \ssccert$
+   \alt Certificates $\lists{\ssccert}$
 
    <$\sscpf$> = CommitmentsProof $\hash \times \hash$
    \alt OpeningsProof $\hash \times \hash$

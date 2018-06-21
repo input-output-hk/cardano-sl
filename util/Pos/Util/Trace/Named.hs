@@ -8,6 +8,7 @@ module Pos.Util.Trace.Named
     , LogNamed (..)
     , TrU.LogItem
     , setupLogging
+    , namedTrace
     , appendName
     -- * log functions
     , logMessage, logMessageS, logMessageP

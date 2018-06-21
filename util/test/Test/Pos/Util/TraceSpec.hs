@@ -56,6 +56,16 @@ prop_sev =
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
         assert (linesLogged == n0 * n1 * 2)
 
+-- | Count as many lines as you itented to log.
+prop_sevS :: Property
+prop_sevS =
+    monadicIO $ do
+        let n0 = 20
+            n1 = 1
+        (_, linesLogged) <- run (run_loggingS Log.Warning 10 n0 n1)
+        -- multiply by 2 because Debug, Info and Notice messages must not be logged
+        assert (linesLogged == 0)
+
 run_logging :: Log.Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
     startTime <- getPOSIXTime
@@ -69,6 +79,32 @@ run_logging sev n n0 n1= do
             Tr.traceWith (Tr.logNotice logTrace') msg
             Tr.traceWith (Tr.logWarning logTrace') msg
             Tr.traceWith (Tr.logError logTrace') msg
+{- -}
+    endTime <- getPOSIXTime
+    threadDelay $ fromIntegral (5000 * n0)
+    diffTime <- return $ nominalDiffTimeToMicroseconds (endTime - startTime)
+    putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
+    linesLogged <- getLinesLogged lh
+    putStrLn $ "  lines logged :" ++ (show linesLogged)
+    return (diffTime, linesLogged)
+    where msg :: Text
+          msg = replicate n "abcdefghijklmnopqrstuvwxyz"
+
+run_loggingS :: Log.Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
+run_loggingS sev n n0 n1= do
+    startTime <- getPOSIXTime
+{- -}
+    lh <- Log.setupLogging (defaultTestConfiguration sev)
+    let logTrace' = Tn.appendName "run_loggingS" $ Tn.namedTrace lh
+
+    Tn.logInfo logTrace' "entering"
+    forM_ [1..n0] $ \_ ->
+        forM_ [1..n1] $ \_ -> do
+            Tn.logDebugS logTrace' msg
+            Tn.logInfoS logTrace' msg
+            Tn.logNoticeS logTrace' msg
+            Tn.logWarningS logTrace' msg
+            Tn.logErrorS logTrace' msg
 {- -}
     endTime <- getPOSIXTime
     threadDelay $ fromIntegral (5000 * n0)
@@ -138,6 +174,10 @@ spec = describe "Trace" $ do
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "Debug, Info and Notice messages must not be logged" $
         property prop_sev
+
+    modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
+      it "DebugS, InfoS, NoticeS, WarningS and ErrorS messages must not be logged in public logs" $
+        property prop_sevS
 
     it "demonstrating setup and initialisation of logging" $
         example_setup

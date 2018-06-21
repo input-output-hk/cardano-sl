@@ -10,6 +10,8 @@ module Pos.Update.Poll.Pure
 import           Universum
 
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
+import           Data.DList (DList)
+import qualified Data.DList as DList
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 --import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
@@ -25,15 +27,19 @@ import qualified Pos.Update.Poll.PollState as Poll
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
                                         UndecidedProposalState (..), cpsSoftwareVersion,
                                         propStateToEither, psProposal)
+import           Pos.Util.Trace.Unstructured (LogItem, logWarning, logDebug)
+import           Pos.Util.Trace (Trace{-, natTrace, traceWith-})
+
+
 
 newtype PurePoll a = PurePoll
-    { getPurePoll :: StateT Poll.PollState (NamedPureLogger Identity) a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadState Poll.PollState)
+    { getPurePoll :: StateT Poll.PollState Identity a
+    } deriving (Functor, Applicative, Monad, MonadState Poll.PollState)
 
-runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
-runPurePollWithLogger ps pp =
+runPurePollWithLogger :: Trace m LogItem -> Poll.PollState -> PurePoll a -> (a, Poll.PollState, DList LogItem)
+runPurePollWithLogger logTrace ps pp =
     let innerMonad = usingStateT ps . getPurePoll $ pp
-    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . {-runNamedPureLog-}Log.usingLoggerName $ innerMonad
+    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . (traceWith logTrace)  innerMonad
 
 {-
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
@@ -59,7 +65,7 @@ instance MonadPollRead PurePoll where
         propGetByApp appHashmap upIdHashmap =
             case HM.lookup an appHashmap of
                 Nothing -> do
-                    logDebug $
+                    logDebug logTrace$
                         "getProposalsByApp: unknown application name " <> pretty an
                     pure []
                 Just hashset -> do
@@ -93,11 +99,11 @@ instance MonadPollRead PurePoll where
 instance MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
     delBVState bv = PurePoll $ Poll.psBlockVersions . at bv .= Nothing
-    setAdoptedBV bv = do
+    setAdoptedBV logTrace bv = do
         bvs <- getBVState bv
         case bvs of
             Nothing ->
-                logWarning $
+                logWarning logTrace $
                     "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
             Just (bvsModifier -> bvm) -> PurePoll $ do
                 Poll.psAdoptedBV . _1 .= bv

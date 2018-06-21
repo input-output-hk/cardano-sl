@@ -111,20 +111,20 @@ bver = [u16, u16, u8]
 txfeepol = [0, #6.24(bytes .cbor ([bigint, bigint]))]
          / [u8 .gt 0, encoded-cbor]
 
-bvermod = [ ? scriptVersion : u16
-          , ? slotDuration : bigint
-          , ? maxBlockSize : bigint
-          , ? maxHeaderSize  : bigint
-          , ? maxTxSize : bigint
-          , ? maxProposalSize : bigint
-          , ? mpcThd : u64
-          , ? heavyDelThd : u64
-          , ? updateVoteThd : u64
-          , ? updateProposalThd : u64
-          , ? updateImplicit : u64
-          , ? softForkRule : [u64, u64, u64]
-          , ? txFeePolicy : txfeepol
-          , ? unlockStakeEpoch : epochid
+bvermod = [ scriptVersion : [? u16]
+          , slotDuration : [? bigint]
+          , maxBlockSize : [? bigint]
+          , maxHeaderSize  : [? bigint]
+          , maxTxSize : [? bigint]
+          , maxProposalSize : [? bigint]
+          , mpcThd : [? u64]
+          , heavyDelThd : [? u64]
+          , updateVoteThd : [? u64]
+          , updateProposalThd : [? u64]
+          , updateImplicit : [? u64]
+          , softForkRule : [? [u64, u64, u64]]
+          , txFeePolicy : [? txfeepol]
+          , unlockStakeEpoch : [? epochid]
           ]
 
 updata = [ hash, hash, hash, hash ]
@@ -144,7 +144,7 @@ upvote = [ "voter" : pubkey
          , "signature" : signature
          ]
 
-up = [ ? "proposal" :  upprop
+up = [ "proposal" :  [? upprop]
      , votes : [* upvote]
      ]
 
@@ -175,14 +175,8 @@ blockhead = [ "protocolMagic" : u32
             , "extraData" : blockheadex
             ]
 
-; blockbody = [ "txPayload" : [* [tx, [* twit]]]
-;             , "sscPayload" : ssc
-;             , "dlgPayload" : [* dlg]
-;             , "updPayload" : up
-;             ]
-
 blockbody = [ "txPayload" : [* [tx, [* twit]]]
             , "sscPayload" : ssc
-            , "dlgPayload" : any
-            , "updPayload" : any
+            , "dlgPayload" : [* dlg]
+            , "updPayload" : up
             ]

@@ -2,8 +2,8 @@ block = [0, any]
       / [1, mainblock]
 
 mainblock = [ "header" : blockhead
-            , "body" : any
-            , "extra" : any
+            , "body" : blockbody
+            , "extra" : [attributes]
             ]
 
 u8 = uint .lt 256
@@ -42,20 +42,21 @@ addrdistr = [1] / [0, stakeholderid]
 
 addrtype = &("PubKey" : 0, "Script" : 1, "Redeem" : 2) / (u64 .gt 2)
 addrattr = any ;;TODO
-address = [ [addressid, addrattr, addrtype], u64 ]
+address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
 
 ; Transactions
 
-txin = [0, [txid, u32]] / [u8 .ne 0, bytes]
+txin = [0, #6.24(bytes .cbor ([txid, u32]))] / [u8 .ne 0, encoded-cbor]
+txout = [address, u64]
 
-tx = [[txin], [addressid, u64], attributes]
+tx = [[+ txin], [+ txout], attributes]
 
 txproof = [u32, hash, hash]
 
-twit = [0, [pubkey, signature]]
-     / [1, [[u16, bytes], [u16, bytes]]]
-     / [2, [pubkey, signature]]
-     / [u8 .gt 2, bytes]
+twit = [0, #6.24(bytes .cbor ([pubkey, signature]))]
+     / [1, #6.24(bytes .cbor ([[u16, bytes], [u16, bytes]]))]
+     / [2, #6.24(bytes .cbor ([pubkey, signature]))]
+     / [u8 .gt 2, encoded-cbor]
 
 ; Shared Seed Computation
 
@@ -87,7 +88,6 @@ sscproof = [0, hash, hash]
          / [2, hash, hash]
          / [3, hash]
 
-
 ; Delegation
 
 dlg = [ epoch : epochid
@@ -110,8 +110,8 @@ lwdlgsig = [lwdlg, signature]
 
 bver = [u16, u16, u8]
 
-txfeepol = [0, [bigint, bigint]]
-         / [u8 .gt 0, bytes]
+txfeepol = [0, #6.24(bytes .cbor ([bigint, bigint]))]
+         / [u8 .gt 0, encoded-cbor]
 
 bvermod = [ ? scriptVersion : u16
           , ? slotDuration : bigint
@@ -177,16 +177,14 @@ blockhead = [ "protocolMagic" : u32
             , "extraData" : blockheadex
             ]
 
-; blockhead = [ "protocolMagic" : u32
-;             , "prevBlock" : any
-;             , "bodyProof" : any
-;             , "consensusData" : any
-;             , "extraData" : blockheadex
+; blockbody = [ "txPayload" : [* [tx, [* twit]]]
+;             , "sscPayload" : ssc
+;             , "dlgPayload" : [* dlg]
+;             , "updPayload" : up
 ;             ]
 
-
 blockbody = [ "txPayload" : [* [tx, [* twit]]]
-            , "sscPayload" : ssc
-            , "dlgPayload" : [* dlg]
-            , "updPayload" : up
+            , "sscPayload" : any
+            , "dlgPayload" : any
+            , "updPayload" : any
             ]

@@ -308,18 +308,18 @@ inpVal i l = outVal <$> inpSpentOutput i l
   transaction is known and the input index is correct
 -------------------------------------------------------------------------------}
 
-inpTransaction' :: (Hash h a)
+inpTransaction' :: Hash h a
                 => Input h a -> Ledger h a -> Transaction h a
 inpTransaction' = findHash' . inpTrans
 
-inpSpentOutput' :: (Hash h a, Buildable a, HasCallStack)
+inpSpentOutput' :: (Hash h a, HasCallStack)
                 => Input h a -> Ledger h a -> Output h a
 inpSpentOutput' i l = fromJust err $
       trOuts (inpTransaction' i l) `at` fromIntegral (inpIndex i)
   where
     err = sformat ("Input index out of bounds: " % build) i
 
-inpVal' :: (Hash h a) => Input h a -> Ledger h a -> Value
+inpVal' :: Hash h a => Input h a -> Ledger h a -> Value
 inpVal' i = outVal . inpSpentOutput' i
 
 {-------------------------------------------------------------------------------

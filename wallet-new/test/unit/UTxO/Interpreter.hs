@@ -296,7 +296,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
 instance Interpret h (DSL.Output h Addr) where
   type Interpreted (DSL.Output h Addr) = TxOutAux
 
-  int :: (HasCallStack, Monad m)
+  int :: Monad m
       => DSL.Output h Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
       AddrInfo{..} <- int outAddr

@@ -383,7 +383,6 @@ test-suite wallet-unit-tests
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
                       TxMetaStorageSpecs
-                      Util
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck

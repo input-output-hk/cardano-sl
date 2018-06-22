@@ -6,8 +6,6 @@ import           Universum
 import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
-import           Pos.Core (HasConfiguration)
-
 import           InputSelection.Evaluation (evaluateInputPolicies)
 import           InputSelection.Evaluation.Generic (defaultPlotParams)
 import           UTxO.Bootstrap (bootstrapTransaction)

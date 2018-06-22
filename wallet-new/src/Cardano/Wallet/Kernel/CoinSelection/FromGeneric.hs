@@ -18,7 +18,7 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
   ) where
 
-import           Universum hiding (Sum(..))
+import           Universum hiding (Sum (..))
 
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
@@ -167,11 +167,12 @@ type MkTx m = NonEmpty (Core.TxIn, Core.TxOutAux) -- ^ Transaction inputs
 --
 -- " Standard " here refers to the fact that we do not deal with redemption,
 -- multisignature transactions, etc.
-mkStdTx :: (Monad m, Core.HasProtocolMagic)
-        => (Core.Address -> Either CoinSelHardErr Core.SafeSigner)
+mkStdTx :: Monad m
+        => Core.ProtocolMagic
+        -> (Core.Address -> Either CoinSelHardErr Core.SafeSigner)
         -> MkTx m
-mkStdTx hdwSigners inps outs =
-    return $ Core.makeMPubKeyTxAddrs hdwSigners (fmap repack inps) outs
+mkStdTx pm hdwSigners inps outs =
+    return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) outs
   where
     -- Repack a utxo-derived tuple into a format suitable for
     -- 'TxOwnedInputs'.

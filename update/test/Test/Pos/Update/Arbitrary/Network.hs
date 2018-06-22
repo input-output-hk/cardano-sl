@@ -1,8 +1,11 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Update System networking types.
 
-module Pos.Arbitrary.Update.Network
+module Test.Pos.Update.Arbitrary.Network
        (
        ) where
 
@@ -10,7 +13,6 @@ import           Universum hiding (id)
 
 import           Test.QuickCheck (Arbitrary (..), listOf)
 
-import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..), mkUpdateVote)
 import           Pos.Crypto (hash)
@@ -18,6 +20,7 @@ import           Pos.Infra.Communication.Relay (DataMsg (..))
 
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Update.Arbitrary.Core ()
 
 instance Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary

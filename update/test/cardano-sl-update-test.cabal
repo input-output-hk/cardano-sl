@@ -1,0 +1,43 @@
+name:                cardano-sl-update-test
+version:             1.3.0
+synopsis:            Cardano SL - arbitrary instances for cardano-sl-update
+description:         Cardano SL - arbitrary instances for cardano-sl-update
+license:             MIT
+license-file:        LICENSE
+author:              IOHK
+maintainer:          IOHK <support@iohk.io>
+copyright:           2018 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Test.Pos.Update.Arbitrary
+
+  other-modules:
+                       Test.Pos.Update.Arbitrary.Core
+                       Test.Pos.Update.Arbitrary.MemState
+                       Test.Pos.Update.Arbitrary.Network
+                       Test.Pos.Update.Arbitrary.Poll
+
+  build-depends:       QuickCheck
+                     , base
+                     , cardano-sl-binary
+                     , cardano-sl-core
+                     , cardano-sl-core-test
+                     , cardano-sl-crypto
+                     , cardano-sl-crypto-test
+                     , cardano-sl-infra
+                     , cardano-sl-update
+                     , cardano-sl-util-test
+                     , containers
+                     , generic-arbitrary
+                     , universum
+                     , unordered-containers
+
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2

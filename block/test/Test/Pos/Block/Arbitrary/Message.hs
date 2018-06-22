@@ -11,12 +11,12 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasGenesisHash, HasProtocolConstants)
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
+import           Test.Pos.Update.Arbitrary ()
 
 ------------------------------------------------------------------------------------------
 -- Block network types

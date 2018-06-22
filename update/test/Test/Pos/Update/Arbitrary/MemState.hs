@@ -1,8 +1,10 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Update System types
 
-module Pos.Arbitrary.Update.MemState
+module Test.Pos.Update.Arbitrary.MemState
        (
        ) where
 
@@ -10,11 +12,11 @@ import           Universum
 
 import           Test.QuickCheck (Arbitrary (..))
 
-import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Update.MemState as Upd
 
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Update.Arbitrary.Core ()
 
 instance Arbitrary Upd.MemPool where
     arbitrary = do

@@ -1,10 +1,13 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Update System Poll types.
 
-module Pos.Arbitrary.Update.Poll () where
+module Test.Pos.Update.Arbitrary.Poll () where
 
 import           Universum
 
@@ -13,7 +16,6 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Slotting ()
-import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolConstants)
@@ -26,6 +28,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposa
 
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Util.Modifier ()
+import           Test.Pos.Update.Arbitrary.Core ()
 
 instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary

@@ -30,6 +30,7 @@ packages:
 - txp
 - txp/test
 - update
+- update/test
 - delegation
 - delegation/test
 - block

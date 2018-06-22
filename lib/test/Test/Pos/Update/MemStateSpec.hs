@@ -8,13 +8,13 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Arbitrary.Update ()
 import qualified Pos.Core.Update as Upd
 import           Pos.Crypto (PublicKey, hash)
 import qualified Pos.Update.MemState as Upd
 
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.Pos.Update.Arbitrary ()
 import           Test.QuickCheck (Property, (.&&.), (==>))
 
 spec :: Spec

@@ -29,7 +29,7 @@ import qualified Pos.Txp as Core
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr, CoinSelPolicy,
+import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..), CoinSelPolicy,
                                                       CoinSelectionOptions (..),
                                                       ExpenseRegulation (..), MkTx, largestFirst,
                                                       mkStdTx, newOptions, random)
@@ -205,6 +205,12 @@ genPayee amountToCover =
             , stakeNeeded           = Core.mkCoin amountToCover
             , stakeMaxInputsNum     = Just 1
             }
+
+-- | Generates a single payee which has a redeem address inside.
+genRedeemPayee :: Word64 -> Gen (NonEmpty Core.TxOut)
+genRedeemPayee c = do
+    a <- arbitrary `suchThat` Core.isRedeemAddress
+    return (Core.TxOut a (Core.mkCoin c) :| [])
 
 instance (Buildable a, Buildable b) => Buildable (Either a b) where
     build (Right r) = bprint ("Right " % F.build) r
@@ -384,11 +390,7 @@ failIf label p a = counterexample msg (p a)
 paymentSucceeded :: (Buildable a, Buildable b)
                  => Core.Utxo -> NonEmpty Core.TxOut -> Either a b -> Property
 paymentSucceeded utxo payees res =
-    let msg = "Selection failed for Utxo with balance = " <> show (utxoBalance utxo) <>
-              " and payment amount of " <> show (paymentAmount payees) <> "\n." <>
-              "\n\n" <> T.unpack (renderUtxoAndPayees utxo payees) <>
-              "\n\n"
-    in failIf msg isRight res
+    paymentSucceededWith utxo payees res []
 
 paymentSucceededWith :: (Buildable a, Buildable b)
                      => Core.Utxo
@@ -447,6 +449,42 @@ isChangeAddress :: [Core.Address] -> Core.TxOut -> Bool
 isChangeAddress original x =
     not (Core.txOutAddress x `Data.List.elem` original)
 
+{-------------------------------------------------------------------------------
+  Dealing with errors
+-------------------------------------------------------------------------------}
+
+paymentFailedWith :: (Buildable a, Buildable b)
+                  => Core.Utxo
+                  -> NonEmpty Core.TxOut
+                  -> Either a b
+                  -> [Core.Utxo -> NonEmpty Core.TxOut -> a -> Property]
+                  -> Property
+paymentFailedWith utxo payees res extraChecks =
+    let msg = "Selection succeeded (but we were expecting it to fail) " <>
+              " for Utxo with balance = " <> show (utxoBalance utxo) <>
+              " and payment amount of " <> show (paymentAmount payees) <> "\n." <>
+              "\n\n" <> T.unpack (renderUtxoAndPayees utxo payees) <>
+              "\n\n"
+    in case res of
+            Right _ -> failIf msg isLeft res
+            Left a  -> conjoin $ map (\f -> f utxo payees a) extraChecks
+
+notEnoughMoney :: CoinSelHardErr -> Bool
+notEnoughMoney (CoinSelHardErrUtxoExhausted _ _) = True
+notEnoughMoney CoinSelHardErrUtxoDepleted        = True
+notEnoughMoney _                                 = False
+
+outputWasRedeem :: CoinSelHardErr -> Bool
+outputWasRedeem (CoinSelHardErrOutputIsRedeemAddress _) = True
+outputWasRedeem _                                       = False
+
+errorWas :: (CoinSelHardErr -> Bool)
+         -> Core.Utxo
+         -> NonEmpty Core.TxOut
+         -> ShowThroughBuild CoinSelHardErr
+         -> Property
+errorWas predicate _ _ (STB hardErr) =
+    failIf "This is not the error type we were expecting!" predicate hardErr
 
 {-------------------------------------------------------------------------------
   Combinators to assemble properties easily
@@ -504,6 +542,17 @@ payOne :: Core.HasProtocolMagic
        -> Policy
        -> Gen RunResult
 payOne = pay genUtxoWithAtLeast genPayee
+
+-- | Like 'payOne', but allows a custom 'Gen' for the payees to be supplied
+payOne' :: Core.HasProtocolMagic
+        => (Word64 -> Gen (NonEmpty Core.TxOut))
+        -> (Int -> NonEmpty Core.Coin -> Core.Coin)
+        -> (CoinSelectionOptions -> CoinSelectionOptions)
+        -> InitialBalance
+        -> Pay
+        -> Policy
+        -> Gen RunResult
+payOne' payeeGenerator = pay genUtxoWithAtLeast payeeGenerator
 
 payBatch :: Core.HasProtocolMagic
          => (Int -> NonEmpty Core.Coin -> Core.Coin)
@@ -581,5 +630,21 @@ spec =
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
             prop "multiple payees, ReceiverPaysFee, fee = linear" $ forAll (
                 payBatch linearFee receiverPays (InitialBalance 1000) (Pay 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
+
+        describe "Expected failures" $ do
+            prop "Paying a redeem address should always be rejected" $ forAll (
+                payOne' genRedeemPayee linearFee receiverPays (InitialBalance 1000) (Pay 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentFailedWith utxo payee res [errorWas outputWasRedeem]
+            prop "Paying somebody not having enough money should fail" $ forAll (
+                payBatch linearFee receiverPays (InitialBalance 10) (Pay 100) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentFailedWith utxo payee res [errorWas notEnoughMoney]
+
+        withMaxSuccess 1000 $ describe "Input Grouping" $ do
+            prop "one payee, ReceiverPaysFee, fee = linear" $ forAll (
+                payOne linearFee receiverPays (InitialBalance 1000) (Pay 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]

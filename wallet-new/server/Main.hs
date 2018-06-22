@@ -38,6 +38,7 @@ import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, us
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
+import           Cardano.Wallet.Kernel (PassiveWallet)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
@@ -121,25 +122,29 @@ actionWithNewWallet pm sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelPassiveWallet logMessage' $ \wallet -> do
+      bracketKernelPassiveWallet logMessage' $ \walletLayer passiveWallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
-        Kernel.Mode.runWalletMode pm nr wallet (mainAction wallet nr)
+        Kernel.Mode.runWalletMode pm
+                                  nr
+                                  walletLayer
+                                  (mainAction (walletLayer, passiveWallet) nr)
   where
     mainAction
-        :: PassiveWalletLayer Production
+        :: (PassiveWalletLayer Production, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
-        :: PassiveWalletLayer Production
+        :: (PassiveWalletLayer Production, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     runNodeWithInit w nr = runNode pm nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: PassiveWalletLayer Production -> Plugins.Plugin Kernel.Mode.WalletMode
+    plugins :: (PassiveWalletLayer Production, PassiveWallet)
+            -> Plugins.Plugin Kernel.Mode.WalletMode
     plugins w = mconcat [ Plugins.walletBackend params w ]
 
     -- Extract the logger name from node parameters

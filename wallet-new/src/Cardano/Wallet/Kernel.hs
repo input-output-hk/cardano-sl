@@ -22,6 +22,7 @@ module Cardano.Wallet.Kernel (
   , wallets
     -- * Active wallet
   , ActiveWallet -- opaque
+  , walletSubmission
   , bracketActiveWallet
   , newPending
   , evictPending
@@ -29,6 +30,7 @@ module Cardano.Wallet.Kernel (
 
 import           Universum hiding (State, init)
 
+import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar_, withMVar)
 import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
@@ -60,9 +62,10 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
-import           Cardano.Wallet.Kernel.Submission (WalletSubmission, addPending,
+import           Cardano.Wallet.Kernel.Submission (Evicted, WalletSubmission, addPending,
                                                    defaultResubmitFunction, exponentialBackoff,
-                                                   newWalletSubmission)
+                                                   newWalletSubmission, tick)
+import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
 import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..), TxId)
 
@@ -244,17 +247,34 @@ bracketActiveWallet :: (MonadMask m, MonadIO m)
 bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
     let rho = defaultResubmitFunction subFunction (exponentialBackoff 255 1.25)
     walletSubmission <- newMVar (newWalletSubmission rho)
+    submissionLayerTicker <-
+        liftIO $ async
+               $ tickSubmissionLayer (_walletLogMessage walletPassive)
+                                     (withMVar walletSubmission tick)
+                                     (onEvict walletSubmission)
     bracket
       (return ActiveWallet{..})
-      (\_ -> return ())
+      (\_ -> liftIO (cancel submissionLayerTicker))
       runActiveWallet
     where
-        -- NOTE(adn) Discuss diffusion layer throttling with Alex & Duncan.
+        -- NOTE(adn) We might want to discuss diffusion layer throttling
+        -- with Alex & Duncan.
+        -- By default the diffusion layer should correctly throttle and debounce
+        -- requests, but we might want in the future to adopt more sophisticated
+        -- strategies.
         subFunction :: [TxAux] -> IO ()
         subFunction [] = return ()
         subFunction (tx:txs) = do
             void $ (walletSendTx walletDiffusion) tx
             subFunction txs
+
+        onEvict :: MVar (WalletSubmission IO)
+                -> Evicted
+                -> WalletSubmission IO
+                -> IO ()
+        onEvict submissionLayer evictedSet newState = do
+            modifyMVar_ submissionLayer (return . const newState)
+            evictPending walletPassive evictedSet
 
 -- | Submit a new pending transaction
 --
@@ -273,9 +293,9 @@ newPending ActiveWallet{..} accountId tx = do
             modifyMVar_ walletSubmission (return . addPending (singletonPending txId tx))
             return $ Right ()
 
-evictPending :: ActiveWallet -> Set TxId -> IO ()
-evictPending ActiveWallet{..} txids =
-    update' (walletPassive ^. wallets) $ EvictPending (InDb txids)
+evictPending :: PassiveWallet -> Set TxId -> IO ()
+evictPending passiveWallet txids =
+    update' (passiveWallet ^. wallets) $ EvictPending (InDb txids)
 
 {-------------------------------------------------------------------------------
   Wallet Account read-only API

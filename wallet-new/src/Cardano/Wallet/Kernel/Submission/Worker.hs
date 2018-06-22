@@ -15,9 +15,9 @@ import           System.Wlog (Severity (..))
 tickSubmissionLayer :: forall m. (MonadCatch m, MonadIO m)
                     => (Severity -> Text -> m ())
                     -- ^ A logging function
-                    -> m (Evicted, WalletSubmission m)
+                    -> IO (Evicted, WalletSubmission IO)
                     -- ^ A function to call at each 'tick'
-                    -> (Evicted -> WalletSubmission m -> m ())
+                    -> (Evicted -> WalletSubmission IO -> IO ())
                     -- ^ A callback to run whenever we get evicted
                     -- transactions back from the submission layer,
                     -- together with the new state.
@@ -28,8 +28,8 @@ tickSubmissionLayer logFunction tick onEvicted = go
       go = do
           liftIO $ threadDelay 1000000 -- Wait 1 second between the next tick.
           logFunction Debug "ticking..."
-          (evicted, newState) <- tick
+          (evicted, newState) <- liftIO tick
           unless (Set.null evicted) $ do
               logFunction Debug "Calling onEvicted on the evicted transactions.."
-              onEvicted evicted newState
+              liftIO (onEvicted evicted newState)
           go

@@ -21,6 +21,7 @@ import           Universum
 
 import           Cardano.Wallet.API as API
 import qualified Cardano.Wallet.API.V1.Errors as V1
+import           Cardano.Wallet.Kernel (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
@@ -197,25 +198,26 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
 
 -- | A 'Plugin' to start the wallet REST server
 --
--- TODO: no web socket support in the new wallet for now
+-- NOTE: There is no web socket support in the new wallet for now.
 walletBackend :: NewWalletBackendParams
-              -> PassiveWalletLayer Production
+              -> (PassiveWalletLayer Production, PassiveWallet)
               -> Plugin Kernel.WalletMode
-walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive = pure $ \diffusion -> do
-    env <- ask
-    let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-    bracketKernelActiveWallet passive diffusion' $ \active -> do
-      ctx <- view shutdownContext
-      let
-        portCallback :: Word16 -> IO ()
-        portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-      walletServeImpl
-        (getApplication active)
-        walletAddress
-        -- Disable TLS if in debug modeit .
-        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-        Nothing
-        (Just portCallback)
+walletBackend (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
+    pure $ \diffusion -> do
+        env <- ask
+        let diffusion' = Kernel.fromDiffusion (lower env) diffusion
+        bracketKernelActiveWallet passiveLayer passiveWallet diffusion' $ \active -> do
+          ctx <- view shutdownContext
+          let
+            portCallback :: Word16 -> IO ()
+            portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
+          walletServeImpl
+            (getApplication active)
+            walletAddress
+            -- Disable TLS if in debug modeit .
+            (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+            Nothing
+            (Just portCallback)
   where
     getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
     getApplication active = do

@@ -181,7 +181,7 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
-       (TxpGlobalApplyMode ctx m, MonadIO m, Default extraState)
+       (TxpGlobalApplyMode ctx m, Default extraState)
     => Trace m LogItem
     -> ProtocolMagic
     -> ProcessBlundsSettings extraEnv extraState m

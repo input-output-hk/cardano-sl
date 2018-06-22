@@ -66,17 +66,30 @@ verifyToil pm bvd lockedAssets curEpoch verifyAllIsKnown =
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
+<<<<<<< HEAD
 applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 applyToil [] = pass
 applyToil txun = do
     _ <- applyTxsToStakes txun
+=======
+applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM [StakeholderId]
+applyToil [] = pure []
+applyToil txun = do
+    sids <- applyTxsToStakes txun
+>>>>>>> d310574... [CBR-207] updated txp compiles with trace
     utxoMToGlobalToilM $ mapM_ (applyTxToUtxo' . withTxId . fst) txun
+    pure sids
 
 -- | Rollback transactions from one block.
 rollbackToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 rollbackToil txun = do
+<<<<<<< HEAD
     _ <- rollbackTxsStakes txun
+=======
+    sids <- rollbackTxsStakes txun
+>>>>>>> d310574... [CBR-207] updated txp compiles with trace
     utxoMToGlobalToilM $ mapM_ Utxo.rollbackTxUtxo $ reverse txun
+    pure sids
 
 ----------------------------------------------------------------------------
 -- Local

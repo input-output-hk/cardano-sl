@@ -17,8 +17,8 @@ import           Control.Exception.Safe (Exception (..))
 import qualified Data.Text.Buildable
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
-import           Pos.Util.Log (WithLogger, logError)
-import           Pos.Util.Trace (TraceIO, traceWith, Severity (Error))
+import           Pos.Util.Log (WithLogger, logError, Severity (..))
+import           Pos.Util.Trace (Trace,  traceWith, Severity (Error))
 import           Serokell.Util (Color (Red), colorize)
 import qualified Text.Show
 import           Universum
@@ -75,13 +75,12 @@ reportFatalError msg = do
 
 -- | Print red message about fatal error and throw exception.
 traceFatalError
-    :: (MonadIO m, MonadThrow m)
-    => TraceIO -> Text -> m a
+    :: (MonadThrow m) => Trace m (Severity, Text) -> Text -> m a
 traceFatalError tr msg = do
-    liftIO $ traceWith tr (Error, colorize Red msg)
+    traceWith tr (Error, colorize Red msg)
     throwM $ CardanoFatalError msg
 
 -- | Report 'CardanoFatalError' for failed assertions.
-assertionFailed :: (MonadIO m, MonadThrow m) => TraceIO -> Text -> m a
+assertionFailed :: (MonadThrow m) => Trace m (Severity, Text) -> Text -> m a
 assertionFailed logTrace msg =
     traceFatalError logTrace $ "assertion failed: " <> msg

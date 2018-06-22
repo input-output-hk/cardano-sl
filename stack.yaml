@@ -155,8 +155,6 @@ extra-deps:
 # There are 2 asyncs -_-
 - lifted-async-0.10.0.1
 
-# Serokell stuff
-- universum-1.1.0
 - serokell-util-0.8.0
 # Because serokell-util
 - formatting-6.2.5

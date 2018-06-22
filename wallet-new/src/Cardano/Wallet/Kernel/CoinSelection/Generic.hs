@@ -7,7 +7,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
     -- * Domain
     IsValue(..)
   , CoinSelDom(..)
-  , StandardDom(..)
+  , StandardDom
   , Rounding(..)
   , Fee(..)
   , adjustFee

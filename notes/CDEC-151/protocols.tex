@@ -68,14 +68,39 @@
 
 \begin{document}
 
-\section{Introduction}
+\title{Design of IPC protocols for Cardano Shelly \\
+       {\small (Version 0.2)} \\
+       {\large \sc An IOHK technical report}}
+\author{Duncan Coutts \\ {\small \texttt{duncan@well-typed.com}} \\
+                         {\small \texttt{duncan.coutts@iohk.io}}
+   \and Alex Vieth \\ {\small \texttt{alex@well-typed.com}}
+   \and Neil Davies \\ {\small \texttt{neil.davies@pnsol.com}} \\
+                       {\small \texttt{neil.davies@iohk.io}}
+   }
+\date{June 22, 2018}
 
+\maketitle
+
+\begin{abstract}
 This document is intended as a discussion, leading to a design, of IPC
-protocols for Cardano's Shelly release.
+protocols for Cardano's Shelly release. The structure of the discussion is to
+look at the requirements and ideas for application-level protocols, before
+looking at how those can map onto lower level IPC protocols.
+\end{abstract}
 
-The structure of the discussion is to look at the requirements and ideas for
-application-level protocols, before looking at how those can map onto lower
-level IPC protocols.
+\tableofcontents
+
+\section*{Version history}
+
+\begin{description}
+\item[Version 0.1, June 18, 2018] First draft based on previous notes and
+                                  discussions with Alex.
+\item[Version 0.2, June 22, 2018] Sketch of protocol proposal and goals for
+                                  how to elaborate, based on further review
+                                  and discussion with Alex and Neil.
+\end{description}
+
+\section{Introduction}
 
 \subsection{Scope}
 
@@ -278,7 +303,7 @@ A small fixed size header means that we can bound the network resource use
 to send or receive a single header, and can also bound the CPU resources needed
 to verify the header.
 
-Additionally:
+Additionally the Ouroboros algorithm imposes a number of useful constraints:
 \begin{itemize}
 \item Ouroboros specifies that chains with blocks from slots in the future are
       invalid. The signed block header contains the slot number so we can
@@ -296,6 +321,9 @@ Additionally:
       new purported chain (represented by the header of its head block) and its
       own current chain. This bounds the number of block headers that a node
       would ever need to download to obtain all headers for the candidate chain.
+\item Each block must be signed by the appropriate slot leader. This signature
+      -- which is the proof of stake -- can be checked by any node that has
+      the chain up to the current epoch.
 \item In Ouroboros classic, there is only ever one legitimate leader for each
       time slot, and non-adversarial players never sign more than one block
       for the slots in which they are the leader.
@@ -308,40 +336,190 @@ Additionally:
       `open adversarial behaviour').
 \end{itemize}
 
-The combination of these constraints would appear to place severe limitations
-on the number of plausibly valid chains that an adversary can create and try
-to get honest parties to chase.
+The combination of these constraints does place a limit on the number and
+length of plausibly valid chains that an adversary can create and try to get
+honest parties to chase. Given that some honest parties may have gone offline
+and be a long way behind the chain, and in particular will not be able to
+validate signatures in block headers. So it is worth splitting the analysis
+into the case of nodes that are within the current epoch, and a case for nodes
+that are further behind. We start with the first case.
 
 In particular, plausibly valid chains would have to start with a valid header
 that falls into a slot after the last block of the target victim's chain
 but only up to the current time slot. Plausibly valid chains can only extend
-back up to 2K slots. The most subtle constraint is that since the victim is
-able to assume that honest nodes do not sign more than one block per slot, then
-the adversary is only able to make use of unfilled slots and may only use each
-one in any fake chain once. The only unfilled slots are those empty slots
-within the victim's chain (at most K) and statistically roughly half of the
-slots in the range between the end of the victim node's chain and the current
-slot (because the adversary is assumed to control less than 50\% of stake).
+back up to K blocks (max 2K slots). The victim is able to assume that other
+honest nodes do not sign more than one block per slot, this imposes the
+constraint that the adversary can only send one header per slot within the
+range just described.
 
-The implication is that provided that the victim keeps track of the last 2K
-slots it has seen and which keys were used to sign a valid block header in each
-slot, then it is possible for an honest party to bound the number of valid
-block headers used in any plausibly valid set of chains presented by an
-adversary.
+It is worth noting that just because honest nodes do not sign more than one
+block per slot, it does not mean that different honest nodes will not have
+different blocks in the same slot, since an adversary can in previous slots
+have sent different headers to different nodes.
 
-TODO: sketch a counting argument showing there are a limited number of slots
-and we can force the adversary into using them up or abandoning their attack
-for the time being.
+\paragraph{An overall bound} Suppose the victim node has a chain with
+at least $K$ blocks covering the last $K \leq s \leq 2K$ slots, and $n$ slots
+between the slot of the head block of chain on the victim node's and the
+current time slot. Suppose also that the adversary controls a fraction
+$0 \leq \rho < 1/2$ of the stake in the current epoch.
+
+In that case the adversary can create approximately $n * \rho$ chains (the
+specific slots in which the adversary is leader is drawn from a probability
+distribution). In the worst case this approaches $n / 2$, but of course the
+adversary is allowed to wait until it gets lucky in the probability
+distribution. Each of these chains can be up to approximately $(n+K) * \rho$
+long. Of course only the chains that are actually longer than the victim node's
+current chain are valid.
 
 \subsubsection{Raising the difficulty for attackers}
 
-We would like to avoid consuming network resources downloading chains that
-we will later discover 
+As designers of the protocol game we want to structure it such that the
+defending party can make best use of the available bounds so that the attacking
+party cannot do much better than those bounds. In this case that means trying
+to avoid consuming too much network or other resources downloading chains that
+we will later discover are invalid. Attacking nodes can lie, and we must
+structure the game so that we can catch them out on the lie within bounded and
+reasonable resources.
+
+There are a few observations we can make from the above bounds. Firstly,
+nodes that are further behind are much more vulnerable since there are many
+more starting points for potential chains that an attacker can use.
+
+An important observation is that attackers with a lower stake proportion $\rho$
+can initially claim that they have a candidate chain that is longer than the
+victim's chain and that intersects with it many blocks back, but they will not
+be able to substantiate that claim. That is because the attacker can only make
+signed block headers for the slots it controls. They can use slots they control
+within the $n$ slots between the victim's chain head and the current time slot,
+but the further back the attacker tries to make the intersection, they soon
+run into the problem that the density of chain they can create is much lower
+than the density of the victim's chain. So while the attacker has an $n * \rho$
+head start, they soon loose out in trying to construct a valid chain.
+
+Given that the attacker can lie, we wish to structure the game so that we can
+catch them out on the lie with a minimum use of resources by the victim. We can
+use techniques such as requiring the attacker to reveal more information up
+front making it easier for the victim to detect the lie later, and we can use
+tricks like making certain challenges randomly so that the attacker cannot pick
+a perfect strategy up front.
 
 \subsubsection{Judicious choices on resource use}
 
+If the resource bounds are in the worst case still more than the available
+resources of the instance of the implementation, we may still be able to
+make adequate progress. If so, it involves deciding carefully which options
+to pursue and which to pass up. This requires careful analysis 
 
-One standard trick to 
+\subsection{A protocol proposal}
+
+In this section we will propose a protocol at a high level with a general
+description of the algorithm that the defending party can follow.
+
+We need to analyse this protocol in at least the following cases
+\begin{itemize}
+\item A high stake adversary: one that can construct multiple long enough valid
+chains according to the bounds, and many other plausible long but ultimately
+invalid chains.
+\item A low stake adversary: there are many more low stake adversaries than
+high stake ones, so this is an important case. We need to be sure we can deal
+with multiple low stake adversaries quickly.
+\item A low or zero stake adversaries that rely not on signing their own blocks
+but on grabbing real valid signed blocks and trying to cause mischief with
+them. For example, the algorithm should deal efficiently with an attacker that
+simply re-broadcasts many valid headers from the current chain.
+\item The protocol game we create is reversible: whatever protocol we define
+we must consider in both directions, either side can be the honest node with
+the other the adversary. We must analyse the resource use from the broadcast
+side as well as the receiving side.
+\end{itemize}
+
+The sketch of the protocol is as follows:
+\begin{enumerate}
+\item The (potential) adversary sends a new block header messages.
+      The block header message contains a signed block header (roughly ~600
+      bytes) and a list of pairs of slot number and hash of a predefined
+      set of preceding blocks on their chain. We could use e.g. 16 immediately
+      preceding and then ${2^n | n \in {5..15}}$ blocks earlier. This is an
+      initial declaration by the attacker and can be used to find the lower
+      bound on the purported chain intersection point. The purpose of providing
+      the first few densely is to deal efficiently with the common and
+      non-adversarial cases of follow-on blocks or short forks.
+\item The defender must check the block signature and discard it if it is
+      invalid. Honest nodes should never forward invalid signed blocks so this
+      indicates the immediate peer is dishonest and should be dropped.
+\item Assuming the block signature is valid, and it's slot number and block
+      number indicate it is of interest, the node must now remember the slot
+      and hash of this block header since any other validly signed block header
+      in this slot indicates both broadcasts were adversarial and can be
+      ignored. The node can also now re-broadcast this header to its other
+      peers that are subscribed.
+\item The defender, by looking at the purported points on the new chain can now
+      determine a lower bound on where the chain intersection would be (or that
+      there is none and it can be discarded). This is true because the points
+      on the chain cover up to one epoch back.
+\item The defender now issues a request containing a set of block numbers (or
+      offsets backwards from the chain head) on the attackers chain. The
+      request is for the corresponding slot numbers and block header hashes.
+      These can be made quite small, e.g. the first 64bits of the block hashes.
+      The purpose of this request is to force the attacker to reveal
+      information up front so that it cannot take an adaptive approach to our
+      later requests. If the range that the defender is interested in is too
+      big for a single request, it should pick points (or ranges of points?)
+      randomly.
+\item The attacker now sends the slot numbers and block header hashes, or the
+      request times out, and the defender can stop chasing this chain. Note
+      that this does not indicate the immediate peer is an adversary since we
+      re-broadcast headers prior to validating the whole chain of headers.
+\item The defender can now ask for a selection of block headers, based on the
+      block numbers they asked for previously. Block headers are a bit larger
+      so we can only ask for fewer than in the previous request. The defender
+      should ask for points on the chain randomly. This is to prevent the
+      attacker from using the slots they do control in a strategic way.
+\item The attacker must supply the headers requested (or abandon).
+\item The defender can now validate these headers and check them against the
+      slot numbers and hash prefixes previously declared by the attacker. The
+      argument is that if the attacker in fact can only sign a proportion of
+      the slots they are claiming (or cannot make the links or block numbers
+      match up), then by repeatedly sampling them randomly the defender has
+      a very high chance of catching them out in the lie, without having to
+      download the whole purported chain. The smaller the adversarial stake
+      $\rho$ and the longer the claimed fork the greater the chance of catching
+      the lie quickly.
+\item The defender can iterate asking for more block headers (and if it was
+      necessary more slot numbers and block header hashes) until either an
+      invalid header chain is discovered or all the headers from the
+      intersection point to the chain head are found. It may be appropriate
+      (if the analysis allows) to use larger batches for subsequent requests
+      as the probability of a lie dwindles.
+\item Once the defender has established a full chain of headers, it can request
+      the block bodies, either from the same node or from any other peer.
+\item Finally it can apply the new chain to its chain state if it is still
+      longer than its current chain.
+\item It is important to abandon this protocol if it takes too long overall.
+      A single slot-worth of time may be appropriate.
+\item It is important to retain valid signed headers in a cache, even if the
+      chain chasing was abandoned due to a timeout. This is because while an
+      attacker can make lots of different invalid chains that are all wildly
+      divergent, the honest chain gets built upon, so if we are in a situation
+      where we are trying to chase many possible chains, while we may not be
+      able to complete the chasing of the honest chain within the timeout we
+      can hopefully make progress on it at better than real time, and so b
+      remembering it from slot to slot we can build on it and eventually chase
+      down the whole chain of headers. It is not necessary to retain headers
+      when the chain was discovered to be invalid.
+\end{enumerate}
+
+TODO: need better name than attacker here, since the immediate peer may be
+honest and just be proxying for the real attacker. This is due to us wanting
+to broadcast headers before waiting for the full chain to be validated.
+
+TODO: during this whole process, the chain state may have updated already and
+the chain we're chasing may be redundant.
+
+TODO: consider priority between the chains we're chasing, e.g. when we get a
+full chain of headers, dedicate the bandwidth to fetching the blocks rather
+than chasing more? Do it adaptively as the lie probability dwindles? Or does
+that dangerously favour short adversary chains over genuine longer ones?
 
 \bibliographystyle{apalike}
 \bibliography{references}

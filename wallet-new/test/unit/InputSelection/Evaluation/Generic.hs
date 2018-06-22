@@ -350,8 +350,8 @@ data NextPolicy utxo m =
   | forall utxo'. (IsUtxo utxo', Dom utxo ~ Dom utxo') =>
       ChangePolicy (utxo -> utxo') (CompSelPolicy utxo' m)
 
-simpleCompPolicy :: forall utxo m. IsUtxo utxo
-                 => CoinSelPolicy utxo m (CoinSelSummary (Dom utxo), utxo)
+simpleCompPolicy :: forall utxo m.
+                    CoinSelPolicy utxo m (CoinSelSummary (Dom utxo), utxo)
                  -> CompSelPolicy utxo m
 simpleCompPolicy p = go
   where

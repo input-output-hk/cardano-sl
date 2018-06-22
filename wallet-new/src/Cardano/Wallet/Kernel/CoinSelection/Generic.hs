@@ -146,7 +146,7 @@ class ( CoinSelDom dom
 -- | Alias for 'Value'
 newtype Fee dom = Fee { getFee :: Value dom }
 
-adjustFee :: CoinSelDom dom => (Value dom -> Value dom) -> Fee dom -> Fee dom
+adjustFee :: (Value dom -> Value dom) -> Fee dom -> Fee dom
 adjustFee f = Fee . f . getFee
 
 unsafeFeeSum :: CoinSelDom dom => [Fee dom] -> Fee dom

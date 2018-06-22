@@ -107,8 +107,8 @@ nLargest n u = case maxView u of
 maxView :: StandardDom dom
         => SortedUtxo dom -> Maybe (UtxoEntry dom, SortedUtxo dom)
 maxView (SortedUtxo u) = do
-    ((val, elems), u') <- Map.maxViewWithKey u
-    case pickOne elems of
+    ((val, elements), u') <- Map.maxViewWithKey u
+    case pickOne elements of
       (io, Nothing)     -> Just (io, SortedUtxo $ u')
       (io, Just elems') -> Just (io, SortedUtxo $ Map.insert val elems' u')
   where

@@ -29,7 +29,7 @@ module Util.Range (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
-import           Data.List (init)
+import qualified Data.List
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
 
@@ -159,12 +159,12 @@ renderSplitAxis binWidth gap xRanges = (
         % build
         )
         (mconcat (map fst xRanges))
-        (mconcat $ zipWith showBreak [1 ..] (init (map fst xRanges)))
+        (mconcat $ zipWith showBreak [1 ..] (Data.List.init (map fst xRanges)))
     , sformat
        ( "unset nonlinear x\n"
        % build
        )
-       (mconcat $ zipWith resetBreak [1..] (init (map fst xRanges)))
+       (mconcat $ zipWith resetBreak [1..] (Data.List.init (map fst xRanges)))
     )
   where
     -- The total weight of all subranges

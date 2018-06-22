@@ -22,7 +22,6 @@ import           Formatting (bprint, (%))
 import qualified Formatting as F
 import qualified Text.Tabl as Tabl
 
-import           Pos.Core (HasConfiguration)
 import qualified Pos.Core as Core
 import           Pos.Crypto (SecretKey)
 import qualified Pos.Txp as Core
@@ -35,6 +34,7 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..), CoinS
                                                       mkStdTx, newOptions, random)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance, utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 {-------------------------------------------------------------------------------
   Generating stake for Utxo & payments
@@ -507,11 +507,10 @@ newtype Pay = Pay Word64
 maxNumInputs :: Word64
 maxNumInputs = 300
 
-mkTx :: Core.HasProtocolMagic => SecretKey -> MkTx Gen
-mkTx key = mkStdTx (\_addr -> Right (fakeSigner key))
+mkTx :: Core.ProtocolMagic -> SecretKey -> MkTx Gen
+mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
 
-pay :: Core.HasProtocolMagic
-    => (Word64 -> Gen Core.Utxo)
+pay :: (Word64 -> Gen Core.Utxo)
     -> (Word64 -> Gen (NonEmpty Core.TxOut))
     -> (Int -> NonEmpty Core.Coin -> Core.Coin)
     -> (CoinSelectionOptions -> CoinSelectionOptions)
@@ -519,23 +518,23 @@ pay :: Core.HasProtocolMagic
     -> Pay
     -> Policy
     -> Gen RunResult
-pay genU genP feeFunction adjustOptions (InitialBalance bal) (Pay amount) policy = do
-    utxo  <- genU bal
-    payee <- genP amount
-    key   <- arbitrary
-    let options = adjustOptions (newOptions feeFunction)
-    res <- bimap STB identity <$>
-             policy
-               options
-               (genUniqueChangeAddress utxo payee)
-               (mkTx key)
-               maxNumInputs
-               (fmap Core.TxOutAux payee)
-               utxo
-    return (utxo, payee, res)
+pay genU genP feeFunction adjustOptions (InitialBalance bal) (Pay amount) policy =
+    withDefConfiguration $ \pm -> do
+        utxo  <- genU bal
+        payee <- genP amount
+        key   <- arbitrary
+        let options = adjustOptions (newOptions feeFunction)
+        res <- bimap STB identity <$>
+                 policy
+                   options
+                   (genUniqueChangeAddress utxo payee)
+                   (mkTx pm key)
+                   maxNumInputs
+                   (fmap Core.TxOutAux payee)
+                   utxo
+        return (utxo, payee, res)
 
-payOne :: Core.HasProtocolMagic
-       => (Int -> NonEmpty Core.Coin -> Core.Coin)
+payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
        -> (CoinSelectionOptions -> CoinSelectionOptions)
        -> InitialBalance
        -> Pay
@@ -544,8 +543,7 @@ payOne :: Core.HasProtocolMagic
 payOne = pay genUtxoWithAtLeast genPayee
 
 -- | Like 'payOne', but allows a custom 'Gen' for the payees to be supplied
-payOne' :: Core.HasProtocolMagic
-        => (Word64 -> Gen (NonEmpty Core.TxOut))
+payOne' :: (Word64 -> Gen (NonEmpty Core.TxOut))
         -> (Int -> NonEmpty Core.Coin -> Core.Coin)
         -> (CoinSelectionOptions -> CoinSelectionOptions)
         -> InitialBalance
@@ -554,8 +552,7 @@ payOne' :: Core.HasProtocolMagic
         -> Gen RunResult
 payOne' payeeGenerator = pay genUtxoWithAtLeast payeeGenerator
 
-payBatch :: Core.HasProtocolMagic
-         => (Int -> NonEmpty Core.Coin -> Core.Coin)
+payBatch :: (Int -> NonEmpty Core.Coin -> Core.Coin)
          -> (CoinSelectionOptions -> CoinSelectionOptions)
          -> InitialBalance
          -> Pay
@@ -566,7 +563,7 @@ payBatch = pay genUtxoWithAtLeast genPayees
 receiverPays :: CoinSelectionOptions -> CoinSelectionOptions
 receiverPays o = o { csoExpenseRegulation = ReceiverPaysFee }
 
-spec :: HasConfiguration => Spec
+spec :: Spec
 spec =
     describe "Coin selection policies unit tests" $ do
         withMaxSuccess 1000 $ describe "largestFirst" $ do

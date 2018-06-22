@@ -224,6 +224,9 @@ extra-deps:
 # Support for wallet's Txmeta tracking
 - sqlite-simple-errors-0.6.1.0
 
+# Needed for coin selection in the wallet
+- normaldistribution-1.1.0.3
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 

@@ -31,10 +31,11 @@ import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Txp.Arbitrary as Core
 
+import           Cardano.Wallet.Kernel.Util (disjoint)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, forAll, listOf,
                      shuffle, vectorOf, (===))
-import           Test.QuickCheck.Property (counterexample)
 import           Util (disjoint)
+import           Test.QuickCheck.Property (counterexample, exception, property)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 

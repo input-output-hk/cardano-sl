@@ -7,15 +7,13 @@ module Test.Spec.CoinSelection (
 import           Universum
 
 import qualified Data.List
-import           Data.List.NonEmpty (cons)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Formatting (sformat)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, counterexample, forAll,
-                                  suchThat)
+import           Test.QuickCheck (Gen, Property, arbitrary, conjoin, counterexample, forAll)
 
 import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
@@ -30,93 +28,20 @@ import qualified Pos.Txp as Core
 import           Util.Buildable
 
 import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..), CoinSelPolicy,
-                                                      CoinSelectionOptions (..),
-                                                      ExpenseRegulation (..), MkTx, largestFirst,
-                                                      mkStdTx, newOptions, random)
+                     CoinSelectionOptions (..), ExpenseRegulation (..), InputGrouping (..), MkTx,
+                     largestFirst, mkStdTx, newOptions, random)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance, utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Spec.CoinSelection.Generators (InitialBalance (..), Pay (..), genGroupedUtxo,
+                     genPayee, genPayees, genRedeemPayee, genUniqueChangeAddress,
+                     genUtxoWithAtLeast)
+
 
 {-------------------------------------------------------------------------------
-  Generating stake for Utxo & payments
+  Fees
 -------------------------------------------------------------------------------}
-
-data StakeGenOptions = StakeGenOptions {
-      stakeOnEachInputPercentage :: Maybe Double
-      -- ^ How much of the total stake each input should hold. For example,
-      -- passing 1.0 would mean that 100% of the stake will be allocated on a
-      -- single input, which would make running the coin selection policy harder
-      -- with multiple outputs. If not specified, the generator will pick a
-      -- random value in (0.0,1.0] for each generated output.
-    , stakeGenerationTarget      :: GenerationTarget
-    -- ^ How close we want to hit our target.
-    , stakeNeeded                :: Core.Coin
-    -- ^ How much stake we want to generate
-    , stakeMaxInputsNum          :: Maybe Int
-    -- ^ If specified, stop generating inputs if they exceed the supplied
-    -- number, to keep the Utxo size under control.
-}
-
-data GenerationTarget =
-      AtLeast
-    -- ^ Generate an 'Utxo' which has @at least@ Core.Coin stake.
-    | Exactly
-    -- ^ Generate an 'Utxo' which has @exactly@ Core.Coin stake.
-    deriving Eq
-
--- | Generate an Utxo. The returned Utxo is not valid from a Cardano
--- perspective, but it is for coin selection.
-genUtxo :: StakeGenOptions -> Gen Core.Utxo
-genUtxo o = go mempty (stakeNeeded o) o
-    where
-        finalise :: Core.Utxo -> Core.Coin -> Gen Core.Utxo
-        finalise utxo amountToCover =
-            case amountToCover `Core.subCoin` (utxoBalance utxo) of
-                 Nothing -> return utxo
-                 Just (Core.Coin 0) -> return utxo
-                 Just remaining -> do
-                     txIn <- Core.TxInUtxo <$> arbitrary <*> arbitrary
-                     addr <- arbitrary
-                     let txOutAux = Core.TxOutAux (Core.TxOut addr remaining)
-                     return $ Map.insert txIn txOutAux utxo
-
-        go :: Core.Utxo -> Core.Coin -> StakeGenOptions -> Gen Core.Utxo
-        go accUtxo amountToCover opts =
-            case needToStop (Map.size accUtxo) (stakeMaxInputsNum opts) of
-                 True  -> finalise accUtxo amountToCover
-                 False -> do
-                     stakePercentage <- case stakeOnEachInputPercentage opts of
-                                            Nothing -> choose (0.1, 1.0)
-                                            Just r  -> pure r
-                     txIn <- (Core.TxInUtxo <$> arbitrary <*> arbitrary) `suchThat` (not . flip Map.member accUtxo)
-                     let adjust c = ceiling $ ((fromIntegral (Core.coinToInteger c)) * stakePercentage)
-                     coin <- Core.mkCoin <$> choose (1, adjust (stakeNeeded opts))
-                     addr <- arbitrary
-                     let txOutAux = Core.TxOutAux (Core.TxOut addr coin)
-                     let utxo' = Map.insert txIn txOutAux accUtxo
-                     case utxoBalance utxo' of
-                         bal | bal >= stakeNeeded opts && stakeGenerationTarget opts == AtLeast -> return utxo'
-                         bal | bal >= stakeNeeded opts && stakeGenerationTarget opts == Exactly ->
-                                 -- Cover 'amountToCover' exactly, on the old Utxo.
-                                 finalise accUtxo amountToCover
-                             | otherwise ->
-                                 case amountToCover `Core.subCoin` coin of
-                                     Nothing        -> error "invariant violated!"
-                                     Just remaining -> go utxo' remaining opts
-
--- | Generate some Utxo with @at least@ the supplied amount of money.
-genUtxoWithAtLeast :: InitialBalance -> Gen Core.Utxo
-genUtxoWithAtLeast payment = do
-    let amountToCover = case payment of
-                             InitialLovelace amount -> amount
-                             InitialADA amount      -> amount * 1000000
-    genUtxo $ StakeGenOptions {
-                  stakeOnEachInputPercentage = Just 0.2
-                , stakeGenerationTarget = AtLeast
-                , stakeNeeded           = Core.mkCoin amountToCover
-                , stakeMaxInputsNum     = Just 100
-            }
 
 -- | A fee-estimation policy which doesn't calculate any fee.
 freeLunch :: Int -> NonEmpty Core.Coin -> Core.Coin
@@ -137,101 +62,12 @@ cardanoFee inputs outputs = Core.mkCoin $
 linearFee :: Int -> NonEmpty Core.Coin -> Core.Coin
 linearFee inputsLen outputs = Core.mkCoin (fromIntegral $ inputsLen + length outputs)
 
--- | Generates a \"unique\" change address. A change address is unique is this
--- context if is not part of the Utxo & is not one of the original outputs
--- we need to pay.
-genUniqueChangeAddress :: Core.Utxo
-                       -> NonEmpty Core.TxOut
-                       -> Gen Core.Address
-genUniqueChangeAddress (map (Core.txOutAddress . Core.toaOut . snd) . Map.toList -> utxo)
-                       (map Core.txOutAddress . toList -> outputs) =
-    arbitrary `suchThat` (\a -> not (inUtxo utxo a) &&
-                                not (a `Data.List.elem` outputs) &&
-                                not (Core.isRedeemAddress a)
-                         )
-    where
-        inUtxo :: [Core.Address] -> Core.Address -> Bool
-        inUtxo addrs a = a `Data.List.elem` addrs
-
-genTxOut :: StakeGenOptions
-         -> Gen (NonEmpty Core.TxOut)
-genTxOut opts =
-    if stakeNeeded opts == Core.mkCoin 0
-       then error "invaliant violation! You cannot pay 0 coins."
-       else do o <- genOne
-               go (o :| [])
-    where
-        genOne :: Gen Core.TxOut
-        genOne = do
-            stakePercentage <- case stakeOnEachInputPercentage opts of
-                                   Nothing -> choose (0.1, 1.0)
-                                   Just r  -> pure r
-            let adjust c = ceiling $ fromIntegral (Core.coinToInteger c) * stakePercentage
-            given <- Core.mkCoin <$> choose (1, adjust (stakeNeeded opts))
-            addr  <- arbitrary `suchThat` (not . Core.isRedeemAddress)
-            return $ Core.TxOut addr given
-
-        finalise :: NonEmpty Core.TxOut -> Gen (NonEmpty Core.TxOut)
-        finalise acc = do
-            let slack = (stakeNeeded opts) `Core.unsafeSubCoin` (paymentAmount acc)
-            addr  <- arbitrary `suchThat` (not . Core.isRedeemAddress)
-            return $ (Core.TxOut addr slack) `cons` acc
-
-        go :: NonEmpty Core.TxOut -> Gen (NonEmpty Core.TxOut)
-        go acc = case needToStop (length acc) (stakeMaxInputsNum opts) of
-            True  -> finalise acc
-            False -> do
-                o <- genOne
-                let acc' = o `cons` acc
-                case paymentAmount acc' of
-                    bal | bal >= stakeNeeded opts && stakeGenerationTarget opts == AtLeast -> return acc'
-                    bal | bal >= stakeNeeded opts && stakeGenerationTarget opts == Exactly ->
-                            finalise acc
-                        | otherwise -> go acc'
-
-needToStop :: Int -> Maybe Int -> Bool
-needToStop _ Nothing               = False
-needToStop actual (Just requested) = actual >= requested
 
 -- | For some reason the version of 'QuickCheck' we are using doesn't seem
 -- to export 'withMaxSuccess'.
 withMaxSuccess :: Int -> Spec -> Spec
 withMaxSuccess x = modifyMaxSuccess (const x)
 
--- | Generates multiple payees.
-genPayees :: Pay -> Gen (NonEmpty Core.TxOut)
-genPayees payment = do
-    let amountToCover = case payment of
-                             PayLovelace amount -> amount
-                             PayADA amount      -> amount * 1000000
-    genTxOut StakeGenOptions {
-               stakeOnEachInputPercentage = Just 0.15
-             , stakeGenerationTarget = AtLeast
-             , stakeNeeded           = Core.mkCoin amountToCover
-             , stakeMaxInputsNum     = Just 5
-             }
-
--- | Generates a single payee.
-genPayee :: Pay -> Gen (NonEmpty Core.TxOut)
-genPayee payment = do
-    let amountToCover = case payment of
-                             PayLovelace amount -> amount
-                             PayADA amount      -> amount * 1000000
-    genTxOut StakeGenOptions {
-              stakeOnEachInputPercentage = Nothing
-            , stakeGenerationTarget = AtLeast
-            , stakeNeeded           = Core.mkCoin amountToCover
-            , stakeMaxInputsNum     = Just 1
-            }
-
--- | Generates a single payee which has a redeem address inside.
-genRedeemPayee :: Pay -> Gen (NonEmpty Core.TxOut)
-genRedeemPayee payment = do
-    let c = case payment of
-                PayLovelace amount -> amount
-                PayADA amount      -> amount * 1000000
-    a <- arbitrary `suchThat` Core.isRedeemAddress
-    return (Core.TxOut a (Core.mkCoin c) :| [])
 
 instance (Buildable a, Buildable b) => Buildable (Either a b) where
     build (Right r) = bprint ("Right " % F.build) r
@@ -522,14 +358,6 @@ type RunResult = ( Core.Utxo
                  , Either (ShowThroughBuild CoinSelHardErr) Core.TxAux
                  )
 
-data InitialBalance =
-      InitialLovelace Word64
-    | InitialADA Word64
-
-data Pay =
-      PayLovelace Word64
-    | PayADA Word64
-
 maxNumInputs :: Word64
 maxNumInputs = 300
 
@@ -588,6 +416,9 @@ payBatch = pay genUtxoWithAtLeast genPayees
 
 receiverPays :: CoinSelectionOptions -> CoinSelectionOptions
 receiverPays o = o { csoExpenseRegulation = ReceiverPaysFee }
+
+requireGrouping :: CoinSelectionOptions -> CoinSelectionOptions
+requireGrouping o = o { csoInputGrouping = RequireGrouping }
 
 spec :: Spec
 spec =
@@ -687,3 +518,19 @@ spec =
                 payBatch linearFee receiverPays (InitialLovelace 10) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> do
                   paymentFailedWith utxo payee res [errorWas notEnoughMoney]
+
+        -- Tests for the input grouping. By input grouping we mean the
+        -- circumstance where one user of the wallet used the same 'Address'
+        -- more than once (which is, technically, considered a bad practice).
+        -- In case of a security breach (for example if quantum computers will
+        -- become mainstream and able to brute force the current crypto in a
+        -- matter of minutes) if a single address is \"cracked\" then all the
+        -- associated inputs (and their funds) paying into this address would
+        -- be at risk. This is why we allow an 'InputGrouping' option to be
+        -- passed, which allows the coin selection to, if needed, pick all
+        -- the associated inputs paying into the address we just picked.
+        describe "Input Grouping" $ do
+            prop "Require grouping, fee = 0, payment of the size of the utxo depletes the Utxo completely" $ forAll (
+                pay genGroupedUtxo genPayee freeLunch requireGrouping (InitialLovelace 1000) (PayLovelace 10) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentSucceededWith utxo payee res []

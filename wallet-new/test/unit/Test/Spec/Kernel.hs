@@ -69,8 +69,11 @@ spec =
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
   where
-   -- TODO: Decide what to do with logging
-    logMessage _sev txt = print txt
+   -- TODO: Decide what to do with logging.
+   -- For now we are not logging them to stdout to not alter the output of
+   -- the test runner, but in the future we could store them into a mutable
+   -- reference or a TBQueue and perform assertions on them.
+    logMessage _ _  = return ()
 
 -- | Initialize active wallet in a manner suitable for generator-based testing
 bracketActiveWallet :: (Kernel.ActiveWallet -> IO a) -> IO a

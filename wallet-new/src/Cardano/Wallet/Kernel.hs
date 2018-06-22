@@ -245,16 +245,20 @@ bracketActiveWallet :: (MonadMask m, MonadIO m)
                     -> WalletDiffusion
                     -> (ActiveWallet -> m a) -> m a
 bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
+    let logMsg = _walletLogMessage walletPassive
     let rho = defaultResubmitFunction subFunction (exponentialBackoff 255 1.25)
     walletSubmission <- newMVar (newWalletSubmission rho)
     submissionLayerTicker <-
         liftIO $ async
-               $ tickSubmissionLayer (_walletLogMessage walletPassive)
+               $ tickSubmissionLayer logMsg
                                      (withMVar walletSubmission tick)
                                      (onEvict walletSubmission)
     bracket
       (return ActiveWallet{..})
-      (\_ -> liftIO (cancel submissionLayerTicker))
+      (\_ -> liftIO $ do
+                 (_walletLogMessage walletPassive) Error "stopping the wallet submission layer..."
+                 cancel submissionLayerTicker
+      )
       runActiveWallet
     where
         -- NOTE(adn) We might want to discuss diffusion layer throttling

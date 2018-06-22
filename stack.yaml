@@ -207,8 +207,6 @@ extra-deps:
 - diagrams-solve-0.1.1
 - SVGFonts-1.6.0.3
 - dual-tree-0.2.1
-- pretty-show-1.6.16
-- cryptonite-0.25
 
 # Support for wallet's Txmeta tracking
 - sqlite-simple-errors-0.6.1.0

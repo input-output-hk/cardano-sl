@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -Wno-unused-imports   #-}
-{-# OPTIONS_GHC -Wno-dodgy-imports   #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Test.Pos.Core.Bi
        ( tests
        ) where
@@ -7,7 +6,6 @@ module Test.Pos.Core.Bi
 import           Universum
 
 import           Cardano.Crypto.Wallet (xprv, xpub)
-import           Crypto.Random (MonadRandom)
 import qualified Crypto.SCRAPE as Scrape
 import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
@@ -21,70 +19,49 @@ import qualified Data.Vector as V
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 
-import           Pos.Binary.Class (Raw (..), asBinary)
-import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
-                                 BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
-                                 GenesisBody (..), GenesisConsensusData (..),
-                                 GenesisExtraHeaderData (..), GenesisProof (..), HeaderHash,
-                                 MainBlockHeader, MainBody (..), MainConsensusData (..),
-                                 MainExtraBodyData (..), MainExtraHeaderData (..), MainProof (..),
-                                 MainToSign (..), mkGenericHeader, mkGenesisHeader,
-                                 mkMainHeaderExplicit)
+import           Pos.Binary.Class (Bi, Raw (..), asBinary)
+import           Pos.Core.Block (BlockHeader (..), BlockHeaderAttributes, BlockSignature (..),
+                                 GenesisBlockHeader, GenesisBody (..), GenesisConsensusData (..),
+                                 GenesisProof (..), HeaderHash, MainBlockHeader, MainBody (..),
+                                 MainConsensusData (..), MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..), MainToSign (..),
+                                 mkGenesisHeader, mkMainHeaderExplicit)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..), Address (..),
-                                  BlockCount (..), ChainDifficulty (..), Coeff (..), Coin (..),
-                                  CoinPortion (..), IsBootstrapEraAddr (..),
+                                  AddrStakeDistribution (..), AddrType (..), BlockCount (..),
+                                  ChainDifficulty (..), Coeff (..), Coin (..), CoinPortion (..),
                                   IsBootstrapEraAddr (..), Script (..), ScriptVersion,
-                                  ScriptVersion, SharedSeed (..), SlotLeaders, StakeholderId,
-                                  StakesList, StakesMap, TxFeePolicy (..), TxSizeLinear (..),
-                                  addressHash, coinPortionDenominator, makeAddress, makePubKeyAddress,
-                                  mkMultiKeyDistr)
-import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..),
-                                         GenesisHash (..))
+                                  SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
+                                  TxFeePolicy (..), TxSizeLinear (..), addressHash, makeAddress,
+                                  makePubKeyAddress)
+import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..),
                                       ProxySKBlockInfo, ProxySKHeavy)
-import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..),
-                                   GenesisDelegation (..), GenesisInitializer (..),
-                                   GenesisProtocolConstants (..), GenesisSpec (..),
-                                   TestnetBalanceOptions (..), mkGenesisSpec)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
                                     LocalSlotIndex (..), SlotCount (..), SlotId (..), TimeDiff (..),
-                                    Timestamp (..), localSlotIndexMaxBound, localSlotIndexMinBound)
+                                    Timestamp (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap, InnerSharesMap,
-                               Opening, OpeningsMap, SharesDistribution, SharesMap,
-                               SignedCommitment, SscPayload (..), SscProof (..), VssCertificate (..),
-                               VssCertificatesHash, VssCertificate (..), VssCertificatesMap (..),
-                               mkCommitmentsMap, mkSscProof, mkVssCertificate, mkVssCertificatesMap,
+                               Opening, OpeningsMap, SharesDistribution, SignedCommitment,
+                               SscPayload (..), SscProof (..), VssCertificate (..),
+                               VssCertificate (..), VssCertificatesHash, VssCertificatesMap (..),
+                               mkCommitmentsMap, mkVssCertificate, mkVssCertificatesMap,
                                randCommitmentAndOpening)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId, TxIn (..), TxInWitness (..),
-                               TxOut (..), TxOutAux (..), TxPayload (..), TxProof (..), TxSig,
-                               TxSigData (..), TxWitness (..), mkTxPayload)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxInWitness (..), TxOut (..),
+                               TxOutAux (..), TxPayload (..), TxProof (..), TxSig, TxSigData (..),
+                               TxWitness, mkTxPayload)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpAttributes, UpId,
-                                  UpdateData (..), UpdatePayload (..), UpdateProof,
-                                  UpdateProposal (..), UpdateProposalToSign (..), UpdateProposals,
-                                  UpdateVote (..), VoteId, mkUpdateProof, mkUpdateProposalWSign,
-                                  mkUpdateVote, mkUpdateVoteSafe)
-import           Pos.Crypto (HDAddressPayload (..), Hash, PassPhrase, ProtocolMagic (..),
-                             PublicKey (..), RedeemPublicKey, RedeemSignature, SecretKey (..),
-                             SecretProof (..), SignTag (..), deterministicVssKeyGen, hash,
-                             redeemDeterministicKeyGen, redeemSign, sign, toVssPublicKey)
-import           Pos.Crypto.Hashing (AbstractHash (..), Hash (..), HashAlgorithm, WithHash,
-                                     abstractHash, hash, withHash)
-import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
-import           Pos.Crypto.Random (deterministic)
-import           Pos.Crypto.SecretSharing (DecShare, EncShare (..), Secret (..), SecretProof, VssKeyPair,
-                                           VssPublicKey (..), decryptShare, deterministicVssKeyGen,
-                                           genSharedSecret, toVssPublicKey)
-import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert, ProxySecretKey, ProxySignature,
-                                     PublicKey (..), SafeSigner (..), SecretKey (..), SignTag (..),
-                                     Signature, Signed, createPsk, deterministicKeyGen, mkSigned,
-                                     noPassEncrypt, proxySign, pskDelegatePk, safeCreateProxyCert,
-                                     safeCreatePsk, sign, signEncoded, toPublic)
-import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
-                                            redeemDeterministicKeyGen, redeemSign)
+                                  UpdateData (..), UpdatePayload (..), UpdateProof, UpdateProposal,
+                                  UpdateProposalToSign (..), UpdateVote (..), mkUpdateProof,
+                                  mkUpdateProposalWSign, mkUpdateVoteSafe)
+import           Pos.Crypto (AbstractHash (..), EncShare (..), HDAddressPayload (..), Hash,
+                             ProtocolMagic (..), PublicKey (..), RedeemPublicKey, RedeemSignature,
+                             SafeSigner (..), Secret (..), SecretKey (..), SecretProof (..),
+                             SignTag (..), VssKeyPair, VssPublicKey (..), abstractHash, createPsk,
+                             decryptShare, deterministic, deterministicVssKeyGen, hash, proxySign,
+                             redeemDeterministicKeyGen, redeemSign, safeCreatePsk, sign, toPublic,
+                             toVssPublicKey)
 import           Pos.Data.Attributes (Attributes, mkAttributes)
 import           Pos.Merkle (mkMerkleTree, mtRoot)
 
@@ -97,11 +74,10 @@ import           Test.Pos.Core.Gen
 import           Test.Pos.Crypto.Bi (getBytes)
 import           Test.Pos.Crypto.Gen (genProtocolMagic)
 
---------------------------------------------------------------------------------
--- Pos.Core.Block
---------------------------------------------------------------------------------
 
+--------------------------------------------------------------------------------
 -- BlockBodyAttributes
+--------------------------------------------------------------------------------
 golden_BlockBodyAttributes :: Property
 golden_BlockBodyAttributes = goldenTestBi bba "test/golden/BlockBodyAttributes"
   where
@@ -110,7 +86,9 @@ golden_BlockBodyAttributes = goldenTestBi bba "test/golden/BlockBodyAttributes"
 roundTripBlockBodyAttributesBi :: Property
 roundTripBlockBodyAttributesBi = eachOf 1000 genBlockBodyAttributes roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- BlockHeader
+--------------------------------------------------------------------------------
 golden_BlockHeader_Genesis :: Property
 golden_BlockHeader_Genesis = goldenTestBi (BlockHeaderGenesis exampleGenesisBlockHeader)
                                           "test/golden/BlockHeader_Genesis"
@@ -128,7 +106,9 @@ golden_BlockHeaderMain = goldenTestBi bhm "test/golden/BlockHeaderMain"
 roundTripBlockHeaderBi :: Property
 roundTripBlockHeaderBi = eachOf 10 (feedPMC genBlockHeader) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- BlockHeaderAttributes
+--------------------------------------------------------------------------------
 golden_BlockHeaderAttributes :: Property
 golden_BlockHeaderAttributes = goldenTestBi (mkAttributes () :: BlockHeaderAttributes)
                                             "test/golden/BlockHeaderAttributes"
@@ -136,7 +116,9 @@ golden_BlockHeaderAttributes = goldenTestBi (mkAttributes () :: BlockHeaderAttri
 roundTripBlockHeaderAttributesBi :: Property
 roundTripBlockHeaderAttributesBi = eachOf 1000 genBlockHeaderAttributes roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- BlockSignature
+--------------------------------------------------------------------------------
 golden_BlockSignature :: Property
 golden_BlockSignature = goldenTestBi exampleBlockSignature "test/golden/BlockSignature"
 
@@ -161,7 +143,9 @@ golden_BlockSignature_Heavy = goldenTestBi (BlockPSignatureHeavy sig)
 roundTripBlockSignatureBi :: Property
 roundTripBlockSignatureBi = eachOf 10 (feedPMC genBlockSignature) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- GenesisBlockHeader
+--------------------------------------------------------------------------------
 golden_GenesisBlockHeader :: Property
 golden_GenesisBlockHeader = goldenTestBi exampleGenesisBlockHeader
                                          "test/golden/GenesisBlockHeader"
@@ -169,14 +153,18 @@ golden_GenesisBlockHeader = goldenTestBi exampleGenesisBlockHeader
 roundTripGenesisBlockHeaderBi :: Property
 roundTripGenesisBlockHeaderBi = eachOf 1000 (feedPM genGenesisBlockHeader) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- GenesisBody
+--------------------------------------------------------------------------------
 golden_GenesisBody :: Property
 golden_GenesisBody = goldenTestBi exampleGenesisBody "test/golden/GenesisBody"
 
 roundTripGenesisBodyBi :: Property
 roundTripGenesisBodyBi = eachOf 1000 genGenesisBody roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- GenesisConsensusData
+--------------------------------------------------------------------------------
 golden_GenesisConsensusData :: Property
 golden_GenesisConsensusData = goldenTestBi cd "test/golden/GenesisConsensusData"
   where cd = GenesisConsensusData exampleEpochIndex exampleChainDifficulty
@@ -184,14 +172,18 @@ golden_GenesisConsensusData = goldenTestBi cd "test/golden/GenesisConsensusData"
 roundTripGenesisConsensusDataBi :: Property
 roundTripGenesisConsensusDataBi = eachOf 1000 genGenesisConsensusData roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- HeaderHash
+--------------------------------------------------------------------------------
 golden_HeaderHash :: Property
 golden_HeaderHash = goldenTestBi exampleHeaderHash "test/golden/HeaderHash"
 
 roundTripHeaderHashBi :: Property
 roundTripHeaderHashBi = eachOf 1000 genHeaderHash roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- GenesisProof
+--------------------------------------------------------------------------------
 golden_GenesisProof :: Property
 golden_GenesisProof = goldenTestBi gp "test/golden/GenesisProof"
   where gp = GenesisProof (abstractHash exampleSlotLeaders)
@@ -199,21 +191,27 @@ golden_GenesisProof = goldenTestBi gp "test/golden/GenesisProof"
 roundTripGenesisProofBi :: Property
 roundTripGenesisProofBi = eachOf 1000 genGenesisProof roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- MainBlockHeader
+--------------------------------------------------------------------------------
 golden_MainBlockHeader :: Property
 golden_MainBlockHeader = goldenTestBi exampleMainBlockHeader "test/golden/MainBlockHeader"
 
 roundTripMainBlockHeaderBi :: Property
 roundTripMainBlockHeaderBi = eachOf 20 (feedPMC genMainBlockHeader) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- MainBody
+--------------------------------------------------------------------------------
 golden_MainBody :: Property
 golden_MainBody = goldenTestBi exampleMainBody "test/golden/MainBody"
 
 roundTripMainBodyBi :: Property
 roundTripMainBodyBi = eachOf 20 (feedPM genMainBody) roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- MainConsensusData
+--------------------------------------------------------------------------------
 golden_MainConsensusData :: Property
 golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
   where mcd = MainConsensusData exampleSlotId examplePublicKey
@@ -222,7 +220,9 @@ golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
 roundTripMainConsensusData :: Property
 roundTripMainConsensusData = eachOf 20 (feedPMC genMainConsensusData) roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- MainExtraBodyData
+--------------------------------------------------------------------------------
 golden_MainExtraBodyData :: Property
 golden_MainExtraBodyData = goldenTestBi mebd "test/golden/MainExtraBodyData"
   where mebd = MainExtraBodyData (mkAttributes ())
@@ -230,7 +230,9 @@ golden_MainExtraBodyData = goldenTestBi mebd "test/golden/MainExtraBodyData"
 roundTripMainExtraBodyDataBi :: Property
 roundTripMainExtraBodyDataBi = eachOf 1000 genMainExtraBodyData roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- MainExtraHeaderData
+--------------------------------------------------------------------------------
 golden_MainExtraHeaderData :: Property
 golden_MainExtraHeaderData = goldenTestBi exampleMainExtraHeaderData
                                           "test/golden/MainExtraHeaderData"
@@ -238,21 +240,27 @@ golden_MainExtraHeaderData = goldenTestBi exampleMainExtraHeaderData
 roundTripMainExtraHeaderDataBi :: Property
 roundTripMainExtraHeaderDataBi = eachOf 1000 genMainExtraHeaderData roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- MainProof
+--------------------------------------------------------------------------------
 golden_MainProof :: Property
 golden_MainProof = goldenTestBi exampleMainProof "test/golden/MainProof"
 
 roundTripMainProofBi :: Property
 roundTripMainProofBi = eachOf 20 (feedPM genMainProof) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- MainToSign
+--------------------------------------------------------------------------------
 golden_MainToSign :: Property
 golden_MainToSign = goldenTestBi exampleMainToSign "test/golden/MainToSign"
 
 roundTripMainToSignBi :: Property
 roundTripMainToSignBi = eachOf 20 (feedPMC genMainToSign) roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- Address
+--------------------------------------------------------------------------------
 golden_Address :: Property
 golden_Address = goldenTestBi a "test/golden/Address"
   where
@@ -263,7 +271,9 @@ golden_Address = goldenTestBi a "test/golden/Address"
 roundTripAddressBi :: Property
 roundTripAddressBi = eachOf 1000 genAddress roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- AddrSpendingData
+--------------------------------------------------------------------------------
 golden_AddrSpendingData_PubKey :: Property
 golden_AddrSpendingData_PubKey = goldenTestBi exampleAddrSpendingData_PubKey
                                               "test/golden/AddrSpendingData_PubKey"
@@ -285,7 +295,9 @@ golden_AddrSpendingData_Unknown = goldenTestBi asd "test/golden/AddrSpendingData
 roundTripAddrSpendingDataBi :: Property
 roundTripAddrSpendingDataBi = eachOf 1000 genAddrSpendingData roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- AddrStakeDistribution
+--------------------------------------------------------------------------------
 golden_AddrStakeDistribution_Bootstrap :: Property
 golden_AddrStakeDistribution_Bootstrap =
     goldenTestBi BootstrapEraDistr "test/golden/AddrStakeDistribution_Bootstrap"
@@ -311,7 +323,9 @@ golden_AddrStakeDistribution_UnsafeMultiKey =
 roundTripAddrStakeDistributionBi :: Property
 roundTripAddrStakeDistributionBi = eachOf 1000 genAddrStakeDistribution roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- AddrType
+--------------------------------------------------------------------------------
 golden_AddrType_PK :: Property
 golden_AddrType_PK = goldenTestBi at "test/golden/AddrType_PK"
   where at = ATPubKey
@@ -331,7 +345,9 @@ golden_AddrType_U = goldenTestBi at "test/golden/AddrType_U"
 roundTripAddrTypeBi :: Property
 roundTripAddrTypeBi = eachOf 1000 genAddrType roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- BlockCount
+--------------------------------------------------------------------------------
 golden_BlockCount :: Property
 golden_BlockCount = goldenTestBi bc "test/golden/BlockCount"
   where bc = BlockCount 999
@@ -339,7 +355,9 @@ golden_BlockCount = goldenTestBi bc "test/golden/BlockCount"
 roundTripBlockCountBi :: Property
 roundTripBlockCountBi = eachOf 1000 genBlockCount roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- ChainDifficulty
+--------------------------------------------------------------------------------
 golden_ChainDifficulty :: Property
 golden_ChainDifficulty = goldenTestBi cd "test/golden/ChainDifficulty"
   where cd = ChainDifficulty (BlockCount 9999)
@@ -347,7 +365,9 @@ golden_ChainDifficulty = goldenTestBi cd "test/golden/ChainDifficulty"
 roundTripChainDifficultyBi :: Property
 roundTripChainDifficultyBi = eachOf 1000 genChainDifficulty roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- Coeff
+--------------------------------------------------------------------------------
 golden_Coeff :: Property
 golden_Coeff = goldenTestBi c "test/golden/Coeff"
   where c = Coeff (MkFixed 101)
@@ -355,7 +375,9 @@ golden_Coeff = goldenTestBi c "test/golden/Coeff"
 roundTripCoeffBi :: Property
 roundTripCoeffBi = eachOf 1000 genCoeff roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- Coin
+--------------------------------------------------------------------------------
 golden_Coin :: Property
 golden_Coin = goldenTestBi c "test/golden/Coin"
   where c = Coin 9732
@@ -363,7 +385,9 @@ golden_Coin = goldenTestBi c "test/golden/Coin"
 roundTripCoinBi :: Property
 roundTripCoinBi = eachOf 1000 genCoin roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- CoinPortion
+--------------------------------------------------------------------------------
 golden_CoinPortion :: Property
 golden_CoinPortion = goldenTestBi c "test/golden/CoinPortion"
   where c = CoinPortion 9702
@@ -371,14 +395,18 @@ golden_CoinPortion = goldenTestBi c "test/golden/CoinPortion"
 roundTripCoinPortionBi :: Property
 roundTripCoinPortionBi = eachOf 1000 genCoinPortion roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- Script
+--------------------------------------------------------------------------------
 golden_Script :: Property
 golden_Script = goldenTestBi exampleScript "test/golden/Script"
 
 roundTripScriptBi :: Property
 roundTripScriptBi = eachOf 1000 genScript roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- ScriptVersion
+--------------------------------------------------------------------------------
 golden_ScriptVersion :: Property
 golden_ScriptVersion = goldenTestBi sv "test/golden/ScriptVersion"
   where sv = 6001 :: ScriptVersion
@@ -386,7 +414,9 @@ golden_ScriptVersion = goldenTestBi sv "test/golden/ScriptVersion"
 roundTripScriptVersionBi :: Property
 roundTripScriptVersionBi = eachOf 1000 genScriptVersion roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- SharedSeed
+--------------------------------------------------------------------------------
 golden_SharedSeed :: Property
 golden_SharedSeed = goldenTestBi s "test/golden/SharedSeed"
   where s = SharedSeed (getBytes 8 32)
@@ -394,14 +424,18 @@ golden_SharedSeed = goldenTestBi s "test/golden/SharedSeed"
 roundTripSharedSeedBi :: Property
 roundTripSharedSeedBi = eachOf 1000 genSharedSeed roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- SlotLeaders
+--------------------------------------------------------------------------------
 golden_SlotLeaders :: Property
 golden_SlotLeaders = goldenTestBi exampleSlotLeaders "test/golden/SlotLeaders"
 
 roundTripSlotLeadersBi :: Property
 roundTripSlotLeadersBi = eachOf 1000 genSlotLeaders roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- StakeholderId
+--------------------------------------------------------------------------------
 golden_StakeholderId :: Property
 golden_StakeholderId =
     goldenTestBi exampleStakeholderId "test/golden/StakeholderId"
@@ -409,14 +443,18 @@ golden_StakeholderId =
 roundTripStakeholderIdBi :: Property
 roundTripStakeholderIdBi = eachOf 1000 genStakeholderId roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- StakesList
+--------------------------------------------------------------------------------
 golden_StakesList :: Property
 golden_StakesList = goldenTestBi exampleStakesList "test/golden/StakesList"
 
 roundTripStakesListBi :: Property
 roundTripStakesListBi = eachOf 1000 genStakesList roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- StakesMap
+--------------------------------------------------------------------------------
 golden_StakesMap :: Property
 golden_StakesMap = goldenTestBi sm "test/golden/StakesMap"
   where sm = HM.fromList exampleStakesList
@@ -424,7 +462,9 @@ golden_StakesMap = goldenTestBi sm "test/golden/StakesMap"
 roundTripStakesMapBi :: Property
 roundTripStakesMapBi = eachOf 1000 genStakesMap roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- TxFeePolicy
+--------------------------------------------------------------------------------
 golden_TxFeePolicy_Linear :: Property
 golden_TxFeePolicy_Linear = goldenTestBi tfp "test/golden/TxFeePolicy_Linear"
   where
@@ -440,7 +480,9 @@ golden_TxFeePolicy_Unknown = goldenTestBi tfp "test/golden/TxFeePolicy_Unknown"
 roundTripTxFeePolicyBi :: Property
 roundTripTxFeePolicyBi = eachOf 1000 genTxFeePolicy roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- TxSizeLinear
+--------------------------------------------------------------------------------
 golden_TxSizeLinear :: Property
 golden_TxSizeLinear = goldenTestBi tsl "test/golden/TxSizeLinear"
   where
@@ -451,7 +493,9 @@ golden_TxSizeLinear = goldenTestBi tsl "test/golden/TxSizeLinear"
 roundTripTxSizeLinearBi :: Property
 roundTripTxSizeLinearBi = eachOf 1000 genTxSizeLinear roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- DlgPayload
+--------------------------------------------------------------------------------
 golden_DlgPayload :: Property
 golden_DlgPayload = goldenTestBi dp "test/golden/DlgPayload"
   where dp = UnsafeDlgPayload (take 4 staticProxySKHeavys)
@@ -459,7 +503,9 @@ golden_DlgPayload = goldenTestBi dp "test/golden/DlgPayload"
 roundTripDlgPayloadBi :: Property
 roundTripDlgPayloadBi = eachOf 100 (feedPM genDlgPayload) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- HeavyDlgIndex
+--------------------------------------------------------------------------------
 golden_HeavyDlgIndex :: Property
 golden_HeavyDlgIndex = goldenTestBi hdi "test/golden/HeavyDlgIndex"
   where hdi = staticHeavyDlgIndexes !! 0
@@ -467,7 +513,9 @@ golden_HeavyDlgIndex = goldenTestBi hdi "test/golden/HeavyDlgIndex"
 roundTripHeavyDlgIndexBi :: Property
 roundTripHeavyDlgIndexBi = eachOf 1000 genHeavyDlgIndex roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- LightDlgIndices
+--------------------------------------------------------------------------------
 golden_LightDlgIndices :: Property
 golden_LightDlgIndices = goldenTestBi exampleLightDlgIndices
                                       "test/golden/LightDlgIndices"
@@ -475,7 +523,9 @@ golden_LightDlgIndices = goldenTestBi exampleLightDlgIndices
 roundTripLightDlgIndicesBi :: Property
 roundTripLightDlgIndicesBi = eachOf 1000 genLightDlgIndices roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- ProxySKBlockInfo
+--------------------------------------------------------------------------------
 golden_ProxySKBlockInfo_Nothing :: Property
 golden_ProxySKBlockInfo_Nothing = goldenTestBi pskbi "test/golden/ProxySKBlockInfo_Nothing"
   where pskbi = Nothing :: ProxySKBlockInfo
@@ -487,7 +537,9 @@ golden_ProxySKBlockInfo_Just = goldenTestBi exampleProxySKBlockInfo
 roundTripProxySKBlockInfoBi :: Property
 roundTripProxySKBlockInfoBi = eachOf 200 (feedPM genProxySKBlockInfo) roundTripsBiShow
 
+--------------------------------------------------------------------------------
 -- ProxySKHeavy
+--------------------------------------------------------------------------------
 golden_ProxySKHeavy :: Property
 golden_ProxySKHeavy = goldenTestBi skh "test/golden/ProxySKHeavy"
   where skh = staticProxySKHeavys !! 0
@@ -495,14 +547,18 @@ golden_ProxySKHeavy = goldenTestBi skh "test/golden/ProxySKHeavy"
 roundTripProxySKHeavyBi :: Property
 roundTripProxySKHeavyBi = eachOf 200 (feedPM genProxySKHeavy) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- EpochIndex
+--------------------------------------------------------------------------------
 golden_EpochIndex :: Property
 golden_EpochIndex = goldenTestBi exampleEpochIndex "test/golden/EpochIndex"
 
 roundTripEpochIndexBi :: Property
 roundTripEpochIndexBi = eachOf 1000 genEpochIndex roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- EpochOrSlot
+--------------------------------------------------------------------------------
 golden_EpochOrSlotEI :: Property
 golden_EpochOrSlotEI = goldenTestBi eos "test/golden/EpochOrSlotEI"
   where eos = EpochOrSlot (Left (EpochIndex 14))
@@ -514,7 +570,9 @@ golden_EpochOrSlotSI = goldenTestBi eos "test/golden/EpochOrSlotSI"
 roundTripEpochOrSlotBi :: Property
 roundTripEpochOrSlotBi = eachOf 1000 (feedPC genEpochOrSlot) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- FlatSlotId
+--------------------------------------------------------------------------------
 golden_FlatSlotId :: Property
 golden_FlatSlotId = goldenTestBi fsi "test/golden/FlatSlotId"
   where fsi = 5001 :: FlatSlotId
@@ -522,7 +580,9 @@ golden_FlatSlotId = goldenTestBi fsi "test/golden/FlatSlotId"
 roundTripFlatSlotIdBi :: Property
 roundTripFlatSlotIdBi = eachOf 1000 genFlatSlotId roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- LocalSlotIndex
+--------------------------------------------------------------------------------
 golden_LocalSlotIndex :: Property
 golden_LocalSlotIndex = goldenTestBi lsi "test/golden/LocalSlotIndex"
   where lsi = UnsafeLocalSlotIndex 52
@@ -530,7 +590,9 @@ golden_LocalSlotIndex = goldenTestBi lsi "test/golden/LocalSlotIndex"
 roundTripLocalSlotIndexBi :: Property
 roundTripLocalSlotIndexBi = eachOf 1000 (feedPC genLocalSlotIndex) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- SlotCount
+--------------------------------------------------------------------------------
 golden_SlotCount :: Property
 golden_SlotCount = goldenTestBi sc "test/golden/SlotCount"
   where sc = SlotCount 474747
@@ -538,14 +600,18 @@ golden_SlotCount = goldenTestBi sc "test/golden/SlotCount"
 roundTripSlotCountBi :: Property
 roundTripSlotCountBi = eachOf 1000 genSlotCount roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- SlotId
+--------------------------------------------------------------------------------
 golden_SlotId :: Property
 golden_SlotId = goldenTestBi exampleSlotId "test/golden/SlotId"
 
 roundTripSlotIdBi :: Property
 roundTripSlotIdBi = eachOf 1000 (feedPC genSlotId) roundTripsBiBuildable
 
+--------------------------------------------------------------------------------
 -- TimeDiff
+--------------------------------------------------------------------------------
 golden_TimeDiff :: Property
 golden_TimeDiff = goldenTestBi td "test/golden/TimeDiff"
   where td = TimeDiff 4747
@@ -562,7 +628,7 @@ golden_ApplicationName = goldenTestBi aN "test/golden/ApplicationName"
     where aN = ApplicationName "Golden"
 
 roundTripApplicationName :: Property
-roundTripApplicationName = eachOf 10 genApplicationName roundTripsBiBuildable
+roundTripApplicationName = eachOf 50 genApplicationName roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- Attributes
@@ -573,7 +639,7 @@ golden_Attributes = goldenTestBi attrib "test/golden/Attributes"
     where attrib = mkAttributes ()
 
 roundTripAttributes :: Property
-roundTripAttributes = eachOf 10 (genAttributes (pure ())) roundTripsBiShow
+roundTripAttributes = eachOf 50 (genAttributes (pure ())) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- BlockVersion
@@ -583,7 +649,7 @@ golden_BlockVersion :: Property
 golden_BlockVersion = goldenTestBi exampleBlockVersion "test/golden/BlockVersion"
 
 roundTripBlockVersion :: Property
-roundTripBlockVersion = eachOf 10 genBlockVersion roundTripsBiBuildable
+roundTripBlockVersion = eachOf 50 genBlockVersion roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- BlockVersionData
@@ -594,7 +660,7 @@ golden_BlockVersionData = goldenTestBi bVerDat "test/golden/BlockVersionData"
     where bVerDat = exampleBlockVersionData
 
 roundTripBlockVersionData :: Property
-roundTripBlockVersionData = eachOf 10 genBlockVersionData roundTripsBiBuildable
+roundTripBlockVersionData = eachOf 50 genBlockVersionData roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- BlockVersionModifier
@@ -605,7 +671,7 @@ golden_BlockVersionModifier = goldenTestBi bVerMod "test/golden/BlockVersionModi
     where bVerMod = exampleBlockVersionModifier
 
 roundTripBlockVersionModifier :: Property
-roundTripBlockVersionModifier = eachOf 10 genBlockVersionModifier roundTripsBiBuildable
+roundTripBlockVersionModifier = eachOf 50 genBlockVersionModifier roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- Commitment
@@ -626,7 +692,7 @@ golden_CommitmentsMap =
   goldenTestBi exampleCommitmentsMap "test/golden/CommitmentsMap"
 
 roundTripCommitmentsMap :: Property
-roundTripCommitmentsMap = eachOf 10 (genCommitmentsMap $ ProtocolMagic 0) roundTripsBiShow
+roundTripCommitmentsMap = eachOf 10 (feedPM genCommitmentsMap) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- CommitmentsSignature
@@ -637,7 +703,7 @@ golden_CommitmentSignature =
     goldenTestBi exampleCommitmentSignature "test/golden/CommitmentSignature"
 
 roundTripCommitmentSignature :: Property
-roundTripCommitmentSignature = eachOf 10 (genCommitmentSignature $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripCommitmentSignature = eachOf 10 (feedPM genCommitmentSignature) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- HashRaw
@@ -648,7 +714,7 @@ golden_BlockHashRaw = goldenTestBi hRaw "test/golden/HashRaw"
     where hRaw = (abstractHash $ Raw ("9" ) :: Hash Raw)
 
 roundTripHashRaw :: Property
-roundTripHashRaw = eachOf 10 genHashRaw roundTripsBiBuildable
+roundTripHashRaw = eachOf 50 genHashRaw roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- InnerSharesMap
@@ -659,7 +725,7 @@ golden_InnerSharesMap = goldenTestBi iSm "test/golden/InnerSharesMap"
     where iSm = exampleInnerSharesMap 3 1
 
 roundTripInnerSharesMap :: Property
-roundTripInnerSharesMap = eachOf 10 genInnerSharesMap roundTripsBiShow
+roundTripInnerSharesMap = eachOf 50 genInnerSharesMap roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- MerkleTree
@@ -714,7 +780,7 @@ golden_SignedCommitment =
 
 roundTripSignedCommitment :: Property
 roundTripSignedCommitment =
-    eachOf 10 (genSignedCommitment $ ProtocolMagic 0) roundTripsBiShow
+    eachOf 10 (feedPM genSignedCommitment) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- SharesDistribution
@@ -821,7 +887,7 @@ golden_SscProof_CertificatesProof =
     shP = CertificatesProof (exampleVssCertificatesHash 10 4)
 
 roundTripSscProof :: Property
-roundTripSscProof = eachOf 10 (genSscProof $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripSscProof = eachOf 10 (feedPM genSscProof) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- SystemTag
@@ -843,7 +909,7 @@ golden_Timestamp = goldenTestBi timeStamp "test/golden/TimeStamp"
     timeStamp = Timestamp $ fromMicroseconds 47
 
 roundTripTimestamp :: Property
-roundTripTimestamp = eachOf 10 genTimestamp roundTripsBiBuildable
+roundTripTimestamp = eachOf 50 genTimestamp roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- Tx
@@ -855,7 +921,7 @@ golden_Tx = goldenTestBi tx "test/golden/Tx"
         tx = UnsafeTx txInList txOutList (mkAttributes ())
 
 roundTripTx :: Property
-roundTripTx = eachOf 10 genTx roundTripsBiBuildable
+roundTripTx = eachOf 50 genTx roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxAttributes
@@ -874,9 +940,8 @@ roundTripTxAttributes = eachOf 10 genTxAttributes roundTripsBiBuildable
 -- TxAux
 --------------------------------------------------------------------------------
 
--- fails
 roundTripTxAux :: Property
-roundTripTxAux = eachOf 1000 (feedPM genTxAux) roundTripsBiBuildable
+roundTripTxAux = eachOf 100 (feedPM genTxAux) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- Tx Hash
@@ -886,7 +951,7 @@ golden_HashTx :: Property
 golden_HashTx = goldenTestBi hashTx "test/golden/HashTx"
 
 roundTripHashTx :: Property
-roundTripHashTx = eachOf 10 genTxHash roundTripsBiBuildable
+roundTripHashTx = eachOf 50 genTxHash roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxIn
@@ -900,7 +965,7 @@ golden_TxInUnknown :: Property
 golden_TxInUnknown = goldenTestBi txInUnknown "test/golden/TxIn_Unknown"
 
 roundTripTxIn :: Property
-roundTripTxIn = eachOf 10 genTxIn roundTripsBiBuildable
+roundTripTxIn = eachOf 100 genTxIn roundTripsBiBuildable
 
 
 --------------------------------------------------------------------------------
@@ -911,7 +976,7 @@ golden_TxId :: Property
 golden_TxId = goldenTestBi txId "test/golden/TxId"
 
 roundTripTxId :: Property
-roundTripTxId = eachOf 10 genTxId roundTripsBiBuildable
+roundTripTxId = eachOf 50 genTxId roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxInList
@@ -921,7 +986,7 @@ golden_TxInList :: Property
 golden_TxInList = goldenTestBi txInList "test/golden/TxInList"
 
 roundTripTxInList :: Property
-roundTripTxInList = eachOf 10 genTxInList roundTripsBiShow
+roundTripTxInList = eachOf 50 genTxInList roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- TxInWitness
@@ -953,7 +1018,7 @@ golden_UnknownWitnessType = goldenTestBi unkWitType "test/golden/TxInWitness_Unk
 -- 4000 because this should generate 1000 for each constructor
 
 roundTripTxInWitness :: Property
-roundTripTxInWitness = eachOf 10 (genTxInWitness $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripTxInWitness = eachOf 50 (feedPM genTxInWitness) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxOutList
@@ -963,7 +1028,7 @@ golden_TxOutList :: Property
 golden_TxOutList = goldenTestBi txOutList "test/golden/TxOutList"
 
 roundTripTxOutList :: Property
-roundTripTxOutList = eachOf 10 genTxOutList roundTripsBiShow
+roundTripTxOutList = eachOf 50 genTxOutList roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- TxOut
@@ -973,7 +1038,7 @@ golden_TxOut :: Property
 golden_TxOut = goldenTestBi txOut "test/golden/TxOut"
 
 roundTripTxOut :: Property
-roundTripTxOut = eachOf 10 genTxOut roundTripsBiBuildable
+roundTripTxOut = eachOf 50 genTxOut roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxOutAux
@@ -985,15 +1050,14 @@ golden_TxOutAux =  goldenTestBi txOutAux "test/golden/TxOutAux"
         txOutAux = TxOutAux txOut
 
 roundTripTxOutAux :: Property
-roundTripTxOutAux = eachOf 10 genTxOutAux roundTripsBiBuildable
+roundTripTxOutAux = eachOf 50 genTxOutAux roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxPayload
 --------------------------------------------------------------------------------
 
--- fails
 roundTripTxPayload :: Property
-roundTripTxPayload = eachOf 1000 (feedPM genTxPayload) roundTripsBiShow
+roundTripTxPayload = eachOf 50 (feedPM genTxPayload) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- TxProof
@@ -1003,7 +1067,7 @@ golden_TxProof :: Property
 golden_TxProof =  goldenTestBi exampleTxProof "test/golden/TxProof"
 
 roundTripTxProof :: Property
-roundTripTxProof = eachOf 10 (genTxProof $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripTxProof = eachOf 50 (feedPM genTxProof) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxSig
@@ -1016,7 +1080,7 @@ golden_TxSig = goldenTestBi txSigGold "test/golden/TxSig"
                          exampleSecretKey txSigData
 
 roundTripTxSig :: Property
-roundTripTxSig = eachOf 10 (genTxSig $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripTxSig = eachOf 50 (feedPM genTxSig) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TxSigData
@@ -1026,7 +1090,7 @@ golden_TxSigData :: Property
 golden_TxSigData = goldenTestBi txSigData "test/golden/TxSigData"
 
 roundTripTxSigData :: Property
-roundTripTxSigData = eachOf 10 genTxSigData roundTripsBiShow
+roundTripTxSigData = eachOf 50 genTxSigData roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- TxWitness
@@ -1036,7 +1100,7 @@ golden_TxWitness :: Property
 golden_TxWitness = goldenTestBi exampleTxWitness "test/golden/TxWitness"
 
 roundTripTxWitness :: Property
-roundTripTxWitness = eachOf 10 (genTxWitness $ ProtocolMagic 0) roundTripsBiShow
+roundTripTxWitness = eachOf 20 (feedPM genTxWitness) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- UpAttributes
@@ -1046,7 +1110,7 @@ golden_UpAttributes :: Property
 golden_UpAttributes = goldenTestBi exampleUpAttributes "test/golden/UpAttributes"
 
 roundTripUpAttributes :: Property
-roundTripUpAttributes = eachOf 10 genUpAttributes roundTripsBiBuildable
+roundTripUpAttributes = eachOf 20 genUpAttributes roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpdateData
@@ -1056,7 +1120,7 @@ golden_UpdateData :: Property
 golden_UpdateData = goldenTestBi exampleUpdateData "test/golden/UpdateData"
 
 roundTripUpdateData :: Property
-roundTripUpdateData = eachOf 10 genUpdateData roundTripsBiBuildable
+roundTripUpdateData = eachOf 20 genUpdateData roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpdatePayload
@@ -1066,7 +1130,7 @@ golden_UpdatePayload :: Property
 golden_UpdatePayload = goldenTestBi exampleUpdatePayload "test/golden/UpdatePayload"
 
 roundTripUpdatePayload :: Property
-roundTripUpdatePayload = eachOf 10 (feedPM genUpdatePayload) roundTripsBiBuildable
+roundTripUpdatePayload = eachOf 20 (feedPM genUpdatePayload) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpdateProof
@@ -1076,7 +1140,7 @@ golden_UpdateProof :: Property
 golden_UpdateProof = goldenTestBi exampleUpdateProof "test/golden/UpdateProof"
 
 roundTripUpdateProof :: Property
-roundTripUpdateProof = eachOf 10 (genUpdateProof $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripUpdateProof = eachOf 20 (feedPM genUpdateProof) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpdateProposal
@@ -1086,7 +1150,7 @@ golden_UpdateProposal :: Property
 golden_UpdateProposal = goldenTestBi exampleUpdateProposal "test/golden/UpdateProposal"
 
 roundTripUpdateProposal :: Property
-roundTripUpdateProposal = eachOf 10 (genUpdateProposal $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripUpdateProposal = eachOf 20 (feedPM genUpdateProposal) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpdateProposals
@@ -1099,7 +1163,7 @@ golden_UpdateProposals = goldenTestBi ups "test/golden/UpdateProposals"
     ups = HM.fromList [(exampleUpId, exampleUpdateProposal)]
 
 roundTripUpdateProposals :: Property
-roundTripUpdateProposals = eachOf 10 (feedPM genUpdateProposals) roundTripsBiShow
+roundTripUpdateProposals = eachOf 20 (feedPM genUpdateProposals) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- UpdateProposalToSign
@@ -1110,7 +1174,7 @@ golden_UpdateProposalToSign =
   goldenTestBi exampleUpdateProposalToSign "test/golden/UpdateProposalToSign"
 
 roundTripUpdateProposalToSign :: Property
-roundTripUpdateProposalToSign = eachOf 10 genUpdateProposalToSign roundTripsBiShow
+roundTripUpdateProposalToSign = eachOf 20 genUpdateProposalToSign roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- UpdateVote
@@ -1120,7 +1184,7 @@ golden_UpdateVote :: Property
 golden_UpdateVote = goldenTestBi exampleUpdateVote "test/golden/UpdateVote"
 
 roundTripUpdateVote :: Property
-roundTripUpdateVote = eachOf 10 (genUpdateVote $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripUpdateVote = eachOf 20 (feedPM genUpdateVote) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpId
@@ -1130,14 +1194,14 @@ golden_UpId :: Property
 golden_UpId = goldenTestBi exampleUpId "test/golden/UpId"
 
 roundTripUpId :: Property
-roundTripUpId = eachOf 10 (feedPM genUpId) roundTripsBiBuildable
+roundTripUpId = eachOf 20 (feedPM genUpId) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- UpsData NB: UpsData is not a type it is a record accessor of `UpdateProposalToSign`
 --------------------------------------------------------------------------------
 
 roundTripUpsData :: Property
-roundTripUpsData = eachOf 10 genUpsData roundTripsBiShow
+roundTripUpsData = eachOf 20 genUpsData roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- VoteId
@@ -1149,7 +1213,7 @@ golden_VoteId = goldenTestBi vID "test/golden/VoteId"
         vID = (exampleUpId, examplePublicKey, False)
 -- ```type VoteId = (UpId, PublicKey, Bool)```
 roundTripVoteId :: Property
-roundTripVoteId = eachOf 10 (feedPM genVoteId) roundTripsBiBuildable
+roundTripVoteId = eachOf 20 (feedPM genVoteId) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- VssCertificate
@@ -1159,7 +1223,7 @@ golden_VssCertificate :: Property
 golden_VssCertificate = goldenTestBi exampleVssCertificate "test/golden/VssCertificate"
 
 roundTripVssCertificate :: Property
-roundTripVssCertificate = eachOf 10 (genVssCertificate $ ProtocolMagic 0) roundTripsBiBuildable
+roundTripVssCertificate = eachOf 10 (feedPM genVssCertificate) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- VssCertificatesHash
@@ -1179,7 +1243,8 @@ golden_VssCertificatesMap :: Property
 golden_VssCertificatesMap = goldenTestBi (exampleVssCertificatesMap 10 4) "test/golden/VssCertificatesMap"
 
 roundTripVssCertificatesMap :: Property
-roundTripVssCertificatesMap = eachOf 10 (genVssCertificatesMap $ ProtocolMagic 0) roundTripsBiShow
+roundTripVssCertificatesMap = eachOf 10 (feedPM genVssCertificatesMap) roundTripsBiShow
+
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -1197,10 +1262,9 @@ feedPMC genA = do pm <- genProtocolMagic
                   genA pm pc
 
 --------------------------------------------------------------------------------
--- Helpers
+-- Example golden datatypes
 --------------------------------------------------------------------------------
 
--- Don't forget to try and use this throughout the codebase!!
 exampleAttributes :: Attributes ()
 exampleAttributes = mkAttributes ()
 
@@ -1490,6 +1554,94 @@ exampleStakesList = zip sis coins
 
 exampleSlotLeaders :: SlotLeaders
 exampleSlotLeaders = map abstractHash (fromList (examplePublicKeys 16 3))
+
+exampleSystemTag :: SystemTag
+exampleSystemTag = SystemTag "golden"
+
+exampleTxAux :: TxAux
+exampleTxAux = TxAux tx exampleTxWitness
+  where
+    tx = UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ())
+
+exampleTxId :: TxId
+exampleTxId = exampleHashTx
+
+exampleTxInList :: (NonEmpty TxIn)
+exampleTxInList = fromList [exampleTxInUtxo]
+
+exampleTxInUnknown :: TxIn
+exampleTxInUnknown = TxInUnknown 47 ("forty seven" :: ByteString)
+
+exampleTxInUtxo :: TxIn
+exampleTxInUtxo = TxInUtxo exampleHashTx 47 -- TODO: loop here
+
+exampleTxOut :: TxOut
+exampleTxOut = TxOut (makePubKeyAddress (IsBootstrapEraAddr True) pkey) (Coin 47)
+    where
+        Right pkey = PublicKey <$> xpub (getBytes 0 64)
+
+exampleTxOutList :: (NonEmpty TxOut)
+exampleTxOutList = fromList [exampleTxOut]
+
+exampleTxPayload :: TxPayload
+exampleTxPayload = mkTxPayload [exampleTxAux]
+
+exampleTxProof :: TxProof
+exampleTxProof = TxProof 32 mroot hashWit
+  where
+    mroot = mtRoot $ mkMerkleTree [(UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ()))]
+    hashWit = hash $ [(V.fromList [(PkWitness examplePublicKey exampleTxSig)])]
+
+exampleTxSig :: TxSig
+exampleTxSig = sign (ProtocolMagic 0) SignForTestingOnly exampleSecretKey exampleTxSigData
+
+exampleTxSigData :: TxSigData
+exampleTxSigData = TxSigData exampleHashTx
+
+exampleTxWitness :: TxWitness
+exampleTxWitness = V.fromList [(PkWitness examplePublicKey exampleTxSig)]
+
+exampleUpAttributes :: UpAttributes
+exampleUpAttributes = exampleAttributes
+
+exampleUpdateData :: UpdateData
+exampleUpdateData = UpdateData h h h h
+  where
+    h = hash $ Raw "golden"
+
+exampleUpId :: UpId
+exampleUpId = hash exampleUpdateProposal
+
+exampleUpdatePayload :: UpdatePayload
+exampleUpdatePayload = UpdatePayload up uv
+  where
+    up = Just exampleUpdateProposal
+    uv = [exampleUpdateVote]
+
+exampleUpdateProof :: UpdateProof
+exampleUpdateProof = mkUpdateProof exampleUpdatePayload
+
+exampleUpdateProposal :: UpdateProposal
+exampleUpdateProposalToSign :: UpdateProposalToSign
+(exampleUpdateProposal, exampleUpdateProposalToSign) =
+    ( mkUpdateProposalWSign pm bv bvm sv hm ua ss
+    , UpdateProposalToSign bv bvm sv hm ua )
+  where
+    pm  = ProtocolMagic 0
+    bv  = exampleBlockVersion
+    bvm = exampleBlockVersionModifier
+    sv  = exampleSoftwareVersion
+    hm  = HM.fromList [(exampleSystemTag, exampleUpdateData)]
+    ua  = exampleUpAttributes
+    ss  = exampleSafeSigner 0
+
+exampleUpdateVote :: UpdateVote
+exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
+  where
+    pm = ProtocolMagic 0
+    ss = exampleSafeSigner 0
+    ui = exampleUpId
+    ar = True
 
 exampleVssCertificate :: VssCertificate
 exampleVssCertificate =

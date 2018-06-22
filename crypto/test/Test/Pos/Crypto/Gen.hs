@@ -74,9 +74,9 @@ import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretPro
                                            genSharedSecret, toVssPublicKey)
 import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert, ProxySecretKey, ProxySignature,
                                      PublicKey, SafeSigner (..), SecretKey, SignTag (..), Signature,
-                                     Signed, deterministicKeyGen, mkSigned, noPassEncrypt,
-                                     proxySign, pskDelegatePk, safeCreateProxyCert, safeCreatePsk,
-                                     sign, signEncoded, toPublic, createPsk)
+                                     Signed, createPsk, deterministicKeyGen, mkSigned,
+                                     noPassEncrypt, proxySign, safeCreateProxyCert, safeCreatePsk,
+                                     sign, signEncoded, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
                                             redeemDeterministicKeyGen, redeemSign)
 

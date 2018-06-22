@@ -15725,6 +15725,7 @@ license = stdenv.lib.licenses.mit;
 , memory
 , mtl
 , plutus-prototype
+, pvss
 , QuickCheck
 , quickcheck-instances
 , random
@@ -15809,10 +15810,12 @@ cardano-sl-crypto-test
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
 formatting
 generic-arbitrary
 hedgehog
 hspec
+pvss
 QuickCheck
 quickcheck-instances
 random

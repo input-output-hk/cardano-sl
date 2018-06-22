@@ -321,20 +321,12 @@ cryptography scheme.
 \begin{figure}[H]
  \caption{Shared seed computation}
  \begin{grammar}
-   <$\ssccomm$> = \{
-   \fld proof :: $\vssproof$
-   \fld shares :: $\pubkey \rhu \vssencshare$
-   \}
+   <$\ssccomm$> = $\pubkey \times ((\vsspubkey \rhu \vssencshare) \times \vssproof)
+                           \times \signature$
 
-   <$\sscopen$> = \{
-   \fld openings :: $\stakeholderids \rhu \vsssec$
-   \fld certificates :: $\lists{\ssccert}$
-   \}
+   <$\sscopen$> = $\stakeholderids \rhu \vsssec$
 
-   <$\sscshare$> = \{
-   \fld shares :: $\stakeholderids \rhu (\stakeholderids \rhu \nelists{\vssdecshare})$
-   \fld certificates :: $\lists{\ssccert}$
-   \}
+   <$\sscshare$> = $\stakeholderids \rhu (\stakeholderids \rhu \nelists{\vssdecshare})$
 
    <$\ssccert$> = \{
    \fld vsskey :: $\vsspubkey$
@@ -343,9 +335,9 @@ cryptography scheme.
    \fld signature :: $\signature$
    \}
 
-   <$\ssc$> = Commitments $(\pubkey \times \ssccomm \times \signature)\times \lists{\ssccert}$
-   \alt Openings $\sscopen$
-   \alt Shares $\sscshare$
+   <$\ssc$> = Commitments $\lists{\ssccomm} \times \lists{\ssccert}$
+   \alt Openings $\sscopen \times \lists{\ssccert}$
+   \alt Shares $\sscshare \times \lists{\ssccert}$
    \alt Certificates $\lists{\ssccert}$
 
    <$\sscpf$> = CommitmentsProof $\hash \times \hash$

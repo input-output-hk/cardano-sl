@@ -200,11 +200,7 @@ extra-deps:
 # Graphics stuff not found on stackage.
 - Chart-diagrams-1.8.2
 - graphviz-2999.19.0.0
-- diagrams-core-1.4.0.1
-# diagrams-core implies lens < 4.16
-- lens-4.15.4
-# lens-4.15.4 implies free < 5
-- free-4.12.4
+- diagrams-core-1.4.1.1
 - diagrams-lib-1.4.2
 - diagrams-postscript-1.4
 - diagrams-svg-1.4.1.1

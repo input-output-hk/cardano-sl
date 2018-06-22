@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.Wallet.WalletLayer.Kernel
-    ( bracketPassiveWallet
+    ( withPassiveWallet
     , bracketActiveWallet
     ) where
 
@@ -26,15 +26,33 @@ import qualified Data.Map.Strict as Map
 import           Pos.Util.BackupPhrase
 import           Pos.Crypto.Signing
 
+
+passiveWalletActionInterp
+  :: (Severity -> Text -> IO ())
+  -> PassiveWallet
+  -> Actions.WalletActionInterp IO b
+passiveWalletActionInterp logf pw = Actions.WalletActionInterp
+  { Actions.applyBlocks = \blunds ->
+      Kernel.applyBlocks pw
+        (OldestFirst (mapMaybe blundToResolvedBlock
+                               (toList (getOldestFirst blunds))))
+  , Actions.switchToFork = \_ _ ->
+      logf Debug "<passiveWalletActionInterp.switchToFork>"
+  , Actions.emit = logf Debug
+  }
+
+
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
-bracketPassiveWallet
-    :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
-    => (Severity -> Text -> IO ())
-    -> (PassiveWalletLayer n -> m a) -> m a
-bracketPassiveWallet logFunction f =
-    Kernel.bracketPassiveWallet logFunction $ \w -> do
-
+withPassiveWallet
+  :: forall m n a
+  .  (MonadIO n, MonadIO m, MonadMask m)
+  => (Severity -> Text -> IO ())
+  -> (PassiveWalletLayer n -> m a)
+  -> m a
+withPassiveWallet logf k =
+  Kernel.withPassiveWallet logFunction $ \w -> do
+     passiveWalletActionInterp
       -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
                { Actions.applyBlocks  =  \blunds ->

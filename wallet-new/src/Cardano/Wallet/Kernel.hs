@@ -14,7 +14,7 @@ module Cardano.Wallet.Kernel (
   , accountTotalBalance
   , applyBlock
   , applyBlocks
-  , bracketPassiveWallet
+  , withPassiveWallet
   , createWalletHdRnd
   , init
   , walletLogMessage
@@ -45,6 +45,7 @@ import           Data.Acid.Advanced (query', update')
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..)
+                                                  , PrefilteredUtxo
                                                   , prefilterUtxo, prefilterBlock)
 import           Cardano.Wallet.Kernel.Types(WalletId (..), WalletESKs)
 
@@ -92,21 +93,17 @@ makeLenses ''PassiveWallet
   Passive Wallet Resource Management
 -------------------------------------------------------------------------------}
 
--- | Allocate wallet resources
---
--- Here and elsewhere we'll want some constraints on this monad here, but
--- it shouldn't be too specific.
-bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => (Severity -> Text -> IO ())
-                     -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet _walletLogMessage f =
-    bracket (liftIO $ openMemoryState defDB)
-            (\_ -> return ())
-            (\db ->
-                bracket
-                  (liftIO $ initPassiveWallet _walletLogMessage db)
-                  (\_ -> return ())
-                  f)
+-- | Obtain a new 'PassiveWallet' that is valid within the scope of the given
+-- function.
+withPassiveWallet
+  :: (MonadMask m, MonadIO m)
+  => (Severity -> Text -> IO ())
+  -> (PassiveWallet -> m a)
+  -> m a
+withPassiveWallet logf k =
+    bracket (liftIO (openMemoryState defDB))
+            (\as -> liftIO (closeAcidState as))
+            (\as -> k <$> liftIO (initPassiveWallet logf as))
 
 {-------------------------------------------------------------------------------
   Manage the WalletESKs Map
@@ -172,6 +169,25 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,
           let walletId = WalletIdHdRnd rootId
           insertWalletESK pw walletId esk
           pure (Right (newRoot, Map.keys utxoByAccount))
+
+insertWalletHdRnd
+  :: PassiveWallet
+  -> HD.HdRoot
+  -> EncryptedSecretKey
+  -> Utxo
+  -> IO (Either HD.CreateHdRootError
+                (WalletId, Map HdAccountId PrefilteredUtxo))
+insertWalletHdRnd pw hdr esk utxo = do
+  let utxoByAccount :: Map HdAccountId PrefilteredUtxo
+      utxoByAccount = prefilterUtxo (HD._hdRootId hdr) esk utxo
+  res <- update' (_wallets pw) $ CreateHdWallet newRoot utxoByAccount
+  case res of
+     Left e -> pure (Left e)
+     Right () -> do
+        let wId = WalletIdHdRnd (HD._hdRootId hdr)
+        insertWalletESK pw wId esk
+        pure (Right (wId, utxoByAccount))
+
 
 -- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
 getCurrentTimestamp :: MonadIO m => m Timestamp

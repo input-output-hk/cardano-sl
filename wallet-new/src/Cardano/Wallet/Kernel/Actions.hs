@@ -1,8 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
 module Cardano.Wallet.Kernel.Actions
     ( WalletAction(..)
     , WalletActionInterp(..)
-    , forkWalletWorker
-    , walletWorker
+    , withWalletWorker
     , interp
     , interpList
     , WalletWorkerState
@@ -12,8 +12,10 @@ module Cardano.Wallet.Kernel.Actions
     ) where
 
 import           Control.Monad.Morph (MFunctor(hoist))
-import           Control.Concurrent.Async (async, link)
-import           Control.Concurrent.Chan
+import           Control.Exception (throwTo)
+import qualified Control.Monad.Catch as Ex
+import           Control.Concurrent (ThreadId, myThreadId, killThread, forkFinally)
+import qualified Control.Concurrent.STM as STM
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, shown, (%))
@@ -78,7 +80,8 @@ data StateChange b = Same
 -- | `interp` is the main interpreter for converting a wallet action to a concrete
 --   transition on the wallet worker's state, perhaps combined with some effects on
 --   the concrete wallet.
-interp :: forall m b.  Monad m
+interp :: forall m b
+       .  Monad m
        => WalletActionInterp m b
        -> WalletAction b
        -> StateT (WalletWorkerState b) m ()
@@ -186,11 +189,19 @@ changeTo :: Monad m => WalletWorkerState b -> m (StateChange b)
 changeTo wws = return (ChangeTo wws)
 
 -- | Connect a wallet action interpreter to a source actions. This function
--- never returns.
-walletWorker :: IO (WalletAction b) -> WalletActionInterp IO b -> IO Void
-walletWorker getWA ops = do
-    emit ops "Starting wallet worker."
-    evalStateT (forever (interp ops =<< lift getWA)) initialWorkerState
+-- returns as soon as the given action returns 'Nothing'.
+walletWorker
+  :: Ex.MonadMask m
+  => WalletActionInterp m b
+  -> m (Maybe (WalletAction b))
+  -> m ()
+walletWorker wai getWA = do
+  emit wai "Starting wallet worker."
+  evalStateT
+     (fix $ \k -> lift getWA >>= \case
+        Nothing -> lift (emit wai "Stoping wallet worker.")
+        Just wa -> interp wai wa >> k)
+     initialWorkerState
 
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
@@ -199,16 +210,57 @@ interpList ops actions = execStateT (forM_ actions $ interp ops) initialWorkerSt
 initialWorkerState :: WalletWorkerState b
 initialWorkerState = Normal
 
--- | Start a wallet worker, who will react to 'WalletAction's submited to the
--- returned function.
-forkWalletWorker
-  :: (MonadIO m, MonadIO n)
-  => WalletActionInterp IO b
-  -> m (WalletAction b -> n ())
-forkWalletWorker ops = liftIO $ do
-    c <- newChan
-    link =<< async (walletWorker (readChan c) ops)
-    return (liftIO . writeChan c)
+-- | Start a wallet worker in backround who will react to input provided via the
+-- 'STM' function, in FIFO order.
+--
+-- After the given continuation returns, the worker will continue processing any
+-- pending input before stopping immediately afterwards.
+--
+-- Usage of the obtained 'STM' action after the given continuation has returned
+-- will fail with an exception.
+withWalletWorker
+  :: (MonadIO m, Ex.MonadMask m)
+  => WalletActionInterp IO a
+  -> ((WalletAction a -> STM ()) -> m b)
+  -> m b
+withWalletWorker wai k = do
+  -- 'mDone' is full if the worker finished.
+  mDone :: MVar () <- liftIO newEmptyMVar
+  -- 'tq' keeps items to be processed by the worker.
+  tqWA :: STM.TQueue (WalletAction a) <- liftIO STM.newTQueueIO
+  -- 'tvOpen' is 'True' as long as 'tqWA' can receive new input.
+  tvOpen :: STM.TVar Bool <- liftIO (STM.newTVarIO True)
+  -- 'getWA' returns the next action to be processed. This function blocks
+  -- unless 'tvOpen' is 'False', in which case 'Nothing' is returned.
+  let getWA :: STM (Maybe (WalletAction a))
+      getWA = STM.tryReadTQueue tqWA >>= \case
+         Just wa -> pure (Just wa)
+         Nothing -> STM.readTVar tvOpen >>= \case
+            False -> pure Nothing
+            True  -> STM.retry
+  -- 'pushWA' adds an action to be executed by the worker, in FIFO order. It
+  -- will throw 'BlockedIndefinitelyOnSTM' if used after `k` returns.
+  let pushWA :: WalletAction a -> STM ()
+      pushWA = \wa -> do STM.check =<< STM.readTVar tvOpen
+                         STM.writeTQueue tqWA wa
+  me :: ThreadId <- liftIO myThreadId
+  Ex.mask $ \restore -> do
+     -- Exceptions in the worker thread are re-thrown from the current thread.
+     tId <- liftIO $ forkFinally
+        (walletWorker wai (STM.atomically getWA))
+        (either (throwTo me) (const (putMVar mDone ())))
+     -- 'cleanup' prevents new input, waits for the worker to finish processing
+     -- any pending work, and finally kills the worker.
+     let cleanup :: forall n. MonadIO n => n ()
+         cleanup = liftIO $ Ex.finally
+            (STM.atomically (STM.writeTVar tvOpen False) >> takeMVar mDone)
+            (killThread tId)
+     Ex.try (restore (k pushWA)) >>= \case
+        Right b -> cleanup >> pure b
+        Left (se :: Ex.SomeException) -> do
+           -- 'se' has priority over exceptions from 'cleanup'.
+           Ex.onException cleanup (Ex.throwM se)
+           Ex.throwM se
 
 -- | Check if this is the initial worker state.
 isInitialState :: Eq b => WalletWorkerState b -> Bool

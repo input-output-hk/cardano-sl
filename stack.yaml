@@ -155,8 +155,10 @@ extra-deps:
 # There are 2 asyncs -_-
 - lifted-async-0.10.0.1
 
+# Serokell-specific utilities not on stackage
 - serokell-util-0.8.0
-# Because serokell-util
+# serokell-util has an upper bound preventing 6.3 for some reason.
+# TODO: investigate?
 - formatting-6.2.5
 
 # Following 9 are not on stackage.

@@ -163,6 +163,7 @@ extra-deps:
 
 # Following 9 are not on stackage.
 - pvss-0.2.0
+- systemd-1.1.2
 - base58-bytestring-0.1.0
 - pipes-interleave-1.1.2
 - tabl-1.0.3
@@ -176,8 +177,6 @@ extra-deps:
 - happy-1.19.5
 # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7
-# ekg-statsd version without the unnecessary diffing optimisation
-- ekg-statsd-0.2.2.0
 # https://github.com/fpco/lts-haskell/issues/70
 # Also, graphviz latest needs ghl >=5.4 && <5.6, but stackage has 5.6
 - fgl-5.5.3.1
@@ -207,6 +206,9 @@ extra-deps:
 
 # Support for wallet's Txmeta tracking
 - sqlite-simple-errors-0.6.1.0
+
+# Working around a stack issue with rebuilding dependencies
+- pretty-show-1.6.16
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

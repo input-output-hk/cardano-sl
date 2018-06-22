@@ -196,6 +196,7 @@ library
                       , servant-swagger
                       , stm
                       , streaming-commons
+                      , systemd
                       , tagged
                       , template-haskell
                       , text

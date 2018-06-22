@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric, DeriveDataTypeable             #-}
-
 -- | Resolved blocks and transactions
 module Cardano.Wallet.Kernel.DB.Resolved (
     -- * Resolved blocks and transactions

@@ -45,7 +45,6 @@ import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId, PrefilteredBlock (..))
 
-import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
@@ -245,7 +244,7 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
                 , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
                 , _checkpointExpected    = InDb Map.empty
                 , _checkpointPending     = Pending . InDb $ Map.empty
-                , _checkpointBlockMeta   = mempty::BlockMeta
+                , _checkpointBlockMeta   = mempty
                 }
 
 {-------------------------------------------------------------------------------

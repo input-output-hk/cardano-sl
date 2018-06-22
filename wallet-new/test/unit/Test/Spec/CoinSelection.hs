@@ -22,6 +22,7 @@ import           Formatting (bprint, (%))
 import qualified Formatting as F
 import qualified Text.Tabl as Tabl
 
+import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import qualified Pos.Core as Core
 import           Pos.Crypto (SecretKey)
 import qualified Pos.Txp as Core
@@ -34,6 +35,7 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..), CoinS
                                                       mkStdTx, newOptions, random)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance, utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
+import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
 
 {-------------------------------------------------------------------------------
@@ -104,8 +106,11 @@ genUtxo o = go mempty (stakeNeeded o) o
                                      Just remaining -> go utxo' remaining opts
 
 -- | Generate some Utxo with @at least@ the supplied amount of money.
-genUtxoWithAtLeast :: Word64 -> Gen Core.Utxo
-genUtxoWithAtLeast amountToCover =
+genUtxoWithAtLeast :: InitialBalance -> Gen Core.Utxo
+genUtxoWithAtLeast payment = do
+    let amountToCover = case payment of
+                             InitialLovelace amount -> amount
+                             InitialADA amount      -> amount * 1000000
     genUtxo $ StakeGenOptions {
                   stakeOnEachInputPercentage = Just 0.2
                 , stakeGenerationTarget = AtLeast
@@ -120,6 +125,13 @@ freeLunch _ _ = Core.mkCoin 0
 -- | The smallest fee possible.
 minFee :: Int -> NonEmpty Core.Coin -> Core.Coin
 minFee _ _ = Core.mkCoin 1
+
+-- | An hopefully-accurate estimate of the Tx fees in Cardano.
+cardanoFee :: Int -> NonEmpty Core.Coin -> Core.Coin
+cardanoFee inputs outputs = Core.mkCoin $
+    estimateCardanoFee linearFeePolicy inputs (toList $ fmap Core.getCoin outputs)
+    where
+      linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
 
 -- | A simple linear fee proportional in the #inputs & #outputs.
 linearFee :: Int -> NonEmpty Core.Coin -> Core.Coin
@@ -187,8 +199,11 @@ withMaxSuccess :: Int -> Spec -> Spec
 withMaxSuccess x = modifyMaxSuccess (const x)
 
 -- | Generates multiple payees.
-genPayees :: Word64 -> Gen (NonEmpty Core.TxOut)
-genPayees amountToCover =
+genPayees :: Pay -> Gen (NonEmpty Core.TxOut)
+genPayees payment = do
+    let amountToCover = case payment of
+                             PayLovelace amount -> amount
+                             PayADA amount      -> amount * 1000000
     genTxOut StakeGenOptions {
                stakeOnEachInputPercentage = Just 0.15
              , stakeGenerationTarget = AtLeast
@@ -197,8 +212,11 @@ genPayees amountToCover =
              }
 
 -- | Generates a single payee.
-genPayee :: Word64 -> Gen (NonEmpty Core.TxOut)
-genPayee amountToCover =
+genPayee :: Pay -> Gen (NonEmpty Core.TxOut)
+genPayee payment = do
+    let amountToCover = case payment of
+                             PayLovelace amount -> amount
+                             PayADA amount      -> amount * 1000000
     genTxOut StakeGenOptions {
               stakeOnEachInputPercentage = Nothing
             , stakeGenerationTarget = AtLeast
@@ -207,8 +225,11 @@ genPayee amountToCover =
             }
 
 -- | Generates a single payee which has a redeem address inside.
-genRedeemPayee :: Word64 -> Gen (NonEmpty Core.TxOut)
-genRedeemPayee c = do
+genRedeemPayee :: Pay -> Gen (NonEmpty Core.TxOut)
+genRedeemPayee payment = do
+    let c = case payment of
+                PayLovelace amount -> amount
+                PayADA amount      -> amount * 1000000
     a <- arbitrary `suchThat` Core.isRedeemAddress
     return (Core.TxOut a (Core.mkCoin c) :| [])
 
@@ -501,8 +522,13 @@ type RunResult = ( Core.Utxo
                  , Either (ShowThroughBuild CoinSelHardErr) Core.TxAux
                  )
 
-newtype InitialBalance = InitialBalance Word64
-newtype Pay = Pay Word64
+data InitialBalance =
+      InitialLovelace Word64
+    | InitialADA Word64
+
+data Pay =
+      PayLovelace Word64
+    | PayADA Word64
 
 maxNumInputs :: Word64
 maxNumInputs = 300
@@ -510,15 +536,15 @@ maxNumInputs = 300
 mkTx :: Core.ProtocolMagic -> SecretKey -> MkTx Gen
 mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
 
-pay :: (Word64 -> Gen Core.Utxo)
-    -> (Word64 -> Gen (NonEmpty Core.TxOut))
+pay :: (InitialBalance -> Gen Core.Utxo)
+    -> (Pay -> Gen (NonEmpty Core.TxOut))
     -> (Int -> NonEmpty Core.Coin -> Core.Coin)
     -> (CoinSelectionOptions -> CoinSelectionOptions)
     -> InitialBalance
     -> Pay
     -> Policy
     -> Gen RunResult
-pay genU genP feeFunction adjustOptions (InitialBalance bal) (Pay amount) policy =
+pay genU genP feeFunction adjustOptions bal amount policy =
     withDefConfiguration $ \pm -> do
         utxo  <- genU bal
         payee <- genP amount
@@ -543,7 +569,7 @@ payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
 payOne = pay genUtxoWithAtLeast genPayee
 
 -- | Like 'payOne', but allows a custom 'Gen' for the payees to be supplied
-payOne' :: (Word64 -> Gen (NonEmpty Core.TxOut))
+payOne' :: (Pay -> Gen (NonEmpty Core.TxOut))
         -> (Int -> NonEmpty Core.Coin -> Core.Coin)
         -> (CoinSelectionOptions -> CoinSelectionOptions)
         -> InitialBalance
@@ -568,80 +594,96 @@ spec =
     describe "Coin selection policies unit tests" $ do
         withMaxSuccess 1000 $ describe "largestFirst" $ do
             prop "one payee, SenderPaysFee, fee = 0" $ forAll (
-                 payOne freeLunch identity (InitialBalance 1000) (Pay 100) largestFirst
+                 payOne freeLunch identity (InitialLovelace 1000) (PayLovelace 100) largestFirst
                  ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "one payee, ReceiverPaysFee, fee = 0" $ forAll (
-                 payOne freeLunch receiverPays (InitialBalance 1000) (Pay 100) largestFirst
+                 payOne freeLunch receiverPays (InitialLovelace 1000) (PayLovelace 100) largestFirst
                  ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, SenderPaysFee, fee = 0" $ forAll (
-                 payBatch freeLunch identity (InitialBalance 1000) (Pay 100) largestFirst
+                 payBatch freeLunch identity (InitialLovelace 1000) (PayLovelace 100) largestFirst
                  ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, ReceiverPaysFee, fee = 0" $ forAll (
-                 payBatch freeLunch receiverPays (InitialBalance 1000) (Pay 100) largestFirst
+                 payBatch freeLunch receiverPays (InitialLovelace 1000) (PayLovelace 100) largestFirst
                  ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
 
             -- Minimal fee
             prop "one payee, SenderPaysFee, fee = 1 Lovelace" $ forAll (
-                payOne minFee identity (InitialBalance 1000) (Pay 100) largestFirst
+                payOne minFee identity (InitialLovelace 1000) (PayLovelace 100) largestFirst
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "one payee, ReceiverPaysFee, fee = 1 Lovelace" $ forAll (
-                payOne minFee receiverPays (InitialBalance 1000) (Pay 100) largestFirst
+                payOne minFee receiverPays (InitialLovelace 1000) (PayLovelace 100) largestFirst
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, SenderPaysFee, fee = 1 Lovelace" $ forAll (
-                payBatch minFee identity (InitialBalance 1000) (Pay 100) largestFirst
+                payBatch minFee identity (InitialLovelace 1000) (PayLovelace 100) largestFirst
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, ReceiverPaysFee, fee = 1 Lovelace" $ forAll (
-                payBatch minFee receiverPays (InitialBalance 1000) (Pay 100) largestFirst
+                payBatch minFee receiverPays (InitialLovelace 1000) (PayLovelace 100) largestFirst
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
 
         withMaxSuccess 1000 $ describe "random" $ do
             prop "one payee, SenderPaysFee, fee = 0" $ forAll (
-                payOne freeLunch identity (InitialBalance 1000) (Pay 100) random
+                payOne freeLunch identity (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "one payee, ReceiverPaysFee, fee = 0" $ forAll (
-                payOne freeLunch receiverPays (InitialBalance 1000) (Pay 100) random
+                payOne freeLunch receiverPays (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, SenderPaysFee, fee = 0" $ forAll (
-                payBatch freeLunch identity (InitialBalance 1000) (Pay 100) random
+                payBatch freeLunch identity (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
             prop "multiple payees, ReceiverPaysFee, fee = 0" $ forAll (
-                payBatch freeLunch receiverPays (InitialBalance 1000) (Pay 100) random
+                payBatch freeLunch receiverPays (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
 
             -- minimal fee. It doesn't make sense to use it for 'ReceiverPaysFee', because
             -- rounding will essentially cause the computed @epsilon@ will be 0 for each
             -- output. For those cases, we use the 'linear' fee policy.
             prop "one payee, SenderPaysFee, fee = 1 Lovelace" $ forAll (
-                payOne minFee identity (InitialBalance 1000) (Pay 100) random
+                payOne minFee identity (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
             prop "multiple payees, SenderPaysFee, fee = 1 Lovelace" $ forAll (
-                payBatch minFee identity (InitialBalance 1000) (Pay 100) random
+                payBatch minFee identity (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
 
             -- linear fee
             prop "one payee, ReceiverPaysFee, fee = linear" $ forAll (
-                payOne linearFee receiverPays (InitialBalance 1000) (Pay 100) random
+                payOne linearFee receiverPays (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
             prop "multiple payees, ReceiverPaysFee, fee = linear" $ forAll (
-                payBatch linearFee receiverPays (InitialBalance 1000) (Pay 100) random
+                payBatch linearFee receiverPays (InitialLovelace 1000) (PayLovelace 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
+
+            -- cardano fee. In order for this policy to succeed, we need to
+            -- have some non-negligible amount of coins in our initial Utxo, as
+            -- `estimateCardanoFee` works on "real world estimates"  for things
+            -- like attributes, and trying to setup syntetic experiments with
+            -- less than 1ADA (10^6 lovelaces) is probably counter-productive
+            prop "one payee, SenderPaysFee, fee = cardano" $ forAll (
+                payOne cardanoFee identity (InitialADA 1000) (PayADA 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
+            prop "multiple payees, SenderPaysFee, fee = cardano" $ forAll (
+                payBatch cardanoFee identity (InitialADA 1000) (PayADA 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
+            prop "one payee, ReceiverPaysFee, fee = cardano" $ forAll (
+                payOne cardanoFee receiverPays (InitialADA 1000) (PayADA 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
+            prop "multiple payees, ReceiverPaysFee, fee = cardano" $ forAll (
+                payBatch cardanoFee receiverPays (InitialADA 1000) (PayADA 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
 
         describe "Expected failures" $ do
             prop "Paying a redeem address should always be rejected" $ forAll (
-                payOne' genRedeemPayee linearFee receiverPays (InitialBalance 1000) (Pay 100) random
+                payOne' genRedeemPayee linearFee receiverPays (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentFailedWith utxo payee res [errorWas outputWasRedeem]
             prop "Paying somebody not having enough money should fail" $ forAll (
-                payBatch linearFee receiverPays (InitialBalance 10) (Pay 100) random
+                payBatch linearFee receiverPays (InitialLovelace 10) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> do
                   paymentFailedWith utxo payee res [errorWas notEnoughMoney]
-
-        withMaxSuccess 1000 $ describe "Input Grouping" $ do
-            prop "one payee, ReceiverPaysFee, fee = linear" $ forAll (
-                payOne linearFee receiverPays (InitialBalance 1000) (Pay 100) random
-                ) $ \(utxo, payee, res) ->
-                  paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]

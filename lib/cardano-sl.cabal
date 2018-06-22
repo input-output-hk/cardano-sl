@@ -222,10 +222,6 @@ library
   if !os(windows)
     build-depends:      unix
 
-  if !os(windows) && !os(freebsd)
-    -- See: https://github.com/input-output-hk/stack2nix/issues/56
-    build-depends:      systemd
-
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall

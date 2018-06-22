@@ -64,12 +64,8 @@ import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithLogging, newInitFuture)
 
 #ifdef linux_HOST_OS
-import qualified System.Systemd.Daemon as Systemd
 import qualified System.Wlog as Logger
 #endif
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Data type

@@ -41,7 +41,8 @@ attributes = {* any => any}
 addrdistr = [1] / [0, stakeholderid]
 
 addrtype = &("PubKey" : 0, "Script" : 1, "Redeem" : 2) / (u64 .gt 2)
-addrattr = any ;;TODO
+addrattr = { ? 0 : addrdistr
+           , ? 1 : bytes}
 address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
 
 ; Transactions

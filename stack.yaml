@@ -144,8 +144,9 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+# Needed to fix an issue with CTX_INIT failing to build on newer openssl
+# versions.
 - cryptonite-openssl-0.7
-  # - acid-state-0.14.3
 # Very important! First release with a fix of 'race' and 'cancel'.
 #   https://github.com/simonmar/async/issues/59
 #   https://github.com/simonmar/async/issues/81
@@ -153,9 +154,6 @@ extra-deps:
 - async-2.2.1
 # There are 2 asyncs -_-
 - lifted-async-0.10.0.1
-# Stackage has hinotify-0.3.9 which requires async < 2.2
-# This older version requires no async.
-- hinotify-0.3.8.1
 
 # Serokell stuff
 - universum-1.1.0

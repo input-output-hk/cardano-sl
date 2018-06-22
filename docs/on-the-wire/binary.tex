@@ -9,6 +9,7 @@
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{microtype}
+\usepackage[a4paper]{geometry}
 
 \floatstyle{boxed}
 \restylefloat{figure}
@@ -573,20 +574,6 @@ of the on-the-wire protocol.
   present the current description as a CDDL\cite{cddl} document. Terms in use
   below should be interpreted in that context and with reference to Appendix E
   of \cite{cddl}, which defines a standard prelude available to such things.
-
-  % Primitive types
-  % are mapped to their CBOR equivalents: the various sized word types are mapped
-  % to unsigned integer types of the correct size. Arbitrary precision integers
-  % are encoded as unsigned 64-bit values if they fit within this length,
-  % otherwise as a bignum as per section 2.4.2 of the CBOR spec. Booleans are
-  % encoded as CBOR major type 7 with additional values of 20 for False and 21 for
-  % True, as per section 2.3.
-
-  % $\String$ and $\Bytes$ types are encoded as major types 3 and 2 respectively.
-
-  % Arrays are stored as CBOR major type 4.
-
-  % Blake2b-256 hashes are stored directly as an array of 32 bytes.
 
   \lstinputlisting{current-spec.cddl}
 

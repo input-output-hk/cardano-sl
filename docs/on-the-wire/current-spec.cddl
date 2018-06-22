@@ -1,10 +1,15 @@
-block = [0, any]
+block = [0, ebblock]
       / [1, mainblock]
 
 mainblock = [ "header" : blockhead
             , "body" : blockbody
             , "extra" : [attributes]
             ]
+
+ebblock = [ "header" : ebbhead
+          , "body" : [+ stakeholderid]
+          , extra : [attributes]
+          ]
 
 u8 = uint .lt 256
 u16 = uint .lt 65536
@@ -61,11 +66,17 @@ twit = [0, #6.24(bytes .cbor ([pubkey, signature]))]
 
 ; Shared Seed Computation
 
-vsspubkey = bytes ; This is encoded using the 'Binary' instance for Scrape.PublicKey
-vsssec = bytes ; This is encoded using the 'Binary' instance for Scrape.Secret.
-vssenc = [bytes] ; This is encoded using the 'Binary' instance for Scrape.EncryptedSi. TODO work out why this seems to be in a length 1 array
-vssdec = bytes ; This is encoded using the 'Binary' instance for Scrape.DecryptedShare
-vssproof = [bytes, bytes, bytes, [* bytes]] ; This is encoded using the 'Binary' instance for Scrape.Proof
+vsspubkey = bytes ; This is encoded using the 'Binary' instance
+                  ; for Scrape.PublicKey
+vsssec = bytes ; This is encoded using the 'Binary' instance
+               ; for Scrape.Secret.
+vssenc = [bytes] ; This is encoded using the 'Binary' instance
+                 ; for Scrape.EncryptedSi.
+                 ; TODO work out why this seems to be in a length 1 array
+vssdec = bytes ; This is encoded using the 'Binary' instance
+               ; for Scrape.DecryptedShare
+vssproof = [bytes, bytes, bytes, [* bytes]] ; This is encoded using the
+                                            ; 'Binary' instance for Scrape.Proof
 
 ssccomm = [pubkey, [{vsspubkey => vssenc},vssproof], signature]
 ssccomms = #6.258([* ssccomm])
@@ -151,11 +162,13 @@ up = [ "proposal" :  [? upprop]
 
 ; Blocks
 
+difficulty = [u64]
+
 blocksig = [0, signature]
          / [1, lwdlgsig]
          / [2, dlgsig]
 
-blockcons = [slotid, pubkey, [u64], blocksig]
+blockcons = [slotid, pubkey, difficulty, blocksig]
 
 blockheadex = [ "blockVersion" : bver
               , "softwareVersion" : [ text, u32 ]
@@ -181,3 +194,14 @@ blockbody = [ "txPayload" : [* [tx, [* twit]]]
             , "dlgPayload" : [* dlg]
             , "updPayload" : up
             ]
+
+; Epoch Boundary Blocks
+
+ebbcons = [ epochid, difficulty ]
+
+ebbhead = [ "protocolMagic" : u32
+          , "prevBlock" : blockid
+          , "bodyProof" : hash
+          , "consensusData" : ebbcons
+          , "extraData" : [attributes]
+          ]

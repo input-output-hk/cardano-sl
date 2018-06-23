@@ -904,12 +904,8 @@ mkAccountIndex index
     | otherwise = Left $ AccountIndexError index
 
 renderAccountIndexError :: AccountIndexError -> Text
-renderAccountIndexError (AccountIndexError i) =
-    sformat
-        ("Account index should be in range ["%int%".."%int%"], but "%int%" was provided.")
-        (getAccIndex minBound)
-        (getAccIndex maxBound)
-        i
+renderAccountIndexError =
+    sformat build
 
 instance ToJSON AccountIndex where
     toJSON = toJSON . getAccIndex

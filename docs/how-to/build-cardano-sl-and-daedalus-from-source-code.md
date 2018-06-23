@@ -59,9 +59,9 @@ Two steps remain, then:
         binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
-    from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-static`:
+    from the IOHK's binary caches) can be performed by building the attribute `cardano-sl`:
 
-        $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link master
+        $ nix-build -A cardano-sl --cores 0 --max-jobs 2 --no-build-output --out-link master
 
     The build output directory will be symlinked as `master` (as specified by the command), and it will contain:
 

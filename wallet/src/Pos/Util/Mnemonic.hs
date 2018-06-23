@@ -37,7 +37,7 @@ import           Crypto.Encoding.BIP39.Dictionary (mnemonicSentenceToListN)
 import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.Types (Parser)
-import           Data.ByteArray (convert)
+import           Data.ByteArray (constEq, convert)
 import           Data.ByteString (ByteString)
 import           Data.Default (Default (def))
 import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems, minItems)
@@ -50,6 +50,7 @@ import           Test.QuickCheck.Gen (vectorOf)
 
 import qualified Basement.Compat.Base as Basement
 import qualified Basement.String as Basement
+import qualified Basement.UArray as Basement
 import qualified Crypto.Encoding.BIP39.English as Dictionary
 import qualified Crypto.Random.Entropy as Crypto
 import qualified Data.ByteString.Char8 as B8
@@ -136,12 +137,7 @@ mkMnemonic wordsm = do
         Right
         (wordsToEntropy sentence :: Maybe (Entropy n))
 
-    -- We only advertise a 12-word backup-phrase, and that's the one we want
-    -- to block.
-    let exampleMnemonic =
-            mnemonicSentenceToString Dictionary.english $ mnemonicToSentence (def @(Mnemonic 12))
-
-    when (mnemonicSentenceToString Dictionary.english sentence == exampleMnemonic) $
+    when (isForbiddenMnemonic sentence) $
         Left MnemonicErrForbiddenMnemonic
 
     pure $ Mnemonic
@@ -212,6 +208,24 @@ entropyToByteString =
 --
 -- INTERNALS
 --
+
+-- Constant-time comparison of any sentence with the 12-word example mnemonic
+isForbiddenMnemonic :: (ValidMnemonicSentence mw) => MnemonicSentence mw -> Bool
+isForbiddenMnemonic sentence =
+    let
+        bytes =
+            sentenceToRawString sentence
+
+        forbiddenMnemonics = sentenceToRawString <$>
+            [ mnemonicToSentence (def @(Mnemonic 12))
+            ]
+    in
+        any (constEq bytes) forbiddenMnemonics
+
+
+sentenceToRawString :: (ValidMnemonicSentence mw) => MnemonicSentence mw -> Basement.UArray Word8
+sentenceToRawString =
+    Basement.toBytes Basement.UTF8 . mnemonicSentenceToString Dictionary.english
 
 
 -- | Simple Blake2b 256-bit of a ByteString

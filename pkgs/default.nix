@@ -14553,14 +14553,6 @@ hashable
 integer-gmp
 memory
 ];
-executableHaskellDepends = [
-base
-basement
-bytestring
-cryptonite
-foundation
-memory
-];
 doHaddock = false;
 doCheck = false;
 homepage = "https://github.com/input-output-hk/cardano-crypto#readme";

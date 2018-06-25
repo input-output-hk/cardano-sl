@@ -214,7 +214,7 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
     case addTo of
         Just accId ->
-            if (checkIfAddTo fakeUtxoSpec fakeTxs) then
+            if checkIfAddTo fakeUtxoSpec fakeTxs then
                 addAddressesTo spec accId
             else do
                 timed $ generateFakeUtxo fakeUtxoSpec accId
@@ -298,7 +298,7 @@ generateRealTxHistE outputAddresses = do
     fakeTime  <- liftIO $ generate arbitrary
     fakeTx    <- liftIO $ generate $ genTxs fakeTxOut
 
-    pure $ THEntry
+    pure THEntry
         { _thTxId        = fakeTxIds
         , _thTx          = fakeTx
         , _thDifficulty  = fakeChain
@@ -329,7 +329,7 @@ generateRealTxHistE outputAddresses = do
         let _txOutputs = NE.fromList txOut
         let _txAttributes = mkAttributes ()
 
-        pure $ UnsafeTx {..}
+        pure UnsafeTx {..}
 
     -- | Generate sensible amount of coins.
     genCoins :: Gen Coin
@@ -374,7 +374,7 @@ unwrapCAddress = decodeCType . cadId
 
 
 addAddressesTo :: GenSpec -> AccountId -> UberMonad ()
-addAddressesTo spec cid = genAddresses spec cid
+addAddressesTo = genAddresses
 
 
 genAccounts :: GenSpec -> (Int, CWallet) -> UberMonad ()
@@ -417,12 +417,12 @@ genWallet walletNum = do
 -- | Generates a new 'Mnemonic'.
 newRandomMnemonic :: WalletWebMode (Mnemonic 12)
 newRandomMnemonic =
-    liftIO $ (entropyToMnemonic <$> genEntropy)
+    liftIO (entropyToMnemonic <$> genEntropy)
 
 
 -- | Creates a new 'CAccount'.
 genAccount :: CWallet -> Integer -> UberMonad CAccount
-genAccount CWallet{..} accountNum = do
+genAccount CWallet{..} accountNum =
     newAccountIncludeUnready True RandomSeed mempty accountInit
   where
     accountInit :: CAccountInit

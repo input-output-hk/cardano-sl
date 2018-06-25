@@ -4,7 +4,7 @@ module Pos.Crypto.Orphans
        (
        ) where
 
-import           Universum hiding (show)
+import           Universum
 
 import qualified Crypto.SCRAPE as Scrape
 import           Crypto.Scrypt (EncryptedPass (..))

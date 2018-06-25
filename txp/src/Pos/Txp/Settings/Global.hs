@@ -16,8 +16,6 @@ module Pos.Txp.Settings.Global
 
 import           Universum
 
-import           Pos.Util.Log (WithLogger)
-
 import           Pos.Core (ComponentBlock)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
@@ -29,8 +27,7 @@ import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem)
 
 type TxpCommonMode m =
-    ( WithLogger m
-    , MonadDBRead m
+    ( MonadDBRead m
     , MonadGState m
     )
 

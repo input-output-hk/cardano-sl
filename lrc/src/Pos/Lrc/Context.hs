@@ -18,12 +18,12 @@ import           Control.Lens (views)
 
 import           Pos.Core (EpochIndex)
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Exception (reportFatalError)
+import           Pos.Exception (traceFatalError)
 import           Pos.Lrc.DB.Common (getEpoch)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
+import           Pos.Util.Log (Severity)
 import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (Severity)
 import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)
 
 data LrcContext = LrcContext
@@ -43,7 +43,7 @@ cloneLrcContext logTrace LrcContext {..} = do
         lsd@LrcSyncData {..}
             | lrcNotRunning -> LrcContext <$> newTVarIO lsd
             | otherwise ->
-                reportFatalError logTrace
+                traceFatalError logTrace
                     "Someone tried to clone 'LrcContext' while LRC is running. It's weird"
 
 -- | Data used for LRC syncronization. First value is __False__ iff

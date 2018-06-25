@@ -10,6 +10,7 @@ module Pos.Util.Trace.Named
     , setupLogging
     , namedTrace
     , appendName
+    , publicPrivateLogItem
     -- * log functions
     , logMessage, logMessageS, logMessageP
     , logDebug,   logDebugS,   logDebugP
@@ -71,6 +72,10 @@ logInfoP logTrace    = traceNamedItem logTrace TrU.Public Log.Info
 logNoticeP logTrace  = traceNamedItem logTrace TrU.Public Log.Notice
 logWarningP logTrace = traceNamedItem logTrace TrU.Public Log.Warning
 logErrorP logTrace   = traceNamedItem logTrace TrU.Public Log.Error
+
+-- | compatibility
+publicPrivateLogItem :: (Log.Severity, Text) -> TrU.LogItem
+publicPrivateLogItem = uncurry (TrU.LogItem TrU.Both)
 
 modifyName
     :: ([Log.LoggerName] -> [Log.LoggerName])

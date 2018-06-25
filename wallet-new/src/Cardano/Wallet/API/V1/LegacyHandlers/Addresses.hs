@@ -32,7 +32,6 @@ import           Cardano.Wallet.API.Indices (IxSet')
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 
@@ -94,7 +93,7 @@ getAddress
     -> m (WalletResponse WalletAddress)
 getAddress addrText = do
     addr <- either
-        (throwM . (InvalidAddressFormat :: (Text -> WalletErrorV1)))
+        (throwM . InvalidAddressFormat)
         pure
         (decodeTextAddress addrText)
 
@@ -120,7 +119,7 @@ getAddress addrText = do
 
     case minfo of
         Nothing ->
-            throwM (AddressNotFound :: WalletErrorV1)
+            throwM AddressNotFound
         Just (_walletMeta, V0.AddressInfo{..}) -> do
             let accId = adiWAddressMeta ^. V0.wamAccount
             mps <- V0.withTxpLocalData V0.getMempoolSnapshot

@@ -136,7 +136,7 @@ paginateAll request = fmap fixMetadata <$> paginatePage 1
   where
     fixMetadata WalletResponse{..} =
         WalletResponse
-            { wrMeta = Metadata $
+            { wrMeta = Metadata
                 PaginationMetadata
                     { metaTotalPages = 1
                     , metaPage = Page 1
@@ -237,7 +237,7 @@ type Resp m a = m (Either ClientError (WalletResponse a))
 
 -- | The type of errors that the wallet might return.
 data ClientError
-    = ClientWalletError WalletErrorV1
+    = ClientWalletError WalletError
     -- ^ The 'WalletError' type represents known failures that the API
     -- might return.
     | ClientHttpError ServantError

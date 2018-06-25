@@ -2,8 +2,6 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
-
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans.Arbitrary ()
@@ -14,12 +12,11 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
 
 import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
-import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Crypto.Signing as Core
-import qualified Pos.Data.Attributes as Core
 
 
 class Arbitrary a => Example a where
@@ -139,40 +136,6 @@ instance Example Payment where
                       <*> example
 
 instance Example WalletStateSnapshot
-
-sampleErrors :: [WalletErrorV1]
-sampleErrors =
-    [ NotEnoughMoney 1400
-    , OutputIsRedeem sampleAddress
-    , MigrationFailed "Migration failed."
-    , JSONValidationFailed "Expected String, found Null."
-    , UnknownError "Unknown error."
-    , InvalidAddressFormat "Invalid Base58 representation."
-    , WalletNotFound
-    , WalletAlreadyExists
-    , AddressNotFound
-    , MissingRequiredParams (("wallet_id", "walletId") :| [])
-    , WalletIsNotReadyToProcessPayments sampleSyncProgress
-    , NodeIsStillSyncing (mkSyncPercentage 42)
-    ]
-  where
-    sampleAddress :: V1 Core.Address
-    sampleAddress = V1 Core.Address
-        { Core.addrRoot =
-            Crypto.unsafeAbstractHash ("asdfasdf" :: String)
-        , Core.addrAttributes =
-            Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
-        , Core.addrType =
-            Core.ATPubKey
-        }
-
-    sampleSyncProgress :: SyncProgress
-    sampleSyncProgress = SyncProgress
-        { spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
-        , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
-        , spPercentage              = mkSyncPercentage 80
-        }
-
 
 
 -- IMPORTANT: if executing `grep "[]\|null" wallet-new/spec/swagger.json` returns any element - then we have to add Example instances for those objects because we don't want to see [] or null examples in our docs.

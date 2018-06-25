@@ -83,8 +83,9 @@ module Cardano.Wallet.API.V1.Types (
   -- * Core re-exports
   , Core.Address
   -- * Wallet Errors
-  , WalletErrorV1
   , WalletError(..)
+  , toServantError
+  , toHttpErrorStatus
   ) where
 
 import           Universum
@@ -94,55 +95,57 @@ import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import           Data.Bifunctor (first)
-import qualified Data.Char as C
 import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
-import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
+import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
-import qualified Prelude
-import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
-import qualified Serokell.Util.Base16 as Base16
 import           Servant
+import           Test.Pos.Core.Arbitrary ()
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
+import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..), ToServantError (..),
+                                               WalletError (..))
+import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.Orphans.Aeson ()
-
--- V0 logic
-import           Pos.Util.Mnemonic (Mnemonic)
-
--- importing for orphan instances for Coin
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-
-import           Cardano.Wallet.API.V1.Errors (WalletError (..))
 import           Cardano.Wallet.Util (showApiUtcTime)
-import qualified Data.ByteArray as ByteArray
-import qualified Data.ByteString as BS
-import qualified Data.Map.Strict as Map
 import           Pos.Aeson.Core ()
-import qualified Pos.Client.Txp.Util as Core
+import           Pos.Arbitrary.Core ()
 import           Pos.Core (addressF)
-import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
-import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe,
                                          buildSafeList, buildSafeMaybe, deriveSafeBuildable,
                                          plainOrSecureF)
-import qualified Pos.Wallet.Web.State.Storage as OldStorage
+import           Pos.Util.BackupPhrase (BackupPhrase (..))
+import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Wallet.Web.ClientTypes.Instances ()
 
-import           Test.Pos.Core.Arbitrary ()
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import qualified Data.Char as C
+import qualified Data.Map.Strict as Map
+import qualified Data.Text as T
+import qualified Data.Text.Buildable
+import qualified Pos.Client.Txp.Util as Core
+import qualified Pos.Core as Core
+import qualified Pos.Crypto.Signing as Core
+import qualified Pos.Wallet.Web.State.Storage as OldStorage
+import qualified Prelude
+import qualified Serokell.Aeson.Options as Serokell
+import qualified Serokell.Util.Base16 as Base16
+
 
 -- | Declare generic schema, while documenting properties
 --   For instance:
@@ -190,7 +193,7 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
       & schema . example ?~ toJSON (genExample :: a)
   where
     genExample =
-      (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+      unGen (resize 3 arbitrary) (mkQCGen 42) 42
 
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
@@ -260,7 +263,7 @@ instance (Buildable a, Buildable b) => Buildable (a, b) where
 
 instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
-   withByteArray (V1 a) callback = ByteArray.withByteArray a callback
+   withByteArray (V1 a) = ByteArray.withByteArray a
 
 instance Arbitrary (V1 (Mnemonic 12)) where
     arbitrary =
@@ -306,7 +309,7 @@ instance Arbitrary (V1 Core.PassPhrase) where
     arbitrary = fmap V1 arbitrary
 
 instance ToSchema (V1 Core.PassPhrase) where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "V1PassPhrase") $ mempty
             & type_ .~ SwaggerString
             & format ?~ "hex|base16"
@@ -419,7 +422,7 @@ deriveJSON Serokell.defaultOptions { A.constructorTagModifier = toString . toLow
                                    } ''AssuranceLevel
 
 instance ToSchema AssuranceLevel where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "AssuranceLevel") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["normal", "strict"]
@@ -471,7 +474,7 @@ deriveJSON Serokell.defaultOptions  { A.constructorTagModifier = reverse . drop 
                                     } ''WalletOperation
 
 instance ToSchema WalletOperation where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "WalletOperation") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["create", "restore"]
@@ -579,7 +582,7 @@ instance FromJSON SyncPercentage where
     parseJSON = withObject "SyncPercentage" $ \sl -> mkSyncPercentage <$> sl .: "quantity"
 
 instance ToSchema SyncPercentage where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncPercentage") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -632,7 +635,7 @@ instance FromJSON EstimatedCompletionTime where
     parseJSON = withObject "EstimatedCompletionTime" $ \sl -> mkEstimatedCompletionTime <$> sl .: "quantity"
 
 instance ToSchema EstimatedCompletionTime where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "EstimatedCompletionTime") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -680,7 +683,7 @@ instance FromJSON SyncThroughput where
     parseJSON = withObject "SyncThroughput" $ \sl -> mkSyncThroughput . Core.BlockCount <$> sl .: "quantity"
 
 instance ToSchema SyncThroughput where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncThroughput") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -848,7 +851,7 @@ newtype AddressValidity = AddressValidity { isValid :: Bool }
 deriveJSON Serokell.defaultOptions ''AddressValidity
 
 instance ToSchema AddressValidity where
-    declareNamedSchema = genericSchemaDroppingPrefix "is" (\_ -> identity)
+    declareNamedSchema = genericSchemaDroppingPrefix "is" (const identity)
 
 instance Arbitrary AddressValidity where
   arbitrary = AddressValidity <$> arbitrary
@@ -1277,7 +1280,7 @@ instance ToJSON (V1 Core.TxId) where
   toJSON (V1 t) = String (sformat hashHexF t)
 
 instance FromJSON (V1 Core.TxId) where
-    parseJSON = withText "TxId" $ \t -> do
+    parseJSON = withText "TxId" $ \t ->
        case decodeHash t of
            Left err -> fail $ "Failed to parse transaction ID: " <> toString err
            Right a  -> pure (V1 a)
@@ -1672,7 +1675,7 @@ instance FromJSON LocalTimeDifference where
     parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
 
 instance ToSchema LocalTimeDifference where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
@@ -1713,7 +1716,7 @@ instance FromJSON BlockchainHeight where
         mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
 
 instance ToSchema BlockchainHeight where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "BlockchainHeight") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
@@ -1857,10 +1860,148 @@ instance BuildableSafeGen NodeInfo where
 -- Wallet Errors
 --
 
-type WalletErrorV1 = WalletError
-    (V1 Core.Address)
-    SyncProgress
-    SyncPercentage
+--
+-- Error handling
+--
+
+-- | Type representing any error which might be thrown by wallet.
+--
+-- Errors are represented in JSON in the JSend format (<https://labs.omniti.com/labs/jsend>):
+-- ```
+-- {
+--     "status": "error"
+--     "message" : <constr_name>,
+--     "diagnostic" : <data>
+-- }
+-- ```
+-- where `<constr_name>` is a string containing name of error's constructor (e. g. `NotEnoughMoney`),
+-- and `<data>` is an object containing additional error data.
+-- Additional data contains constructor fields, field names are record field names without
+-- a `we` prefix, e. g. for `OutputIsRedeem` error "diagnostic" field will be the following:
+-- ```
+-- {
+--     "address" : <address>
+-- }
+-- ```
+--
+-- Additional data in constructor should be represented as record fields.
+-- Otherwise TemplateHaskell will raise an error.
+--
+-- If constructor does not have additional data (like in case of `WalletNotFound` error),
+-- then "diagnostic" field will be empty object.
+--
+-- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
+data WalletError =
+      NotEnoughMoney { weNeedMore :: !Int }
+    | OutputIsRedeem { weAddress :: !(V1 Core.Address) }
+    | UnknownError { weMsg :: !Text }
+    | InvalidAddressFormat { weMsg :: !Text }
+    | WalletNotFound
+    -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
+    | WalletAlreadyExists { weWalletId :: WalletId }
+    | AddressNotFound
+    | TxFailedToStabilize
+    | TxRedemptionDepleted
+    | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
+    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
+    | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
+    -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
+    -- synced (its 'WalletSyncState' indicates it's either syncing or
+    -- restoring) and thus cannot accept new @Payment@ requests.
+    | NodeIsStillSyncing { wenssStillSyncing :: SyncPercentage }
+    -- ^ The backend couldn't process the incoming request as the underlying
+    -- node is still syncing with the blockchain.
+    deriving (Show, Eq)
+
+-- deriveWalletErrorJSON ''WalletError
+deriveGeneric ''WalletError
+
+instance ToJSON WalletError where
+    toJSON = gtoJsend ErrorStatus
+
+instance FromJSON WalletError where
+    parseJSON = gparseJsend
+
+instance Exception WalletError
+
+instance Arbitrary WalletError where
+    arbitrary = oneof
+        [ NotEnoughMoney <$> arbitrary
+        , OutputIsRedeem <$> arbitrary
+        , pure (UnknownError "Unknown error.")
+        , pure (InvalidAddressFormat "Invalid Base58 representation.")
+        , pure WalletNotFound
+        , WalletAlreadyExists <$> arbitrary
+        , pure AddressNotFound
+        , pure TxFailedToStabilize
+        , pure TxRedemptionDepleted
+        , TxSafeSignerNotFound <$> arbitrary
+        , pure (MissingRequiredParams (("wallet_id", "walletId") :| []))
+        , WalletIsNotReadyToProcessPayments <$> arbitrary
+        , NodeIsStillSyncing <$> arbitrary
+        ]
+
+-- | Give a short description of an error
+instance Buildable WalletError where
+    build = \case
+        NotEnoughMoney _ ->
+             bprint "Not enough available coins to proceed."
+        OutputIsRedeem _ ->
+             bprint "One of the TX outputs is a redemption address."
+        UnknownError _ ->
+             bprint "Unexpected internal error."
+        InvalidAddressFormat _ ->
+             bprint "Provided address format is not valid."
+        WalletNotFound ->
+             bprint "Reference to an unexisting wallet was given."
+        WalletAlreadyExists _ ->
+             bprint "Can't create or restore a wallet. The wallet already exists."
+        AddressNotFound ->
+             bprint "Reference to an unexisting address was given."
+        MissingRequiredParams _ ->
+             bprint "Missing required parameters in the request payload."
+        WalletIsNotReadyToProcessPayments _ ->
+             bprint "This wallet is restoring, and it cannot send new transactions until restoration completes."
+        NodeIsStillSyncing _ ->
+             bprint "The node is still syncing with the blockchain, and cannot process the request yet."
+        TxRedemptionDepleted ->
+            bprint "The redemption address was already used."
+        TxSafeSignerNotFound _ ->
+            bprint "The safe signer at the specified address was not found."
+        TxFailedToStabilize ->
+            bprint "We were unable to find a set of inputs to satisfy this transaction."
+
+-- | Convert wallet errors to Servant errors
+instance ToServantError WalletError where
+    declareServantError = \case
+        NotEnoughMoney{} ->
+            err403
+        OutputIsRedeem{} ->
+            err403
+        UnknownError{} ->
+            err500
+        WalletNotFound{} ->
+            err404
+        WalletAlreadyExists{} ->
+            err403
+        InvalidAddressFormat{} ->
+            err401
+        AddressNotFound{} ->
+            err404
+        MissingRequiredParams{} ->
+            err400
+        WalletIsNotReadyToProcessPayments{} ->
+            err403
+        NodeIsStillSyncing{} ->
+            err412 -- Precondition failed
+        TxFailedToStabilize{} ->
+            err500
+        TxRedemptionDepleted{} ->
+            err400
+        TxSafeSignerNotFound{} ->
+            err400
+
+instance ToHttpErrorStatus WalletError
 
 
 --

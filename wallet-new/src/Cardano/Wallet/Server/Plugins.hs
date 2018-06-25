@@ -19,7 +19,6 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
-import qualified Cardano.Wallet.API.V1.Errors as V1
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
@@ -171,8 +170,8 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
     -- Handles domain-specific errors coming from the V1 API.
     handleV1Errors :: SomeException -> Maybe Response
     handleV1Errors se =
-        let reify (we :: V1.WalletErrorV1) =
-                responseLBS (V1.toHttpStatus we) [applicationJson] .  encode $ we
+        let reify (we :: V1.WalletError) =
+                responseLBS (V1.toHttpErrorStatus we) [applicationJson] .  encode $ we
         in fmap reify (fromException se)
 
     -- Handles domain-specific errors coming from the V0 API, but rewraps it
@@ -188,7 +187,7 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
                     V0.RequestError _  -> err
                     V0.InternalError _ -> V0.RequestError "InternalError"
                     V0.DecodeError _   -> V0.RequestError "DecodeError"
-            reify :: V0.WalletError -> V1.WalletErrorV1
+            reify :: V0.WalletError -> V1.WalletError
             reify = V1.UnknownError . sformat build . maskSensitive
         in fmap (responseLBS badRequest400 [applicationJson] .  encode . reify) (fromException se)
 
@@ -196,7 +195,7 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
     handleGenericError :: SomeException -> Response
     handleGenericError _ =
         let
-            unknownV1Error = V1.UnknownError "Something went wrong." :: V1.WalletErrorV1
+            unknownV1Error = V1.UnknownError "Something went wrong."
         in
             responseLBS badRequest400 [applicationJson] $ encode unknownV1Error
 

@@ -23,7 +23,6 @@ import qualified Pos.Wallet.Web.Util as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration (HasConfigurations, MonadV1, migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
@@ -81,7 +80,7 @@ newTransaction pm submitTx Payment {..} = do
                                                            (mkSyncThroughput (Core.BlockCount 0))
                                                            (mkSyncPercentage 0)
                         Just (s, h) -> migrate (s, Just h)
-        throwM $ (WalletIsNotReadyToProcessPayments progress :: WalletErrorV1)
+        throwM $ WalletIsNotReadyToProcessPayments progress
 
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
     cAccountId <- migrate pmtSource
@@ -129,9 +128,9 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
             -- TODO: should we use the 'FilterBy' machinery instead? that
             --       let us express RANGE, GT, etc. in addition to EQ. does
             --       that make sense for this dataset?
-            throwM (MissingRequiredParams
+            throwM MissingRequiredParams
                 { requiredParams = pure ("wallet_id", "WalletId")
-                } :: WalletErrorV1)
+                }
 
 estimateFees
     :: (MonadThrow m, V0.MonadFees ctx m)

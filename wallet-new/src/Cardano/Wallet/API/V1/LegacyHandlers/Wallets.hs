@@ -16,7 +16,6 @@ import qualified Pos.Wallet.Web.State.Storage as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -76,7 +75,7 @@ newWallet NewWallet{..} = do
 
     -- Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
-    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage :: WalletErrorV1)
+    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
 
     let newWalletHandler CreateWallet  = V0.newWalletNoThrow
         newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow
@@ -154,7 +153,7 @@ addWalletInfo
 addWalletInfo snapshot wallet =
     case V0.getWalletInfo (V0.cwId wallet) snapshot of
         Nothing ->
-            throwM (WalletNotFound :: WalletErrorV1)
+            throwM WalletNotFound
         Just walletInfo -> do
             currentDepth <- V0.networkChainDifficulty
             migrate (wallet, walletInfo, currentDepth)
@@ -170,7 +169,7 @@ updateWallet wid WalletUpdate{..} = do
     ws <- V0.askWalletSnapshot
     wid' <- migrate wid
     assurance <- migrate uwalAssuranceLevel
-    walletMeta <- maybe (throwM (WalletNotFound :: WalletErrorV1)) pure $ V0.getWalletMeta wid' ws
+    walletMeta <- maybe (throwM WalletNotFound) pure $ V0.getWalletMeta wid' ws
     updated <- V0.updateWallet wid' walletMeta
         { V0.cwName = uwalName
         , V0.cwAssurance = assurance

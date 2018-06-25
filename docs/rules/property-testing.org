@@ -1,0 +1,46 @@
+#+TITLE: Property Testing
+* What properties should we be testing?
+** Chain extension
+*** Predecessor
+*** Not past slot
+*** Issuer is the slot leader
+*** Transaction validation
+**** Valid outputs
+**** No double-spending
+**** Unspent inputs
+**** Total amount of outputs must not exceed total amount of inputs
+**** Witnesses match inputs
+*** Bootstrap stake delegation
+*** Delegation certificates
+    No two delegation certificates from the same person
+*** Seed computation
+**** Commitment
+***** Phase is correct
+***** Delegator is rich
+***** Commitment is fresh
+**** Opening
+***** Phase is correct
+***** Opening is for a commitment
+***** Opening is fresh
+**** Recovery
+***** Phase is correct
+***** Recovery is for a commitment
+***** Recovery is fresh
+** Mempool behaviour
+* Approach
+  Want to test blockchain extension. So would like a way to verify that certain
+  extensions to a blockchain satisfy various properties. Ways to do this?
+  - Build a blockchain, verify that it satisfies properties at all relevant points.
+  - Build a blockchain and ry to extend it, verify that the invariants are
+    enforced by the interface.
+
+  Whichever way, we probably want to avoid interacting too directly with cardano
+  code. There is the "abstract wallet" implementation by Edsko. Can we reuse
+  this for the actual chain? It doesn't have a representation of the operations,
+  but can represent the chain. But currently it goes the other way; translating
+  from the abstract to the concrete. Can we go from the concrete to the
+  abstract?
+
+  Sensible approach might be to use the inductive wallet generator to build a
+  (valid) chain, then to try extending it in various (invalid) ways, and check
+  that the result is still valid.

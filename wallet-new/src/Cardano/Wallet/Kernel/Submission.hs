@@ -75,8 +75,8 @@ import qualified Pos.Core as Core
 -- This module implements section 10 of the Wallet spec,
 -- namely 'Transaction Submission'.
 --
-data WalletSubmission m = WalletSubmission {
-      _wsResubmissionFunction :: ResubmissionFunction m
+data WalletSubmission = WalletSubmission {
+      _wsResubmissionFunction :: ResubmissionFunction
     -- ^ What is called 'rho' in the spec, a 'ResubmissionFunction' capable
     -- of retransmitting and rescheduling transactions.
     , _wsState                :: WalletSubmissionState
@@ -86,7 +86,7 @@ data WalletSubmission m = WalletSubmission {
     -- like the local 'Pending' set or the current slot.
     }
 
-instance Buildable (WalletSubmission m) where
+instance Buildable WalletSubmission where
     build ws = bprint ("WalletSubmission { rho = <function> , state = " % F.build % " }") (_wsState ws)
 
 -- | The wallet internal state. Some useful invariant to check (possibly
@@ -221,16 +221,17 @@ type Evicted = Set Core.TxId
 
 -- | A 'ResubmissionFunction' (@rho@ in the spec), parametrised by an
 -- arbitrary @m@.
-type ResubmissionFunction m =  Slot
-                            -- ^ The current slot. Handy to pass to this
-                            -- function to reschedule transactions to some
-                            -- other 'Slot' + N.
-                            -> [ScheduleSend]
-                            -- ^ Transactions which are due to be sent this 'Slot'.
-                            -> Schedule
-                            -- ^ The original 'Schedule'.
-                            -> m Schedule
-                            -- ^ The new 'Schedule'.
+type ResubmissionFunction =  Slot
+                          -- ^ The current slot. Handy to pass to this
+                          -- function to reschedule transactions to some
+                          -- other 'Slot' + N.
+                          -> [ScheduleSend]
+                          -- ^ Transactions which are due to be sent this 'Slot'.
+                          -> Schedule
+                          -- ^ The original 'Schedule'.
+                          -> (Schedule, [Core.TxAux])
+                          -- ^ The new 'Schedule' together with the txs to
+                          -- send.
 
 makeLenses ''ScheduleEvents
 makeLensesFor [("_ssScheduled", "ssScheduled")] ''Schedule
@@ -256,7 +257,7 @@ instance Arbitrary SubmissionCount where
 -- | Creates a new 'WalletSubmission' layer from a 'ResubmissionFunction'.
 -- The created 'WalletSubmission' will start at 'Slot' 0 with an empty
 -- 'Schedule'.
-newWalletSubmission :: ResubmissionFunction m -> WalletSubmission m
+newWalletSubmission :: ResubmissionFunction -> WalletSubmission
 newWalletSubmission resubmissionFunction = WalletSubmission {
       _wsResubmissionFunction = resubmissionFunction
     , _wsState = newEmptyState
@@ -270,25 +271,25 @@ newWalletSubmission resubmissionFunction = WalletSubmission {
             }
 
 -- | A getter to the local pending set stored in this 'WalletSubmission'.
-localPendingSet :: Getter (WalletSubmission m) Pending
+localPendingSet :: Getter WalletSubmission Pending
 localPendingSet = wsState . wssPendingSet
 
 -- | Gets the current 'Slot'.
-getCurrentSlot :: Getter (WalletSubmission m) Slot
+getCurrentSlot :: Getter WalletSubmission Slot
 getCurrentSlot = wsState . wssCurrentSlot
 
 -- | Gets the current 'Schedule'.
-getSchedule :: Getter (WalletSubmission m) Schedule
+getSchedule :: Getter WalletSubmission Schedule
 getSchedule = wsState . wssSchedule
 
 -- | Informs the 'WalletSubmission' layer about new 'Pending' transactions.
-addPending :: Pending -> WalletSubmission m -> WalletSubmission m
+addPending :: Pending -> WalletSubmission -> WalletSubmission
 addPending newPending ws =
     let ws' = ws & over (wsState . wssPendingSet) (unionPending newPending)
     in schedulePending newPending ws'
 
 -- | Removes the input set of 'Core.TxId' from the local 'WalletSubmission' pending set.
-remPending :: Set Core.TxId -> WalletSubmission m -> WalletSubmission m
+remPending :: Set Core.TxId -> WalletSubmission -> WalletSubmission
 remPending ids ws = ws & over (wsState . wssPendingSet) (removePending ids)
 
 -- | A \"tick\" of the scheduler.
@@ -297,24 +298,23 @@ remPending ids ws = ws & over (wsState . wssPendingSet) (removePending ids)
 -- adopted in a block.
 -- @N.B.@ The returned 'WalletSubmission' comes with an already-pruned
 -- local 'Pending' set, so it's not necessary to call 'remPending' afterwards.
-tick :: Monad m
-     => WalletSubmission m
+tick :: WalletSubmission
      -- ^ The current 'WalletSubmission'.
-     -> m (Evicted, WalletSubmission m)
-     -- ^ The set of transactions upper layers will need to drop, together
-     -- with the new 'WalletSubmission'.
-tick ws = do
+     -> (Evicted, [Core.TxAux], WalletSubmission)
+     -- ^ The set of transactions upper layers will need to drop, the
+     -- transactions to be sent and the new 'WalletSubmission'.
+tick ws =
     let wss         = ws  ^. wsState
         currentSlot = wss ^. wssCurrentSlot
         rho         = _wsResubmissionFunction ws
         pendingSet  = ws ^. wsState . wssPendingSet . pendingTransactions . fromDb
 
-    let (toSend, toConfirm, newSchedule) = tickSlot currentSlot ws
-    schedule' <- rho currentSlot toSend newSchedule
-    let evicted = evictedThisSlot toConfirm pendingSet
-    let newState = ws & wsState . wssSchedule    .~ schedule'
+        (scheduleSend, toConfirm, newSchedule) = tickSlot currentSlot ws
+        (schedule', toSend) = rho currentSlot scheduleSend newSchedule
+        evicted = evictedThisSlot toConfirm pendingSet
+        newState = ws & wsState . wssSchedule    .~ schedule'
                       & wsState . wssCurrentSlot %~ mapSlot succ
-    return (evicted, remPending evicted newState)
+        in (evicted, toSend, remPending evicted newState)
     where
         evictedThisSlot :: [ScheduleEvictIfNotConfirmed]
                         -> M.Map Core.TxId Core.TxAux
@@ -360,7 +360,7 @@ scheduledFor currentSlot s@(Schedule schedule nursery) =
 -- transaction yet to be schedule/sent.
 tickSlot :: Slot
          -- ^ The current 'Slot'.
-         -> WalletSubmission m
+         -> WalletSubmission
          -- ^ The 'WalletSubmissionState'.
          -> ([ScheduleSend], [ScheduleEvictIfNotConfirmed], Schedule)
          -- ^ All the scheduled transactions together with the new
@@ -439,11 +439,11 @@ partitionSendable (view (pendingTransactions . fromDb) -> pending) xs =
 -- an internal helper for the resubmission functions.
 -- @N.B@ This is defined and exported as part of this module as it requires
 -- internal knowledge of the internal state of the 'WalletSubmission'.
-addToSchedule :: WalletSubmission m
+addToSchedule :: WalletSubmission
               -> Slot
               -> [ScheduleSend]
               -> [ScheduleEvictIfNotConfirmed]
-              -> WalletSubmission m
+              -> WalletSubmission
 addToSchedule ws slot toSend toConfirm =
     ws & over (wsState . wssSchedule . ssScheduled) prepend
     where
@@ -453,8 +453,8 @@ addToSchedule ws slot toSend toConfirm =
 -- | Schedule the full list of pending transactions.
 -- The transactions will be scheduled immediately in the next 'Slot'.
 schedulePending :: Pending
-                -> WalletSubmission m
-                -> WalletSubmission m
+                -> WalletSubmission
+                -> WalletSubmission
 schedulePending pending ws =
     let currentSlot = ws ^. wsState . wssCurrentSlot
     in addToSchedule ws (mapSlot succ currentSlot) toSend mempty
@@ -525,19 +525,17 @@ exponentialBackoff maxRetries exponent submissionCount currentSlot =
 
 -- | A very customisable resubmitter which can be configured with different
 -- retry policies.
-defaultResubmitFunction :: forall m. Monad m
-                        => ([Core.TxAux] -> m ())
-                        -> RetryPolicy
-                        -> ResubmissionFunction m
-defaultResubmitFunction send retryPolicy currentSlot scheduled oldSchedule = do
+defaultResubmitFunction :: RetryPolicy
+                        -> ResubmissionFunction
+defaultResubmitFunction retryPolicy currentSlot scheduled oldSchedule =
     -- We do not care about the result of 'send', our job
     -- is only to make sure we retrasmit the given transaction.
     -- It will be the blockchain to tell us (via adjustment to
     -- the local 'Pending' set) whether or not the transaction
     -- has been adopted. Users can tweak any concurrency behaviour by
     -- tucking such behaviour in the 'send' function itself.
-    send (map (\(ScheduleSend _ txAux _) -> txAux) scheduled)
-    pure (List.foldl' updateFn oldSchedule scheduled)
+    let toSend = map (\(ScheduleSend _ txAux _) -> txAux) scheduled
+    in (List.foldl' updateFn oldSchedule scheduled, toSend)
     where
         updateFn :: Schedule -> ScheduleSend -> Schedule
         updateFn (Schedule s nursery) (ScheduleSend txId txAux submissionCount) =

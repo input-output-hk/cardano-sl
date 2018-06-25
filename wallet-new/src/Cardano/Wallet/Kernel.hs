@@ -29,7 +29,7 @@ module Cardano.Wallet.Kernel (
 import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar_, withMVar)
+import           Control.Concurrent.MVar (modifyMVar, modifyMVar_, withMVar)
 import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -235,7 +235,7 @@ data ActiveWallet = ActiveWallet {
       -- | The wallet diffusion layer
     , walletDiffusion  :: WalletDiffusion
       -- | The wallet submission layer
-    , walletSubmission :: MVar (WalletSubmission IO)
+    , walletSubmission :: MVar WalletSubmission
     }
 
 -- | Initialize the active wallet
@@ -245,7 +245,7 @@ bracketActiveWallet :: (MonadMask m, MonadIO m)
                     -> (ActiveWallet -> m a) -> m a
 bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
     let logMsg = _walletLogMessage walletPassive
-    let rho = defaultResubmitFunction subFunction (exponentialBackoff 255 1.25)
+    let rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
     walletSubmission <- newMVar (newWalletSubmission rho)
     submissionLayerTicker <-
         liftIO $ async
@@ -263,18 +263,21 @@ bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
         -- By default the diffusion layer should correctly throttle and debounce
         -- requests, but we might want in the future to adopt more sophisticated
         -- strategies.
-        subFunction :: [TxAux] -> IO ()
-        subFunction [] = return ()
-        subFunction (tx:txs) = do
+        sendTransactions :: [TxAux] -> IO ()
+        sendTransactions [] = return ()
+        sendTransactions (tx:txs) = do
             void $ (walletSendTx walletDiffusion) tx
-            subFunction txs
+            sendTransactions txs
 
-        tickFunction :: MVar (WalletSubmission IO) -> IO ()
+        tickFunction :: MVar WalletSubmission -> IO ()
         tickFunction submissionLayer = do
-            (evictedSet, newState) <- withMVar submissionLayer tick
-            modifyMVar_ submissionLayer (return . const newState)
+            (evictedSet, toSend) <-
+                modifyMVar submissionLayer $ \layer -> do
+                    let (e, s, state') = tick layer
+                    return (state', (e,s))
             unless (Set.null evictedSet) $
                 cancelPending walletPassive evictedSet
+            sendTransactions toSend
 
 -- | Submit a new pending transaction
 --

@@ -10,7 +10,10 @@ import           Control.Lens ((%=))
 import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Data.Time.Units (Second)
 import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
+<<<<<<< HEAD
 import           System.Wlog (WithLogger)
+=======
+>>>>>>> 437ba10... [CBR-213] WIP transform ssc
 
 import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
 import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgMessageCacheTimeout)
@@ -51,7 +54,11 @@ dlgInvalidateCaches =
     -- size. Relevant GHC ticket: https://ghc.haskell.org/trac/ghc/ticket/13080
     fix $ \loop -> do
         -- REPORT:ERROR 'reportOrLogE' in delegation worker.
+<<<<<<< HEAD
         invalidate `catchAny` reportOrLogE "Delegation worker, error occurred: "
+=======
+        invalidate `catchAny` reportOrLogE logTrace "Delegation worker, error occurred: "
+>>>>>>> 437ba10... [CBR-213] WIP transform ssc
         delay (1 :: Second)
         loop
   where

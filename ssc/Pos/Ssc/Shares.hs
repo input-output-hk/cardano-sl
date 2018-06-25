@@ -11,7 +11,6 @@ import           Universum hiding (id)
 import           Crypto.Random (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
-import           Universum
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Core.Common (StakeholderId, addressHash)

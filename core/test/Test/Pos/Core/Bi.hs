@@ -327,20 +327,16 @@ roundTripAddrStakeDistributionBi = eachOf 1000 genAddrStakeDistribution roundTri
 -- AddrType
 --------------------------------------------------------------------------------
 golden_AddrType_PK :: Property
-golden_AddrType_PK = goldenTestBi at "test/golden/AddrType_PK"
-  where at = ATPubKey
+golden_AddrType_PK = goldenTestBi ATPubKey "test/golden/AddrType_PK"
 
 golden_AddrType_S :: Property
-golden_AddrType_S = goldenTestBi at "test/golden/AddrType_S"
-  where at = ATScript
+golden_AddrType_S = goldenTestBi ATScript "test/golden/AddrType_S"
 
 golden_AddrType_R :: Property
-golden_AddrType_R = goldenTestBi at "test/golden/AddrType_R"
-  where at = ATRedeem
+golden_AddrType_R = goldenTestBi ATRedeem "test/golden/AddrType_R"
 
 golden_AddrType_U :: Property
-golden_AddrType_U = goldenTestBi at "test/golden/AddrType_U"
-  where at = ATUnknown 57
+golden_AddrType_U = goldenTestBi (ATUnknown 57) "test/golden/AddrType_U"
 
 roundTripAddrTypeBi :: Property
 roundTripAddrTypeBi = eachOf 1000 genAddrType roundTripsBiShow
@@ -1257,9 +1253,11 @@ feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a
 feedPC genA = genA =<< genProtocolConstants
 
 feedPMC :: (ProtocolMagic -> ProtocolConstants -> H.Gen a) -> H.Gen a
-feedPMC genA = do pm <- genProtocolMagic
-                  pc <- genProtocolConstants
-                  genA pm pc
+feedPMC genA = do
+    pm <- genProtocolMagic
+    pc <- genProtocolConstants
+    genA pm pc
+
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes
@@ -1786,4 +1784,4 @@ exampleLightDlgIndices = LightDlgIndices (EpochIndex 7, EpochIndex 88)
 
 tests :: IO Bool
 tests = (&&) <$> H.checkSequential $$discoverGolden
-             <*> H.checkSequential $$discoverRoundTrip
+             <*> H.checkParallel $$discoverRoundTrip

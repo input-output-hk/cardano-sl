@@ -5,30 +5,22 @@ module Test.Pos.Util.MnemonicSpec where
 
 import           Universum
 
-import           Crypto.Hash (Blake2b_256, Digest, hash)
-import           Data.ByteArray (convert)
 import           Data.Default (def)
-import           Data.Set (Set)
-import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy, xit)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), forAll, property, (===))
-import           Test.QuickCheck.Gen (vectorOf)
+import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck ((===))
 
-import           Pos.Crypto (AesKey (..), EncryptedSecretKey, PassPhrase (..),
-                             safeDeterministicKeyGen)
-import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic, entropyToByteString,
+import           Crypto.Encoding.BIP39 (toEntropy)
+import           Pos.Crypto (AesKey (..))
+import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic, MnemonicErr (..),
                                     entropyToMnemonic, mkEntropy, mkMnemonic, mnemonicToAesKey,
                                     mnemonicToEntropy, mnemonicToSeed)
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
-import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..), CId)
+import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..))
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Set as Set
-import qualified Test.Pos.Util.BackupPhraseOld as Old
-import qualified Test.Pos.Util.MnemonicOld as Old
 
 
 -- | By default, private keys aren't comparable for security reasons (timing
@@ -36,6 +28,13 @@ import qualified Test.Pos.Util.MnemonicOld as Old
 instance Eq CC.XPrv where
     (==) = (==) `on` CC.unXPrv
 
+type TestVector =
+    ( BL.ByteString             -- ^ Raw JSON encoding (V1)
+    , Entropy (EntropySize 12)  -- ^ Corresponding Entropy
+    , Mnemonic 12               -- ^ Corresponding Mnemonic
+    , ByteString                -- ^ Corresponding Seed
+    , AesKey                    -- ^ Corresponding AESKey
+    )
 
 
 spec :: Spec
@@ -49,13 +48,8 @@ spec = do
     prop "(9) parseJSON . toJSON == pure" $
         \(mw :: Mnemonic 9) -> (Aeson.decode . Aeson.encode) mw === pure mw
 
-    prop "(9) parseJSON . toJSON == pure" $
+    prop "(12) parseJSON . toJSON == pure" $
         \(mw :: Mnemonic 12) -> (Aeson.decode . Aeson.encode) mw === pure mw
-
-    xit "entropyToWalletId is injective (very long to run, used for investigation)"
-        $ property
-        $ forAll (vectorOf 1000 arbitrary)
-        $ \inputs -> length (inject entropyToWalletId inputs) == length inputs
 
     describe "golden tests" $ do
         it "No example mnemonic" $
@@ -67,118 +61,68 @@ spec = do
         it "No empty entropy" $
             (mkEntropy @(EntropySize 12) "") `shouldSatisfy` isLeft
 
-        it "Mnemonic ToJSON" $
-            Aeson.encode goldenMnemonic `shouldBe` goldenMnemonicRaw
+        it "Mnemonic to JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+            Aeson.encode mnemonic `shouldBe` bytes
 
-        it "Mnemonic FromJSON" $
-            Aeson.decode goldenMnemonicRaw `shouldBe` (pure goldenMnemonic)
+        it "Mnemonic from JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+            Aeson.decode bytes `shouldBe` (pure mnemonic)
 
-        it "CBackupPhrase ToJSON" $
-            Aeson.encode goldenBackupPhrase `shouldBe` goldenBackupPhraseRaw
+        it "CBackupPhrase to JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+            Aeson.encode (CBackupPhrase mnemonic) `shouldBe` (jsonV0Compat bytes)
 
-        it "CBackupPhrase FromJSON" $
-            Aeson.decode goldenBackupPhraseRaw `shouldBe` (pure goldenBackupPhrase)
+        it "CBackupPhrase from JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+            Aeson.decode (jsonV0Compat bytes) `shouldBe` (pure $ CBackupPhrase mnemonic)
 
-    describe "Old and New implementation behave identically" $ do
-        modifyMaxSuccess (const 1000) $ prop "entropyToESK (no passphrase)" $
-            \ent -> entropyToESK mempty ent === entropyToESKOld mempty ent
+        it "Mnemonic to Entropy" $ forM_ testVectors $ \(_, entropy, mnemonic, _, _) ->
+            mnemonicToEntropy mnemonic `shouldBe` entropy
 
-        modifyMaxSuccess (const 1000) $ prop "entropyToESK (with passphrase)" $
-            \ent -> entropyToESK defPwd ent === entropyToESKOld defPwd ent
+        it "Mnemonic to Seed" $ forM_ testVectors $ \(_, _, mnemonic, seed, _) ->
+            mnemonicToSeed mnemonic `shouldBe` seed
 
-        modifyMaxSuccess (const 1000) $ prop "entropyToAesKEy" $
-            \ent -> entropyToAesKey ent === entropyToAesKeyOld ent
+        it "Mnemonic to Seed" $ forM_ testVectors $ \(_, _, mnemonic, _, aesKey) ->
+            mnemonicToAesKey mnemonic `shouldBe` aesKey
+
   where
-    defPwd :: PassPhrase
-    defPwd =
-        PassPhrase "cardano"
+    testVectors :: [TestVector]
+    testVectors =
+        [ ( "[\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"about\"]"
+          , orFail $ mkEntropy'
+              "\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL"
+          , orFail $ mkMnemonic
+              ["abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","about"]
+          , "X \223\238d\241\SI\212R\194\136)Q\239d\238\180\&8\128\170C\EOT\253\DC1\DC1\n/\ESC\DC3\145?%\138\157"
+          , AesKey "\148\193\192\136\204\148S\153gyc\n\211\175E\203\217(\DC4\130\141\215\132\207*\161-\249]\ESC\138\254"
+          )
+        , ( "[\"letter\",\"advice\",\"cage\",\"absurd\",\"amount\",\"doctor\",\"acoustic\",\"avoid\",\"letter\",\"advice\",\"cage\",\"above\"]"
+          , orFail $ mkEntropy'
+              "\128\128\128\128\128\128\128\128\128\128\128\128\128\128\128\128"
+          , orFail $ mkMnemonic
+              ["letter","advice","cage","absurd","amount","doctor","acoustic","avoid","letter","advice","cage","above"]
+          , "X \244o\161D\DC1Z\145qq\RS\237\r\130\206\DEL\159]:\DEL\135/\245`\n\222}\137\206y\194R\145"
+          , AesKey "c\232\DC4?\DC2\199V\157\r\172\177x\141\&8\138\246l\174:^]9\249\192\149\230\180s\165\255,J"
+          )
+        , ( "[\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"wrong\"]"
+          , orFail $ mkEntropy'
+              "\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255"
+          , orFail $ mkMnemonic
+              ["zoo","zoo","zoo","zoo","zoo","zoo","zoo","zoo","zoo","zoo","zoo","wrong"]
+          , "X \SO\USL9R\238\128^u\167\246\197\215\SOH\RS\SI{\155\189m\177\212\254r\132\148\207K\134K\179{"
+          , AesKey "h\DC4g\179\&3t%\253\&8\250\&9\131S\FS\161\166!M\233&N\235\171\223\156\155\197\209W\210\STX\180"
+          )
+        ]
+      where
+        orFail =
+            either (error . (<>) "Failed to create golden Mnemonic: " . show) identity
+        mkEntropy' =
+            maybe (Left MnemonicErrFailedToCreate) Right . toEntropy @128 @4 @ByteString
+
+    -- | V0 Mnemonics are wrapped in a singleton object with a `bpToList` prop
+    jsonV0Compat :: BL.ByteString -> BL.ByteString
+    jsonV0Compat bytes =
+        "{\"bpToList\":" <> bytes <> "}"
 
     defMnemonic :: [Text]
     defMnemonic = either (error . (<>) "Failed to encode/decode default menmonic " . show) identity
         $ Aeson.eitherDecode
         $ Aeson.encode
         $ def @(Mnemonic 12)
-
-    goldenMnemonicRaw :: BL.ByteString
-    goldenMnemonicRaw =
-        "[\"help\",\"virtual\",\"describe\",\"crash\",\"horn\",\"squeeze\",\"actor\",\"setup\",\"moral\",\"embark\",\"burst\",\"reveal\"]"
-
-    goldenMnemonic :: Mnemonic 12
-    goldenMnemonic = either (error . (<>) "Failed to create goldenMnemonic: " . show) identity
-        $ mkMnemonic
-            [ "help"
-            , "virtual"
-            , "describe"
-            , "crash"
-            , "horn"
-            , "squeeze"
-            , "actor"
-            , "setup"
-            , "moral"
-            , "embark"
-            , "burst"
-            , "reveal"
-            ]
-
-    -- | V0 Compat
-    goldenBackupPhraseRaw :: BL.ByteString
-    goldenBackupPhraseRaw =
-        "{\"bpToList\":" <> goldenMnemonicRaw <> "}"
-
-    goldenBackupPhrase :: CBackupPhrase 12
-    goldenBackupPhrase =
-        CBackupPhrase goldenMnemonic
-
-    -- | Collect function results in a Set
-    inject :: Ord b => (a -> b) -> [a] -> Set b
-    inject fn =
-        Set.fromList . fmap fn
-
-    entropyToWalletId :: Entropy (EntropySize 12) -> CId w
-    entropyToWalletId =
-        encToCId . entropyToESK mempty
-
-    blake2b :: ByteString -> ByteString
-    blake2b =
-        convert @(Digest Blake2b_256) . hash
-
-    -- | Generate an EncryptedSecretKey using the old implementation
-    entropyToESKOld :: PassPhrase -> Entropy (EntropySize 12) -> EncryptedSecretKey
-    entropyToESKOld passphrase ent = esk
-      where
-        backupPhrase = either
-            (error . (<>) "[Old] Wrong arbitrary Entropy generated: " . show)
-            (Old.BackupPhrase . words)
-            (Old.toMnemonic $ entropyToByteString ent)
-
-        esk = either
-            (error . (<>) "[Old] Couldn't create keys from generated BackupPhrase" . show)
-            fst
-            (Old.safeKeysFromPhrase passphrase backupPhrase)
-
-    -- | Generate an EncryptedSecretKey using the revised implementation
-    entropyToESK :: PassPhrase -> Entropy (EntropySize 12) -> EncryptedSecretKey
-    entropyToESK passphrase ent = esk
-      where
-        seed =
-            mnemonicToSeed $ entropyToMnemonic ent
-
-        esk =
-            snd (safeDeterministicKeyGen seed passphrase)
-
-    entropyToAesKeyOld :: Entropy (EntropySize 9) -> AesKey
-    entropyToAesKeyOld ent = key
-      where
-        backupPhrase = either
-            (error . (<>) "[Old] Wrong arbitrary Entropy generated: " . show)
-            (Old.BackupPhrase . words)
-            (Old.toMnemonic $ entropyToByteString ent)
-
-        key = either
-            (error . (<>) "[Old] Couldn't create Aes keys from generated BackupPhrase" . show)
-            identity
-            (AesKey . blake2b <$> Old.toSeed backupPhrase)
-
-    entropyToAesKey :: Entropy (EntropySize 9) -> AesKey
-    entropyToAesKey =
-        mnemonicToAesKey . entropyToMnemonic

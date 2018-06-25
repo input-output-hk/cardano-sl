@@ -222,8 +222,6 @@ test-suite cardano-wallet-test
 
                        -- Basic QC checks
                        Test.Pos.Util.MnemonicSpec
-                       Test.Pos.Util.MnemonicOld
-                       Test.Pos.Util.BackupPhraseOld
 
                        -- Basic mocks and instances
                        Test.Pos.Wallet.Web.Mode

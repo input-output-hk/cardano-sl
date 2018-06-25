@@ -22,10 +22,8 @@ module Cardano.Wallet.Kernel (
   , wallets
     -- * Active wallet
   , ActiveWallet -- opaque
-  , walletSubmission
   , bracketActiveWallet
   , newPending
-  , evictPending
   ) where
 
 import           Universum hiding (State, init)
@@ -34,6 +32,7 @@ import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar_, withMVar)
 import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 
 import           Formatting (build, sformat)
@@ -49,8 +48,8 @@ import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), prefi
                                                     prefilterUtxo)
 import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
 
-import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CreateHdWallet (..), DB,
-                                                     EvictPending (..), NewPending (..),
+import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CancelPending (..),
+                                                     CreateHdWallet (..), DB, NewPending (..),
                                                      NewPendingError, Snapshot (..), dbHdWallets,
                                                      defDB)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
@@ -62,7 +61,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
-import           Cardano.Wallet.Kernel.Submission (Evicted, WalletSubmission, addPending,
+import           Cardano.Wallet.Kernel.Submission (WalletSubmission, addPending,
                                                    defaultResubmitFunction, exponentialBackoff,
                                                    newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
@@ -250,9 +249,7 @@ bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
     walletSubmission <- newMVar (newWalletSubmission rho)
     submissionLayerTicker <-
         liftIO $ async
-               $ tickSubmissionLayer logMsg
-                                     (withMVar walletSubmission tick)
-                                     (onEvict walletSubmission)
+               $ tickSubmissionLayer logMsg (tickFunction walletSubmission)
     bracket
       (return ActiveWallet{..})
       (\_ -> liftIO $ do
@@ -272,13 +269,12 @@ bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
             void $ (walletSendTx walletDiffusion) tx
             subFunction txs
 
-        onEvict :: MVar (WalletSubmission IO)
-                -> Evicted
-                -> WalletSubmission IO
-                -> IO ()
-        onEvict submissionLayer evictedSet newState = do
+        tickFunction :: MVar (WalletSubmission IO) -> IO ()
+        tickFunction submissionLayer = do
+            (evictedSet, newState) <- withMVar submissionLayer tick
             modifyMVar_ submissionLayer (return . const newState)
-            evictPending walletPassive evictedSet
+            unless (Set.null evictedSet) $
+                cancelPending walletPassive evictedSet
 
 -- | Submit a new pending transaction
 --
@@ -297,9 +293,9 @@ newPending ActiveWallet{..} accountId tx = do
             modifyMVar_ walletSubmission (return . addPending (singletonPending txId tx))
             return $ Right ()
 
-evictPending :: PassiveWallet -> Set TxId -> IO ()
-evictPending passiveWallet txids =
-    update' (passiveWallet ^. wallets) $ EvictPending (InDb txids)
+cancelPending :: PassiveWallet -> Set TxId -> IO ()
+cancelPending passiveWallet txids =
+    update' (passiveWallet ^. wallets) $ CancelPending (InDb txids)
 
 {-------------------------------------------------------------------------------
   Wallet Account read-only API

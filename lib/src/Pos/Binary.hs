@@ -9,7 +9,6 @@ import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Delegation ()
-import           Pos.Binary.Merkle ()
 import           Pos.Binary.Ssc ()
 import           Pos.Binary.Txp ()
 import           Pos.Binary.Update ()

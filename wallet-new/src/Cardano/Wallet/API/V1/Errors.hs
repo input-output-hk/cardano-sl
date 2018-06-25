@@ -8,22 +8,20 @@ module Cardano.Wallet.API.V1.Errors where
 import           Universum
 
 import           Data.Aeson
-import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
-import qualified Network.HTTP.Types as HTTP
 import           Servant
-import           Test.QuickCheck (Arbitrary (..), oneof)
-
-import qualified Pos.Client.Txp.Util as TxError
-import qualified Pos.Core as Core
-import qualified Pos.Crypto.Hashing as Crypto
-import qualified Pos.Data.Attributes as Core
+import           Test.QuickCheck (Arbitrary (arbitrary))
+import           Test.QuickCheck.Gen (oneof)
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
+import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..), WalletId,
                                               exampleWalletId, mkEstimatedCompletionTime,
                                               mkSyncPercentage, mkSyncThroughput)
+
+import qualified Network.HTTP.Types as HTTP
+
 
 --
 -- Error handling
@@ -56,9 +54,9 @@ import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
 -- then "diagnostic" field will be empty object.
 --
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
-data WalletError =
+data WalletError address syncProgress syncPercentage =
       NotEnoughMoney { weNeedMore :: !Int }
-    | OutputIsRedeem { weAddress :: !(V1 Core.Address) }
+    | OutputIsRedeem { weAddress :: !address }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | UnknownError { weMsg :: !Text }
@@ -69,33 +67,17 @@ data WalletError =
     | AddressNotFound
     | TxFailedToStabilize
     | TxRedemptionDepleted
-    | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
+    | TxSafeSignerNotFound { weAddress :: address }
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
-    | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
+    | WalletIsNotReadyToProcessPayments { weStillRestoring :: syncProgress }
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
     -- synced (its 'WalletSyncState' indicates it's either syncing or
     -- restoring) and thus cannot accept new @Payment@ requests.
-    | NodeIsStillSyncing { wenssStillSyncing :: SyncPercentage }
+    | NodeIsStillSyncing { wenssStillSyncing :: syncPercentage }
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
     deriving (Show, Eq)
 
-convertTxError :: TxError.TxError -> WalletError
-convertTxError err = case err of
-    TxError.NotEnoughMoney coin ->
-        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
-    TxError.NotEnoughAllowedMoney coin ->
-        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
-    TxError.FailedToStabilize ->
-        TxFailedToStabilize
-    TxError.OutputIsRedeem addr ->
-        OutputIsRedeem (V1 addr)
-    TxError.RedemptionDepleted ->
-        TxRedemptionDepleted
-    TxError.SafeSignerNotFound addr ->
-        TxSafeSignerNotFound (V1 addr)
-    TxError.GeneralTxError txt ->
-        UnknownError txt
 
 --
 -- Instances for `WalletError`
@@ -103,65 +85,41 @@ convertTxError err = case err of
 -- deriveWalletErrorJSON ''WalletError
 deriveGeneric ''WalletError
 
-instance ToJSON WalletError where
+instance (ToJSON a, ToJSON b, ToJSON c) => ToJSON (WalletError a b c) where
     toJSON = gtoJsend ErrorStatus
 
-instance FromJSON WalletError where
+instance (FromJSON a, FromJSON b, FromJSON c) => FromJSON (WalletError a b c) where
     parseJSON = gparseJsend
 
-instance Exception WalletError where
+instance (Typeable a, Show a, Typeable b, Show b, Typeable c, Show c) =>
+    Exception (WalletError a b c)
 
--- TODO: generate `Arbitrary` instance with TH too?
-instance Arbitrary WalletError where
-    arbitrary = oneof (map pure sample)
+instance (Arbitrary a, Arbitrary b, Arbitrary c) => Arbitrary (WalletError a b c) where
+    arbitrary = oneof
+        [ NotEnoughMoney <$> arbitrary
+        , OutputIsRedeem <$> arbitrary
+        , pure (MigrationFailed "Migration failed.")
+        , pure (JSONValidationFailed "Expected String, found Null.")
+        , pure (UnknownError "Unknown error.")
+        , pure (InvalidAddressFormat "Invalid Base58 representation.")
+        , pure WalletNotFound
+        , pure WalletAlreadyExists
+        , pure AddressNotFound
+        , pure TxFailedToStabilize
+        , pure TxRedemptionDepleted
+        , TxSafeSignerNotFound <$> arbitrary
+        , pure (MissingRequiredParams (("wallet_id", "walletId") :| []))
+        , WalletIsNotReadyToProcessPayments <$> arbitrary
+        , NodeIsStillSyncing <$> arbitrary
+        ]
 
 
 --
 -- Helpers
 --
 
-type ErrorName = Text
-type ErrorCode = Int
-type ErrorExample = Value
-
-
-sampleSyncProgress :: SyncProgress
-sampleSyncProgress = SyncProgress {
-    spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
-  , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
-  , spPercentage              = mkSyncPercentage 80
-}
-
-sampleAddress :: V1 Core.Address
-sampleAddress = V1 $ Core.Address
-    { Core.addrRoot =
-        Crypto.unsafeAbstractHash ("asdfasdf" :: String)
-    , Core.addrAttributes =
-        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
-    , Core.addrType =
-        Core.ATPubKey
-    }
-
--- | Sample of errors we use for documentation
-sample :: [WalletError]
-sample =
-  [ NotEnoughMoney 1400
-  , OutputIsRedeem sampleAddress
-  , MigrationFailed "Migration failed"
-  , JSONValidationFailed "Expected String, found Null."
-  , UnknownError "Unknown error"
-  , InvalidAddressFormat "Invalid base58 representation."
-  , WalletNotFound
-  , WalletAlreadyExists exampleWalletId
-  , AddressNotFound
-  , MissingRequiredParams (("wallet_id", "walletId") :| [])
-  , WalletIsNotReadyToProcessPayments sampleSyncProgress
-  , NodeIsStillSyncing (mkSyncPercentage 42)
-  ]
-
-
 -- | Give a short description of an error
-describe :: WalletError -> String
+describe :: forall a b c. WalletError a b c -> String
 describe = \case
     NotEnoughMoney _ ->
          "Not enough available coins to proceed."
@@ -196,7 +154,10 @@ describe = \case
 
 
 -- | Convert wallet errors to Servant errors
-toServantError :: WalletError -> ServantErr
+toServantError
+    :: forall a b c. (ToJSON a, ToJSON b, ToJSON c)
+    => WalletError a b c
+    -> ServantErr
 toServantError err =
     mkServantErr $ case err of
         NotEnoughMoney{} ->
@@ -235,12 +196,10 @@ toServantError err =
         , errHeaders = applicationJson : errHeaders
         }
 
-toHttpStatus :: WalletError -> HTTP.Status
+-- |
+toHttpStatus
+    :: forall a b c. (ToJSON a, ToJSON b, ToJSON c)
+    => WalletError a b c
+    -> HTTP.Status
 toHttpStatus err = HTTP.Status (errHTTPCode $ toServantError err)
                                (encodeUtf8 $ describe err)
-
--- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
-applicationJson :: HTTP.Header
-applicationJson =
-    let [hdr] = getHeaders (addHeader "application/json" mempty :: (Headers '[Header "Content-Type" String] String))
-    in hdr

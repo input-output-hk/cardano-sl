@@ -16,10 +16,10 @@ import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Data.Typeable (typeRep)
-import           Formatting (sformat, build)
+import           Formatting (build, sformat)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
-import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Cardano.Wallet.API.V1.Types (V1 (..), WalletErrorV1)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
@@ -40,7 +40,7 @@ import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 -- will be completed and the V0 API removed, we will be able to remove this
 -- typeclass altogether.
 class Migrate from to where
-    eitherMigrate :: from -> Either Errors.WalletError to
+    eitherMigrate :: from -> Either WalletErrorV1 to
 
 -- | "Run" the migration.
 migrate :: ( Migrate from to, Catch.MonadThrow m ) => from -> m to

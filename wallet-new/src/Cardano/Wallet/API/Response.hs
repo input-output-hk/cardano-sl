@@ -174,8 +174,15 @@ data ValidJSON deriving Typeable
 
 instance FromJSON a => MimeUnrender ValidJSON a where
     mimeUnrender _ bs = case eitherDecode bs of
-        Left err -> Left $ decodeUtf8 $ encodePretty (JSONValidationFailed $ toText err)
+        Left err -> Left $ decodeUtf8 $ encodePretty (jsonValidationFailed err)
         Right v  -> return v
+      where
+        -- NOTE Cheating a bit with type params here, ideally, we would like
+        -- types we can render ToJSON, though we only use the JSONValidationFailed
+        -- which doesn't rely on the type-parameters.
+        jsonValidationFailed :: String -> WalletError () () ()
+        jsonValidationFailed =
+            JSONValidationFailed . toText
 
 instance Accept ValidJSON where
     contentType _ = contentType (Proxy @ JSON)

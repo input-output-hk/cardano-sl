@@ -94,7 +94,7 @@ getAddress
     -> m (WalletResponse WalletAddress)
 getAddress addrText = do
     addr <- either
-        (throwM . InvalidAddressFormat)
+        (throwM . (InvalidAddressFormat :: (Text -> WalletErrorV1)))
         pure
         (decodeTextAddress addrText)
 
@@ -120,7 +120,7 @@ getAddress addrText = do
 
     case minfo of
         Nothing ->
-            throwM AddressNotFound
+            throwM (AddressNotFound :: WalletErrorV1)
         Just (_walletMeta, V0.AddressInfo{..}) -> do
             let accId = adiWAddressMeta ^. V0.wamAccount
             mps <- V0.withTxpLocalData V0.getMempoolSnapshot

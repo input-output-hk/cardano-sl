@@ -58,7 +58,7 @@ import           Test.QuickCheck.Random
 
 -- | Generates an example for type `a` with a static seed.
 genExample :: Example a => a
-genExample = (unGen (resize 3 example)) (mkQCGen 42) 42
+genExample = unGen (resize 3 example) (mkQCGen 42) 42
 
 -- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
 -- by calling `sketchSchema` under the hood.
@@ -155,7 +155,7 @@ instance
         in swgr & over (operationsOf swgr . parameters) addSortOperation
           where
             addSortOperation :: [Referenced Param] -> [Referenced Param]
-            addSortOperation xs = (Inline newParam) : xs
+            addSortOperation xs = Inline newParam : xs
 
             newParam :: Param
             newParam =
@@ -228,7 +228,7 @@ Error Name / Description | HTTP Error code | Example
 $errors
 |] where
   errors = T.intercalate "\n" rows
-  rows = map (mkRow errToDescription) Errors.sample
+  rows = map (mkRow errToDescription) sampleErrors
   mkRow fmt err = T.intercalate "|" (fmt err)
   errToDescription err =
     [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (Errors.describe err)
@@ -842,12 +842,12 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (mkDescription $ DescriptionEnvironment
+  & info.description ?~ mkDescription $ DescriptionEnvironment
     { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
     , deMnemonicExample       = decodeUtf8 $ encode (genExample @(Mnemonic 12))
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
-    })
+    }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")

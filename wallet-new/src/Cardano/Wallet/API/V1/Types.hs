@@ -82,6 +82,9 @@ module Cardano.Wallet.API.V1.Types (
   , CaptureAccountId
   -- * Core re-exports
   , Core.Address
+  -- * Wallet Errors
+  , WalletErrorV1
+  , WalletError(..)
   ) where
 
 import           Universum
@@ -122,6 +125,7 @@ import           Pos.Util.Mnemonic (Mnemonic)
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 
+import           Cardano.Wallet.API.V1.Errors (WalletError (..))
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
@@ -248,6 +252,7 @@ instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
 
 instance (Buildable a, Buildable b) => Buildable (a, b) where
     build (a, b) = bprint ("("%build%", "%build%")") a b
+
 
 --
 -- Benign instances
@@ -1846,6 +1851,16 @@ instance BuildableSafeGen NodeInfo where
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
         (Map.toList nfoSubscriptionStatus)
+
+
+--
+-- Wallet Errors
+--
+
+type WalletErrorV1 = WalletError
+    (V1 Core.Address)
+    SyncProgress
+    SyncPercentage
 
 
 --

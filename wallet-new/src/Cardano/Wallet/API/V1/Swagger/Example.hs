@@ -17,7 +17,9 @@ import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 
 import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
+import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Crypto.Signing as Core
+import qualified Pos.Data.Attributes as Core
 
 
 class Arbitrary a => Example a where
@@ -137,6 +139,39 @@ instance Example Payment where
                       <*> example
 
 instance Example WalletStateSnapshot
+
+sampleErrors :: [WalletErrorV1]
+sampleErrors =
+    [ NotEnoughMoney 1400
+    , OutputIsRedeem sampleAddress
+    , MigrationFailed "Migration failed."
+    , JSONValidationFailed "Expected String, found Null."
+    , UnknownError "Unknown error."
+    , InvalidAddressFormat "Invalid Base58 representation."
+    , WalletNotFound
+    , WalletAlreadyExists
+    , AddressNotFound
+    , MissingRequiredParams (("wallet_id", "walletId") :| [])
+    , WalletIsNotReadyToProcessPayments sampleSyncProgress
+    , NodeIsStillSyncing (mkSyncPercentage 42)
+    ]
+  where
+    sampleAddress :: V1 Core.Address
+    sampleAddress = V1 Core.Address
+        { Core.addrRoot =
+            Crypto.unsafeAbstractHash ("asdfasdf" :: String)
+        , Core.addrAttributes =
+            Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
+        , Core.addrType =
+            Core.ATPubKey
+        }
+
+    sampleSyncProgress :: SyncProgress
+    sampleSyncProgress = SyncProgress
+        { spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
+        , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
+        , spPercentage              = mkSyncPercentage 80
+        }
 
 
 

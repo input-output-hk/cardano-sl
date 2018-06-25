@@ -76,7 +76,7 @@ newWallet NewWallet{..} = do
 
     -- Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
-    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
+    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage :: WalletErrorV1)
 
     let newWalletHandler CreateWallet  = V0.newWalletNoThrow
         newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow
@@ -151,10 +151,10 @@ addWalletInfo
     => V0.WalletSnapshot
     -> V0.CWallet
     -> m Wallet
-addWalletInfo snapshot wallet = do
+addWalletInfo snapshot wallet =
     case V0.getWalletInfo (V0.cwId wallet) snapshot of
         Nothing ->
-            throwM WalletNotFound
+            throwM (WalletNotFound :: WalletErrorV1)
         Just walletInfo -> do
             currentDepth <- V0.networkChainDifficulty
             migrate (wallet, walletInfo, currentDepth)
@@ -170,7 +170,7 @@ updateWallet wid WalletUpdate{..} = do
     ws <- V0.askWalletSnapshot
     wid' <- migrate wid
     assurance <- migrate uwalAssuranceLevel
-    walletMeta <- maybe (throwM WalletNotFound) pure $ V0.getWalletMeta wid' ws
+    walletMeta <- maybe (throwM (WalletNotFound :: WalletErrorV1)) pure $ V0.getWalletMeta wid' ws
     updated <- V0.updateWallet wid' walletMeta
         { V0.cwName = uwalName
         , V0.cwAssurance = assurance

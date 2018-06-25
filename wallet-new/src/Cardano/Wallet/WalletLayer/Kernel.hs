@@ -22,7 +22,6 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (safeDeterministicKeyGen)
-import           Pos.Util.Chrono (mapMaybeChrono)
 import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions

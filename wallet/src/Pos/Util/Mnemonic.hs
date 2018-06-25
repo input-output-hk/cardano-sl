@@ -44,7 +44,7 @@ import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems, minIte
 import           Formatting (bprint, build, formatToString, (%))
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
-import           Pos.Util.LogSafe (SecureLog)
+import           Pos.Infra.Util.LogSafe (SecureLog)
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Gen (vectorOf)
 
@@ -367,5 +367,5 @@ instance (KnownNat mw) => ToSchema (Mnemonic mw) where
         let mw = natVal (Proxy :: Proxy mw)
         NamedSchema _ schema <- declareNamedSchema (Proxy @[Text])
         return $ NamedSchema (Just "Mnemonic") schema
-            & minItems ?~ mw
-            & maxItems ?~ mw
+            & minItems ?~ fromIntegral mw
+            & maxItems ?~ fromIntegral mw

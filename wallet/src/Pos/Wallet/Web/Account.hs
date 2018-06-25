@@ -1,4 +1,5 @@
 -- | Helpers for Wallet Set, Wallet and Account.
+{-# LANGUAGE DataKinds #-}
 
 module Pos.Wallet.Web.Account
        ( myRootAddresses
@@ -17,19 +18,20 @@ module Pos.Wallet.Web.Account
        , MonadKeySearch (..)
        ) where
 
+import           Universum
+
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
 import           System.Wlog (WithLogger)
-import           Universum
 
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
-                             firstHardened)
+                             firstHardened, safeDeterministicKeyGen)
 import           Pos.Util (eitherToThrow)
-import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), HasWAddressMeta (..),
@@ -95,16 +97,14 @@ getSKByAddressPure secrets scp passphrase addrMeta = do
 genSaveRootKey
     :: (AccountMode ctx m, MonadKeys m)
     => PassPhrase
-    -> BackupPhrase
+    -> Mnemonic 12
     -> m EncryptedSecretKey
-genSaveRootKey passphrase ph = do
-    sk <- either keyFromPhraseFailed (pure . fst) $
-        safeKeysFromPhrase passphrase ph
-    addSecretKey sk
-    return sk
-  where
-    keyFromPhraseFailed msg =
-        throwM . RequestError $ "Key creation from phrase failed: " <> msg
+genSaveRootKey passphrase mnemonic =
+    let
+        (_, key) =
+            safeDeterministicKeyGen (mnemonicToSeed mnemonic) passphrase
+    in
+        addSecretKey key >> return key
 
 data GenSeed a
     = DeterminedSeed a

@@ -9,7 +9,6 @@ module Pos.Binary.Block.Types
 import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Core ()
 import           Pos.Binary.Delegation ()
 import           Pos.Binary.Update ()
 import           Pos.Block.Slog.Types (SlogUndo (..))

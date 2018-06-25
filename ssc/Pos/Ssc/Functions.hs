@@ -21,7 +21,6 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
-import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, IsMainHeader,
                            SlotId (..), StakeholderId, VssCertificatesMap, genesisVssCerts,
                            headerSlotL)

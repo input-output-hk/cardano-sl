@@ -18,7 +18,6 @@ import qualified Data.Set as Set
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
-import           Pos.Binary.Core ()
 import           Pos.Core (AddrType (..), Address (..), integerToCoin, isRedeemAddress,
                            isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)

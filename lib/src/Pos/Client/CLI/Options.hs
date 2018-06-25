@@ -27,7 +27,6 @@ import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import           Pos.Util.OptParse (fromParsec)
 
-import           Pos.Binary.Core ()
 import           Pos.Communication (NodeId)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))

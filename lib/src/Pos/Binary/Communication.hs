@@ -20,7 +20,6 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    encodeKnownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, enforceSize,
                                    serialize, serialize')
-import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..), MsgStream (..), MsgStreamStart (..),

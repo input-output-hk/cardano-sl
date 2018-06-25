@@ -77,7 +77,6 @@ import           Serokell.Util (listJson)
 import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
-import           Pos.Binary.Core ()
 import           Pos.Core (Timestamp, TxId)
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Crypto (PassPhrase)

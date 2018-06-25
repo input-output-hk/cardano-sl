@@ -25,7 +25,6 @@ import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT

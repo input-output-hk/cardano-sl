@@ -75,22 +75,25 @@ data CardanoContext = CardanoContext {
       --
       -- NOTE: Derived from 'ccBlock0', /not/ the same as 'genesisHash'.
     , ccHash0       :: HeaderHash
+
+      -- | Number of slots in an epoch
+    , ccEpochSlots  :: SlotCount
     }
 
 initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
 initCardanoContext pm = CardanoContext{..}
   where
-    ccLeaders  = genesisLeaders epochSlots
-    ccStakes   = genesisStakes
-    ccBlock0   = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
-    ccData     = genesisData
-    ccUtxo     = unGenesisUtxo genesisUtxo
-    ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $
-                 generatedSecrets
+    ccLeaders     = genesisLeaders epochSlots
+    ccStakes      = genesisStakes
+    ccBlock0      = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
+    ccData        = genesisData
+    ccUtxo        = unGenesisUtxo genesisUtxo
+    ccSecrets     = fromMaybe (error "initCardanoContext: secrets unavailable")
+                  $ generatedSecrets
     ccInitLeaders = ccLeaders
-
-    ccBalances = utxoToAddressCoinPairs ccUtxo
-    ccHash0    = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
+    ccBalances    = utxoToAddressCoinPairs ccUtxo
+    ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
+    ccEpochSlots  = epochSlots
 
 {-------------------------------------------------------------------------------
   More explicit representation of the various actors in the genesis block

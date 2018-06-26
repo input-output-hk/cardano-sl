@@ -38,10 +38,10 @@ import           Prelude (Show (..))
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 
-import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic
 import           Pos.Client.Txp
 import           Pos.Core
+import           Pos.Core.Block (mkGenesisBlock)
 import           Pos.Core.Chrono
 import           Pos.Crypto
 import           Pos.Lrc.Fts (followTheSatoshi)
@@ -85,16 +85,16 @@ data IntCtxt h = IntCtxt {
       -- | Ledger we have interpreted so far
       --
       -- This is needed to resolve DSL hashes to DSL transactions.
-      icLedger        :: DSL.Ledger h Addr
+      icLedger        :: !(DSL.Ledger h Addr)
 
       -- | Mapping from DSL hashes to Cardano hashes
-    , icHashes        :: Map (h (DSL.Transaction h Addr)) TxId
+    , icHashes        :: !(Map (h (DSL.Transaction h Addr)) TxId)
 
       -- | Current epoch
-    , icEpoch         :: EpochIndex
+    , icEpoch         :: !EpochIndex
 
       -- | Slot number for the next block to be translated
-    , icNextSlot      :: SlotId
+    , icNextSlot      :: !SlotId
 
       -- | The header of the last block we translated
       --
@@ -102,17 +102,17 @@ data IntCtxt h = IntCtxt {
       -- translated.
       --
       -- Will be initialized to the header of the genesis block.
-    , icPrevBlock     :: BlockHeader
+    , icPrevBlock     :: !BlockHeader
 
       -- | Slot leaders for the current epoch
-    , icEpochLeaders  :: SlotLeaders
+    , icEpochLeaders  :: !SlotLeaders
 
       -- | Running stakes
-    , icStakes        :: StakesMap
+    , icStakes        :: !StakesMap
 
       -- | Snapshot of the stakes at the 'crucial' slot in the current epoch; in
       -- other words, the stakes used to compute the slot leaders for the next epoch.
-    , icCrucialStakes :: StakesMap
+    , icCrucialStakes :: !StakesMap
     }
 
 -- | Initial interpretation context
@@ -151,9 +151,13 @@ newtype IntT h e m a = IntT {
            , Applicative
            , Monad
            , MonadReader TransCtxt
-           , MonadState (IntCtxt h)
            , MonadError (Either IntException e)
            )
+
+-- | Evaluate state strictly
+instance Monad m => MonadState (IntCtxt h) (IntT h e m) where
+  get    = IntT $ get
+  put !s = IntT $ put s
 
 -- | Run the interpreter monad
 runIntT :: IntCtxt h
@@ -215,7 +219,7 @@ pushTx (t, id) = do
     aux :: (StakesMap -> StakesMap) -> IntCtxt h -> IntCtxt h
     aux smu ic =
         IntCtxt
-        {icLedger       = DSL.ledgerAdd t            (icLedger ic)
+        { icLedger       = DSL.ledgerAdd t            (icLedger ic)
         , icHashes       = Map.insert (DSL.hash t) id (icHashes ic)
         , icNextSlot     = icNextSlot     ic
         , icPrevBlock    = icPrevBlock    ic
@@ -232,23 +236,24 @@ pushTx (t, id) = do
     -- We follow the 'Stakes modification' section of the txp.md document.
     txModifyStakes :: GenesisWStakeholders -> [TxOutAux] -> [TxOutAux] -> StakesMap -> StakesMap
     txModifyStakes gs inputSpentOutputs outputs = let
-        inputStakes = (txOutStake gs . toaOut) =<< inputSpentOutputs
+        inputStakes  = (txOutStake gs . toaOut) =<< inputSpentOutputs
         outputStakes = (txOutStake gs . toaOut) =<< outputs
-        plusStake sm' = foldl' (flip . uncurry $ HM.insertWith unsafeAddCoin) sm' outputStakes
-        minusStake sm' = foldl' (flip . uncurry $ HM.insertWith unsafeSubCoin) sm' inputStakes
-      in plusStake . minusStake
+        plusStake  sm' = foldl' (flip . uncurry $ HM.insertWith (flip unsafeAddCoin)) sm' outputStakes
+        minusStake sm' = foldl' (flip . uncurry $ HM.insertWith (flip unsafeSubCoin)) sm' inputStakes
+      in (plusStake . minusStake)
 
 -- | Add a block into the context
 --
 -- This sets the " previous block " header and increases the next slot number.
 pushBlock :: forall h e m. Monad m => MainBlock -> IntT h e m ()
 pushBlock block = do
-    pc <- asks (genesisProtocolConstantsToProtocolConstants . gdProtocolConsts . ccData . tcCardano)
+    CardanoContext{..} <- asks tcCardano
+    let pc = genesisProtocolConstantsToProtocolConstants $ gdProtocolConsts ccData
 
     -- Create an epoch boundary block on the epoch boundary
     ic <- get
     when (isEpochBoundary ic) $ do
-        let leaders = give pc $ followTheSatoshi boringSharedSeed (HM.toList $ icCrucialStakes ic)
+        let leaders = give pc $ followTheSatoshi ccEpochSlots boringSharedSeed (HM.toList $ icCrucialStakes ic)
             sbb = mkGenesisBlock testProtocolMagic (Right $ icPrevBlock ic) (icEpoch ic) leaders
         nextSlot' <- liftTranslateInt $ mapTranslateErrors IntExMkSlot $ translateNextSlot (icNextSlot ic)
         put $ ic

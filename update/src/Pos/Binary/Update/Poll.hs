@@ -7,7 +7,8 @@ module Pos.Binary.Update.Poll
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
-                     decodeListLenCanonical, deriveSimpleBi, encodeListLen)
+                     decodeListLenCanonical, deriveIndexedBi, deriveSimpleBi,
+                     encodeListLen)
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, Coin,
                      EpochIndex, HeaderHash, NumSoftwareVersion, SlotId,
                      SoftwareVersion, StakeholderId)
@@ -73,12 +74,12 @@ deriveSimpleBi ''U.DecidedProposalState [
         Field [| U.dpsExtra      :: Maybe U.DpsExtra         |]
     ]]
 
-deriveSimpleBi ''U.ProposalState [
+deriveIndexedBi ''U.ProposalState [
     Cons 'U.PSUndecided [
-        Field [| U.unPSUndecided :: U.UndecidedProposalState |]
+        Field [| 0 :: U.UndecidedProposalState |]
     ],
     Cons 'U.PSDecided [
-        Field [| U.unPSDecided :: U.DecidedProposalState |]
+        Field [| 0 :: U.DecidedProposalState   |]
     ]]
 
 deriveSimpleBi ''U.ConfirmedProposalState [

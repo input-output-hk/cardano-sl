@@ -61,14 +61,13 @@ import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw,
-                                   encodeListLen, enforceSize,
-                                   deriveSimpleBi)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi,
+                     encodeListLen, enforceSize)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SecretKey,
-                             SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic,
-                             shortHashF, sign, toPublic)
+                     SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic, shortHashF,
+                     sign, toPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Util.Orphans ()
 

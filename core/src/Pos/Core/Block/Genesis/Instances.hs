@@ -13,12 +13,11 @@ import           Formatting (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util (Color (Magenta), colorize)
 
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..), gbHeader,
-                                            gbhConsensus)
+                     gbhConsensus)
 import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
 import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisConsensusData (..))
 import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, GenesisBlockHeader,
-                                             HasHeaderHash (..), HeaderHash, IsGenesisHeader,
-                                             IsHeader, blockHeaderHash)
+                     HasHeaderHash (..), HeaderHash, IsGenesisHeader, IsHeader, blockHeaderHash)
 import           Pos.Core.Common (HasDifficulty (..), slotLeadersF)
 import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..))
 import           Pos.Crypto (hashHexF)

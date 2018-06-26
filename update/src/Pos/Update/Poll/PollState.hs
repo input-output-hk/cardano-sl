@@ -31,14 +31,13 @@ import qualified Data.HashSet as HS
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
-                                  NumSoftwareVersion, SoftwareVersion (..), UpId,
-                                  UpdateProposal (..))
+                     NumSoftwareVersion, SoftwareVersion (..), UpId, UpdateProposal (..))
+import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc.DB.Issuers (IssuersStakes)
 import           Pos.Lrc.Types (FullRichmenData)
-import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState,
-                                        psProposal)
+                     psProposal)
 import           Pos.Util.Modifier (foldlMapModWKey', modifyHashMap)
 
 data PollState = PollState

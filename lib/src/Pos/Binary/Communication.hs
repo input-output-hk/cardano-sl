@@ -16,21 +16,16 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Word (Word32)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
-                                   decodeUnknownCborDataItem, deriveSimpleBi,
-                                   encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize,
-                                   serialize, serialize')
+                     decodeUnknownCborDataItem, deriveSimpleBi, encodeKnownCborDataItem,
+                     encodeListLen, encodeUnknownCborDataItem, enforceSize, serialize, serialize')
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..), MsgStream (..), MsgStreamStart (..),
-                                    MsgStreamUpdate (..), MsgStreamBlock (..))
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                     MsgHeaders (..), MsgSerializedBlock (..), MsgStream (..), MsgStreamBlock (..),
+                     MsgStreamStart (..), MsgStreamUpdate (..))
 import           Pos.Core (BlockVersion, HeaderHash)
 import           Pos.DB.Class (Serialized (..))
-import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
-                                                         HandlerSpecs,
-                                                         MsgSubscribe (..),
-                                                         MsgSubscribe1 (..),
-                                                         VerInfo (..))
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
+                     MsgSubscribe (..), MsgSubscribe1 (..), VerInfo (..))
 import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component
@@ -80,7 +75,7 @@ instance Bi MsgBlock where
 -- serialize (MsgBlock b) = serializeMsgSerializedBlock (MsgSerializedBlock $ serialize b)
 -- ```
 serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
-serializeMsgSerializedBlock (MsgSerializedBlock b) = "\x82\x0" <> unSerialized b
+serializeMsgSerializedBlock (MsgSerializedBlock b)   = "\x82\x0" <> unSerialized b
 serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
 
 -- Serialize `MsgSerializedBlock` with the property

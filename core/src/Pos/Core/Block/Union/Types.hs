@@ -51,10 +51,9 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,
-                                   encodeListLen, enforceSize)
+import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf, encodeListLen, enforceSize)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
-                                            GenericBlockHeader (..), gbHeader, gbhPrevBlock)
+                     GenericBlockHeader (..), gbHeader, gbhPrevBlock)
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
@@ -244,7 +243,7 @@ instance
     )
     => NFData BlockHeader where
     rnf (BlockHeaderGenesis header) = rnf header
-    rnf (BlockHeaderMain header) = rnf header
+    rnf (BlockHeaderMain header)    = rnf header
 
 choosingBlockHeader :: Functor f =>
        LensLike' f GenesisBlockHeader r

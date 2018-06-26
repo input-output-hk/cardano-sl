@@ -30,7 +30,7 @@ import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (ProtocolMagic)
 
 import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCertificate, getCertId,
-                                              toCertPair)
+                     toCertPair)
 import           Pos.Util.Util (cborError)
 
 -- | VssCertificatesMap contains all valid certificates collected

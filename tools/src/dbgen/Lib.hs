@@ -32,16 +32,14 @@ import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CBackupPhrase (..),
-                                             CId (..), CWallet (..), CWalletAssurance (..),
-                                             CWalletInit (..), CWalletMeta (..), Wal)
+                     CAccountMeta (..), CAddress (..), CBackupPhrase (..), CId (..), CWallet (..),
+                     CWalletAssurance (..), CWalletInit (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot, getWalletUtxo,
-                                             insertIntoHistoryCache, setWalletUtxo,
-                                             updateWalletBalancesAndUtxo)
+                     insertIntoHistoryCache, setWalletUtxo, updateWalletBalancesAndUtxo)
 import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate, vectorOf)
 import           Text.Printf (printf)
 

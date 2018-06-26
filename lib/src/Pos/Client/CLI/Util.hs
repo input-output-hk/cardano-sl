@@ -19,7 +19,7 @@ import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
-                              productionB)
+                     productionB)
 import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
@@ -30,7 +30,7 @@ import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
 import           Pos.Core (StakeholderId, Timestamp (..))
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson, coreConfiguration,
-                                         genesisData, prettyGenesisJson)
+                     genesisData, prettyGenesisJson)
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)

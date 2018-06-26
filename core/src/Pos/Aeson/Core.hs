@@ -9,7 +9,7 @@ module Pos.Aeson.Core
 import           Universum
 
 import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
-                             ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
+                     ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteString.Lazy as LBS
@@ -23,15 +23,14 @@ import           Pos.Aeson.Fee ()
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coin, CoinPortion,
-                                  Script (..), SharedSeed (..), addressF, coinPortionToDouble,
-                                  decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble,
-                                  unsafeGetCoin)
+                     Script (..), SharedSeed (..), addressF, coinPortionToDouble,
+                     decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
-                                    Timestamp (..))
+                     Timestamp (..))
 import           Pos.Core.Ssc (VssCertificate)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion, BlockVersionData,
-                                  SoftforkRule, SoftwareVersion (..))
+                     SoftforkRule, SoftwareVersion (..))
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (toAesonError)
 

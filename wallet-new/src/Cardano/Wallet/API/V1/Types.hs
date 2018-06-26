@@ -127,8 +127,8 @@ import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
-                                   buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe,
+                     buildSafeList, buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()

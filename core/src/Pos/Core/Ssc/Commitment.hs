@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Core.Slotting (EpochIndex)
 
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen, enforceSize, fromBinary,
-                                   serialize')
+                     serialize')
 import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)
 import           Pos.Util.Util (cborError)
 

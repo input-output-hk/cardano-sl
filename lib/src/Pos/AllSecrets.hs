@@ -24,8 +24,7 @@ import           Formatting (bprint, int, (%))
 import           Serokell.Util (listJson, mapJson)
 
 import           Pos.Core (AddrSpendingData (..), Address, IsBootstrapEraAddr (..), StakeholderId,
-                           addressHash, checkAddrSpendingData, makePubKeyAddress,
-                           makePubKeyAddressBoot)
+                     addressHash, checkAddrSpendingData, makePubKeyAddress, makePubKeyAddressBoot)
 import           Pos.Crypto (PublicKey, SecretKey, toPublic)
 
 -- | This map effectively provides inverse of 'hash' and

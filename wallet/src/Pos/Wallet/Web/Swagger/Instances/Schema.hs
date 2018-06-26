@@ -11,10 +11,9 @@ import           Universum
 import           Control.Lens (ix, mapped, (?~))
 import           Data.Aeson (toJSON)
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
-                               ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
-                               defaultSchemaOptions, description, example, format,
-                               genericDeclareNamedSchema, name, properties, required, sketchSchema,
-                               type_)
+                     ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
+                     defaultSchemaOptions, description, example, format, genericDeclareNamedSchema,
+                     name, properties, required, sketchSchema, type_)
 import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
@@ -23,7 +22,7 @@ import           Servant.Multipart (FileData (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
-                           SlotCount (..), SoftwareVersion, mkCoin)
+                     SlotCount (..), SoftwareVersion, mkCoin)
 import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT

@@ -10,8 +10,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, shown, (%))
 
 import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem, decodeUnknownCborDataItem,
-                                   encodeKnownCborDataItem, encodeUnknownCborDataItem,
-                                   encodeListLen, enforceSize)
+                     encodeKnownCborDataItem, encodeListLen, encodeUnknownCborDataItem,
+                     enforceSize)
 import           Pos.Core.Common.TxSizeLinear
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed

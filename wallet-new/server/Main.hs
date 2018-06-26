@@ -19,17 +19,17 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
-                               bracketNodeResources, loggerBracket, lpDefaultName, runNode,
-                               withConfigurations)
+                     bracketNodeResources, loggerBracket, lpDefaultName, runNode,
+                     withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions,
-                                             HasConfigurations)
+                     HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                                 runWRealMode)
+                     runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
@@ -40,9 +40,8 @@ import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
-                                            WalletBackendParams (..), WalletStartupOptions (..),
-                                            getWalletNodeOptions, walletDbPath, walletFlushDb,
-                                            walletRebuildDb)
+                     WalletBackendParams (..), WalletStartupOptions (..), getWalletNodeOptions,
+                     walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
 

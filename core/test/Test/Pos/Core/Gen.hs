@@ -158,57 +158,53 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (Bi, Raw (..), asBinary)
 import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
-                                 BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
-                                 GenesisConsensusData (..), GenesisExtraHeaderData (..),
-                                 GenesisProof (..), HeaderHash, MainBlockHeader, MainBody (..),
-                                 MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..), MainToSign (..),
-                                 mkGenericHeader, mkMainHeaderExplicit)
+                     BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
+                     GenesisConsensusData (..), GenesisExtraHeaderData (..), GenesisProof (..),
+                     HeaderHash, MainBlockHeader, MainBody (..), MainConsensusData (..),
+                     MainExtraBodyData (..), MainExtraHeaderData (..), MainProof (..),
+                     MainToSign (..), mkGenericHeader, mkMainHeaderExplicit)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..), Address (..),
-                                  BlockCount (..), ChainDifficulty (..), Coeff (..), Coin (..),
-                                  CoinPortion (..), Script (..), ScriptVersion, SharedSeed (..),
-                                  SlotLeaders, StakeholderId, StakesList, StakesMap,
-                                  TxFeePolicy (..), TxSizeLinear (..), coinPortionDenominator,
-                                  makeAddress, maxCoinVal, mkMultiKeyDistr)
+                     AddrStakeDistribution (..), AddrType (..), Address (..), BlockCount (..),
+                     ChainDifficulty (..), Coeff (..), Coin (..), CoinPortion (..), Script (..),
+                     ScriptVersion, SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
+                     StakesMap, TxFeePolicy (..), TxSizeLinear (..), coinPortionDenominator,
+                     makeAddress, maxCoinVal, mkMultiKeyDistr)
 import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..),
-                                         GenesisHash (..))
+                     GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..),
-                                      ProxySKBlockInfo, ProxySKHeavy)
+                     ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..),
-                                   GenesisDelegation (..), GenesisInitializer (..),
-                                   GenesisProtocolConstants (..), GenesisSpec (..),
-                                   TestnetBalanceOptions (..), mkGenesisSpec)
+                     GenesisDelegation (..), GenesisInitializer (..),
+                     GenesisProtocolConstants (..), GenesisSpec (..), TestnetBalanceOptions (..),
+                     mkGenesisSpec)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                    LocalSlotIndex (..), SlotCount (..), SlotId (..), TimeDiff (..),
-                                    Timestamp (..), localSlotIndexMaxBound, localSlotIndexMinBound)
+                     LocalSlotIndex (..), SlotCount (..), SlotId (..), TimeDiff (..),
+                     Timestamp (..), localSlotIndexMaxBound, localSlotIndexMinBound)
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap, InnerSharesMap,
-                               Opening, OpeningsMap, SharesDistribution, SharesMap,
-                               SignedCommitment, SscPayload (..), SscProof, VssCertificate (..),
-                               VssCertificatesHash, VssCertificatesMap (..), mkCommitmentsMap,
-                               mkSscProof, mkVssCertificate, mkVssCertificatesMap,
-                               randCommitmentAndOpening)
+                     Opening, OpeningsMap, SharesDistribution, SharesMap, SignedCommitment,
+                     SscPayload (..), SscProof, VssCertificate (..), VssCertificatesHash,
+                     VssCertificatesMap (..), mkCommitmentsMap, mkSscProof, mkVssCertificate,
+                     mkVssCertificatesMap, randCommitmentAndOpening)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId, TxIn (..), TxInWitness (..),
-                               TxOut (..), TxOutAux (..), TxPayload (..), TxProof (..), TxSig,
-                               TxSigData (..), TxWitness, mkTxPayload)
+                     TxOut (..), TxOutAux (..), TxPayload (..), TxProof (..), TxSig,
+                     TxSigData (..), TxWitness, mkTxPayload)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
-                                  BlockVersionModifier (..), SoftforkRule (..),
-                                  SoftwareVersion (..), SystemTag (..), UpAttributes, UpId,
-                                  UpdateData (..), UpdatePayload (..), UpdateProof,
-                                  UpdateProposal (..), UpdateProposalToSign (..), UpdateProposals,
-                                  UpdateVote (..), VoteId, mkUpdateVote)
+                     BlockVersionModifier (..), SoftforkRule (..), SoftwareVersion (..),
+                     SystemTag (..), UpAttributes, UpId, UpdateData (..), UpdatePayload (..),
+                     UpdateProof, UpdateProposal (..), UpdateProposalToSign (..), UpdateProposals,
+                     UpdateVote (..), VoteId, mkUpdateVote)
 import           Pos.Crypto (Hash, ProtocolMagic, decodeHash, deterministic, hash, safeCreatePsk,
-                             sign)
+                     sign)
 import           Pos.Data.Attributes (Attributes (..), mkAttributes)
 import           Pos.Merkle (MerkleRoot (..), MerkleTree (..), mkMerkleTree, mtRoot)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare, genHDAddressPayload,
-                                      genProtocolMagic, genProxySignature, genPublicKey,
-                                      genRedeemPublicKey, genRedeemSignature, genSafeSigner,
-                                      genSecretKey, genSignTag, genSignature, genVssPublicKey)
+                     genProtocolMagic, genProxySignature, genPublicKey, genRedeemPublicKey,
+                     genRedeemSignature, genSafeSigner, genSecretKey, genSignTag, genSignature,
+                     genVssPublicKey)
 
 
 ----------------------------------------------------------------------------

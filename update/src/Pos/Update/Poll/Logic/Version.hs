@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.Core (EpochIndex, SoftwareVersion (..))
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
-                                  UpdateProposal (..))
+                     UpdateProposal (..))
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (canBeProposedBV, verifyNextBVMod)

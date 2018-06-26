@@ -39,13 +39,12 @@ import           Formatting (sformat, build)
 
 import           System.Wlog (Severity (..))
 
-import           Data.Acid (AcidState)
+import           Data.Acid (AcidState, closeAcidState)
 import           Data.Acid.Memory (openMemoryState)
 import           Data.Acid.Advanced (query', update')
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..)
-                                                  , PrefilteredUtxo
                                                   , prefilterUtxo, prefilterBlock)
 import           Cardano.Wallet.Kernel.Types(WalletId (..), WalletESKs)
 
@@ -103,7 +102,7 @@ withPassiveWallet
 withPassiveWallet logf k =
     bracket (liftIO (openMemoryState defDB))
             (\as -> liftIO (closeAcidState as))
-            (\as -> k <$> liftIO (initPassiveWallet logf as))
+            (\as -> k =<< liftIO (initPassiveWallet logf as))
 
 {-------------------------------------------------------------------------------
   Manage the WalletESKs Map
@@ -154,10 +153,11 @@ createWalletHdRnd :: PassiveWallet
                   -> HD.WalletName
                   -> HasSpendingPassword
                   -> AssuranceLevel
-                  -> (AddressHash PublicKey, EncryptedSecretKey)
+                  -> AddressHash PublicKey
+                  -> EncryptedSecretKey
                   -> Utxo
                   -> IO (Either HD.CreateHdRootError (HdRoot, [HdAccountId]))
-createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,esk) utxo = do
+createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel pk esk  utxo = do
     created <- InDb <$> getCurrentTimestamp
     let rootId = HD.HdRootId (InDb pk)
     let newRoot = HD.initHdRoot rootId name spendingPassword assuranceLevel created
@@ -170,24 +170,48 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,
           insertWalletESK pw walletId esk
           pure (Right (newRoot, Map.keys utxoByAccount))
 
-insertWalletHdRnd
+{-
+mkWalletHdRnd
+  :: PassiveWallet
+  -> HD.WalletName
+  -> HasSpendingPassword
+  -> AssuranceLevel
+  -> AddressHash PublicKey
+  -> EncryptedSecretKey
+  -> Utxo
+  -> IO (Either HD.CreateHdRootError (HdRoot, [HdAccountId]))
+mkWalletHdRnd pw name spwd al pk esk utxo = do
+    now <- InDb <$> getCurrentTimestamp
+    let rootId = HD.HdRootId (InDb pk)
+    let hdr = HD.initHdRoot rootId name spwd al now
+
+    let utxoByAccount = prefilterUtxo rootId esk utxo
+    res <- update' _wallets $ CreateHdWallet newRoot utxoByAccount
+    case res of
+       Left e -> pure (Left e)
+       Right () ->  do
+          let walletId = WalletIdHdRnd rootId
+          insertWalletESK pw walletId esk
+          pure (Right (newRoot, Map.keys utxoByAccount))
+
+insertWalletHd
   :: PassiveWallet
   -> HD.HdRoot
   -> EncryptedSecretKey
   -> Utxo
   -> IO (Either HD.CreateHdRootError
                 (WalletId, Map HdAccountId PrefilteredUtxo))
-insertWalletHdRnd pw hdr esk utxo = do
-  let utxoByAccount :: Map HdAccountId PrefilteredUtxo
-      utxoByAccount = prefilterUtxo (HD._hdRootId hdr) esk utxo
-  res <- update' (_wallets pw) $ CreateHdWallet newRoot utxoByAccount
+insertWalletHd pw hdr esk utxo = do
+  let mAccUtxo :: Map HdAccountId PrefilteredUtxo
+      mAccUtxo = prefilterUtxo (HD._hdRootId hdr) esk utxo
+  res <- update' (_wallets pw) $ CreateHdWallet hdr mAccUtxo
   case res of
      Left e -> pure (Left e)
      Right () -> do
         let wId = WalletIdHdRnd (HD._hdRootId hdr)
         insertWalletESK pw wId esk
         pure (Right (wId, utxoByAccount))
-
+-}
 
 -- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
 getCurrentTimestamp :: MonadIO m => m Timestamp

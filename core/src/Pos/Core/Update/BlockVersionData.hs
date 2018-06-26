@@ -14,6 +14,7 @@ import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
 import           Pos.Util.Orphans ()
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Update.SoftforkRule
 
 -- | Data which is associated with 'BlockVersion'.
@@ -72,3 +73,21 @@ instance Buildable BlockVersionData where
 -- instead of unlock stake epoch.
 isBootstrapEraBVD :: BlockVersionData -> EpochIndex -> Bool
 isBootstrapEraBVD adoptedBVD = isBootstrapEra (bvdUnlockStakeEpoch adoptedBVD)
+
+deriveSimpleBi ''BlockVersionData [
+    Cons 'BlockVersionData [
+        Field [| bvdScriptVersion     :: ScriptVersion |],
+        Field [| bvdSlotDuration      :: Millisecond   |],
+        Field [| bvdMaxBlockSize      :: Byte          |],
+        Field [| bvdMaxHeaderSize     :: Byte          |],
+        Field [| bvdMaxTxSize         :: Byte          |],
+        Field [| bvdMaxProposalSize   :: Byte          |],
+        Field [| bvdMpcThd            :: CoinPortion   |],
+        Field [| bvdHeavyDelThd       :: CoinPortion   |],
+        Field [| bvdUpdateVoteThd     :: CoinPortion   |],
+        Field [| bvdUpdateProposalThd :: CoinPortion   |],
+        Field [| bvdUpdateImplicit    :: FlatSlotId    |],
+        Field [| bvdSoftforkRule      :: SoftforkRule  |],
+        Field [| bvdTxFeePolicy       :: TxFeePolicy   |],
+        Field [| bvdUnlockStakeEpoch  :: EpochIndex    |]
+    ]]

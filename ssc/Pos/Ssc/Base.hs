@@ -48,7 +48,6 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class (biSize, fromBinary)
-import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
                            StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants, vssMaxTTL,

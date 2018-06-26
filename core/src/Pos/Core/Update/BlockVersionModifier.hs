@@ -13,6 +13,7 @@ import           Data.Time.Units (Millisecond)
 import           Formatting (Format, bprint, build, int, later, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, checkCoinPortion)
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId)
 import           Pos.Util.Orphans ()
@@ -103,3 +104,21 @@ checkBlockVersionModifier BlockVersionModifier {..} = do
     whenJust bvmUpdateVoteThd checkCoinPortion
     whenJust bvmUpdateProposalThd checkCoinPortion
     whenJust bvmSoftforkRule checkSoftforkRule
+
+deriveSimpleBi ''BlockVersionModifier [
+    Cons 'BlockVersionModifier [
+        Field [| bvmScriptVersion     :: Maybe ScriptVersion |],
+        Field [| bvmSlotDuration      :: Maybe Millisecond   |],
+        Field [| bvmMaxBlockSize      :: Maybe Byte          |],
+        Field [| bvmMaxHeaderSize     :: Maybe Byte          |],
+        Field [| bvmMaxTxSize         :: Maybe Byte          |],
+        Field [| bvmMaxProposalSize   :: Maybe Byte          |],
+        Field [| bvmMpcThd            :: Maybe CoinPortion   |],
+        Field [| bvmHeavyDelThd       :: Maybe CoinPortion   |],
+        Field [| bvmUpdateVoteThd     :: Maybe CoinPortion   |],
+        Field [| bvmUpdateProposalThd :: Maybe CoinPortion   |],
+        Field [| bvmUpdateImplicit    :: Maybe FlatSlotId    |],
+        Field [| bvmSoftforkRule      :: Maybe SoftforkRule  |],
+        Field [| bvmTxFeePolicy       :: Maybe TxFeePolicy   |],
+        Field [| bvmUnlockStakeEpoch  :: Maybe EpochIndex    |]
+    ]]

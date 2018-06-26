@@ -24,7 +24,6 @@ import qualified Data.Map.Strict as Map
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors, verifyGeneric)
 
 import           Pos.Binary.Class (asBinary, serialize')
-import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), StakeholderId,
                                   addressHash, applyCoinPortionDown, coinToInteger,
                                   deriveFirstHDAddress, makePubKeyAddressBoot, mkCoin, sumCoins,

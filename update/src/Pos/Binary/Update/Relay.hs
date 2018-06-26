@@ -7,7 +7,6 @@ module Pos.Binary.Update.Relay
 import           Universum hiding (id)
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Binary.Core ()
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
 import           Pos.Infra.Binary ()

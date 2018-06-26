@@ -21,7 +21,7 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Fee ()
 import           Pos.Binary.Class (AsBinary (..))
-import           Pos.Binary.Core ()
+import           Pos.Core.Binary ()
 import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coin, CoinPortion,
                                   Script (..), SharedSeed (..), addressF, coinPortionToDouble,
                                   decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble,

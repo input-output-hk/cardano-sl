@@ -10,6 +10,7 @@ import           Control.Monad.Except (MonadError)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, (%))
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common (CoinPortion, checkCoinPortion)
 
 -- | Values defining softfork resolution rule.
@@ -50,3 +51,10 @@ checkSoftforkRule SoftforkRule {..} = do
     checkCoinPortion srInitThd
     checkCoinPortion srMinThd
     checkCoinPortion srThdDecrement
+
+deriveSimpleBi ''SoftforkRule [
+    Cons 'SoftforkRule [
+        Field [| srInitThd      :: CoinPortion |],
+        Field [| srMinThd       :: CoinPortion |],
+        Field [| srThdDecrement :: CoinPortion |]
+    ]]

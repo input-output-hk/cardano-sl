@@ -52,10 +52,5 @@ Library
 
   Hs-Source-Dirs:      src/
 
-  if os(windows)
-     Hs-Source-Dirs:   src-win32/
-  else
-     Hs-Source-Dirs:   src-unix/
-
   default-language:    Haskell2010
   GHC-Options:         -fwarn-unused-imports -fwarn-unused-binds

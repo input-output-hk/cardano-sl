@@ -24,7 +24,6 @@ import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
-import           Pos.Binary.Core ()
 import           Pos.Block.Configuration (blockConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)

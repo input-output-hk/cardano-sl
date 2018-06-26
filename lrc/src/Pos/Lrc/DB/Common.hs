@@ -27,7 +27,6 @@ import           Universum
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core ()
 import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.DB (dbSerializeValue)

@@ -45,7 +45,6 @@ import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Block.Types ()
 import           Pos.Binary.Class (decodeFull', serialize')
-import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (HeaderHash, headerHash)

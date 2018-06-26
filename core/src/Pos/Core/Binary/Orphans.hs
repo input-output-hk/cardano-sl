@@ -2,7 +2,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Pos.Binary.Core.Script () where
+module Pos.Core.Binary.Orphans () where
 
 import           Universum
 

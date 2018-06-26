@@ -23,7 +23,8 @@ import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus)
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..),
                                               mkEstimatedCompletionTime, mkSyncPercentage,
-                                              mkSyncThroughput)
+                                              mkSyncThroughput, WalletId,
+                                              exampleWalletId)
 
 --
 -- Error handling
@@ -65,7 +66,7 @@ data WalletError =
     | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
     -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
-    | WalletAlreadyExists
+    | WalletAlreadyExists { weWalletId :: WalletId }
     | AddressNotFound
     | TxFailedToStabilize
     | TxRedemptionDepleted
@@ -152,7 +153,7 @@ sample =
   , UnknownError "Unknown error"
   , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
-  , WalletAlreadyExists
+  , WalletAlreadyExists exampleWalletId
   , AddressNotFound
   , MissingRequiredParams (("wallet_id", "walletId") :| [])
   , WalletIsNotReadyToProcessPayments sampleSyncProgress
@@ -177,7 +178,7 @@ describe = \case
          "Provided address format is not valid."
     WalletNotFound ->
          "Reference to an unexisting wallet was given."
-    WalletAlreadyExists ->
+    WalletAlreadyExists _ ->
          "Can't create or restore a wallet. The wallet already exists."
     AddressNotFound ->
          "Reference to an unexisting address was given."

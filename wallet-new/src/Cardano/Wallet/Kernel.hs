@@ -14,7 +14,7 @@ module Cardano.Wallet.Kernel (
   , accountTotalBalance
   , applyBlock
   , applyBlocks
-  , withPassiveWallet
+  , bracketPassiveWallet
   , createWalletHdRnd
   , init
   , walletLogMessage
@@ -94,12 +94,12 @@ makeLenses ''PassiveWallet
 
 -- | Obtain a new 'PassiveWallet' that is valid within the scope of the given
 -- function.
-withPassiveWallet
+bracketPassiveWallet
   :: (MonadMask m, MonadIO m)
   => (Severity -> Text -> IO ())
   -> (PassiveWallet -> m a)
   -> m a
-withPassiveWallet logf k =
+bracketPassiveWallet logf k =
     bracket (liftIO (openMemoryState defDB))
             (\as -> liftIO (closeAcidState as))
             (\as -> k =<< liftIO (initPassiveWallet logf as))

@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.Wallet.WalletLayer.Kernel
-    ( withPassiveWalletLayer
+    ( bracketPassiveWallet
     , bracketActiveWallet
     ) where
 
@@ -63,14 +63,14 @@ passiveWalletActionInterp logf pw =
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
-withPassiveWalletLayer
+bracketPassiveWallet
   :: forall n m a
   .  (MonadIO n, MonadIO m, MonadMask m)
   => (Severity -> Text -> IO ())
   -> (PassiveWalletLayer n -> m a)
   -> m a
-withPassiveWalletLayer logf k =
-   Kernel.withPassiveWallet logf $ \pw -> do
+bracketPassiveWallet logf k =
+   Kernel.bracketPassiveWallet logf $ \pw -> do
       let wai :: Actions.WalletActionInterp IO Blund
           wai = passiveWalletActionInterp logf pw
       Actions.withWalletWorker wai $ \send -> do

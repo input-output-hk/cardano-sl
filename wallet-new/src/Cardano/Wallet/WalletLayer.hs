@@ -2,7 +2,7 @@ module Cardano.Wallet.WalletLayer
     ( -- * Kernel
       bracketKernelPassiveWallet
     , bracketKernelActiveWallet
-    -- * Legacy
+      -- * Legacy
     , bracketLegacyPassiveWallet
     , bracketLegacyActiveWallet
     -- * QuickCheck

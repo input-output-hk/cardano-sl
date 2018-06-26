@@ -59,9 +59,7 @@ blockHeader = to getBlockHeader
 -- | Representation of 'Block' passed to a component.
 data ComponentBlock payload =
     ComponentBlockGenesis (Some IsGenesisHeader)
-    | ComponentBlockMain
-       { bcmHeader  :: !(Some IsMainHeader)
-       , bcmPayload :: !payload }
+    | ComponentBlockMain !(Some IsMainHeader) !payload
 
 instance HasHeaderHash (ComponentBlock a) where
     headerHash (ComponentBlockGenesis genesisHeader) = headerHash genesisHeader

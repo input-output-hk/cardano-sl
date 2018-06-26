@@ -38,34 +38,6 @@ let
     inherit src;
   };
 
-  generatedSrc = pkgs.runCommand "cardano-sl-explorer-frontend-src" {
-    inherit src bowerComponents;
-    buildInputs = [
-      oldHaskellPackages.purescript-derive-lenses
-      cardano-sl-explorer
-    ];
-  } ''
-    cp -R --reflink=auto $src $out
-    chmod -R u+w $out
-    cd $out
-    rm -rf .psci_modules .pulp-cache bower_components output result
-
-    # Purescript code generation
-    cardano-explorer-hs2purs --bridge-path src/Generated/
-    scripts/generate-explorer-lenses.sh
-
-    # Frontend dependencies
-    ln -s $bowerComponents/bower_components .
-
-    # Patch the build recipe for nix
-    echo "patching webpack.config.babel.js"
-    sed -e "s/COMMIT_HASH.*/COMMIT_HASH': '\"@GITREV@\"',/" \
-        -e "s/import GitRevisionPlugin.*//" \
-        -e "s/path:.*/path: process.env.out,/" \
-        -e "/new ProgressPlugin/d" \
-        -i webpack.config.babel.js
-  '';
-
   # p-d-l does not build with our main version of nixpkgs.
   # Needs to use something off 17.03 branch.
   oldHaskellPackages = (import (pkgs.fetchzip {
@@ -89,8 +61,30 @@ let
   frontend = { stdenv, python, purescript, mkYarnPackage }:
     mkYarnPackage {
       name = "cardano-explorer-frontend";
-      src = generatedSrc;
-      extraBuildInputs = [ purescript ];
+      inherit src;
+      extraBuildInputs = [
+        oldHaskellPackages.purescript-derive-lenses
+        cardano-sl-explorer
+        purescript
+      ];
+      postConfigure = ''
+        rm -rf .psci_modules .pulp-cache bower_components output result
+
+        # Purescript code generation
+        cardano-explorer-hs2purs --bridge-path src/Generated/
+        scripts/generate-explorer-lenses.sh
+
+        # Frontend dependencies
+        ln -s ${bowerComponents}/bower_components .
+
+        # Patch the build recipe for nix
+        echo "patching webpack.config.babel.js"
+        sed -e "s/COMMIT_HASH.*/COMMIT_HASH': '\"@GITREV@\"',/" \
+            -e "s/import GitRevisionPlugin.*//" \
+            -e "s/path:.*/path: process.env.out,/" \
+            -e "/new ProgressPlugin/d" \
+            -i webpack.config.babel.js
+      '';
       installPhase = ''
         # run the build:prod script
         export PATH=$(pwd)/node_modules/.bin:$PATH

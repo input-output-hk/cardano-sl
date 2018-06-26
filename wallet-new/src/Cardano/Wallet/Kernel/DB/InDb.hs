@@ -72,9 +72,9 @@ instance SafeCopy (InDb Core.TxIn) where
 
 -- NOTE(adn) This will be provided by @ouroboros as part of work on the BlockMeta
 -- storage.
-instance SafeCopy (InDb (Set Core.TxId)) where
-  getCopy = error "TODO: getCopy for (InDb Set (Core.TxId))"
-  putCopy = error "TODO: putCopy for (InDb Set (Core.TxId))"
+instance SafeCopy a => SafeCopy (InDb (Map a (Set Core.TxId))) where
+  getCopy = error "TODO: getCopy for (InDb (Map a Set (Core.TxId)))"
+  putCopy = error "TODO: putCopy for (InDb (Map a Set (Core.TxId)))"
 
 instance SafeCopy (InDb (Map Core.TxId Core.SlotId)) where
   getCopy = error "TODO: getCopy for (InDb (Map Core.TxId Core.SlotId))"

@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE ViewPatterns #-}
 -- We are exporting Lens' 'Getters', which has a redundant constraint on
 -- \"contravariant\".
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
@@ -9,12 +8,13 @@ module Cardano.Wallet.Kernel.Submission (
       newWalletSubmission
     , addPending
     , remPending
+    , remPendingById
     , tick
     , scheduledFor
     , tickSlot
 
     -- * Types and lenses
-    , Evicted
+    , Cancelled
     , ResubmissionFunction
     , Schedule (..)
     , ScheduleEvents (..)
@@ -48,7 +48,7 @@ module Cardano.Wallet.Kernel.Submission (
 
 import           Universum hiding (elems)
 
-import           Control.Lens (Getter, to)
+import           Control.Lens (Getter, at, non, to)
 import           Control.Lens.TH
 import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
@@ -62,9 +62,10 @@ import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Pos.Crypto.Hashing (WithHash (..))
 import           Pos.Txp.Topsort (topsortTxs)
-import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF)
+import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF, tripleF)
 import           Test.QuickCheck
 
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
                                                 removePending, unionPending)
@@ -98,17 +99,17 @@ instance Buildable WalletSubmission where
 --   the schedule with a SubmissionCount >= N
 --
 data WalletSubmissionState = WalletSubmissionState {
-      _wssPendingSet  ::  Pending
+      _wssPendingMap  ::  M.Map HdAccountId Pending
     , _wssSchedule    ::  Schedule
     , _wssCurrentSlot :: !Slot
     }
 
 instance Buildable WalletSubmissionState where
-    build wss = bprint ("{ pendingSet = " % F.build %
+    build wss = bprint ("{ pendingMap = " % (F.later mapBuilder) %
                         ", scheduler  = " % F.build %
                         ", slot       = " % F.build %
                         " } "
-                       ) (_wssPendingSet wss) (_wssSchedule wss) (getSlot $ _wssCurrentSlot wss)
+                       ) (M.toList $ _wssPendingMap wss) (_wssSchedule wss) (getSlot $ _wssCurrentSlot wss)
 
 -- | A 'Schedule' of events.
 data Schedule = Schedule {
@@ -135,13 +136,13 @@ data Schedule = Schedule {
 
 -- | A type representing an item (in this context, a transaction) scheduled
 -- to be regularly sent in a given slot (computed by a given 'RetryPolicy').
-data ScheduleSend = ScheduleSend Core.TxId Core.TxAux SubmissionCount deriving Eq
+data ScheduleSend = ScheduleSend HdAccountId Core.TxId Core.TxAux SubmissionCount deriving Eq
 
 -- | A type representing an item (in this context, a transaction @ID@) which
 -- needs to be checked against the blockchain for inclusion. In other terms,
 -- we need to confirm that indeed the transaction identified by the given 'TxId' has
 -- been adopted, i.e. it's not in the local pending set anymore.
-newtype ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed Core.TxId deriving Eq
+data ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed HdAccountId Core.TxId deriving Eq
 
 -- | All the events we can schedule for a given 'Slot', partitioned into
 -- 'ScheduleSend' and 'ScheduleEvictIfNotConfirmed'.
@@ -158,13 +159,14 @@ instance Semigroup ScheduleEvents where
         ScheduleEvents (s1 <> s2) (c1 <> c2)
 
 instance Buildable ScheduleSend where
-    build (ScheduleSend   txId _ s) = bprint ("ScheduleSend " % pairF) (txId, s)
+    build (ScheduleSend accId txId _ s) = bprint ("ScheduleSend " % tripleF) (accId, txId, s)
 
 instance Buildable [ScheduleSend] where
     build s = bprint (listJsonIndent 4) s
 
 instance Buildable ScheduleEvictIfNotConfirmed where
-    build (ScheduleEvictIfNotConfirmed txId)     = bprint ("ScheduleEvictIfNotConfirmed " % F.build) txId
+    build (ScheduleEvictIfNotConfirmed accId txId) =
+        bprint ("ScheduleEvictIfNotConfirmed " % pairF) (accId, txId)
 
 instance Buildable [ScheduleEvictIfNotConfirmed] where
     build s = bprint (listJsonIndent 4) s
@@ -215,9 +217,9 @@ newtype SubmissionCount = SubmissionCount { getSubmissionCount :: Int } deriving
 instance Buildable SubmissionCount where
     build (SubmissionCount s) = bprint F.build s
 
--- | The 'Evicted' set represents the transactions which needs to be
--- pruned from the local (and wallet) 'Pending' set.
-type Evicted = Set Core.TxId
+-- | The 'Cancelled' map represents the transactions which needs to be
+-- pruned from the local (and wallet) 'Pending' map.
+type Cancelled = M.Map HdAccountId (Set Core.TxId)
 
 -- | A 'ResubmissionFunction' (@rho@ in the spec), parametrised by an
 -- arbitrary @m@.
@@ -265,14 +267,14 @@ newWalletSubmission resubmissionFunction = WalletSubmission {
     where
         newEmptyState :: WalletSubmissionState
         newEmptyState = WalletSubmissionState {
-              _wssPendingSet  = emptyPending
+              _wssPendingMap  = M.empty
             , _wssCurrentSlot = Slot 0
             , _wssSchedule   = Schedule IntMap.empty mempty
             }
 
 -- | A getter to the local pending set stored in this 'WalletSubmission'.
-localPendingSet :: Getter WalletSubmission Pending
-localPendingSet = wsState . wssPendingSet
+localPendingSet :: HdAccountId -> Getter WalletSubmission Pending
+localPendingSet accId = pendingByAccId accId
 
 -- | Gets the current 'Slot'.
 getCurrentSlot :: Getter WalletSubmission Slot
@@ -282,15 +284,32 @@ getCurrentSlot = wsState . wssCurrentSlot
 getSchedule :: Getter WalletSubmission Schedule
 getSchedule = wsState . wssSchedule
 
+pendingByAccId :: HdAccountId -> Lens' WalletSubmission Pending
+pendingByAccId accId =
+  wsState . wssPendingMap . at accId . non emptyPending
+
 -- | Informs the 'WalletSubmission' layer about new 'Pending' transactions.
-addPending :: Pending -> WalletSubmission -> WalletSubmission
-addPending newPending ws =
-    let ws' = ws & over (wsState . wssPendingSet) (unionPending newPending)
-    in schedulePending newPending ws'
+addPending :: HdAccountId -> Pending -> WalletSubmission -> WalletSubmission
+addPending accId newPending ws =
+    let ws' = ws & over (pendingByAccId accId)
+                        (unionPending newPending)
+    in schedulePending accId newPending ws'
 
 -- | Removes the input set of 'Core.TxId' from the local 'WalletSubmission' pending set.
-remPending :: Set Core.TxId -> WalletSubmission -> WalletSubmission
-remPending ids ws = ws & over (wsState . wssPendingSet) (removePending ids)
+remPending :: Map HdAccountId (Set Core.TxId)
+           -> WalletSubmission
+           -> WalletSubmission
+remPending pendingMap ws =
+    M.foldlWithKey' (\acc accId pendingSet ->
+                        remPendingById accId pendingSet acc
+                    ) ws pendingMap
+
+remPendingById :: HdAccountId
+               -> Set Core.TxId
+               -> WalletSubmission
+               -> WalletSubmission
+remPendingById accId ids ws =
+    ws & over (pendingByAccId accId) (removePending ids)
 
 -- | A \"tick\" of the scheduler.
 -- Returns the set transactions which needs to be droppped by the system as
@@ -300,33 +319,40 @@ remPending ids ws = ws & over (wsState . wssPendingSet) (removePending ids)
 -- local 'Pending' set, so it's not necessary to call 'remPending' afterwards.
 tick :: WalletSubmission
      -- ^ The current 'WalletSubmission'.
-     -> (Evicted, [Core.TxAux], WalletSubmission)
+     -> (Cancelled, [Core.TxAux], WalletSubmission)
      -- ^ The set of transactions upper layers will need to drop, the
      -- transactions to be sent and the new 'WalletSubmission'.
 tick ws =
     let wss         = ws  ^. wsState
         currentSlot = wss ^. wssCurrentSlot
         rho         = _wsResubmissionFunction ws
-        pendingSet  = ws ^. wsState . wssPendingSet . pendingTransactions . fromDb
+        pendingMap  = ws ^. wsState . wssPendingMap
 
         (scheduleSend, toConfirm, newSchedule) = tickSlot currentSlot ws
         (schedule', toSend) = rho currentSlot scheduleSend newSchedule
-        evicted = evictedThisSlot toConfirm pendingSet
+        evicted = evictedThisSlot toConfirm pendingMap
         newState = ws & wsState . wssSchedule    .~ schedule'
                       & wsState . wssCurrentSlot %~ mapSlot succ
         in (evicted, toSend, remPending evicted newState)
     where
         evictedThisSlot :: [ScheduleEvictIfNotConfirmed]
-                        -> M.Map Core.TxId Core.TxAux
-                        -> Evicted
+                        -> M.Map HdAccountId Pending
+                        -> Cancelled
         evictedThisSlot toConfirm p =
-            List.foldl' (checkConfirmed p) Set.empty toConfirm
+            List.foldl' (checkConfirmed p) M.empty toConfirm
 
-        checkConfirmed :: M.Map Core.TxId Core.TxAux -> Evicted -> ScheduleEvictIfNotConfirmed -> Evicted
-        checkConfirmed pending acc (ScheduleEvictIfNotConfirmed txId) =
-            case M.lookup txId pending of
-                 Just _  -> Set.insert txId acc
+        checkConfirmed :: M.Map HdAccountId Pending
+                       -> Cancelled
+                       -> ScheduleEvictIfNotConfirmed
+                       -> Cancelled
+        checkConfirmed pending acc (ScheduleEvictIfNotConfirmed accId txId) =
+            case M.lookup accId pending >>= M.lookup txId . (view (pendingTransactions . fromDb)) of
+                 Just _  -> M.alter (alterFn txId) accId acc
                  Nothing -> acc
+
+        alterFn :: Core.TxId -> Maybe (Set Core.TxId) -> Maybe (Set Core.TxId)
+        alterFn txId Nothing  = Just (Set.singleton txId)
+        alterFn txId (Just s) = Just (Set.insert txId s)
 
 --
 --
@@ -368,7 +394,7 @@ tickSlot :: Slot
 tickSlot currentSlot ws =
     let (allEvents, schedule) = scheduledFor currentSlot (ws ^. wsState . wssSchedule)
         scheduledCandidates = filterNotConfirmed (allEvents ^. seToSend <> nursery schedule)
-        localPending = ws ^. wsState . wssPendingSet
+        localPending = ws ^. wsState . wssPendingMap
         topSorted  = topsortTxs toTx scheduledCandidates
     in case topSorted of
             Nothing     ->
@@ -386,28 +412,29 @@ tickSlot currentSlot ws =
         nursery (Schedule _ n) = n
 
         toTx :: ScheduleSend -> WithHash Core.Tx
-        toTx (ScheduleSend txId txAux _) =  WithHash (Core.taTx txAux) txId
+        toTx (ScheduleSend _ txId txAux _) =  WithHash (Core.taTx txAux) txId
 
-        pendingTxs :: M.Map Core.TxId Core.TxAux
-        pendingTxs = ws ^. localPendingSet . pendingTransactions . fromDb
+        pendingTxs :: HdAccountId -> M.Map Core.TxId Core.TxAux
+        pendingTxs accId = ws ^. pendingByAccId accId . pendingTransactions . fromDb
 
         -- Filter the transactions not appearing in the local pending set
         -- anymore, as they have been adopted by the blockchain and we should
         -- stop resubmitting them.
         filterNotConfirmed :: [ScheduleSend] -> [ScheduleSend]
         filterNotConfirmed =
-            filter (\(ScheduleSend txId _ _) -> isJust (M.lookup txId pendingTxs))
+            filter (\(ScheduleSend accId txId _ _) ->
+                   isJust (M.lookup txId (pendingTxs accId)))
 
 -- | Similar to 'Data.List.partition', but partitions the input 'ScheduleSend'
 -- list into events which can be sent this 'Slot', and other which needs to
 -- end up in the nursery as they are depedent on future transactions.
-partitionSendable :: Pending
-                  -- ^ The local 'Pending' set.
+partitionSendable :: M.Map HdAccountId Pending
+                  -- ^ The list of all the 'Pending' set, classified by account.
                   -> [ScheduleSend]
                   -- ^ A @topologically sorted@ list of transactions scheduled
                   -- for being sent.
                   -> ([ScheduleSend], [ScheduleSend])
-partitionSendable (view (pendingTransactions . fromDb) -> pending) xs =
+partitionSendable pendingSets xs =
     go xs ((Set.empty, mempty), mempty)
     where
         go :: [ScheduleSend]
@@ -423,12 +450,17 @@ partitionSendable (view (pendingTransactions . fromDb) -> pending) xs =
         -- over the wire if any of the inputs it consumes are mentioned in
         -- the 'Pending' set.
         dependsOnFutureTx :: Set Core.TxId -> ScheduleSend -> Bool
-        dependsOnFutureTx canSendIds (ScheduleSend _ txAux _) =
+        dependsOnFutureTx canSendIds (ScheduleSend accId _ txAux _) =
             let inputs = List.foldl' updateFn mempty $ (Core.taTx txAux) ^. Core.txInputs . to NonEmpty.toList
-            in any (\tid -> isJust (M.lookup tid pending) && not (tid `Set.member` canSendIds)) inputs
+            in any (\tid -> isJust (lookupTx tid accId) && not (tid `Set.member` canSendIds)) inputs
 
         getTxId :: ScheduleSend -> Core.TxId
-        getTxId (ScheduleSend txId _ _) = txId
+        getTxId (ScheduleSend _ txId _ _) = txId
+
+        lookupTx :: Core.TxId -> HdAccountId -> Maybe Core.TxAux
+        lookupTx tid accId =
+            M.lookup accId pendingSets >>=
+            M.lookup tid . (view (pendingTransactions . fromDb))
 
         updateFn :: [Core.TxId] -> Core.TxIn -> [Core.TxId]
         updateFn !acc (Core.TxInUnknown _ _)   = acc
@@ -452,15 +484,16 @@ addToSchedule ws slot toSend toConfirm =
 
 -- | Schedule the full list of pending transactions.
 -- The transactions will be scheduled immediately in the next 'Slot'.
-schedulePending :: Pending
+schedulePending :: HdAccountId
+                -> Pending
                 -> WalletSubmission
                 -> WalletSubmission
-schedulePending pending ws =
+schedulePending accId pending ws =
     let currentSlot = ws ^. wsState . wssCurrentSlot
     in addToSchedule ws (mapSlot succ currentSlot) toSend mempty
     where
         toEntry :: (Core.TxId, Core.TxAux) -> ScheduleSend
-        toEntry (txId, txAux) = ScheduleSend txId txAux (SubmissionCount 0)
+        toEntry (txId, txAux) = ScheduleSend accId txId txAux (SubmissionCount 0)
 
         toSend :: [ScheduleSend]
         toSend =
@@ -534,17 +567,17 @@ defaultResubmitFunction retryPolicy currentSlot scheduled oldSchedule =
     -- the local 'Pending' set) whether or not the transaction
     -- has been adopted. Users can tweak any concurrency behaviour by
     -- tucking such behaviour in the 'send' function itself.
-    let toSend = map (\(ScheduleSend _ txAux _) -> txAux) scheduled
+    let toSend = map (\(ScheduleSend _ _ txAux _) -> txAux) scheduled
     in (List.foldl' updateFn oldSchedule scheduled, toSend)
     where
         updateFn :: Schedule -> ScheduleSend -> Schedule
-        updateFn (Schedule s nursery) (ScheduleSend txId txAux submissionCount) =
+        updateFn (Schedule s nursery) (ScheduleSend accId txId txAux submissionCount) =
             let submissionCount' = incSubmissionCount submissionCount succ
                 (targetSlot, newEvent) = case retryPolicy submissionCount' currentSlot of
                   SendIn newSlot ->
-                      (newSlot, ScheduleEvents [ScheduleSend txId txAux submissionCount'] mempty)
+                      (newSlot, ScheduleEvents [ScheduleSend accId txId txAux submissionCount'] mempty)
                   CheckConfirmedIn newSlot ->
-                      (newSlot, ScheduleEvents mempty [ScheduleEvictIfNotConfirmed txId])
+                      (newSlot, ScheduleEvents mempty [ScheduleEvictIfNotConfirmed accId txId])
             in Schedule (prependEvents targetSlot newEvent s) nursery
 
 -- | Prepends all the input 'ScheduleEvents' (i.e. the 'ScheduleSend', and

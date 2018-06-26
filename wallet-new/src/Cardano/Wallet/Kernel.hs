@@ -32,7 +32,6 @@ import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_, withMVar)
 import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 
 import           Formatting (build, sformat)
@@ -61,12 +60,12 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
-import           Cardano.Wallet.Kernel.Submission (WalletSubmission, addPending,
+import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission, addPending,
                                                    defaultResubmitFunction, exponentialBackoff,
                                                    newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
-import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..), TxId)
+import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))
 
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, hash)
@@ -271,12 +270,12 @@ bracketActiveWallet walletPassive walletDiffusion runActiveWallet = do
 
         tickFunction :: MVar WalletSubmission -> IO ()
         tickFunction submissionLayer = do
-            (evictedSet, toSend) <-
+            (cancelled, toSend) <-
                 modifyMVar submissionLayer $ \layer -> do
                     let (e, s, state') = tick layer
                     return (state', (e,s))
-            unless (Set.null evictedSet) $
-                cancelPending walletPassive evictedSet
+            unless (Map.null cancelled) $
+                cancelPending walletPassive cancelled
             sendTransactions toSend
 
 -- | Submit a new pending transaction
@@ -293,12 +292,12 @@ newPending ActiveWallet{..} accountId tx = do
         Left e -> return (Left e)
         Right () -> do
             let txId = hash . taTx $ tx
-            modifyMVar_ walletSubmission (return . addPending (singletonPending txId tx))
+            modifyMVar_ walletSubmission (return . addPending accountId (singletonPending txId tx))
             return $ Right ()
 
-cancelPending :: PassiveWallet -> Set TxId -> IO ()
-cancelPending passiveWallet txids =
-    update' (passiveWallet ^. wallets) $ CancelPending (InDb txids)
+cancelPending :: PassiveWallet -> Cancelled -> IO ()
+cancelPending passiveWallet cancelled =
+    void $ update' (passiveWallet ^. wallets) $ CancelPending (InDb cancelled)
 
 {-------------------------------------------------------------------------------
   Wallet Account read-only API

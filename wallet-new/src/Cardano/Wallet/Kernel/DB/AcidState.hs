@@ -44,6 +44,7 @@ import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId, PrefilteredBlock (..),
                                                     PrefilteredUtxo)
+import           Cardano.Wallet.Kernel.Submission (Cancelled)
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
@@ -104,17 +105,26 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
     zoom hdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
 
--- | Cancels the input transactions from all the 'Checkpoints' of each of
--- the accounts cointained in all the wallets.
+-- | Errors thrown by 'cancelPending'
+data CancelPendingError =
+    -- | Unknown account
+    CancelPendingUnknown UnknownHdAccount
+
+deriveSafeCopy 1 'base ''CancelPendingError
+
+-- | Cancels the input transactions from the 'Checkpoints' of each of
+-- the accounts cointained in the 'Cancelled' map.
 --
 -- The reason why this function doesn't take a 'HdRootId' as an argument
 -- is because the submission layer doesn't have the notion of \"which HdWallet
 -- is this transaction associated with?\", but it merely dispatch and cancels
 -- transactions for all the wallets managed by this edge node.
-cancelPending :: InDb (Set Core.TxId) -> Update DB ()
-cancelPending tx =
-    runUpdateNoErrors . zoomAll (dbHdWallets . hdWalletsAccounts) $
-        hdAccountCheckpoints %~ Spec.cancelPending tx
+cancelPending :: InDb Cancelled -> Update DB (Either CancelPendingError ())
+cancelPending (InDb cancelled) = runUpdate' . zoom dbHdWallets $
+    forM_ (Map.toList cancelled) $ \(accountId, txids) -> do
+        zoomHdAccountId CancelPendingUnknown accountId $ do
+          account <- get
+          put (over hdAccountCheckpoints (Spec.cancelPending txids) account)
 
 -- | Apply prefiltered block (indexed by HdAccountId) to the matching accounts.
 --

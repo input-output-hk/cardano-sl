@@ -87,12 +87,12 @@ newPending tx = do
 
 -- | Cancel the input set of cancelled transactions from @all@ the 'Checkpoints'
 -- of an 'Account'.
-cancelPending :: InDb (Set Core.TxId) -> Checkpoints -> Checkpoints
+cancelPending :: Set Core.TxId -> Checkpoints -> Checkpoints
 cancelPending txids checkpoints =
     checkpoints & over each
                 (\ckpoint ->
                     ckpoint & over checkpointPending
-                            (removePending (txids ^. fromDb))
+                            (removePending txids)
                 )
 
 -- | Apply the prefiltered block to the specified wallet

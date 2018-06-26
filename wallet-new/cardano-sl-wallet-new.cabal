@@ -414,6 +414,7 @@ test-suite wallet-unit-tests
   hs-source-dirs:     server test/unit
 
   build-depends:      base
+                    , bytestring
                     , acid-state
                     , cardano-sl
                     , cardano-sl-block

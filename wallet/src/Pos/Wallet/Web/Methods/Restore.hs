@@ -20,10 +20,10 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Lens (each, ix, traversed)
 import           Data.Default (Default (def))
+import           Data.Traversable (for)
 import           Formatting (build, sformat, (%))
 import           System.IO.Error (isDoesNotExistError)
 import           System.Wlog (logDebug)
-import Data.Traversable (for)
 
 import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)

@@ -1,8 +1,13 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | 'Arbitrary' instances for types in 'cardano-sl-infra'
 
-module Pos.Arbitrary.Infra () where
+module Test.Pos.Infra.Arbitrary () where
 
 import           Universum
 

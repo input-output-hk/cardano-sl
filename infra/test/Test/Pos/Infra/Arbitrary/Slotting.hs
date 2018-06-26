@@ -1,8 +1,10 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Pos.Slotting types (infra package)
 
-module Pos.Arbitrary.Slotting () where
+module Test.Pos.Infra.Arbitrary.Slotting () where
 
 import           Universum
 

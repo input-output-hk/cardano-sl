@@ -13,9 +13,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Infra.Arbitrary
+                       Test.Pos.Infra.Arbitrary.Slotting
                        Test.Pos.Infra.Gen
 
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , base
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -23,6 +26,7 @@ library
                      , cardano-sl-infra
                      , cardano-sl-util-test
                      , containers
+                     , generic-arbitrary
                      , hedgehog
                      , kademlia
                      , memory

@@ -197,22 +197,17 @@ main = do
                         generateBlocks pm (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
-                        if fileExists
-                            then do
-                                liftIO (readBlocks path) >>= \case
-                                    Nothing -> do
-                                        -- generate blocks and evaluate them to normal form
-                                        logInfo "Generating blocks"
-                                        bs <- generateBlocks pm (baBlockCount args)
-                                        liftIO $ writeBlocks path bs
-                                        return bs
-                                    Just bs -> return bs
-                            else do
+                        mbs <- if fileExists
+                                  then liftIO $ readBlocks path
+                                  else return Nothing
+                        case mbs of
+                            Nothing -> do
                                 -- generate blocks and evaluate them to normal form
                                 logInfo "Generating blocks"
                                 bs <- generateBlocks pm (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
+                            Just bs -> return bs
 
                 satisfySlotCheck bs $ do
                     logInfo "Verifying blocks"

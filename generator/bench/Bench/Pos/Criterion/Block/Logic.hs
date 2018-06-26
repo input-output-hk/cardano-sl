@@ -124,9 +124,7 @@ verifyBlocksBenchmark !pm !tp !ctx =
                     })
                 (maybeToList . fmap fst)
         let curSlot :: Maybe SlotId
-            curSlot = case catMaybes
-                . map (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot)
-                $ bs of
+            curSlot = case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
                 [] -> Nothing
                 ss -> Just $ maximum ss
         vctx <- getVerifyBlocksContext' curSlot

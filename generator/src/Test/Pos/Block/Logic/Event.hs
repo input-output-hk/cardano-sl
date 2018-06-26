@@ -62,9 +62,7 @@ data BlockEventResult
 
 lastSlot :: [Block] -> Maybe SlotId
 lastSlot bs =
-    case catMaybes
-            . map (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot)
-            $ bs of
+    case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
         [] -> Nothing
         ss -> Just $ maximum ss
 

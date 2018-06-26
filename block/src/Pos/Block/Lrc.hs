@@ -58,7 +58,7 @@ import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1,
 import           Pos.Ssc.Message (SscMessageConstraints)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
-import           Pos.Update.DB (getCompetingBVStates, getAdoptedBVFull)
+import           Pos.Update.DB (getAdoptedBVFull, getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..))

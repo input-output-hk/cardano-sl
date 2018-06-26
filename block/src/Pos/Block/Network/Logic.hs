@@ -31,7 +31,8 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
-                     lcaWithMainChain, getVerifyBlocksContext, verifyAndApplyBlocks)
+                     getVerifyBlocksContext, lcaWithMainChain,
+                     verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag, BlockRetrievalTask (..))

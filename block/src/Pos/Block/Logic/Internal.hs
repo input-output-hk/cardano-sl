@@ -39,12 +39,12 @@ import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
+import           Pos.Block.Logic.Types (VerifyBlocksContext (..),
+                     getVerifyBlocksContext, getVerifyBlocksContext')
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply,
                      MonadSlogBase, ShouldCallBListener, slogApplyBlocks,
                      slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Block.Logic.Types (VerifyBlocksContext (..),
-                     getVerifyBlocksContext, getVerifyBlocksContext')
 import           Pos.Core (BlockVersion, BlockVersionData, ComponentBlock (..),
                      IsGenesisHeader, epochIndexL, gbHeader, headerHash,
                      mainBlockDlgPayload, mainBlockSscPayload,

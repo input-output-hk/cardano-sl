@@ -5,30 +5,36 @@ module Bench.Pos.Criterion.Block.Logic
 import           Universum
 
 import           Control.Monad.Random.Strict (evalRandT, mapRandT)
-import           Criterion.Main (Benchmark, Benchmarkable, bench, bgroup, defaultConfig, defaultMainWith, env, nf, nfIO)
+import           Criterion.Main (Benchmark, Benchmarkable, bench, bgroup,
+                     defaultConfig, defaultMainWith, env, nf, nfIO)
 import           Criterion.Types (Config (..), Verbosity (..))
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (convertUnit)
+import           Serokell.Util.Verify (isVerSuccess)
 import           System.Random (newStdGen)
 import           System.Wlog (LoggerName (..))
-import           Serokell.Util.Verify (isVerSuccess)
 
 import           Mockable.CurrentTime (realTime)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
-import           Pos.Block.Logic.VAR (VerifyBlocksContext, verifyAndApplyBlocks,
-                     verifyBlocksPrefix, getVerifyBlocksContext',
-                     rollbackBlocks)
-import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader)
-import           Pos.Core (Block, BlockHeader, EpochOrSlot (..), SlotId, getBlockHeader)
-import           Pos.Core.Chrono (OldestFirst (..), NE, nonEmptyNewestFirst)
-import           Pos.Core.Common (BlockCount (..), SlotLeaders, unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData, genesisData, genesisSecretKeys, slotSecurityParam)
-import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..), GenesisInitializer (..), TestnetBalanceOptions (..))
+import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..),
+                     verifyHeader)
+import           Pos.Block.Logic.VAR (VerifyBlocksContext,
+                     getVerifyBlocksContext', rollbackBlocks,
+                     verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.Core (Block, BlockHeader, EpochOrSlot (..), SlotId,
+                     getBlockHeader)
+import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
+import           Pos.Core.Common (BlockCount (..), SlotLeaders,
+                     unsafeCoinPortionFromDouble)
+import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
+                     genesisSecretKeys, slotSecurityParam)
+import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
+                     GenesisInitializer (..), TestnetBalanceOptions (..))
 import           Pos.Core.Slotting (Timestamp (..), epochIndexL, getEpochOrSlot)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB (getTipHeader)
+import           Pos.DB.DB (initNodeDBs)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlockNoApply, genBlocks, mkBlockGenContext)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
@@ -38,6 +44,7 @@ import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp.Logic.Global (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
+
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, BlockTestMode,
                      TestParams (..), initBlockTestContext, runBlockTestMode)
@@ -119,9 +126,7 @@ verifyBlocksBenchmark !pm !tp !ctx =
                     })
                 (maybeToList . fmap fst)
         let curSlot :: Maybe SlotId
-            curSlot = case catMaybes
-                . map (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot)
-                $ bs of
+            curSlot = case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
                 [] -> Nothing
                 ss -> Just $ maximum ss
         vctx <- getVerifyBlocksContext' curSlot

@@ -20,8 +20,9 @@ import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Logic (VerifyBlocksContext (..), applyBlocksUnsafe,
-                     createMainBlockInternal, normalizeMempool, verifyBlocksPrefix,
-                     getVerifyBlocksContext, getVerifyBlocksContext')
+                     createMainBlockInternal, getVerifyBlocksContext,
+                     getVerifyBlocksContext', normalizeMempool,
+                     verifyBlocksPrefix)
 import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)

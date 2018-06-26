@@ -15,10 +15,10 @@ import           Pos.Update.DB (getAdoptedBVFull)
 -- | Initial context for `verifyBlocksPrefix` which runs in `MonadBlockVerify`
 -- monad.
 data VerifyBlocksContext = VerifyBlocksContext
-    { vbcCurrentSlot       :: !(Maybe SlotId)
+    { vbcCurrentSlot      :: !(Maybe SlotId)
       -- ^ used to check if headers are not from future
-    , vbcBlockVersion      :: !BlockVersion
-    , vbcBlockVersionData  :: !BlockVersionData
+    , vbcBlockVersion     :: !BlockVersion
+    , vbcBlockVersionData :: !BlockVersionData
     } deriving Generic
 
 instance NFData VerifyBlocksContext

@@ -29,7 +29,8 @@ import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe,
                      normalizeMempool)
 import           Pos.Block.Logic.Types (VerifyBlocksContext (..))
 import           Pos.Block.Logic.Util (calcChainQualityM)
-import           Pos.Block.Logic.VAR (verifyBlocksPrefix, getVerifyBlocksContext)
+import           Pos.Block.Logic.VAR (getVerifyBlocksContext,
+                     verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
@@ -51,10 +52,10 @@ import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics,
+                     Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Infra.Util.LogSafe (logInfoS)
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                     StateLockMetrics, modifyStateLock)
 import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB

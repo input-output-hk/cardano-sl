@@ -8,7 +8,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import           Data.Time.Units (Microsecond, convertUnit)
-import           Formatting (sformat, shown, int, (%))
+import           Formatting (int, sformat, shown, (%))
 import qualified Options.Applicative as Opts
 import           System.Directory (doesFileExist)
 import           System.Random (newStdGen)
@@ -198,22 +198,17 @@ main = do
                         generateBlocks pm (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
-                        if fileExists
-                            then do
-                                liftIO (readBlocks path) >>= \case
-                                    Nothing -> do
-                                        -- generate blocks and evaluate them to normal form
-                                        logInfo "Generating blocks"
-                                        bs <- generateBlocks pm (baBlockCount args)
-                                        liftIO $ writeBlocks path bs
-                                        return bs
-                                    Just bs -> return bs
-                            else do
+                        mbs <- if fileExists
+                                  then liftIO $ readBlocks path
+                                  else return Nothing
+                        case mbs of
+                            Nothing -> do
                                 -- generate blocks and evaluate them to normal form
                                 logInfo "Generating blocks"
                                 bs <- generateBlocks pm (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
+                            Just bs -> return bs
 
                 satisfySlotCheck bs $ do
                     logInfo "Verifying blocks"

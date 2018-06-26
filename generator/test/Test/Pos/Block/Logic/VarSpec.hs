@@ -23,12 +23,15 @@ import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre, run)
 import           Test.QuickCheck.Random (QCGen)
 
-import           Pos.Block.Logic (getVerifyBlocksContext', verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Logic (getVerifyBlocksContext', verifyAndApplyBlocks,
+                     verifyBlocksPrefix)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (GenesisData (..), HasConfiguration, EpochOrSlot (..),
-                     blkSecurityParam, getEpochOrSlot, epochSlots, genesisData, headerHash)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
-                     nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst, _NewestFirst)
+import           Pos.Core (EpochOrSlot (..), GenesisData (..), HasConfiguration,
+                     blkSecurityParam, epochSlots, genesisData, getEpochOrSlot,
+                     headerHash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     nonEmptyNewestFirst, nonEmptyOldestFirst,
+                     splitAtNewestFirst, toNewestFirst, _NewestFirst)
 import           Pos.DB.Pure (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      BlockEventGenT, BlockRollbackFailure (..),
@@ -40,7 +43,8 @@ import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
-                     DbNotEquivalentToSnapshot (..), lastSlot, runBlockScenario)
+                     DbNotEquivalentToSnapshot (..), lastSlot,
+                     runBlockScenario)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..), bpGenBlock, bpGenBlocks,

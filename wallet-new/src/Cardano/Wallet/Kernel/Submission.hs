@@ -31,12 +31,14 @@ module Cardano.Wallet.Kernel.Submission (
     , mapSlot
     , wsResubmissionFunction
     , getCurrentSlot
-    , localPendingSet
     , getSchedule
 
     -- * Internal useful function
     , addToSchedule
     , prependEvents
+
+    -- * Internal functions exposed just to simplify testing
+    , localPendingSet
 
     -- * Resubmitting things to the network
     , defaultResubmitFunction
@@ -395,6 +397,9 @@ tickSlot currentSlot ws =
     let (allEvents, schedule) = scheduledFor currentSlot (ws ^. wsState . wssSchedule)
         scheduledCandidates = filterNotConfirmed (allEvents ^. seToSend <> nursery schedule)
         localPending = ws ^. wsState . wssPendingMap
+        -- NOTE Here we are sorting @all@ the pending transactions in @all@
+        -- the accounts, instead of sorting each \"pool\" individually. This helps
+        -- with inter-account transactions, as per problem described in [CBR-308].
         topSorted  = topsortTxs toTx scheduledCandidates
     in case topSorted of
             Nothing     ->

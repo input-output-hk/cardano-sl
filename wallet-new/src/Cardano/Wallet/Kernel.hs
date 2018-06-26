@@ -297,7 +297,7 @@ newPending ActiveWallet{..} accountId tx = do
 
 cancelPending :: PassiveWallet -> Cancelled -> IO ()
 cancelPending passiveWallet cancelled =
-    void $ update' (passiveWallet ^. wallets) $ CancelPending (InDb cancelled)
+    update' (passiveWallet ^. wallets) $ CancelPending (fmap InDb cancelled)
 
 {-------------------------------------------------------------------------------
   Wallet Account read-only API

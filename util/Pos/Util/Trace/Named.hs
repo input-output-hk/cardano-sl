@@ -97,20 +97,24 @@ named :: Trace m (LogNamed i) -> Trace m i
 named = contramap (LogNamed mempty)
 
 -- | setup logging and return a Trace
-setupLogging :: Log.LoggerConfig -> Log.LoggerName -> IO (TraceNamed IO)
+setupLogging
+    :: (MonadIO m)
+    => Log.LoggerConfig -> Log.LoggerName -> m (TraceNamed m)
 setupLogging lc ln = do
-    lh <- Log.setupLogging lc
+    lh <- liftIO $ Log.setupLogging lc
     let nt = namedTrace lh
     return $ appendName ln nt
 
-namedTrace :: Log.LoggingHandler -> TraceNamed IO
+namedTrace
+    :: (MonadIO m)
+    => Log.LoggingHandler -> TraceNamed m
 namedTrace lh = Trace $ Op $ \namedLogitem ->
     let loggerNames =  lnName namedLogitem
         privacy  = TrU.liPrivacy  (lnItem namedLogitem)
         severity = TrU.liSeverity (lnItem namedLogitem)
         message  = TrU.liMessage  (lnItem namedLogitem)
     in
-    case privacy of
+    liftIO $ case privacy of
         TrU.Both    -> Log.usingLoggerNames lh loggerNames $ Log.logMessage severity message
         -- pass to every logging scribe
         TrU.Public  -> Log.usingLoggerNames lh loggerNames $

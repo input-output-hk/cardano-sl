@@ -9,6 +9,7 @@ module Pos.Exception
 
        , CardanoFatalError (..)
        , reportFatalError
+       , traceNamedFatalError
        , traceFatalError
        , assertionFailed
        ) where
@@ -19,6 +20,7 @@ import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
 import           Pos.Util.Log (WithLogger, logError)
 import           Pos.Util.Trace (Trace, traceWith, Severity (Error))
+import qualified Pos.Util.Trace.Named as TN
 import           Serokell.Util (Color (Red), colorize)
 import qualified Text.Show
 import           Universum
@@ -79,6 +81,13 @@ traceFatalError
     => Trace m (Severity, Text) -> Text -> m a
 traceFatalError tr msg = do
     traceWith tr (Error, colorize Red msg)
+    throwM $ CardanoFatalError msg
+
+traceNamedFatalError
+    :: MonadThrow m
+    => TN.TraceNamed m -> Text -> m a
+traceNamedFatalError tr msg = do
+    TN.logError tr (colorize Red msg)
     throwM $ CardanoFatalError msg
 
 -- | Report 'CardanoFatalError' for failed assertions.

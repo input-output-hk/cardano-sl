@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
-import           Data.Functor.Contravariant (contramap)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
@@ -71,6 +70,7 @@ type USGlobalApplyMode ctx m =
 -- Implementation
 ----------------------------------------------------------------------------
 
+withUSLogger :: TraceNamed m -> TraceNamed m
 withUSLogger = appendName "us"
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
@@ -112,11 +112,11 @@ usApplyBlocks logTrace0 pm blocks modifierMaybe =
                   whenLeft verdict $ \v -> onFailure v
               return modifier
   where
-    logTrace = {-natTrace liftIO $-} withUSLogger logTrace0
-    --onFailure :: (MonadIO m', MonadThrow m') => PollVerFailure -> m' a
+    logTrace = withUSLogger logTrace0
+    onFailure :: (MonadIO m', MonadThrow m') => PollVerFailure -> m' a
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
-        traceNamedFatalError logTrace msg
+        traceNamedFatalError (natTrace liftIO logTrace) msg
 
 -- | Revert application of given blocks to US part of GState DB and US local
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
@@ -185,7 +185,7 @@ usVerifyBlocks logTrace0 pm verifyAllIsKnown blocks =
     processRes (Right undos, modifier) = Right (modifier, undos)
 
 verifyBlock
-    :: (USGlobalVerifyMode ctx m, MonadIO m, MonadPoll m, MonadError PollVerFailure m, HasProtocolConstants)
+    :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolConstants)
     => TraceNamed IO -> ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
 verifyBlock _ _ _ _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)

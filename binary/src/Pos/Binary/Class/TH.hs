@@ -368,6 +368,12 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                 when (length realFields /= length dcFields) $ templateHaskellError $
                     sformat ("Some field of "%shown
                     %" constructor doesn't have an explicit name") cName
+                when (length constrs > 1 && not (null realFields)) $
+                    templateHaskellError $
+                        sformat ("`deriveSimpleBi` no longer supports sum types \
+                                 \with named fields.\n Constructor "%shown%" has \
+                                 \named fields: "%shown%".")
+                        cName (map fst realFields)
                 cResolvedFields <- mapM fieldToPair cFields
                 let fieldCheck = checkAllFields cResolvedFields realFields
                 case fieldCheck of

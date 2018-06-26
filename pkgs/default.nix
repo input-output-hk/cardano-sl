@@ -15148,6 +15148,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-binary" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , binary
 , bytestring
@@ -15161,8 +15162,11 @@ license = stdenv.lib.licenses.mit;
 , cryptonite
 , data-default
 , digest
+, directory
 , extra
+, file-embed
 , filelock
+, filepath
 , fmt
 , formatting
 , generic-arbitrary
@@ -15172,6 +15176,7 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , mtl
+, pretty-show
 , pvss
 , QuickCheck
 , quickcheck-instances
@@ -15233,6 +15238,7 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 bytestring
 canonical-json
@@ -15243,8 +15249,11 @@ cereal
 containers
 cryptonite
 data-default
+directory
 extra
+file-embed
 filelock
+filepath
 fmt
 formatting
 generic-arbitrary
@@ -15253,6 +15262,7 @@ hedgehog
 hspec
 lens
 mtl
+pretty-show
 pvss
 QuickCheck
 quickcheck-instances
@@ -15261,6 +15271,7 @@ reflection
 safecopy
 serokell-util
 tagged
+template-haskell
 text
 text-format
 time-units

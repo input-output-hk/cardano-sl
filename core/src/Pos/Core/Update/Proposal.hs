@@ -18,7 +18,8 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, builder, (%))
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi,
+                                   encodeListLen, enforceSize)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SignTag (SignUSProposal),
                              Signature, checkSig, hash, safeSign, safeToPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -63,7 +64,7 @@ type UpdateProposals = HashMap UpId UpdateProposal
 
 instance Hashable UpdateProposal
 
-instance Bi UpdateProposal => Buildable UpdateProposal where
+instance Buildable UpdateProposal where
     build up@UnsafeUpdateProposal {..} =
       bprint (build%
               " { block v"%build%
@@ -86,12 +87,30 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
 
 instance NFData UpdateProposal
 
-formatMaybeProposal :: Bi UpdateProposal => Maybe UpdateProposal -> Builder
+instance Bi UpdateProposal where
+    encode up = encodeListLen 7
+            <> encode (upBlockVersion up)
+            <> encode (upBlockVersionMod up)
+            <> encode (upSoftwareVersion up)
+            <> encode (upData up)
+            <> encode (upAttributes up)
+            <> encode (upFrom up)
+            <> encode (upSignature up)
+    decode = do
+        enforceSize "UpdateProposal" 7
+        UnsafeUpdateProposal <$> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+
+formatMaybeProposal :: Maybe UpdateProposal -> Builder
 formatMaybeProposal = maybe "no proposal" Buildable.build
 
 mkUpdateProposalWSign
-    :: (Bi UpdateProposalToSign)
-    => ProtocolMagic
+    :: ProtocolMagic
     -> BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion
@@ -113,7 +132,7 @@ mkUpdateProposalWSign pm upBlockVersion upBlockVersionMod upSoftwareVersion upDa
     upSignature = safeSign pm SignUSProposal ss toSign
 
 checkUpdateProposal
-    :: (MonadError Text m, Bi UpdateProposalToSign)
+    :: MonadError Text m
     => ProtocolMagic
     -> UpdateProposal
     -> m ()
@@ -129,3 +148,15 @@ checkUpdateProposal pm it = do
             (upAttributes it)
     unless (checkSig pm SignUSProposal (upFrom it) toSign (upSignature it))
         (throwError "UpdateProposal: invalid signature")
+
+-- TH generated instances at the end of the file.
+
+deriveSimpleBi ''UpdateProposalToSign [
+    Cons 'UpdateProposalToSign [
+        Field [| upsBV   :: BlockVersion                     |],
+        Field [| upsBVM  :: BlockVersionModifier           |],
+        Field [| upsSV   :: SoftwareVersion                  |],
+        Field [| upsData :: HashMap SystemTag UpdateData |],
+        Field [| upsAttr :: UpAttributes                   |]
+    ]]
+

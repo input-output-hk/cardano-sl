@@ -111,7 +111,7 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOf
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
+import           Pos.Util.Mnemonic (Mnemonic)
 
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()
@@ -250,22 +250,22 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
--- TODO(adinapoli) Rewrite it properly under CSL-2048.
-instance Arbitrary (V1 BackupPhrase) where
-    arbitrary = V1 <$> arbitrary
+instance Arbitrary (V1 (Mnemonic 12)) where
+    arbitrary =
+        V1 <$> arbitrary
 
-instance ToJSON (V1 BackupPhrase) where
-    toJSON (V1 (BackupPhrase wrds)) = toJSON wrds
+instance ToJSON (V1 (Mnemonic 12)) where
+    toJSON =
+        toJSON . unV1
 
-instance FromJSON (V1 BackupPhrase) where
-    parseJSON (Array wrds) = V1 . BackupPhrase . toList <$> traverse parseJSON wrds
-    parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
+instance FromJSON (V1 (Mnemonic 12)) where
+    parseJSON =
+        fmap V1 . parseJSON
 
-instance ToSchema (V1 BackupPhrase) where
+instance ToSchema (V1 (Mnemonic 12)) where
     declareNamedSchema _ = do
-        return $ NamedSchema (Just "V1BackupPhrase") $ mempty
-            & type_ .~ SwaggerArray
-            & items .~ Just (SwaggerItemsObject (toSchemaRef (Proxy @Text)))
+        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
+        return $ NamedSchema (Just "V1BackupPhrase") schm
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
@@ -471,7 +471,7 @@ instance BuildableSafeGen WalletOperation where
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !(V1 BackupPhrase)
+      newwalBackupPhrase     :: !(V1 (Mnemonic 12))
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName

@@ -27,7 +27,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core ()
 import           Pos.Core (Coin, CoinPortion, ProxySKHeavy, StakeholderId, addressHash,
                            applyCoinPortionUp, gdHeavyDelegation, genesisData, sumCoins,
                            unGenesisDelegation, unsafeIntegerToCoin)

@@ -61,7 +61,9 @@ import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class (Bi, Raw)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw,
+                                   encodeListLen, enforceSize,
+                                   deriveSimpleBi)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SecretKey,
@@ -84,6 +86,10 @@ data BlockVersion = BlockVersion
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
+
+instance Bi ApplicationName where
+    encode appName = encode (getApplicationName appName)
+    decode = ApplicationName <$> decode
 
 -- | Smart constructor of 'ApplicationName'.
 checkApplicationName :: MonadError Text m => ApplicationName -> m ()
@@ -294,6 +300,10 @@ instance Buildable BlockVersionModifier where
 newtype SystemTag = SystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
+instance Bi SystemTag where
+    encode = encode . getSystemTag
+    decode = SystemTag <$> decode
+
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
 
@@ -340,7 +350,33 @@ type UpdateProposals = HashMap UpId UpdateProposal
 
 instance Hashable UpdateProposal
 
-instance Bi UpdateProposal => Buildable UpdateProposal where
+instance Bi UpdateProposal where
+    encode up = encodeListLen 7
+            <> encode (upBlockVersion up)
+            <> encode (upBlockVersionMod up)
+            <> encode (upSoftwareVersion up)
+            <> encode (upData up)
+            <> encode (upAttributes up)
+            <> encode (upFrom up)
+            <> encode (upSignature up)
+    decode = do
+        enforceSize "UpdateProposal" 7
+        UnsafeUpdateProposal <$> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+                             <*> decode
+
+instance Buildable (UpdateProposal, [UpdateVote]) where
+    build (up, votes) =
+        bprint
+            (build % " with votes: " %listJson)
+            up
+            (map formatVoteShort votes)
+
+instance Buildable UpdateProposal where
     build up@UnsafeUpdateProposal {..} =
       bprint (build%
               " { block v"%build%
@@ -360,14 +396,6 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
         attrsBuilder
             | areAttributesKnown upAttributes = "no attributes"
             | otherwise = bprint ("attributes: " %build) attrs
-
-instance (Bi UpdateProposal) =>
-         Buildable (UpdateProposal, [UpdateVote]) where
-    build (up, votes) =
-        bprint
-            (build % " with votes: " %listJson)
-            up
-            (map formatVoteShort votes)
 
 -- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData
@@ -437,6 +465,20 @@ instance Buildable UpdateVote where
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
+instance Bi UpdateVote where
+    encode uv =  encodeListLen 4
+            <> encode (uvKey uv)
+            <> encode (uvProposalId uv)
+            <> encode (uvDecision uv)
+            <> encode (uvSignature uv)
+    decode = do
+        enforceSize "UpdateVote" 4
+        uvKey        <- decode
+        uvProposalId <- decode
+        uvDecision   <- decode
+        uvSignature  <- decode
+        pure UnsafeUpdateVote{..}
+
 instance Buildable VoteId where
     build (upId, pk, dec) =
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
@@ -491,7 +533,7 @@ data UpdatePayload = UpdatePayload
 
 instance NFData UpdatePayload
 
-instance (Bi UpdateProposal) => Buildable UpdatePayload where
+instance Buildable UpdatePayload where
     build UpdatePayload {..}
         | null upVotes = formatMaybeProposal upProposal <> ", no votes"
         | otherwise =
@@ -500,7 +542,7 @@ instance (Bi UpdateProposal) => Buildable UpdatePayload where
                 ("\n    votes: "%listJson)
                 (map formatVoteShort upVotes)
 
-formatMaybeProposal :: Bi UpdateProposal => Maybe UpdateProposal -> Builder
+formatMaybeProposal :: Maybe UpdateProposal -> Builder
 formatMaybeProposal = maybe "no proposal" Buildable.build
 
 instance Default UpdatePayload where
@@ -513,3 +555,82 @@ mkUpdateProof
     :: Bi UpdatePayload
     => UpdatePayload -> UpdateProof
 mkUpdateProof = hash
+
+deriveSimpleBi ''BlockVersion [
+    Cons 'BlockVersion [
+        Field [| bvMajor :: Word16 |],
+        Field [| bvMinor :: Word16 |],
+        Field [| bvAlt   :: Word8  |]
+    ]]
+
+deriveSimpleBi ''SoftwareVersion [
+    Cons 'SoftwareVersion [
+        Field [| svAppName :: ApplicationName    |],
+        Field [| svNumber  :: NumSoftwareVersion |]
+    ]]
+
+deriveSimpleBi ''SoftforkRule [
+    Cons 'SoftforkRule [
+        Field [| srInitThd      :: CoinPortion |],
+        Field [| srMinThd       :: CoinPortion |],
+        Field [| srThdDecrement :: CoinPortion |]
+    ]]
+
+deriveSimpleBi ''BlockVersionData [
+    Cons 'BlockVersionData [
+        Field [| bvdScriptVersion     :: ScriptVersion |],
+        Field [| bvdSlotDuration      :: Millisecond   |],
+        Field [| bvdMaxBlockSize      :: Byte          |],
+        Field [| bvdMaxHeaderSize     :: Byte          |],
+        Field [| bvdMaxTxSize         :: Byte          |],
+        Field [| bvdMaxProposalSize   :: Byte          |],
+        Field [| bvdMpcThd            :: CoinPortion   |],
+        Field [| bvdHeavyDelThd       :: CoinPortion   |],
+        Field [| bvdUpdateVoteThd     :: CoinPortion   |],
+        Field [| bvdUpdateProposalThd :: CoinPortion   |],
+        Field [| bvdUpdateImplicit    :: FlatSlotId    |],
+        Field [| bvdSoftforkRule      :: SoftforkRule  |],
+        Field [| bvdTxFeePolicy       :: TxFeePolicy   |],
+        Field [| bvdUnlockStakeEpoch  :: EpochIndex    |]
+    ]]
+
+deriveSimpleBi ''BlockVersionModifier [
+    Cons 'BlockVersionModifier [
+        Field [| bvmScriptVersion     :: Maybe ScriptVersion |],
+        Field [| bvmSlotDuration      :: Maybe Millisecond   |],
+        Field [| bvmMaxBlockSize      :: Maybe Byte          |],
+        Field [| bvmMaxHeaderSize     :: Maybe Byte          |],
+        Field [| bvmMaxTxSize         :: Maybe Byte          |],
+        Field [| bvmMaxProposalSize   :: Maybe Byte          |],
+        Field [| bvmMpcThd            :: Maybe CoinPortion   |],
+        Field [| bvmHeavyDelThd       :: Maybe CoinPortion   |],
+        Field [| bvmUpdateVoteThd     :: Maybe CoinPortion   |],
+        Field [| bvmUpdateProposalThd :: Maybe CoinPortion   |],
+        Field [| bvmUpdateImplicit    :: Maybe FlatSlotId    |],
+        Field [| bvmSoftforkRule      :: Maybe SoftforkRule  |],
+        Field [| bvmTxFeePolicy       :: Maybe TxFeePolicy   |],
+        Field [| bvmUnlockStakeEpoch  :: Maybe EpochIndex    |]
+    ]]
+
+deriveSimpleBi ''UpdateData [
+    Cons 'UpdateData [
+        Field [| udAppDiffHash  :: Hash Raw |],
+        Field [| udPkgHash      :: Hash Raw |],
+        Field [| udUpdaterHash  :: Hash Raw |],
+        Field [| udMetadataHash :: Hash Raw |]
+    ]]
+
+deriveSimpleBi ''UpdateProposalToSign [
+    Cons 'UpdateProposalToSign [
+        Field [| upsBV   :: BlockVersion                     |],
+        Field [| upsBVM  :: BlockVersionModifier           |],
+        Field [| upsSV   :: SoftwareVersion                  |],
+        Field [| upsData :: HashMap SystemTag UpdateData |],
+        Field [| upsAttr :: UpAttributes                   |]
+    ]]
+
+deriveSimpleBi ''UpdatePayload [
+    Cons 'UpdatePayload [
+        Field [| upProposal :: Maybe UpdateProposal |],
+        Field [| upVotes    :: [UpdateVote]         |]
+    ]]

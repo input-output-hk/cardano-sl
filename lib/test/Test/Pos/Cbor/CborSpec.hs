@@ -24,9 +24,7 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
@@ -57,6 +55,7 @@ import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
+import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
 

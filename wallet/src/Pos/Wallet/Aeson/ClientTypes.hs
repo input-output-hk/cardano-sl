@@ -6,19 +6,20 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
-                             (.:), (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), genericParseJSON,
+                             genericToJSON, object, withArray, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (Parser, typeMismatch)
 import           Data.Version (showVersion)
 import           Servant.API.ContentTypes (NoContent (..))
 
+import           Crypto.Encoding.BIP39 (EntropySize, MnemonicWords, ValidChecksumSize,
+                                        ValidEntropySize, ValidMnemonicSentence)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Util (aesonError)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
-                                             CAccountInit, CAccountMeta, CAddress, CCoin,
-                                             CFilePath (..), CHash, CId, CInitialized,
+                                             CAccountInit, CAccountMeta, CAddress, CBackupPhrase,
+                                             CCoin, CFilePath (..), CHash, CId, CInitialized,
                                              CPaperVendWalletRedeem, CProfile, CPtxCondition,
                                              CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
@@ -38,12 +39,29 @@ deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CPaperVendWalletRedeem
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
-deriveJSON defaultOptions ''BackupPhrase
 deriveJSON defaultOptions ''CId
 deriveJSON defaultOptions ''Wal
 deriveJSON defaultOptions ''Addr
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
+
+
+-- | Backward-compatibility for mnemonics
+instance ToJSON (CBackupPhrase mw) where
+    toJSON =
+        genericToJSON defaultOptions
+
+instance
+    ( n ~ EntropySize mw
+    , mw ~ MnemonicWords n
+    , ValidChecksumSize n csz
+    , ValidEntropySize n
+    , ValidMnemonicSentence mw
+    ) => FromJSON (CBackupPhrase mw) where
+    parseJSON =
+        genericParseJSON defaultOptions
+
+
 
 -- NOTE(adinapoli): We need a manual instance to ensure we map @OptimizeForSize@
 -- to @OptimizeForHighThroughput@, for exchanges backward compatibility.

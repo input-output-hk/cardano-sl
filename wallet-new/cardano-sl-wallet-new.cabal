@@ -84,6 +84,7 @@ library
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
+                       Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
@@ -413,6 +414,7 @@ test-suite wallet-unit-tests
   hs-source-dirs:     server test/unit
 
   build-depends:      base
+                    , bytestring
                     , acid-state
                     , cardano-sl
                     , cardano-sl-block

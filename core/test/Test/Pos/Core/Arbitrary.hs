@@ -37,7 +37,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core ()
 import           Pos.Core (AddrAttributes (..), AddrSpendingData (..), AddrStakeDistribution (..),
                            AddrType (..), Address (..), Address' (..), ApplicationName (..),
                            BlockCount (..), BlockVersion (..), BlockVersionData (..),

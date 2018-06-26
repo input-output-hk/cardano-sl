@@ -29,7 +29,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
                                     genSscPayloadForSlot)
-import           Pos.Arbitrary.Update (genUpdatePayload)
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog (SlogUndo)
@@ -45,6 +44,7 @@ import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Txp.Arbitrary (genTxPayload)
+import           Test.Pos.Update.Arbitrary (genUpdatePayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)

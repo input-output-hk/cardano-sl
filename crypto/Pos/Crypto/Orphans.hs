@@ -4,16 +4,13 @@ module Pos.Crypto.Orphans
        (
        ) where
 
-import           Prelude (show)
-import           Universum hiding (show)
+import           Universum
 
-import qualified Cardano.Crypto.Wallet as CC
 import qualified Crypto.SCRAPE as Scrape
 import           Crypto.Scrypt (EncryptedPass (..))
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Hashable (Hashable)
-import qualified Data.Hashable as Hashable
 import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
@@ -49,18 +46,6 @@ instance Bi Ed25519.SecretKey where
 instance Bi Ed25519.Signature where
     encode (Ed25519.Signature s) = encode s
     decode = Ed25519.Signature <$> decode
-
-instance Eq CC.XPub where
-    a == b = CC.unXPub a == CC.unXPub b
-
-instance Ord CC.XPub where
-    compare = comparing CC.unXPub
-
-instance Show CC.XPub where
-    show = show . CC.unXPub
-
-instance Hashable CC.XPub where
-    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape

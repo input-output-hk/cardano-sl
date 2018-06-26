@@ -14,6 +14,7 @@ import qualified Prelude
 
 import           Pos.Util.Some (Some, liftLensSome)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Update.ApplicationName
 
 -- | Numeric software version associated with ApplicationName.
@@ -45,3 +46,9 @@ class HasSoftwareVersion a where
 
 instance HasSoftwareVersion (Some HasSoftwareVersion) where
     softwareVersionL = liftLensSome softwareVersionL
+
+deriveSimpleBi ''SoftwareVersion [
+    Cons 'SoftwareVersion [
+        Field [| svAppName :: ApplicationName    |],
+        Field [| svNumber  :: NumSoftwareVersion |]
+    ]]

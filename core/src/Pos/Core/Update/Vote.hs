@@ -15,7 +15,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core.Common (addressHash)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SafeSigner, SecretKey, SignTag (SignUSVote),
                              Signature, checkSig, safeSign, safeToPublic, shortHashF, sign,
@@ -46,13 +46,27 @@ instance Buildable UpdateVote where
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
-instance (Bi UpdateProposal) =>
-         Buildable (UpdateProposal, [UpdateVote]) where
+instance Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =
         bprint
             (build % " with votes: " %listJson)
             up
             (map formatVoteShort votes)
+
+instance Bi UpdateVote where
+    encode uv =  encodeListLen 4
+            <> encode (uvKey uv)
+            <> encode (uvProposalId uv)
+            <> encode (uvDecision uv)
+            <> encode (uvSignature uv)
+    decode = do
+        enforceSize "UpdateVote" 4
+        uvKey        <- decode
+        uvProposalId <- decode
+        uvDecision   <- decode
+        uvSignature  <- decode
+        pure UnsafeUpdateVote{..}
+
 
 -- | A safe constructor for 'UnsafeVote'.
 mkUpdateVote

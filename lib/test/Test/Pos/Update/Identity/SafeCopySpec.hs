@@ -11,6 +11,7 @@ import           Pos.SafeCopy ()
 import qualified Pos.Update as U
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
+import           Test.Pos.Update.Arbitrary ()
 
 spec :: Spec
 spec = describe "Update system" $ do

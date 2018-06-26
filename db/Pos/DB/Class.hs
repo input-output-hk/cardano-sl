@@ -58,7 +58,6 @@ import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi, decodeFull')
-import           Pos.Binary.Core ()
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), EpochIndex, HasConfiguration,
                            HeaderHash, isBootstrapEra)
 import           Pos.DB.Error (DBError (DBMalformed))

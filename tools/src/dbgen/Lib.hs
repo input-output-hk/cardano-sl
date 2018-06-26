@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
@@ -19,7 +20,6 @@ import           Data.String.Conv (toS)
 import           Data.Time (diffUTCTime, getCurrentTime)
 import           GHC.Generics (Generic)
 
-import           Crypto.Random.Entropy (getEntropy)
 import           Pos.Client.Txp (TxHistoryEntry (..))
 import           Pos.Core (Address, Coin, mkCoin)
 import           Pos.Data.Attributes (mkAttributes)
@@ -27,15 +27,14 @@ import           Pos.DB.GState.Common (getTip)
 import           Pos.Infra.StateLock (StateLock (..))
 import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
-import           Pos.Util.Mnemonics (toMnemonic)
+import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CId (..),
-                                             CWallet (..), CWalletAssurance (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal)
+                                             CAccountMeta (..), CAddress (..), CBackupPhrase (..),
+                                             CId (..), CWallet (..), CWalletAssurance (..),
+                                             CWalletInit (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
@@ -215,7 +214,7 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
     case addTo of
         Just accId ->
-            if (checkIfAddTo fakeUtxoSpec fakeTxs) then
+            if checkIfAddTo fakeUtxoSpec fakeTxs then
                 addAddressesTo spec accId
             else do
                 timed $ generateFakeUtxo fakeUtxoSpec accId
@@ -299,7 +298,7 @@ generateRealTxHistE outputAddresses = do
     fakeTime  <- liftIO $ generate arbitrary
     fakeTx    <- liftIO $ generate $ genTxs fakeTxOut
 
-    pure $ THEntry
+    pure THEntry
         { _thTxId        = fakeTxIds
         , _thTx          = fakeTx
         , _thDifficulty  = fakeChain
@@ -330,7 +329,7 @@ generateRealTxHistE outputAddresses = do
         let _txOutputs = NE.fromList txOut
         let _txAttributes = mkAttributes ()
 
-        pure $ UnsafeTx {..}
+        pure UnsafeTx {..}
 
     -- | Generate sensible amount of coins.
     genCoins :: Gen Coin
@@ -375,7 +374,7 @@ unwrapCAddress = decodeCType . cadId
 
 
 addAddressesTo :: GenSpec -> AccountId -> UberMonad ()
-addAddressesTo spec cid = genAddresses spec cid
+addAddressesTo = genAddresses
 
 
 genAccounts :: GenSpec -> (Int, CWallet) -> UberMonad ()
@@ -404,35 +403,26 @@ genWallet walletNum = do
     mnemonic  <- newRandomMnemonic
     newWallet mempty (walletInit mnemonic)
   where
-    walletInit :: BackupPhrase -> CWalletInit
+    walletInit :: Mnemonic 12 -> CWalletInit
     walletInit backupPhrase = CWalletInit {
       cwInitMeta      = CWalletMeta
           { cwName      = "Wallet #" <> show walletNum
           , cwAssurance = CWANormal
           , cwUnit      = 0
         }
-      , cwBackupPhrase  = backupPhrase
+      , cwBackupPhrase  = CBackupPhrase backupPhrase
       }
 
 
--- | Generates a new 'BackupPhrase'.
-newRandomMnemonic :: WalletWebMode BackupPhrase
-newRandomMnemonic = do
-
-    -- The size 16 should give you 12 words after bip39 encoding.
-    let mnemonic :: IO ByteString
-        mnemonic = getEntropy 16
-
-    genMnemonic  <- liftIO mnemonic
-
-    let newMnemonic = either (error . show) id (toMnemonic genMnemonic)
-
-    pure $ BackupPhrase $ words newMnemonic
+-- | Generates a new 'Mnemonic'.
+newRandomMnemonic :: WalletWebMode (Mnemonic 12)
+newRandomMnemonic =
+    liftIO (entropyToMnemonic <$> genEntropy)
 
 
 -- | Creates a new 'CAccount'.
 genAccount :: CWallet -> Integer -> UberMonad CAccount
-genAccount CWallet{..} accountNum = do
+genAccount CWallet{..} accountNum =
     newAccountIncludeUnready True RandomSeed mempty accountInit
   where
     accountInit :: CAccountInit

@@ -14,7 +14,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll
                                   (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
                            HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Core.Update (UpId, UpdateProposal (..))
@@ -26,6 +25,7 @@ import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec

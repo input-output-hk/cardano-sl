@@ -55,7 +55,7 @@ import           Pos.Core.Ssc (Commitment (..),
                      CommitmentsMap (getCommitmentsMap), InnerSharesMap,
                      Opening (..), OpeningsMap, SharesDistribution, SharesMap,
                      SignedCommitment, SscPayload (..), commShares,
-                     getCommShares, spVss)
+                     getCommShares)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
 import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Ssc.Base (verifyOpening, vssThreshold)
@@ -492,14 +492,14 @@ checkPayload
     => EpochIndex
     -> SscPayload
     -> m ()
-checkPayload epoch payload = do
-    let payloadCerts = spVss payload
-    case payload of
-        CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
-        OpeningsPayload opens _    -> checkOpeningsPayload opens
-        SharesPayload shares _     -> checkSharesPayload epoch shares
-        CertificatesPayload _      -> pass
-    checkCertificatesPayload epoch payloadCerts
+checkPayload epoch (CommitmentsPayload comms payloadCerts) =
+    checkCommitmentsPayload epoch comms >> checkCertificatesPayload epoch payloadCerts
+checkPayload epoch (OpeningsPayload opens payloadCerts) =
+    checkOpeningsPayload opens >> checkCertificatesPayload epoch payloadCerts
+checkPayload epoch (SharesPayload shares payloadCerts) =
+    checkSharesPayload epoch shares >> checkCertificatesPayload epoch payloadCerts
+checkPayload epoch (CertificatesPayload payloadCerts) =
+    pass >> checkCertificatesPayload epoch payloadCerts
 
 ----------------------------------------------------------------------------
 -- Verification helpers

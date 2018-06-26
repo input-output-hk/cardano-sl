@@ -153,11 +153,7 @@ blockBody = MainBody
 -- SscPayload is 4 alternatives. I chose CertificatesPayload because it has
 -- the fewest fields...
 emptySscPayload :: SscPayload
-emptySscPayload = CertificatesPayload
-    { spVss = UnsafeVssCertificatesMap
-          { getVssCertificatesMap = mempty
-          }
-    }
+emptySscPayload = CertificatesPayload $ UnsafeVssCertificatesMap mempty
 
 emptyDlgPayload :: DlgPayload
 emptyDlgPayload = UnsafeDlgPayload

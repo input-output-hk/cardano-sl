@@ -24,7 +24,7 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
                      SignedCommitment, SscPayload (..), checkSscPayload,
-                     getCommitmentsMap, mkCommitmentsMapUnsafe, spVss)
+                     getCommitmentsMap, mkCommitmentsMapUnsafe)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)
@@ -52,7 +52,6 @@ verifyAndApplySscPayload pm eoh payload = do
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
         whenRight eoh $ const $ verifySscPayload pm eoh payload
-    let blockCerts = spVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload
 
@@ -70,7 +69,13 @@ verifyAndApplySscPayload pm eoh payload = do
             let slot = epochOrSlot (const 0) (indexToCount . siSlot) eos
             when (slotSecurityParam <= slot && slot < 2 * slotSecurityParam) $
                 resetShares
-    mapM_ putCertificate blockCerts
+
+    case payload of
+        CommitmentsPayload _ payloadCerts -> mapM_ putCertificate payloadCerts
+        OpeningsPayload _ payloadCerts    -> mapM_ putCertificate payloadCerts
+        SharesPayload _ payloadCerts      -> mapM_ putCertificate payloadCerts
+        CertificatesPayload payloadCerts  -> mapM_ putCertificate payloadCerts
+
     case payload of
         CommitmentsPayload  comms  _ ->
             mapM_ putCommitment $ toList $ getCommitmentsMap comms

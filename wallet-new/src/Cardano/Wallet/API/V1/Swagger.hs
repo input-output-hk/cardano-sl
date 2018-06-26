@@ -27,14 +27,12 @@ import           Control.Lens ((?~))
 import           Data.Aeson (ToJSON (..), encode)
 import           Data.Aeson.Encode.Pretty
 import           Data.Map (Map)
-import           Data.String.Conv
 import           Data.Swagger hiding (Example, Header, example)
 import           Data.Swagger.Declare
 import           Data.Typeable
 import           Formatting (build, sformat)
 import           NeatInterpolation
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Util.BackupPhrase (BackupPhrase (bpToList))
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (LoggingApi)
@@ -879,7 +877,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ mkDescription $ DescriptionEnvironment
+  & info.description ?~ mkDescription DescriptionEnvironment
     { deErrorExample          = decodeUtf8 $ encodePretty WalletNotFound
     , deMnemonicExample       = decodeUtf8 $ encode (genExample @(Mnemonic 12))
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)

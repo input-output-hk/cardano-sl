@@ -15,7 +15,7 @@ module Cardano.Wallet.API.Response (
   ) where
 
 import           Prelude
-import           Universum (Buildable, Text, decodeUtf8, toText, (<>))
+import           Universum (Buildable, Exception, Text, decodeUtf8, toText, (<>))
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))

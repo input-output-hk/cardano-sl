@@ -28,7 +28,7 @@ import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 
 
-convertTxError :: V0.TxError -> WalletErrorV1
+convertTxError :: V0.TxError -> WalletError
 convertTxError err = case err of
     V0.NotEnoughMoney coin ->
         NotEnoughMoney . fromIntegral . Core.getCoin $ coin

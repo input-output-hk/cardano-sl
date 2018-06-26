@@ -43,7 +43,6 @@ module Cardano.Wallet.API.V1.Types (
   , getAccIndex
   , mkAccountIndex
   , AccountIndexError(..)
-  , renderAccountIndexError
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
@@ -115,20 +114,17 @@ import           Test.QuickCheck.Random (mkQCGen)
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
-import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..), ToServantError (..),
-                                               WalletError (..))
+import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..), ToServantError (..))
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import           Pos.Aeson.Core ()
-import           Pos.Arbitrary.Core ()
 import           Pos.Core (addressF)
 import           Pos.Crypto (decodeHash, hashHexF)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe,
                                          buildSafeList, buildSafeMaybe, deriveSafeBuildable,
                                          plainOrSecureF)
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 
@@ -890,12 +886,7 @@ instance Arbitrary WalletAddress where
 newtype AccountIndex = AccountIndex { getAccIndex :: Word32 }
     deriving (Show, Eq, Ord, Generic)
 
-instance Bounded AccountIndex where
-    -- NOTE: minimum for hardened key. See https://iohk.myjetbrains.com/youtrack/issue/CO-309
-    minBound = AccountIndex 2147483648
-    maxBound = AccountIndex maxBound
-
-data AccountIndexError = AccountIndexError Word32
+newtype AccountIndexError = AccountIndexError Word32
     deriving (Eq, Show)
 
 instance Buildable AccountIndexError where
@@ -911,26 +902,29 @@ mkAccountIndex index
     | index >= getAccIndex minBound = Right $ AccountIndex index
     | otherwise = Left $ AccountIndexError index
 
-renderAccountIndexError :: AccountIndexError -> Text
-renderAccountIndexError =
-    sformat build
+instance Bounded AccountIndex where
+    -- NOTE: minimum for hardened key. See https://iohk.myjetbrains.com/youtrack/issue/CO-309
+    minBound = AccountIndex 2147483648
+    maxBound = AccountIndex maxBound
 
 instance ToJSON AccountIndex where
     toJSON = toJSON . getAccIndex
 
 instance FromJSON AccountIndex where
     parseJSON =
-        either (fail . toString . sformat build) pure
-        . mkAccountIndex
-        <=< parseJSON
+        either fmtFail pure . mkAccountIndex <=< parseJSON
+      where
+        fmtFail = fail . toString . sformat build
 
 instance Arbitrary AccountIndex where
-    arbitrary = AccountIndex <$> choose (getAccIndex minBound, getAccIndex maxBound)
+    arbitrary =
+        AccountIndex <$> choose (getAccIndex minBound, getAccIndex maxBound)
 
 deriveSafeBuildable ''AccountIndex
 -- Nothing secret to redact for a AccountIndex.
 instance BuildableSafeGen AccountIndex where
-    buildSafeGen _ = bprint build . getAccIndex
+    buildSafeGen _ =
+        bprint build . getAccIndex
 
 instance ToParamSchema AccountIndex where
     toParamSchema _ = mempty
@@ -939,13 +933,17 @@ instance ToParamSchema AccountIndex where
         & maximum_ .~ Just (fromIntegral $ getAccIndex maxBound)
 
 instance ToSchema AccountIndex where
-    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
+    declareNamedSchema =
+        pure . paramSchemaToNamedSchema defaultSchemaOptions
 
 instance FromHttpApiData AccountIndex where
-    parseQueryParam = first (sformat build) . mkAccountIndex <=< parseQueryParam
+    parseQueryParam =
+        first (sformat build) . mkAccountIndex <=< parseQueryParam
 
 instance ToHttpApiData AccountIndex where
-    toQueryParam = fromString . show . getAccIndex
+    toQueryParam =
+        fromString . show . getAccIndex
+
 
 -- | A wallet 'Account'.
 data Account = Account

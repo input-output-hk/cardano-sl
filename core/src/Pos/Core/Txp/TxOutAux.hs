@@ -4,6 +4,7 @@ module Pos.Core.Txp.TxOutAux
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
@@ -26,3 +27,5 @@ deriveSimpleBi ''TxOutAux [
     Cons 'TxOutAux [
         Field [| toaOut :: TxOut |]
     ]]
+
+deriveSafeCopySimple 0 'base ''TxOutAux

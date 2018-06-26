@@ -18,6 +18,7 @@ import           Universum
 import           Control.Lens (makeLensesFor)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Hashable (Hashable (..))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 import           Pos.Core.Common (StakeholderId, addressHash)
@@ -121,3 +122,5 @@ getCertId = addressHash . vcSigningKey
 
 toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
 toCertPair vc = (getCertId vc, vc)
+
+deriveSafeCopySimple 0 'base ''VssCertificate

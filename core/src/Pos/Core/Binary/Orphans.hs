@@ -7,10 +7,17 @@ module Pos.Core.Binary.Orphans () where
 import           Universum
 
 import           Data.Hashable (Hashable, hashWithSalt)
+import qualified Data.HashMap.Strict as HM
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
+                                safePut)
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
+import qualified Data.Serialize as Cereal
+import           Data.Time.Units (Microsecond, Millisecond)
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
 import qualified PlutusTypes.ConSig as PLTypes
 import qualified PlutusTypes.Type as PLTypes
+import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import qualified Utils.ABT as ABT
 import qualified Utils.Names as Names
 import qualified Utils.Vars as Vars
@@ -18,7 +25,7 @@ import qualified Utils.Vars as Vars
 import           Pos.Binary.Class (Bi (..), genericDecode, genericEncode,
                      serialize')
 import           Pos.Core.Script ()
-
+import qualified Pos.Util.Modifier as MM
 
 instance Bi Vars.FreeVar where
     encode = genericEncode
@@ -85,3 +92,30 @@ instance Hashable PLCore.Term where
 
 instance Hashable PLCore.Program where
     hashWithSalt s = hashWithSalt s . serialize'
+
+instance (Eq a, Hashable a, SafeCopy a, SafeCopy b) => SafeCopy (HashMap a b) where
+    putCopy = contain . safePut . HM.toList
+    getCopy = contain $ HM.fromList <$> safeGet
+
+instance Cereal.Serialize Byte where
+    get = fromBytes <$> Cereal.get
+    put = Cereal.put . toBytes
+
+instance SafeCopy Byte
+
+instance (SafeCopy k, SafeCopy v, Eq k, Hashable k) => SafeCopy (MM.MapModifier k v) where
+    getCopy = contain $ MM.fromHashMap <$> safeGet
+    putCopy mm = contain $ safePut (MM.toHashMap mm)
+
+
+instance Bi PLCore.Term => SafeCopy PLCore.Term where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
+
+instance Bi PLCore.Program => SafeCopy PLCore.Program where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
+
+
+deriveSafeCopySimple 0 'base ''Microsecond
+deriveSafeCopySimple 0 'base ''Millisecond

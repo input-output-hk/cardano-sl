@@ -8,6 +8,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
@@ -62,3 +63,5 @@ decodeCommitments = do
     unless (allDistinct (map (view _1) comms :: [PublicKey])) $ cborError $
         "decodeCommitments: two commitments have the same signing key"
     pure (mkCommitmentsMap comms)
+
+deriveSafeCopySimple 0 'base ''CommitmentsMap

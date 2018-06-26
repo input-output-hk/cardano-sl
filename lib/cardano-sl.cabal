@@ -52,9 +52,6 @@ library
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
-                        -- SafeCopy serialization (required in wallet)
-                        Pos.SafeCopy
-
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message

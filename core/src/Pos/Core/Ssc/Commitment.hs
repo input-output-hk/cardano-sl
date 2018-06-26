@@ -9,13 +9,20 @@ import           Universum
 
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 
-import           Pos.Core.Slotting (EpochIndex)
-
+<<<<<<< HEAD
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
                      enforceSize, fromBinary, serialize')
 import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature,
                      VssPublicKey)
+=======
+import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen, enforceSize, fromBinary,
+                     serialize')
+import           Pos.Core.Binary ()
+import           Pos.Core.Slotting (EpochIndex)
+import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)
+>>>>>>> [CDEC-377] Reunite SafeCopy instances for core data types
 import           Pos.Util.Util (cborError)
 
 -- | Commitment is a message generated during the first stage of SSC.
@@ -58,3 +65,5 @@ getCommShares =
     traverseOf (each . _1) (rightToMaybe . fromBinary) <=<      -- decode keys
     traverseOf (each . _2 . each) (rightToMaybe . fromBinary) . -- decode shares
     HM.toList . commShares
+
+deriveSafeCopySimple 0 'base ''Commitment

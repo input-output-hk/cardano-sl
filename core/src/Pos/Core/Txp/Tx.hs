@@ -20,7 +20,8 @@ import           Universum
 
 import           Control.Lens (makeLenses, makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as LBS
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
@@ -148,7 +149,7 @@ instance Bi TxIn where
     encode (TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
-        encodeUnknownCborDataItem (BSL.fromStrict bs)
+        encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         enforceSize "TxIn" 2
         tag <- decode @Word8
@@ -182,10 +183,6 @@ instance NFData TxOut
 
 makePrisms ''TxOut
 
---------------------------------------------------------------------------------
--- Tx Lenses
---------------------------------------------------------------------------------
-
 makeLenses ''Tx
 
 deriveSimpleBi ''TxOut [
@@ -193,3 +190,7 @@ deriveSimpleBi ''TxOut [
         Field [| txOutAddress :: Address |],
         Field [| txOutValue   :: Coin    |]
     ]]
+
+deriveSafeCopySimple 0 'base ''TxIn
+deriveSafeCopySimple 0 'base ''TxOut
+deriveSafeCopySimple 0 'base ''Tx

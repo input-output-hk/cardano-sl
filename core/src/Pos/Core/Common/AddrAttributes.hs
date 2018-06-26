@@ -6,6 +6,7 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, builder, (%))
 
 import           Pos.Binary.Class (Bi, decode, encode)
@@ -90,3 +91,5 @@ instance Bi (Attributes AddrAttributes) where
                 0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> Bi.deserialize v
                 1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> Bi.deserialize v
                 _ -> pure Nothing
+
+deriveSafeCopySimple 0 'base ''AddrAttributes

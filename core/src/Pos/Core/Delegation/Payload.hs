@@ -7,6 +7,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, throwError)
 import           Data.Default (Default (def))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, int, (%))
 import           Serokell.Util (allDistinct, listJson)
@@ -45,3 +46,5 @@ checkDlgPayload protocolMagic (UnsafeDlgPayload proxySKs) = do
     unless (allDistinct $ map pskIssuerPk proxySKs) $
         throwError "Some of block's PSKs have the same issuer, which is prohibited"
     forM_ proxySKs (validateProxySecretKey protocolMagic)
+
+deriveSafeCopySimple 0 'base ''DlgPayload

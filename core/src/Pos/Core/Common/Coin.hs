@@ -27,6 +27,7 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Data (Data)
 import qualified Data.Text.Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, int, (%))
 
 import           Pos.Binary.Class (Bi (..))
@@ -131,6 +132,6 @@ unsafeIntegerToCoin :: Integer -> Coin
 unsafeIntegerToCoin n = leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
 {-# INLINE unsafeIntegerToCoin #-}
 
-----------------------------------------------------------------------------
--- CoinPortion
-----------------------------------------------------------------------------
+-- Place this here to avoid TH staging issues.
+deriveSafeCopySimple 0 'base ''Coin
+

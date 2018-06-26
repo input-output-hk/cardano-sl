@@ -8,6 +8,7 @@ module Pos.Core.Update.SoftwareVersion
 import           Universum
 
 import           Control.Monad.Except (MonadError)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, stext, (%))
 import qualified Prelude
@@ -36,6 +37,8 @@ instance Show SoftwareVersion where
 instance Hashable SoftwareVersion
 
 instance NFData SoftwareVersion
+
+deriveSafeCopySimple 0 'base ''SoftwareVersion
 
 -- | A software version is valid iff its application name is valid.
 checkSoftwareVersion :: MonadError Text m => SoftwareVersion -> m ()

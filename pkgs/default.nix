@@ -14516,33 +14516,41 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, basement
 , bytestring
 , cryptonite
 , cryptonite-openssl
 , deepseq
 , fetchgit
+, foundation
 , hashable
+, integer-gmp
 , memory
 , stdenv
 }:
 mkDerivation {
 
 pname = "cardano-crypto";
-version = "1.0.0";
+version = "1.1.0";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-crypto";
-sha256 = "05i1z01fzg0la4hk2ff0l89sk0a5ada81w60kwj9i8ix74jchp94";
-rev = "287cc575fafe86af9d24af9d012c47f9d3f04da0";
+sha256 = "1v165n4cmp4g272406vaaan7bwvrw2m55jwcbz8qqjxslxv1l63p";
+rev = "33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf";
 
 };
+isLibrary = true;
+isExecutable = true;
 libraryHaskellDepends = [
 base
+basement
 bytestring
 cryptonite
 cryptonite-openssl
 deepseq
+foundation
 hashable
+integer-gmp
 memory
 ];
 doHaddock = false;
@@ -17985,7 +17993,9 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , base58-bytestring
+, basement
 , bytestring
+, cardano-crypto
 , cardano-sl
 , cardano-sl-block
 , cardano-sl-client
@@ -18073,7 +18083,9 @@ aeson
 async
 base
 base58-bytestring
+basement
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-block
 cardano-sl-client
@@ -18141,8 +18153,10 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-block
 cardano-sl-client
@@ -18163,6 +18177,7 @@ cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
 data-default
 deepseq
 ekg-core
@@ -18171,9 +18186,11 @@ formatting
 hspec
 lens
 log-warper
+memory
 MonadRandom
 mtl
 QuickCheck
+quickcheck-instances
 safe-exceptions
 safecopy
 serokell-util

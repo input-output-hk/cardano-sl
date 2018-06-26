@@ -14,7 +14,6 @@ import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           Universum
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants, IsMainHeader,
                            LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
@@ -45,7 +44,7 @@ verifyAndApplySscPayload
         MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants)
     => Trace m LogItem
     -> ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifyAndApplySscPayload logTrace pm eoh payload = do
+verifyAndApplySscPayload  logTrace pm eoh payload = do
     -- Check the payload for internal consistency.
     either (throwError . SscInvalidPayload) pure (checkSscPayload pm payload)
     -- We can't trust payload from mempool, so we must call

@@ -46,14 +46,14 @@ import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
-                              sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM, syncingStateWith)
+                              sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM{-, syncingStateWith-})
 import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,
                                execTossT, hasCertificateToss, hasCommitmentToss, hasOpeningToss,
                                hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
                                supplyPureTossEnv, tmCertificates, tmCommitments, tmOpenings,
                                tmShares, verifyAndApplySscPayload, pureTossWithEnvTrace)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
-                                sscGlobal, sscLocal)
+                                sscGlobal)
 import           Pos.Util.Trace (Trace, natTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)
@@ -69,8 +69,8 @@ sscGetLocalPayload logTrace si = sscRunLocalQuery (sscGetLocalPayloadQ si logTra
 
 sscGetLocalPayloadQ
   :: (HasProtocolConstants)
-  => SlotId -> Trace m LogItem-> SscLocalQuery SscPayload
-sscGetLocalPayloadQ SlotId {..} logTrace= do
+  => SlotId -> SscLocalQuery SscPayload
+sscGetLocalPayloadQ SlotId {..} logTrace = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <- 
@@ -109,12 +109,12 @@ sscNormalize logTrace pm = do
     richmenData <- getSscRichmen "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
-    localVar <- sscLocal <$> askSscMem
+    --localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
     seed <- Rand.drgNew
 
     sscRunLocalSTM logTrace $
-        syncingStateWith localVar $
+        --syncingStateWith localVar  $
         executeMonadBaseRandom seed $
         sscNormalizeU pm (tipEpoch, richmenData) bvd gs
   where
@@ -129,16 +129,14 @@ sscNormalizeU
     -> SscGlobalState
     -> SscLocalUpdate ()
 sscNormalizeU pm (epoch, stake) bvd gs = do
-    oldModifier <- use ldModifier
+    oldModifier <- lift $ use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
         logTrace = contramap DList.singleton writerTrace
     newModifier <-
-        evalPureTossWithLogger gs logTrace $
-        supplyPureTossEnv (multiRichmen, bvd) $
-        execTossT mempty $
-        normalizeToss
-            (natTrace lift pureTossWithEnvTrace)
-            pm epoch oldModifier
+        evalPureTossWithLogger gs logTrace $ supplyPureTossEnv (multiRichmen, bvd) $
+        execTossT mempty $ normalizeToss
+        (natTrace lift pureTossWithEnvTrace)
+        pm epoch oldModifier
     ldModifier .= newModifier
     ldEpoch .= epoch
     ldSize .= biSize newModifier
@@ -301,8 +299,8 @@ sscProcessDataDo logTrace pm richmenData bvd gs payload =
                | otherwise ->
                    evalPureTossWithLogger gs (natTrace lift logTrace) .
                    supplyPureTossEnv (multiRichmen, bvd) .
-                   execTossT mempty . refreshToss (natTrace lift pureTossWithEnvTrace) givenEpoch =<<
-                   use ldModifier
+                   execTossT mempty . refreshToss (natTrace lift pureTossWithEnvTrace) pm givenEpoch =<<
+                   use  ldModifier
         newTM <-
             ExceptT $
             evalPureTossWithLogger gs logTrace $
@@ -310,8 +308,8 @@ sscProcessDataDo logTrace pm richmenData bvd gs payload =
             runExceptT $
             execTossT oldTM $ 
             verifyAndApplySscPayload
-                pm
                 (natTrace (lift .lift) pureTossWithEnvTrace) 
+                pm
                 (Left storedEpoch)
                 payload
         ldModifier .= newTM

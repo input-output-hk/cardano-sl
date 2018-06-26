@@ -8,9 +8,9 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import           Data.SafeCopy (SafeCopy (..))
 
-import qualified Pos.Core   as Core
+import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
-import qualified Pos.Txp    as Core
+import qualified Pos.Txp as Core
 
 {-------------------------------------------------------------------------------
   Wrap core types so that we can make independent serialization decisions
@@ -69,6 +69,16 @@ instance SafeCopy (InDb Core.TxAux) where
 instance SafeCopy (InDb Core.TxIn) where
   getCopy = error "TODO: getCopy for (InDb Core.TxIn)"
   putCopy = error "TODO: putCopy for (InDb Core.TxIn)"
+
+-- NOTE(adn) This will be provided by @ouroboros as part of work on the BlockMeta
+-- storage.
+instance SafeCopy (InDb Core.TxId) where
+  getCopy = error "TODO: getCopy for (InDb Core.TxId)"
+  putCopy = error "TODO: putCopy for (InDb Core.TxId)"
+
+instance SafeCopy (InDb a) => SafeCopy (InDb (Set a)) where
+  getCopy = error "TODO: getCopy for (InDb (Set a))"
+  putCopy = error "TODO: putCopy for (InDb (Set a))"
 
 instance SafeCopy (InDb (Map Core.TxId Core.SlotId)) where
   getCopy = error "TODO: getCopy for (InDb (Map Core.TxId Core.SlotId))"

@@ -22,6 +22,7 @@ import           Control.Lens (Iso', iso, lens, makeLensesFor)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, ords, (%))
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
                                                   slotSecurityParam)
 import           Pos.Util.Util (leftToPanic)
@@ -101,3 +102,11 @@ crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
     siSlot =
         leftToPanic "crucialSlot: " $
         mkLocalSlotIndex (fromIntegral (fromIntegral epochSlots - slotSecurityParam - 1))
+
+-- TH instances
+
+deriveSimpleBi ''SlotId [
+    Cons 'SlotId [
+        Field [| siEpoch :: EpochIndex     |],
+        Field [| siSlot  :: LocalSlotIndex |]
+    ]]

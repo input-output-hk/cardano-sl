@@ -12,7 +12,6 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, stext, (%))
 import           Serokell.Util (Color (Magenta), colorize, listJson)
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))
 import           Pos.Core.Block.Main.Lens (mainBlockBlockVersion, mainBlockDifficulty,
                                            mainBlockSlot, mainBlockSoftwareVersion,
@@ -33,7 +32,7 @@ import           Pos.Crypto (hashHexF)
 
 instance NFData MainBlock
 
-instance Bi BlockHeader => Buildable MainBlockHeader where
+instance Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -57,7 +56,7 @@ instance Bi BlockHeader => Buildable MainBlockHeader where
         gbhHeaderHash = blockHeaderHash $ BlockHeaderMain gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance (Bi BlockHeader) => Buildable MainBlock where
+instance Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -92,16 +91,10 @@ instance HasEpochOrSlot MainBlockHeader where
 instance HasEpochOrSlot MainBlock where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
 
--- NB. it's not a mistake that these instances require @Bi BlockHeader@
--- instead of @Bi MainBlockHeader@. We compute header's hash by
--- converting it to a BlockHeader first.
-
-instance Bi BlockHeader =>
-         HasHeaderHash MainBlockHeader where
+instance HasHeaderHash MainBlockHeader where
     headerHash = blockHeaderHash . BlockHeaderMain
 
-instance Bi BlockHeader =>
-         HasHeaderHash MainBlock where
+instance HasHeaderHash MainBlock where
     headerHash = blockHeaderHash . BlockHeaderMain . _gbHeader
 
 instance HasDifficulty MainConsensusData where
@@ -131,8 +124,8 @@ instance HasBlockVersion MainBlockHeader where
 instance HasSoftwareVersion MainBlockHeader where
     softwareVersionL = mainHeaderSoftwareVersion
 
-instance Bi BlockHeader => IsHeader MainBlockHeader
+instance IsHeader MainBlockHeader
 
-instance Bi BlockHeader => IsMainHeader MainBlockHeader where
+instance IsMainHeader MainBlockHeader where
     headerSlotL = mainHeaderSlot
     headerLeaderKeyL = mainHeaderLeaderKey

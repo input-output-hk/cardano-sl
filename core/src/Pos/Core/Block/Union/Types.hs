@@ -44,16 +44,15 @@ module Pos.Core.Block.Union.Types
        , module Pos.Core.Block.Main.Types
        ) where
 
+import           Codec.CBOR.Decoding (decodeWordCanonical)
+import           Codec.CBOR.Encoding (encodeWord)
 import           Control.Lens (Getter, LensLike', choosing, makePrisms, to)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core.Delegation ()
-import           Pos.Binary.Core.Ssc ()
-import           Pos.Binary.Core.Txp ()
-import           Pos.Binary.Core.Update ()
+import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,
+                                   encodeListLen, enforceSize)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbHeader, gbhPrevBlock)
 import           Pos.Core.Block.Genesis.Types
@@ -66,6 +65,7 @@ import           Pos.Core.Txp (mkTxProof)
 import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
+import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------
 -- GenesisBlockchain
@@ -130,6 +130,20 @@ instance Buildable BlockSignature where
     build (BlockPSignatureLight s) = bprint ("BlockPSignatureLight: "%build) s
     build (BlockPSignatureHeavy s) = bprint ("BlockPSignatureHeavy: "%build) s
 
+instance Bi BlockSignature where
+    encode input = case input of
+        BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
+        BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
+        BlockPSignatureHeavy pxy -> encodeListLen 2 <> encode (2 :: Word8) <> encode pxy
+    decode = do
+        enforceSize "BlockSignature" 2
+        tag <- decode @Word8
+        case tag of
+          0 -> BlockSignature <$> decode
+          1 -> BlockPSignatureLight <$> decode
+          2 -> BlockPSignatureHeavy <$> decode
+          _ -> cborError $ "decode@BlockSignature: unknown tag: " <> show tag
+
 -- | Data to be signed in main block.
 data MainToSign
     = MainToSign
@@ -144,6 +158,21 @@ data MainToSign
 deriving instance Show MainToSign
 deriving instance Eq MainToSign
 
+instance Bi MainToSign where
+    encode mts = encodeListLen 5
+               <> encode (_msHeaderHash mts)
+               <> encode (_msBodyProof mts)
+               <> encode (_msSlot mts)
+               <> encode (_msChainDiff mts)
+               <> encode (_msExtraHeader mts)
+    decode = do
+        enforceSize "MainToSign" 5
+        MainToSign <$> decode <*>
+                          decode <*>
+                          decode <*>
+                          decode <*>
+                          decode
+
 data MainConsensusData = MainConsensusData
     { -- | Id of the slot for which this block was generated.
       _mcdSlot       :: !SlotId
@@ -157,6 +186,19 @@ data MainConsensusData = MainConsensusData
     } deriving (Generic, Show, Eq)
 
 instance NFData MainConsensusData
+
+instance Bi MainConsensusData where
+    encode cd =  encodeListLen 4
+              <> encode (_mcdSlot cd)
+              <> encode (_mcdLeaderKey cd)
+              <> encode (_mcdDifficulty cd)
+              <> encode (_mcdSignature cd)
+    decode = do
+        enforceSize "ConsensusData MainBlockchain)" 4
+        MainConsensusData <$> decode <*>
+                                 decode <*>
+                                 decode <*>
+                                 decode
 
 instance ( Bi BlockHeader
          , Bi MainProof) =>
@@ -196,6 +238,14 @@ deriving instance Generic BlockHeader
 deriving instance (Eq GenesisBlockHeader, Eq MainBlockHeader) => Eq BlockHeader
 deriving instance (Show GenesisBlockHeader, Show MainBlockHeader) => Show BlockHeader
 
+instance
+    ( NFData GenesisBlockHeader
+    , NFData MainBlockHeader
+    )
+    => NFData BlockHeader where
+    rnf (BlockHeaderGenesis header) = rnf header
+    rnf (BlockHeaderMain header) = rnf header
+
 choosingBlockHeader :: Functor f =>
        LensLike' f GenesisBlockHeader r
     -> LensLike' f MainBlockHeader r
@@ -203,6 +253,21 @@ choosingBlockHeader :: Functor f =>
 choosingBlockHeader onGenesis onMain f = \case
     BlockHeaderGenesis bh -> BlockHeaderGenesis <$> onGenesis f bh
     BlockHeaderMain bh -> BlockHeaderMain <$> onMain f bh
+
+instance Bi BlockHeader where
+   encode x = encodeListLen 2 <> encodeWord tag <> body
+     where
+       (tag, body) = case x of
+         BlockHeaderGenesis bh -> (0, encode bh)
+         BlockHeaderMain bh    -> (1, encode bh)
+
+   decode = do
+       decodeListLenCanonicalOf 2
+       t <- decodeWordCanonical
+       case t of
+           0 -> BlockHeaderGenesis <$!> decode
+           1 -> BlockHeaderMain <$!> decode
+           _ -> cborError $ "decode@BlockHeader: unknown tag " <> pretty t
 
 -- | Block.
 type Block = Either GenesisBlock MainBlock
@@ -262,6 +327,10 @@ instance (BHeaderHash b ~ HeaderHash) =>
 instance (BHeaderHash b ~ HeaderHash) =>
          HasPrevBlock (GenericBlock b) where
     prevBlockL = gbHeader . gbhPrevBlock
+
+instance HasPrevBlock BlockHeader where
+    prevBlockL = choosingBlockHeader prevBlockL prevBlockL
+
 
 -- | The 'ProtocolMagic' in a 'BlockHeader'.
 blockHeaderProtocolMagic :: BlockHeader -> ProtocolMagic

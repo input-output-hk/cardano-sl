@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 -- the Getter instances from lens cause a redundant Functor
@@ -15,7 +16,6 @@ import           Universum
 import           Control.Lens (Getter, choosing, lens, to)
 import qualified Data.Text.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()
 import           Pos.Core.Block.Main ()
@@ -31,8 +31,7 @@ import           Pos.Util.Some (Some)
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance Bi BlockHeader =>
-         Buildable BlockHeader where
+instance Buildable BlockHeader where
     build = \case
         BlockHeaderGenesis bhg -> Buildable.build bhg
         BlockHeaderMain    bhm -> Buildable.build bhm
@@ -41,12 +40,10 @@ instance Bi BlockHeader =>
 -- HasHeaderHash
 ----------------------------------------------------------------------------
 
-instance Bi BlockHeader =>
-         HasHeaderHash BlockHeader where
+instance  HasHeaderHash BlockHeader where
     headerHash = blockHeaderHash
 
-instance Bi BlockHeader =>
-         HasHeaderHash Block where
+instance HasHeaderHash Block where
     headerHash = blockHeaderHash . getBlockHeader
 
 -- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
@@ -90,14 +87,11 @@ instance HasEpochIndex BlockHeader where
 -- IsHeader
 ----------------------------------------------------------------------------
 
-instance Bi BlockHeader => IsHeader BlockHeader
+instance IsHeader BlockHeader
 
 ----------------------------------------------------------------------------
 -- HasPrevBlock
 ----------------------------------------------------------------------------
-
-instance HasPrevBlock BlockHeader where
-    prevBlockL = choosingBlockHeader prevBlockL prevBlockL
 
 instance HasPrevBlock (ComponentBlock a) where
     prevBlockL = lens getter setter

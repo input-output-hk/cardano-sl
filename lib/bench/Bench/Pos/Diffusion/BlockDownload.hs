@@ -15,7 +15,7 @@ module Bench.Pos.Diffusion.BlockDownload where
 import           Universum
 
 import           Control.Concurrent.STM (readTBQueue)
-import           Control.DeepSeq (NFData, force)
+import           Control.DeepSeq (force)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Criterion
 import qualified Criterion.Main as Criterion
@@ -286,14 +286,6 @@ blockDownloadStreamBenchmarks serverAddress setStreamIORef client =
 runBlockDownloadBenchmark :: Criterion.Mode -> NodeId -> (Int -> IO ()) -> Diffusion IO -> IO ()
 runBlockDownloadBenchmark mode serverAddress setStreamIORef client =
     Criterion.runMode mode $ blockDownloadBenchmarks serverAddress setStreamIORef client
-
--- It's surprisingly cumbersome to give a non-orphan 'NFData' instance on
--- 'BlockHeader', since we have that 'Blockchain' typeclass with a bunch of
--- data families. 'BHeaderHash GenesisBlockchain', for instance, must have
--- an 'NFData' instance, but in that module we don't yet know that this is
--- in fact 'HeaderHash' ~ 'Crypto.Digest Blake2b_256'.
--- Anyway, there's a whole saga of pain caused by that silly abstraction.
-instance NFData BlockHeader
 
 runBenchmark :: IO ()
 runBenchmark = do

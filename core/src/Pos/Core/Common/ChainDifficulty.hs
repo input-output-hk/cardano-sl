@@ -8,6 +8,7 @@ import           Universum
 
 import           Pos.Util.Some (Some, liftLensSome)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common.BlockCount
 
 -- | Chain difficulty represents necessary effort to generate a
@@ -24,3 +25,8 @@ instance HasDifficulty (Some HasDifficulty) where
 
 isMoreDifficult :: HasDifficulty a => a -> a -> Bool
 a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
+
+deriveSimpleBi ''ChainDifficulty [
+    Cons 'ChainDifficulty [
+        Field [| getChainDifficulty :: BlockCount |]
+    ]]

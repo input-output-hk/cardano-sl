@@ -10,6 +10,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Units (Microsecond)
 import qualified Prelude
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Slotting.Timestamp
 
 -- | Difference between two timestamps
@@ -25,6 +26,10 @@ instance Read TimeDiff where
 
 instance Buildable TimeDiff where
     build = Buildable.build . toInteger
+
+instance Bi TimeDiff where
+    encode = encode . toInteger
+    decode = fromInteger <$> decode
 
 instance NFData TimeDiff where
     rnf TimeDiff{..} = rnf (toInteger getTimeDiff)

@@ -27,6 +27,8 @@ import           Pos.Crypto (decodeHash)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 import           Servant (err422)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Gen (oneof)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Control.Lens as Lens
@@ -346,6 +348,11 @@ instance FromJSON MigrationError where
     parseJSON = gparseJsend
 
 instance Exception MigrationError
+
+instance Arbitrary MigrationError where
+    arbitrary = oneof
+        [ pure $ MigrationFailed "Migration failed."
+        ]
 
 instance Buildable MigrationError where
     build = \case

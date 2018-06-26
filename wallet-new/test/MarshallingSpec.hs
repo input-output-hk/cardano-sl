@@ -24,8 +24,8 @@ import qualified Pos.Core as Core
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
-import           Cardano.Wallet.API.V1.Errors (WalletError)
-import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
+import           Cardano.Wallet.API.Response (JSONValidationError)
+import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..), MigrationError)
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import qualified Cardano.Wallet.Util as Util
@@ -53,6 +53,8 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionStatus Proxy
         aesonRoundtripProp @WalletError Proxy
+        aesonRoundtripProp @JSONValidationError Proxy
+        aesonRoundtripProp @MigrationError Proxy
         aesonRoundtripProp @WalletId Proxy
         aesonRoundtripProp @Wallet Proxy
         aesonRoundtripProp @SlotDuration Proxy
@@ -145,7 +147,7 @@ migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, 
 migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do
     (eitherMigrate =<< migrateTo arbitraryFrom) === Right arbitraryFrom
   where
-    migrateTo x = eitherMigrate x :: Either WalletError to
+    migrateTo x = eitherMigrate x :: Either MigrationError to
 
 migrateRoundtripProp
     :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from, Typeable from, Typeable to)

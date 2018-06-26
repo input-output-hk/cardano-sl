@@ -208,6 +208,11 @@ instance FromJSON JSONValidationError where
 
 instance Exception JSONValidationError
 
+instance Arbitrary JSONValidationError where
+    arbitrary = oneof
+        [ pure $ JSONValidationFailed "JSON validation failed."
+        ]
+
 instance Buildable JSONValidationError where
     build = \case
         JSONValidationFailed _ ->

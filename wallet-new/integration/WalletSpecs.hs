@@ -63,8 +63,10 @@ walletSpecs _ wc = do
                         }
             -- First wallet creation/restoration should succeed
             result <- postWallet wc newWallet1
-            void $ result `shouldPrism` _Right
+            wallet <- fmap wrData (result `shouldPrism` _Right)
             -- Second wallet creation/restoration should rise WalletAlreadyExists
             eresp <- postWallet wc newWallet2
             clientError <- eresp `shouldPrism` _Left
-            clientError `shouldBe` ClientWalletError WalletAlreadyExists
+            clientError
+                `shouldBe`
+                    ClientWalletError (WalletAlreadyExists (walId wallet))

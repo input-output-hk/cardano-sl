@@ -26,7 +26,6 @@ import qualified Pos.Core as Core
 
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0
-import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic,
                      MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -80,8 +79,8 @@ newWallet NewWallet{..} = do
     -- is still catching up.
     unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
 
-    let newWalletHandler CreateWallet  = V0.newWallet
-        newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
+    let newWalletHandler CreateWallet  = V0.newWalletNoThrow
+        newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
         (BackupPhrase backupPhrase) = newwalBackupPhrase
     initMeta <- V0.CWalletMeta <$> pure newwalName
@@ -89,18 +88,14 @@ newWallet NewWallet{..} = do
                               <*> pure 0
     let walletInit = V0.CWalletInit initMeta (V0.CBackupPhrase backupPhrase)
     single <$> do
-        v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
-                        `catch` rethrowDuplicateMnemonic
-        ss <- V0.askWalletSnapshot
-        addWalletInfo ss v0wallet
-  where
-    -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
-    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
-    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
-    rethrowDuplicateMnemonic (e :: V0.WalletError) =
-        case e of
-            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
-            _ -> throwM e
+        ev0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+        case ev0wallet of
+            Left cidWal -> do
+                walletId <- migrate cidWal
+                throwM (WalletAlreadyExists walletId)
+            Right v0wallet -> do
+                ss <- V0.askWalletSnapshot
+                addWalletInfo ss v0wallet
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: ( MonadThrow m

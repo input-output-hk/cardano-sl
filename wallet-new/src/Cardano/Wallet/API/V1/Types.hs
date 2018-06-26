@@ -34,6 +34,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
+  , exampleWalletId
   , WalletOperation (..)
   , SpendingPassword
   -- * Addresses
@@ -428,6 +429,9 @@ instance BuildableSafeGen AssuranceLevel where
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
+exampleWalletId :: WalletId
+exampleWalletId = WalletId "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+
 deriveJSON Serokell.defaultOptions ''WalletId
 
 instance ToSchema WalletId where
@@ -436,9 +440,7 @@ instance ToSchema WalletId where
 instance ToJSONKey WalletId
 
 instance Arbitrary WalletId where
-  arbitrary =
-      let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-          in WalletId <$> elements [wid]
+    arbitrary = elements [exampleWalletId]
 
 deriveSafeBuildable ''WalletId
 instance BuildableSafeGen WalletId where

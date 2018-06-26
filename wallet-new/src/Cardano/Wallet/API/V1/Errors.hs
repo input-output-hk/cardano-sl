@@ -7,9 +7,6 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
-                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
-                     mkSyncThroughput)
 import           Data.Aeson
 import           Data.Aeson.Encoding (pairStr)
 import           Data.Aeson.Types (Value (..), typeMismatch)
@@ -18,14 +15,19 @@ import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Formatting (build, sformat)
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
-import           Servant
-import           Test.QuickCheck (Arbitrary (..), oneof)
-
 import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto.Hashing as Crypto
 import           Pos.Util.Util (aesonError)
+import           Servant
+import           Test.QuickCheck (Arbitrary (..), oneof)
+
+import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
+                     V1 (..), WalletId, exampleWalletId,
+                     mkEstimatedCompletionTime, mkSyncPercentage,
+                     mkSyncThroughput)
+
 
 --
 -- Error handling
@@ -73,7 +75,7 @@ data WalletError =
     | InvalidAddressFormat !Text
     | WalletNotFound
     -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
-    | WalletAlreadyExists
+    | WalletAlreadyExists { weWalletId :: WalletId }
     | AddressNotFound
     | TxFailedToStabilize
     | InvalidPublicKey !Text
@@ -163,9 +165,9 @@ instance ToJSON WalletError where
         pairs $ pairStr "status" (toEncoding $ String "error")
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "WalletNotFound"
-    toEncoding (WalletAlreadyExists) =
+    toEncoding (WalletAlreadyExists wid) =
         pairs $ pairStr "status" (toEncoding $ String "error")
-             <> pairStr "diagnostic" (pairs $ mempty)
+             <> pairStr "diagnostic" (pairs $ pairStr "walletId" (toEncoding wid))
              <> "message" .= String "WalletAlreadyExists"
     toEncoding (AddressNotFound) =
         pairs $ pairStr "status" (toEncoding $ String "error")
@@ -235,7 +237,8 @@ instance FromJSON WalletError where
                     InvalidAddressFormat
                         <$> ((o .: "diagnostic") >>= (.: "msg"))
                 Just "WalletNotFound"        -> pure WalletNotFound
-                Just "WalletAlreadyExists"   -> pure WalletAlreadyExists
+                Just "WalletAlreadyExists"   ->
+                    WalletAlreadyExists <$> ((o .: "diagnostic") >>= (.: "walletId"))
                 Just "AddressNotFound"       -> pure AddressNotFound
                 Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
                 Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
@@ -318,7 +321,7 @@ sample =
   , UnknownError "Unknown error"
   , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
-  , WalletAlreadyExists
+  , WalletAlreadyExists exampleWalletId
   , AddressNotFound
   , InvalidPublicKey "Invalid root public key for external wallet."
   , UnsignedTxCreationError
@@ -348,7 +351,7 @@ describe = \case
          "Provided address format is not valid."
     WalletNotFound ->
          "Reference to an unexisting wallet was given."
-    WalletAlreadyExists ->
+    WalletAlreadyExists _ ->
          "Can't create or restore a wallet. The wallet already exists."
     AddressNotFound ->
          "Reference to an unexisting address was given."

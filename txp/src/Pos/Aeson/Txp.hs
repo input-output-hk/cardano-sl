@@ -58,17 +58,17 @@ instance ToJSON TxOut where
 
 instance ToJSON TxInWitness where
     toJSON = \case
-        PkWitness{..} -> object
+        PkWitness twKey twSig -> object
             [ "tag" .= ("PkWitness" :: Text)
             , "key" .= twKey
             , "sig" .= twSig
             ]
-        ScriptWitness{..} -> object
+        ScriptWitness twValidator twRedeemer -> object
             [ "tag" .= ("ScriptWitness" :: Text)
             , "validator" .= twValidator
             , "redeemer" .= twRedeemer
             ]
-        RedeemWitness{..} -> object
+        RedeemWitness twRedeemKey twRedeemSig -> object
             [ "tag" .= ("RedeemWitness" :: Text)
             , "redeemKey" .= twRedeemKey
             , "redeemSig" .= twRedeemSig

@@ -5,19 +5,16 @@ module Test.Pos.Util.MnemonicSpec where
 
 import           Universum
 
-import           Data.Default (def)
-import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck ((===))
-
 import           Crypto.Encoding.BIP39 (toEntropy)
+import           Data.Default (def)
 import           Pos.Crypto (AesKey (..))
-import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic,
-                     MnemonicErr (..), entropyToMnemonic, mkEntropy,
-                     mkMnemonic, mnemonicToAesKey, mnemonicToEntropy,
-                     mnemonicToSeed)
+import           Pos.Util.Mnemonic
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..))
+import           Test.Hspec (Spec, describe, it, shouldBe, shouldReturn,
+                     shouldSatisfy)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck ((===))
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Data.Aeson as Aeson
@@ -54,25 +51,31 @@ spec = do
 
     describe "golden tests" $ do
         it "No example mnemonic" $
-            (mkMnemonic @12 defMnemonic) `shouldSatisfy` isLeft
+            mkMnemonic @12 defMnemonic `shouldSatisfy` isLeft
 
         it "No empty mnemonic" $
-            (mkMnemonic @12 []) `shouldSatisfy` isLeft
+            mkMnemonic @12 [] `shouldSatisfy` isLeft
 
         it "No empty entropy" $
-            (mkEntropy @(EntropySize 12) "") `shouldSatisfy` isLeft
+            mkEntropy @(EntropySize 12) "" `shouldSatisfy` isLeft
+
+        it "Can generate 96 bits entropy" $
+            (length . entropyToByteString <$> genEntropy @96) `shouldReturn` 12
+
+        it "Can generate 128 bits entropy" $
+            (length . entropyToByteString <$> genEntropy @128) `shouldReturn` 16
 
         it "Mnemonic to JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
             Aeson.encode mnemonic `shouldBe` bytes
 
         it "Mnemonic from JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
-            Aeson.decode bytes `shouldBe` (pure mnemonic)
+            Aeson.decode bytes `shouldBe` pure mnemonic
 
         it "CBackupPhrase to JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
-            Aeson.encode (CBackupPhrase mnemonic) `shouldBe` (jsonV0Compat bytes)
+            Aeson.encode (CBackupPhrase mnemonic) `shouldBe` jsonV0Compat bytes
 
         it "CBackupPhrase from JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
-            Aeson.decode (jsonV0Compat bytes) `shouldBe` (pure $ CBackupPhrase mnemonic)
+            Aeson.decode (jsonV0Compat bytes) `shouldBe` pure (CBackupPhrase mnemonic)
 
         it "Mnemonic to Entropy" $ forM_ testVectors $ \(_, entropy, mnemonic, _, _) ->
             mnemonicToEntropy mnemonic `shouldBe` entropy

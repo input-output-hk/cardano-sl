@@ -23,7 +23,7 @@ import           Data.Semigroup (Semigroup)
 
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
-                                  NumSoftwareVersion, SoftwareVersion, UpId)
+                     NumSoftwareVersion, SoftwareVersion, UpId)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState)
 import           Pos.Util.Modifier (MapModifier)

@@ -24,9 +24,8 @@ import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion, maybeToPrev,
-                                        psProposal, unChangedBVL, unChangedConfPropsL,
-                                        unChangedPropsL, unChangedSVL, unLastAdoptedBVL,
-                                        unPrevProposersL, unSlottingDataL)
+                     psProposal, unChangedBVL, unChangedConfPropsL, unChangedPropsL, unChangedSVL,
+                     unLastAdoptedBVL, unPrevProposersL, unSlottingDataL)
 import           Pos.Util.Util (ether)
 
 type RollT m = Ether.LazyStateT' USUndo m

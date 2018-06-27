@@ -27,10 +27,9 @@ import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), 
-                                   encodeListLen, encodeKnownCborDataItem, enforceSize,
-                                   encodeUnknownCborDataItem, decodeKnownCborDataItem,
-                                   decodeUnknownCborDataItem, deriveSimpleBi)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
+                     decodeUnknownCborDataItem, deriveSimpleBi, encodeKnownCborDataItem,
+                     encodeListLen, encodeUnknownCborDataItem, enforceSize)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF)
 import           Pos.Crypto (Hash, hash, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)

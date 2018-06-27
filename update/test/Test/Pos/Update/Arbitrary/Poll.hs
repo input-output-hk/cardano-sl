@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE NoImplicitPrelude    #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -21,13 +21,12 @@ import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
-                                        DecidedProposalState (..), DpsExtra (..), PrevValue,
-                                        ProposalState (..), USUndo, UndecidedProposalState (..),
-                                        UpsExtra (..))
+                     DecidedProposalState (..), DpsExtra (..), PrevValue, ProposalState (..),
+                     USUndo, UndecidedProposalState (..), UpsExtra (..))
 
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Util.Modifier ()
 import           Test.Pos.Update.Arbitrary.Core ()
+import           Test.Pos.Util.Modifier ()
 
 instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary

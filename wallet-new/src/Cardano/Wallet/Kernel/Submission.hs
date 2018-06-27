@@ -70,7 +70,7 @@ import           Test.QuickCheck
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
-                                                removePending, unionPending)
+                     removePending, unionPending)
 import qualified Pos.Core as Core
 
 -- | Wallet Submission Layer

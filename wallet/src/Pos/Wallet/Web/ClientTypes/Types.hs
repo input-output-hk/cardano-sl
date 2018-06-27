@@ -78,9 +78,9 @@ import           Data.Version (Version)
 import           Formatting (bprint, build, builder, later, shown, (%))
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
-                           unsafeGetCoin)
+                     unsafeGetCoin)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
-                                         deriveSafeBuildable, secretOnlyF, secureListF)
+                     deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 import           Serokell.Util (listJsonIndent, mapBuilder)

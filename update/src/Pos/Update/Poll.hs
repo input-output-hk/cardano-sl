@@ -13,13 +13,13 @@ module Pos.Update.Poll
        , module Pos.Update.Poll.Logic
        ) where
 
-import           Pos.Update.Poll.DBPoll
 import           Pos.Update.Poll.Class
+import           Pos.Update.Poll.DBPoll
 import           Pos.Update.Poll.Failure
+import           Pos.Update.Poll.Logic
 import           Pos.Update.Poll.Modifier
 import           Pos.Update.Poll.PollState
 import           Pos.Update.Poll.Pure
 import           Pos.Update.Poll.RollTrans
 import           Pos.Update.Poll.Trans
 import           Pos.Update.Poll.Types
-import           Pos.Update.Poll.Logic

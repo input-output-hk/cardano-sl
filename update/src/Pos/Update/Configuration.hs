@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | Propagation of runtime configuration.
 

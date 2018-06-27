@@ -12,7 +12,7 @@ import           Pos.Core (ApplicationName, BlockVersion, NumSoftwareVersion, So
 import           Pos.Core.Update (UpId)
 import           Pos.Update.Poll.Class (MonadPoll (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, PrevValue (..),
-                                        ProposalState (..), USUndo (..))
+                     ProposalState (..), USUndo (..))
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.

@@ -25,7 +25,7 @@ import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen, enforceSize)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, SignTag (SignVssCert), Signature,
-                             VssPublicKey, checkSig, sign, toPublic)
+                     VssPublicKey, checkSig, sign, toPublic)
 
 -- | VssCertificate allows VssPublicKey to participate in MPC. Each
 -- stakeholder should create a Vss keypair, sign VSS public key with signing

@@ -24,7 +24,7 @@ import           Universum
 import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
-                                              NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
+                     NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))

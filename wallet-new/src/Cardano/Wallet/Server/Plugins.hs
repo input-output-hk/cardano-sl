@@ -27,10 +27,9 @@ import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
 import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
-                                            WalletBackendParams (..), isDebugMode,
-                                            walletAcidInterval, walletDbOptions)
+                     WalletBackendParams (..), isDebugMode, walletAcidInterval, walletDbOptions)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
-                                             bracketKernelActiveWallet)
+                     bracketKernelActiveWallet)
 import qualified Pos.Wallet.Web.Error.Types as V0
 
 import           Control.Exception (fromException)
@@ -41,7 +40,7 @@ import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
-                                              simpleCorsResourcePolicy, simpleMethods)
+                     simpleCorsResourcePolicy, simpleMethods)
 import           Ntp.Client (NtpStatus)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)

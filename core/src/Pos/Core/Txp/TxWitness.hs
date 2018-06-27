@@ -12,13 +12,12 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Base16 (base16F)
 
-import           Pos.Binary.Class (Bi (..), encodeListLen, encodeKnownCborDataItem,
-                                   encodeUnknownCborDataItem, decodeKnownCborDataItem,
-                                   decodeUnknownCborDataItem, decodeListLenCanonical,
-                                   matchSize)
+import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem, decodeListLenCanonical,
+                     decodeUnknownCborDataItem, encodeKnownCborDataItem, encodeListLen,
+                     encodeUnknownCborDataItem, matchSize)
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
-                             shortHashF)
+                     shortHashF)
 
 import           Pos.Core.Txp.Tx (Tx)
 

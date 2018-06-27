@@ -75845,6 +75845,75 @@ description = "Strict GC'd imperative object-oriented programming with cheap poi
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
+"stylish-haskell" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, bytestring
+, containers
+, directory
+, fetchgit
+, file-embed
+, filepath
+, haskell-src-exts
+, mtl
+, optparse-applicative
+, semigroups
+, stdenv
+, strict
+, syb
+, yaml
+}:
+mkDerivation {
+
+pname = "stylish-haskell";
+version = "0.9.2.0";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/stylish-haskell.git";
+sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
+rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
+
+};
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+base
+bytestring
+containers
+directory
+file-embed
+filepath
+haskell-src-exts
+mtl
+semigroups
+syb
+yaml
+];
+executableHaskellDepends = [
+aeson
+base
+bytestring
+containers
+directory
+file-embed
+filepath
+haskell-src-exts
+mtl
+optparse-applicative
+strict
+syb
+yaml
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/jaspervdj/stylish-haskell";
+description = "Haskell code prettifier";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
 "sum-type-boilerplate" = callPackage
 ({
   mkDerivation

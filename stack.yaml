@@ -141,6 +141,12 @@ packages:
     commit: e4e879abca99d0d56015765859fb37af59a81dbb
   extra-dep: true
 
+# Add custom stylish-haskell while waiting for PR upstream: https://github.com/jaspervdj/stylish-haskell/pull/214
+- location:
+    git: https://github.com/input-output-hk/stylish-haskell.git
+    commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

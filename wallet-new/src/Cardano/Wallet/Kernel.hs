@@ -44,13 +44,12 @@ import           Data.Acid.Memory (openMemoryState)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), prefilterBlock,
-                                                    prefilterUtxo)
+                     prefilterUtxo)
 import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CancelPending (..),
-                                                     CreateHdWallet (..), DB, NewPending (..),
-                                                     NewPendingError, Snapshot (..), dbHdWallets,
-                                                     defDB)
+                     CreateHdWallet (..), DB, NewPending (..), NewPendingError, Snapshot (..),
+                     dbHdWallets, defDB)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -61,8 +60,7 @@ import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission, addPending,
-                                                   defaultResubmitFunction, exponentialBackoff,
-                                                   newWalletSubmission, tick)
+                     defaultResubmitFunction, exponentialBackoff, newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
 import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))

@@ -20,7 +20,7 @@ import           Universum
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount, SlotId (SlotId),
-                           SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
+                     SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi, putBi, toRocksOps)
 import           Pos.Lrc.Genesis (genesisLeaders)

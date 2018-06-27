@@ -27,7 +27,6 @@ import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
 import           Pos.Crypto.Signing
-import           Pos.Util.BackupPhrase
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.

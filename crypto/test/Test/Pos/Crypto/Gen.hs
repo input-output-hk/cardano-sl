@@ -66,19 +66,18 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash, abstractHash,
-                                     withHash)
+                     withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic)
 import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretProof, VssKeyPair,
-                                           VssPublicKey, decryptShare, deterministicVssKeyGen,
-                                           genSharedSecret, toVssPublicKey)
+                     VssPublicKey, decryptShare, deterministicVssKeyGen, genSharedSecret,
+                     toVssPublicKey)
 import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert, ProxySecretKey, ProxySignature,
-                                     PublicKey, SafeSigner (..), SecretKey, SignTag (..), Signature,
-                                     Signed, createPsk, deterministicKeyGen, mkSigned,
-                                     noPassEncrypt, proxySign, safeCreateProxyCert, safeCreatePsk,
-                                     sign, signEncoded, toPublic)
+                     PublicKey, SafeSigner (..), SecretKey, SignTag (..), Signature, Signed,
+                     createPsk, deterministicKeyGen, mkSigned, noPassEncrypt, proxySign,
+                     safeCreateProxyCert, safeCreatePsk, sign, signEncoded, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
-                                            redeemDeterministicKeyGen, redeemSign)
+                     redeemDeterministicKeyGen, redeemSign)
 
 ----------------------------------------------------------------------------
 -- Protocol Magic Generator

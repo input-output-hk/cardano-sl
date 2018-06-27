@@ -22,13 +22,12 @@ import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
 import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, IsMainHeader,
-                           SlotId (..), StakeholderId, VssCertificatesMap, genesisVssCerts,
-                           headerSlotL)
+                     SlotId (..), StakeholderId, VssCertificatesMap, genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), SscPayload (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId, isSharesId,
-                               verifySignedCommitment, vssThreshold)
+                     verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Toss.Base (verifyEntriesGuardM)
 import           Pos.Ssc.Types (SscGlobalState (..))

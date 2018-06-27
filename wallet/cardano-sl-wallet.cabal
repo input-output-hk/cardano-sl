@@ -129,6 +129,7 @@ library
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-networking
+                      , cardano-sl-node-ipc
                       , cardano-sl-update
                       , cardano-sl-util
                       , containers
@@ -148,7 +149,6 @@ library
                       , memory
                       , monad-control
                       , mtl
-                      , node-ipc
                       , quickcheck-instances
                       , random
                       , reflection

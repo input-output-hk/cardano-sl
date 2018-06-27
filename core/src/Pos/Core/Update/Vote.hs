@@ -18,8 +18,7 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core.Common (addressHash)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SafeSigner, SecretKey, SignTag (SignUSVote),
-                             Signature, checkSig, safeSign, safeToPublic, shortHashF, sign,
-                             toPublic)
+                     Signature, checkSig, safeSign, safeToPublic, shortHashF, sign, toPublic)
 
 import           Pos.Core.Update.Proposal
 

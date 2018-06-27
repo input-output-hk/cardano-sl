@@ -7,24 +7,22 @@ module Pos.Wallet.Aeson.ClientTypes
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), genericParseJSON,
-                             genericToJSON, object, withArray, withObject, (.:), (.=))
+                     genericToJSON, object, withArray, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (Parser, typeMismatch)
 import           Data.Version (showVersion)
 import           Servant.API.ContentTypes (NoContent (..))
 
 import           Crypto.Encoding.BIP39 (EntropySize, MnemonicWords, ValidChecksumSize,
-                                        ValidEntropySize, ValidMnemonicSentence)
+                     ValidEntropySize, ValidMnemonicSentence)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Util.Util (aesonError)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
-                                             CAccountInit, CAccountMeta, CAddress, CBackupPhrase,
-                                             CCoin, CFilePath (..), CHash, CId, CInitialized,
-                                             CPaperVendWalletRedeem, CProfile, CPtxCondition,
-                                             CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo (..),
-                                             NewBatchPayment (..), SyncProgress, Wal)
+                     CAccountInit, CAccountMeta, CAddress, CBackupPhrase, CCoin, CFilePath (..),
+                     CHash, CId, CInitialized, CPaperVendWalletRedeem, CProfile, CPtxCondition,
+                     CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo, CWAddressMeta, CWallet,
+                     CWalletAssurance, CWalletInit, CWalletMeta, CWalletRedeem, ClientInfo (..),
+                     NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 

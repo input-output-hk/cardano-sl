@@ -19,9 +19,9 @@ module Pos.Script
 import           Universum hiding (lift)
 
 import           Control.Exception (ArithException (..), ArrayException (..), ErrorCall (..),
-                                    PatternMatchFail (..))
+                     PatternMatchFail (..))
 import           Control.Exception.Safe (Handler (..), SomeException (..), catches,
-                                         displayException)
+                     displayException)
 import           Control.Lens (_Left)
 import           Control.Monad.Error.Class (throwError)
 import qualified Data.ByteArray as BA

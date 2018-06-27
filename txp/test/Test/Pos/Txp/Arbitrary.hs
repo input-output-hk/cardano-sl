@@ -31,8 +31,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Binary.Class (Raw)
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
-                               TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
-                               mkTxPayload)
+                     TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..), mkTxPayload)
 import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))

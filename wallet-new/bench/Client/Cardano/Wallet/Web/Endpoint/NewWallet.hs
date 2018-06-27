@@ -11,14 +11,13 @@ import           Universum
 import           Data.Time.Clock (getCurrentTime)
 
 import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig (..), Response,
-                                             ResponseReport (..))
+                     ResponseReport (..))
 import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
 import           Client.Cardano.Wallet.Web.Api (newWallet)
 import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
 import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Pos.Wallet.Web.ClientTypes (CBackupPhrase (..), CWallet (..),
-                                             CWalletAssurance (..), CWalletInit (..),
-                                             CWalletMeta (..))
+                     CWalletAssurance (..), CWalletInit (..), CWalletMeta (..))
 
 -- | Run 'NewWallet' client. As a result we will get a newly created wallet.
 newWalletIO :: CompleteConfig -> IO ()

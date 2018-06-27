@@ -110,7 +110,7 @@ import qualified Data.Acid as Acid
 
 import           Control.Arrow ((***))
 import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non', to, toListOf,
-                               traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
+                     traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
@@ -122,19 +122,17 @@ import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash,
-                           ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
-                           VssMinTTL (..))
+                     ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
-                          utxoToAddressCoinMap)
+                     utxoToAddressCoinMap)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
-                                               ptxCond, ptxSubmitTiming, _PtxCreating)
+                     ptxCond, ptxSubmitTiming, _PtxCreating)
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
-                                              mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
-                                              resetFailedPtx)
+                     mkPtxSubmitTiming, ptxMarkAcknowledgedPure, resetFailedPtx)
 import           Serokell.Util (zoom')
 
 -- | Type alias for indices which are used to maintain order

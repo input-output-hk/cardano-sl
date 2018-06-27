@@ -15,9 +15,8 @@ import           Universum
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
-                                   deriveSimpleBi, encodeListLen,
-                                   enforceSize)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
+                     enforceSize)
 import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (Hash)

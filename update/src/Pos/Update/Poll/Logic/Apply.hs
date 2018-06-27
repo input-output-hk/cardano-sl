@@ -17,26 +17,26 @@ import           System.Wlog (logDebug, logInfo, logNotice)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HasProtocolConstants, HeaderHash,
-                           IsMainHeader (..), ProtocolMagic, SlotId (siEpoch), SoftwareVersion (..),
-                           addressHash, applyCoinPortionUp, blockVersionL, coinToInteger,
-                           difficultyL, epochIndexL, flattenSlotId, headerHashG, headerSlotL,
-                           sumCoins, unflattenSlotId, unsafeIntegerToCoin)
+                     IsMainHeader (..), ProtocolMagic, SlotId (siEpoch), SoftwareVersion (..),
+                     addressHash, applyCoinPortionUp, blockVersionL, coinToInteger, difficultyL,
+                     epochIndexL, flattenSlotId, headerHashG, headerSlotL, sumCoins,
+                     unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
-                                  UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
-                                  checkUpdatePayload)
+                     UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
+                     checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
 import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canCreateBlockBV, confirmBlockVersion,
-                                             isDecided, mkTotNegative, mkTotPositive, mkTotSum,
-                                             putNewProposal, voteToUProposalState)
+                     isDecided, mkTotNegative, mkTotPositive, mkTotSum, putNewProposal,
+                     voteToUProposalState)
 import           Pos.Update.Poll.Logic.Version (verifyAndApplyProposalBVS, verifyBlockVersion,
-                                                verifySoftwareVersion)
+                     verifySoftwareVersion)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProposalState (..),
-                                        DpsExtra (..), ProposalState (..),
-                                        UndecidedProposalState (..), UpsExtra (..), psProposal)
+                     DpsExtra (..), ProposalState (..), UndecidedProposalState (..), UpsExtra (..),
+                     psProposal)
 import           Pos.Util.Some (Some (..))
 
 type ApplyMode m =

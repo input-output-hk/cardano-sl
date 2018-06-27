@@ -20,11 +20,10 @@ import           Pos.Util (maybeThrow)
 import           Pos.Util.Mnemonic (mnemonicToAesKey)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
-                                             CBackupPhrase (..), CPaperVendWalletRedeem (..),
-                                             CTx (..), CWalletRedeem (..))
+                     CBackupPhrase (..), CPaperVendWalletRedeem (..), CTx (..), CWalletRedeem (..))
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
-                                                 getCurChainDifficulty)
+                     getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)

@@ -16,4 +16,6 @@ let
   lib = pkgs.lib;
 in lib // (rec {
   inherit fetchNixPkgs;
+  isCardanoSL = lib.hasPrefix "cardano-sl";
+  isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 })

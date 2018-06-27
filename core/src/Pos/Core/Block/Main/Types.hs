@@ -16,9 +16,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 import           Formatting (bprint, build, builder, (%))
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
-                                   deriveSimpleBi, encodeListLen,
-                                   enforceSize)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
+                     enforceSize)
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Core.Txp (TxPayload, TxProof)

@@ -17166,6 +17166,44 @@ description = "Cardano SL simple node executable";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-node-ipc" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, binary
+, bytestring
+, Cabal
+, cardano-sl-infra
+, log-warper
+, mtl
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-node-ipc";
+version = "1.3.0";
+src = ./../node-ipc;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+aeson
+base
+binary
+bytestring
+Cabal
+cardano-sl-infra
+log-warper
+mtl
+universum
+];
+doHaddock = false;
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-ssc" = callPackage
 ({
   mkDerivation
@@ -17818,6 +17856,7 @@ license = stdenv.lib.licenses.mit;
 , directory
 , ether
 , exceptions
+, file-embed
 , filepath
 , formatting
 , hashable
@@ -17876,6 +17915,7 @@ deepseq
 directory
 ether
 exceptions
+file-embed
 filepath
 formatting
 hashable
@@ -18011,6 +18051,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
+, cardano-sl-node-ipc
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-txp-test
@@ -18037,7 +18078,6 @@ license = stdenv.lib.licenses.mit;
 , monad-control
 , MonadRandom
 , mtl
-, node-ipc
 , QuickCheck
 , quickcheck-instances
 , random
@@ -18099,6 +18139,7 @@ cardano-sl-generator
 cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
+cardano-sl-node-ipc
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -18120,7 +18161,6 @@ log-warper
 memory
 monad-control
 mtl
-node-ipc
 QuickCheck
 quickcheck-instances
 random
@@ -18234,6 +18274,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
+, cardano-sl-node-ipc
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-txp-test
@@ -18267,7 +18308,6 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , neat-interpolation
 , network-transport
-, node-ipc
 , optparse-applicative
 , pretty-show
 , QuickCheck
@@ -18339,6 +18379,7 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
+cardano-sl-node-ipc
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -18364,7 +18405,6 @@ memory
 mtl
 neat-interpolation
 network-transport
-node-ipc
 optparse-applicative
 QuickCheck
 reflection
@@ -57698,44 +57738,6 @@ description = "Knowledge of Nix's installation directories";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
-"node-ipc" = callPackage
-({
-  mkDerivation
-, aeson
-, base
-, binary
-, bytestring
-, Cabal
-, cardano-sl-infra
-, log-warper
-, mtl
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "node-ipc";
-version = "1.3.0";
-src = ./../node-ipc;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-aeson
-base
-binary
-bytestring
-Cabal
-cardano-sl-infra
-log-warper
-mtl
-universum
-];
-doHaddock = false;
-license = stdenv.lib.licenses.mit;
-
-}) {};
 "non-empty" = callPackage
 ({
   mkDerivation
@@ -75854,6 +75856,75 @@ doHaddock = false;
 doCheck = false;
 homepage = "http://github.com/ekmett/structs/";
 description = "Strict GC'd imperative object-oriented programming with cheap pointers";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"stylish-haskell" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, bytestring
+, containers
+, directory
+, fetchgit
+, file-embed
+, filepath
+, haskell-src-exts
+, mtl
+, optparse-applicative
+, semigroups
+, stdenv
+, strict
+, syb
+, yaml
+}:
+mkDerivation {
+
+pname = "stylish-haskell";
+version = "0.9.2.0";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/stylish-haskell.git";
+sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
+rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
+
+};
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+base
+bytestring
+containers
+directory
+file-embed
+filepath
+haskell-src-exts
+mtl
+semigroups
+syb
+yaml
+];
+executableHaskellDepends = [
+aeson
+base
+bytestring
+containers
+directory
+file-embed
+filepath
+haskell-src-exts
+mtl
+optparse-applicative
+strict
+syb
+yaml
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/jaspervdj/stylish-haskell";
+description = "Haskell code prettifier";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};

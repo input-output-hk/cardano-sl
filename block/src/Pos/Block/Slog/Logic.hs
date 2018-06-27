@@ -48,7 +48,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS (CommonOp (PutMaxSeenDifficulty, PutTip),
                      getMaxSeenDifficulty)
-import           Pos.Exception (assertionFailed, reportFatalError)
+import           Pos.Exception (assertionFailed0, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
@@ -284,9 +284,10 @@ slogRollbackBlocks ::
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m SomeBatchOp
-slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
+slogRollbackBlocks (BypassSecurityCheck bypassSecurity)
+                   (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
-        assertionFailed $
+        assertionFailed0 $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     -- We should never allow a situation when we summarily roll back by more
     -- than 'k' blocks

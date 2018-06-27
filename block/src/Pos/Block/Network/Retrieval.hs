@@ -35,6 +35,7 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion, StreamEntry (..))
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks, streamBlocks))
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join
@@ -133,7 +134,7 @@ retrievalWorker pm diffusion = do
     -- Squelch the exception and continue. Used with 'handleAny' from
     -- safe-exceptions so it will let async exceptions pass.
     handleRetrievalE nodeId cHeader e = do
-        reportOrLogW (sformat
+        reportOrLogW noTrace (sformat
             ("handleRetrievalE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash cHeader)) e
 
@@ -147,7 +148,7 @@ retrievalWorker pm diffusion = do
     -- again.
     handleRecoveryE nodeId rHeader e = do
         -- REPORT:ERROR 'reportOrLogW' in block retrieval worker/recovery.
-        reportOrLogW (sformat
+        reportOrLogW noTrace (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash rHeader)) e
         dropRecoveryHeaderAndRepeat pm diffusion nodeId
@@ -263,7 +264,7 @@ dropRecoveryHeaderAndRepeat pm diffusion nodeId = do
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
-        reportOrLogE $ "Exception happened while trying to trigger " <>
+        reportOrLogE noTrace $ "Exception happened while trying to trigger " <>
                        "recovery inside dropRecoveryHeaderAndRepeat: "
 
 -- Returns only if blocks were successfully downloaded and

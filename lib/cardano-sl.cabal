@@ -172,7 +172,6 @@ library
                       , hashable
                       , hspec
                       , lens
-                      --, log-warper >= 1.1.1
                       , mmorph
                       , monad-control
                       , mtl
@@ -420,7 +419,6 @@ benchmark cardano-bench-criterion
                      , criterion
                      , deepseq
                      , formatting
-                     , log-warper >= 1.1.1
                      , network
                      , network-transport
                      , network-transport-tcp

@@ -6,13 +6,14 @@ module Pos.GState.SanityCheck
 
 import           Universum
 
-import           Pos.Util.Log (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.Txp.DB (sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Log (WithLogger)
+import           Pos.Util.Trace (noTrace)
 
 sanityCheckDB ::
        ( MonadMask m
@@ -32,5 +33,5 @@ sanityCheckGStateDB ::
        )
     => m ()
 sanityCheckGStateDB = do
-    sanityCheckStakes
+    sanityCheckStakes noTrace
     sanityCheckUtxo =<< getRealTotalStake

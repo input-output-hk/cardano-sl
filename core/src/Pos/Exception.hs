@@ -12,6 +12,7 @@ module Pos.Exception
        , traceNamedFatalError
        , traceFatalError
        , assertionFailed
+       , assertionFailed0
        ) where
 
 import           Control.Exception.Safe (Exception (..))
@@ -94,3 +95,9 @@ traceNamedFatalError tr msg = do
 assertionFailed :: MonadThrow m => Trace m (Severity, Text) -> Text -> m a
 assertionFailed logTrace msg =
     traceFatalError logTrace $ "assertion failed: " <> msg
+
+assertionFailed0
+    :: (WithLogger m, MonadThrow m)
+    => Text -> m a
+assertionFailed0 msg =
+    reportFatalError $ "assertion failed: " <> msg

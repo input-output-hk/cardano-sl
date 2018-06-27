@@ -126,23 +126,22 @@ type TxAttributes = Attributes ()
 
 -- | Transaction arbitrary input.
 data TxIn
-    = TxInUtxo
-    { -- | Which transaction's output is used
-      txInHash  :: !TxId
-      -- | Index of the output in transaction's outputs
-    , txInIndex :: !Word32
-    }
+      -- | TxId = Which transaction's output is used
+      -- | Word32 = Index of the output in transaction's outputs
+    = TxInUtxo TxId Word32
     | TxInUnknown !Word8 !ByteString
     deriving (Eq, Ord, Generic, Show, Typeable)
 
 instance Hashable TxIn
 
 instance Buildable TxIn where
-    build TxInUtxo {..}        = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
-    build (TxInUnknown tag bs) = bprint ("TxInUnknown "%int%" "%base16F) tag bs
+    build (TxInUtxo txInHash txInIndex) =
+        bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
+    build (TxInUnknown tag bs) =
+        bprint ("TxInUnknown "%int%" "%base16F) tag bs
 
 instance Bi TxIn where
-    encode TxInUtxo{..} =
+    encode (TxInUtxo txInHash txInIndex) =
         encodeListLen 2 <>
         encode (0 :: Word8) <>
         encodeKnownCborDataItem (txInHash, txInIndex)

@@ -3,25 +3,20 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Restore
   ) where
 
 
-import Crypto.Hash (Blake2b_224, digestFromByteString)
-import qualified Data.Text.Encoding as T
 import System.Wlog (Severity)
 import Universum
 
 import qualified Pos.Core as Core
-import Pos.Crypto
-  (AbstractHash(AbstractHash), EncryptedSecretKey, PassPhrase, PublicKey)
-import qualified Pos.Txp.Toil.Types
-import Pos.Wallet.Web.Account (genSaveRootKey)
+import Pos.Crypto (PassPhrase)
 import Pos.Wallet.Web.ClientTypes
-  (CId, CWallet (..), CWalletInit (..), CWalletMeta (..), Wal, mkCCoin,
-   CWalletAssurance(CWANormal, CWAStrict), CHash(CHash), CId(CId), encToCId)
+  (CWallet (..), CWalletInit (..), CWalletMeta (..), mkCCoin,
+   CWalletAssurance(CWANormal, CWAStrict), CHash(CHash), CId(CId))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 
-import Cardano.Wallet.Kernel
-  (PassiveWallet, createWalletHdRnd, bracketPassiveWallet, getCurrentTimestamp)
-import qualified Cardano.Wallet.Kernel.DB.HdWallet as HdW
-import Cardano.Wallet.Kernel.DB.InDb (InDb(InDb))
+import Cardano.Wallet.API.V1.Types (V1(V1), unV1)
+import qualified Cardano.Wallet.API.V1.Types as V1T
+import Cardano.Wallet.WalletLayer (bracketKernelPassiveWallet)
+import Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer(_pwlCreateWallet))
 
 
 {- | Restores a wallet from a seed. The process is conceptually divided into
@@ -36,40 +31,25 @@ restoreWalletFromSeed
   -> CWalletInit
   -> m CWallet
 restoreWalletFromSeed logf passphrase cwInit = do
-  now <- getCurrentTimestamp
-  let cWM :: CWalletMeta = cwInitMeta cwInit
-  esk :: EncryptedSecretKey <- genSaveRootKey passphrase (cwBackupPhrase cwInit)
-  let cIdWal :: CId Wal = encToCId esk
-  ah <- case cIdWalToHashPublicKey cIdWal of
-     Nothing -> error "TODO error 400 something"
-     Just x -> pure x
-  bracketPassiveWallet logf $ \pw -> do
-     ea <- liftIO $ createWalletHdRnd
-        (pw :: PassiveWallet)
-        (HdW.WalletName (cwName cWM))
-        (HdW.HasSpendingPassword (InDb now))
-        (case cwAssurance cWM of
-            CWAStrict -> HdW.AssuranceLevelStrict
-            CWANormal -> HdW.AssuranceLevelNormal)
-        (ah, esk)
-        -- TODO: Utxo
-        (mempty :: Pos.Txp.Toil.Types.Utxo)
-     case ea of
-        Left _ -> error "TODO error 400 something"
-        Right (hdRoot, accs) -> do
-           -- restoreWallet hdRoot
-           pure $ CWallet
-              { cwId = cIdWal
-              , cwMeta = cWM
-              , cwAccountsNumber = length accs
-              , cwAmount = mkCCoin (Core.Coin (fromIntegral (cwUnit cWM)))
-              , cwHasPassphrase = True
-              , cwPassphraseLU = let InDb x = HdW._hdRootCreatedAt hdRoot
-                                 in view Core.timestampSeconds x }
-
-cIdWalToHashPublicKey :: CId Wal -> Maybe (AbstractHash Blake2b_224 PublicKey)
-cIdWalToHashPublicKey (CId (CHash t0)) = do
-   AbstractHash <$> digestFromByteString (T.encodeUtf8 t0)
+  let cWM = cwInitMeta cwInit :: CWalletMeta
+  let nw = V1T.NewWallet
+           { V1T.newwalBackupPhrase = V1 (cwBackupPhrase cwInit)
+           , V1T.newwalSpendingPassword = Just (V1 passphrase)
+           , V1T.newwalAssuranceLevel = case cwAssurance cWM of
+                CWANormal -> V1T.NormalAssurance
+                CWAStrict -> V1T.StrictAssurance
+           , V1T.newwalName = cwName cWM
+           , V1T.newwalOperation = V1T.RestoreWallet }
+  bracketKernelPassiveWallet logf $ \pwl -> do
+     w <- _pwlCreateWallet pwl nw
+     pure (CWallet
+        { cwId = case V1T.walId w of V1T.WalletId x -> CId (CHash x)
+        , cwMeta = cWM
+        , cwAccountsNumber = 0 -- TODO: Is this OK?
+        , cwAmount = mkCCoin (unV1 (V1T.walBalance w))
+        , cwHasPassphrase = V1T.walHasSpendingPassword w
+        , cwPassphraseLU = view Core.timestampSeconds
+                                (unV1 (V1T.walSpendingPasswordLastUpdate w)) })
 
 -- restoreWallet :: ( L.MonadWalletLogic ctx m
 --                  , MonadUnliftIO m

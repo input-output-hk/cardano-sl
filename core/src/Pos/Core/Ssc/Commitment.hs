@@ -11,18 +11,12 @@ import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 
-<<<<<<< HEAD
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
                      enforceSize, fromBinary, serialize')
-import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature,
-                     VssPublicKey)
-=======
-import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen, enforceSize, fromBinary,
-                     serialize')
 import           Pos.Core.Binary ()
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)
->>>>>>> [CDEC-377] Reunite SafeCopy instances for core data types
+import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature,
+                     VssPublicKey)
 import           Pos.Util.Util (cborError)
 
 -- | Commitment is a message generated during the first stage of SSC.

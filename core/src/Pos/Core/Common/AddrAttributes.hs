@@ -5,8 +5,8 @@ module Pos.Core.Common.AddrAttributes
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text.Buildable as Buildable
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, builder, (%))
 
 import           Pos.Binary.Class (Bi, decode, encode)

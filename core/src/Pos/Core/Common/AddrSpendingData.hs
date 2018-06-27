@@ -7,8 +7,8 @@ module Pos.Core.Common.AddrSpendingData
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text.Buildable as Buildable
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 
 import           Pos.Binary.Class (Bi, decode, encode)

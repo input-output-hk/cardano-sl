@@ -8,9 +8,8 @@ import           Universum
 
 import           Data.Hashable (Hashable, hashWithSalt)
 import qualified Data.HashMap.Strict as HM
-import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
-                                safePut)
-import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize as Cereal
 import           Data.Time.Units (Microsecond, Millisecond)
 import qualified PlutusCore.Program as PLCore
@@ -24,6 +23,7 @@ import qualified Utils.Vars as Vars
 
 import           Pos.Binary.Class (Bi (..), genericDecode, genericEncode,
                      serialize')
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Core.Script ()
 import qualified Pos.Util.Modifier as MM
 

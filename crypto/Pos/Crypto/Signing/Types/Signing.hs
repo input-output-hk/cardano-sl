@@ -41,10 +41,10 @@ import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Hashable (Hashable)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Data.SafeCopy (SafeCopy (..), base, contain,
-                     deriveSafeCopySimple,safeGet, safePut)
 import           Formatting (Format, bprint, build, fitLeft, later, sformat,
                      (%), (%.))
 import           Prelude (show)

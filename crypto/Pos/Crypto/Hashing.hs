@@ -53,8 +53,8 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection (reifyNat)
-import qualified Data.Text.Buildable as Buildable
 import           Data.SafeCopy (SafeCopy (..))
+import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16

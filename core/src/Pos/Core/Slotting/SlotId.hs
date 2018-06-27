@@ -19,8 +19,8 @@ module Pos.Core.Slotting.SlotId
 import           Universum
 
 import           Control.Lens (Iso', iso, lens, makeLensesFor)
-import qualified Data.Text.Buildable as Buildable
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, ords, (%))
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)

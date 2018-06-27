@@ -12,8 +12,8 @@ module Pos.Core.Block.Main.Types
 
 import           Universum
 
-import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
-                                safePut)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 import           Formatting (bprint, build, builder, (%))

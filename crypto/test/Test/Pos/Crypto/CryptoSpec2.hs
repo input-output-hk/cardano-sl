@@ -21,7 +21,6 @@ import           Pos.Binary.Class (AsBinary, Bi)
 import qualified Pos.Crypto as Crypto
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare,
                      mlPublicKey, mlSecret, mlSignature, mlVssPublicKey)
-import           Pos.Crypto.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (msgLenLimitedTest,
                      safeCopyEncodeDecode, safeCopyTest, serDeserId)

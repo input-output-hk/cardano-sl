@@ -29,8 +29,8 @@ import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (ProtocolMagic)
 
-import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCertificate, getCertId,
-                     toCertPair)
+import           Pos.Core.Ssc.VssCertificate (VssCertificate (..),
+                     checkVssCertificate, getCertId, toCertPair)
 import           Pos.Util.Util (cborError)
 
 -- | VssCertificatesMap contains all valid certificates collected

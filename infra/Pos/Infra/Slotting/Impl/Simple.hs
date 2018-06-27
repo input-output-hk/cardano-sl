@@ -22,10 +22,12 @@ import           Universum
 import           Mockable (CurrentTime, Mockable, currentTime)
 
 import           Pos.Core.Configuration (HasProtocolConstants)
-import           Pos.Core.Slotting (SlotId (..), Timestamp (..), unflattenSlotId)
-import           Pos.Infra.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimestamp)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData, getCurrentNextEpochIndexM,
-                     waitCurrentEpochEqualsM)
+import           Pos.Core.Slotting (SlotId (..), Timestamp (..),
+                     unflattenSlotId)
+import           Pos.Infra.Slotting.Impl.Util (approxSlotUsingOutdated,
+                     slotFromTimestamp)
+import           Pos.Infra.Slotting.MemState (MonadSlotsData,
+                     getCurrentNextEpochIndexM, waitCurrentEpochEqualsM)
 import           Pos.Util (HasLens (..))
 
 ----------------------------------------------------------------------------

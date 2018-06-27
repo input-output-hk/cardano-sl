@@ -20,7 +20,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
+                     epochSlots)
 import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Slotting.EpochIndex

@@ -20,8 +20,9 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           System.Metrics.Label (Label)
 
-import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId, HasProtocolConstants,
-                     LocalSlotIndex, slotIdF, unflattenSlotId)
+import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
+                     HasProtocolConstants, LocalSlotIndex, slotIdF,
+                     unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Infra.Reporting.Metrics (MetricMonitorState)
 

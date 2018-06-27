@@ -20,7 +20,8 @@ module Pos.Crypto.HD
        , isHardened
        ) where
 
-import           Cardano.Crypto.Wallet (DerivationScheme (..), deriveXPrv, deriveXPub, unXPub)
+import           Cardano.Crypto.Wallet (DerivationScheme (..), deriveXPrv,
+                     deriveXPub, unXPub)
 import qualified Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash (SHA512 (..))
@@ -33,8 +34,8 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), decodeFull', serialize')
-import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
-                     checkPassMatches)
+import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase,
+                     PublicKey (..), checkPassMatches)
 
 -- | Passphrase is a hash of root public key.
 data HDPassphrase = HDPassphrase !ByteString

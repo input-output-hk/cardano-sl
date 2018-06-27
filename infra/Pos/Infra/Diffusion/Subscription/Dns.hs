@@ -14,21 +14,21 @@ import           Control.Concurrent.STM (atomically)
 import           Control.Exception (IOException, SomeException, toException)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as Map
-import           Data.Time.Units (Microsecond, Millisecond, convertUnit, fromMicroseconds,
-                     toMicroseconds)
+import           Data.Time.Units (Microsecond, Millisecond, convertUnit,
+                     fromMicroseconds, toMicroseconds)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS as DNS
 
 import           Pos.Infra.Communication.Protocol (SendActions)
-import           Pos.Infra.Diffusion.Subscription.Common (SubscriptionMessageConstraints,
-                     networkSubscribeTo')
+import           Pos.Infra.Diffusion.Subscription.Common
+                     (SubscriptionMessageConstraints, networkSubscribeTo')
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
-import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscribeTo, SubscriptionTarget (..),
-                     subscriber)
+import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscribeTo,
+                     SubscriptionTarget (..), subscriber)
 import           Pos.Infra.Network.DnsDomains (NodeAddr)
-import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..), NodeId (..), NodeType (..),
-                     resolveDnsDomains)
+import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..),
+                     NodeId (..), NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 

@@ -22,27 +22,31 @@ import qualified Data.Map as M
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (Format)
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
+import           Network.Broadcast.OutboundQueue.Types (MsgType (..),
+                     Origin (..))
 import           Network.Transport (Transport)
-import           Node (Node, NodeAction (..), NodeEnvironment (..), defaultNodeEnvironment, node,
-                     simpleNodeEndPoint)
+import           Node (Node, NodeAction (..), NodeEnvironment (..),
+                     defaultNodeEnvironment, node, simpleNodeEndPoint)
 import           Node.Conversation (Conversation, Converse, converseWith)
 import qualified System.Metrics as Monitoring
 import           System.Metrics.Gauge (Gauge)
 
 import           System.Random (newStdGen)
 
-import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders, MsgStream,
-                     MsgStreamBlock)
-import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..), InvOrDataTK, Listener,
-                     MkListeners (..), Msg, MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
-                     PackingType, PeerData, SendActions, VerInfo (..), bipPacking, convH,
-                     createOutSpecs, makeEnqueueMsg, makeSendActions, toOutSpecs)
-import           Pos.Core (BlockVersion, BlockVersionData (..), HeaderHash, ProtocolConstants (..),
-                     ProxySKHeavy, StakeholderId)
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                     MsgHeaders, MsgStream, MsgStreamBlock)
+import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
+                     InvOrDataTK, Listener, MkListeners (..), Msg,
+                     MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
+                     PackingType, PeerData, SendActions, VerInfo (..),
+                     bipPacking, convH, createOutSpecs, makeEnqueueMsg,
+                     makeSendActions, toOutSpecs)
+import           Pos.Core (BlockVersion, BlockVersionData (..), HeaderHash,
+                     ProtocolConstants (..), ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, VssCertificate)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
@@ -52,8 +56,9 @@ import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc
 import qualified Pos.Diffusion.Full.Txp as Diffusion.Txp
 import qualified Pos.Diffusion.Full.Update as Diffusion.Update
 import           Pos.Infra.Communication.Relay.Logic (invReqDataFlowTK)
-import           Pos.Infra.DHT.Real (KademliaDHTInstance (..), KademliaParams (..),
-                     kademliaJoinNetworkNoThrow, kademliaJoinNetworkRetry, startDHTInstance,
+import           Pos.Infra.DHT.Real (KademliaDHTInstance (..),
+                     KademliaParams (..), kademliaJoinNetworkNoThrow,
+                     kademliaJoinNetworkRetry, startDHTInstance,
                      stopDHTInstance)
 import           Pos.Infra.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Infra.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
@@ -61,16 +66,18 @@ import           Pos.Infra.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
 import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionHealth (..),
-                     DiffusionLayer (..), StreamEntry)
-import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..), NodeType,
-                     SubscriptionWorker (..), initQueue, topologyHealthStatus, topologyRunKademlia,
+import           Pos.Infra.Diffusion.Types (Diffusion (..),
+                     DiffusionHealth (..), DiffusionLayer (..), StreamEntry)
+import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..),
+                     NodeType, SubscriptionWorker (..), initQueue,
+                     topologyHealthStatus, topologyRunKademlia,
                      topologySubscribers, topologySubscriptionWorker)
-import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
+import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
+                     registerEkgNodeMetrics)
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                     MCVssCertificate (..))
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)

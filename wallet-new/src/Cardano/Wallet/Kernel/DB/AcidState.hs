@@ -43,8 +43,8 @@ import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Txp (Utxo)
 
-import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId, PrefilteredBlock (..),
-                     PrefilteredUtxo)
+import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
+                     PrefilteredBlock (..), PrefilteredUtxo)
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet

@@ -13,13 +13,15 @@ import           Universum
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 
-import           Pos.Communication.Limits (mlUpdateProposalAndVotes, mlUpdateVote)
+import           Pos.Communication.Limits (mlUpdateProposalAndVotes,
+                     mlUpdateVote)
 import           Pos.Communication.Message ()
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
-import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners, MsgType (..), NodeId,
-                     Origin (..), OutSpecs)
-import           Pos.Infra.Communication.Relay (InvReqDataParams (..), MempoolParams (..),
-                     Relay (..), invReqDataFlowTK, relayListeners, relayPropagateOut)
+import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
+                     MsgType (..), NodeId, Origin (..), OutSpecs)
+import           Pos.Infra.Communication.Relay (InvReqDataParams (..),
+                     MempoolParams (..), Relay (..), invReqDataFlowTK,
+                     relayListeners, relayPropagateOut)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))

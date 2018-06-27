@@ -18,10 +18,11 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, builder, (%))
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
-                     enforceSize)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SignTag (SignUSProposal),
-                     Signature, checkSig, hash, safeSign, safeToPublic)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner,
+                     SignTag (SignUSProposal), Signature, checkSig, hash,
+                     safeSign, safeToPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 import           Pos.Core.Update.BlockVersion

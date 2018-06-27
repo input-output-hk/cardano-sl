@@ -15,9 +15,11 @@ import           Data.List.NonEmpty (fromList)
 
 import           Formatting (int, sformat, (%))
 
-import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
-                     mkCoin, sumCoins, unsafeGetCoin)
-import           Pos.Core.Slotting (LocalSlotIndex (..), SlotCount, localSlotIndices)
+import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders,
+                     StakeholderId, coinToInteger, mkCoin, sumCoins,
+                     unsafeGetCoin)
+import           Pos.Core.Slotting (LocalSlotIndex (..), SlotCount,
+                     localSlotIndices)
 import           Pos.Crypto (deterministic, randomNumber)
 
 -- Note: The "Satoshi" is the smallest indivisble unit of a Bitcoin.

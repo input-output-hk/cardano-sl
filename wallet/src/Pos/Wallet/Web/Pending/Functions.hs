@@ -24,7 +24,8 @@ import           Pos.Txp (ToilVerFailure (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Error (WalletError (RequestError))
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..),
+                     PtxCondition (..), PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Util (mkPtxSubmitTiming)
 import           Pos.Wallet.Web.State (WalletSnapshot, getWalletMeta)
 

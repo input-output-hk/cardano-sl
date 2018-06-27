@@ -11,8 +11,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util (mapJson)
 
-import           Pos.Core.Common (Address, Coin, decodeTextAddress, unsafeAddCoin,
-                     unsafeIntegerToCoin)
+import           Pos.Core.Common (Address, Coin, decodeTextAddress,
+                     unsafeAddCoin, unsafeIntegerToCoin)
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances

@@ -14,7 +14,8 @@ import           Node (Message)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Infra.Communication.Types.Protocol (Msg)
-import           Pos.Infra.Communication.Types.Relay (DataMsg, InvOrData, ReqOrRes)
+import           Pos.Infra.Communication.Types.Relay (DataMsg, InvOrData,
+                     ReqOrRes)
 
 data RelayError = UnexpectedInv
                 | UnexpectedData

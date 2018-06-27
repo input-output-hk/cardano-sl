@@ -93,7 +93,8 @@ import qualified Data.Map as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
-import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
+import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
+                     getCurrentTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import qualified Ether
@@ -104,7 +105,8 @@ import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, usingLoggerName)
+import           System.Wlog (LoggerName, WithLogger, logDebug, logError,
+                     logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------

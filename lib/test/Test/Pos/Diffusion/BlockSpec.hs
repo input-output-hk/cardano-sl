@@ -28,15 +28,19 @@ import qualified Node
 import           Pipes (each)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash, blockHeaderHash)
+import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash,
+                     blockHeaderHash)
 import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), FullDiffusionInternals (..),
-                     RunFullDiffusionInternals (..), diffusionLayerFullExposeInternals)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
+                     FullDiffusionInternals (..),
+                     RunFullDiffusionInternals (..),
+                     diffusionLayerFullExposeInternals)
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..),
+                     StreamEntry (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))

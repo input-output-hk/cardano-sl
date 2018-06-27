@@ -7,11 +7,11 @@ module Test.Spec.Submission (
 
 import           Universum hiding (elems)
 
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId (..), HdAccountIx (..),
-                     HdRootId (..))
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId (..),
+                     HdAccountIx (..), HdRootId (..))
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
-                     removePending)
+import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
+                     pendingTransactions, removePending)
 import           Cardano.Wallet.Kernel.Submission
 import           Control.Lens (at, non, to)
 import qualified Data.ByteString as BS
@@ -31,8 +31,8 @@ import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Txp.Arbitrary as Core
 
-import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, forAll, listOf,
-                     shuffle, vectorOf, (===))
+import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
+                     forAll, listOf, shuffle, vectorOf, (===))
 import           Test.QuickCheck.Property (counterexample)
 import           Util (disjoint)
 import           Util.Buildable (ShowThroughBuild (..))

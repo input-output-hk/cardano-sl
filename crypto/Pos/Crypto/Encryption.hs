@@ -11,7 +11,8 @@ module Pos.Crypto.Encryption
 import           Universum hiding (init)
 
 import           Crypto.Cipher.AES (AES256)
-import           Crypto.Cipher.Types (BlockCipher (..), cipherInit, ctrCombine, nullIV)
+import           Crypto.Cipher.Types (BlockCipher (..), cipherInit, ctrCombine,
+                     nullIV)
 import           Crypto.Error (CryptoError, eitherCryptoError)
 
 

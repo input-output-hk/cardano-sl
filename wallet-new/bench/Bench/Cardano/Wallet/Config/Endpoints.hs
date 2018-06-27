@@ -18,8 +18,8 @@ import           Data.List.NonEmpty (fromList)
 import           Data.Vector (Vector)
 import qualified Data.Vector as V
 
-import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig (..),
-                     EndpointConfig (..))
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), EndpointConfig (..))
 
 -- | Read Endpoints configuration from the local .csv-file. The format is:
 --

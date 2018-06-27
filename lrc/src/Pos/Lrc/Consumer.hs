@@ -11,7 +11,8 @@ module Pos.Lrc.Consumer
 import           Universum
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (BlockVersionData, Coin, CoinPortion, EpochIndex, applyCoinPortionUp)
+import           Pos.Core (BlockVersionData, Coin, CoinPortion, EpochIndex,
+                     applyCoinPortionUp)
 import           Pos.DB.Class (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))

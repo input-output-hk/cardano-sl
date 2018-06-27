@@ -22,7 +22,8 @@ import           Mockable (Delay, Mockable, delay)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF, hashHexF)
+import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF,
+                     hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 

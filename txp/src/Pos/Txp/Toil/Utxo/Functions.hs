@@ -18,18 +18,21 @@ import qualified Data.Set as Set
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
-import           Pos.Core (AddrType (..), Address (..), integerToCoin, isRedeemAddress,
-                     isUnknownAddressType, sumCoins)
-import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
-                     TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness, isTxInUnknown)
-import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
-                     redeemCheckSig)
+import           Pos.Core (AddrType (..), Address (..), integerToCoin,
+                     isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress,
+                     checkScriptAddress)
+import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..),
+                     TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxSigData (..), TxUndo, TxWitness, isTxInUnknown)
+import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..),
+                     checkSig, hash, redeemCheckSig)
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
+import           Pos.Data.Attributes (Attributes (attrRemain),
+                     areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..),
-                     WitnessVerFailure (..))
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..),
+                     TxOutVerFailure (..), WitnessVerFailure (..))
 import           Pos.Txp.Toil.Monad (UtxoM, utxoDel, utxoGet, utxoPut)
 import           Pos.Txp.Toil.Types (TxFee (..))
 import           Pos.Util (liftEither)

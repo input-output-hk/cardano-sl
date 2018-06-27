@@ -14,7 +14,8 @@ import           Formatting (Format, bprint, build, int, later, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, checkCoinPortion)
+import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy,
+                     checkCoinPortion)
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId)
 import           Pos.Util.Orphans ()
 

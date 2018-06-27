@@ -10,8 +10,8 @@ import           Gauge.Main (bench, nfIO, runMode)
 import           Gauge.Main.Options (Config (..), Mode (..), defaultConfig)
 
 import           Bench.Cardano.Wallet.Random (waitRandom)
-import           Bench.Cardano.Wallet.Types (CompleteConfig (..), EndpointClient,
-                     EndpointConfig (..))
+import           Bench.Cardano.Wallet.Types (CompleteConfig (..),
+                     EndpointClient, EndpointConfig (..))
 
 -- | Runs benchmark using particular client.
 runBench

@@ -11,12 +11,13 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Test.Hspec (describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Gen, Property, elements, forAllShrink, ioProperty, listOf,
-                     shrinkList, sized, (===))
+import           Test.QuickCheck (Gen, Property, elements, forAllShrink,
+                     ioProperty, listOf, shrinkList, sized, (===))
 
-import           Pos.Infra.Diffusion.Subscription.Status (Changes, SubscriptionStates,
-                     SubscriptionStatus (..), changes, emptySubscriptionStates, subscribed,
-                     subscribing, terminated, withChanges)
+import           Pos.Infra.Diffusion.Subscription.Status (Changes,
+                     SubscriptionStates, SubscriptionStatus (..), changes,
+                     emptySubscriptionStates, subscribed, subscribing,
+                     terminated, withChanges)
 
 data Key = A | B | C | D
   deriving (Eq, Ord, Show)

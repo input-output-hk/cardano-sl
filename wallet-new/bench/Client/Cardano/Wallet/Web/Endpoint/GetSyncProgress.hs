@@ -6,9 +6,10 @@ module Client.Cardano.Wallet.Web.Endpoint.GetSyncProgress
 
 import           Universum
 
-import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig (..), Response,
-                     ResponseReport (..))
-import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), Response, ResponseReport (..))
+import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded,
+                     checkResponse)
 import           Client.Cardano.Wallet.Web.Api (getSyncProgress)
 import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
 

@@ -53,7 +53,8 @@ module Node (
     ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception (Exception (..), SomeException, catch, mask, throwIO)
+import           Control.Exception (Exception (..), SomeException, catch, mask,
+                     throwIO)
 import           Control.Monad (unless, when)
 import qualified Data.ByteString as BS
 import           Data.Map.Strict (Map)
@@ -67,9 +68,10 @@ import qualified Network.Transport as NT
 import           Node.Conversation
 import           Node.Internal (ChannelIn, ChannelOut)
 import qualified Node.Internal as LL
-import           Node.Message.Class (Message (..), MessageCode, Packing, Serializable (..), pack,
-                     unpack)
-import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
+import           Node.Message.Class (Message (..), MessageCode, Packing,
+                     Serializable (..), pack, unpack)
+import           Node.Message.Decoder (ByteOffset, Decoder (..),
+                     DecoderStep (..), continueDecoding)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           System.Random (StdGen)
 

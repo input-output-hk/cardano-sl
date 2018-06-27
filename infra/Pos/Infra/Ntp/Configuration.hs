@@ -6,7 +6,8 @@ module Pos.Infra.Ntp.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
 import           Data.List.NonEmpty as NE
 import           Data.Time.Units (fromMicroseconds)
 import           Ntp.Client (NtpClientSettings (..))

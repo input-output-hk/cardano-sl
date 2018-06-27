@@ -13,8 +13,10 @@ import           Data.Aeson.Types (typeMismatch)
 import           Data.Yaml ((.:))
 import qualified Data.Yaml as Yaml
 
-import           Bench.Cardano.Wallet.Types (Wallet (..), WalletAccount (..), WalletsConfig (..))
-import           Pos.Wallet.Web.ClientTypes (CAccountId (..), CHash (..), CId (..))
+import           Bench.Cardano.Wallet.Types (Wallet (..), WalletAccount (..),
+                     WalletsConfig (..))
+import           Pos.Wallet.Web.ClientTypes (CAccountId (..), CHash (..),
+                     CId (..))
 
 instance Yaml.FromJSON CAccountId where
     parseJSON (Yaml.String t) = return $ CAccountId t

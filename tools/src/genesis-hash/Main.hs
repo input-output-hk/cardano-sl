@@ -8,7 +8,8 @@ import           Crypto.Hash (Digest, hashlazy)
 import           Crypto.Hash.Algorithms (Blake2b_256)
 import           Data.ByteString.Lazy.Char8 as L8
 import           System.IO (stdin)
-import           Text.JSON.Canonical (JSValue, parseCanonicalJSON, renderCanonicalJSON)
+import           Text.JSON.Canonical (JSValue, parseCanonicalJSON,
+                     renderCanonicalJSON)
 
 main :: IO ()
 main = do

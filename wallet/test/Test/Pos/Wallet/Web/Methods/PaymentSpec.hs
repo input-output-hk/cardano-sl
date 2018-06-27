@@ -24,8 +24,8 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
-import           Pos.Core (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy, mkCoin, sumCoins,
-                     unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy,
+                     mkCoin, sumCoins, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))
@@ -47,13 +47,14 @@ import           Pos.Util.Servant (encodeCType)
 
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
-                     splitWord, stopProperty)
-import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
-                     walletPropertySpec)
+import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne,
+                     maybeStopProperty, splitWord, stopProperty)
+import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs,
+                     submitTxTestMode, walletPropertySpec)
 
-import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
-                     importSomeWallets, mostlyEmptyPassphrases)
+import           Test.Pos.Wallet.Web.Util (deriveRandomAddress,
+                     expectedAddrBalance, importSomeWallets,
+                     mostlyEmptyPassphrases)
 
 
 deriving instance Eq CTx

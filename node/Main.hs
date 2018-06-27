@@ -15,12 +15,13 @@ import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
+                     SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
-                     withConfigurations)
+import           Pos.Launcher (HasConfigurations, NodeParams (..),
+                     loggerBracket, runNodeReal, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)

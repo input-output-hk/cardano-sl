@@ -20,8 +20,8 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
-                     withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON, withObject, (.:), (.:?))
 import           Data.Default (Default (..))
 import           Data.Set (Set)
 import qualified Data.Set as Set

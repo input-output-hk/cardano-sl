@@ -25,14 +25,19 @@ import           Data.Default (Default (def))
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Vector as V
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof, scale)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof,
+                     scale)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
-                     TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..), mkTxPayload)
-import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx), hash, sign, toPublic)
+import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..),
+                     makePubKeyAddress)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
+                     TxOut (..), TxOutAux (..), TxPayload (..), TxProof (..),
+                     TxSigData (..), mkTxPayload)
+import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx),
+                     hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
 

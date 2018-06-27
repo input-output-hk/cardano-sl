@@ -24,15 +24,18 @@ import           Data.List (intersect, (\\))
 import           Data.Time.Units (Second, toMicroseconds)
 import           Formatting (build, sformat, shown, (%))
 import qualified Network.Kademlia as K
-import qualified Network.Kademlia.Instance as K (KademliaInstance (state), KademliaState (sTree))
+import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
+                     KademliaState (sTree))
 import qualified Network.Kademlia.Tree as K (toView)
 import           Serokell.Util (listJson)
 import           System.Directory (doesFileExist)
 
 import           Pos.Binary.Class (decodeFull)
 import           Pos.Infra.Binary.DHTModel ()
-import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast, enhancedMessageTimeout)
-import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey, DHTNode (..), randomDHTKey)
+import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast,
+                     enhancedMessageTimeout)
+import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey,
+                     DHTNode (..), randomDHTKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams (..))
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)

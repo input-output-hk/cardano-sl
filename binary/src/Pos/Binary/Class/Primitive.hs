@@ -52,7 +52,8 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError)
+import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize,
+                     toCborError)
 
 -- | Serialize a Haskell value to an external binary representation.
 --

@@ -22,8 +22,9 @@ import           System.IO (FilePath)
 import           Data.Attoparsec.Text (parseOnly)
 import           Options.Applicative.Simple (simpleOptions)
 
-import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), MeasureInfo (..), MsgId,
-                     Payload (..), Timestamp, logMessageParser, measureInfoParser)
+import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..),
+                     MeasureInfo (..), MsgId, Payload (..), Timestamp,
+                     logMessageParser, measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith, wlogTrace)
 import           System.Wlog (productionB, setupLogging)

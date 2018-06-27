@@ -26,8 +26,9 @@ import           System.Wlog (WithLogger)
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
-import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants, HeaderHash, Timestamp (..),
-                     difficultyL, flattenSlotId, headerHash, prevBlockL)
+import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
+                     HeaderHash, Timestamp (..), difficultyL, flattenSlotId,
+                     headerHash, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
@@ -35,7 +36,8 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
 import           Pos.GState.BlockExtra (isBlockInMainChain)
-import           Pos.Infra.Slotting (MonadSlots (..), getCurrentSlotFlat, slotFromTimestamp)
+import           Pos.Infra.Slotting (MonadSlots (..), getCurrentSlotFlat,
+                     slotFromTimestamp)
 import           Pos.Util (_neHead)
 
 -- | Find LCA of headers list and main chain, including oldest

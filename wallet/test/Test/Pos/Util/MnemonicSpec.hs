@@ -12,8 +12,9 @@ import           Test.QuickCheck ((===))
 
 import           Crypto.Encoding.BIP39 (toEntropy)
 import           Pos.Crypto (AesKey (..))
-import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic, MnemonicErr (..),
-                     entropyToMnemonic, mkEntropy, mkMnemonic, mnemonicToAesKey, mnemonicToEntropy,
+import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic,
+                     MnemonicErr (..), entropyToMnemonic, mkEntropy,
+                     mkMnemonic, mnemonicToAesKey, mnemonicToEntropy,
                      mnemonicToSeed)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..))

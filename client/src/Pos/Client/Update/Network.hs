@@ -15,8 +15,10 @@ import           System.Wlog (logInfo)
 import           Pos.Communication.Message ()
 import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (sendUpdateProposal, sendVote))
-import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkUpdateVoteSafe)
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (sendUpdateProposal, sendVote))
+import           Pos.Update (UpId, UpdateProposal, UpdateVote (..),
+                     mkUpdateVoteSafe)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses

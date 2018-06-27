@@ -18,12 +18,13 @@ import           Pos.Core (ConfigurationError, epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                     topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                     topologyDequeuePolicy, topologyEnqueuePolicy,
+                     topologyFailurePolicy)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
-                     bracketNodeResources, loggerBracket, lpConsoleLog, runNode, runRealMode,
-                     withConfigurations)
+import           Pos.Launcher (HasConfigurations, NodeParams (..),
+                     NodeResources (..), bracketNodeResources, loggerBracket,
+                     lpConsoleLog, runNode, runRealMode, withConfigurations)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
@@ -31,7 +32,8 @@ import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
+import           AuxxOptions (AuxxAction (..), AuxxOptions (..),
+                     AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (PrintAction, WithCommandAction (..), withAuxxRepl)

@@ -9,7 +9,8 @@ import           Universum
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
+                     PassiveWalletLayer (..))
 
 import           Test.QuickCheck (Arbitrary, arbitrary, generate)
 

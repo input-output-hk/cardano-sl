@@ -49,7 +49,8 @@ import qualified UTxO.Verify as Verify
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration,
+                     withDefUpdateConfiguration)
 
 {-------------------------------------------------------------------------------
   Translation monad

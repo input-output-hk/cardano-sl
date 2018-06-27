@@ -89,7 +89,8 @@ import qualified Data.Char as C
 import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
+                     GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
@@ -107,7 +108,8 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 
-import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
+                     UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
@@ -126,9 +128,11 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe,
-                     buildSafeList, buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Diffusion.Subscription.Status
+                     (SubscriptionStatus (..))
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                     buildSafe, buildSafeList, buildSafeMaybe,
+                     deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()

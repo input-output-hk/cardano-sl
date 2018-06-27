@@ -12,7 +12,8 @@ import           Weigh (io, mainWith)
 import           Test.QuickCheck (arbitrary, generate)
 
 import           Pos.Explorer.DB (defaultPageSize)
-import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
+import           Pos.Explorer.ExplorerMode (ExplorerTestParams,
+                     runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
                      generateValidExplorerMockableMode)

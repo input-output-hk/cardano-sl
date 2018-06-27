@@ -7,7 +7,8 @@ import           Universum
 
 import qualified Data.Set as Set
 
-import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf', ToIndex (..))
+import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf',
+                     ToIndex (..))
 import qualified Cardano.Wallet.API.Request.Filter as F
 
 -- | Applies all the input filters to the input list.

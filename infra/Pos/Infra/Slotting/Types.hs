@@ -23,8 +23,8 @@ import           Universum hiding (keys)
 import           Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, toMicroseconds)
 
-import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..),
-                     addTimeDiffToTimestamp, getSlotIndex)
+import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..),
+                     Timestamp (..), addTimeDiffToTimestamp, getSlotIndex)
 import           Pos.Util.Util ()
 
 

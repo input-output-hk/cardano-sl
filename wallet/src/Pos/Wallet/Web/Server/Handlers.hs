@@ -13,7 +13,8 @@ import           Universum
 import           Ntp.Client (NtpStatus)
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
 import           Servant.API ((:<|>) ((:<|>)))
-import           Servant.Generic (AsServerT, GenericProduct, ToServant, toServant)
+import           Servant.Generic (AsServerT, GenericProduct, ToServant,
+                     toServant)
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 

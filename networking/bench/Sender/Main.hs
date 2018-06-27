@@ -27,15 +27,15 @@ import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen, randomR)
 
 import qualified Network.Transport as NT
-import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
-                     converseWith, defaultNodeEnvironment, noReceiveDelay, node,
-                     simpleNodeEndPoint)
+import           Node (Conversation (..), ConversationActions (..), Node (Node),
+                     NodeAction (..), converseWith, defaultNodeEnvironment,
+                     noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
 import           Pos.Util.Trace (Severity (..), wlogTrace)
 
-import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
-                     loadLogConfig, logMeasure)
+import           Bench.Network.Commons (MeasureEvent (..), Payload (..),
+                     Ping (..), Pong (..), loadLogConfig, logMeasure)
 import           SenderOptions (Args (..), argsParser)
 
 data PingState = PingState

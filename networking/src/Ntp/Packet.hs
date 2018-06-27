@@ -16,7 +16,8 @@ import           Control.Monad.Trans (MonadIO (..))
 import           Data.Binary (Binary (..))
 import           Data.Binary.Get (getInt8, getWord32be, getWord8)
 import           Data.Binary.Put (putWord32be, putWord8)
-import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds, toMicroseconds)
+import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds,
+                     toMicroseconds)
 import           Data.Word (Word32, Word8)
 
 import           Ntp.Util (getCurrentTime)

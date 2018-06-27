@@ -48,8 +48,9 @@ import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-import           Control.Exception (Exception, SomeAsyncException, SomeException, bracket, catch,
-                     finally, fromException, handle, mask, throwIO, try, uninterruptibleMask_)
+import           Control.Exception (Exception, SomeAsyncException,
+                     SomeException, bracket, catch, finally, fromException,
+                     handle, mask, throwIO, try, uninterruptibleMask_)
 import           Control.Monad (forM_, mapM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
@@ -73,7 +74,8 @@ import           Formatting (sformat, shown, (%))
 import           GHC.Generics (Generic)
 import qualified Network.Transport as NT
 import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
-import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
+import           Node.Message.Decoder (Decoder (..), DecoderStep (..),
+                     continueDecoding)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import qualified System.Metrics.Distribution as Metrics (Distribution)
 import qualified System.Metrics.Distribution as Metrics.Distribution

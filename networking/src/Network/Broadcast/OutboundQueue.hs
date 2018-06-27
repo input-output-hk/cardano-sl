@@ -85,8 +85,8 @@ module Network.Broadcast.OutboundQueue (
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception (Exception, SomeException, catch, displayException, finally,
-                     mask_, throwIO)
+import           Control.Exception (Exception, SomeException, catch,
+                     displayException, finally, mask_, throwIO)
 import           Control.Lens
 import           Control.Monad
 import           Data.Either (rights)
@@ -110,7 +110,8 @@ import qualified System.Metrics.Counter as Counter
 
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
-import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
+import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+                     (MultiQueue)
 import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
 import           Network.Broadcast.OutboundQueue.Types
 

@@ -19,9 +19,11 @@ import           Data.Char (isAlphaNum)
 import           Data.List (last)
 import           Data.Time (getCurrentTime)
 import qualified Prelude
-import           System.Directory (canonicalizePath, createDirectory, doesDirectoryExist,
-                     getTemporaryDirectory, listDirectory, removeDirectoryRecursive, removeFile)
-import           System.FilePath (normalise, pathSeparator, takeDirectory, (</>))
+import           System.Directory (canonicalizePath, createDirectory,
+                     doesDirectoryExist, getTemporaryDirectory, listDirectory,
+                     removeDirectoryRecursive, removeFile)
+import           System.FilePath (normalise, pathSeparator, takeDirectory,
+                     (</>))
 import           System.IO (hClose, openTempFile)
 
 -- | Lists all immediate children of the given directory, excluding "." and ".."

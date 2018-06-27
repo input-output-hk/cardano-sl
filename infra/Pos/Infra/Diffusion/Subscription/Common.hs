@@ -38,13 +38,14 @@ import           System.Wlog (Severity (..))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Infra.Communication.Listener (listenerConv)
-import           Pos.Infra.Communication.Protocol (Conversation (..), ConversationActions (..),
-                     ListenerSpec, MkListeners, MsgSubscribe (..), MsgSubscribe1 (..), NodeId,
-                     OutSpecs, SendActions, constantListeners, mlMsgSubscribe, mlMsgSubscribe1,
-                     recvLimited, withConnectionTo)
+import           Pos.Infra.Communication.Protocol (Conversation (..),
+                     ConversationActions (..), ListenerSpec, MkListeners,
+                     MsgSubscribe (..), MsgSubscribe1 (..), NodeId, OutSpecs,
+                     SendActions, constantListeners, mlMsgSubscribe,
+                     mlMsgSubscribe1, recvLimited, withConnectionTo)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
-import qualified Pos.Infra.Diffusion.Subscription.Status as Status (subscribed, subscribing,
-                     terminated)
+import qualified Pos.Infra.Diffusion.Subscription.Status as Status (subscribed,
+                     subscribing, terminated)
 import           Pos.Infra.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Trace (Trace, traceWith)
 

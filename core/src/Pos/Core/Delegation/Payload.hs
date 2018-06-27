@@ -12,7 +12,8 @@ import           Formatting (bprint, int, (%))
 import           Serokell.Util (allDistinct, listJson)
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), validateProxySecretKey)
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..),
+                     validateProxySecretKey)
 
 import           Pos.Core.Delegation.HeavyDlgIndex
 

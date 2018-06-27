@@ -19,7 +19,8 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, SlotId (..),
+import           Pos.Core (EpochIndex (..), HasGenesisData,
+                     HasProtocolConstants, SlotId (..),
                      VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.Ssc.DB as DB

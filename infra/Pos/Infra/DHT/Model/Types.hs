@@ -25,7 +25,8 @@ import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Network.Kademlia (fromBS)
-import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress)
+import           Network.Kademlia.HashNodeId (HashId (..), genNonce,
+                     hashAddress)
 import qualified Prelude
 import qualified Serokell.Util.Base64 as B64
 import qualified Serokell.Util.Parse as P

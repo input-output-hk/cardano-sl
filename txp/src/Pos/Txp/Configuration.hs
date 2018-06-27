@@ -12,7 +12,8 @@ module Pos.Txp.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
 import           Data.Reflection (Given (..), give)
 import           Pos.Aeson.Core ()
 import           Pos.Core (Address)

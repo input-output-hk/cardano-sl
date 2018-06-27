@@ -11,7 +11,8 @@ module Lib where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
+import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict,
+                     withObject, (.:))
 import qualified Data.ByteString as B
 import           Data.Function (id)
 import qualified Data.List.NonEmpty as NE
@@ -31,16 +32,21 @@ import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
-                     CAccountMeta (..), CAddress (..), CBackupPhrase (..), CId (..), CWallet (..),
-                     CWalletAssurance (..), CWalletInit (..), CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
+                     CAccountInit (..), CAccountMeta (..), CAddress (..),
+                     CBackupPhrase (..), CId (..), CWallet (..),
+                     CWalletAssurance (..), CWalletInit (..), CWalletMeta (..),
+                     Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
+import           Pos.Wallet.Web.Methods.Logic (getAccounts,
+                     newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot, getWalletUtxo,
-                     insertIntoHistoryCache, setWalletUtxo, updateWalletBalancesAndUtxo)
-import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate, vectorOf)
+import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot,
+                     getWalletUtxo, insertIntoHistoryCache, setWalletUtxo,
+                     updateWalletBalancesAndUtxo)
+import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate,
+                     vectorOf)
 import           Text.Printf (printf)
 
 import           CLI (CLI (..))

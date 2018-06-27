@@ -24,8 +24,9 @@ import           Pos.Core.Common (Address)
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
 import           Pos.Crypto (WithHash (..))
 import           Pos.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                     PtxSubmitTiming (..), pstNextDelay, pstNextSlot, ptxPeerAck, ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..),
+                     PtxCondition (..), PtxSubmitTiming (..), pstNextDelay,
+                     pstNextSlot, ptxPeerAck, ptxSubmitTiming)
 
 mkPtxSubmitTiming :: ProtocolConstants -> SlotId -> PtxSubmitTiming
 mkPtxSubmitTiming pc creationSlot = give pc $

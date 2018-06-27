@@ -7,9 +7,11 @@ module Client.Cardano.Wallet.Web.Endpoint.IsValidAddress
 import           Universum
 
 import           Bench.Cardano.Wallet.Random (pickRandomElementFrom)
-import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig (..), Response,
-                     ResponseReport (..), Wallet (..), WalletAccount (..), WalletsConfig (..))
-import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), Response, ResponseReport (..),
+                     Wallet (..), WalletAccount (..), WalletsConfig (..))
+import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded,
+                     checkResponse)
 import           Client.Cardano.Wallet.Web.Api (isValidAddress)
 import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
 

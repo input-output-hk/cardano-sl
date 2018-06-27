@@ -30,7 +30,8 @@ import           Control.Monad.Morph (hoist)
 import qualified Crypto.Random as Rand
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
-import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState, sscGlobal, sscLocal)
+import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState,
+                     sscGlobal, sscLocal)
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------

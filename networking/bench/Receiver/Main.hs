@@ -19,11 +19,12 @@ import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen)
 
-import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig,
-                     logMeasure)
+import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..),
+                     loadLogConfig, logMeasure)
 import qualified Network.Transport.TCP as TCP
 import           Node (ConversationActions (..), Listener (..), NodeAction (..),
-                     defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
+                     defaultNodeEnvironment, noReceiveDelay, node,
+                     simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
 import           Pos.Util.Trace (Severity (..), Trace, wlogTrace)
 import           ReceiverOptions (Args (..), argsParser)

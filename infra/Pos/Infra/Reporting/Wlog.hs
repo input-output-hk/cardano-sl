@@ -24,12 +24,12 @@ import           Data.List (isSuffixOf)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           System.Directory (canonicalizePath, doesFileExist, getTemporaryDirectory,
-                     removeFile)
+import           System.Directory (canonicalizePath, doesFileExist,
+                     getTemporaryDirectory, removeFile)
 import           System.FilePath (takeFileName)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
-import           System.Wlog (LoggerConfig (..), LoggerName, hwFilePath, lcTree, ltFiles,
-                     ltSubloggers, retrieveLogContent)
+import           System.Wlog (LoggerConfig (..), LoggerName, hwFilePath, lcTree,
+                     ltFiles, ltSubloggers, retrieveLogContent)
 
 -- FIXME we get PackingError from here, but it should defined locally, since
 -- it's log-warper specific.

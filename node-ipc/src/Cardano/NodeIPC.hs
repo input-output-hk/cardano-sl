@@ -9,11 +9,14 @@ module Cardano.NodeIPC (startNodeJsIPC) where
 import           Control.Arrow ((>>>))
 import           Control.Concurrent (forkIO)
 import           Control.Monad.Reader (MonadReader)
-import           Data.Aeson (FromJSON (parseJSON), ToJSON (toEncoding), defaultOptions,
-                     eitherDecode, encode, genericParseJSON, genericToEncoding)
-import           Data.Aeson.Types (Options, SumEncoding (ObjectWithSingleField), sumEncoding)
+import           Data.Aeson (FromJSON (parseJSON), ToJSON (toEncoding),
+                     defaultOptions, eitherDecode, encode, genericParseJSON,
+                     genericToEncoding)
+import           Data.Aeson.Types (Options, SumEncoding (ObjectWithSingleField),
+                     sumEncoding)
 import           Data.Binary.Get (getWord32le, getWord64le, runGet)
-import           Data.Binary.Put (putLazyByteString, putWord32le, putWord64le, runPut)
+import           Data.Binary.Put (putLazyByteString, putWord32le, putWord64le,
+                     runPut)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import           Distribution.System (OS (Windows), buildOS)
@@ -23,7 +26,8 @@ import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Infra.Shutdown.Logic (triggerShutdown)
 import           Pos.Infra.Shutdown.Types (ShutdownContext)
 import           System.Environment (lookupEnv)
-import           System.IO (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation)
+import           System.IO (hFlush, hGetLine, hSetNewlineMode,
+                     noNewlineTranslation)
 import           System.IO.Error (IOError, isEOFError)
 import           System.Wlog (WithLogger, logError, logInfo)
 import           System.Wlog.LoggerNameBox (usingLoggerName)

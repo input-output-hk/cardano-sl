@@ -17,7 +17,8 @@ import           Data.Vector (Vector, fromList)
 import qualified Data.Vector as V (length)
 import           Data.Word (Word32)
 import           Network.QDisc.Fair
-import           Network.Transport.TCP (QDisc (..), simpleOnePlaceQDisc, simpleUnboundedQDisc)
+import           Network.Transport.TCP (QDisc (..), simpleOnePlaceQDisc,
+                     simpleUnboundedQDisc)
 import           Statistics.Distribution
 import           Statistics.Distribution.Exponential
 import           Statistics.Distribution.Normal

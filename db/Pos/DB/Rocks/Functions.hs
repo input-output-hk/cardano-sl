@@ -45,7 +45,8 @@ import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.DB.BatchOp (rocksWriteBatch)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions (dbSerializeValue, processIterEntry)
-import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..), getDBByTag)
+import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..),
+                     getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock as RWL
 import           Pos.Util.Util (lensOf)
 

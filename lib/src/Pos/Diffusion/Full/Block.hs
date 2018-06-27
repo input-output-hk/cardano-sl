@@ -32,34 +32,42 @@ import           Serokell.Util.Text (listJson)
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 
-import           Pos.Binary.Communication (serializeMsgSerializedBlock, serializeMsgStreamBlock)
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                     MsgHeaders (..), MsgSerializedBlock (..), MsgStream (..), MsgStreamBlock (..),
-                     MsgStreamStart (..), MsgStreamUpdate (..))
-import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks, mlMsgGetHeaders,
-                     mlMsgHeaders, mlMsgStream, mlMsgStreamBlock)
+import           Pos.Binary.Communication (serializeMsgSerializedBlock,
+                     serializeMsgStreamBlock)
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
+import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
+                     mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
+                     mlMsgStreamBlock)
 import           Pos.Communication.Message ()
-import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..), bvdSlotDuration,
-                     headerHash, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
+import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
+                     bvdSlotDuration, headerHash, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
+                     blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
-import           Pos.Infra.Communication.Protocol (Conversation (..), ConversationActions (..),
-                     EnqueueMsg, ListenerSpec, MkListeners (..), MsgType (..), NodeId, Origin (..),
-                     OutSpecs, constantListeners, recvLimited, waitForConversations,
-                     waitForDequeues)
-import           Pos.Infra.Diffusion.Types (DiffusionHealth (..), StreamEntry (..))
+import           Pos.Infra.Communication.Protocol (Conversation (..),
+                     ConversationActions (..), EnqueueMsg, ListenerSpec,
+                     MkListeners (..), MsgType (..), NodeId, Origin (..),
+                     OutSpecs, constantListeners, recvLimited,
+                     waitForConversations, waitForDequeues)
+import           Pos.Infra.Diffusion.Types (DiffusionHealth (..),
+                     StreamEntry (..))
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
 -- Dubious having this security stuff in here.
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
-                     _NewestFirst, _OldestFirst)
-import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
-                     SecurityParams (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Security.Params (AttackTarget (..), AttackType (..),
+                     NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Timer (Timer, startTimer)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)

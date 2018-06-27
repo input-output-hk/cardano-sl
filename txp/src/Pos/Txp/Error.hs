@@ -9,7 +9,8 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 import           Universum
 
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 
 data TxpError
     = TxpInternalError !Text

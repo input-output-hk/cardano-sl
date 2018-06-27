@@ -30,8 +30,8 @@ import           Data.Default.Class
 import           Data.List (intercalate)
 import           Data.X509
 import           Data.X509.CertificateStore (makeCertificateStore)
-import           Data.X509.Validation (FailedReason, ServiceID, ValidationChecks (..), defaultHooks,
-                                       validate)
+import           Data.X509.Validation (FailedReason, ServiceID,
+                     ValidationChecks (..), defaultHooks, validate)
 
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Data.ByteString as BS

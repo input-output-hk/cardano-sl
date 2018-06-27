@@ -19,8 +19,10 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, BlockVersionData, HasConfiguration, makePubKeyAddressBoot)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
+import           Pos.Core (Address, BlockVersionData, HasConfiguration,
+                     makePubKeyAddressBoot)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData,
+                     genesisBlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
 import           Pos.Ssc.Configuration (HasSscConfiguration)

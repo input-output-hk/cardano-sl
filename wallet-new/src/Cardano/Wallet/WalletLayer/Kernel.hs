@@ -17,8 +17,10 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
+                     fromRawResolvedBlock)
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
+                     PassiveWalletLayer (..))
 
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (safeDeterministicKeyGen)

@@ -8,8 +8,9 @@ module Pos.Aeson.Core
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
-                     ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
+import           Data.Aeson (FromJSON (..), FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSON (toJSON), ToJSONKey (..),
+                     object, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteString.Lazy as LBS
@@ -22,15 +23,16 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 import           Pos.Aeson.Fee ()
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Core.Binary ()
-import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coin, CoinPortion,
-                     Script (..), SharedSeed (..), addressF, coinPortionToDouble,
-                     decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty,
+                     Coin, CoinPortion, Script (..), SharedSeed (..), addressF,
+                     coinPortionToDouble, decodeTextAddress, mkCoin,
+                     unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Core.Delegation (HeavyDlgIndex (..))
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
-                     Timestamp (..))
+import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex,
+                     SlotCount (..), SlotId, Timestamp (..))
 import           Pos.Core.Ssc (VssCertificate)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion, BlockVersionData,
-                     SoftforkRule, SoftwareVersion (..))
+import           Pos.Core.Update (ApplicationName (..), BlockVersion,
+                     BlockVersionData, SoftforkRule, SoftwareVersion (..))
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (toAesonError)
 

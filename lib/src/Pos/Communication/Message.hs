@@ -9,16 +9,16 @@ import           Universum
 import           Data.Tagged (Tagged)
 import           Node.Message.Class (Message (..))
 
-import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders, MsgStream,
-                                    MsgStreamBlock)
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                     MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
 import           Pos.Infra.Communication.Types.Protocol (MsgSubscribe,
-                                                         MsgSubscribe1)
+                     MsgSubscribe1)
 import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
-                                                      InvOrData, MempoolMsg,
-                                                      ReqMsg, ReqOrRes)
-import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
+                     InvOrData, MempoolMsg, ReqMsg, ReqOrRes)
+import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
+                     MCVssCertificate)
 import           Pos.Txp.Network.Types (TxMsgContents)
 
 -- Why?

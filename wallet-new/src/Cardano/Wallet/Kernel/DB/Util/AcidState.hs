@@ -21,7 +21,7 @@ import           Universum
 import           Control.Monad.Except
 import           Data.Acid (Update)
 
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet, Indexable)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexable, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------

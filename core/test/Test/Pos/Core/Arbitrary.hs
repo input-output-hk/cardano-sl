@@ -30,31 +30,38 @@ import           Data.List ((!!))
 import qualified Data.Map as M
 import           Data.Time.Units (Second, TimeUnit (..), convertUnit)
 import           System.Random (Random)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
-                     suchThat)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale,
+                     shrinkIntegral, sized, suchThat)
 
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (AddrAttributes (..), AddrSpendingData (..), AddrStakeDistribution (..),
-                     AddrType (..), Address (..), Address' (..), ApplicationName (..),
-                     BlockCount (..), BlockVersion (..), BlockVersionData (..),
-                     ChainDifficulty (..), Coeff (..), Coin (..), CoinPortion (..),
-                     EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..), Script (..),
-                     SharedSeed (..), SlotCount (..), SlotId (..), SoftforkRule (..),
-                     SoftwareVersion (..), StakeholderId, TimeDiff (..), Timestamp (..),
-                     TxFeePolicy (..), TxSizeLinear (..), VssCertificate, applicationNameMaxLength,
-                     coinPortionDenominator, coinToInteger, divCoin, localSlotIndexMaxBound,
-                     localSlotIndexMinBound, makeAddress, maxCoinVal, mkCoin, mkLocalSlotIndex,
-                     mkMultiKeyDistr, mkVssCertificate, mkVssCertificatesMapLossy,
-                     unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
-                     epochSlots, protocolConstants)
+import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
+                     AddrStakeDistribution (..), AddrType (..), Address (..),
+                     Address' (..), ApplicationName (..), BlockCount (..),
+                     BlockVersion (..), BlockVersionData (..),
+                     ChainDifficulty (..), Coeff (..), Coin (..),
+                     CoinPortion (..), EpochIndex (..), EpochOrSlot (..),
+                     LocalSlotIndex (..), Script (..), SharedSeed (..),
+                     SlotCount (..), SlotId (..), SoftforkRule (..),
+                     SoftwareVersion (..), StakeholderId, TimeDiff (..),
+                     Timestamp (..), TxFeePolicy (..), TxSizeLinear (..),
+                     VssCertificate, applicationNameMaxLength,
+                     coinPortionDenominator, coinToInteger, divCoin,
+                     localSlotIndexMaxBound, localSlotIndexMinBound,
+                     makeAddress, maxCoinVal, mkCoin, mkLocalSlotIndex,
+                     mkMultiKeyDistr, mkVssCertificate,
+                     mkVssCertificatesMapLossy, unsafeCoinPortionFromDouble,
+                     unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData,
+                     HasProtocolConstants, epochSlots, protocolConstants)
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                     VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleTree, mkMerkleTree)

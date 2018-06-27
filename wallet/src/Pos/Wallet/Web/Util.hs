@@ -24,17 +24,18 @@ import           Pos.Configuration (HasNodeConfiguration, walletProductionApi)
 import           Pos.Core (Address, BlockCount)
 import           Pos.Util.Servant (FromCType (..), OriginType)
 import           Pos.Util.Util (maybeThrow)
-import           Pos.Wallet.Web.Assurance (AssuranceLevel (HighAssurance), assuredBlockDepth)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, Wal,
-                                             cwAssurance)
+import           Pos.Wallet.Web.Assurance (AssuranceLevel (HighAssurance),
+                     assuredBlockDepth)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId,
+                     Wal, cwAssurance)
 
 
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (..),
-                                       CurrentAndRemoved (getCurrent, getRemoved),
-                                       WAddressMeta (..), WalletSnapshot, getAccountAddrMaps,
-                                       getAccountIds, getAccountMeta, getAccountWAddresses,
-                                       getWAddresses, getWalletMeta)
+                     CurrentAndRemoved (getCurrent, getRemoved),
+                     WAddressMeta (..), WalletSnapshot, getAccountAddrMaps,
+                     getAccountIds, getAccountMeta, getAccountWAddresses,
+                     getWAddresses, getWalletMeta)
 
 getAccountMetaOrThrow :: MonadThrow m => WalletSnapshot -> AccountId -> m CAccountMeta
 getAccountMetaOrThrow ws accId = maybeThrow noAccount (getAccountMeta ws accId)

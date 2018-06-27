@@ -41,9 +41,10 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
-import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch, infoPlus,
-                              lcTree, ltSeverity, maybeLogsDirB, parseLoggerConfig,
-                              productionB, setupLogging, warningPlus, zoomLogger)
+import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch,
+                     infoPlus, lcTree, ltSeverity, maybeLogsDirB,
+                     parseLoggerConfig, productionB, setupLogging, warningPlus,
+                     zoomLogger)
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))

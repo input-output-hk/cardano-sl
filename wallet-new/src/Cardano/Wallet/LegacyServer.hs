@@ -4,7 +4,8 @@ module Cardano.Wallet.LegacyServer where
 import           Universum
 
 import           Cardano.Wallet.API
-import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations)
+import           Cardano.Wallet.API.V1.Migration (HasCompileInfo,
+                     HasConfigurations)
 
 import qualified Cardano.Wallet.API.Development.LegacyHandlers as Dev
 import qualified Cardano.Wallet.API.V0.Handlers as V0

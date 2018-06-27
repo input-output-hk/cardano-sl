@@ -14,14 +14,17 @@ module Test.Pos.Update.Arbitrary.Core
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf, listOf1, oneof)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf,
+                     listOf1, oneof)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
-import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
-                     UpdatePayload (..), UpdateProposal, UpdateProposalToSign (..),
-                     UpdateVote (..), mkUpdateProposalWSign, mkUpdateVote)
+import           Pos.Core.Update (BlockVersionModifier, SystemTag (..),
+                     UpdateData (..), UpdatePayload (..), UpdateProposal,
+                     UpdateProposalToSign (..), UpdateVote (..),
+                     mkUpdateProposalWSign, mkUpdateVote)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))

@@ -10,19 +10,19 @@ module Cardano.Wallet.API.Development.LegacyHandlers
     , deleteSecretKeys
     ) where
 
-import           Universum
 import           Control.Monad.Catch (MonadThrow)
+import           Universum
 
 import qualified Cardano.Wallet.API.Development as Dev
 import           Cardano.Wallet.API.Development.Helpers (developmentOnly)
 import           Cardano.Wallet.API.Response (WalletResponse, single)
 import           Cardano.Wallet.API.V1.Migration
-import           Cardano.Wallet.API.V1.Types (V1(..))
+import           Cardano.Wallet.API.V1.Types (V1 (..))
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 
-import qualified Pos.Wallet.Web.State as V0
 import qualified Pos.Client.KeyStorage as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
+import qualified Pos.Wallet.Web.State as V0
 
 import           Servant
 

@@ -10,8 +10,8 @@ import           Universum
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 
 import           Command.TyProjection (tyInt, tyString)
-import           Lang.Argument (ArgumentConsumer, ArgumentError (..), ProcError (..),
-                                TypeError (..), consumeArguments, getArg)
+import           Lang.Argument (ArgumentConsumer, ArgumentError (..),
+                     ProcError (..), TypeError (..), consumeArguments, getArg)
 import           Lang.Syntax (Arg (..))
 import           Lang.Value (Value (..))
 

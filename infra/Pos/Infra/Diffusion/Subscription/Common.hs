@@ -21,12 +21,12 @@ module Pos.Infra.Diffusion.Subscription.Common
 
 import           Universum hiding (mask)
 
-import           Control.Exception (mask)
-import qualified Control.Exception.Safe as Safe (try)
 import           Control.Concurrent.Async (concurrently)
 import           Control.Concurrent.MVar (modifyMVar)
-import qualified Data.Map.Strict as Map
+import           Control.Exception (mask)
+import qualified Control.Exception.Safe as Safe (try)
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as Map
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
@@ -37,21 +37,15 @@ import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
 import           System.Wlog (Severity (..))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
-import qualified Pos.Infra.Diffusion.Subscription.Status as Status (subscribing, subscribed,
-                                                              terminated)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
-                                                   ConversationActions (..),
-                                                   ListenerSpec, MkListeners,
-                                                   MsgSubscribe (..),
-                                                   MsgSubscribe1 (..), NodeId,
-                                                   OutSpecs, SendActions,
-                                                   constantListeners,
-                                                   withConnectionTo,
-                                                   recvLimited,
-                                                   mlMsgSubscribe,
-                                                   mlMsgSubscribe1)
+                     ConversationActions (..), ListenerSpec, MkListeners,
+                     MsgSubscribe (..), MsgSubscribe1 (..), NodeId, OutSpecs,
+                     SendActions, constantListeners, mlMsgSubscribe,
+                     mlMsgSubscribe1, recvLimited, withConnectionTo)
+import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
+import qualified Pos.Infra.Diffusion.Subscription.Status as Status (subscribed,
+                     subscribing, terminated)
 import           Pos.Infra.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Trace (Trace, traceWith)
 
@@ -89,7 +83,7 @@ updatePeersBucketSubscribe
 updatePeersBucketSubscribe = updatePeersBucket alterationAdd
   where
     alterationAdd :: Maybe Int -> Maybe Int
-    alterationAdd Nothing = Just 1
+    alterationAdd Nothing  = Just 1
     alterationAdd (Just n) = Just (n + 1)
 
 updatePeersBucketUnsubscribe
@@ -102,7 +96,7 @@ updatePeersBucketUnsubscribe
 updatePeersBucketUnsubscribe = updatePeersBucket alterationRemove
   where
     alterationRemove :: Maybe Int -> Maybe Int
-    alterationRemove Nothing = Nothing
+    alterationRemove Nothing  = Nothing
     alterationRemove (Just 1) = Nothing
     alterationRemove (Just n) = Just (n - 1)
 

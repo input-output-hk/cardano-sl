@@ -16,15 +16,15 @@ import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
 
-import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants, IsMainHeader,
-                           LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
-                           VssCertificate, epochIndexL, epochOrSlot, getEpochOrSlot,
-                           getVssCertificatesMap, headerSlotL, mkCoin,
-                           mkVssCertificatesMapSingleton, slotSecurityParam)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
+                     IsMainHeader, LocalSlotIndex, SlotCount, SlotId (siSlot),
+                     StakeholderId, VssCertificate, epochIndexL, epochOrSlot,
+                     getEpochOrSlot, getVssCertificatesMap, headerSlotL,
+                     mkCoin, mkVssCertificatesMapSingleton, slotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
-                               SscPayload (..), checkSscPayload, getCommitmentsMap,
-                               mkCommitmentsMapUnsafe, spVss)
+import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
+                     SignedCommitment, SscPayload (..), checkSscPayload,
+                     getCommitmentsMap, mkCommitmentsMapUnsafe, spVss)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)

@@ -24,15 +24,15 @@ import           Pos.Core (Address (..))
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials,
-                                                  selectOwnAddresses)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
+                     eskToWalletDecrCredentials, selectOwnAddresses)
 
-import           Cardano.Wallet.Kernel.Types(WalletId (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedInput, ResolvedTx, rbTxs, rtxInputs,
-                                                    rtxOutputs)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
+                     ResolvedInput, ResolvedTx, rbTxs, rtxInputs, rtxOutputs)
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs to those that belong to the given Wallet.

@@ -41,10 +41,11 @@ module Pos.Crypto.Hashing
 import           Universum
 
 import           Control.Lens (makeLensesFor)
-import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
+import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm,
+                     hashDigestSize)
 import qualified Crypto.Hash as Hash
-import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
-                             ToJSONKey (..))
+import           Data.Aeson (FromJSON (..), FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSON (..), ToJSONKey (..))
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS

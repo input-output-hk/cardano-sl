@@ -32,12 +32,13 @@ import           Data.Time.Units (Microsecond)
 import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Mem (getAllocationCounter)
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
+                     usingLoggerName)
 
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
-import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock, newPriorityLock,
-                                                   withPriorityLock)
+import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
+                     newPriorityLock, withPriorityLock)
 import           Pos.Util.Util (HasLens', lensOf)
 
 

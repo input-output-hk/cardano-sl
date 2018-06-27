@@ -1,14 +1,14 @@
 module Test.Pos.Util.TimerSpec
     ( spec) where
 
-import           Universum hiding (newTVarIO)
-import           Control.Concurrent.STM (newTVarIO, writeTVar, readTVar, retry)
 import           Control.Concurrent.Async (async)
+import           Control.Concurrent.STM (newTVarIO, readTVar, retry, writeTVar)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Test.Hspec (Spec, describe, it)
-import           Test.QuickCheck (Property, Gen, property, choose)
-import           Test.QuickCheck.Monadic (forAllM, monadicIO, run, assert)
+import           Test.QuickCheck (Gen, Property, choose, property)
+import           Test.QuickCheck.Monadic (assert, forAllM, monadicIO, run)
+import           Universum hiding (newTVarIO)
 
 import           Pos.Util.Timer
 
@@ -20,7 +20,7 @@ chooseMsc (a, b) = fromMicroseconds <$> choose (toMicroseconds a, toMicroseconds
 
 -- | A timer should wait at least given interval.
 prop_wait :: Property
-prop_wait = 
+prop_wait =
     let tMIN = 250 :: Microsecond
         tMAX = 500 :: Microsecond
     in monadicIO
@@ -32,12 +32,12 @@ prop_wait =
         _ <- atomically $ waitTimer timer
         endTime <- run getPOSIXTime
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
-        assert $ t <= diffTime 
+        assert $ t <= diffTime
 
 -- | A timer should be additive: (re)-starting a timer @t1@ after @t0@
 -- microseconds should wait at least @t0 + t1@ microseconds.
 prop_additive :: Property
-prop_additive = 
+prop_additive =
     let tMIN = 250 :: Microsecond
         tMAX = 500 :: Microsecond
     in monadicIO

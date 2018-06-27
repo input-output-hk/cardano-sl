@@ -14,31 +14,35 @@ import qualified Data.Text.Buildable as B
 import qualified Data.Vector as V (fromList)
 import           Fmt (blockListF', genericF, nameF, (+|), (|+))
 import           Serokell.Util (allDistinct)
-import           Test.Hspec (Expectation, Spec, describe, expectationFailure, it)
+import           Test.Hspec (Expectation, Spec, describe, expectationFailure,
+                     it)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 
 import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
-                           defaultCoreConfiguration, makePubKeyAddressBoot, makeScriptAddress,
-                           mkCoin, sumCoins, withGenesisSpec)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
-                               TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
-import           Pos.Crypto (ProtocolMagic, SignTag (SignTx), checkSig, fakeSigner, hash, toPublic,
-                             unsafeHash, withHash)
+                     defaultCoreConfiguration, makePubKeyAddressBoot,
+                     makeScriptAddress, mkCoin, sumCoins, withGenesisSpec)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
+                     TxOut (..), TxOutAux (..), TxSigData (..), TxWitness,
+                     isTxInUnknown)
+import           Pos.Crypto (ProtocolMagic, SignTag (SignTx), checkSig,
+                     fakeSigner, hash, toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script (PlutusError (..), Script)
-import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, goodIntRedeemer,
-                                      goodIntRedeemerWithBlah, goodStdlibRedeemer, idValidator,
-                                      intValidator, intValidatorWithBlah, multisigRedeemer,
-                                      multisigValidator, shaStressRedeemer, sigStressRedeemer,
-                                      stdlibValidator)
-import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUtxoRes,
-                          WitnessVerFailure (..), applyTxToUtxo, evalUtxoM, execUtxoM, utxoGet,
-                          utxoToLookup, verifyTxUtxo)
+import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer,
+                     goodIntRedeemer, goodIntRedeemerWithBlah,
+                     goodStdlibRedeemer, idValidator, intValidator,
+                     intValidatorWithBlah, multisigRedeemer, multisigValidator,
+                     shaStressRedeemer, sigStressRedeemer, stdlibValidator)
+import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..),
+                     VerifyTxUtxoRes, WitnessVerFailure (..), applyTxToUtxo,
+                     evalUtxoM, execUtxoM, utxoGet, utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
-import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..), nonrepeating, runGen)
+import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..),
+                     GoodTx (..))
+import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..),
+                     nonrepeating, runGen)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
 ----------------------------------------------------------------------------

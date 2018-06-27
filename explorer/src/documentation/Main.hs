@@ -27,13 +27,14 @@ import           Control.Lens (mapped, (?~))
 import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import           Data.Fixed (Fixed (..), Micro)
-import           Data.Swagger (Swagger, ToParamSchema (..), ToSchema (..), declareNamedSchema,
-                               defaultSchemaOptions, description, genericDeclareNamedSchema, host,
-                               info, name, title, version)
+import           Data.Swagger (Swagger, ToParamSchema (..), ToSchema (..),
+                     declareNamedSchema, defaultSchemaOptions, description,
+                     genericDeclareNamedSchema, host, info, name, title,
+                     version)
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (showVersion)
-import           Options.Applicative (execParser, footer, fullDesc, header, help, helper,
-                                      infoOption, long, progDesc)
+import           Options.Applicative (execParser, footer, fullDesc, header,
+                     help, helper, infoOption, long, progDesc)
 import qualified Options.Applicative as Opt
 import           Servant ((:>))
 import           Servant.Multipart (MultipartForm)

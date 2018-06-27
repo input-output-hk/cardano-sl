@@ -1,5 +1,5 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Test.Pos.Infra.Gen
         (
@@ -27,15 +27,11 @@ import           Network.Kademlia.HashNodeId (genNonce, hashAddress)
 
 import           Pos.Core (EpochIndex (..))
 import           Pos.Crypto.Random (deterministic)
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
-                                                      InvMsg (..),
-                                                      MempoolMsg (..),
-                                                      ReqMsg (..),
-                                                      ResMsg (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
+                     MempoolMsg (..), ReqMsg (..), ResMsg (..))
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
-import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
-                                           SlottingData,
-                                           createSlottingDataUnsafe)
+import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
+                     createSlottingDataUnsafe)
 
 import           Test.Pos.Core.Gen (genTimeDiff)
 import           Test.Pos.Util.Gen (genMillisecond)

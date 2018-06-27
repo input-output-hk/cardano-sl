@@ -82,12 +82,11 @@ import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
-import           Pos.Core.Chrono
-                   (NewestFirst(NewestFirst),
-                    OldestFirst(getOldestFirst))
+import           Pos.Core.Chrono (NewestFirst (NewestFirst),
+                     OldestFirst (getOldestFirst))
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
-import           Universum hiding (Foldable, tail, toList, foldr, sum)
+import           Universum hiding (Foldable, foldr, sum, tail, toList)
 
 import           Util
 import           Util.Validated

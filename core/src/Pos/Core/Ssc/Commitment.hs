@@ -12,9 +12,10 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Core.Slotting (EpochIndex)
 
-import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen, enforceSize, fromBinary,
-                     serialize')
-import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)
+import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
+                     enforceSize, fromBinary, serialize')
+import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature,
+                     VssPublicKey)
 import           Pos.Util.Util (cborError)
 
 -- | Commitment is a message generated during the first stage of SSC.

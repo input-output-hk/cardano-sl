@@ -6,9 +6,9 @@ module Test.Pos.Core.Arbitrary.Unsafe () where
 
 import           Universum
 
-import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), AddrType (..),
-                           Address (..), Coin, EpochIndex (..), LocalSlotIndex, SharedSeed (..),
-                           SlotId (..), mkCoin)
+import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..),
+                     AddrType (..), Address (..), Coin, EpochIndex (..),
+                     LocalSlotIndex, SharedSeed (..), SlotId (..), mkCoin)
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Data.Attributes (mkAttributes)
 

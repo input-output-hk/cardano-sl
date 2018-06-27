@@ -10,10 +10,11 @@ import           Universum
 import qualified Control.Monad.State as S
 import           GHC.Float (RealFloat (..))
 import           Numeric.Half (Half (..))
-import           Test.QuickCheck.Gen (Gen, choose, elements, oneof, shuffle, sized)
+import           Test.QuickCheck.Gen (Gen, choose, elements, oneof, shuffle,
+                     sized)
 
-import           Test.Pos.Cbor.RefImpl (Term (..), UInt (..), toUInt, leadingZeroes,
-                                        integerToBinaryRep, canonicalNaN)
+import           Test.Pos.Cbor.RefImpl (Term (..), UInt (..), canonicalNaN,
+                     integerToBinaryRep, leadingZeroes, toUInt)
 
 -- | Traverse elements of a Term which can be represented in multiple ways and
 -- apply appropriate functions to them. We assume that Term is obtained from

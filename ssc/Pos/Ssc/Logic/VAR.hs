@@ -21,13 +21,15 @@ import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration,
-                           HasGenesisData, HasProtocolConstants, HeaderHash, epochIndexL,
-                           epochOrSlotG, headerHash)
+import           Pos.Core (BlockVersionData, ComponentBlock (..),
+                     HasCoreConfiguration, HasGenesisData,
+                     HasProtocolConstants, HeaderHash, epochIndexL,
+                     epochOrSlotG, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
+import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
+                     gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
 import           Pos.Infra.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
@@ -36,9 +38,11 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
-import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem, sscRunGlobalUpdate)
-import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, rollbackSsc,
-                               runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
+import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem,
+                     sscRunGlobalUpdate)
+import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock,
+                     rollbackSsc, runPureTossWithLogger, supplyPureTossEnv,
+                     verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)

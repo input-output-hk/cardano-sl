@@ -11,7 +11,8 @@ import           Paths_cardano_sl_wallet_new (version)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo, ctiGitRevision)
-import           Pos.Wallet.WalletMode (MonadBlockchainInfo, blockchainSlotDuration)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo,
+                     blockchainSlotDuration)
 import           Servant
 
 -- | All the @Servant@ handlers for settings-specific operations.

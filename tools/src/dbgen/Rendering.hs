@@ -4,12 +4,14 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccountMeta (..), CHash (..),
-                                                   CId (..), CWalletMeta (..), Wal)
-import           Pos.Wallet.Web.State.Storage (AccountInfo (..), WalletInfo (..),
-                                               WalletSyncState (..))
-import           System.Console.ANSI (Color (..), ColorIntensity (..), ConsoleIntensity (..),
-                                      ConsoleLayer (..), SGR (..), setSGRCode)
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..),
+                     CAccountMeta (..), CHash (..), CId (..), CWalletMeta (..),
+                     Wal)
+import           Pos.Wallet.Web.State.Storage (AccountInfo (..),
+                     WalletInfo (..), WalletSyncState (..))
+import           System.Console.ANSI (Color (..), ColorIntensity (..),
+                     ConsoleIntensity (..), ConsoleLayer (..), SGR (..),
+                     setSGRCode)
 import           Text.Printf (printf)
 
 renderWallet :: WalletInfo -> T.Text

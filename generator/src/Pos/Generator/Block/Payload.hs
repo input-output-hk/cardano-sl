@@ -21,17 +21,22 @@ import qualified Data.Vector as V
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
 
-import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
-                                 unInvSecretsMap)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), createGenericTx,
-                                      makeMPubKeyTxAddrs)
-import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
-                           coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..), fakeSigner, hash, toPublic)
+import           Pos.AllSecrets (asSecretKeys, asSpendingData,
+                     unInvAddrSpendingData, unInvSecretsMap)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
+                     createGenericTx, makeMPubKeyTxAddrs)
+import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
+                     SlotId (..), addressHash, coinToInteger,
+                     makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                     TxOutAux (..))
+import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..),
+                     fakeSigner, hash, toPublic)
 import           Pos.Generator.Block.Error (BlockGenError (..))
-import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, MonadBlockGenBase)
-import           Pos.Generator.Block.Param (HasBlockGenParams (..), HasTxGenParams (..))
+import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
+                     MonadBlockGenBase)
+import           Pos.Generator.Block.Param (HasBlockGenParams (..),
+                     HasTxGenParams (..))
 import qualified Pos.GState as DB
 import           Pos.Txp.MemState.Class (MonadTxpLocal (..))
 import           Pos.Txp.Toil (Utxo, execUtxoM, utxoToLookup)

@@ -9,8 +9,8 @@ module Pos.SafeCopy
 import           Universum
 
 import qualified Crypto.Math.Edwards25519 as ED25519
-import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
-                                safePut)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize as Cereal
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
@@ -21,21 +21,24 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Core.Block
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..), Address (..),
-                                  Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
-                                  Coin, CoinPortion (..), Script (..), SharedSeed (..),
-                                  TxFeePolicy (..), TxSizeLinear (..))
-import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
-                                    SlotCount (..), SlotId (..))
-import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
-                               SscProof (..), VssCertificate (..), VssCertificatesMap)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
-                               TxPayload (..), TxProof (..))
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
-                                  BlockVersionModifier (..), SoftforkRule (..),
-                                  SoftwareVersion (..), SystemTag (..), UpdateData (..),
-                                  UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+                     AddrStakeDistribution (..), AddrType (..), Address (..),
+                     Address' (..), BlockCount (..), ChainDifficulty (..),
+                     Coeff (..), Coin, CoinPortion (..), Script (..),
+                     SharedSeed (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
+                     LightDlgIndices (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
+                     LocalSlotIndex (..), SlotCount (..), SlotId (..))
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
+                     SscPayload (..), SscProof (..), VssCertificate (..),
+                     VssCertificatesMap)
+import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
+                     TxOutAux (..), TxPayload (..), TxProof (..))
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), BlockVersionModifier (..),
+                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
+                     UpdateData (..), UpdatePayload (..), UpdateProposal (..),
+                     UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SafeCopy ()

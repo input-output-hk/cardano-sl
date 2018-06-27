@@ -14,12 +14,14 @@ module KeygenOptions
 import           Universum
 
 import           Data.Version (showVersion)
-import           Options.Applicative (Parser, auto, command, execParser, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      short, strOption, subparser, switch, value)
+import           Options.Applicative (Parser, auto, command, execParser,
+                     fullDesc, header, help, helper, info, infoOption, long,
+                     metavar, option, progDesc, short, strOption, subparser,
+                     switch, value)
 
 import           Pos.Client.CLI (configurationOptionsParser)
-import           Pos.Core.Genesis (FakeAvvmOptions (..), TestnetBalanceOptions (..))
+import           Pos.Core.Genesis (FakeAvvmOptions (..),
+                     TestnetBalanceOptions (..))
 import           Pos.Launcher (ConfigurationOptions)
 
 import           Paths_cardano_sl (version)

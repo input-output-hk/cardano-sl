@@ -74,7 +74,8 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
 import           Serokell.Util (listJson)
-import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
+import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..),
+                     logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
 import           Pos.Core (Timestamp, TxId)

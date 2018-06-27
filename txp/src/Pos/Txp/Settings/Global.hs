@@ -19,12 +19,12 @@ import           Universum
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (ComponentBlock)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 
 type TxpCommonMode m =
     ( WithLogger m

@@ -39,8 +39,8 @@ instance Arbitrary Page where
 instance FromHttpApiData Page where
     parseQueryParam qp = case parseQueryParam qp of
         Right (p :: Int) | p < 1 -> Left "A page number cannot be less than 1."
-        Right (p :: Int) -> Right (Page p)
-        Left e           -> Left e
+        Right (p :: Int)         -> Right (Page p)
+        Left e                   -> Left e
 
 instance ToHttpApiData Page where
     toQueryParam (Page p) = fromString (show p)

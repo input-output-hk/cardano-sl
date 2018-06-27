@@ -31,22 +31,24 @@ import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List (head, (!!))
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
-import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf,
+                     suchThat, vectorOf)
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
-                           headerHashG)
+import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
+                     genesisSecretsPoor, headerHashG)
 import           Pos.Core.Block (blockHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
-                             ShouldCheckPassphrase (..), emptyPassphrase, firstHardened)
+                     ShouldCheckPassphrase (..), emptyPassphrase,
+                     firstHardened)
 import           Pos.Generator.Block (genBlocks)
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Launcher (HasConfigurations)
@@ -58,10 +60,13 @@ import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
-import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
+import           Pos.Infra.Util.JsonLog.Events
+                     (MemPoolModifyReason (ApplyBlock))
+import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
+                     genBlockGenParams)
 import           Test.Pos.Txp.Arbitrary ()
-import           Test.Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
+import           Test.Pos.Util.QuickCheck.Property (assertProperty,
+                     maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------

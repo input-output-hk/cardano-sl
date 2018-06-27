@@ -26,10 +26,11 @@ import           Formatting (int, sformat, (%))
 import qualified Prelude
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize, toCborError)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize,
+                     toCborError)
 import qualified Pos.Crypto.Scrypt as S
-import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), decodeXPrv,
-                                                   encodeXPrv, toPublic)
+import           Pos.Crypto.Signing.Types.Signing (PublicKey (..),
+                     SecretKey (..), decodeXPrv, encodeXPrv, toPublic)
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey

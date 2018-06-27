@@ -12,7 +12,8 @@ import           Universum
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
-import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
+import           Formatting (Format, bprint, build, fixed, int, now, sformat,
+                     shown, (%))
 import           Mockable (delay)
 import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
@@ -21,21 +22,25 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
-import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ, criticalCQBootstrap,
-                                          fixedTimeCQSec, nonCriticalCQ, nonCriticalCQBootstrap)
+import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ,
+                     criticalCQBootstrap, fixedTimeCQSec, nonCriticalCQ,
+                     nonCriticalCQBootstrap)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
-                                  calcOverallChainQuality, createGenesisBlockAndApply,
-                                  createMainBlockAndApply)
+                     calcOverallChainQuality, createGenesisBlockAndApply,
+                     createMainBlockAndApply)
 import           Pos.Block.Network.Logic (triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
-                                 scCrucialValuesLabel, scDifficultyMonitorState,
-                                 scEpochMonitorState, scGlobalSlotMonitorState,
-                                 scLocalSlotMonitorState, slogGetLastSlots)
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasProtocolConstants,
-                           SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
-                           difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
-                           getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
+import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
+                     scCQkMonitorState, scCrucialValuesLabel,
+                     scDifficultyMonitorState, scEpochMonitorState,
+                     scGlobalSlotMonitorState, scLocalSlotMonitorState,
+                     slogGetLastSlots)
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
+                     HasProtocolConstants, SlotId (..), Timestamp (Timestamp),
+                     addressHash, blkSecurityParam, difficultyL,
+                     epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
+                     getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF,
+                     unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
@@ -44,14 +49,17 @@ import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
-import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
-                                          recoveryCommGuard)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..), MetricMonitorState,
-                                      noReportMonitor, recordValue, reportOrLogE)
-import           Pos.Infra.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
-                                     currentTimeSlotting, defaultOnNewSlotParams,
-                                     getSlotStartEmpatically, onNewSlot)
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (announceBlockHeader))
+import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
+                     needTriggerRecovery, recoveryCommGuard)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
+                     MetricMonitorState, noReportMonitor, recordValue,
+                     reportOrLogE)
+import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
+                     OnNewSlotParams (..), currentTimeSlotting,
+                     defaultOnNewSlotParams, getSlotStartEmpatically,
+                     onNewSlot)
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)

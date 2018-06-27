@@ -14,8 +14,8 @@ import           Data.List (intersect, (\\))
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Test.Hspec (Spec, describe, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
-                                  vectorOf, (===))
+import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
+                     sublistOf, suchThat, vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
@@ -28,7 +28,8 @@ import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (evalChange, syncWalletWithBlockchain)
+import           Pos.Wallet.Web.Tracking.Sync (evalChange,
+                     syncWalletWithBlockchain)
 import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 
 -- import           Pos.Wallet.Web.ClientTypes ()
@@ -37,7 +38,8 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 -- import           Pos.Wallet.Web.Tracking.Sync (evalChange)
 
 
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
+                     InplaceDB (..))
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)

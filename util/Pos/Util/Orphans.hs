@@ -31,19 +31,21 @@ module Pos.Util.Orphans
 
 import           Universum
 
-import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), unliftIO, withUnliftIO)
+import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..),
+                     unliftIO, withUnliftIO)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource (MonadResource (..), ResourceT, transResourceT)
+import           Control.Monad.Trans.Resource (MonadResource (..), ResourceT,
+                     transResourceT)
 import qualified Crypto.Random as Rand
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Hashable (Hashable (hashWithSalt))
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (Tagged))
 import           Data.Text.Buildable (build)
-import           Data.Time.Units (Attosecond, Day, Femtosecond, Fortnight, Hour, Microsecond,
-                                  Millisecond, Minute, Nanosecond, Picosecond, Second, Week,
-                                  toMicroseconds)
+import           Data.Time.Units (Attosecond, Day, Femtosecond, Fortnight, Hour,
+                     Microsecond, Millisecond, Minute, Nanosecond, Picosecond,
+                     Second, Week, toMicroseconds)
 import           Data.Typeable (typeRep)
 import qualified Ether
 import qualified Formatting as F

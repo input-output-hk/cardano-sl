@@ -67,7 +67,9 @@ import qualified Pos.Block.Logic as DB
 import           Pos.Block.Types (Blund)
 import           Pos.Core (Address, HeaderHash)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
-import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress, txpTxs)
+import           Pos.Core.Chrono (getOldestFirst)
+import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
+                     txpTxs)
 import           Pos.Crypto (hash, withHash)
 import           Pos.DB.Block (getBlund)
 import           Pos.DB.Class (MonadDBRead)
@@ -75,22 +77,24 @@ import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import qualified Pos.GState as DB
 import           Pos.Util (maybeThrow)
-import           Pos.Core.Chrono (getOldestFirst)
-import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
+import           System.Wlog (WithLogger, logDebug, logWarning,
+                     modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
-import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState, ExplorerSocket (..),
-                                             ExplorerSockets, ccAddress, ccConnection,
-                                             csAddressSubscribers, csBlocksPageSubscribers,
-                                             csClients, csEpochsLastPageSubscribers,
-                                             csTxsSubscribers, mkClientContext, _ProdSocket)
+import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState,
+                     ExplorerSocket (..), ExplorerSockets, ccAddress,
+                     ccConnection, csAddressSubscribers,
+                     csBlocksPageSubscribers, csClients,
+                     csEpochsLastPageSubscribers, csTxsSubscribers,
+                     mkClientContext, _ProdSocket)
 import           Pos.Explorer.Socket.Util (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..), EpochIndex (..),
-                                               TxInternal (..), fromCAddress, toTxBrief)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief,
+                     CTxEntry (..), EpochIndex (..), TxInternal (..),
+                     fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Explorer.Web.Server (getBlocksLastPage, getEpochPage, getEpochPagesOrThrow,
-                                          topsortTxsOrFail)
+import           Pos.Explorer.Web.Server (getBlocksLastPage, getEpochPage,
+                     getEpochPagesOrThrow, topsortTxsOrFail)
 
 
 -- * Event names

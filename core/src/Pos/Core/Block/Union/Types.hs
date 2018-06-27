@@ -51,18 +51,22 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf, encodeListLen, enforceSize)
+import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,
+                     encodeListLen, enforceSize)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbHeader, gbhPrevBlock)
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
 import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
-import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..))
+import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..),
+                     SlotId (..))
 import           Pos.Core.Ssc (mkSscProof)
 import           Pos.Core.Txp (mkTxProof)
-import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
+import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..),
+                     mkUpdateProof)
+import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash,
+                     unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 import           Pos.Util.Util (cborError)
 

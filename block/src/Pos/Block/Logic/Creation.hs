@@ -25,15 +25,18 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe, normalizeMempool)
+import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe,
+                     normalizeMempool)
 import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
-import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasProtocolConstants,
-                           HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
-                           flattenSlotId, getEpochOrSlot, headerHash)
-import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
+import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
+                     HasProtocolConstants, HeaderHash, SlotId (..),
+                     chainQualityThreshold, epochIndexL, epochSlots,
+                     flattenSlotId, getEpochOrSlot, headerHash)
+import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock,
+                     MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
@@ -43,11 +46,12 @@ import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
-                                 getDlgMempool)
+import           Pos.Delegation (DelegationVar, DlgPayload (..),
+                     ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
-import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock,
+                     StateLockMetrics, modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)
@@ -57,14 +61,15 @@ import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.State (sscResetLocal)
-import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
-                          txGetPayload, withTxpLocalData)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
+                     clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
-                                           lastKnownBlockVersion)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                     curSoftwareVersion, lastKnownBlockVersion)
 import qualified Pos.Update.DB as UDB
-import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
+import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock,
+                     usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
 

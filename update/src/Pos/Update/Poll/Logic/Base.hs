@@ -39,23 +39,29 @@ import           Formatting (build, int, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Update ()
-import           Pos.Core (BlockVersion (..), Coin, CoinPortion (..), EpochIndex,
-                     HasProtocolConstants, HeaderHash, IsMainHeader (..), SlotId,
-                     SoftforkRule (..), TimeDiff (..), addressHash, applyCoinPortionUp,
-                     coinPortionDenominator, coinToInteger, difficultyL, epochSlots,
-                     getCoinPortion, headerHashG, isBootstrapEra, sumCoins, unsafeAddCoin,
-                     unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
-                     UpdateProposal (..), UpdateVote (..))
+import           Pos.Core (BlockVersion (..), Coin, CoinPortion (..),
+                     EpochIndex, HasProtocolConstants, HeaderHash,
+                     IsMainHeader (..), SlotId, SoftforkRule (..),
+                     TimeDiff (..), addressHash, applyCoinPortionUp,
+                     coinPortionDenominator, coinToInteger, difficultyL,
+                     epochSlots, getCoinPortion, headerHashG, isBootstrapEra,
+                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
+                     unsafeSubCoin)
+import           Pos.Core.Update (BlockVersionData (..),
+                     BlockVersionModifier (..), UpId, UpdateProposal (..),
+                     UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
-                     addEpochSlottingData, getCurrentEpochIndex, getNextEpochSlottingData)
+                     addEpochSlottingData, getCurrentEpochIndex,
+                     getNextEpochSlottingData)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
-                     DecidedProposalState (..), DpsExtra (..), ProposalState (..),
-                     UndecidedProposalState (..), UpsExtra (..), bvsIsConfirmed, combineVotes,
-                     cpsBlockVersion, isPositiveVote, newVoteState)
+import           Pos.Update.Poll.Types (BlockVersionState (..),
+                     ConfirmedProposalState (..), DecidedProposalState (..),
+                     DpsExtra (..), ProposalState (..),
+                     UndecidedProposalState (..), UpsExtra (..),
+                     bvsIsConfirmed, combineVotes, cpsBlockVersion,
+                     isPositiveVote, newVoteState)
 
 
 

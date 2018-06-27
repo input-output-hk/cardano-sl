@@ -14,18 +14,19 @@ import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import qualified Pos.Block.BHelpers as Verify
-import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, BodyProof,
-                           CoinPortion (..), ConsensusData, DlgPayload, EpochIndex (..),
-                           ExtraBodyData, ExtraHeaderData, MainBlock, MainBlockHeader,
-                           MainBlockchain, SoftforkRule (..), SscPayload, Timestamp (..),
-                           TxFeePolicy (..), TxPayload (..), UpdatePayload,
-                           unsafeCoinPortionFromDouble, _gbBody, _gbExtra, _gbHeader, _gbhBodyProof,
-                           _gbhConsensus, _gbhExtra, _mbDlgPayload, _mbSscPayload, _mbTxPayload,
-                           _mbUpdatePayload)
+import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body,
+                     BodyProof, CoinPortion (..), ConsensusData, DlgPayload,
+                     EpochIndex (..), ExtraBodyData, ExtraHeaderData,
+                     MainBlock, MainBlockHeader, MainBlockchain,
+                     SoftforkRule (..), SscPayload, Timestamp (..),
+                     TxFeePolicy (..), TxPayload (..), UpdatePayload,
+                     unsafeCoinPortionFromDouble, _gbBody, _gbExtra, _gbHeader,
+                     _gbhBodyProof, _gbhConsensus, _gbhExtra, _mbDlgPayload,
+                     _mbSscPayload, _mbTxPayload, _mbUpdatePayload)
 import           Pos.Core.Block.Main ()
 import           Pos.Core.Common (CoinPortion, SharedSeed (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Genesis
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)

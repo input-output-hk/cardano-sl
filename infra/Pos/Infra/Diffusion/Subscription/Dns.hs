@@ -11,27 +11,26 @@ import           Universum hiding (atomically)
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (forConcurrently_)
 import           Control.Concurrent.STM (atomically)
-import           Control.Exception (SomeException, IOException, toException)
+import           Control.Exception (IOException, SomeException, toException)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as Map
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit,
-                                  toMicroseconds, fromMicroseconds)
-import           Formatting (sformat, shown, int, (%))
+                     fromMicroseconds, toMicroseconds)
+import           Formatting (int, sformat, shown, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS as DNS
 
-import           Pos.Infra.Diffusion.Subscription.Common (SubscriptionMessageConstraints,
-                                                          networkSubscribeTo')
-import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscriptionTarget (..),
-                                                              SubscribeTo,
-                                                              subscriber)
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
 import           Pos.Infra.Communication.Protocol (SendActions)
+import           Pos.Infra.Diffusion.Subscription.Common
+                     (SubscriptionMessageConstraints, networkSubscribeTo')
+import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
+import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscribeTo,
+                     SubscriptionTarget (..), subscriber)
 import           Pos.Infra.Network.DnsDomains (NodeAddr)
-import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..), NodeId (..),
-                                    NodeType (..), resolveDnsDomains)
+import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..),
+                     NodeId (..), NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 -- | Resolve a fixed list of names to a NodeId (using a given port) repeatedly.
 -- If the resolution may give more than one address, the addresses are given

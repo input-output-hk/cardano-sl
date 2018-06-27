@@ -16,14 +16,14 @@ import           Universum
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
-import qualified Data.Text.Buildable
 import qualified Data.List as List
+import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
-import           Pos.Txp (Utxo, formatUtxo)
-import           Pos.Core (HasConfiguration, AddressHash)
-import           Pos.Crypto (EncryptedSecretKey, PublicKey)
+import           Pos.Core (AddressHash, HasConfiguration)
 import           Pos.Core.Chrono
+import           Pos.Crypto (EncryptedSecretKey, PublicKey)
+import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 

@@ -35,7 +35,8 @@ import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..),
+                     applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad

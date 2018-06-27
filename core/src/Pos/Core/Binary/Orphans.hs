@@ -15,7 +15,8 @@ import qualified Utils.ABT as ABT
 import qualified Utils.Names as Names
 import qualified Utils.Vars as Vars
 
-import           Pos.Binary.Class (Bi (..), genericDecode, genericEncode, serialize')
+import           Pos.Binary.Class (Bi (..), genericDecode, genericEncode,
+                     serialize')
 import           Pos.Core.Script ()
 
 

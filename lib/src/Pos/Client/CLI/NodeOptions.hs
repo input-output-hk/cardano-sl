@@ -17,19 +17,22 @@ import           Universum
 
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      strOption, switch, value)
+import           Options.Applicative (Parser, auto, execParser, footerDoc,
+                     fullDesc, header, help, helper, info, infoOption, long,
+                     metavar, option, progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 
-import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser, optionalJSONPath)
+import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
+                     optionalJSONPath)
 import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
-import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption, statsdParamsOption)
+import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption,
+                     statsdParamsOption)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)
-import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
+                     compileInfo)
 
 data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !(Maybe FilePath)

@@ -62,6 +62,8 @@ let
     mkYarnPackage {
       name = "cardano-explorer-frontend";
       inherit src;
+      yarnLock = ./yarn.lock;
+      packageJSON = ./package.json;
       extraBuildInputs = [
         oldHaskellPackages.purescript-derive-lenses
         cardano-sl-explorer

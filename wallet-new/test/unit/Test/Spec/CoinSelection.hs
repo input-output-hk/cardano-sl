@@ -24,6 +24,7 @@ import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import qualified Pos.Core as Core
 import           Pos.Crypto (SecretKey)
 import qualified Pos.Txp as Core
+import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable
 
@@ -72,6 +73,9 @@ withMaxSuccess x = modifyMaxSuccess (const x)
 instance (Buildable a, Buildable b) => Buildable (Either a b) where
     build (Right r) = bprint ("Right " % F.build) r
     build (Left l)  = bprint ("Left "  % F.build) l
+
+instance (Buildable a) => Buildable [a] where
+    build = bprint (listJsonIndent 4)
 
 {-------------------------------------------------------------------------------
   Rendering test failures in an helpful way to debug problems
@@ -264,6 +268,36 @@ paymentSucceededWith utxo payees res extraChecks =
             Left _  -> failIf msg isRight res
             Right b -> conjoin $ map (\f -> f utxo payees b) extraChecks
 
+-- | Property that checks that @all@ the inputs in the Utxo ended up in the
+-- final transaction.
+utxoWasDepleted :: Core.Utxo
+                -- ^ The original Utxo
+                -> NonEmpty Core.TxOut
+                -- ^ The original payment
+                -> Core.TxAux
+                -- ^ The generated transaction
+                -> Property
+utxoWasDepleted originalUtxo _originalOutputs tx =
+    let originalInputs = map fst (Map.toList originalUtxo)
+        txInputs   = toList (Core._txInputs . Core.taTx $ tx)
+    in failIf ( "not all the original inputs ended up in the final tx.")
+              (== originalInputs)
+              txInputs
+
+utxoWasNotDepleted :: Core.Utxo
+                   -- ^ The original Utxo
+                   -> NonEmpty Core.TxOut
+                   -- ^ The original payment
+                   -> Core.TxAux
+                   -- ^ The generated transaction
+                   -> Property
+utxoWasNotDepleted originalUtxo _originalOutputs tx =
+    let originalInputs = map fst (Map.toList originalUtxo)
+        txInputs   = toList (Core._txInputs . Core.taTx $ tx)
+    in failIf ( "all the original inputs ended up in the final tx.")
+              (/= originalInputs)
+              txInputs
+
 feeWasPayed :: ExpenseRegulation
             -> Core.Utxo
             -> NonEmpty Core.TxOut
@@ -420,6 +454,12 @@ receiverPays o = o { csoExpenseRegulation = ReceiverPaysFee }
 requireGrouping :: CoinSelectionOptions -> CoinSelectionOptions
 requireGrouping o = o { csoInputGrouping = RequireGrouping }
 
+preferGrouping :: CoinSelectionOptions -> CoinSelectionOptions
+preferGrouping o = o { csoInputGrouping = PreferGrouping }
+
+ignoreGrouping :: CoinSelectionOptions -> CoinSelectionOptions
+ignoreGrouping o = o { csoInputGrouping = IgnoreGrouping }
+
 spec :: Spec
 spec =
     describe "Coin selection policies unit tests" $ do
@@ -530,7 +570,15 @@ spec =
         -- passed, which allows the coin selection to, if needed, pick all
         -- the associated inputs paying into the address we just picked.
         describe "Input Grouping" $ do
-            prop "Require grouping, fee = 0, payment of the size of the utxo depletes the Utxo completely" $ forAll (
+            prop "Require grouping, fee = 0, one big group depletes the Utxo completely" $ forAll (
                 pay genGroupedUtxo genPayee freeLunch requireGrouping (InitialLovelace 1000) (PayLovelace 10) random
                 ) $ \(utxo, payee, res) -> do
-                  paymentSucceededWith utxo payee res []
+                  paymentSucceededWith utxo payee res [utxoWasDepleted]
+            prop "Prefer grouping, fee = 0" $ forAll (
+                payOne freeLunch preferGrouping (InitialLovelace 1000) (PayLovelace 10) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentSucceeded utxo payee res
+            prop "IgnoreGrouping, fee = 0 must not deplete the utxo" $ forAll (
+                pay genGroupedUtxo genPayee freeLunch ignoreGrouping (InitialLovelace 1000) (PayLovelace 10) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentSucceededWith utxo payee res [utxoWasNotDepleted]

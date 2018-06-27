@@ -152,10 +152,12 @@ applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
         blocksByAccount
   where
     -- Accounts are discovered during wallet creation (if the account was given
-    -- a balance in the genesis block) or otherwise, during ApplyBlock. For
+    -- a balance in the genesis block) or otherwise during ApplyBlock. For
     -- accounts discovered during ApplyBlock, we can assume that there was no
-    -- genesis utxo, hence we use empty initial utxo for such new accounts.
-    -- The Addrs will need to created during account initialisation and so we pass them here.
+    -- genesis utxo for this Account (since if there was, the account would have
+    -- been created with the wallet). Hence we use empty initial utxo for accounts
+    -- discovered during applyBlock.
+    -- The Addrs need to be created during account initialisation and so we pass them here.
     initUtxoAndAddrs :: PrefilteredBlock -> (Utxo,[AddrWithId])
     initUtxoAndAddrs pb = (Map.empty, pfbAddrs pb)
 
@@ -181,20 +183,17 @@ switchToFork n blocks = runUpdateNoErrors $
 --  Given prefiltered utxo's, by account, create an HdAccount for each account,
 --  along with HdAddresses for all utxo outputs.
 --
--- NOTE: we don't have the slotId of transactions occuring in the Utxo,
---       which prevents us from recording the BlockMeta for the initial utxo
+-- NOTE: since the genesis Utxo does not come into being through regular transactions,
+--       there is no block metadata to record when we create a wallet
 createHdWallet :: HdRoot
-               -> Map HdAccountId (Utxo,[AddrWithId],[Core.TxId])
+               -> Map HdAccountId (Utxo,[AddrWithId])
                -> Update DB (Either HD.CreateHdRootError ())
 createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
       HD.createHdRoot newRoot
       createPrefiltered
-          initUtxoAndAddrs
+          identity
           (\_ -> return ()) -- we just want to create the accounts
           utxoByAccount
-    where
-        initUtxoAndAddrs :: (Utxo,[AddrWithId],[Core.TxId]) -> (Utxo,[AddrWithId])
-        initUtxoAndAddrs (utxo',addrs',_) = (utxo', addrs')
 
 {-------------------------------------------------------------------------------
   Internal auxiliary: apply a function to a prefiltered block/utxo
@@ -244,6 +243,8 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
                 , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
                 , _checkpointExpected    = InDb Map.empty
                 , _checkpointPending     = Pending . InDb $ Map.empty
+                -- Since this is the first checkpoint before we have applied
+                -- any blocks, the block metadata is empty
                 , _checkpointBlockMeta   = mempty
                 }
 

@@ -59,7 +59,7 @@ data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
       _rbTxs  :: [ResolvedTx]
 
-      -- | Source MainBlock SlotId
+      -- | The `SlotId` of the slot this block appeared in
     , _rbSlot :: InDb Core.SlotId
     }
 

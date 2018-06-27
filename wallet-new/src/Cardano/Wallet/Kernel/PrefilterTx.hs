@@ -71,18 +71,26 @@ type WalletKey = (WalletId, WalletDecrCredentials)
 
 -- | Produce Utxo along with all (extended) addresses and TxIds ocurring in the Utxo
 toPrefilteredUtxo :: UtxoWithAddrId -> (Utxo,[AddrWithId],[TxId])
-toPrefilteredUtxo utxoWithAddrs = (Map.fromList utxo', addrs', concat txIds')
+toPrefilteredUtxo utxoWithAddrs = (Map.fromList utxoL, addrs, concat txIds)
     where
-        toUtxo  (txIn,(txOutAux,_))         = (txIn,txOutAux)
-        toAddrs (_   ,(txOutAux,addressId)) = (addressId, txOutAddress . toaOut $ txOutAux)
+        toUtxo (txIn,(txOutAux,_))         = (txIn,txOutAux)
+        toAddr (_   ,(txOutAux,addressId)) = (addressId, txOutAddress . toaOut $ txOutAux)
 
-        toTxId  ((TxInUtxo txId _),_)       = [txId]
-        toTxId  ((TxInUnknown _ _),_)       = []
+        toTxId ((TxInUtxo txId _),_)       = [txId]
+        toTxId ((TxInUnknown _ _),_)       = []
 
-        utxoWithAddrs' = Map.toList utxoWithAddrs
-        utxo'  = map toUtxo  utxoWithAddrs'
-        addrs' = map toAddrs utxoWithAddrs'
-        txIds' = map toTxId  utxoWithAddrs'
+        toSummary :: (TxIn,(TxOutAux,HdAddressId))
+                  -> ((TxIn,TxOutAux), AddrWithId, [TxId])
+        toSummary item = (toUtxo item, toAddr item, toTxId item)
+
+        utxoSummary = map toSummary $ Map.toList utxoWithAddrs
+        (utxoL, addrs, txIds) = unzip3 utxoSummary
+
+-- | Version of `toPrefilteredUtxo` that discards TxIds
+toPrefilteredUtxo' :: UtxoWithAddrId -> (Utxo,[AddrWithId])
+toPrefilteredUtxo' utxoWithAddrs = (utxo, addrs)
+    where
+        (utxo, addrs, _) = toPrefilteredUtxo utxoWithAddrs
 
 -- | Prefilter the transactions of a resolved block for the given wallet.
 --
@@ -153,8 +161,8 @@ prefilterUtxo' wid utxo
                                         Map.singleton txIn (txOut, addressId))
 
 -- | Prefilter utxo using walletId and esk
-prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId (Utxo,[AddrWithId],[TxId])
-prefilterUtxo rootId esk utxo = map toPrefilteredUtxo (prefilterUtxo' wKey utxo)
+prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId (Utxo,[AddrWithId])
+prefilterUtxo rootId esk utxo = map toPrefilteredUtxo' (prefilterUtxo' wKey utxo)
     where
         wKey = (WalletIdHdRnd rootId, eskToWalletDecrCredentials esk)
 

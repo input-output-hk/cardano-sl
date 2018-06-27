@@ -120,7 +120,7 @@ applyBlock prefBlock checkpoints
 
 updateBlockMeta :: PrefilteredBlock -> BlockMeta -> BlockMeta
 updateBlockMeta PrefilteredBlock{..} meta
-    = pfbMeta `mappend` meta
+    = meta `mappend` pfbMeta
 
 -- | Update (utxo,balance) with the given prefiltered block
 updateUtxo :: PrefilteredBlock -> (Utxo, Core.Coin) -> (Utxo, Core.Coin)

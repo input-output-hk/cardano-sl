@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cardano.Wallet.Kernel.DB.InDb (
     InDb(..)
   , fromDb
@@ -6,11 +8,15 @@ module Cardano.Wallet.Kernel.DB.InDb (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
-import           Data.SafeCopy (SafeCopy (..))
+import           Data.SafeCopy (SafeCopy (..), contain, safePut, safeGet)
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
 import qualified Pos.Txp as Core
+
+-- Safecopy instances
+import           Pos.Crypto.SafeCopy ()
+import           Pos.SafeCopy ()
 
 {-------------------------------------------------------------------------------
   Wrap core types so that we can make independent serialization decisions
@@ -34,49 +40,56 @@ makeLenses ''InDb
 -------------------------------------------------------------------------------}
 
 instance SafeCopy (InDb Core.Utxo) where
-  getCopy = error "TODO: getCopy for (InDb Core.Utxo)"
-  putCopy = error "TODO: putCopy for (InDb Core.Utxo)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 -- TODO: This is really a UTxO again..
 instance SafeCopy (InDb (NonEmpty (Core.TxIn, Core.TxOutAux))) where
-  getCopy = error "TODO: getCopy for (InDb (NonEmpty (Core.TxIn, Core.TxOutAux)))"
-  putCopy = error "TODO: putCopy for (InDb (NonEmpty (Core.TxIn, Core.TxOutAux)))"
-
-instance SafeCopy (InDb Core.Timestamp) where
-  getCopy = error "TODO: getCopy for (InDb Core.Timestamp)"
-  putCopy = error "TODO: putCopy for (InDb Core.Timestamp)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 instance SafeCopy (InDb Core.Address) where
-  getCopy = error "TODO: getCopy for (InDb Core.Address)"
-  putCopy = error "TODO: putCopy for (InDb Core.Address)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 instance SafeCopy (InDb (Core.AddressHash Core.PublicKey)) where
-  getCopy = error "TODO: getCopy for (InDb (Core.AddressHash Core.PublicKey))"
-  putCopy = error "TODO: putCopy for (InDb (Core.AddressHash Core.PublicKey))"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 instance SafeCopy (InDb Core.Coin) where
-  getCopy = error "TODO: getCopy for (InDb Core.Coin)"
-  putCopy = error "TODO: putCopy for (InDb Core.Coin)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 instance SafeCopy (InDb Core.SlotId) where
-  getCopy = error "TODO: getCopy for (InDb Core.SlotId)"
-  putCopy = error "TODO: putCopy for (InDb Core.SlotId)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
-instance SafeCopy (InDb (Map Core.TxId Core.TxAux)) where
-  getCopy = error "TODO: getCopy for (InDb (Map Core.TxId Core.TxAux))"
-  putCopy = error "TODO: putCopy for (InDb (Map Core.TxId Core.TxAux))"
+instance SafeCopy (InDb Core.Timestamp) where
+    putCopy (InDb (Core.Timestamp ms)) = contain $ safePut ms
+    getCopy = contain $ InDb . Core.Timestamp <$> safeGet
+
+-- TODO this should live with other core type safecopy instances
+instance SafeCopy Core.TxAux where
+    putCopy (Core.TxAux tx witness)
+        = contain $ do safePut tx; safePut witness
+    getCopy
+        = contain $ Core.TxAux <$> safeGet <*> safeGet
 
 instance SafeCopy (InDb Core.TxAux) where
-  getCopy = error "TODO: getCopy for (InDb Core.TxAux)"
-  putCopy = error "TODO: putCopy for (InDb Core.TxAux)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
+
+instance SafeCopy (InDb (Map Core.TxId Core.TxAux)) where
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 instance SafeCopy (InDb Core.TxId) where
-  getCopy = error "TODO: getCopy for (InDb Core.TxId)"
-  putCopy = error "TODO: putCopy for (InDb Core.TxId)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 instance SafeCopy (InDb Core.TxIn) where
-  getCopy = error "TODO: getCopy for (InDb Core.TxIn)"
-  putCopy = error "TODO: putCopy for (InDb Core.TxIn)"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet
 
 -- NOTE(adn) This will be provided by @ouroboros as part of work on the BlockMeta
 -- storage.
@@ -89,5 +102,5 @@ instance SafeCopy (InDb a) => SafeCopy (InDb (Set a)) where
   putCopy = error "TODO: putCopy for (InDb (Set a))"
 
 instance SafeCopy (InDb (Map Core.TxId Core.SlotId)) where
-  getCopy = error "TODO: getCopy for (InDb (Map Core.TxId Core.SlotId))"
-  putCopy = error "TODO: putCopy for (InDb (Map Core.TxId Core.SlotId))"
+    putCopy (InDb h) = contain $ safePut h
+    getCopy = contain $ InDb <$> safeGet

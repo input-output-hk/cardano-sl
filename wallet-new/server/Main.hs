@@ -26,7 +26,7 @@ import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOp
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
                                  runWRealMode)
@@ -195,7 +195,7 @@ startEdgeNode wso =
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     cfg <- getWalletNodeOptions
     putText "Wallet is starting..."
     let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)

@@ -253,4 +253,4 @@ ghc-options:
   cardano-sl-util-test:   -Werror -fwarn-redundant-constraints
   cardano-sl-wallet:      -Werror -fwarn-redundant-constraints
   cardano-sl-wallet-new:  -Werror -fwarn-redundant-constraints
-  node-ipc:               -Werror -fwarn-redundant-constraints
+  cardano-sl-node-ipc:    -Werror -fwarn-redundant-constraints

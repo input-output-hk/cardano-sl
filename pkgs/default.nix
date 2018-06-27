@@ -17164,6 +17164,44 @@ description = "Cardano SL simple node executable";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-node-ipc" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, binary
+, bytestring
+, Cabal
+, cardano-sl-infra
+, log-warper
+, mtl
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-node-ipc";
+version = "1.3.0";
+src = ./../node-ipc;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+aeson
+base
+binary
+bytestring
+Cabal
+cardano-sl-infra
+log-warper
+mtl
+universum
+];
+doHaddock = false;
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-ssc" = callPackage
 ({
   mkDerivation
@@ -17816,6 +17854,7 @@ license = stdenv.lib.licenses.mit;
 , directory
 , ether
 , exceptions
+, file-embed
 , filepath
 , formatting
 , hashable
@@ -17874,6 +17913,7 @@ deepseq
 directory
 ether
 exceptions
+file-embed
 filepath
 formatting
 hashable
@@ -18009,6 +18049,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
+, cardano-sl-node-ipc
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-txp-test
@@ -18035,7 +18076,6 @@ license = stdenv.lib.licenses.mit;
 , monad-control
 , MonadRandom
 , mtl
-, node-ipc
 , QuickCheck
 , quickcheck-instances
 , random
@@ -18097,6 +18137,7 @@ cardano-sl-generator
 cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
+cardano-sl-node-ipc
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -18118,7 +18159,6 @@ log-warper
 memory
 monad-control
 mtl
-node-ipc
 QuickCheck
 quickcheck-instances
 random
@@ -18232,6 +18272,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
+, cardano-sl-node-ipc
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-txp-test
@@ -18265,7 +18306,6 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , neat-interpolation
 , network-transport
-, node-ipc
 , optparse-applicative
 , pretty-show
 , QuickCheck
@@ -18337,6 +18377,7 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
+cardano-sl-node-ipc
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -18362,7 +18403,6 @@ memory
 mtl
 neat-interpolation
 network-transport
-node-ipc
 optparse-applicative
 QuickCheck
 reflection
@@ -57686,44 +57726,6 @@ doCheck = false;
 homepage = "https://github.com/peti/nix-paths";
 description = "Knowledge of Nix's installation directories";
 license = stdenv.lib.licenses.bsd3;
-
-}) {};
-"node-ipc" = callPackage
-({
-  mkDerivation
-, aeson
-, base
-, binary
-, bytestring
-, Cabal
-, cardano-sl-infra
-, log-warper
-, mtl
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "node-ipc";
-version = "1.3.0";
-src = ./../node-ipc;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-aeson
-base
-binary
-bytestring
-Cabal
-cardano-sl-infra
-log-warper
-mtl
-universum
-];
-doHaddock = false;
-license = stdenv.lib.licenses.mit;
 
 }) {};
 "non-empty" = callPackage

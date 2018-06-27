@@ -5,7 +5,6 @@ module Test.Pos.Binary.CommunicationSpec
 import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Default (def)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck.Monadic (assert)
@@ -63,7 +62,7 @@ deserializeSerilizedMsgSerializedBlockSpec = do
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
 spec :: Spec
-spec = withStaticConfigurations $ \_ -> withCompileInfo def $
+spec = withStaticConfigurations $ \_ -> withCompileInfo $
     describe "Pos.Binary.Communication" $ do
         describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec
         describe "decode is left inverse of serializeMsgSerializedBlock" deserializeSerilizedMsgSerializedBlockSpec

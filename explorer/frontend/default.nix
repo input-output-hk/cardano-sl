@@ -92,6 +92,8 @@ let
     mkYarnPackage {
       name = "cardano-explorer-frontend";
       src = generatedSrc;
+      yarnLock = ./yarn.lock;
+      packageJSON = ./package.json;
       extraBuildInputs = [
         purescript
         regen-script

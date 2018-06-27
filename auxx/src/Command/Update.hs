@@ -21,11 +21,11 @@ import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
 import           Pos.Crypto (Hash, ProtocolMagic, emptyPassphrase, hash, hashHexF, unsafeHash,
-                             withSafeSigner, withSafeSigners)
+                     withSafeSigner, withSafeSigners)
 import           Pos.Exception (reportFatalError)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mkUpdateProposalWSign,
-                             mkUpdateVoteSafe)
+                     mkUpdateVoteSafe)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
 import           Mode (MonadAuxxMode)

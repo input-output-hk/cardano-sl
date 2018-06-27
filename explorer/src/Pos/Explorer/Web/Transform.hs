@@ -37,7 +37,7 @@ import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
-                                            runExtraContextT)
+                     runExtraContextT)
 import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
 import           Pos.Explorer.Txp (ExplorerExtraModifier, eTxNormalize, eTxProcessTransaction)
 import           Pos.Explorer.Web.Api (explorerApi)

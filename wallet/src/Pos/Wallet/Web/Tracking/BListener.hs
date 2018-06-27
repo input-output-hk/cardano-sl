@@ -30,7 +30,7 @@ import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
-                                     getSlotStartPure, getSystemStartM)
+                     getSlotStartPure, getSystemStartM)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Infra.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
 import           Pos.Txp.Base (flattenTxPayload)
@@ -41,7 +41,7 @@ import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackModifierFromWallet,
-                                               trackingApplyTxs, trackingRollbackTxs)
+                     trackingApplyTxs, trackingRollbackTxs)
 import           Pos.Wallet.Web.Tracking.Types (TrackingOperation (..))
 
 

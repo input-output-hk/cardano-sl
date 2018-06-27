@@ -49,11 +49,11 @@ import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
 import           System.Directory (renameFile)
 import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlockFile,
-                                  withFileLock)
+                     withFileLock)
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
-import           System.Wlog (WithLogger, logWarning, logInfo)
+import           System.Wlog (WithLogger, logInfo, logWarning)
 #else
 import           System.Wlog (WithLogger, logInfo)
 #endif
@@ -61,9 +61,9 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
-                                   encodeListLen, enforceSize, serialize')
+                     encodeListLen, enforceSize, serialize')
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
-                           wAddressGenesisIndex)
+                     wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 
 import           Test.Pos.Crypto.Arbitrary ()

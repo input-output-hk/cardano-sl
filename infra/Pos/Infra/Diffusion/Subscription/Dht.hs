@@ -10,12 +10,12 @@ import           Formatting (sformat, shown, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (Peers)
 
+import           Pos.Infra.Communication.Protocol (NodeId, SendActions)
 import           Pos.Infra.DHT.Real.Real (kademliaGetKnownPeers)
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Communication.Protocol (NodeId, SendActions)
 import           Pos.Infra.Network.Types (Bucket (..), NodeType, choosePeers)
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 
 -- | This worker will update the known peers every time the Kademlia peers

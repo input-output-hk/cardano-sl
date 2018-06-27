@@ -17,11 +17,11 @@ import           Universum
 
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
-                                                       withAsync, withAsyncWithUnmask)
+                     withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
 import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON,
-                             withObject)
+                     withObject)
 import qualified Data.Aeson as AE
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
@@ -34,9 +34,8 @@ import qualified Data.Yaml as Y
 import           Formatting (build, int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
 import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
-                                      execParserPure, footerDoc, fullDesc, handleParseResult,
-                                      header, help, helper, info, infoOption, long, metavar,
-                                      progDesc, renderFailure, short, strOption)
+                     execParserPure, footerDoc, fullDesc, handleParseResult, header, help, helper,
+                     info, infoOption, long, metavar, progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import qualified System.Directory as Sys
@@ -66,10 +65,10 @@ import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, ProtocolMagic, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundsRealDefault)
+                     dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
-                               dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
+                     dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
 import           Pos.Infra.Reporting.Http (sendReport)
 import           Pos.Infra.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.Launcher (HasConfigurations, withConfigurations)

@@ -34,7 +34,7 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..), decodeFull', serialize')
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
-                                           checkPassMatches)
+                     checkPassMatches)
 
 -- | Passphrase is a hash of root public key.
 data HDPassphrase = HDPassphrase !ByteString

@@ -11,7 +11,7 @@ import           Universum
 import           Pos.Binary.Limit (Limit (..))
 import qualified Pos.Infra.Communication.Constants as Const
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg, MempoolMsg (..), ReqMsg,
-                                                      ResMsg)
+                     ResMsg)
 
 ----------------------------------------------------------------------------
 -- Instances of MessageLimited for the relay types.

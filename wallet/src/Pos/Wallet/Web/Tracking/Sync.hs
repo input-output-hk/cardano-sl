@@ -56,8 +56,8 @@ import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasDifficulty (..),
-                           HasProtocolConstants, HeaderHash, Timestamp (..), blkSecurityParam,
-                           genesisHash, headerHash, headerSlotL, timestampToPosix)
+                     HasProtocolConstants, HeaderHash, Timestamp (..), blkSecurityParam,
+                     genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
@@ -69,33 +69,31 @@ import           Pos.DB.Class (MonadDBRead (..))
 import qualified Pos.GState as GS
 import           Pos.GState.BlockExtra (resolveForwardLink)
 import           Pos.Infra.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure,
-                                     getSystemStartM)
+                     getSystemStartM)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP, logWarningSP,
-                                         secretOnlyF, secure)
+                     secretOnlyF, secure)
 import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
-                              logWarning, modifyLoggerName)
+                     logWarning, modifyLoggerName)
 
 import           Pos.Wallet.Web.ClientTypes (CId, CTxMeta (..), Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
-                                               PtxCondition (PtxApplying, PtxInNewestBlocks))
+                     PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State (CustomAddressType (..), SyncStatistics (..), WAddressMeta,
-                                       WalletDB, WalletDbReader, WalletSnapshot,
-                                       WalletSyncState (..))
+                     WalletDB, WalletDbReader, WalletSnapshot, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State as WS
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
-                                                  buildTHEntryExtra, isTxEntryInteresting)
+                     buildTHEntryExtra, isTxEntryInteresting)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), VoidModifier,
-                                                   deleteAndInsertIMM, deleteAndInsertMM,
-                                                   deleteAndInsertVM, indexedDeletions,
-                                                   sortedInsertions)
+                     deleteAndInsertIMM, deleteAndInsertMM, deleteAndInsertVM, indexedDeletions,
+                     sortedInsertions)
 import           Pos.Wallet.Web.Tracking.Types
 
 

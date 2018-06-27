@@ -32,16 +32,16 @@ import           System.Wlog (HasLoggerName (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
-                                        modifySecretDefault)
+                     modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo,
-                                          getOwnUtxosGenesis)
+                     getOwnUtxosGenesis)
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
-                                         getLocalHistoryDefault, saveTxDefault)
+                     getLocalHistoryDefault, saveTxDefault)
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
-                           deriveFirstHDAddress, largestPubKeyAddressBoot,
-                           largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
+                     deriveFirstHDAddress, largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
+                     makePubKeyAddress, siEpoch)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
@@ -57,7 +57,7 @@ import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), txNormalize,
-                          txProcessTransaction, txProcessTransactionNoLock)
+                     txProcessTransaction, txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)

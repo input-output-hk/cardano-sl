@@ -14,7 +14,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, infiniteListOf, suchThat, (===))
 
 import           Pos.Core (BlockCount, Coin, SharedSeed, SlotCount, StakeholderId, StakesList,
-                           addressHash, mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+                     addressHash, mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto (PublicKey)
 import           Pos.Lrc.Fts (followTheSatoshi)
 

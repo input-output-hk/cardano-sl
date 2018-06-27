@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import           Pos.Util.Justify (leftAlign)
 
 import           Lang.Argument (ArgCardinality (..), SomeArgCardinality (..), TypeName (..),
-                                getParameters)
+                     getParameters)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 

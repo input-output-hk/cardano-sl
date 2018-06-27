@@ -33,9 +33,9 @@ instance ToIndex Wallet WalletId where
 
 instance ToIndex Wallet Core.Coin where
     toIndex _ x = case readMaybe (T.unpack x) of
-        Nothing -> Nothing
+        Nothing                       -> Nothing
         Just c  | c > Core.maxCoinVal -> Nothing
-        Just c  -> Just (Core.mkCoin c)
+        Just c                        -> Just (Core.mkCoin c)
     accessIx Wallet{..} = let (V1 balance) = walBalance in balance
 
 instance ToIndex Wallet (V1 Core.Timestamp) where

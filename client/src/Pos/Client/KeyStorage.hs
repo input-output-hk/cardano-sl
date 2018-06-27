@@ -30,9 +30,9 @@ import           Serokell.Util (modifyTVarS)
 import           System.Wlog (WithLogger)
 
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash, runSecureRandom,
-                             safeKeyGen)
+                     safeKeyGen)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, peekUserSecret, usKeys,
-                                      usPrimKey, writeUserSecret)
+                     usPrimKey, writeUserSecret)
 
 type KeyData = TVar UserSecret
 

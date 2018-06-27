@@ -21,10 +21,10 @@ import           Data.Text.Buildable (build)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Text.Earley (Report (..))
 import           Text.PrettyPrint.ANSI.Leijen (Doc, bold, char, comma, empty, hcat, indent,
-                                               punctuate, red, squotes, vcat, yellow, (<$>), (<+>))
+                     punctuate, red, squotes, vcat, yellow, (<$>), (<+>))
 
 import           Lang.Argument (ArgumentError (..), ProcError (..), TypeError (..), TypeName (..),
-                                isEmptyArgumentError)
+                     isEmptyArgumentError)
 import           Lang.Interpreter (EvalError (..))
 import           Lang.Lexer (_TokenUnknown)
 import           Lang.Name (Name)

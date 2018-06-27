@@ -18,11 +18,10 @@ import           Pos.Core (EpochIndex (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
-                                        generateValidExplorerMockableMode, leftToCounter)
+                     generateValidExplorerMockableMode, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
-                                          getBlocksPagesTotal, getBlocksTotal, getEpochPage,
-                                          getEpochSlot)
+                     getBlocksPagesTotal, getBlocksTotal, getEpochPage, getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 -- Orphan mockable instances.

@@ -17,7 +17,7 @@ import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Ssc (Commitment (..), getCommitmentsMap)
 import           Pos.Crypto (DecShare, EncShare, VssKeyPair, VssPublicKey, decryptShare,
-                             toVssPublicKey)
+                     toVssPublicKey)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)
 import           Pos.Ssc.Types (sgsCommitments, sgsOpenings)
 

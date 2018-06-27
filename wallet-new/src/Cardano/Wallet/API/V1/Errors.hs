@@ -22,8 +22,7 @@ import qualified Pos.Data.Attributes as Core
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..),
-                                              mkEstimatedCompletionTime, mkSyncPercentage,
-                                              mkSyncThroughput)
+                     mkEstimatedCompletionTime, mkSyncPercentage, mkSyncThroughput)
 
 --
 -- Error handling

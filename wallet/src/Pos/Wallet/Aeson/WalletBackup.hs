@@ -10,7 +10,7 @@ import           Universum
 
 import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
-                             withText, (.:), (.=))
+                     withText, (.:), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
 import           Formatting (build, sformat, (%))
@@ -20,9 +20,9 @@ import qualified Pos.Binary as Bi
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..))
 import           Pos.Util.Util (aesonError, toAesonError)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
-                                        WalletMetaBackup (..), currentBackupFormatVersion)
+                     WalletMetaBackup (..), currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
-                                             CWalletMeta (..))
+                     CWalletMeta (..))
 
 data IndexedAccountMeta = IndexedAccountMeta Int AccountMetaBackup
 

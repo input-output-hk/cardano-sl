@@ -12,7 +12,7 @@ import qualified Test.QuickCheck.Gen as QC
 import qualified Test.QuickCheck.Random as QC
 
 import           Pos.Core (HasGenesisHash, HasProtocolConstants, MainBlock, ProtocolConstants,
-                           ProtocolMagic)
+                     ProtocolMagic)
 
 -- Also brings in the 'Arbitrary' instance for 'MainBlock'.
 import           Test.Pos.Block.Arbitrary (genMainBlock)

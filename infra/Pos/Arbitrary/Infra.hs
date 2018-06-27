@@ -14,7 +14,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..), MempoolMsg (..),
-                                                      ReqMsg (..))
+                     ReqMsg (..))
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 
 import           Test.Pos.Core.Arbitrary ()

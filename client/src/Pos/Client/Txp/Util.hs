@@ -62,20 +62,20 @@ import           Serokell.Util (listJson)
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
-                           bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                           unsafeIntegerToCoin, unsafeSubCoin)
+                     bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
+                     isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue, unsafeIntegerToCoin,
+                     unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
-                             SignTag (SignRedeemTx, SignTx), deterministicKeyGen, fakeSigner, hash,
-                             redeemSign, redeemToPublic, safeSign, safeToPublic)
+                     SignTag (SignRedeemTx, SignTx), deterministicKeyGen, fakeSigner, hash,
+                     redeemSign, redeemToPublic, safeSign, safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Pos.Script (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
-                          TxOutAux (..), TxSigData (..), Utxo)
+                     TxOutAux (..), TxSigData (..), Utxo)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 type TxInputs = NonEmpty TxIn

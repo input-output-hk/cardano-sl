@@ -20,18 +20,15 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (logError)
 
 import           Pos.Core (Address, BlockVersionData, Coin, EpochIndex, HasConfiguration,
-                           HeaderHash, Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
+                     HeaderHash, Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxOutAux (..), TxUndo, _TxOut)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM, ExplorerExtraM,
-                                              delAddrBalance, delTxExtra,
-                                              explorerExtraMToEGlobalToilM,
-                                              explorerExtraMToELocalToilM, getAddrBalance,
-                                              getAddrHistory, getTxExtra, getUtxoSum,
-                                              putAddrBalance, putTxExtra, putUtxoSum,
-                                              updateAddrHistory)
+                     delAddrBalance, delTxExtra, explorerExtraMToEGlobalToilM,
+                     explorerExtraMToELocalToilM, getAddrBalance, getAddrHistory, getTxExtra,
+                     getUtxoSum, putAddrBalance, putTxExtra, putUtxoSum, updateAddrHistory)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil (ToilVerFailure (..), extendGlobalToilM, extendLocalToilM)
 import qualified Pos.Txp.Toil as Txp

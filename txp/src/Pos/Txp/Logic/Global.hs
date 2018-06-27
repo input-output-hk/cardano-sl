@@ -31,16 +31,15 @@ import           Pos.DB.Class (gsAdoptedBVData)
 import qualified Pos.DB.GState.Stakes as DB
 import           Pos.Exception (assertionFailed)
 import           Pos.Txp.Base (flattenTxPayload)
-import qualified Pos.Txp.DB as DB
 import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
+import qualified Pos.Txp.DB as DB
 import           Pos.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpCommonMode, TxpGlobalApplyMode,
-                                          TxpGlobalRollbackMode, TxpGlobalSettings (..),
-                                          TxpGlobalVerifyMode)
+                     TxpGlobalRollbackMode, TxpGlobalSettings (..), TxpGlobalVerifyMode)
 import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..), GlobalToilM,
-                               GlobalToilState (..), StakesView (..), ToilVerFailure, Utxo, UtxoM,
-                               UtxoModifier, applyToil, defGlobalToilState, gtsUtxoModifier,
-                               rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
+                     GlobalToilState (..), StakesView (..), ToilVerFailure, Utxo, UtxoM,
+                     UtxoModifier, applyToil, defGlobalToilState, gtsUtxoModifier, rollbackToil,
+                     runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
 

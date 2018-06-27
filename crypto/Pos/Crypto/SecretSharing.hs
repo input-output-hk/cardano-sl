@@ -50,7 +50,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi (..), Cons (..),
-                                   Field (..), cborError, decodeFull', deriveSimpleBi, serialize')
+                     Field (..), cborError, decodeFull', deriveSimpleBi, serialize')
 import           Pos.Crypto.Hashing (hash, shortHashF)
 import           Pos.Crypto.Orphans ()
 import           Pos.Crypto.Random (deterministic)

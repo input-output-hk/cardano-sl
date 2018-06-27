@@ -15,7 +15,7 @@ import           Pos.Explorer.DB (defaultPageSize)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
-                                        generateValidExplorerMockableMode)
+                     generateValidExplorerMockableMode)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 

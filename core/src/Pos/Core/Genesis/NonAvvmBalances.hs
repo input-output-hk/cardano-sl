@@ -12,7 +12,7 @@ import           Formatting (bprint, (%))
 import           Serokell.Util (mapJson)
 
 import           Pos.Core.Common (Address, Coin, decodeTextAddress, unsafeAddCoin,
-                                  unsafeIntegerToCoin)
+                     unsafeIntegerToCoin)
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances

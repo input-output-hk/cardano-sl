@@ -43,7 +43,7 @@ import           System.IO.Unsafe (unsafeDupablePerformIO)
 
 import           Test.QuickCheck.Arbitrary (Arbitrary (..), arbitraryBoundedIntegral)
 import           Test.QuickCheck.Gen (Gen, choose, elements, frequency, oneof, resize, sized,
-                                      suchThat, vectorOf)
+                     suchThat, vectorOf)
 import           Test.QuickCheck.Property (Property, conjoin, property, (.&&.), (===))
 
 serialise :: Term -> LBS.ByteString

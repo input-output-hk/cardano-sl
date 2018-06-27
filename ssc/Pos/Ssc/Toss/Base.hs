@@ -48,11 +48,11 @@ import           System.Wlog (logWarning)
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, VssCertificatesMap (..),
-                           addressHash, bvdMpcThd, coinPortionDenominator, getCoinPortion,
-                           lookupVss, memberVss, unsafeGetCoin, vcSigningKey, vcVssKey)
+                     addressHash, bvdMpcThd, coinPortionDenominator, getCoinPortion, lookupVss,
+                     memberVss, unsafeGetCoin, vcSigningKey, vcVssKey)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), InnerSharesMap,
-                               Opening (..), OpeningsMap, SharesDistribution, SharesMap,
-                               SignedCommitment, SscPayload (..), commShares, getCommShares, spVss)
+                     Opening (..), OpeningsMap, SharesDistribution, SharesMap, SignedCommitment,
+                     SscPayload (..), commShares, getCommShares, spVss)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
 import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Ssc.Base (verifyOpening, vssThreshold)

@@ -58,25 +58,25 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe, mlTriple, mlTuple,
-                                   vectorOf, vectorOfNE, (<+>))
+                     vectorOf, vectorOfNE, (<+>))
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..), MsgStream (..), MsgStreamBlock (..))
+                     MsgHeaders (..), MsgStream (..), MsgStreamBlock (..))
 import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex, StakeholderId, UpId,
-                           VssCertificate, coinPortionToDouble)
+                     VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock, GenesisBlockHeader,
-                                 MainBlock, MainBlockHeader)
+                     MainBlock, MainBlockHeader)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..), SecretProof (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..))
+                     MCVssCertificate (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey,
-                                    mlXSignature, mlSignature, mlVssPublicKey)
+                     mlSignature, mlVssPublicKey, mlXSignature)
 
 ----------------------------------------------------------------------------
 -- Instances (MessageLimited[Pure])

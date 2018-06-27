@@ -20,7 +20,7 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
-                               withConfigurations)
+                     withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)

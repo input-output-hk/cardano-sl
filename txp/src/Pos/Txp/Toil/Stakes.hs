@@ -17,7 +17,7 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug)
 
 import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin, sumCoins,
-                           unsafeIntegerToCoin)
+                     unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Txp.Base (txOutStake)
 import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake, setStake, setTotalStake)

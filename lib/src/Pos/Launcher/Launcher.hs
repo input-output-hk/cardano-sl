@@ -14,8 +14,8 @@ import           Universum
 -- Get rid of production and use a 'Trace IO' instead.
 import           Mockable.Production (Production (..))
 
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Core.Configuration (epochSlots)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)

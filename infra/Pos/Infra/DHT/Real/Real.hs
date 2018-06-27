@@ -14,10 +14,10 @@ module Pos.Infra.DHT.Real.Real
 -- We'll take 'try' and 'catch' from Control.Exception
 -- Universum uses those from Control.Exception.Safe, but in here we never
 -- squelch async exceptions so it's ok.
-import           Universum hiding (try, catch)
+import           Universum hiding (catch, try)
 
 import           Control.Concurrent (threadDelay)
-import           Control.Exception (throwIO, try, catch)
+import           Control.Exception (catch, throwIO, try)
 import qualified Data.ByteString.Char8 as B8 (unpack)
 import qualified Data.ByteString.Lazy as BS
 import           Data.List (intersect, (\\))
@@ -32,12 +32,11 @@ import           System.Directory (doesFileExist)
 import           Pos.Binary.Class (decodeFull)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast, enhancedMessageTimeout)
-import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey, DHTNode (..),
-                                            randomDHTKey)
+import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey, DHTNode (..), randomDHTKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams (..))
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }

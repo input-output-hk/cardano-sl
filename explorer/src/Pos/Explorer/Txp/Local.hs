@@ -28,8 +28,7 @@ import           Pos.Util.Util (HasLens')
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.Txp.Common (buildExplorerExtraLookup)
 import           Pos.Explorer.Txp.Toil (ELocalToilM, ExplorerExtraLookup (..),
-                                        ExplorerExtraModifier, eNormalizeToil, eProcessTx,
-                                        eemLocalTxsExtra)
+                     ExplorerExtraModifier, eNormalizeToil, eProcessTx, eemLocalTxsExtra)
 
 
 type ETxpLocalWorkMode ctx m =

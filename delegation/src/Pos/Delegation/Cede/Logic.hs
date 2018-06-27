@@ -21,11 +21,11 @@ import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
 import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy, StakeholderId, addressHash,
-                           gbhConsensus)
+                     gbhConsensus)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
-                                 mcdSignature)
+                     mcdSignature)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey, psigPsk,
-                             validateProxySecretKey)
+                     validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Types (DlgMemPool, isRevokePsk)

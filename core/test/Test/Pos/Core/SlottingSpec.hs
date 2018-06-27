@@ -11,7 +11,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (===), (==>))
 
 import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), defaultCoreConfiguration,
-                           flattenSlotId, withGenesisSpec, unflattenSlotId)
+                     flattenSlotId, unflattenSlotId, withGenesisSpec)
 
 import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))

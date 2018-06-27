@@ -37,7 +37,7 @@ import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Conduit (ConduitT, bracketP, yield)
 import qualified Database.RocksDB as Rocks
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
-                                   removeDirectoryRecursive)
+                     removeDirectoryRecursive)
 import           System.FilePath ((</>))
 
 import           Pos.Binary.Class (Bi)

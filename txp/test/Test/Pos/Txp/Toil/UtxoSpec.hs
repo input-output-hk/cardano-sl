@@ -19,22 +19,21 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 
 import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
-                           defaultCoreConfiguration, makePubKeyAddressBoot, makeScriptAddress,
-                           mkCoin, sumCoins, withGenesisSpec)
+                     defaultCoreConfiguration, makePubKeyAddressBoot, makeScriptAddress, mkCoin,
+                     sumCoins, withGenesisSpec)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
-                               TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
+                     TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
 import           Pos.Crypto (ProtocolMagic, SignTag (SignTx), checkSig, fakeSigner, hash, toPublic,
-                             unsafeHash, withHash)
+                     unsafeHash, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script (PlutusError (..), Script)
 import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, goodIntRedeemer,
-                                      goodIntRedeemerWithBlah, goodStdlibRedeemer, idValidator,
-                                      intValidator, intValidatorWithBlah, multisigRedeemer,
-                                      multisigValidator, shaStressRedeemer, sigStressRedeemer,
-                                      stdlibValidator)
+                     goodIntRedeemerWithBlah, goodStdlibRedeemer, idValidator, intValidator,
+                     intValidatorWithBlah, multisigRedeemer, multisigValidator, shaStressRedeemer,
+                     sigStressRedeemer, stdlibValidator)
 import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUtxoRes,
-                          WitnessVerFailure (..), applyTxToUtxo, evalUtxoM, execUtxoM, utxoGet,
-                          utxoToLookup, verifyTxUtxo)
+                     WitnessVerFailure (..), applyTxToUtxo, evalUtxoM, execUtxoM, utxoGet,
+                     utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))

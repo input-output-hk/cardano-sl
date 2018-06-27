@@ -30,11 +30,10 @@ import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, sec
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
-                                                   usingPtxCoords)
+                     usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
 import           Pos.Wallet.Web.State (PtxMetaUpdate (PtxMarkAcknowledged), WalletDB,
-                                       addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta,
-                                       removeOnlyCreatingPtx)
+                     addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta, removeOnlyCreatingPtx)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.

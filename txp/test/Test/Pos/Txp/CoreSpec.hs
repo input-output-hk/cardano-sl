@@ -14,7 +14,7 @@ import qualified Data.List.NonEmpty as NE
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, forAll,
-                                  resize, shuffle, vectorOf, (.&.), (===))
+                     resize, shuffle, vectorOf, (.&.), (===))
 import           Test.QuickCheck.Gen (Gen)
 
 import           Pos.Core (mkCoin)

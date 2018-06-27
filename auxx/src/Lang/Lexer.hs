@@ -43,16 +43,16 @@ import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbit
 import qualified Test.QuickCheck.Gen as QC
 import           Test.QuickCheck.Instances ()
 import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof, getPosition,
-                                  manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P,
-                                  try, unPos, (<?>))
+                     manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P, try, unPos,
+                     (<?>))
 import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
 import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
 import           Pos.Core (Address, ApplicationName (..), BlockVersion (..), SoftwareVersion (..),
-                           StakeholderId, decodeTextAddress)
+                     StakeholderId, decodeTextAddress)
 import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
-                             parseFullPublicKey, unsafeCheatingHashCoerce)
+                     parseFullPublicKey, unsafeCheatingHashCoerce)
 import           Pos.Util.Util (toParsecError)
 
 import           Test.Pos.Core.Arbitrary ()

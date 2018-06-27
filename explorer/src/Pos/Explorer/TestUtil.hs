@@ -28,15 +28,15 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Map (fromList, fromListWith, keys, unions)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable, choose, counterexample,
-                                  forAll, generate, property, suchThat)
+                     forAll, generate, property, suchThat)
 
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..),
-                           GenesisHash (..), HasConfiguration, HeaderHash, LocalSlotIndex (..),
-                           SlotId (..), SlotLeaders, StakeholderId, difficultyL, genesisHash,
-                           headerHash, makePubKeyAddressBoot)
+                     GenesisHash (..), HasConfiguration, HeaderHash, LocalSlotIndex (..),
+                     SlotId (..), SlotLeaders, StakeholderId, difficultyL, genesisHash, headerHash,
+                     makePubKeyAddressBoot)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Core.Ssc (SscPayload)

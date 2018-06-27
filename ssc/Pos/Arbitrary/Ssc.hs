@@ -25,19 +25,18 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..), VssCertificatesMap,
-                           mkVssCertificate, mkVssCertificatesMapLossy)
+                     mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SignedCommitment,
-                               SscPayload (..), SscProof (..), mkCommitmentsMap,
-                               randCommitmentAndOpening)
+                     SscPayload (..), SscProof (..), mkCommitmentsMap, randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic, randomNumberInRange,
-                             toVssPublicKey, vssKeyGen)
+                     toVssPublicKey, vssKeyGen)
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import           Pos.Ssc.Base (isCommitmentIdExplicit, isOpeningIdExplicit, isSharesIdExplicit,
-                               mkSignedCommitment)
+                     mkSignedCommitment)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..), SscTag (..))
+                     MCVssCertificate (..), SscTag (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))

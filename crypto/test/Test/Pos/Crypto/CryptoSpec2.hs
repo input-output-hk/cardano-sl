@@ -12,18 +12,18 @@ import           Prelude ((!!))
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, property, vector,
-                                  (===), (==>))
+                     (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
 import           Pos.Binary.Class (AsBinary, Bi)
 import qualified Pos.Crypto as Crypto
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey, mlSecret,
-                                    mlSignature, mlVssPublicKey)
+                     mlSignature, mlVssPublicKey)
 import           Pos.Crypto.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
-                                          serDeserId)
+                     serDeserId)
 import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))

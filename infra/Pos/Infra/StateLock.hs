@@ -37,7 +37,7 @@ import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLog
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock, newPriorityLock,
-                                                   withPriorityLock)
+                     withPriorityLock)
 import           Pos.Util.Util (HasLens', lensOf)
 
 

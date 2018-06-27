@@ -26,7 +26,7 @@ import           System.Exit (ExitCode (..))
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage,
-                                          streamWindow)
+                     streamWindow)
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)

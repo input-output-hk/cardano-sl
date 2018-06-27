@@ -65,8 +65,8 @@ import           Test.QuickCheck.Modifiers (getLarge)
 import           Test.QuickCheck.Property (Testable (..), failed, reason, succeeded)
 
 import           Node (Conversation (..), ConversationActions (..), Listener (..), Message (..),
-                       NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay, node,
-                       nodeId, simpleNodeEndPoint)
+                     NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay, node,
+                     nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
 import           Pos.Util.Trace (wlogTrace)

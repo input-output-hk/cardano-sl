@@ -43,14 +43,12 @@ import           Prelude (read)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, choose, conjoin,
-                                  counterexample, forAll, property, resize, suchThat, vectorOf,
-                                  (.&&.), (===))
+                     counterexample, forAll, property, resize, suchThat, vectorOf, (.&&.), (===))
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), decodeFull,
-                                   decodeListLenCanonicalOf, decodeUnknownCborDataItem,
-                                   encodeListLen, encodeUnknownCborDataItem, serialize, serialize',
-                                   unsafeDeserialize)
+                     decodeListLenCanonicalOf, decodeUnknownCborDataItem, encodeListLen,
+                     encodeUnknownCborDataItem, serialize, serialize', unsafeDeserialize)
 import           Pos.Binary.Limit (Limit (..))
 
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)

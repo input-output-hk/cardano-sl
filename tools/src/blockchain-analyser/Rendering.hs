@@ -12,10 +12,10 @@ import           Formatting hiding (bytes)
 import           Options (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Undo)
-import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
-                           SlotId (..), Tx, getEpochIndex, getEpochOrSlot)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..), SlotId (..), Tx,
+                     getEpochIndex, getEpochOrSlot)
 import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash, getBlockHeader, mbTxs,
-                                 _gbBody, _gbhConsensus, _mcdLeaderKey)
+                     _gbBody, _gbhConsensus, _mcdLeaderKey)
 import           Pos.Crypto (PublicKey)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
 import           Text.Tabl (Alignment (..), Decoration (..), Environment (EnvAscii), tabl)

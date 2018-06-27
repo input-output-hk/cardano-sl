@@ -15,7 +15,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Generics.SOP
 import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..), defaultJsonOptions,
-                                    jsonInfo)
+                     jsonInfo)
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.Util (mkJsonKey)

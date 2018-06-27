@@ -25,9 +25,8 @@ import           Pos.Block.Logic (applyBlocksUnsafe)
 import qualified Pos.Block.Lrc as Lrc
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, GenesisData (..), GenesisInitializer (..),
-                           StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,
-                           coinF, epochSlots, genesisData, genesisSecretKeysPoor,
-                           genesisSecretKeysRich)
+                     StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,
+                     coinF, epochSlots, genesisData, genesisSecretKeysPoor, genesisSecretKeysRich)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
@@ -38,7 +37,7 @@ import           Pos.Util.Util (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
-                                            bpGenBlocks)
+                     bpGenBlocks)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)

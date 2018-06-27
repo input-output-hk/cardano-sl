@@ -69,12 +69,11 @@ import           Universum
 import           Control.Lens (makeLenses)
 
 import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
-                                            gbhConsensus, gbhExtra, gbhPrevBlock)
+                     gbhConsensus, gbhExtra, gbhPrevBlock)
 import           Pos.Core.Block.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
-                                            MainBody (..), MainExtraBodyData, MainExtraHeaderData,
-                                            MainProof (..))
+                     MainBody (..), MainExtraBodyData, MainExtraHeaderData, MainProof (..))
 import           Pos.Core.Block.Union.Types (BlockSignature, HeaderHash, MainBlock, MainBlockHeader,
-                                             MainConsensusData (..), MainToSign (..))
+                     MainConsensusData (..), MainToSign (..))
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Slotting (SlotId)

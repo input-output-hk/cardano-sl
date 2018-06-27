@@ -56,7 +56,7 @@ import qualified Database.RocksDB as Rocks
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash, HasCoreConfiguration)
+import           Pos.Core (HasCoreConfiguration, ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Core.Genesis (GenesisDelegation (..))
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)

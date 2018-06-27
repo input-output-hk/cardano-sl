@@ -37,7 +37,7 @@ txCntInChainMemPoolToCSV f sp txCnt mp =
 
     inSample :: MonadRandom m => MemPoolModifyReason -> m Bool
     inSample ProcessTransaction = draw
-    inSample _                      = return True
+    inSample _                  = return True
 
     toTxType :: String -> JLMemPool -> String
     toTxType s JLMemPool{..} =

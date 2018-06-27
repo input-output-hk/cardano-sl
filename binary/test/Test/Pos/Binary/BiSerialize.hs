@@ -12,7 +12,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import           Pos.Binary.Class (Cons (..), Field (..), cborError, deriveIndexedBi,
-                                   deriveSimpleBi, serialize')
+                     deriveSimpleBi, serialize')
 
 import qualified Serokell.Util.Base16 as B16
 

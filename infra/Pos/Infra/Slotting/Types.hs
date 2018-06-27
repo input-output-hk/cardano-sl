@@ -24,7 +24,7 @@ import           Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, toMicroseconds)
 
 import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..),
-                           addTimeDiffToTimestamp, getSlotIndex)
+                     addTimeDiffToTimestamp, getSlotIndex)
 import           Pos.Util.Util ()
 
 

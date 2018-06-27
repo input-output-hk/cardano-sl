@@ -9,7 +9,7 @@ import           Universum
 
 import           Data.Version (showVersion)
 import           Options.Applicative.Simple (Parser, help, long, metavar, simpleOptions, strOption,
-                                             value)
+                     value)
 
 import           Paths_cardano_sl_explorer (version)
 

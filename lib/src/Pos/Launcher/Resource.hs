@@ -29,8 +29,8 @@ import           Mockable (Production (..))
 import           System.IO (BufferMode (..), hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
 import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
-                              logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
-                              setupLogging, showTidB)
+                     logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
+                     setupLogging, showTidB)
 
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
@@ -56,7 +56,7 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodePa
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
 import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
-                          recordTxpMetrics)
+                     recordTxpMetrics)
 
 import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)

@@ -17,10 +17,10 @@ import           Pos.Txp.DB.Utxo (filterUtxo)
 import           Pos.Util (HasLens (..))
 
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletDB,
-                                       setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)
+                     setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
-                                                  selectOwnAddresses)
+                     selectOwnAddresses)
 import           Pos.Wallet.Web.Tracking.Sync (firstGenesisHeader, processSyncError)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest, submitSyncRequest)
 

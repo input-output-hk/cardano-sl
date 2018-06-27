@@ -24,25 +24,22 @@ import           Test.QuickCheck.Random (QCGen)
 import           Pos.Block.Logic (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (GenesisData (..), HasConfiguration, blkSecurityParam, epochSlots,
-                           genesisData, headerHash)
+                     genesisData, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
-                                  nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
-                                  _NewestFirst)
+                     nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst, _NewestFirst)
 import           Pos.DB.Pure (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
-                                               BlockRollbackFailure (..), BlockRollbackResult (..),
-                                               BlockScenario, Path, byChance, emitBlockApply,
-                                               emitBlockRollback, enrichWithSnapshotChecking,
-                                               pathSequence, runBlockEventGenT)
+                     BlockRollbackFailure (..), BlockRollbackResult (..), BlockScenario, Path,
+                     byChance, emitBlockApply, emitBlockRollback, enrichWithSnapshotChecking,
+                     pathSequence, runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
-                                             DbNotEquivalentToSnapshot (..), runBlockScenario)
+                     DbNotEquivalentToSnapshot (..), runBlockScenario)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
-                                            bpGenBlocks, bpGoToArbitraryState, getAllSecrets,
-                                            satisfySlotCheck)
+                     bpGenBlocks, bpGoToArbitraryState, getAllSecrets, satisfySlotCheck)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)

@@ -42,8 +42,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (Tagged))
 import           Data.Text.Buildable (build)
 import           Data.Time.Units (Attosecond, Day, Femtosecond, Fortnight, Hour, Microsecond,
-                                  Millisecond, Minute, Nanosecond, Picosecond, Second, Week,
-                                  toMicroseconds)
+                     Millisecond, Minute, Nanosecond, Picosecond, Second, Week, toMicroseconds)
 import           Data.Typeable (typeRep)
 import qualified Ether
 import qualified Formatting as F

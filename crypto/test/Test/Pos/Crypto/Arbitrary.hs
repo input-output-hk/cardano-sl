@@ -22,18 +22,18 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
-                                     unsafeCheatingHashCoerce, withHash)
+                     unsafeCheatingHashCoerce, withHash)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic, randomNumberInRange)
 import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretProof, Threshold,
-                                           VssKeyPair, VssPublicKey, decryptShare, genSharedSecret,
-                                           toVssPublicKey, vssKeyGen)
+                     VssKeyPair, VssPublicKey, decryptShare, genSharedSecret, toVssPublicKey,
+                     vssKeyGen)
 import           Pos.Crypto.Signing (EncryptedSecretKey (..), PassPhrase, ProxyCert, ProxySecretKey,
-                                     ProxySignature, PublicKey, SecretKey, SignTag (..), Signature,
-                                     Signed, createProxyCert, createPsk, keyGen, mkSigned,
-                                     noPassEncrypt, proxySign, sign, signEncoded, toPublic)
+                     ProxySignature, PublicKey, SecretKey, SignTag (..), Signature, Signed,
+                     createProxyCert, createPsk, keyGen, mkSigned, noPassEncrypt, proxySign, sign,
+                     signEncoded, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
-                                            redeemKeyGen, redeemSign)
+                     redeemKeyGen, redeemSign)
 
 import           Pos.Util.Orphans ()
 
@@ -41,7 +41,7 @@ import           Test.Pos.Crypto.Arbitrary.Unsafe ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
-                                                     sublistN)
+                     sublistN)
 
 deriving instance Arbitrary ProtocolMagic
 

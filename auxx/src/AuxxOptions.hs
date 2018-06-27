@@ -15,8 +15,8 @@ import           Universum
 import           Data.Version (showVersion)
 import qualified NeatInterpolation as N
 import           Options.Applicative (CommandFields, Mod, Parser, command, execParser, footerDoc,
-                                      fullDesc, header, help, helper, info, infoOption, long,
-                                      maybeReader, metavar, option, progDesc, subparser, value)
+                     fullDesc, header, help, helper, info, infoOption, long, maybeReader, metavar,
+                     option, progDesc, subparser, value)
 import           Pos.Communication (NodeId)
 import           Serokell.Util.OptParse (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)

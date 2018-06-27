@@ -21,7 +21,7 @@ import           Pos.Core.Ssc (insertVss)
 import           Pos.Ssc.Base (deleteSignedCommitment, insertSignedCommitment)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..), MonadTossRead (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..), tmCertificates, tmCommitments, tmOpenings,
-                                     tmShares)
+                     tmShares)
 import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------

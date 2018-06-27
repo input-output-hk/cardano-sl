@@ -8,8 +8,8 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
-import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
-                                         tryTakeTMVar, readTBQueue, TBQueue)
+import           Control.Concurrent.STM (TBQueue, putTMVar, readTBQueue, swapTMVar, tryReadTBQueue,
+                     tryReadTMVar, tryTakeTMVar)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -23,7 +23,7 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
 import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
-                                          triggerRecovery)
+                     triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
@@ -347,7 +347,7 @@ streamProcessBlocks pm diffusion nodeId desired checkpoints = do
                      logDebug $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
                                         (block ^. difficultyL)
               case wqgM of
-                   Nothing -> pure ()
+                   Nothing  -> pure ()
                    Just wqg -> liftIO $ Gauge.dec wqg
 
               if n' `mod` batchSize == 0

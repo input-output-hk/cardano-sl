@@ -15,7 +15,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 
 import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, V1,
-                                              Wallet, WalletAddress)
+                     Wallet, WalletAddress)
 
 import           Cardano.Wallet.Client (ClientError)
 import qualified Pos.Core as Core

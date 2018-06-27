@@ -1,5 +1,5 @@
+{-# LANGUAGE BangPatterns     #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE BangPatterns #-}
 
 import           Control.Applicative (empty)
 import           Control.Exception.Safe (throwString)
@@ -23,10 +23,9 @@ import           Data.Attoparsec.Text (parseOnly)
 import           Options.Applicative.Simple (simpleOptions)
 
 import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), MeasureInfo (..), MsgId,
-                                        Payload (..), Timestamp, logMessageParser,
-                                        measureInfoParser)
+                     Payload (..), Timestamp, logMessageParser, measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith, wlogTrace)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith, wlogTrace)
 import           System.Wlog (productionB, setupLogging)
 import           System.Wlog.Formatter (centiUtcTimeF)
 
@@ -37,7 +36,7 @@ type RowId = Int
 
 analyze :: Trace IO (Severity, Text) -> FilePath -> Measures -> IO Measures
 analyze logTrace file initialMeasures = runResourceT $ pipeline
-    
+
   where
 
     pipelineSource :: ConduitT () (Text, RowId) (ResourceT IO) ()

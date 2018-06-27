@@ -35,11 +35,11 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
-                                 ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
+                     ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, gbHeader, headerHash,
-                           mainBlockDlgPayload, mainBlockSscPayload, mainBlockTxPayload,
-                           mainBlockUpdatePayload)
+                     mainBlockDlgPayload, mainBlockSscPayload, mainBlockTxPayload,
+                     mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)

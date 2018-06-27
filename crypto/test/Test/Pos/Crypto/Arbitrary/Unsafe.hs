@@ -13,7 +13,7 @@ import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
-                                           toVssPublicKey)
+                     toVssPublicKey)
 
 import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed, mkSigned)
 

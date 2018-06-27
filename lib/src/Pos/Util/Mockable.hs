@@ -15,7 +15,7 @@ import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Ether
 import           Mockable (ChannelT, Counter, Distribution, Gauge, MFunctor' (..), Mockable (..),
-                           Promise, SharedAtomicT, SharedExclusiveT, ThreadId)
+                     Promise, SharedAtomicT, SharedExclusiveT, ThreadId)
 
 instance {-# OVERLAPPABLE #-}
     (Monad m, MFunctor t) => MFunctor' t m n

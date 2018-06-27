@@ -24,7 +24,7 @@ import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
 import           Pos.Block.Types (MonadLastKnownHeader, MonadRecoveryHeader)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
-                              TxpGlobalSettings)
+                     TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)

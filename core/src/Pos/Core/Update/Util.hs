@@ -36,13 +36,12 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Types (checkCoinPortion)
 import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..),
-                                        BlockVersionModifier (..), SoftforkRule (..),
-                                        SoftwareVersion, SystemTag, UpAttributes, UpdateData,
-                                        UpdatePayload (..), UpdateProposal (..),
-                                        UpdateProposalToSign (..), UpdateVote (..), VoteId,
-                                        checkSoftwareVersion, checkSystemTag)
+                     BlockVersionModifier (..), SoftforkRule (..), SoftwareVersion, SystemTag,
+                     UpAttributes, UpdateData, UpdatePayload (..), UpdateProposal (..),
+                     UpdateProposalToSign (..), UpdateVote (..), VoteId, checkSoftwareVersion,
+                     checkSystemTag)
 import           Pos.Crypto (ProtocolMagic, SafeSigner, SignTag (SignUSProposal, SignUSVote),
-                             checkSig, safeSign, safeToPublic)
+                     checkSig, safeSign, safeToPublic)
 
 checkUpdatePayload
     :: (MonadError Text m)

@@ -28,14 +28,14 @@ import           Formatting (bprint, build, (%))
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
-                                           OctetStream)
+                     OctetStream)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
-                                                        PaginationParams (..), PerPage (..))
+                     PaginationParams (..), PerPage (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend

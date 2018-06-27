@@ -39,7 +39,7 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..), HasConfiguration,
-                           Timestamp (..), difficultyL, epochSlots, genesisHash, headerHash)
+                     Timestamp (..), difficultyL, epochSlots, genesisHash, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
@@ -52,11 +52,10 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
-                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
-                          UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
-                          flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
-                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
-                          withTxpLocalData)
+                     TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..), UtxoLookup,
+                     UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM, flattenTxPayload,
+                     genesisUtxo, getLocalTxs, runUtxoM, topsortTxs, txOutAddress, txpProcessTx,
+                     unGenesisUtxo, utxoGet, utxoToLookup, withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 

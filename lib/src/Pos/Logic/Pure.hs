@@ -13,14 +13,13 @@ import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
-                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
-                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
-                           unsafeCoinPortionFromDouble)
+                     BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
+                     GenericBlockHeader (..), HeaderHash, SoftforkRule (..), SoftwareVersion (..),
+                     StakeholderId, TxFeePolicy (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
-                                 MainBlockHeader, MainBlockchain, MainBody (..),
-                                 MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..))
+                     MainBlockHeader, MainBlockchain, MainBody (..), MainConsensusData (..),
+                     MainExtraBodyData (..), MainExtraHeaderData (..), MainProof (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
@@ -30,12 +29,11 @@ import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
-                                     deterministicKeyGen, signRaw)
+                     deterministicKeyGen, signRaw)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
+import           Pos.DB.Class (Serialized (..), SerializedBlock)
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 

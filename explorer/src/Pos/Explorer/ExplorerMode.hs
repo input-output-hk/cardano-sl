@@ -31,18 +31,17 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
 import qualified Pos.GState as GS
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import qualified Pos.Infra.Slotting as Slot
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
-                          mkTxpLocalData)
+                     mkTxpLocalData)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.Mockable ()
 import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
-                                            HasGenesisRedeemAddressInfo, makeExtraCtx,
-                                            runExtraContextT)
+                     HasGenesisRedeemAddressInfo, makeExtraCtx, runExtraContextT)
 import           Pos.Explorer.Socket.Holder (ConnectionsState)
 import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
@@ -52,7 +51,7 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDe
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                                      modifyLoggerNameDefault)
+                     modifyLoggerNameDefault)
 import           Pos.WorkMode (MinWorkMode)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)

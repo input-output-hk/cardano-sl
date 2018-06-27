@@ -32,16 +32,15 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxMeta (..),
-                                             ScrollLimit, ScrollOffset, Wal, mkCTx, addressToCId)
+                     ScrollLimit, ScrollOffset, Wal, addressToCId, mkCTx)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever), WalletDB,
-                                       WalletSnapshot, addOnlyNewTxMetas, askWalletDB,
-                                       getHistoryCache, getPendingTx, getTxMeta,
-                                       getWalletPendingTxs, getWalletSnapshot, wamAddress)
+                     WalletSnapshot, addOnlyNewTxMetas, askWalletDB, getHistoryCache, getPendingTx,
+                     getTxMeta, getWalletPendingTxs, getWalletSnapshot, wamAddress)
 import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
-                                      getWalletAddrsDetector)
+                     getWalletAddrsDetector)
 import           Servant.API.ContentTypes (NoContent (..))
 
 

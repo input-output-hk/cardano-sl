@@ -36,17 +36,14 @@ import qualified Data.Map as Map
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Core (GenesisWStakeholders)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
-                                  _NewestFirst)
+                     _NewestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Generator.Block (BlockTxpGenMode, MonadBlockGen)
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..), BlockEvent' (..),
-                                           BlockEventApply' (..), BlockEventRollback' (..),
-                                           BlockRollbackFailure (..), BlockRollbackResult (..),
-                                           BlockScenario, BlockScenario' (..), Chance (..),
-                                           CheckCount (..), Path, PathSegment, SnapshotId,
-                                           SnapshotOperation (..), byChance,
-                                           enrichWithSnapshotChecking, genBlocksInStructure,
-                                           pathSequence)
+                     BlockEventApply' (..), BlockEventRollback' (..), BlockRollbackFailure (..),
+                     BlockRollbackResult (..), BlockScenario, BlockScenario' (..), Chance (..),
+                     CheckCount (..), Path, PathSegment, SnapshotId, SnapshotOperation (..),
+                     byChance, enrichWithSnapshotChecking, genBlocksInStructure, pathSequence)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 
 data BlockEventGenState = BlockEventGenState

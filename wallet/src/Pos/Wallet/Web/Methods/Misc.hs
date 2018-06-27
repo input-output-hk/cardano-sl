@@ -57,17 +57,14 @@ import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
-                                        connectedPeers, localChainDifficulty,
-                                        networkChainDifficulty)
+                     connectedPeers, localChainDifficulty, networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CProfile (..), CPtxCondition,
-                                             CTxId (..), CUpdateInfo (..), SyncProgress (..),
-                                             cIdToAddress)
+                     CTxId (..), CUpdateInfo (..), SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (WalletDbReader, WalletSnapshot, askWalletDB,
-                                       askWalletSnapshot, cancelApplyingPtxs,
-                                       cancelSpecificApplyingPtx, getNextUpdate, getProfile,
-                                       removeNextUpdate, resetFailedPtxs,
-                                       setProfile, testReset)
+                     askWalletSnapshot, cancelApplyingPtxs, cancelSpecificApplyingPtx,
+                     getNextUpdate, getProfile, removeNextUpdate, resetFailedPtxs, setProfile,
+                     testReset)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------

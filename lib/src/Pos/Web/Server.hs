@@ -32,11 +32,11 @@ import           Mockable (Production (runProduction))
 import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost, runSettingsSocket,
-                                           setHost, setPort)
+                     setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
-                                 err503, hoistServer, serve)
+                     err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)

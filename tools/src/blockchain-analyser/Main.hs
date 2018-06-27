@@ -6,7 +6,7 @@ import           Universum
 
 import           Mockable (Production, runProduction)
 import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
-                                   withCurrentDirectory)
+                     withCurrentDirectory)
 
 import           Pos.Block.Types (Undo)
 import qualified Pos.Client.CLI as CLI

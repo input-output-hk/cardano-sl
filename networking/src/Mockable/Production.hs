@@ -30,8 +30,8 @@ import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Mockable.Channel (Channel (..), ChannelT)
 import           Mockable.Class (Mockable (..))
 import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..),
-                                      LowLevelAsync (..), MyThreadId (..), Promise,
-                                      RunInUnboundThread (..), ThreadId)
+                     LowLevelAsync (..), MyThreadId (..), Promise, RunInUnboundThread (..),
+                     ThreadId)
 import           Mockable.CurrentTime (CurrentTime (..), realTime)
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)

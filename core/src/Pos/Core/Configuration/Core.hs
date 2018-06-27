@@ -26,11 +26,10 @@ import           Data.Reflection (Given (..), give)
 import qualified Data.HashMap.Strict as HM
 import           Pos.Binary.Class (Raw)
 import           Pos.Core.Common (Coeff (..), SharedSeed (..), TxFeePolicy (..), TxSizeLinear (..),
-                                  unsafeCoinPortionFromDouble)
+                     unsafeCoinPortionFromDouble)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..),
-                                   GenesisInitializer (..), GenesisProtocolConstants (..),
-                                   GenesisSpec (..), TestnetBalanceOptions (..),
-                                   noGenesisDelegation)
+                     GenesisInitializer (..), GenesisProtocolConstants (..), GenesisSpec (..),
+                     TestnetBalanceOptions (..), noGenesisDelegation)
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))

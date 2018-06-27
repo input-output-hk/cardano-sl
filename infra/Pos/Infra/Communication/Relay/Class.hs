@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg, Msg, NodeId)
 import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg,
-                                                      ReqMsg, ReqOrRes)
+                     ReqMsg, ReqOrRes)
 import           Pos.Infra.Network.Types (Origin)
 
 -- | Data for general Inv/Req/Dat framework

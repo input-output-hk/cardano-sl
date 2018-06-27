@@ -13,7 +13,7 @@ import           Universum
 import           Control.Monad.Trans (MonadTrans)
 
 import           Pos.Core (Address (..), Coin, HasConfiguration, IsBootstrapEraAddr (..),
-                           makePubKeyAddress)
+                     makePubKeyAddress)
 import           Pos.Crypto (PublicKey)
 import           Pos.Txp (Utxo, filterUtxoByAddrs, genesisUtxo, unGenesisUtxo)
 import           Pos.Txp.Toil.Utxo (getTotalCoinsInUtxo)

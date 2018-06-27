@@ -20,7 +20,7 @@ import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
 import           Pos.Block.Slog (HasSlogContext)
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryHeader,
-                                  RecoveryHeaderTag)
+                     RecoveryHeaderTag)
 import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)

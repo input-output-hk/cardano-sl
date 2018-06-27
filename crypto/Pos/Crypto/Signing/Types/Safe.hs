@@ -29,7 +29,7 @@ import           Universum
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize, toCborError)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), decodeXPrv,
-                                                   encodeXPrv, toPublic)
+                     encodeXPrv, toPublic)
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey

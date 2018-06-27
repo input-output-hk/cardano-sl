@@ -4,7 +4,7 @@ module Bench.Configuration
     ) where
 
 import           Pos.Core (ProtocolConstants (..), ProtocolMagic (..), VssMaxTTL (..),
-                           VssMinTTL (..))
+                     VssMinTTL (..))
 
 benchProtocolConstants :: ProtocolConstants
 benchProtocolConstants = ProtocolConstants

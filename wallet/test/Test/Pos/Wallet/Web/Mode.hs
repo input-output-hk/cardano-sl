@@ -46,13 +46,13 @@ import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryHeader,
-                                  RecoveryHeaderTag)
+                     RecoveryHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
-                                        modifySecretPureDefault)
+                     modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
-                                         getLocalHistoryDefault, saveTxDefault)
+                     getLocalHistoryDefault, saveTxDefault)
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..), largestHDAddressBoot)
 import           Pos.Core.Txp (TxAux)
@@ -69,46 +69,45 @@ import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
-                                                MemPoolModifyReason, jsonLogDefault)
+                     MemPoolModifyReason, jsonLogDefault)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
-                          TxpHolderTag, recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
-                          txpMemPool, txpTip)
+                     TxpHolderTag, recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
+                     txpMemPool, txpTip)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                                      modifyLoggerNameDefault)
+                     modifyLoggerNameDefault)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,
-                                      connectedPeersWebWallet, localChainDifficultyWebWallet,
-                                      networkChainDifficultyWebWallet, txpNormalizeWebWallet,
-                                      txpProcessTxWebWallet, waitForUpdateWebWallet)
+                     connectedPeersWebWallet, localChainDifficultyWebWallet,
+                     networkChainDifficultyWebWallet, txpNormalizeWebWallet, txpProcessTxWebWallet,
+                     waitForUpdateWebWallet)
 import qualified System.Metrics as Metrics
 
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
-                                        WalletMempoolExt)
+                     WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
 import           Pos.Wallet.Web.State (WalletDB, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
-                                                    onRollbackBlocksWebWallet)
+                     onRollbackBlocksWebWallet)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
-                                            HasTestParams (..), TestParams (..), btcSystemStartL,
-                                            btcTxpMemL, currentTimeSlottingTestDefault,
-                                            getCurrentSlotBlockingTestDefault,
-                                            getCurrentSlotInaccurateTestDefault,
-                                            getCurrentSlotTestDefault, initBlockTestContext)
+                     HasTestParams (..), TestParams (..), btcSystemStartL, btcTxpMemL,
+                     currentTimeSlottingTestDefault, getCurrentSlotBlockingTestDefault,
+                     getCurrentSlotInaccurateTestDefault, getCurrentSlotTestDefault,
+                     initBlockTestContext)
 
 ----------------------------------------------------------------------------
 -- Parameters

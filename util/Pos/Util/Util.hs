@@ -95,7 +95,7 @@ import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import           Data.Time.Units (Microsecond, toMicroseconds, fromMicroseconds)
+import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F

@@ -62,11 +62,11 @@ import           Pos.AllSecrets (AllSecrets)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (GenesisWStakeholders, HeaderHash, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst, _OldestFirst)
+                     toOldestFirst, _OldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode, MonadBlockGen,
-                                      TxGenParams (..), genBlocks)
+                     TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
 import           Pos.Txp (TxpGlobalSettings)
 import           Pos.Txp.Configuration (HasTxpConfiguration)

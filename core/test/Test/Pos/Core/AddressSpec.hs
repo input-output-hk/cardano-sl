@@ -15,12 +15,11 @@ import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll, freque
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair,
-                           largestHDAddressBoot, largestPubKeyAddressBoot,
-                           largestPubKeyAddressSingleKey, makePubKeyAddress, makePubKeyAddressBoot,
-                           makePubKeyHdwAddress)
+                     largestHDAddressBoot, largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
+                     makePubKeyAddress, makePubKeyAddressBoot, makePubKeyHdwAddress)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, SecretKey (..),
-                             ShouldCheckPassphrase (..), deterministicKeyGen, emptyPassphrase,
-                             mkEncSecretUnsafe, noPassEncrypt, toPublic)
+                     ShouldCheckPassphrase (..), deterministicKeyGen, emptyPassphrase,
+                     mkEncSecretUnsafe, noPassEncrypt, toPublic)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 
 import           Test.Pos.Core.Arbitrary ()

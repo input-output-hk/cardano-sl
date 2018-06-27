@@ -4,7 +4,7 @@ import           Universum
 
 import           Data.String.Conv (toS)
 import           Options.Applicative (auto, eitherReader, help, long, metavar, option, strOption,
-                                      switch)
+                     switch)
 import           Options.Generic (ParseRecord (..))
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Wallet.Web.ClientTypes.Instances ()

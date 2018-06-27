@@ -15,7 +15,7 @@ import qualified System.Metrics as Ekg
 
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQSec)
 import           Pos.Block.Slog.Types (HasSlogGState (..), LastBlkSlots, SlogContext (..),
-                                       SlogGState (..), sgsLastBlkSlots)
+                     SlogGState (..), sgsLastBlkSlots)
 import           Pos.Core (blkSecurityParam)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.GState.BlockExtra (getLastSlots)

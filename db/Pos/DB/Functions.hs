@@ -24,9 +24,9 @@ import qualified Data.ByteString as BS (drop, isPrefixOf)
 import           Formatting (bprint, builder, sformat, shown, stext, string, (%))
 
 import           Pos.Binary.Class (Bi, decodeFull', serialize')
-import           Pos.Core.Configuration (dbSerializeVersion, HasCoreConfiguration)
+import           Pos.Core.Configuration (HasCoreConfiguration, dbSerializeVersion)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
-                               MonadDBRead (..))
+                     MonadDBRead (..))
 import           Pos.DB.Error (DBError (..))
 import           Pos.Util.Util (maybeThrow)
 

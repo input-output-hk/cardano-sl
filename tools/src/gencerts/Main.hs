@@ -9,7 +9,7 @@ import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
 import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod, timeAdd)
 import           Data.Semigroup ((<>))
 import           Data.X509 (Certificate (..), Extensions (..), PubKey (PubKeyRSA),
-                            SignedCertificate)
+                     SignedCertificate)
 import           Options.Applicative
 import           System.FilePath.Posix (FilePath, (</>))
 import           Time.System (dateCurrent)

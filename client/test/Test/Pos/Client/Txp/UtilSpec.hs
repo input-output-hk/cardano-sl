@@ -21,20 +21,19 @@ import           Test.QuickCheck.Monadic (forAllM, stop)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), TxOutputs,
-                                      TxWithSpendings, createMTx, createRedemptionTx,
-                                      isNotEnoughMoneyTxError)
+                     TxWithSpendings, createMTx, createRedemptionTx, isNotEnoughMoneyTxError)
 import           Pos.Core (Address, BlockVersionData (..), Coeff (..), TxFeePolicy (..),
-                           TxSizeLinear (..), makePubKeyAddressBoot, makeRedeemAddress,
-                           unsafeIntegerToCoin)
+                     TxSizeLinear (..), makePubKeyAddressBoot, makeRedeemAddress,
+                     unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash, fakeSigner,
-                             redeemToPublic, toPublic)
+                     redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
-                                           withBVData)
+                     withBVData)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)

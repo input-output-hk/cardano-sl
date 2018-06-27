@@ -9,7 +9,7 @@ module LogReaderOptions
 
 import           Data.Monoid ((<>))
 import           Options.Applicative.Simple (Parser, help, long, metavar, short, showDefault, some,
-                                             strOption, value)
+                     strOption, value)
 
 data Args = Args
     { inputFiles :: ![FilePath]

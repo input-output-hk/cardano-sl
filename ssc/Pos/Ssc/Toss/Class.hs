@@ -15,9 +15,9 @@ import           Control.Monad.Trans (MonadTrans)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot, StakeholderId, VssCertificate,
-                           VssCertificatesMap)
+                     VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening, OpeningsMap, SharesMap,
-                               SignedCommitment)
+                     SignedCommitment)
 import           Pos.Lrc.Types (RichmenStakes)
 
 ----------------------------------------------------------------------------

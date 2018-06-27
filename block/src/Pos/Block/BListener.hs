@@ -16,8 +16,8 @@ import           Control.Monad.Trans (MonadTrans (..))
 import           Mockable (SharedAtomicT)
 
 import           Pos.Block.Types (Blund)
-import           Pos.DB.BatchOp (SomeBatchOp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.DB.BatchOp (SomeBatchOp)
 
 class Monad m => MonadBListener m where
     -- Callback will be called after putting blocks into BlocksDB

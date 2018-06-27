@@ -30,7 +30,7 @@ import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Hashing (hash)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
-                                             SecretKey (..), Signature (..), sign, toPublic)
+                     SecretKey (..), Signature (..), sign, toPublic)
 import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 

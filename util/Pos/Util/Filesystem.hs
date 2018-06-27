@@ -20,8 +20,7 @@ import           Data.List (last)
 import           Data.Time (getCurrentTime)
 import qualified Prelude
 import           System.Directory (canonicalizePath, createDirectory, doesDirectoryExist,
-                                   getTemporaryDirectory, listDirectory, removeDirectoryRecursive,
-                                   removeFile)
+                     getTemporaryDirectory, listDirectory, removeDirectoryRecursive, removeFile)
 import           System.FilePath (normalise, pathSeparator, takeDirectory, (</>))
 import           System.IO (hClose, openTempFile)
 
@@ -71,7 +70,7 @@ directory :: FilePath -> FilePath
 directory "" = ""
 directory f = case last f of
     x | x == pathSeparator -> f
-    _ -> takeDirectory (normalise f)
+    _                      -> takeDirectory (normalise f)
 
 -- | Return the absolute and canonical path to the system temporary
 -- directory.

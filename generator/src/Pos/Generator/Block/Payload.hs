@@ -22,11 +22,11 @@ import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
 
 import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
-                                 unInvSecretsMap)
+                     unInvSecretsMap)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), createGenericTx,
-                                      makeMPubKeyTxAddrs)
+                     makeMPubKeyTxAddrs)
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
-                           coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
+                     coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..), fakeSigner, hash, toPublic)
 import           Pos.Generator.Block.Error (BlockGenError (..))

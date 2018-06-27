@@ -4,10 +4,14 @@ module Pos.Core.Ssc.Opening
 
 import           Universum
 
-import           Pos.Binary.Class (AsBinary)
+import           Pos.Binary.Class (AsBinary, Bi (..))
 import           Pos.Crypto (Secret)
 
 -- | Opening reveals secret.
 newtype Opening = Opening
     { getOpening :: AsBinary Secret
     } deriving (Show, Eq, Generic, Buildable, NFData)
+
+instance Bi Opening where
+    encode = encode . getOpening
+    decode = Opening <$> decode

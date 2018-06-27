@@ -11,13 +11,9 @@ import           Universum
 import           Data.Time.Units (Millisecond)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Core ()
 import           Pos.Core.Slotting (TimeDiff)
-import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
-                                           SlottingData,
-                                           createSlottingDataUnsafe,
-                                           getSlottingDataMap,
-                                           isValidSlottingDataMap)
+import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
+                     createSlottingDataUnsafe, getSlottingDataMap, isValidSlottingDataMap)
 import           Pos.Util.Util (cborError)
 
 deriveSimpleBi ''EpochSlottingData [

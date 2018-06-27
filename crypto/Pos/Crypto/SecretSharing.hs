@@ -79,7 +79,7 @@ newtype VssKeyPair =
     VssKeyPair Scrape.KeyPair
     deriving (Show, Eq, Generic)
 
-instance (Bi VssKeyPair) => Buildable VssKeyPair where
+instance Buildable VssKeyPair where
     build = bprint ("vsssec:"%shortHashF) . hash
 
 deriving instance Bi VssKeyPair
@@ -305,12 +305,12 @@ testScrape t = do
     let thr :: Scrape.Threshold
         thr = fromIntegral t
     -- Generate t*2 keys.
-    keys <- sortWith toVssPublicKey <$> replicateM (t*2) vssKeyGen
-    let pks = map toVssPublicKey keys
+    vsskeys <- sortWith toVssPublicKey <$> replicateM (t*2) vssKeyGen
+    let pks = map toVssPublicKey vsskeys
     -- Generate and share a secret.
     (secret, proof, encShares) <- genSharedSecret thr (NE.fromList pks)
     -- Decrypt the shares.
-    decShares <- zipWithM decryptShare keys (map snd encShares)
+    decShares <- zipWithM decryptShare vsskeys (map snd encShares)
     -- Recover the secret.
     let recovered = recoverSecret thr
             (map (,1) pks)
@@ -374,7 +374,7 @@ checkLenImpl action name expectedLen len
             expectedLen
 
 #define Ser(B, Bytes, Name) \
-  instance (Bi (AsBinary B)) => AsBinaryClass B where {\
+  instance AsBinaryClass B where {\
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
     fromBinary = decodeFull' . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 
@@ -392,5 +392,5 @@ instance Buildable (AsBinary DecShare) where
 instance Buildable (AsBinary EncShare) where
     build _ = "encrypted share \\_(0.0)_/"
 
-instance Bi (AsBinary VssPublicKey) => Buildable (AsBinary VssPublicKey) where
+instance Buildable (AsBinary VssPublicKey) where
     build = bprint ("vsspub:"%shortHashF) . hash

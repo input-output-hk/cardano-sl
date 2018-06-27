@@ -33,7 +33,6 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), decodeFull', serialize')
-import           Pos.Crypto.Scrypt (EncryptedPass)
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
                                            checkPassMatches)
 

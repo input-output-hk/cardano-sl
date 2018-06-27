@@ -37,6 +37,7 @@ let
     cardano-sl-tools = supportedSystems;
     cardano-sl-wallet = supportedSystems;
     cardano-sl-wallet-new = supportedSystems;
+    all-cardano-sl = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-sl-explorer-frontend = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
@@ -49,6 +50,8 @@ let
     connectScripts.mainnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.explorer = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.testnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
   };
   mapped = mapTestOn platforms;
   mapped' = mapTestOn platforms';

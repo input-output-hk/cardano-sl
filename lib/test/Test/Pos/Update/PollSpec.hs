@@ -11,12 +11,11 @@ import qualified Data.HashSet as HS
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat,
-                                  (===))
+                     (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
-                           HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
+                     HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Core.Update (UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.Infra.Slotting.Types (SlottingData)
@@ -26,6 +25,7 @@ import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec

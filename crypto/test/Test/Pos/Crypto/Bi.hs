@@ -3,7 +3,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Test.Pos.Crypto.Bi
-    ( tests
+    ( constantByteString
+    , getBytes
+    , tests
     ) where
 
 import           Universum
@@ -19,18 +21,16 @@ import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
 
 import           Pos.Crypto (AbstractHash, EncShare, PassPhrase, ProtocolMagic (..), ProxyCert,
-                             ProxySecretKey, PublicKey (..), RedeemSignature,
-                             SafeSigner (FakeSigner), Secret, SecretKey (..), SecretProof,
-                             SignTag (SignForTestingOnly), Signature, VssKeyPair, WithHash,
-                             decryptShare, deriveHDPassphrase, deterministic,
-                             deterministicVssKeyGen, genSharedSecret, hash, mkSigned, noPassEncrypt,
-                             packHDAddressAttr, proxySign, redeemDeterministicKeyGen, redeemSign,
-                             safeCreateProxyCert, safeCreatePsk, sign, toPublic, toVssPublicKey)
+                     ProxySecretKey, PublicKey (..), RedeemSignature, SafeSigner (FakeSigner),
+                     Secret, SecretKey (..), SecretProof, SignTag (SignForTestingOnly), Signature,
+                     VssKeyPair, WithHash, decryptShare, deriveHDPassphrase, deterministic,
+                     deterministicVssKeyGen, genSharedSecret, hash, mkSigned, noPassEncrypt,
+                     packHDAddressAttr, proxySign, redeemDeterministicKeyGen, redeemSign,
+                     safeCreateProxyCert, safeCreatePsk, sign, toPublic, toVssPublicKey)
 
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden, discoverRoundTrip, eachOf,
-                                                          goldenTestBi, roundTripsAesonBuildable,
-                                                          roundTripsAesonShow,
-                                                          roundTripsBiBuildable, roundTripsBiShow)
+                     goldenTestBi, roundTripsAesonBuildable, roundTripsAesonShow,
+                     roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
 
 --------------------------------------------------------------------------------
@@ -76,7 +76,8 @@ golden_Signature = goldenTestBi sig "test/golden/Signature"
     sig        = sign (ProtocolMagic 0) SignForTestingOnly skey ()
 
 genUnitSignature :: Gen (Signature ())
-genUnitSignature = genSignature $ pure ()
+genUnitSignature = do pm <- genProtocolMagic
+                      genSignature pm (pure ())
 
 roundTripSignatureBi :: Property
 roundTripSignatureBi = eachOf 1000 genUnitSignature roundTripsBiBuildable
@@ -96,7 +97,7 @@ golden_Signed = goldenTestBi signed "test/golden/Signed"
 
 roundTripSignedBi :: Property
 roundTripSignedBi = eachOf 1000 genUnitSigned roundTripsBiShow
-    where genUnitSigned = genSigned $ pure ()
+    where genUnitSigned = genSigned (pure ())
 
 --------------------------------------------------------------------------------
 -- EncryptedSecretKey
@@ -154,7 +155,8 @@ golden_RedeemSignature = goldenTestBi rsig "test/golden/RedeemSignature"
     rsig     = redeemSign (ProtocolMagic 0) SignForTestingOnly rsk ()
 
 genUnitRedeemSignature :: Gen (RedeemSignature ())
-genUnitRedeemSignature = genRedeemSignature $ pure ()
+genUnitRedeemSignature = do pm <- genProtocolMagic
+                            genRedeemSignature pm (pure ())
 
 roundTripRedeemSignatureBi :: Property
 roundTripRedeemSignatureBi =
@@ -187,7 +189,8 @@ golden_ProxyCert = goldenTestBi pcert "test/golden/ProxyCert"
     pcert      = safeCreateProxyCert (ProtocolMagic 0) (FakeSigner skey) pkey ()
 
 genUnitProxyCert :: Gen (ProxyCert ())
-genUnitProxyCert = genProxyCert $ pure ()
+genUnitProxyCert = do pm <- genProtocolMagic
+                      genProxyCert pm $ pure ()
 
 roundTripProxyCertBi :: Property
 roundTripProxyCertBi = eachOf 100 genUnitProxyCert roundTripsBiBuildable
@@ -207,7 +210,8 @@ golden_ProxySecretKey = goldenTestBi psk "test/golden/ProxySecretKey"
     psk        = safeCreatePsk (ProtocolMagic 0) (FakeSigner skey) pkey ()
 
 genUnitProxySecretKey :: Gen (ProxySecretKey ())
-genUnitProxySecretKey = genProxySecretKey $ pure ()
+genUnitProxySecretKey = do pm <- genProtocolMagic
+                           genProxySecretKey pm $ pure ()
 
 roundTripProxySecretKeyBi :: Property
 roundTripProxySecretKeyBi =
@@ -232,7 +236,9 @@ roundTripProxySignatureBi :: Property
 roundTripProxySignatureBi = eachOf 100
                                    genUnitProxySignature
                                    roundTripsBiBuildable
-    where genUnitProxySignature = genProxySignature (pure ()) (pure ())
+    where genUnitProxySignature = do
+              pm <- genProtocolMagic
+              genProxySignature pm (pure ()) (pure ())
 
 --------------------------------------------------------------------------------
 -- SharedSecretData

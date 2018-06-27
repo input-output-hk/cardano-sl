@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -29,6 +30,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , AccountId (..)
       , CAccountMeta (..)
       , CWAddressMeta (..)
+      , CBackupPhrase(..)
 
         -- ** Requests
       , CWalletInit (..)
@@ -70,22 +72,22 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import           Data.Hashable (Hashable (..))
-import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (Typeable)
 import           Data.Version (Version)
 import           Formatting (bprint, build, builder, later, shown, (%))
-import qualified Prelude
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
+                     unsafeGetCoin)
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
+                     deriveSafeBuildable, secretOnlyF, secureListF)
+import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 import           Serokell.Util (listJsonIndent, mapBuilder)
 import           Servant.Multipart (FileData, Mem)
 
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
-                           unsafeGetCoin)
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
-                                       deriveSafeBuildable, secretOnlyF, secureListF)
-import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
+import qualified Data.Text.Buildable
+import qualified Prelude
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -266,10 +268,31 @@ instance Default CAccountMeta where
 -- Wallet structure - requests
 ----------------------------------------------------------------------------
 
+-- | Backward-compatibility with V0 API, preserving the shape of requests
+--
+-- e.g.
+--    {
+--       ...
+--       "cwBackupPhrase": {
+--          "bpToList": ["...", "..."]
+--       }
+--    }
+newtype CBackupPhrase (mw :: Nat) =
+    CBackupPhrase { bpToList :: Mnemonic mw }
+    deriving (Eq, Show, Generic)
+
+instance Buildable (SecureLog (CBackupPhrase mw)) where
+    build (SecureLog (CBackupPhrase mw))=
+        bprint build (SecureLog mw)
+
+instance Buildable (CBackupPhrase mw) where
+    build (CBackupPhrase mw) =
+        bprint build mw
+
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !BackupPhrase
+    , cwBackupPhrase :: !(CBackupPhrase 12)
     } deriving (Eq, Show, Generic)
 
 instance Buildable CWalletInit where
@@ -296,7 +319,7 @@ instance Buildable (SecureLog CWalletRedeem) where
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !BackupPhrase
+    , pvBackupPhrase :: !(CBackupPhrase 9)
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where

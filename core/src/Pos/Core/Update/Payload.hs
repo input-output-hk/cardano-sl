@@ -11,7 +11,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Crypto (ProtocolMagic)
 
 import           Pos.Core.Update.Proposal
@@ -26,7 +26,7 @@ data UpdatePayload = UpdatePayload
 
 instance NFData UpdatePayload
 
-instance (Bi UpdateProposal) => Buildable UpdatePayload where
+instance Buildable UpdatePayload where
     build UpdatePayload {..}
         | null upVotes = formatMaybeProposal upProposal <> ", no votes"
         | otherwise =
@@ -39,7 +39,7 @@ instance Default UpdatePayload where
     def = UpdatePayload Nothing []
 
 checkUpdatePayload
-    :: (MonadError Text m, Bi UpdateProposalToSign)
+    :: MonadError Text m
     => ProtocolMagic
     -> UpdatePayload
     -> m ()
@@ -51,3 +51,10 @@ checkUpdatePayload pm it = do
     --
     whenJust (upProposal it) (checkUpdateProposal pm)
     forM_ (upVotes it) (checkUpdateVote pm)
+
+
+deriveSimpleBi ''UpdatePayload [
+    Cons 'UpdatePayload [
+        Field [| upProposal :: Maybe UpdateProposal |],
+        Field [| upVotes    :: [UpdateVote]         |]
+    ]]

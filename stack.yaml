@@ -30,6 +30,7 @@ packages:
 - txp
 - txp/test
 - update
+- update/test
 - delegation
 - delegation/test
 - block
@@ -45,6 +46,7 @@ packages:
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
+- acid-state-exts
 
 - location:
     git: https://github.com/well-typed/cborg
@@ -89,7 +91,13 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+    commit: 33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf
+  extra-dep: true
+# Waiting on the flexible types PR to be merged:
+# https://github.com/acid-state/acid-state/pull/94
+- location:
+    git: https://github.com/parsonsmatt/acid-state
+    commit: 63ac55ae020655104936d8a90ccc6a939642cd0d
   extra-dep: true
 
 # Required for explorer.
@@ -121,13 +129,6 @@ packages:
     commit: fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55
   extra-dep: true
 
-# Because it includes a bunch of safecopy instances that we currently rely upon.
-# Also the 'Serokell.AcidState.ExtendedState' thing.
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 1049699df411c9584523ba7424cba1f3f82ac419
-  extra-dep: true
-
 - location:
     git: https://github.com/input-output-hk/haskell-hedgehog.git
     commit: 2c9e51804e8217dff89f5c32cbe0d79ce20bc508
@@ -140,11 +141,18 @@ packages:
     commit: e4e879abca99d0d56015765859fb37af59a81dbb
   extra-dep: true
 
+# Add custom stylish-haskell while waiting for PR upstream: https://github.com/jaspervdj/stylish-haskell/pull/214
+- location:
+    git: https://github.com/input-output-hk/stylish-haskell.git
+    commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
 extra-deps:
-
+- cryptonite-openssl-0.7
+  # - acid-state-0.14.3
 # Very important! First release with a fix of 'race' and 'cancel'.
 #   https://github.com/simonmar/async/issues/59
 #   https://github.com/simonmar/async/issues/81
@@ -222,30 +230,34 @@ apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
+  cardano-sl:             -Werror -fwarn-redundant-constraints
   cardano-sl-auxx:        -Werror -fwarn-redundant-constraints
+  cardano-sl-binary:      -Werror -fwarn-redundant-constraints
+  cardano-sl-binary-test: -Werror -fwarn-redundant-constraints
   cardano-sl-block:       -Werror -fwarn-redundant-constraints
-  cardano-sl-block-test:  -Werror -fwarn-redundant-constraints
   cardano-sl-block-bench: -Werror -fwarn-redundant-constraints
+  cardano-sl-block-test:  -Werror -fwarn-redundant-constraints
   cardano-sl-client:      -Werror -fwarn-redundant-constraints
   cardano-sl-core:        -Werror -fwarn-redundant-constraints
+  cardano-sl-core-test:   -Werror -fwarn-redundant-constraints
+  cardano-sl-crypto:      -Werror -fwarn-redundant-constraints
+  cardano-sl-crypto-test: -Werror -fwarn-redundant-constraints
   cardano-sl-db:          -Werror -fwarn-redundant-constraints
   cardano-sl-delegation:  -Werror -fwarn-redundant-constraints
   cardano-sl-explorer:    -Werror -fwarn-redundant-constraints
   cardano-sl-generator:   -Werror -fwarn-redundant-constraints
   cardano-sl-infra:       -Werror -fwarn-redundant-constraints
-  cardano-sl-lrc-test:    -Werror -fwarn-redundant-constraints
   cardano-sl-lrc:         -Werror -fwarn-redundant-constraints
+  cardano-sl-lrc-test:    -Werror -fwarn-redundant-constraints
+  cardano-sl-networking:  -Werror -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -fwarn-redundant-constraints
   cardano-sl-ssc:         -Werror -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -fwarn-redundant-constraints
   cardano-sl-txp:         -Werror -fwarn-redundant-constraints
+  cardano-sl-txp-test:    -Werror -fwarn-redundant-constraints
   cardano-sl-update:      -Werror -fwarn-redundant-constraints
   cardano-sl-util:        -Werror -fwarn-redundant-constraints
-  cardano-sl-wallet-new:  -Werror -fwarn-redundant-constraints
+  cardano-sl-util-test:   -Werror -fwarn-redundant-constraints
   cardano-sl-wallet:      -Werror -fwarn-redundant-constraints
-  cardano-sl:             -Werror -fwarn-redundant-constraints
-
-# The 'swagger2' has a broken Haddock with GHC 8.0. We can remove this flag
-# when we have upgraded to GHC >= 8.2
-build:
-  haddock-hyperlink-source: false
+  cardano-sl-wallet-new:  -Werror -fwarn-redundant-constraints
+  cardano-sl-node-ipc:    -Werror -fwarn-redundant-constraints

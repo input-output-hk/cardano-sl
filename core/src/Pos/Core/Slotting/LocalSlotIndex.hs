@@ -20,8 +20,9 @@ import           Control.Monad.Except (MonadError (throwError))
 import           Data.Ix (Ix)
 import           System.Random (Random (..))
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                                                  protocolConstants)
+                     protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Util.Util (leftToPanic)
 
@@ -47,6 +48,10 @@ instance HasProtocolConstants => Random LocalSlotIndex where
 instance HasProtocolConstants => Bounded LocalSlotIndex where
     minBound = UnsafeLocalSlotIndex 0
     maxBound = UnsafeLocalSlotIndex (fromIntegral epochSlots - 1)
+
+instance Bi LocalSlotIndex where
+    encode = encode . getSlotIndex
+    decode = UnsafeLocalSlotIndex <$> decode
 
 localSlotIndexMinBound :: LocalSlotIndex
 localSlotIndexMinBound = UnsafeLocalSlotIndex 0

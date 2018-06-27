@@ -99,8 +99,7 @@ library
 
                       Pos.Wallet.Web.Util
 
-                      Pos.Util.BackupPhrase
-                      Pos.Util.Mnemonics
+                      Pos.Util.Mnemonic
 
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
@@ -109,11 +108,14 @@ library
 
   build-depends:        QuickCheck
                       , acid-state
+                      , acid-state-exts
                       , aeson >= 0.11.2.1
                       , async
                       , base
                       , base58-bytestring
+                      , basement
                       , bytestring
+                      , cardano-crypto
                       , cardano-sl
                       , cardano-sl-block
                       , cardano-sl-client
@@ -127,6 +129,7 @@ library
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-networking
+                      , cardano-sl-node-ipc
                       , cardano-sl-update
                       , cardano-sl-util
                       , containers
@@ -146,7 +149,6 @@ library
                       , memory
                       , monad-control
                       , mtl
-                      , node-ipc
                       , quickcheck-instances
                       , random
                       , reflection
@@ -220,7 +222,7 @@ test-suite cardano-wallet-test
                        Spec
 
                        -- Basic QC checks
-                       Test.Pos.Util.MnemonicsSpec
+                       Test.Pos.Util.MnemonicSpec
 
                        -- Basic mocks and instances
                        Test.Pos.Wallet.Web.Mode
@@ -238,10 +240,12 @@ test-suite cardano-wallet-test
                        Test.Pos.Wallet.MigrationSpec
 
   type:                exitcode-stdio-1.0
-  build-depends:       MonadRandom
+  build-depends:       base
+                     , MonadRandom
                      , QuickCheck
-                     , base
+                     , aeson
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-block
                      , cardano-sl-client
@@ -263,6 +267,7 @@ test-suite cardano-wallet-test
                      , cardano-sl-util-test
                      , cardano-sl-wallet
                      , containers
+                     , cryptonite
                      , data-default
                      , deepseq
                      , ekg-core
@@ -271,9 +276,11 @@ test-suite cardano-wallet-test
                      , hspec
                      , lens
                      , log-warper
+                     , memory
                      , mtl
-                     , safecopy
+                     , quickcheck-instances
                      , safe-exceptions
+                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , servant-server
                      , stm

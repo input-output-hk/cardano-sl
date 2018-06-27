@@ -9,7 +9,7 @@ import           Universum
 import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi, Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (Hash, hash)
 
@@ -20,6 +20,7 @@ import           Pos.Core.Ssc.Payload
 import           Pos.Core.Ssc.SharesMap
 import           Pos.Core.Ssc.VssCertificate
 import           Pos.Core.Ssc.VssCertificatesMap
+import           Pos.Util.Util (cborError)
 
 -- Note: we can't use 'VssCertificatesMap', because we serialize it as
 -- a 'HashSet', but in the very first version of mainnet this map was
@@ -52,8 +53,7 @@ instance NFData SscProof
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.
 mkSscProof
-    :: ( Bi CommitmentsMap
-       , Bi Opening
+    :: ( Bi Opening
        , Bi VssCertificate
        ) => SscPayload -> SscProof
 mkSscProof payload =
@@ -69,3 +69,19 @@ mkSscProof payload =
   where
     proof constr hm (getVssCertificatesMap -> certs) =
         constr (hash hm) (hash certs)
+
+-- TH-generated instances go to the end of the file
+
+deriveSimpleBi ''SscProof [
+    Cons 'CommitmentsProof [
+        Field [| sprComms    :: Hash CommitmentsMap |],
+        Field [| sprVss      :: VssCertificatesHash |] ],
+    Cons 'OpeningsProof [
+        Field [| sprOpenings :: Hash OpeningsMap    |],
+        Field [| sprVss      :: VssCertificatesHash |] ],
+    Cons 'SharesProof [
+        Field [| sprShares   :: Hash SharesMap      |],
+        Field [| sprVss      :: VssCertificatesHash |] ],
+    Cons 'CertificatesProof [
+        Field [| sprVss      :: VssCertificatesHash |] ]
+    ]

@@ -76,6 +76,10 @@ instance Buildable (Attributes ()) where
                 ("Attributes { data: (), remain: <"%int%" bytes> }")
                 (unknownAttributesLength attr)
 
+instance Bi (Attributes ()) where
+    encode = encodeAttributes []
+    decode = decodeAttributes () $ \_ _ _ -> pure Nothing
+
 instance Hashable h => Hashable (Attributes h)
 
 instance NFData h => NFData (Attributes h)

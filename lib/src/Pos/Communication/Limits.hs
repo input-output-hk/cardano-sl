@@ -5,11 +5,7 @@
 {-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits
-       ( mlAbstractHash
-       , mlXSignature
-       , mlSignature
-       , mlPublicKey
-       , maxAsBinaryOverhead
+       ( maxAsBinaryOverhead
        , mlAsBinary
 
        , maxTxSize
@@ -36,10 +32,6 @@ module Pos.Communication.Limits
        , mlMCCommitment
        , mlMCShares
 
-       , mlVssPublicKey
-       , mlSecret
-       , mlEncShare
-       , mlDecShare
        , mlEpochIndex
        , mlHeavyDlgIndex
        , mlLightDlgIndices
@@ -54,12 +46,12 @@ module Pos.Communication.Limits
        , mlMainBlock
        , mlBlock
        , mlMsgBlock
+       , mlMsgStreamBlock
+       , mlMsgStream
        ) where
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet as CC
-import           Crypto.Hash.IO (HashAlgorithm, hashDigestSize)
 import qualified Crypto.SCRAPE as Scrape
 import           Data.Coerce (coerce)
 import           Serokell.Data.Memory.Units (Byte)
@@ -68,7 +60,7 @@ import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe, mlTriple, mlTuple,
                                    vectorOf, vectorOfNE, (<+>))
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
+                                    MsgHeaders (..), MsgStream (..), MsgStreamBlock (..))
 import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex, StakeholderId, UpId,
                            VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock, GenesisBlockHeader,
@@ -77,13 +69,14 @@ import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (AbstractHash, DecShare, EncShare, ProxyCert (..), ProxySecretKey (..),
-                             PublicKey, Secret, SecretProof (..), Signature (..), VssPublicKey)
+import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..), SecretProof (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey,
+                                    mlXSignature, mlSignature, mlVssPublicKey)
 
 ----------------------------------------------------------------------------
 -- Instances (MessageLimited[Pure])
@@ -92,15 +85,6 @@ import           Pos.Core.Chrono (NewestFirst (..))
 ----------------------------------------------------------------------------
 ---- Core and lower
 ----------------------------------------------------------------------------
-
-mlXSignature :: Limit CC.XSignature
-mlXSignature = 66
-
-mlSignature :: Limit (Signature a)
-mlSignature = Signature <$> mlXSignature
-
-mlPublicKey :: Limit PublicKey
-mlPublicKey = 66
 
 -- Sometimes 'AsBinary a' is serialized with some overhead compared to
 -- 'a'. This is tricky to estimate as CBOR uses a number of bytes at
@@ -113,18 +97,6 @@ maxAsBinaryOverhead = 64
 mlAsBinary :: Limit a -> Limit (AsBinary a)
 mlAsBinary lim = coerce lim + maxAsBinaryOverhead
 
-mlVssPublicKey :: Limit VssPublicKey
-mlVssPublicKey = 35
-
-mlSecret :: Limit Secret
-mlSecret = 35
-
-mlEncShare :: Limit EncShare
-mlEncShare = 103
-
-mlDecShare :: Limit DecShare
-mlDecShare = 103 --4+35+64 TODO: might be outdated
-
 mlScrapeCommitment :: Limit Scrape.Commitment
 mlScrapeCommitment = 35
 
@@ -133,9 +105,6 @@ mlExtraGen = 35
 
 mlProof :: Limit Scrape.Proof
 mlProof = 35
-
-mlAbstractHash :: forall algo a . HashAlgorithm algo => Limit (AbstractHash algo a)
-mlAbstractHash = fromIntegral (hashDigestSize (error "AbstractHash limit" :: algo) + 4)
 
 mlEpochIndex :: Limit EpochIndex
 mlEpochIndex = 12
@@ -316,6 +285,15 @@ mlBlock bvd = mlEither (mlGenesisBlock bvd) (mlMainBlock bvd)
 
 mlMsgBlock :: BlockVersionData -> Limit MsgBlock
 mlMsgBlock = fmap MsgBlock . mlBlock
+
+mlMsgStream :: Limit MsgStream
+mlMsgStream = mlMsgStreamStart
+
+mlMsgStreamStart :: Limit MsgStream
+mlMsgStreamStart = 0x7ffff -- XXX A 512k limit, if these numbers are bytes.
+
+mlMsgStreamBlock :: BlockVersionData -> Limit MsgStreamBlock
+mlMsgStreamBlock = fmap MsgStreamBlock . mlBlock -- XXX MsgStreamNoBlock has an arbitrary text field...
 
 ----------------------------------------------------------------------------
 -- Utils

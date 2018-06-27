@@ -31,24 +31,23 @@ import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           Pos.Util.Log (WithLogger)
 
-import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam, difficultyL,
-                           epochIndexL, flattenSlotId, headerHash, headerHashG, prevBlockL)
+                     epochIndexL, flattenSlotId, headerHash, headerHashG, prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
-                                  _OldestFirst)
+                     _OldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlunds)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS (CommonOp (PutMaxSeenDifficulty, PutTip),
-                                             getMaxSeenDifficulty)
+                     getMaxSeenDifficulty)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))

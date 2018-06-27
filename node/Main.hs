@@ -25,7 +25,7 @@ import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 
 loggerName :: LoggerName
@@ -61,7 +61,7 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpCon
     actionWithoutWallet pm sscParams currentParams
 
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)

@@ -26,7 +26,7 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources
                                runRealMode, withConfigurations)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
@@ -122,7 +122,7 @@ action opts@AuxxOptions {..} command = do
                            else identity
                 auxxModeAction = modifier (auxxPlugin pm opts command)
              in runRealMode pm nr $ \diffusion ->
-                    toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx diffusion))
+                    toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
@@ -130,7 +130,7 @@ action opts@AuxxOptions {..} command = do
         CLI.NodeArgs {behaviorConfigPath = Nothing}
 
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     opts <- getAuxxOptions
     let disableConsoleLog
             | Repl <- aoAction opts =

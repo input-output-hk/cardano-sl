@@ -24,26 +24,22 @@ import qualified Data.Map.Strict as Map
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors, verifyGeneric)
 
 import           Pos.Binary.Class (asBinary, serialize')
-import           Pos.Binary.Core.Address ()
-import           Pos.Binary.Core.Delegation ()
-import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), StakeholderId,
-                                  addressHash, applyCoinPortionDown, coinToInteger,
-                                  deriveFirstHDAddress, makePubKeyAddressBoot, mkCoin, sumCoins,
-                                  unsafeIntegerToCoin)
+                     addressHash, applyCoinPortionDown, coinToInteger, deriveFirstHDAddress,
+                     makePubKeyAddressBoot, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey, SecretKey,
-                             VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
-                             keyGen, noPassEncrypt, randomNumberInRange, redeemDeterministicKeyGen,
-                             safeKeyGen, toPublic, toVssPublicKey, vssKeyGen)
+                     VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret, keyGen,
+                     noPassEncrypt, randomNumberInRange, redeemDeterministicKeyGen, safeKeyGen,
+                     toPublic, toVssPublicKey, vssKeyGen)
 import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Genesis.AvvmBalances (GenesisAvvmBalances (..))
 import           Pos.Core.Genesis.Delegation (GenesisDelegation (..), mkGenesisDelegation)
 import           Pos.Core.Genesis.Initializer (FakeAvvmOptions (..), GenesisInitializer (..),
-                                               TestnetBalanceOptions (..))
+                     TestnetBalanceOptions (..))
 import           Pos.Core.Genesis.NonAvvmBalances (GenesisNonAvvmBalances (..))
 import           Pos.Core.Genesis.VssCertificatesMap (GenesisVssCertificatesMap (..))
 import           Pos.Core.Genesis.WStakeholders (GenesisWStakeholders (..))

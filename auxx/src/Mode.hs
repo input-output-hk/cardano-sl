@@ -26,7 +26,6 @@ import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
-import           Data.Default (def)
 import           Mockable (Production)
 import           Pos.Util.Log (HasLoggerName (..))
 
@@ -235,8 +234,8 @@ instance ( HasConfiguration
 
 instance (HasConfigurations) =>
          MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where
-    txpNormalize = withCompileInfo def $ txNormalize
-    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+    txpNormalize = withCompileInfo $ txNormalize
+    txpProcessTx = withCompileInfo $ txProcessTransactionNoLock
 
 -- | In order to create an 'Address' from a 'PublicKey' we need to
 -- choose suitable stake distribution. We want to pick it based on

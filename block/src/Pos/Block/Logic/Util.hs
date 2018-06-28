@@ -98,7 +98,7 @@ calcChainQuality blockCount deepSlot newSlot
 calcChainQualityM ::
        ( MonadReader ctx m
        , HasSlogGState ctx
-       , MonadIO m
+       --, MonadIO m
        , MonadThrow m
        , WithLogger m
        , Fractional res
@@ -174,7 +174,7 @@ calcChainQualityFixedTime = do
     -- 'lastSlots' contains slots of last 'k' blocks.
     -- We need to return 'Just' if we know now many blocks were created since
     -- 'olderSlotId'.
-    -- We know it if there is a slot which is ≤ than 'olderSlotId' in
+    -- We know it if there is a slot which is <= than 'olderSlotId' in
     -- 'lastSlots'.
     calcChainQualityFixedTimeDo ::
            FlatSlotId -> FlatSlotId -> OldestFirst [] FlatSlotId -> Maybe res

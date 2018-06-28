@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -11,12 +11,12 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasGenesisHash, HasProtocolConstants)
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
+import           Test.Pos.Update.Arbitrary ()
 
 ------------------------------------------------------------------------------------------
 -- Block network types
@@ -35,5 +35,24 @@ instance HasProtocolConstants => Arbitrary T.MsgHeaders where
     shrink = genericShrink
 
 instance (HasProtocolConstants, HasGenesisHash) => Arbitrary T.MsgBlock where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary T.MsgStream where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary T.MsgStreamStart where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary T.MsgStreamUpdate where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance ( HasProtocolConstants
+         , HasGenesisHash
+         ) =>
+         Arbitrary T.MsgStreamBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink

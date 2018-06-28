@@ -10,6 +10,7 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build)
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProxySecretKey (..), ProxySignature, PublicKey)
 
@@ -26,6 +27,10 @@ instance Hashable HeavyDlgIndex
 
 instance Buildable HeavyDlgIndex where
     build (HeavyDlgIndex i) = bprint build i
+
+instance Bi HeavyDlgIndex where
+    encode = encode . getHeavyDlgIndex
+    decode = HeavyDlgIndex <$> decode
 
 -- | Simple proxy signature without ttl/epoch index constraints.
 type ProxySigHeavy a = ProxySignature HeavyDlgIndex a

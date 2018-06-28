@@ -11,7 +11,7 @@ import           Data.Default (Default (def))
 import           Node (NodeId (..))
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 
@@ -65,14 +65,16 @@ instance Example (V1 Address) where
                     , Core.SingleKeyDistr <$> arbitrary
                     ]
 
-instance Example BackupPhrase where
+instance Example (Mnemonic 12)  where
     example = pure def
+
+instance Example (V1 (Mnemonic 12)) where
+    example = V1 <$> example
 
 instance Example Address
 instance Example Metadata
 instance Example AccountIndex
 instance Example WalletId
-instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
 instance Example SyncPercentage
 instance Example BlockchainHeight

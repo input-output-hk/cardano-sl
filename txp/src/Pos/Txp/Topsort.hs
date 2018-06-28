@@ -12,7 +12,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (nub, tail, uncons)
 
-import           Pos.Binary.Core ()
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), txInputs)
 import           Pos.Crypto (Hash, WithHash (..), withHash)
 

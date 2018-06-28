@@ -25,13 +25,13 @@ import           Data.List.Extra (nubOrdOn)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic)
 
 import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCertificate, getCertId,
-                                              toCertPair)
+                     toCertPair)
+import           Pos.Util.Util (cborError)
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
@@ -57,6 +57,10 @@ instance Monoid VssCertificatesMap where
     mempty = UnsafeVssCertificatesMap mempty
     mappend = (<>)
 
+instance Bi VssCertificatesMap where
+    encode = encodeVssCertificates
+    decode = decodeVssCertificates
+
 -- | Construct a 'VssCertificatesMap' from a list of certs by making a
 -- hashmap on certificate identifiers.
 mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
@@ -66,7 +70,7 @@ mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
 -- 'vcVssKey's. Also checks every VssCertificate in the map (see
 -- 'checkVssCertificate').
 checkVssCertificatesMap
-    :: (Bi EpochIndex, MonadError Text m)
+    :: (MonadError Text m)
     => ProtocolMagic
     -> VssCertificatesMap
     -> m ()
@@ -137,3 +141,31 @@ insertVss c (UnsafeVssCertificatesMap m) =
 
 deleteVss :: StakeholderId -> VssCertificatesMap -> VssCertificatesMap
 deleteVss id (UnsafeVssCertificatesMap m) = UnsafeVssCertificatesMap (HM.delete id m)
+
+{-
+'VssCertificatesMap' is simply sets of values, indexed
+by stakeholder id *for performance only*; the invariant is that the key
+(stakeholder id) corresponds to the key stored in the value. This means that
+the keys are redundant and putting them into encoded data is bad for two
+reasons:
+
+  * it takes more space
+  * we have to do an extra invariant check after decoding
+
+Instead, we serialize those maps as sets, and we make sure to check that
+there are no values with duplicate stakeholder ids.
+-}
+
+encodeVssCertificates :: VssCertificatesMap -> Encoding
+encodeVssCertificates = encode . HS.fromList . toList
+
+decodeVssCertificates :: Decoder s VssCertificatesMap
+decodeVssCertificates = do
+    certs <- decode @(HashSet VssCertificate)
+    let vssMap = mkVssCertificatesMap (toList certs)
+    -- If the set is bigger than the map, then there must be some entires in
+    -- the set which have the same signing key. That means it's a
+    -- non-canonical encoding. The set itself could very well be canonical,
+    -- though, since its values include more than just the signing keys.
+    when (length certs > length vssMap) (cborError "duplicate vss key")
+    pure vssMap

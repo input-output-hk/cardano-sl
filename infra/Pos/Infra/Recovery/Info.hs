@@ -16,8 +16,12 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
 
 import           Pos.Core (SlotCount, SlotId, slotIdF, slotSecurityParam, HasProtocolConstants)
+<<<<<<< HEAD
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
+=======
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
+>>>>>>> adiemand/CBR-207/introduce_katip
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.
@@ -94,13 +98,14 @@ getSyncStatusK = getSyncStatus lagBehindParam
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
     :: (MonadRecoveryInfo m, HasProtocolConstants)
-    => Trace m LogItem -> Text -> m () -> m ()
+    => TraceNamed m
+    -> Text -> m () -> m ()
 recoveryCommGuard logTrace actionName action =
     getSyncStatusK >>= \case
         SSKindaSynced -> action
         status ->
             logDebug logTrace $
-            sformat ("recoveryCommGuard: we are skipping action '"%stext%
+                sformat ("recoveryCommGuard: we are skipping action '"%stext%
                      "', because "%build) actionName status
 
 -- | This function checks that last known block is more than K slots

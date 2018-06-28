@@ -12,14 +12,12 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util (Color (Magenta), colorize)
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..), gbHeader,
-                                            gbhConsensus)
+                     gbhConsensus)
 import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
 import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisConsensusData (..))
 import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, GenesisBlockHeader,
-                                             HasHeaderHash (..), HeaderHash, IsGenesisHeader,
-                                             IsHeader, blockHeaderHash)
+                     HasHeaderHash (..), HeaderHash, IsGenesisHeader, IsHeader, blockHeaderHash)
 import           Pos.Core.Common (HasDifficulty (..), slotLeadersF)
 import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
@@ -30,7 +28,7 @@ instance NFData GenesisBlock
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance Bi BlockHeader => Buildable GenesisBlockHeader where
+instance Buildable GenesisBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -48,7 +46,7 @@ instance Bi BlockHeader => Buildable GenesisBlockHeader where
         gbhHeaderHash = blockHeaderHash $ BlockHeaderGenesis gbh
         GenesisConsensusData {..} = _gbhConsensus
 
-instance Bi BlockHeader => Buildable GenesisBlock where
+instance Buildable GenesisBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -76,16 +74,10 @@ instance HasEpochOrSlot GenesisBlockHeader where
 instance HasEpochOrSlot GenesisBlock where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
 
--- NB. it's not a mistake that these instances require @Bi BlockHeader@
--- instead of @Bi GenesisBlockHeader@. We compute header's hash by
--- converting it to a BlockHeader first.
-
-instance Bi BlockHeader =>
-         HasHeaderHash GenesisBlockHeader where
+instance HasHeaderHash GenesisBlockHeader where
     headerHash = blockHeaderHash . BlockHeaderGenesis
 
-instance Bi BlockHeader =>
-         HasHeaderHash GenesisBlock where
+instance HasHeaderHash GenesisBlock where
     headerHash = blockHeaderHash . BlockHeaderGenesis . _gbHeader
 
 instance HasDifficulty GenesisConsensusData where
@@ -97,5 +89,5 @@ instance HasDifficulty GenesisBlockHeader where
 instance HasDifficulty GenesisBlock where
     difficultyL = gbHeader . difficultyL
 
-instance Bi BlockHeader => IsHeader GenesisBlockHeader
-instance Bi BlockHeader => IsGenesisHeader GenesisBlockHeader
+instance IsHeader GenesisBlockHeader
+instance IsGenesisHeader GenesisBlockHeader

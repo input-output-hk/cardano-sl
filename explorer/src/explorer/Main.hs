@@ -35,7 +35,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import qualified Pos.Util.Log as Log
 
@@ -59,7 +59,7 @@ action :: ExplorerNodeArgs -> Production ()
 --action :: (MonadIO m, Log.WithLogger m) => ExplorerNodeArgs -> m ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withConfigurations blPath conf $ \ntpConfig pm ->
-    withCompileInfo $(retrieveCompileTimeInfo) $ do
+    withCompileInfo $ do
         CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
@@ -96,7 +96,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
          in runRealMode pm nr $ \diffusion ->
-                explorerModeToRealMode (go (hoistDiffusion (lift . lift) diffusion))
+                explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
 
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

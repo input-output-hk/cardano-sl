@@ -76,10 +76,11 @@ import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, retrieveCompileTimeInfo,
-                                       withCompileInfo)
+
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, withCompileInfo)
 import qualified Pos.Util.Log as Log
 import qualified Pos.Util.LoggerConfig (lcBasePath)
+
 
 import           Launcher.Environment (substituteEnvVarsValue)
 import           Launcher.Logging (reportErrorDefault)
@@ -267,7 +268,7 @@ bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNod
 
 main :: IO ()
 main =
-  withCompileInfo $(retrieveCompileTimeInfo) $
+  withCompileInfo $
   case Sys.os of
     "mingw32" ->
       -- We don't output anything to console on Windows because on Windows the

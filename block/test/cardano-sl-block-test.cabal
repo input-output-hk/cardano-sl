@@ -37,7 +37,7 @@ library
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-txp-test
-                     , cardano-sl-update
+                     , cardano-sl-update-test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , formatting

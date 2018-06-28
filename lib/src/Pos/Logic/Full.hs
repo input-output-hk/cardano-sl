@@ -12,6 +12,7 @@ import           Control.Lens (at, to)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
+import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -28,6 +29,7 @@ import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.DB.Block as DB (getTipBlock)
+import qualified Pos.GState.BlockExtra as DB (streamBlocks, resolveForwardLink)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..), SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
@@ -105,6 +107,9 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
+
+        streamBlocks :: HeaderHash -> Producer SerializedBlock m ()
+        streamBlocks = DB.streamBlocks DB.dbGetSerBlock DB.resolveForwardLink
 
         getTip :: m Block
         getTip = DB.getTipBlock

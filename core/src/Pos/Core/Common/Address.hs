@@ -17,6 +17,10 @@ module Pos.Core.Common.Address
        , checkScriptAddress
        , checkRedeemAddress
 
+       -- * Encoding
+       , encodeAddr
+       , encodeAddrCRC32
+
        -- * Utilities
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
@@ -61,17 +65,15 @@ import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
 
-import           Pos.Binary.Class (Bi, biSize)
+import           Pos.Binary.Class (Bi (..), Encoding, biSize, encodeCrcProtected)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
-                                deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey,
-                                packHDAddressAttr)
+                     deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey, packHDAddressAttr)
 import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey, RedeemPublicKey,
-                                     SecretKey, deterministicKeyGen, emptyPassphrase, encToPublic,
-                                     noPassEncrypt)
+                     SecretKey, deterministicKeyGen, emptyPassphrase, encToPublic, noPassEncrypt)
 import           Pos.Data.Attributes (Attributes (..), attrData, mkAttributes)
 import           Pos.Util.Log.LogSafe (SecureLog)
 
@@ -423,3 +425,16 @@ goodPk = fst goodSkAndPk
 
 goodSk :: SecretKey
 goodSk = snd goodSkAndPk
+
+
+-- Encodes the `Address` __without__ the CRC32.
+-- It's important to keep this function separated from the `encode`
+-- definition to avoid that `encode` would call `crc32` and
+-- the latter invoke `crc32Update`, which would then try to call `encode`
+-- indirectly once again, in an infinite loop.
+encodeAddr :: Address -> Encoding
+encodeAddr Address {..} =
+    encode addrRoot <> encode addrAttributes <> encode addrType
+
+encodeAddrCRC32 :: Address -> Encoding
+encodeAddrCRC32 Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)

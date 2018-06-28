@@ -7,8 +7,9 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
+import           Data.Default (def)
 import           Data.Maybe (fromJust)
-import           System.Wlog (Severity(Debug))
+import           System.Wlog (Severity (Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
 
@@ -20,10 +21,11 @@ import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawReso
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Crypto (safeDeterministicKeyGen)
+import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
-import           Pos.Util.BackupPhrase
 import           Pos.Crypto.Signing
 
 -- | Initialize the passive wallet.
@@ -31,7 +33,7 @@ import           Pos.Crypto.Signing
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
     => (Severity -> Text -> IO ())
-    -> (PassiveWalletLayer n -> m a) -> m a
+    -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
 bracketPassiveWallet logFunction f =
     Kernel.bracketPassiveWallet logFunction $ \w -> do
 
@@ -46,17 +48,11 @@ bracketPassiveWallet logFunction f =
 
       -- TODO (temporary): build a sample wallet from a backup phrase
       _ <- liftIO $ do
-        let backup = BackupPhrase
-                     { bpToList = ["squirrel", "material", "silly",   "twice",
-                                    "direct",  "slush",    "pistol",  "razor",
-                                    "become",  "junk",     "kingdom", "flee" ]
-                     }
-            Right (esk, _keyPair) = safeKeysFromPhrase emptyPassphrase backup
-            pk = error "TODO: need `AddressHash PublicKey` along with ESK to create a wallet"
-
+        let pk = error "TODO: need `AddressHash PublicKey` along with ESK to create a wallet"
+        let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
         Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel (pk, esk) Map.empty
 
-      f (passiveWalletLayer w invoke)
+      f (passiveWalletLayer w invoke) w
 
   where
     -- TODO consider defaults
@@ -97,13 +93,17 @@ bracketPassiveWallet logFunction f =
             rightToJust   = either (const Nothing) Just
 
 -- | Initialize the active wallet.
--- The active wallet is allowed all.
+-- The active wallet is allowed to send transactions, as it has the full
+-- 'WalletDiffusion' layer in scope.
 bracketActiveWallet
     :: forall m n a. (MonadIO m, MonadMask m)
     => PassiveWalletLayer n
+    -> Kernel.PassiveWallet
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletPassiveLayer _walletDiffusion =
-    bracket
-      (return ActiveWalletLayer{..})
-      (\_ -> return ())
+bracketActiveWallet walletPassiveLayer passiveWallet walletDiffusion runActiveLayer =
+    Kernel.bracketActiveWallet passiveWallet walletDiffusion $ \_activeWallet -> do
+        bracket
+          (return ActiveWalletLayer{..})
+          (\_ -> return ())
+          runActiveLayer

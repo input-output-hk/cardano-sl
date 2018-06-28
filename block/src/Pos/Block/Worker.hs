@@ -57,8 +57,8 @@ import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util.Chrono (OldestFirst (..))
-import           Pos.Util.Log.LogSafe (logDebugS, logInfoS, logWarningS)
+--import           Pos.Util.Log.LogSafe (logDebugS, logInfoS, logWarningS)
+import           Pos.Util.Trace (noTrace)
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -81,8 +81,8 @@ informerWorker
     :: ( BlockWorkMode ctx m
     ) => Diffusion m -> m ()
 informerWorker =
-    \_ -> onNewSlot defaultOnNewSlotParams $ \slotId ->
-        recoveryCommGuard "onNewSlot worker, informerWorker" $ do
+    \_ -> onNewSlot noTrace defaultOnNewSlotParams $ \slotId ->
+        recoveryCommGuard noTrace "onNewSlot worker, informerWorker" $ do
             tipHeader <- DB.getTipHeader
             -- Printe tip header
             logDebug $ sformat ("Our tip header: "%build) tipHeader
@@ -107,11 +107,11 @@ blkCreatorWorker
        , HasMisbehaviorMetrics ctx
        ) => ProtocolMagic -> Diffusion m -> m ()
 blkCreatorWorker pm =
-    \diffusion -> onNewSlot onsp $ \slotId ->
-        recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
+    \diffusion -> onNewSlot noTrace onsp $ \slotId ->
+        recoveryCommGuard noTrace "onNewSlot worker, blkCreatorWorker" $
         blockCreator pm slotId diffusion `catchAny` onBlockCreatorException
   where
-    onBlockCreatorException = reportOrLogE "blockCreator failed: "
+    onBlockCreatorException = reportOrLogE noTrace "blockCreator failed: "
     onsp :: OnNewSlotParams
     onsp =
         defaultOnNewSlotParams
@@ -145,12 +145,12 @@ blockCreator pm (slotId@SlotId {..}) diffusion = do
   where
     onNoLeader =
         logError "Couldn't find a leader for current slot among known ones"
-    logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS
+    -- TODO logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS
     logOnEpochF = if siSlot == minBound then logInfo else logDebug
     onKnownLeader leaders leader = do
         ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
-        logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        -- TODO logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logOnEpochF $ sformat ("Current slot leader: "%build) leader
 
 
@@ -172,7 +172,7 @@ blockCreator pm (slotId@SlotId {..}) diffusion = do
 
         let weAreLeader = leader == ourPkHash
         if | weAreLeader && heavyWeAreIssuer ->
-                 logInfoS $ sformat
+                 logInfo $ sformat    -- TODO was logInfoS
                  ("Not creating the block (though we're leader) because it's "%
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
@@ -198,28 +198,28 @@ onNewSlotWhenLeader pm slotId pske diffusion = do
         logLeader = "because i'm a leader"
         logCert (psk,_) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pske
+    logInfo $ logReason <> maybe logLeader logCert pske    -- TODO was logInfoS
     nextSlotStart <- getSlotStartEmpatically (succ slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
-    logInfoS $
+    logInfo $    -- TODO was logInfoS
         sformat ("Waiting for "%shown%" before creating block") timeToWait
     delay timeToWait
-    logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+    logWarningSWaitLinear noTrace 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
   where
     onNewSlotWhenLeaderDo = do
-        logInfoS "It's time to create a block for current slot"
+        logInfo "It's time to create a block for current slot"    -- TODO was logInfoS
         createdBlock <- createMainBlockAndApply pm slotId pske
         either whenNotCreated whenCreated createdBlock
-        logInfoS "onNewSlotWhenLeader: done"
+        logInfo "onNewSlotWhenLeader: done"    -- TODO was logInfoS
     whenCreated createdBlk = do
-            logInfoS $
+            logInfo $    -- TODO was logInfoS
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
-    whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
+    whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")    -- TODO was logWarningS
 
 ----------------------------------------------------------------------------
 -- Recovery trigger worker
@@ -269,7 +269,7 @@ recoveryTriggerWorker pm diffusion = do
         delay (1 :: Second)
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
         void $ action `catchAny` \e -> do
-            reportOrLogE "recoveryTriggerWorker" e
+            reportOrLogE noTrace "recoveryTriggerWorker" e
             delay (15 :: Second)
         repeatOnInterval action
 

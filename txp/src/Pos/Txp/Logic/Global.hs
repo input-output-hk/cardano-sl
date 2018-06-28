@@ -192,8 +192,8 @@ applyBlocksWith logTrace pm settings blunds = do
     inAssertMode $ do
         verdict <- verifyBlocks pm False blocks
         whenLeft verdict $
-            assertionFailed (contramap publicPrivateLogItem logTrace) .
-            sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
+              assertionFailed (contramap publicPrivateLogItem logTrace) .
+              sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     processBlunds settings (getOldestFirst blunds)
 
 processBlundsSettings ::

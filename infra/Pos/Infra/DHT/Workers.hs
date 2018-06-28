@@ -22,10 +22,8 @@ import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots)
-import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlotNoLogging)
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logNotice)
-import           Pos.Util.Trace.Named (LogNamed, named)
+import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
+import           Pos.Util.Trace.Named (TraceNamed, logNotice)
 import           Pos.Core (HasProtocolConstants)
 
 type DhtWorkMode ctx m =
@@ -44,7 +42,8 @@ dhtWorkers
     :: ( DhtWorkMode ctx m
        , HasProtocolConstants
        )
-    => Trace m (LogNamed LogItem) -> KademliaDHTInstance -> [Diffusion m -> m ()]
+    => TraceNamed m
+    -> KademliaDHTInstance -> [Diffusion m -> m ()]
 dhtWorkers logTrace kademliaInst@KademliaDHTInstance {..} =
     [ dumpKademliaStateWorker logTrace kademliaInst ]
 
@@ -52,14 +51,15 @@ dumpKademliaStateWorker
     :: ( DhtWorkMode ctx m
        , HasProtocolConstants
        )
-    => Trace m (LogNamed LogItem)
+    => TraceNamed m
     -> KademliaDHTInstance
     -> Diffusion m
     -> m ()
-dumpKademliaStateWorker logTrace kademliaInst = \_ -> onNewSlotNoLogging onsp $ \slotId ->
-    when (isTimeToDump slotId) $ recoveryCommGuard (named logTrace) "dump kademlia state" $ do
+dumpKademliaStateWorker logTrace kademliaInst =
+    \_ -> onNewSlot logTrace onsp $ \slotId ->
+    when (isTimeToDump slotId) $ recoveryCommGuard logTrace "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
-        logNotice (named logTrace) $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
+        logNotice logTrace $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
         case dumpFile of

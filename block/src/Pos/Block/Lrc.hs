@@ -55,8 +55,9 @@ import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens (..))
-
+import           UnliftIO (MonadUnliftIO)
 
 ----------------------------------------------------------------------------
 -- Single shot
@@ -94,7 +95,7 @@ lrcSingleShot pm epoch = do
     onAcquiredLock = do
         logDebug "lrcSingleShot has acquired LRC lock"
         (need, filteredConsumers) <-
-            logWarningWaitLinear 5 "determining whether LRC is needed" $ do
+            logWarningWaitLinear noTrace 5 "determining whether LRC is needed" $ do
                 expectedRichmenComp <-
                     filterM (flip lcIfNeedCompute epoch) consumers
                 needComputeLeaders <- not <$> LrcDB.hasLeaders epoch
@@ -155,7 +156,7 @@ lrcDo pm epoch consumers = do
     blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
-    seed <- sscCalculateSeed epoch >>= \case
+    seed <- sscCalculateSeed noTrace epoch >>= \case
         Right s -> do
             logInfo $ sformat
                 ("Calculated seed for epoch "%build%" successfully") epoch

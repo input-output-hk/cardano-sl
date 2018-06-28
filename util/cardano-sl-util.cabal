@@ -50,6 +50,7 @@ library
 
   other-modules:
                        Pos.Util.LoggerName
+                       Pos.Util.CompileInfoGit
 
   build-depends:       aeson
                      , base
@@ -65,6 +66,7 @@ library
                      , directory
                      , ether
                      , exceptions
+                     , file-embed
                      , filepath
                      , formatting
                      , hashable

@@ -24,6 +24,7 @@ import           Numeric.Lens (dividing)
 import qualified Prelude
 
 import           Pos.Util.Log.LogSafe (SecureLog)
+import           Pos.Binary.Class (Bi (..))
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
@@ -53,6 +54,10 @@ instance Buildable (SecureLog Timestamp) where
 
 instance NFData Timestamp where
     rnf Timestamp{..} = rnf (toInteger getTimestamp)
+
+instance Bi Timestamp where
+    encode (Timestamp ms) = encode . toInteger $ ms
+    decode = Timestamp . fromIntegral <$> decode @Integer
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

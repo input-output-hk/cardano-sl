@@ -54,6 +54,7 @@ import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdop
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------
@@ -259,7 +260,7 @@ applyWithoutRollback
 applyWithoutRollback pm diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
-    modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
+    modifyStateLock noTrace HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -304,7 +305,7 @@ applyWithRollback pm diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
+    res <- modifyStateLock noTrace HighPriority ApplyBlockWithRollback $ \curTip -> do
         res <- L.applyWithRollback pm toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of

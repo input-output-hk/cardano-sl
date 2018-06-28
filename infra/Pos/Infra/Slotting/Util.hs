@@ -30,9 +30,19 @@ import           Universum
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, timeout)
+<<<<<<< HEAD
 import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
                            Timestamp (..), flattenSlotId, slotIdF)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
+=======
+--import           Pos.Util.Log (WithLogger)  -- logDebug, logInfo, logNotice, logWarning)
+
+import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
+                           Timestamp (..), flattenSlotId, slotIdF)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo,
+                                          recoveryInProgress)
+--import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
+>>>>>>> adiemand/CBR-207/introduce_katip
 import           Pos.Infra.Reporting.Methods (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
@@ -42,10 +52,15 @@ import           Pos.Infra.Slotting.MemState (MonadSlotsData, getCurrentNextEpoc
                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData, computeSlotStart,
                                      lookupEpochSlottingData)
+<<<<<<< HEAD
 import           Pos.Util.Trace (Trace, noTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug, logInfo, logNotice,
                                               logWarning)
 import           Pos.Util.Trace.Named (LogNamed, appendName, named)
+=======
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug, logInfo, logNotice, logWarning)
+>>>>>>> adiemand/CBR-207/introduce_katip
 import           Pos.Util.Util (maybeThrow)
 
 
@@ -166,13 +181,13 @@ onNewSlotNoLogging = onNewSlot noTrace
 -- MonadSlots and Mockable implementations.
 onNewSlot
     :: (MonadOnNewSlot ctx m, HasProtocolConstants)
-    => Trace m (LogNamed LogItem) -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+    => TraceNamed m -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlot logTrace = onNewSlotImpl logTrace
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
     :: forall ctx m. (MonadOnNewSlot ctx m, HasProtocolConstants)
-    => Trace m (LogNamed LogItem) -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+    => TraceNamed m -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotImpl logTrace params action =
     impl `catch` workerHandler
   where
@@ -181,17 +196,17 @@ onNewSlotImpl logTrace params action =
     actionWithCatch s = action s `catch` actionHandler
     actionHandler :: SomeException -> m ()
     -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
-    actionHandler = reportOrLogE (named logTrace) "onNewSlotImpl: "
+    actionHandler = reportOrLogE logTrace "onNewSlotImpl: "
     workerHandler :: SomeException -> m ()
     workerHandler e = do
         -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
-        reportOrLogE (named logTrace) "Error occurred in 'onNewSlot' worker itself: " e
+        reportOrLogE logTrace "Error occurred in 'onNewSlot' worker itself: " e
         delay =<< getNextEpochSlotDuration
         onNewSlotImpl logTrace params action
 
 onNewSlotDo
     :: (MonadOnNewSlot ctx m, HasProtocolConstants)
-    => Trace m (LogNamed LogItem) -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+    => TraceNamed m -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotDo logTrace expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
 
@@ -204,7 +219,7 @@ onNewSlotDo logTrace expectedSlotId onsp action = do
           NoTerminationPolicy -> a
           NewSlotTerminationPolicy name ->
               whenNothingM_ (timeout timeToWait a) $
-                  logWarning (named logTrace) $ sformat
+                  logWarning logTrace $ sformat
                   ("Action "%stext%
                    " hasn't finished before new slot started") name
 
@@ -233,18 +248,15 @@ onNewSlotDo logTrace expectedSlotId onsp action = do
     shortDelay = 42
     recoveryRefreshDelay :: Millisecond
     recoveryRefreshDelay = 150
-    logTTW timeToWait = logDebug (named (appendName "slotting" logTrace)) $
-                 sformat ("Waiting for "%shown%" before new slot") timeToWait
+    logTTW timeToWait = logDebug (appendName "slotting" logTrace) $ sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker 
+logNewSlotWorker
     :: (MonadOnNewSlot ctx m, HasProtocolConstants)
-    => Trace m (LogNamed LogItem)
+    => TraceNamed m
     ->  m ()
 logNewSlotWorker logTrace =
     onNewSlot logTrace defaultOnNewSlotParams $ \slotId -> do
-        logNotice (named (appendName "slotting" logTrace))
-            (sformat ("New slot has just started: " %slotIdF) slotId)
-
+        logNotice (appendName "slotting" logTrace) $ sformat ("New slot has just started: " %slotIdF) slotId
 
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.
@@ -252,8 +264,8 @@ waitSystemStart
     :: ( MonadSlotsData ctx m
        , Mockable Delay m
        , MonadSlots ctx m)
-    => Trace m LogItem
-    ->  m ()
+    => TraceNamed m
+    -> m ()
 waitSystemStart logTrace = do
     start <- getSystemStartM
     cur <- currentTimeSlotting

@@ -8,20 +8,17 @@ module Pos.SafeCopy
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet as CC
-import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.Math.Edwards25519 as ED25519
-import qualified Crypto.Sign.Ed25519 as EDS25519
-import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                safeGet, safePut)
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
+                                safePut)
 import qualified Data.Serialize as Cereal
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
 import           Serokell.AcidState.Instances ()
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
-import           Pos.Binary.Class (AsBinary (..), Bi)
-import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.Class (Bi)
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Core.Block
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   AddrStakeDistribution (..), AddrType (..), Address (..),
@@ -40,33 +37,13 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic (..))
-import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
+import           Pos.Crypto.SafeCopy ()
 import           Pos.Crypto.SecretSharing (SecretProof)
-import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..), RedeemSecretKey (..),
-                                            RedeemSignature (..))
-import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
-                                             ProxySignature (..), PublicKey (..), SecretKey (..),
-                                             Signature (..), Signed (..))
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Util (cerealError, toCerealError)
-
-----------------------------------------------------------------------------
--- Bi
-----------------------------------------------------------------------------
-
-putCopyBi :: Bi a => a -> Contained Cereal.Put
-putCopyBi = contain . safePut . Bi.serialize
-
-getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
-getCopyBi = contain $ do
-    bs <- safeGet
-    toCerealError $ case Bi.deserializeOrFail bs of
-        Left (err, _) -> Left $ "getCopy@" <> Bi.label (Proxy @a) <> ": " <> show err
-        Right (x, _)  -> Right x
-
+import           Pos.Util.Util (cerealError)
 
 ----------------------------------------------------------------------------
 -- Core types
@@ -82,24 +59,6 @@ deriveSafeCopySimple 0 'base ''SoftwareVersion
 deriveSafeCopySimple 0 'base ''ED25519.PointCompressed
 deriveSafeCopySimple 0 'base ''ED25519.Scalar
 deriveSafeCopySimple 0 'base ''ED25519.Signature
---
-deriveSafeCopySimple 0 'base ''CC.EncryptedKey
-deriveSafeCopySimple 0 'base ''CC.ChainCode
-deriveSafeCopySimple 0 'base ''CC.XPub
-deriveSafeCopySimple 0 'base ''CC.XPrv
-deriveSafeCopySimple 0 'base ''CC.XSignature
-
-deriveSafeCopySimple 0 'base ''PublicKey
-deriveSafeCopySimple 0 'base ''SecretKey
-
-deriveSafeCopySimple 0 'base ''ProxySecretKey
-
-deriveSafeCopySimple 0 'base ''EDS25519.PublicKey
-deriveSafeCopySimple 0 'base ''EDS25519.SecretKey
-deriveSafeCopySimple 0 'base ''EDS25519.Signature
-
-deriveSafeCopySimple 0 'base ''RedeemPublicKey
-deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
 instance Bi SecretProof => SafeCopy SecretProof where
     getCopy = getCopyBi
@@ -301,32 +260,6 @@ instance SafeCopy GenesisBody where
         contain $
         do safePut _gbLeaders
 
-instance SafeCopy (RedeemSignature a) where
-    putCopy (RedeemSignature sig) = contain $ safePut sig
-    getCopy = contain $ RedeemSignature <$> safeGet
-
-instance SafeCopy (Signature a) where
-    putCopy (Signature sig) = contain $ safePut sig
-    getCopy = contain $ Signature <$> safeGet
-
-instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
-    putCopy (Signed v s) = contain $ safePut (Bi.serialize' (v,s))
-    getCopy = contain $ do
-        bs <- safeGet
-        case Bi.decodeFull bs of
-            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
-            Right (v,s) -> pure $ Signed v s
-
-instance SafeCopy (ProxyCert w) where
-    putCopy (ProxyCert sig) = contain $ safePut sig
-    getCopy = contain $ ProxyCert <$> safeGet
-
-instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
-    putCopy ProxySignature{..} = contain $ do
-        safePut psigPsk
-        safePut psigSig
-    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
-
 instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
     getCopy = getCopyBi
     putCopy = putCopyBi
@@ -350,11 +283,6 @@ instance SafeCopy h => SafeCopy (Attributes h) where
         do safePut attrData
            safePut attrRemain
 
-instance (Bi (AbstractHash algo a), Typeable algo, Typeable a) =>
-        SafeCopy (AbstractHash algo a) where
-   putCopy = putCopyBi
-   getCopy = getCopyBi
-
 instance Cereal.Serialize Byte where
     get = fromBytes <$> Cereal.get
     put = Cereal.put . toBytes
@@ -364,14 +292,6 @@ instance SafeCopy Byte
 instance (SafeCopy k, SafeCopy v, Eq k, Hashable k) => SafeCopy (MM.MapModifier k v) where
     getCopy = contain $ MM.fromHashMap <$> safeGet
     putCopy mm = contain $ safePut (MM.toHashMap mm)
-
-instance SafeCopy (AsBinary a) where
-    getCopy = contain $ AsBinary <$> safeGet
-    putCopy = contain . safePut . getAsBinary
-
-instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
-    getCopy = getCopyBi
-    putCopy = putCopyBi
 
 instance SafeCopy HeavyDlgIndex where
     getCopy = contain $ HeavyDlgIndex <$> safeGet

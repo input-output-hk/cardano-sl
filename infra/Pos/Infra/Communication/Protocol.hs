@@ -34,7 +34,7 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 
 import           Pos.Infra.Communication.Types.Protocol
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
@@ -55,7 +55,7 @@ mapListener' caMapper mapper (N.Listener f) =
     N.Listener $ \d nId -> mapper . f d nId . caMapper nId
 
 makeEnqueueMsg
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType t) -> IO (Map NodeId (STM.TVar (OQ.PacketStatus t))))
     -> EnqueueMsg
@@ -63,7 +63,7 @@ makeEnqueueMsg logTrace ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeI
     alternativeConversations logTrace nodeId ourVerInfo pVI (mkConv nodeId pVI)
 
 alternativeConversations
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> NodeId
     -> VerInfo -- ^ Ours
     -> VerInfo -- ^ Theirs
@@ -95,13 +95,13 @@ alternativeConversations logTrace nid ourVerInfo theirVerInfo convs
         -> N.Conversation PackingType x
     throwErrs errs (Conversation l) = N.Conversation $ \conv -> do
         let _ = l conv
-        traceWith logTrace (Warning, sformat ("Failed to choose appropriate conversation: "%listJson) errs)
+        logWarning logTrace $ sformat ("Failed to choose appropriate conversation: "%listJson) errs
         throwIO $ NE.head errs
 
     fstArg :: (a -> b) -> Proxy a
     fstArg _ = Proxy
 
-    logOSNR (Right e@(OutSpecNotReported _ _)) = traceWith logTrace (Warning, sformat build e)
+    logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning logTrace $ sformat build e
     logOSNR _                                  = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
@@ -120,7 +120,7 @@ alternativeConversations logTrace nid ourVerInfo theirVerInfo convs
            | otherwise -> Left action
 
 makeSendActions
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> VerInfo
     -> (forall t .
             Msg
@@ -195,7 +195,7 @@ checkProtocolMagic (vIMagic -> ourMagic) (vIMagic -> theirMagic) action
         throwIO $ MismatchedProtocolMagic ourMagic theirMagic
 
 checkingInSpecs
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> VerInfo
     -> VerInfo
     -> (MessageCode, HandlerSpec)
@@ -204,9 +204,9 @@ checkingInSpecs
     -> IO ()
 checkingInSpecs logTrace ourVerInfo peerVerInfo' spec nodeId action =
     if | spec `notInSpecs` vIInHandlers ourVerInfo ->
-              traceWith logTrace (Warning, sformat ("Endpoint is served, but not reported " % build) spec)
+              logWarning logTrace $ sformat ("Endpoint is served, but not reported " % build) spec
        | spec `notInSpecs` vIOutHandlers peerVerInfo' ->
-              traceWith logTrace (Warning, sformat ("Peer " % build % " attempting to use endpoint he didn't report to use " % build) nodeId spec)
+              logWarning logTrace $ sformat ("Peer " % build % " attempting to use endpoint he didn't report to use " % build) nodeId spec
        | otherwise -> action
 
 rcvProxy :: Proxy (ConversationActions snd rcv) -> Proxy rcv

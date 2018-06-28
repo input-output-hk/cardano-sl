@@ -16,7 +16,6 @@ module Pos.Txp.Settings.Global
 
 import           Universum
 
-
 import           Pos.Core (ComponentBlock)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Txp (TxPayload, TxpUndo)

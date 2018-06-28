@@ -58,21 +58,22 @@ import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc
 import           Pos.Util.AssertMode (inAssertMode)
 --import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebugS, logErrorS, logInfoS,
-                                              logWarningS)
-import           Pos.Util.Trace.Named (LogNamed, named)
+import           Pos.Util.Trace.Unstructured (LogItem)
+import qualified Pos.Util.Trace.Unstructured as TU
+import           Pos.Util.Trace.Named (TraceNamed)
+import qualified Pos.Util.Trace.Named as TN
 import           Pos.Util.Util (getKeys, leftToPanic)
 
 sscWorkers
   :: ( SscMode ctx m
      , HasMisbehaviorMetrics ctx
      )
-  => Trace m (LogNamed LogItem) -> ProtocolMagic -> [Diffusion m -> m ()]
-sscWorkers namedlogTrace pm = [ onNewSlotSsc namedlogTrace pm
-                        , checkForIgnoredCommitmentsWorker (named namedlogTrace)
+  => TraceNamed m -> ProtocolMagic -> [Diffusion m -> m ()]
+sscWorkers logTrace pm = [ onNewSlotSsc logTrace pm
+                        , checkForIgnoredCommitmentsWorker logTrace
                         ]
 
-shouldParticipate :: SscMode ctx m => Trace m LogItem -> EpochIndex -> m Bool
+shouldParticipate :: SscMode ctx m => TraceNamed m -> EpochIndex -> m Bool
 shouldParticipate logTrace epoch = do
     richmen <- getSscRichmen "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
@@ -80,7 +81,7 @@ shouldParticipate logTrace epoch = do
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
-        logDebugS logTrace "Not enough stake to participate in MPC"
+        TN.logDebugS logTrace "Not enough stake to participate in MPC"
     return (participationEnabled && enoughStake)
 
 -- CHECK: @onNewSlotSsc
@@ -88,11 +89,11 @@ shouldParticipate logTrace epoch = do
 onNewSlotSsc
     :: ( SscMode ctx m
        )
-    => Trace m (LogNamed LogItem)
+    => TraceNamed m
     -> ProtocolMagic
     -> Diffusion m
     -> m ()
-onNewSlotSsc namedLogTrace pm = \diffusion -> onNewSlotNoLogging defaultOnNewSlotParams $ \slotId ->
+onNewSlotSsc logTrace0 pm = \diffusion -> onNewSlotNoLogging defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard logTrace "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate logTrace $ siEpoch slotId) $ do
@@ -100,10 +101,11 @@ onNewSlotSsc namedLogTrace pm = \diffusion -> onNewSlotNoLogging defaultOnNewSlo
                 atomically . readTVar . scBehavior
             checkNSendOurCert logTrace pm (sendSscCert diffusion)
             onNewSlotCommitment logTrace pm slotId (sendSscCommitment diffusion)
-            onNewSlotOpening logTrace pm (sbSendOpening behavior) slotId (sendSscOpening diffusion)
-            onNewSlotShares logTrace pm (sbSendShares behavior) slotId (sendSscShares diffusion)
+            onNewSlotOpening logTraceU pm (sbSendOpening behavior) slotId (sendSscOpening diffusion)
+            onNewSlotShares logTraceU pm (sbSendShares behavior) slotId (sendSscShares diffusion)
     where
-        logTrace = named namedLogTrace
+    logTrace = TN.appendName "newslot" logTrace0
+    logTraceU = TN.named logTrace
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
@@ -111,7 +113,7 @@ checkNSendOurCert
     :: forall ctx m.
        ( SscMode ctx m
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> (VssCertificate -> m ())
     -> m ()
@@ -119,15 +121,15 @@ checkNSendOurCert logTrace pm sendCert = do
     ourId <- getOurStakeholderId
     let sendCertDo resend slot = do
             if resend then
-                logErrorS logTrace "Our VSS certificate is in global state, but it has already expired, \
+                TN.logErrorS logTrace "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
-                else logInfoS logTrace 
+                else TN.logInfoS logTrace
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
             ourVssCertificate <- getOurVssCertificate slot
-            sscProcessOurMessage logTrace (sscProcessCertificate logTrace pm ourVssCertificate)
+            sscProcessOurMessage logTraceU (sscProcessCertificate logTraceU pm ourVssCertificate)
             _ <- sendCert ourVssCertificate
-            logDebugS logTrace "Announced our VssCertificate."
+            TN.logDebugS logTrace "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
     case slMaybe of
@@ -138,11 +140,12 @@ checkNSendOurCert logTrace pm sendCert = do
             case ourCertMB of
                 Just ourCert
                     | vcExpiryEpoch ourCert >= siEpoch sl ->
-                        logDebugS logTrace
+                        TN.logDebugS logTrace
                             "Our VssCertificate has been already announced."
                     | otherwise -> sendCertDo True sl
                 Nothing -> sendCertDo False sl
   where
+    logTraceU = TN.named logTrace
     getOurVssCertificate :: SlotId -> m VssCertificate
     getOurVssCertificate slot =
         -- TODO: do this optimization
@@ -169,7 +172,7 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 onNewSlotCommitment
     :: ( SscMode ctx m
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> SlotId
     -> (SignedCommitment -> m ())
@@ -182,29 +185,30 @@ onNewSlotCommitment logTrace pm slotId@SlotId {..} sendCommitment
             [ not . hasCommitment ourId <$> sscGetGlobalState
             , memberVss ourId <$> getStableCerts siEpoch]
         if shouldSendCommitment then
-            logDebugS logTrace "We should send commitment"
+            TN.logDebugS logTrace "We should send commitment"
         else
-            logDebugS logTrace "We shouldn't send commitment"
+            TN.logDebugS logTrace "We shouldn't send commitment"
         when shouldSendCommitment $ do
             ourCommitment <- SS.getOurCommitment siEpoch
             let stillValidMsg = "We shouldn't generate secret, because we have already generated it"
             case ourCommitment of
-                Just comm -> logDebugS logTrace     stillValidMsg >> sendOurCommitment comm
+                Just comm -> TN.logDebugS logTrace     stillValidMsg >> sendOurCommitment comm
                 Nothing   -> onNewSlotCommDo
   where
     onNewSlotCommDo = do
         ourSk <- getOurSecretKey
-        logDebugS logTrace $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+        TN.logDebugS logTrace $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret logTrace pm ourSk slotId
         case generated of
-            Nothing -> logWarningS logTrace "I failed to generate secret for SSC"
+            Nothing -> TN.logWarningS logTrace "I failed to generate secret for SSC"
             Just comm -> do
-              logInfoS logTrace (sformat ("Generated secret for "%ords%" epoch") siEpoch)
+              TN.logInfoS logTrace (sformat ("Generated secret for "%ords%" epoch") siEpoch)
               sendOurCommitment comm
 
     sendOurCommitment comm = do
-        sscProcessOurMessage logTrace (sscProcessCommitment logTrace pm comm)
-        sendOurData logTrace sendCommitment CommitmentMsg comm siEpoch 0
+        sscProcessOurMessage logTraceU (sscProcessCommitment logTraceU pm comm)
+        sendOurData logTraceU sendCommitment CommitmentMsg comm siEpoch 0
+    logTraceU = TN.named logTrace
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -223,9 +227,9 @@ onNewSlotOpening logTrace pm params SlotId {..} sendOpening
         globalData <- sscGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. sgsCommitments . to getCommitmentsMap . at ourId of
-                Nothing -> logDebugS logTrace noCommMsg
+                Nothing -> TU.logDebugS logTrace noCommMsg
                 Just _  -> SS.getOurOpening siEpoch >>= \case
-                    Nothing   -> logWarningS logTrace noOpenMsg
+                    Nothing   -> TU.logWarningS logTrace noOpenMsg
                     Just open -> sendOpeningDo ourId open
   where
     noCommMsg =
@@ -260,7 +264,7 @@ onNewSlotShares logTrace pm params SlotId {..} sendShares = do
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- views sscContext scVssKeyPair
-        sendSharesDo ourId =<< getOurShares ourVss logTrace 
+        sendSharesDo ourId =<< getOurShares ourVss logTrace
   where
     sendSharesDo ourId shares = do
         let shares' = case params of
@@ -283,14 +287,14 @@ sscProcessOurMessage
 sscProcessOurMessage logTrace action =
     action >>= logResult
   where
-    logResult (Right _) = logDebugS logTrace "We have accepted our message"
+    logResult (Right _) = TU.logDebugS logTrace "We have accepted our message"
     logResult (Left er) =
-        logWarningS logTrace $
+        TU.logWarningS logTrace $
         sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData
     :: SscMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> (contents -> m ())
     -> SscTag
     -> contents
@@ -302,9 +306,9 @@ sendOurData logTrace sendIt msgTag dt epoch slMultiplier = do
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend logTrace msgTag epoch slMultiplier
-    logInfoS logTrace $ sformat ("Announcing our "%build) msgTag
+    TU.logInfoS logTrace $ sformat ("Announcing our "%build) msgTag
     _ <- sendIt dt
-    logDebugS logTrace $ sformat ("Sent our " %build%" to neighbors") msgTag
+    TU.logDebugS logTrace $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.
@@ -316,7 +320,7 @@ generateAndSetNewSecret
     :: forall ctx m.
        ( SscMode ctx m
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> SecretKey
     -> SlotId -- ^ Current slot
@@ -328,7 +332,7 @@ generateAndSetNewSecret logTrace pm sk SlotId {..} = do
         let participantIds =
                 HM.keys . getVssCertificatesMap $
                 computeParticipants (getKeys richmen) certs
-        logDebugS logTrace $
+        TN.logDebugS logTrace $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants = nonEmpty $
                        map (second vcVssKey) $
@@ -337,29 +341,29 @@ generateAndSetNewSecret logTrace pm sk SlotId {..} = do
     maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where
     here s = "generateAndSetNewSecret: " <> s
-    warnNoPs = logWarningS logTrace (here "can't generate, no participants")
+    warnNoPs = TN.logWarningS logTrace (here "can't generate, no participants")
     generateAndSetNewSecretDo :: RichmenStakes
                               -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo richmen ps = do
         let onLeft er =
                 Nothing <$
-                logWarningS logTrace 
+                TN.logWarningS logTrace
                 (here $ sformat ("Couldn't compute shares distribution, reason: "%build) er)
         mpcThreshold <- bvdMpcThd <$> gsAdoptedBVData
         distrET <- runExceptT (computeSharesDistrPure richmen mpcThreshold)
         flip (either onLeft) distrET $ \distr -> do
-            logDebugS logTrace $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+            TN.logDebugS logTrace $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
             let threshold = vssThreshold $ sum $ toList distr
             let multiPSmb = nonEmpty $
                             concatMap (\(c, x) -> replicate (fromIntegral c) x) $
                             NE.map (first $ flip (HM.lookupDefault 0) distr) ps
             case multiPSmb of
                 Nothing -> Nothing <$
-                    logWarningS logTrace (here "Couldn't compute participant's vss")
+                    TN.logWarningS logTrace (here "Couldn't compute participant's vss")
                 Just multiPS -> case mapM fromBinary multiPS of
                     Left err -> Nothing <$
-                        logErrorS logTrace (here ("Couldn't deserialize keys: " <> err))
+                        TN.logErrorS logTrace (here ("Couldn't deserialize keys: " <> err))
                     Right keys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
                             randCommitmentAndOpening threshold keys
@@ -395,7 +399,7 @@ waitUntilSend logTrace msgTag epoch slMultiplier = do
         timeToWait <- randomTimeInInterval delta
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
-        logDebugS logTrace $
+        TU.logDebugS logTrace $
             sformat
                 ("Waiting for " %shown % " before sending " %build)
                 ttwMillisecond
@@ -411,7 +415,7 @@ checkForIgnoredCommitmentsWorker
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Trace m LogItem 
+    => TraceNamed m
     -> Diffusion m
     -> m ()
 checkForIgnoredCommitmentsWorker logTrace = \_ -> do
@@ -432,7 +436,7 @@ checkForIgnoredCommitmentsWorkerImpl
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Trace m LogItem -> TVar Word -> SlotId -> m ()
+    => TraceNamed m -> TVar Word -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl logTrace counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.
     | getSlotIndex siSlot /= 9 * fromIntegral blkSecurityParam = pass

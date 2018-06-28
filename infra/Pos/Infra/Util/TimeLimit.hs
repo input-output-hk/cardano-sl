@@ -21,8 +21,7 @@ import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, withAsyncWithUnmask)
 import           Pos.Crypto.Random (randomNumber)
-import           Pos.Util.Trace (Trace, traceWith)
-
+import           Pos.Util.Trace.Named (TraceNamed, logWarning, logWarningS)
 
 
 -- | Data type to represent waiting strategy for printing warnings
@@ -44,8 +43,10 @@ type CanLogInParallel m =
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction
-    :: forall m a. CanLogInParallel m => Trace m Text -> WaitingDelta -> Text -> m a -> m a
-logWarningLongAction logTrace delta actionTag action =
+    :: forall m a.
+       CanLogInParallel m
+    => TraceNamed m -> Bool -> WaitingDelta -> Text -> m a -> m a
+logWarningLongAction logTrace secure delta actionTag action =
     -- Previous implementation was
     --
     --   bracket (fork $ waitAndWarn delta) killThread (const action)
@@ -62,8 +63,11 @@ logWarningLongAction logTrace delta actionTag action =
     -- this function is going to be called under 'mask'.
     withAsyncWithUnmask (\unmask -> unmask $ waitAndWarn delta) (const action)
   where
-    printWarning t = traceWith logTrace $ sformat ("Action `"%stext%"` took more than "%shown)
-                                       actionTag t
+    logFunc :: TraceNamed m -> Text -> m ()
+    logFunc = bool logWarning logWarningS secure
+    printWarning t = logFunc logTrace $
+                          sformat ("Action `"%stext%"` took more than "%shown)
+                               actionTag t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)
     waitAndWarn (WaitOnce      s  ) = delay s >> printWarning s
@@ -85,21 +89,33 @@ logWarningLongAction logTrace delta actionTag action =
 {- Helper functions to avoid dealing with data type -}
 
 -- | Specialization of 'logWarningLongAction' with 'WaitOnce'.
-logWarningWaitOnce :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
-logWarningWaitOnce logTrace = logWarningLongAction logTrace . WaitOnce
+logWarningWaitOnce
+    :: CanLogInParallel m
+    => TraceNamed m
+    -> Second -> Text -> m a -> m a
+logWarningWaitOnce tr = logWarningLongAction tr False . WaitOnce
 
 -- | Specialization of 'logWarningLongAction' with 'WaiLinear'.
-logWarningWaitLinear :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
-logWarningWaitLinear logTrace = logWarningLongAction logTrace . WaitLinear
+logWarningWaitLinear
+    :: CanLogInParallel m
+    => TraceNamed m
+    -> Second -> Text -> m a -> m a
+logWarningWaitLinear tr = logWarningLongAction tr False . WaitLinear
 
 -- | Secure version of 'logWarningWaitLinear'.
-logWarningSWaitLinear :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
-logWarningSWaitLinear logTrace  = logWarningLongAction logTrace . WaitLinear
+logWarningSWaitLinear
+    :: CanLogInParallel m
+    => TraceNamed m
+    -> Second -> Text -> m a -> m a
+logWarningSWaitLinear tr = logWarningLongAction tr True . WaitLinear
 
 -- | Specialization of 'logWarningLongAction' with 'WaitGeometric'
 -- with parameter @1.3@. Accepts 'Second'.
-logWarningWaitInf :: CanLogInParallel m => Trace m Text -> Second -> Text -> m a -> m a
-logWarningWaitInf logTrace = logWarningLongAction logTrace . (`WaitGeometric` 1.3) . convertUnit
+logWarningWaitInf
+    :: CanLogInParallel m
+    => TraceNamed m
+    -> Second -> Text -> m a -> m a
+logWarningWaitInf tr = logWarningLongAction tr False . (`WaitGeometric` 1.3) . convertUnit
 
 -- TODO remove MonadIO in preference to some `Mockable Random`
 -- | Wait random number of 'Microsecond'`s between min and max.
@@ -115,8 +131,9 @@ waitRandomInterval minT maxT = do
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
     :: (MonadIO m, Mockable Delay m)
-    => Microsecond -> Microsecond -> m () -> m ()
-runWithRandomIntervals minT maxT action = do
+    => TraceNamed m
+    -> Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervals tr minT maxT action = do
   waitRandomInterval minT maxT
   action
-  runWithRandomIntervals minT maxT action
+  runWithRandomIntervals tr minT maxT action

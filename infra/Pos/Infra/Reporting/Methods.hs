@@ -29,8 +29,8 @@ import qualified Pos.Util.Log as Log
 import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
 import           Pos.Infra.Reporting.MemState ()
-import           Pos.Util.Trace (Trace, traceWith)
-import           Pos.Util.Trace.Unstructured (LogItem, publicPrivateLogItem)
+import           Pos.Util.Trace.Named (TraceNamed, logMessage)
+
 
 -- | Encapsulates the sending of a report, with potential for side-effects.
 newtype Reporter m = Reporter
@@ -67,11 +67,11 @@ reportError = report . RError
 --
 -- NOTE: it doesn't rethrow an exception. If you are sure you need it,
 -- you can rethrow it by yourself.
-reportOrLog :: (MonadReporting m) => Trace m LogItem -> Log.Severity -> Text -> SomeException -> m ()
+reportOrLog :: MonadReporting m => TraceNamed m -> Log.Severity -> Text -> SomeException -> m ()
 reportOrLog logTrace severity prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
-        Nothing  -> traceWith logTrace (publicPrivateLogItem (severity, prefix <> pretty exc))
+        Nothing  -> logMessage logTrace severity (prefix <> pretty exc)
   where
     tryCast ::
            forall e. Exception e
@@ -79,9 +79,9 @@ reportOrLog logTrace severity prefix exc =
     tryCast = toText . displayException <$> fromException @e exc
 
 -- | A version of 'reportOrLog' which uses 'Error' severity.
-reportOrLogE :: (MonadReporting m) => Trace m LogItem -> Text -> SomeException -> m ()
+reportOrLogE :: MonadReporting m => TraceNamed m -> Text -> SomeException -> m ()
 reportOrLogE logTrace = reportOrLog logTrace Log.Error
 
 -- | A version of 'reportOrLog' which uses 'Warning' severity.
-reportOrLogW :: (MonadReporting m) => Trace m LogItem -> Text -> SomeException -> m ()
+reportOrLogW :: MonadReporting m => TraceNamed m -> Text -> SomeException -> m ()
 reportOrLogW logTrace = reportOrLog logTrace Log.Warning

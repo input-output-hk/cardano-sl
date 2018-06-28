@@ -8,7 +8,6 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
 import           Universum
 
-import           Pos.Binary.Core ()
 import           Pos.Core.Txp (TxAux (..), txaF)
 
 -- | Data message. Can be used to send one transaction per message.

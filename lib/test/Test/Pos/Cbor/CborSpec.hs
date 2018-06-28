@@ -15,7 +15,6 @@ module Test.Pos.Cbor.CborSpec
 import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Crypto.Hash (Blake2b_224, Blake2b_256)
 import           Data.Tagged (Tagged)
 import           System.FileLock (FileLock)
 import           Test.Hspec (Spec, describe)
@@ -25,24 +24,20 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
-import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
-import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
+import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Core.Block as BT
 import qualified Pos.Core.Ssc as Ssc
-import qualified Pos.Crypto as Crypto
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
-                                                           mlReqMsg)
+                     mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
@@ -60,6 +55,7 @@ import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
+import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
 
@@ -93,6 +89,8 @@ spec = withDefConfiguration $ \_ -> do
                     binaryTest @BT.MsgGetBlocks
                     binaryTest @BT.MsgHeaders
                     binaryTest @BT.MsgBlock
+                    binaryTest @BT.MsgStream
+                    binaryTest @BT.MsgStreamBlock
                 describe "Blockchains and blockheaders" $ do
                     modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
                         describe "GenesisBlockHeader" $ do
@@ -129,41 +127,6 @@ spec = withDefConfiguration $ \_ -> do
                 binaryTest @C.MessageCode
             describe "Bi extension" $ do
                 prop "HandlerSpec" (extensionProperty @C.HandlerSpec)
-        describe "Crypto" $ do
-            describe "Hashing" $ do
-                binaryTest @(Crypto.Hash Word64)
-            describe "Signing" $ do
-                describe "Bi instances" $ do
-                    binaryTest @Crypto.SecretKey
-                    binaryTest @Crypto.PublicKey
-                    binaryTest @(Crypto.Signature ())
-                    binaryTest @(Crypto.Signature U)
-                    binaryTest @(Crypto.ProxyCert Int32)
-                    binaryTest @(Crypto.ProxySecretKey Int32)
-                    binaryTest @(Crypto.ProxySecretKey U)
-                    binaryTest @(Crypto.ProxySignature Int32 Int32)
-                    binaryTest @(Crypto.ProxySignature U U)
-                    binaryTest @(Crypto.Signed Bool)
-                    binaryTest @(Crypto.Signed U)
-                    binaryTest @Crypto.RedeemSecretKey
-                    binaryTest @Crypto.RedeemPublicKey
-                    binaryTest @(Crypto.RedeemSignature Bool)
-                    binaryTest @(Crypto.RedeemSignature U)
-                    binaryTest @Crypto.Threshold
-                    binaryTest @Crypto.VssPublicKey
-                    binaryTest @Crypto.PassPhrase
-                    binaryTest @Crypto.VssKeyPair
-                    binaryTest @Crypto.Secret
-                    binaryTest @Crypto.DecShare
-                    binaryTest @Crypto.EncShare
-                    binaryTest @Crypto.SecretProof
-                    binaryTest @Crypto.HDAddressPayload
-                    binaryTest @(Crypto.AbstractHash Blake2b_224 U)
-                    binaryTest @(Crypto.AbstractHash Blake2b_256 U)
-                    binaryTest @(AsBinary Crypto.VssPublicKey)
-                    binaryTest @(AsBinary Crypto.Secret)
-                    binaryTest @(AsBinary Crypto.DecShare)
-                    binaryTest @(AsBinary Crypto.EncShare)
         describe "DHT.Model" $ do
             describe "Bi instances" $ do
                 binaryTest @DHT.DHTKey

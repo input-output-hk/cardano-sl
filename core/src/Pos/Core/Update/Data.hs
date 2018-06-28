@@ -7,7 +7,7 @@ import           Universum
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
-import           Pos.Binary.Class (Raw)
+import           Pos.Binary.Class (Cons (..), Field (..), Raw, deriveSimpleBi)
 import           Pos.Crypto (Hash)
 
 -- | Data which describes update. It is specific for each system.
@@ -43,3 +43,11 @@ instance Buildable UpdateData where
         udPkgHash
         udUpdaterHash
         udMetadataHash
+
+deriveSimpleBi ''UpdateData [
+    Cons 'UpdateData [
+        Field [| udAppDiffHash  :: Hash Raw |],
+        Field [| udPkgHash      :: Hash Raw |],
+        Field [| udUpdaterHash  :: Hash Raw |],
+        Field [| udMetadataHash :: Hash Raw |]
+    ]]

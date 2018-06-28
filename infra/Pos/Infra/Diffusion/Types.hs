@@ -6,12 +6,16 @@ module Pos.Infra.Diffusion.Types
     , Diffusion (..)
     , hoistDiffusion
     , dummyDiffusionLayer
+    , StreamEntry (..)
+    , DiffusionHealth (..)
     ) where
 
 import           Universum
 
+import           Control.Concurrent.STM (TBQueue)
 import           Data.Map.Strict (Map)
 import           Formatting (Format, stext)
+import           System.Metrics.Gauge (Gauge)
 
 import           Pos.Core (HeaderHash, ProxySKHeavy)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
@@ -25,6 +29,15 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 
 
+-- | Datatype used for the queue of blocks, produced by network streaming and
+-- then consumed by a continuation resonsible for writing blocks to store.
+-- StreamEnd signals end of stream.
+data StreamEntry = StreamEnd | StreamBlock !Block
+
+data DiffusionHealth = DiffusionHealth {
+    dhStreamWriteQueue :: !Gauge -- Number of blocks stored in the block stream write queue
+  , dhStreamWindow     :: !Gauge -- Current Stream Window size.
+  }
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -36,6 +49,12 @@ data Diffusion m = Diffusion
                          -> HeaderHash
                          -> [HeaderHash]
                          -> m (OldestFirst [] Block)
+    , streamBlocks       :: forall t .
+                            NodeId
+                         -> HeaderHash
+                         -> [HeaderHash]
+                         -> ((Word32, Maybe Gauge, TBQueue StreamEntry) -> m t)
+                         -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
     , requestTip          :: m (Map NodeId (m BlockHeader))
@@ -85,9 +104,15 @@ data DiffusionLayer m = DiffusionLayer
     , diffusion         :: Diffusion m
     }
 
-hoistDiffusion :: Functor m => (forall t . m t -> n t) -> Diffusion m -> Diffusion n
-hoistDiffusion nat orig = Diffusion
+hoistDiffusion
+    :: Functor m
+    => (forall t . m t -> n t)
+    -> (forall t . n t -> m t)
+    -> Diffusion m
+    -> Diffusion n
+hoistDiffusion nat rnat orig = Diffusion
     { getBlocks = \nid bh hs -> nat $ getBlocks orig nid bh hs
+    , streamBlocks = \nid hh hhs k -> nat $ streamBlocks orig nid hh hhs (rnat . k)
     , requestTip = nat $ (fmap . fmap) nat (requestTip orig)
     , announceBlockHeader = nat . announceBlockHeader orig
     , sendTx = nat . sendTx orig
@@ -116,6 +141,7 @@ dummyDiffusionLayer = do
     dummyDiffusion subscriptionStates = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = pure mempty
+        , streamBlocks        = \_ _ _ _ -> pure Nothing
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True
         , sendUpdateProposal = \_ _ _ -> pure ()

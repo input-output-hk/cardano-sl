@@ -25,7 +25,8 @@ import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
+import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage,
+                                          streamWindow)
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
@@ -90,7 +91,7 @@ runRealMode pm nr@NodeResources {..} act = runServer
     makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO diffusion
+        let diffusion' = hoistDiffusion liftIO (elimRealMode pm nr diffusion) diffusion
          in elimRealMode pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
@@ -170,6 +171,7 @@ runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShut
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
         , fdcTrace = wlogTrace "diffusion"
+        , fdcStreamWindow = streamWindow
         }
     exitOnShutdown action = do
         _ <- race (waitForShutdown shdnContext) action

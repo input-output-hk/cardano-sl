@@ -17,6 +17,7 @@ library
   exposed-modules:
                        Pos.Binary.Class
                        Pos.Binary.Limit
+                       Pos.Binary.SafeCopy
 
   other-modules:
                        Pos.Binary.Class.Core
@@ -27,7 +28,9 @@ library
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl-util
                      , cborg
+                     , cereal
                      , containers
                      , digest
                      , formatting
@@ -35,6 +38,7 @@ library
                      , hashable
                      , lens
                      , mtl
+                     , safecopy
                      , safe-exceptions
                      , serokell-util
                      , tagged

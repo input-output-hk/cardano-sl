@@ -13,11 +13,11 @@ if [[ ("$OS_NAME" == "linux") && ("$BUILDKITE_BRANCH" == "master") ]];
 fi
 export with_haddock
 
-targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new daedalus-bridge"
+targets="all-cardano-sl daedalus-bridge"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
 if [[ "$OS_NAME" == "linux" ]]; then
-   targets="$targets cardano-sl-explorer-static cardano-sl-explorer-frontend"
+   targets="$targets cardano-sl-explorer-frontend"
 fi
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times

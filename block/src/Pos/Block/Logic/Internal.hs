@@ -48,7 +48,7 @@ import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback, dlgRollbackBlocks)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
-import           Pos.Exception (assertionFailed)
+import           Pos.Exception (assertionFailed0)
 import           Pos.GState.SanityCheck (sanityCheckDB)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Lrc.Context (HasLrcContext)
@@ -64,6 +64,7 @@ import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (Some (..), spanSafe)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
@@ -130,9 +131,9 @@ normalizeMempool pm = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize pm
+    sscNormalize noTrace pm
     txpNormalize pm
-    usNormalize
+    usNormalize noTrace
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -150,7 +151,7 @@ applyBlocksUnsafe
     -> m ()
 applyBlocksUnsafe pm scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
-    unless (null nextEpoch) $ assertionFailed $
+    unless (null nextEpoch) $ assertionFailed0 $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
                  "thisEpoch"%listJson%"\nnextEpoch:"%listJson)
                 (map (headerHash . fst) thisEpoch)
@@ -188,12 +189,12 @@ applyBlocksDbUnsafeDo pm scb blunds pModifier = do
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks pm (map toUpdateBlock blocks) pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks noTrace pm (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
-    txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
+    txpBatch <- tgsApplyBlocks noTrace $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks pm (map toSscBlock blocks) Nothing
+        sscApplyBlocks noTrace pm (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -215,12 +216,12 @@ rollbackBlocksUnsafe
 rollbackBlocksUnsafe pm bsc scb toRollback = do
     slogRoll <- slogRollbackBlocks bsc scb toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (map toDlgBlund toRollback)
-    usRoll <- SomeBatchOp <$> usRollbackBlocks
+    usRoll <- SomeBatchOp <$> usRollbackBlocks noTrace
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks
+    txRoll <- tgsRollbackBlocks noTrace $ map toTxpBlund toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks noTrace
         (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll

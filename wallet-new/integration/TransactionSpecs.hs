@@ -5,14 +5,14 @@ module TransactionSpecs (transactionSpecs) where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
-import           Control.Lens
-import qualified Pos.Core as Core
-import           Test.Hspec
-
 import           Control.Concurrent (threadDelay)
+import           Control.Lens
+import           Test.Hspec
 import           Text.Show.Pretty (ppShow)
+
+import qualified Pos.Core as Core
+
 import           Util
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

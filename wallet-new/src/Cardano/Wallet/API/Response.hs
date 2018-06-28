@@ -1,10 +1,12 @@
 {-# LANGUAGE DeriveFunctor   #-}
 {-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE OverloadedLists #-}
 module Cardano.Wallet.API.Response (
     Metadata (..)
   , ResponseStatus(..)
   , WalletResponse(..)
+  , JSONValidationError(..)
   -- * Generating responses for collections
   , respondWith
   , fromSlice
@@ -18,21 +20,8 @@ module Cardano.Wallet.API.Response (
   ) where
 
 import           Prelude
-import           Universum (Buildable, decodeUtf8, toText, (<>))
-
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
-import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
-import           Control.Lens
-import           Data.Aeson
-import           Data.Aeson.Encode.Pretty (encodePretty)
-import           Data.Aeson.TH
-import           Data.Swagger as S hiding (Example, example)
-import           Data.Typeable
-import           Formatting (bprint, build, (%))
-import           GHC.Generics (Generic)
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
-                     MimeUnrender (..), OctetStream)
-import           Test.QuickCheck
+import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
+                     (<>))
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -42,14 +31,30 @@ import           Cardano.Wallet.API.Request.Pagination (Page (..),
                      PerPage (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
-import           Cardano.Wallet.API.V1.Errors
-                     (WalletError (JSONValidationFailed))
+import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
+import           Control.Lens hiding ((.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode,
+                     object, pairs, (.:), (.=))
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import           Data.Aeson.TH
+import           Data.Aeson.Types (Value (..), typeMismatch)
+import           Data.Swagger as S hiding (Example, example)
+import           Data.Typeable
+import           Formatting (bprint, build, (%))
+import           Generics.SOP.TH (deriveGeneric)
+import           GHC.Generics (Generic)
+import           Servant (err400)
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
+                     MimeUnrender (..), OctetStream)
+import           Test.QuickCheck
 
 import qualified Data.Aeson.Options as Serokell
 import qualified Data.Char as Char
+import qualified Data.HashMap.Strict as HMS
 import qualified Formatting.Buildable
-
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -166,7 +171,7 @@ respondWith :: (Monad m, Indexable' a)
             -> m (WalletResponse [a])
 respondWith RequestParams{..} fops sorts generator = do
     (theData, paginationMetadata) <- paginate rpPaginationParams . sortData sorts . applyFilters fops <$> generator
-    return $ WalletResponse {
+    return WalletResponse {
              wrData = theData
            , wrStatus = SuccessStatus
            , wrMeta = Metadata paginationMetadata
@@ -225,3 +230,55 @@ instance Accept ValidJSON where
 
 instance ToJSON a => MimeRender ValidJSON a where
     mimeRender _ = mimeRender (Proxy @ JSON)
+
+
+--
+-- Error from parsing / validating JSON inputs
+--
+
+newtype JSONValidationError
+    = JSONValidationFailed Text
+    deriving (Generic, Show, Eq)
+
+deriveGeneric ''JSONValidationError
+
+instance ToJSON JSONValidationError where
+    toEncoding (JSONValidationFailed weValidationError) = pairs $ mconcat
+        [ "message"    .= String "JSONValidationFailed"
+        , "status"     .= String "error"
+        , "diagnostic" .= object
+            [ "validationError" .= weValidationError
+            ]
+        ]
+
+instance FromJSON JSONValidationError where
+    parseJSON (Object o)
+        | HMS.member "message" o =
+            case HMS.lookup "message" o of
+                Just "JSONValidationFailed" ->
+                    JSONValidationFailed <$> ((o .: "diagnostic") >>= (.: "validationError"))
+                _ ->
+                    fail "Incorrect JSON encoding for JSONValidationError"
+
+        | otherwise =
+            fail "Incorrect JSON encoding for JSONValidationError"
+
+    parseJSON invalid =
+        typeMismatch "JSONValidationError" invalid
+
+instance Exception JSONValidationError
+
+instance Arbitrary JSONValidationError where
+    arbitrary = oneof
+        [ pure $ JSONValidationFailed "JSON validation failed."
+        ]
+
+instance Buildable JSONValidationError where
+    build = \case
+        JSONValidationFailed _ ->
+            bprint "Couldn't decode a JSON input."
+
+instance ToServantError JSONValidationError where
+    declareServantError = \case
+        JSONValidationFailed _ ->
+            err400

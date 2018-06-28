@@ -45,6 +45,9 @@ module Cardano.Wallet.API.V1.Types (
   , AccountIndex
   , AccountAddresses (..)
   , AccountBalance (..)
+  , getAccIndex
+  , mkAccountIndex
+  , AccountIndexError(..)
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
@@ -87,75 +90,80 @@ module Cardano.Wallet.API.V1.Types (
   , CaptureAccountId
   -- * Core re-exports
   , Core.Address
+  -- * Wallet Errors
+  , WalletError(..)
+  , toServantError
+  , toHttpErrorStatus
   ) where
 
 import           Universum
 
-import           Data.Semigroup (Semigroup)
-
-import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
-import qualified Data.Aeson.Options as Serokell
+import           Data.Aeson.Encoding (pairStr)
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
-import qualified Data.Char as C
+import           Data.Aeson.Types (Value (..), toJSONKeyText, typeMismatch)
+import           Data.Bifunctor (first)
 import           Data.Default (Default (def))
-import qualified Data.IxSet.Typed as IxSet
+import           Data.Semigroup (Semigroup)
 import           Data.Swagger hiding (Example, example)
-import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
-import qualified Data.Text as T
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
-import qualified Formatting.Buildable
+import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
-import qualified Prelude
 import           Serokell.Util (listJson)
-import qualified Serokell.Util.Base16 as Base16
 import           Servant
+import           Test.Pos.Core.Arbitrary ()
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
+import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
+                     ToServantError (..))
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
                      IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
-
--- V0 logic
-import           Pos.Util.Mnemonic (Mnemonic)
-
--- importing for orphan instances for Coin
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-
 import           Cardano.Wallet.Util (showApiUtcTime)
-import qualified Data.ByteArray as ByteArray
-import qualified Data.ByteString as BS
-import qualified Data.Map.Strict as Map
-import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
-import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
-import qualified Pos.Core.Update as Core
 import           Pos.Crypto (decodeHash, hashHexF)
-import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
-import qualified Pos.Wallet.Web.State.Storage as OldStorage
+import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Wallet.Web.ClientTypes.Instances ()
 
-import           Test.Pos.Core.Arbitrary ()
+import qualified Data.Aeson.Options as Serokell
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import qualified Data.Char as C
+import qualified Data.HashMap.Strict as HMS
+import qualified Data.IxSet.Typed as IxSet
+import qualified Data.Map.Strict as Map
+import qualified Data.Swagger as S
+import qualified Data.Text as T
+import qualified Formatting.Buildable
+import qualified Pos.Client.Txp.Util as Core
+import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
+import qualified Pos.Core.Update as Core
+import qualified Pos.Crypto.Signing as Core
+import qualified Pos.Wallet.Web.State.Storage as OldStorage
+import qualified Prelude
+import qualified Serokell.Util.Base16 as Base16
+
 
 -- | Declare generic schema, while documenting properties
 --   For instance:
@@ -203,7 +211,7 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
       & schema . S.example ?~ toJSON (genExample :: a)
   where
     genExample =
-      (unGen (resize 3 example)) (mkQCGen 42) 42
+      unGen (resize 3 example) (mkQCGen 42) 42
 
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
@@ -266,13 +274,14 @@ instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
 instance (Buildable a, Buildable b) => Buildable (a, b) where
     build (a, b) = bprint ("("%build%", "%build%")") a b
 
+
 --
 -- Benign instances
 --
 
 instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
-   withByteArray (V1 a) callback = ByteArray.withByteArray a callback
+   withByteArray (V1 a) = ByteArray.withByteArray a
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
@@ -301,7 +310,7 @@ instance Arbitrary (V1 Core.PassPhrase) where
     arbitrary = fmap V1 arbitrary
 
 instance ToSchema (V1 Core.PassPhrase) where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "V1PassPhrase") $ mempty
             & type_ .~ SwaggerString
             & format ?~ "hex|base16"
@@ -416,7 +425,7 @@ deriveJSON Serokell.defaultOptions { A.constructorTagModifier = toString . toLow
                                    } ''AssuranceLevel
 
 instance ToSchema AssuranceLevel where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "AssuranceLevel") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["normal", "strict"]
@@ -468,7 +477,7 @@ deriveJSON Serokell.defaultOptions  { A.constructorTagModifier = reverse . drop 
                                     } ''WalletOperation
 
 instance ToSchema WalletOperation where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "WalletOperation") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["create", "restore"]
@@ -592,7 +601,7 @@ instance FromJSON SyncPercentage where
     parseJSON = withObject "SyncPercentage" $ \sl -> mkSyncPercentage <$> sl .: "quantity"
 
 instance ToSchema SyncPercentage where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncPercentage") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -627,6 +636,14 @@ instance Ord EstimatedCompletionTime where
 instance Arbitrary EstimatedCompletionTime where
     arbitrary = EstimatedCompletionTime . MeasuredIn <$> arbitrary
 
+deriveSafeBuildable ''EstimatedCompletionTime
+instance BuildableSafeGen EstimatedCompletionTime where
+    buildSafeGen _ (EstimatedCompletionTime (MeasuredIn w)) = bprint ("{"
+        %" quantity="%build
+        %" unit=milliseconds"
+        %" }")
+        w
+
 instance ToJSON EstimatedCompletionTime where
     toJSON (EstimatedCompletionTime (MeasuredIn w)) =
         object [ "quantity" .= toJSON w
@@ -637,7 +654,7 @@ instance FromJSON EstimatedCompletionTime where
     parseJSON = withObject "EstimatedCompletionTime" $ \sl -> mkEstimatedCompletionTime <$> sl .: "quantity"
 
 instance ToSchema EstimatedCompletionTime where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "EstimatedCompletionTime") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -667,6 +684,14 @@ instance Ord SyncThroughput where
 instance Arbitrary SyncThroughput where
     arbitrary = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput <$> arbitrary
 
+deriveSafeBuildable ''SyncThroughput
+instance BuildableSafeGen SyncThroughput where
+    buildSafeGen _ (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) = bprint ("{"
+        %" quantity="%build
+        %" unit=blocksPerSecond"
+        %" }")
+        blocks
+
 instance ToJSON SyncThroughput where
     toJSON (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) =
       object [ "quantity" .= toJSON blocks
@@ -677,7 +702,7 @@ instance FromJSON SyncThroughput where
     parseJSON = withObject "SyncThroughput" $ \sl -> mkSyncThroughput . Core.BlockCount <$> sl .: "quantity"
 
 instance ToSchema SyncThroughput where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncThroughput") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -713,7 +738,14 @@ instance ToSchema SyncProgress where
 deriveSafeBuildable ''SyncProgress
 -- Nothing secret to redact for a SyncProgress.
 instance BuildableSafeGen SyncProgress where
-    buildSafeGen _ sp = bprint build sp
+    buildSafeGen sl SyncProgress {..} = bprint ("{"
+        %" estimatedCompletionTime="%buildSafe sl
+        %" throughput="%buildSafe sl
+        %" percentage="%buildSafe sl
+        %" }")
+        spEstimatedCompletionTime
+        spThroughput
+        spPercentage
 
 instance Example SyncProgress where
 instance Arbitrary SyncProgress where
@@ -863,7 +895,7 @@ newtype AddressValidity = AddressValidity { isValid :: Bool }
 deriveJSON Serokell.defaultOptions ''AddressValidity
 
 instance ToSchema AddressValidity where
-    declareNamedSchema = genericSchemaDroppingPrefix "is" (\_ -> identity)
+    declareNamedSchema = genericSchemaDroppingPrefix "is" (const identity)
 
 instance Arbitrary AddressValidity where
   arbitrary = AddressValidity <$> arbitrary
@@ -899,7 +931,67 @@ instance Arbitrary WalletAddress where
                               <*> arbitrary
                               <*> arbitrary
 
-type AccountIndex = Word32
+newtype AccountIndex = AccountIndex { getAccIndex :: Word32 }
+    deriving (Show, Eq, Ord, Generic)
+
+newtype AccountIndexError = AccountIndexError Word32
+    deriving (Eq, Show)
+
+instance Buildable AccountIndexError where
+    build (AccountIndexError i) =
+        bprint
+            ("Account index should be in range ["%int%".."%int%"], but "%int%" was provided.")
+            (getAccIndex minBound)
+            (getAccIndex maxBound)
+            i
+
+mkAccountIndex :: Word32 -> Either AccountIndexError AccountIndex
+mkAccountIndex index
+    | index >= getAccIndex minBound = Right $ AccountIndex index
+    | otherwise = Left $ AccountIndexError index
+
+instance Bounded AccountIndex where
+    -- NOTE: minimum for hardened key. See https://iohk.myjetbrains.com/youtrack/issue/CO-309
+    minBound = AccountIndex 2147483648
+    maxBound = AccountIndex maxBound
+
+instance ToJSON AccountIndex where
+    toJSON = toJSON . getAccIndex
+
+instance FromJSON AccountIndex where
+    parseJSON =
+        either fmtFail pure . mkAccountIndex <=< parseJSON
+      where
+        fmtFail = fail . toString . sformat build
+
+instance Arbitrary AccountIndex where
+    arbitrary =
+        AccountIndex <$> choose (getAccIndex minBound, getAccIndex maxBound)
+
+deriveSafeBuildable ''AccountIndex
+-- Nothing secret to redact for a AccountIndex.
+instance BuildableSafeGen AccountIndex where
+    buildSafeGen _ =
+        bprint build . getAccIndex
+
+instance ToParamSchema AccountIndex where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerNumber
+        & minimum_ .~ Just (fromIntegral $ getAccIndex minBound)
+        & maximum_ .~ Just (fromIntegral $ getAccIndex maxBound)
+
+instance ToSchema AccountIndex where
+    declareNamedSchema =
+        pure . paramSchemaToNamedSchema defaultSchemaOptions
+
+instance FromHttpApiData AccountIndex where
+    parseQueryParam =
+        first (sformat build) . mkAccountIndex <=< parseQueryParam
+
+instance ToHttpApiData AccountIndex where
+    toQueryParam =
+        fromString . show . getAccIndex
+
 
 -- | A wallet 'Account'.
 data Account = Account
@@ -1689,7 +1781,7 @@ instance FromJSON LocalTimeDifference where
     parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
 
 instance ToSchema LocalTimeDifference where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
@@ -1730,7 +1822,7 @@ instance FromJSON BlockchainHeight where
         mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
 
 instance ToSchema BlockchainHeight where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "BlockchainHeight") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
@@ -2071,3 +2163,310 @@ instance Example Redemption where
                          <*> example
                          <*> example
                          <*> example
+
+--
+-- Wallet Errors
+--
+
+-- | Type representing any error which might be thrown by wallet.
+--
+-- Errors are represented in JSON in the JSend format (<https://labs.omniti.com/labs/jsend>):
+-- ```
+-- {
+--     "status": "error"
+--     "message" : <constr_name>,
+--     "diagnostic" : <data>
+-- }
+-- ```
+-- where `<constr_name>` is a string containing name of error's constructor (e. g. `NotEnoughMoney`),
+-- and `<data>` is an object containing additional error data.
+-- Additional data contains constructor fields, field names are record field names without
+-- a `we` prefix, e. g. for `OutputIsRedeem` error "diagnostic" field will be the following:
+-- ```
+-- {
+--     "address" : <address>
+-- }
+-- ```
+--
+-- Additional data in constructor should be represented as record fields.
+-- Otherwise TemplateHaskell will raise an error.
+--
+-- If constructor does not have additional data (like in case of `WalletNotFound` error),
+-- then "diagnostic" field will be empty object.
+--
+-- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
+data WalletError =
+    -- | NotEnoughMoney weNeedMore
+      NotEnoughMoney !Int
+    -- | OutputIsRedeem weAddress
+    | OutputIsRedeem !(V1 Core.Address)
+    -- | UnknownError weMsg
+    | UnknownError !Text
+    -- | InvalidAddressFormat weMsg
+    | InvalidAddressFormat !Text
+    | WalletNotFound
+    | WalletAlreadyExists !WalletId
+    | AddressNotFound
+    | TxFailedToStabilize
+    | InvalidPublicKey !Text
+    | UnsignedTxCreationError
+    | TooBigTransaction
+    -- ^ Size of transaction (in bytes) is greater than maximum.
+    | SignedTxSubmitError !Text
+    | TxRedemptionDepleted
+    -- | TxSafeSignerNotFound weAddress
+    | TxSafeSignerNotFound !(V1 Core.Address)
+    -- | MissingRequiredParams requiredParams
+    | MissingRequiredParams !(NonEmpty (Text, Text))
+    -- | WalletIsNotReadyToProcessPayments weStillRestoring
+    | CannotCreateAddress !Text
+    -- ^ Cannot create derivation path for new address (for external wallet).
+    | WalletIsNotReadyToProcessPayments !SyncProgress
+    -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
+    -- synced (its 'WalletSyncState' indicates it's either syncing or
+    -- restoring) and thus cannot accept new @Payment@ requests.
+    -- | NodeIsStillSyncing wenssStillSyncing
+    | NodeIsStillSyncing !SyncPercentage
+    -- ^ The backend couldn't process the incoming request as the underlying
+    -- node is still syncing with the blockchain.
+    deriving (Generic, Show, Eq)
+
+-- deriveWalletErrorJSON ''WalletError
+deriveGeneric ''WalletError
+
+instance Exception WalletError
+
+instance Arbitrary WalletError where
+    arbitrary = oneof
+        [ NotEnoughMoney <$> arbitrary
+        , OutputIsRedeem <$> arbitrary
+        , pure (UnknownError "Unknown error.")
+        , pure (InvalidAddressFormat "Invalid Base58 representation.")
+        , pure WalletNotFound
+        , WalletAlreadyExists <$> arbitrary
+        , pure AddressNotFound
+        , pure (InvalidPublicKey "Invalid root public key for external wallet.")
+        , pure UnsignedTxCreationError
+        , pure (SignedTxSubmitError "Cannot submit externally-signed transaction.")
+        , pure TooBigTransaction
+        , pure TxFailedToStabilize
+        , pure TxRedemptionDepleted
+        , TxSafeSignerNotFound <$> arbitrary
+        , pure (MissingRequiredParams (("wallet_id", "walletId") :| []))
+        , WalletIsNotReadyToProcessPayments <$> arbitrary
+        , NodeIsStillSyncing <$> arbitrary
+        , pure (CannotCreateAddress "Cannot create derivation path for new address in external wallet.")
+        ]
+
+-- | Give a short description of an error
+instance Buildable WalletError where
+    build = \case
+        NotEnoughMoney _ ->
+             bprint "Not enough available coins to proceed."
+        OutputIsRedeem _ ->
+             bprint "One of the TX outputs is a redemption address."
+        UnknownError _ ->
+             bprint "Unexpected internal error."
+        InvalidAddressFormat _ ->
+             bprint "Provided address format is not valid."
+        WalletNotFound ->
+             bprint "Reference to an unexisting wallet was given."
+        WalletAlreadyExists _ ->
+             bprint "Can't create or restore a wallet. The wallet already exists."
+        AddressNotFound ->
+             bprint "Reference to an unexisting address was given."
+        InvalidPublicKey _ ->
+            bprint "Extended public key (for external wallet) is invalid."
+        UnsignedTxCreationError ->
+            bprint "Unable to create unsigned transaction for an external wallet."
+        TooBigTransaction ->
+            bprint "Transaction size is greater than 4096 bytes."
+        SignedTxSubmitError _ ->
+            bprint "Unable to submit externally-signed transaction."
+        MissingRequiredParams _ ->
+            bprint "Missing required parameters in the request payload."
+        WalletIsNotReadyToProcessPayments _ ->
+            bprint "This wallet is restoring, and it cannot send new transactions until restoration completes."
+        NodeIsStillSyncing _ ->
+            bprint "The node is still syncing with the blockchain, and cannot process the request yet."
+        TxRedemptionDepleted ->
+            bprint "The redemption address was already used."
+        TxSafeSignerNotFound _ ->
+            bprint "The safe signer at the specified address was not found."
+        TxFailedToStabilize ->
+            bprint "We were unable to find a set of inputs to satisfy this transaction."
+        CannotCreateAddress _ ->
+            bprint "Cannot create derivation path for new address, for external wallet."
+
+
+-- | Convert wallet errors to Servant errors
+instance ToServantError WalletError where
+    declareServantError = \case
+        NotEnoughMoney{} ->
+            err403
+        OutputIsRedeem{} ->
+            err403
+        UnknownError{} ->
+            err500
+        WalletNotFound{} ->
+            err404
+        WalletAlreadyExists{} ->
+            err403
+        InvalidAddressFormat{} ->
+            err401
+        AddressNotFound{} ->
+            err404
+        InvalidPublicKey{} ->
+            err400
+        UnsignedTxCreationError{} ->
+            err500
+        TooBigTransaction{} ->
+            err400
+        SignedTxSubmitError{} ->
+            err500
+        MissingRequiredParams{} ->
+            err400
+        WalletIsNotReadyToProcessPayments{} ->
+            err403
+        NodeIsStillSyncing{} ->
+            err412 -- Precondition failed
+        TxFailedToStabilize{} ->
+            err500
+        TxRedemptionDepleted{} ->
+            err400
+        TxSafeSignerNotFound{} ->
+            err400
+        CannotCreateAddress{} ->
+            err500
+
+instance ToHttpErrorStatus WalletError
+
+instance ToJSON WalletError where
+    toEncoding (NotEnoughMoney weNeedMore) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "needMore" (toEncoding weNeedMore))
+             <> "message" .= String "NotEnoughMoney"
+    toEncoding (OutputIsRedeem weAddress) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "address" (toEncoding weAddress))
+             <> "message" .= String "OutputIsRedeem"
+    toEncoding (UnknownError weMsg) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
+             <> "message" .= String "UnknownError"
+    toEncoding (InvalidAddressFormat weMsg) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
+             <> "message" .= String "InvalidAddressFormat"
+    toEncoding (WalletNotFound) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "WalletNotFound"
+    toEncoding (WalletAlreadyExists wid) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "walletId" (toEncoding wid))
+             <> "message" .= String "WalletAlreadyExists"
+    toEncoding (AddressNotFound) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "AddressNotFound"
+    toEncoding (TxFailedToStabilize) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TxFailedToStabilize"
+    toEncoding (InvalidPublicKey weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "InvalidPublicKey"
+    toEncoding (UnsignedTxCreationError) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "UnsignedTxCreationError"
+    toEncoding (TooBigTransaction) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TooBigTransaction"
+    toEncoding (SignedTxSubmitError weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "SignedTxSubmitError"
+    toEncoding (TxRedemptionDepleted) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TxRedemptionDepleted"
+    toEncoding (TxSafeSignerNotFound weAddress) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "address" (toEncoding weAddress))
+             <> "message" .= String "TxSafeSignerNotFound"
+    toEncoding (MissingRequiredParams requiredParams) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "params" (toEncoding requiredParams))
+             <> "message" .= String "MissingRequiredParams"
+    toEncoding (CannotCreateAddress weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "CannotCreateAddress"
+    toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
+        toEncoding $ toJSON weStillRestoring
+    toEncoding (NodeIsStillSyncing wenssStillSyncing) =
+        toEncoding $ toJSON wenssStillSyncing
+
+instance FromJSON WalletError where
+    parseJSON (Object o)
+        | HMS.member "message" o =
+              case HMS.lookup "message" o of
+                Just "NotEnoughMoney"        ->
+                    NotEnoughMoney
+                        <$> ((o .: "diagnostic") >>= (.: "needMore"))
+                Just "OutputIsRedeem"        ->
+                    OutputIsRedeem <$> ((o .: "diagnostic") >>= (.: "address"))
+                Just "UnknownError"          ->
+                    UnknownError <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "InvalidAddressFormat"  ->
+                    InvalidAddressFormat
+                        <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "WalletNotFound"        -> pure WalletNotFound
+                Just "WalletAlreadyExists"   ->
+                    WalletAlreadyExists <$> ((o .: "diagnostic") >>= (.: "walletId"))
+                Just "AddressNotFound"       -> pure AddressNotFound
+                Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
+                Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
+                Just "TxSafeSignerNotFound"  ->
+                    TxSafeSignerNotFound
+                        <$> ((o .: "diagnostic") >>= (.: "address"))
+                Just "InvalidPublicKey"        ->
+                    InvalidPublicKey <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "UnsignedTxCreationError" -> pure UnsignedTxCreationError
+                Just "TooBigTransaction"       -> pure TooBigTransaction
+                Just "SignedTxSubmitError"     ->
+                    SignedTxSubmitError <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "CannotCreateAddress"   ->
+                    CannotCreateAddress <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "MissingRequiredParams" ->
+                    MissingRequiredParams
+                        <$> ((o .: "diagnostic") >>= (.: "params"))
+                Just _                       ->
+                    fail "Incorrect JSON encoding for WalletError"
+                Nothing                      ->
+                    fail "Incorrect JSON encoding for WalletError"
+        -- WalletIsNotReadyToProcessPayments
+        | HMS.member "estimatedCompletionTime" o = do
+            estCompTO <- (o .: "estimatedCompletionTime")
+            sThroughPO <- (o .: "throughput")
+            prctO <- (o .: "percentage")
+            estCompT <- parseJSON estCompTO
+            sThroughP <- parseJSON sThroughPO
+            prct <- parseJSON prctO
+            return . WalletIsNotReadyToProcessPayments
+                $ SyncProgress estCompT sThroughP prct
+        -- NodeIsStillSyncing
+        | HMS.member "quantity" o = do
+            quantityO <-  o .: "quantity"
+            quantity <- parseJSON quantityO
+            return . NodeIsStillSyncing $ mkSyncPercentage quantity
+        | otherwise = fail "Incorrect JSON encoding for WalletError"
+    parseJSON invalid = typeMismatch "WalletError" invalid

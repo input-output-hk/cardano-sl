@@ -4,6 +4,7 @@ import           Universum
 
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
+import           Formatting (build, sformat)
 import           Servant
 
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -25,11 +26,37 @@ import qualified Pos.Wallet.Web.Util as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration (HasConfigurations, MonadV1,
                      migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
+
+
+convertTxError :: V0.TxError -> WalletError
+convertTxError err = case err of
+    V0.NotEnoughMoney coin ->
+        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
+    V0.NotEnoughAllowedMoney coin ->
+        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
+    V0.FailedToStabilize ->
+        TxFailedToStabilize
+    V0.OutputIsRedeem addr ->
+        OutputIsRedeem (V1 addr)
+    V0.RedemptionDepleted ->
+        TxRedemptionDepleted
+    V0.SafeSignerNotFound addr ->
+        TxSafeSignerNotFound (V1 addr)
+    V0.SignedTxNotBase16Format ->
+        SignedTxSubmitError $ sformat build V0.SignedTxNotBase16Format
+    V0.SignedTxUnableToDecode txt ->
+        SignedTxSubmitError $ sformat build (V0.SignedTxUnableToDecode txt)
+    V0.SignedTxSignatureNotBase16Format ->
+        SignedTxSubmitError $ sformat build V0.SignedTxSignatureNotBase16Format
+    V0.SignedTxInvalidSignature txt ->
+        SignedTxSubmitError $ sformat build (V0.SignedTxInvalidSignature txt)
+    V0.GeneralTxError txt ->
+        UnknownError txt
+
 
 handlers
     :: HasConfigurations

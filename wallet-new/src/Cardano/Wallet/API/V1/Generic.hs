@@ -11,16 +11,17 @@ import           Universum hiding (All, Generic)
 
 import           Data.Aeson
 import           Data.Aeson.Types (Parser)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Vector as V
+import           Data.List ((!!))
 import           Generics.SOP
 import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..),
-                     defaultJsonOptions, jsonInfo)
+                     defaultJsonOptions)
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.Util (mkJsonKey)
-import           Data.List ((!!))
 import           Pos.Util.Util (aesonError)
+
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Vector as V
 
 --
 -- Helper proxies
@@ -42,24 +43,46 @@ allpf = Proxy
 -- JSON encoding/decoding
 --
 
--- | Returns `JsonInfo` for type (from `json-sop` package)
--- for representing a type in a JSend format.
-jsendInfo
-    :: forall a. (HasDatatypeInfo a, SListI (Code a))
-    => Proxy a -> NP JsonInfo (Code a)
-jsendInfo pa = jsonInfo pa $ defaultJsonOptions
-    { jsonFieldName = const mkJsonKey
-    }
-
 -- | Generic method which makes JSON `Value` from a Haskell value in
 -- JSend format.
 gtoJsend
     :: forall a. (Generic a, HasDatatypeInfo a, All2 ToJSON (Code a))
     => ResponseStatus -> a -> Value
-gtoJsend rs a = hcollapse $
-    hcliftA2 allpt (gtoJsend' rs)
-    (jsendInfo (Proxy :: Proxy a))
-    (unSOP $ from a)
+gtoJsend rs a =
+    hcollapse $
+        hcliftA2 allpt (gtoJsend' rs)
+        (jsendInfo (Proxy :: Proxy a) jsendOptions)
+        (unSOP $ from a)
+
+-- | Our custom naming options
+jsendOptions :: JsonOptions
+jsendOptions = defaultJsonOptions
+    { jsonFieldName = const mkJsonKey
+    }
+
+-- | Slightly modified version compared to Generics.SOP.JSON, we also tag
+-- single-constructor (ADT with one constructor and newtype) because we
+-- rely on that information to wrap the corresponding json in a jsend payload.
+jsendInfo :: forall a. (HasDatatypeInfo a, SListI (Code a))
+         => Proxy a -> JsonOptions -> NP JsonInfo (Code a)
+jsendInfo pa opts =
+  case datatypeInfo pa of
+    Newtype _ t _  -> JsonOne (Tag $ jsonTagName opts t) :* Nil
+    ADT     _ n cs -> hliftA (jsonInfoFor opts n (Tag . jsonTagName opts)) cs
+
+-- Extracted from Generics.SOP.JSON
+jsonInfoFor :: forall xs. JsonOptions -> DatatypeName -> (ConstructorName -> Tag) -> ConstructorInfo xs -> JsonInfo xs
+jsonInfoFor _    _ tag (Infix n _ _)   = JsonMultiple (tag n)
+jsonInfoFor _    _ tag (Constructor n) =
+  case shape :: Shape xs of
+    ShapeNil           -> JsonZero     n
+    ShapeCons ShapeNil -> JsonOne      (tag n)
+    _                  -> JsonMultiple (tag n)
+jsonInfoFor opts d tag (Record n fields) =
+    JsonRecord (tag n) (hliftA jfieldName fields)
+  where
+    jfieldName :: FieldInfo a -> K String a
+    jfieldName (FieldInfo name) = K (jsonFieldName opts d name)
 
 gtoJsend'
     :: All ToJSON xs
@@ -79,7 +102,7 @@ gtoJsend' rs (JsonRecord tag fields) cs =
 gparseJsend
     :: forall a. (Generic a, HasDatatypeInfo a, All2 FromJSON (Code a))
     => Value -> Parser a
-gparseJsend v = to <$> gparseJsend' v (jsendInfo (Proxy :: Proxy a))
+gparseJsend v = to <$> gparseJsend' v (jsendInfo (Proxy :: Proxy a) jsendOptions)
 
 gparseJsend'
     :: forall (xss :: [[*]]). All2 FromJSON xss

@@ -79,7 +79,7 @@ castAccountFiltering mbWalletId mbAccountIndex =
         (Just (V1.WalletId wId), _) ->
             case decodeTextAddress wId of
                 Left _         -> throwError $ GetTxAddressDecodingFailed wId
-                Right rootAddr -> return $ TxMeta.AccountFops rootAddr mbAccountIndex
+                Right rootAddr -> return $ TxMeta.AccountFops rootAddr (V1.getAccIndex <$> mbAccountIndex)
 
 -- This function reads at most the head of the SortOperations and expects to find "created_at".
 castSorting :: Monad m => S.SortOperations V1.Transaction -> ExceptT GetTxError m (Maybe TxMeta.Sorting)

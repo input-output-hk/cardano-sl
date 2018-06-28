@@ -2,11 +2,10 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
-
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
 
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Data.Map.Strict as Map

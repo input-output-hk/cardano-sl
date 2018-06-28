@@ -11,6 +11,7 @@ import qualified Pos.Chain.Txp as V0
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
@@ -21,8 +22,10 @@ import qualified Pos.Core as Core
 import qualified Pos.Core.Update as Core
 
 import           Cardano.Wallet.API.Indices
-import           Cardano.Wallet.API.V1.Errors (WalletError)
-import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
+import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
+import           Cardano.Wallet.API.Response (JSONValidationError)
+import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..),
+                     MigrationError)
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import qualified Cardano.Wallet.Util as Util
@@ -31,7 +34,6 @@ import qualified Cardano.Wallet.Util as Util
 spec :: Spec
 spec = parallel $ describe "Marshalling & Unmarshalling" $ do
     parallel $ describe "Roundtrips" $ do
-        -- Aeson roundrips
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @BackupPhrase Proxy
@@ -52,6 +54,8 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionStatus Proxy
         aesonRoundtripProp @WalletError Proxy
+        aesonRoundtripProp @JSONValidationError Proxy
+        aesonRoundtripProp @MigrationError Proxy
         aesonRoundtripProp @WalletId Proxy
         aesonRoundtripProp @Wallet Proxy
         aesonRoundtripProp @SlotDuration Proxy
@@ -63,8 +67,19 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @EstimatedCompletionTime Proxy
         aesonRoundtripProp @SyncProgress Proxy
         aesonRoundtripProp @SyncThroughput Proxy
+        aesonRoundtripProp @AccountIndex Proxy
 
-        -- Migrate roundrips
+        -- HttpApiData roundtrips
+        httpApiDataRoundtripProp @AccountIndex Proxy
+        httpApiDataRoundtripProp @(V1 Core.TxId) Proxy
+        httpApiDataRoundtripProp @WalletId Proxy
+        httpApiDataRoundtripProp @(V1 Core.Timestamp) Proxy
+        httpApiDataRoundtripProp @(V1 Core.Address) Proxy
+        httpApiDataRoundtripProp @PerPage Proxy
+        httpApiDataRoundtripProp @Page Proxy
+        httpApiDataRoundtripProp @Core.Coin Proxy
+
+        -- Migrate roundtrips
         migrateRoundtripProp @(V1 Core.Address) @(V0.CId V0.Addr) Proxy Proxy
         migrateRoundtripProp @(V1 Core.Coin) @V0.CCoin Proxy Proxy
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
@@ -133,7 +148,7 @@ migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, 
 migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do
     (eitherMigrate =<< migrateTo arbitraryFrom) === Right arbitraryFrom
   where
-    migrateTo x = eitherMigrate x :: Either WalletError to
+    migrateTo x = eitherMigrate x :: Either MigrationError to
 
 migrateRoundtripProp
     :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from, Typeable from, Typeable to)
@@ -150,6 +165,16 @@ aesonRoundtripProp
     => proxy a -> Spec
 aesonRoundtripProp proxy =
     prop ("Aeson " <> show (typeRep proxy) <> " roundtrips") (aesonRoundtrip proxy)
+
+httpApiDataRoundtrip :: (Arbitrary a, FromHttpApiData a, ToHttpApiData a, Eq a, Show a) => proxy a -> Property
+httpApiDataRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do
+    parseQueryParam (toQueryParam s) === Right s
+
+httpApiDataRoundtripProp
+    :: (Arbitrary a, ToHttpApiData a, FromHttpApiData a, Eq a, Show a, Typeable a)
+    => proxy a -> Spec
+httpApiDataRoundtripProp proxy =
+    prop ("HttpApiData " <> show (typeRep proxy) <> " roundtrips") (httpApiDataRoundtrip proxy)
 
 generalRoundtrip
     :: (Arbitrary from, Eq from, Show from, Show e)

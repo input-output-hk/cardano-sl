@@ -58,7 +58,7 @@ fromAccountId wId accIx =
     aux <$> fromRootId wId
   where
     aux :: HD.HdRootId -> HD.HdAccountId
-    aux hdRootId = HD.HdAccountId hdRootId (HD.HdAccountIx accIx)
+    aux hdRootId = HD.HdAccountId hdRootId (HD.HdAccountIx $ V1.getAccIndex accIx)
 
 -- | Converts from the @V1@ 'AssuranceLevel' to the HD one.
 fromAssuranceLevel :: V1.AssuranceLevel -> HD.AssuranceLevel
@@ -70,7 +70,11 @@ fromAssuranceLevel V1.StrictAssurance = HD.AssuranceLevelStrict
 -------------------------------------------------------------------------------}
 
 toAccountId :: HD.HdAccountId -> V1.AccountIndex
-toAccountId = HD.getHdAccountIx . view HD.hdAccountIdIx
+toAccountId =
+    either (error . show) identity -- Invariant: Assuming HD AccountId are valid~
+    . V1.mkAccountIndex
+    . HD.getHdAccountIx
+    . view HD.hdAccountIdIx
 
 toRootId :: HD.HdRootId -> V1.WalletId
 toRootId = V1.WalletId . sformat build . _fromDb . HD.getHdRootId
@@ -89,8 +93,8 @@ toAccount snapshot account = V1.Account {
     -- NOTE(adn): Perhaps we want the minimum or expected balance here?
     accountAvailableBalance = cpAvailableBalance (account ^. HD.hdAccountState . HD.hdAccountStateCurrent)
     hdAccountId  = account ^. HD.hdAccountId
-    accountIndex = account ^. HD.hdAccountId . HD.hdAccountIdIx . to HD.getHdAccountIx
-    hdAddresses  = Kernel.addressesByAccountId snapshot hdAccountId
+    accountIndex = toAccountId (account ^. HD.hdAccountId)
+    hdAddresses  = Kernel.accountAddresses snapshot hdAccountId
     addresses    = IxSet.toList hdAddresses
     hdRootId     = account ^. HD.hdAccountId . HD.hdAccountIdParent
 

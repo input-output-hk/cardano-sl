@@ -1,39 +1,51 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
+{-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Cardano.Wallet.API.V1.Migration.Types
     ( Migrate(..)
+    , MigrationError(..)
     , migrate
     ) where
 
 import           Universum hiding (elems)
 
-import qualified Control.Lens as Lens
-import qualified Control.Monad.Catch as Catch
+import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
+import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, pairs, (.:),
+                     (.=))
+import           Data.Aeson.Types (Value (..), typeMismatch)
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Data.Typeable (typeRep)
-import           Formatting (sformat)
+import           Formatting (bprint, build, sformat)
+import           Generics.SOP.TH (deriveGeneric)
+import           GHC.Generics (Generic)
+import           Pos.Core (addressF)
+import           Pos.Crypto (decodeHash)
+import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Wallet.Web.ClientTypes.Instances ()
+import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
+import           Servant (err422)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Gen (oneof)
 
-import           Cardano.Wallet.API.V1.Errors as Errors
-import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Control.Lens as Lens
+import qualified Control.Monad.Catch as Catch
+import qualified Data.HashMap.Strict as HMS
+import qualified Formatting.Buildable
 import qualified Pos.Chain.Txp as V0
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Txp
-import           Pos.Crypto (decodeHash)
-import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
-import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
-import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 -- NOTE: This has @nothing@ to do with database migrations (see `safecopy`),
@@ -41,7 +53,7 @@ import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 -- will be completed and the V0 API removed, we will be able to remove this
 -- typeclass altogether.
 class Migrate from to where
-    eitherMigrate :: from -> Either Errors.WalletError to
+    eitherMigrate :: from -> Either MigrationError to
 
 -- | "Run" the migration.
 migrate :: ( Migrate from to, Catch.MonadThrow m ) => from -> m to
@@ -93,14 +105,14 @@ instance Migrate (OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.Sync
                 Just nd | wspCurrentBlockchainDepth >= nd -> 100
                 Just nd -> (fromIntegral wspCurrentBlockchainDepth / max 1.0 (fromIntegral nd)) * 100.0
             toMs (Core.Timestamp microsecs) =
-              V1.mkEstimatedCompletionTime (round @Double $ (realToFrac (toMicroseconds microsecs) / 1000.0))
+              V1.mkEstimatedCompletionTime (round @Double (realToFrac (toMicroseconds microsecs) / 1000.0))
             tput (OldStorage.SyncThroughput blocks) = V1.mkSyncThroughput blocks
             remainingBlocks = fmap (\total -> total - wspCurrentBlockchainDepth) currentBlockchainHeight
         in V1.SyncProgress <$> pure (toMs (maybe unknownCompletionTime
                                                  (calculateEstimatedRemainingTime wspThroughput)
                                                  remainingBlocks))
                            <*> pure (tput wspThroughput)
-                           <*> pure (V1.mkSyncPercentage (floor @Double $ percentage))
+                           <*> pure (V1.mkSyncPercentage (floor @Double percentage))
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
 
@@ -116,7 +128,7 @@ instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
 --
 instance Migrate V0.CCoin (V1 Core.Coin) where
     eitherMigrate c =
-        let err = Left . Errors.MigrationFailed . mappend "error migrating V0.CCoin -> Core.Coin, mkCoin failed: "
+        let err = Left . MigrationFailed . mappend "error migrating V0.CCoin -> Core.Coin, mkCoin failed: "
         in either err (pure . V1) (V0.decodeCType c)
 
 instance Migrate (V1 Core.Coin) V0.CCoin where
@@ -159,7 +171,7 @@ instance Migrate V0.CAddress V1.WalletAddress where
 instance Migrate V0.SyncProgress V1.SyncPercentage where
     eitherMigrate V0.SyncProgress{..} =
         let percentage = case _spNetworkCD of
-                Nothing -> (0 :: Word8)
+                Nothing -> 0 :: Word8
                 Just nd | _spLocalCD >= nd -> 100
                 Just nd -> floor @Double $ (fromIntegral _spLocalCD / max 1.0 (fromIntegral nd)) * 100.0
         in pure $ V1.mkSyncPercentage (fromIntegral percentage)
@@ -183,7 +195,7 @@ instance Migrate V0.CAccount V1.Account where
 -- in old API 'V0.AccountId' supposed to carry both wallet id and derivation index
 instance Migrate (V1.WalletId, V1.AccountIndex) V0.AccountId where
     eitherMigrate (walId, accIdx) =
-        V0.AccountId <$> eitherMigrate walId <*> pure accIdx
+        V0.AccountId <$> eitherMigrate walId <*> pure (V1.getAccIndex accIdx)
 
 instance Migrate V1.PaymentSource V0.AccountId where
     eitherMigrate V1.PaymentSource{..} = eitherMigrate (psWalletId, psAccountIndex)
@@ -197,10 +209,14 @@ instance Migrate V1.PaymentSource V0.CAccountId where
 
 instance Migrate V0.AccountId (V1.WalletId, V1.AccountIndex) where
     eitherMigrate accId =
-        (,) <$> eitherMigrate (V0.aiWId accId) <*> pure (V0.aiIndex accId)
+        (,)
+            <$> eitherMigrate (V0.aiWId accId)
+            <*> first
+                    (MigrationFailed . sformat build)
+                    (V1.mkAccountIndex $ V0.aiIndex accId)
 
 instance Migrate V0.CAccountId V0.AccountId where
-    eitherMigrate = first Errors.MigrationFailed . V0.decodeCType
+    eitherMigrate = first MigrationFailed . V0.decodeCType
 
 instance Migrate V0.CAccountId V1.AccountIndex where
     eitherMigrate cAccId = do
@@ -216,24 +232,24 @@ instance Migrate V0.CAccountId V1.WalletId where
 
 instance Migrate V0.CAddress (V1 Core.Address) where
        eitherMigrate V0.CAddress {..} =
-           let err = Left . Errors.MigrationFailed . mappend "Error migrating V0.CAddress -> Core.Address failed: "
+           let err = Left . MigrationFailed . mappend "Error migrating V0.CAddress -> Core.Address failed: "
            in either err (pure . V1) (V0.decodeCType cadId)
 
 instance Migrate (V0.CId V0.Addr) (V1 Core.Address) where
     eitherMigrate (V0.CId (V0.CHash h)) =
-        let err = Left . Errors.MigrationFailed . mappend "Error migrating (V0.CId V0.Addr) -> Core.Address failed."
+        let err = Left . MigrationFailed . mappend "Error migrating (V0.CId V0.Addr) -> Core.Address failed."
         in either err (pure . V1) (Core.decodeTextAddress h)
 
 instance Migrate (V1 Core.Address) (V0.CId V0.Addr) where
     eitherMigrate (V1 address) =
       let h = sformat addressF address in
-      pure $ (V0.CId (V0.CHash h))
+      pure (V0.CId (V0.CHash h))
 
 instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
     eitherMigrate (cIdAddr, cCoin) = do
         pdAddress <- eitherMigrate cIdAddr
         pdAmount  <- eitherMigrate cCoin
-        pure $ V1.PaymentDistribution {..}
+        pure V1.PaymentDistribution {..}
 
 instance Migrate V1.PaymentDistribution (V0.CId V0.Addr, Core.Coin) where
     eitherMigrate V1.PaymentDistribution {..} =
@@ -248,7 +264,7 @@ instance Migrate (V0.CId V0.Addr, Core.Coin) V1.PaymentDistribution where
 
 instance Migrate V0.CTxId (V1 Txp.TxId) where
     eitherMigrate (V0.CTxId (V0.CHash h)) =
-        let err = Left . Errors.MigrationFailed . mappend "Error migrating a TxId: "
+        let err = Left . MigrationFailed . mappend "Error migrating a TxId: "
         in either err (pure . V1) (decodeHash h)
 
 instance Migrate POSIXTime (V1 Core.Timestamp) where
@@ -309,7 +325,7 @@ instance Migrate V1.EstimatedFees V0.TxFee where
 instance Migrate V1.WalletUpdate V0.CWalletMeta where
     eitherMigrate V1.WalletUpdate{..} = do
         migratedAssurance <- eitherMigrate uwalAssuranceLevel
-        pure $ V0.CWalletMeta
+        pure V0.CWalletMeta
             { cwName      = uwalName
             , cwAssurance = migratedAssurance
             , cwUnit      = 0
@@ -318,7 +334,58 @@ instance Migrate V1.WalletUpdate V0.CWalletMeta where
 instance Migrate V0.CWalletMeta V1.WalletUpdate where
     eitherMigrate V0.CWalletMeta{..} = do
         migratedAssurance <- eitherMigrate cwAssurance
-        pure $ V1.WalletUpdate
+        pure V1.WalletUpdate
             { uwalName              = cwName
             , uwalAssuranceLevel    = migratedAssurance
             }
+
+--
+-- Migration Errors
+--
+
+newtype MigrationError
+    = MigrationFailed Text
+    deriving (Eq, Show, Generic)
+
+deriveGeneric ''MigrationError
+
+instance ToJSON MigrationError where
+    toEncoding (MigrationFailed weDescription) = pairs $ mconcat
+        [ "message"    .= String "MigrationFailed"
+        , "status"     .= String "error"
+        , "diagnostic" .= object
+            [ "description" .= weDescription
+            ]
+        ]
+
+instance FromJSON MigrationError where
+    parseJSON (Object o)
+        | HMS.member "message" o =
+            case HMS.lookup "message" o of
+                Just "MigrationFailed" ->
+                    MigrationFailed <$> ((o .: "diagnostic") >>= (.: "description"))
+                _ ->
+                    fail "Incorrect JSON encoding for MigrationError"
+
+        | otherwise =
+            fail "Incorrect JSON encoding for MigrationError"
+
+    parseJSON invalid =
+        typeMismatch "MigrationError" invalid
+
+instance Exception MigrationError
+
+instance Arbitrary MigrationError where
+    arbitrary = oneof
+        [ pure $ MigrationFailed "Migration failed."
+        ]
+
+instance Buildable MigrationError where
+    build = \case
+        MigrationFailed _ ->
+             bprint "Error while migrating a legacy type into the current version."
+
+instance ToServantError MigrationError where
+    declareServantError = \case
+        MigrationFailed _ ->
+            err422

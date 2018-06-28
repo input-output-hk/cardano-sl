@@ -16,6 +16,7 @@ import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
 
 import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 
@@ -137,7 +138,6 @@ instance Example Payment where
                       <*> example
 
 instance Example WalletStateSnapshot
-
 
 
 -- IMPORTANT: if executing `grep "[]\|null" wallet-new/spec/swagger.json` returns any element - then we have to add Example instances for those objects because we don't want to see [] or null examples in our docs.

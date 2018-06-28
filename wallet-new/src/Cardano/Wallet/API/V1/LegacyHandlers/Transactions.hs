@@ -23,11 +23,29 @@ import qualified Pos.Wallet.Web.Util as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration (HasConfigurations, MonadV1,
                      migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
+
+
+convertTxError :: V0.TxError -> WalletError
+convertTxError err = case err of
+    V0.NotEnoughMoney coin ->
+        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
+    V0.NotEnoughAllowedMoney coin ->
+        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
+    V0.FailedToStabilize ->
+        TxFailedToStabilize
+    V0.OutputIsRedeem addr ->
+        OutputIsRedeem (V1 addr)
+    V0.RedemptionDepleted ->
+        TxRedemptionDepleted
+    V0.SafeSignerNotFound addr ->
+        TxSafeSignerNotFound (V1 addr)
+    V0.GeneralTxError txt ->
+        UnknownError txt
+
 
 handlers
     :: HasConfigurations
@@ -38,6 +56,7 @@ handlers pm submitTx =
              newTransaction pm submitTx
         :<|> allTransactions
         :<|> estimateFees pm
+
 
 newTransaction
     :: forall ctx m

@@ -1,16 +1,16 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
 
 module Main where
 
+import           Control.Applicative (empty)
 import           Control.Concurrent (threadDelay)
 import           Control.Exception (throwIO)
 import           Control.Exception.Safe (throwString)
-import           Control.Applicative (empty)
 import           Control.Monad (unless)
 
 --import           Data.Functor.Contravariant (contramap)
@@ -20,15 +20,16 @@ import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen)
 
 import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..),
-                                        logMeasure)
+                     logMeasure)
 import qualified Network.Transport.TCP as TCP
 import           Node (ConversationActions (..), Listener (..), NodeAction (..),
-                       defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
+                     defaultNodeEnvironment, noReceiveDelay, node,
+                     simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
-import           ReceiverOptions (Args (..), argsParser)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig
-import           Pos.Util.Trace.Named (setupLogging, appendName)
+import           Pos.Util.Trace.Named (appendName, setupLogging)
+import           ReceiverOptions (Args (..), argsParser)
 
 main :: IO ()
 main = do
@@ -42,7 +43,7 @@ main = do
 
     --Log.loadLogConfig logsPrefix logConfig
     lc1 <- case logConfig of
-              Nothing -> return $ defaultInteractiveConfiguration Log.Debug
+              Nothing  -> return $ defaultInteractiveConfiguration Log.Debug
               Just lc0 -> parseLoggerConfig lc0
     lc <- setLogPrefix logsPrefix lc1
     logTrace <- setupLogging lc "bench-receiver"

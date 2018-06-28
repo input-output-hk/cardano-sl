@@ -34,19 +34,22 @@ import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
-import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
-                                 ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply,
+                     MonadSlogBase, ShouldCallBListener, slogApplyBlocks,
+                     slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, gbHeader, headerHash,
-                           mainBlockDlgPayload, mainBlockSscPayload, mainBlockTxPayload,
-                           mainBlockUpdatePayload)
+import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
+                     gbHeader, headerHash, mainBlockDlgPayload,
+                     mainBlockSscPayload, mainBlockTxPayload,
+                     mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback, dlgRollbackBlocks)
+import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback,
+                     dlgRollbackBlocks)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Exception (assertionFailed)
 import           Pos.GState.SanityCheck (sanityCheckDB)

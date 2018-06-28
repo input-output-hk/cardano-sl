@@ -14,16 +14,18 @@ import           Universum
 
 import           Data.Version (showVersion)
 import qualified NeatInterpolation as N
-import           Options.Applicative (CommandFields, Mod, Parser, command, execParser, footerDoc,
-                                      fullDesc, header, help, helper, info, infoOption, long,
-                                      maybeReader, metavar, option, progDesc, subparser, value)
+import           Options.Applicative (CommandFields, Mod, Parser, command,
+                     execParser, footerDoc, fullDesc, header, help, helper,
+                     info, infoOption, long, maybeReader, metavar, option,
+                     progDesc, subparser, value)
 import           Pos.Communication (NodeId)
 import           Serokell.Util.OptParse (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
+                     compileInfo)
 
 ----------------------------------------------------------------------------
 -- Types

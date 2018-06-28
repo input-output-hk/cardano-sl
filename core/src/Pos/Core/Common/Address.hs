@@ -58,22 +58,26 @@ import           Universum
 
 import           Control.Lens (makePrisms)
 import qualified Data.ByteString as BS
-import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58, encodeBase58)
+import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
+                     decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
 
-import           Pos.Binary.Class (Bi (..), Encoding, biSize, encodeCrcProtected)
+import           Pos.Binary.Class (Bi (..), Encoding, biSize,
+                     encodeCrcProtected)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto.Hashing (hashHexF)
-import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
-                     deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey, packHDAddressAttr)
-import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey, RedeemPublicKey,
-                     SecretKey, deterministicKeyGen, emptyPassphrase, encToPublic, noPassEncrypt)
+import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
+                     ShouldCheckPassphrase (..), deriveHDPassphrase,
+                     deriveHDPublicKey, deriveHDSecretKey, packHDAddressAttr)
+import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
+                     RedeemPublicKey, SecretKey, deterministicKeyGen,
+                     emptyPassphrase, encToPublic, noPassEncrypt)
 import           Pos.Data.Attributes (Attributes (..), attrData, mkAttributes)
 import           Pos.Util.Log.LogSafe (SecureLog)
 

@@ -12,11 +12,11 @@ import           Pos.Core (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (Reporter (..))
 import           Pos.Infra.Reporting.Http (reportNode)
-import           Pos.Infra.Reporting.NodeInfo (extendWithNodeInfo)
 import           Pos.Infra.Reporting.Logfiles (withLogTempFile)
+import           Pos.Infra.Reporting.NodeInfo (extendWithNodeInfo)
 import           Pos.Util.CompileInfo (CompileTimeInfo)
 import           Pos.Util.Log (LoggerConfig)
-import           Pos.Util.Trace (Trace, Severity)
+import           Pos.Util.Trace (Severity, Trace)
 
 data ProductionReporterParams = ProductionReporterParams
     { prpServers         :: ![Text]

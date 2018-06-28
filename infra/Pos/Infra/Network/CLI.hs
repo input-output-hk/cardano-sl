@@ -39,19 +39,17 @@ import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
-import           Serokell.Util.OptParse (fromParsec)
 import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),
-                                                  MalformedDHTKey (..),
-                                                  fromYamlConfig)
+                     MalformedDHTKey (..), fromYamlConfig)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 import           Pos.Infra.Network.Types (NodeId, NodeName (..))
 import qualified Pos.Infra.Network.Types as T
 import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
-                                          addrParserNoWildcard,
-                                          addressToNodeId)
+                     addrParserNoWildcard, addressToNodeId)
 import qualified Pos.Util.Log as Log
+import           Serokell.Util.OptParse (fromParsec)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)

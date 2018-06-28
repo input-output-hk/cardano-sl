@@ -33,13 +33,16 @@ import           Formatting (bprint, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin,
-                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin, HasCoreConfiguration)
+import           Pos.Core (Coin, HasCoreConfiguration, StakeholderId, StakesMap,
+                     coinF, mkCoin, sumCoins, unsafeAddCoin,
+                     unsafeIntegerToCoin)
 import           Pos.Crypto (shortHashF)
-import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
-                         RocksBatchOp (..), dbIterSource, dbSerializeValue)
+import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB,
+                     MonadDBRead, RocksBatchOp (..), dbIterSource,
+                     dbSerializeValue)
 import           Pos.DB.GState.Common (gsPutBi)
-import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey, getRealTotalStake)
+import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey,
+                     getRealTotalStake)
 import           Pos.Txp.Toil.Types (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo (utxoToStakes)
 import           Pos.Util.Trace (Trace)
@@ -107,7 +110,7 @@ getAllPotentiallyHugeStakesMap =
 
 sanityCheckStakes
     :: (MonadDBRead m, MonadUnliftIO m)
-    => Trace m LogItem 
+    => Trace m LogItem
     -> m ()
 sanityCheckStakes logTrace = do
     calculatedTotalStake <- runConduitRes $

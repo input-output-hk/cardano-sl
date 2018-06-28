@@ -6,10 +6,11 @@ module Pos.Binary.Update.Poll
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeListLenCanonical,
-                     deriveSimpleBi, encodeListLen)
-import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, Coin, EpochIndex,
-                     HeaderHash, NumSoftwareVersion, SlotId, SoftwareVersion, StakeholderId)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     decodeListLenCanonical, deriveSimpleBi, encodeListLen)
+import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, Coin,
+                     EpochIndex, HeaderHash, NumSoftwareVersion, SlotId,
+                     SoftwareVersion, StakeholderId)
 import qualified Pos.Core.Update as U
 import           Pos.Infra.Binary ()
 import           Pos.Infra.Slotting.Types (SlottingData)

@@ -15,9 +15,9 @@ import           Prelude (id)
 import           Pos.Binary (Bi)
 import           Pos.Core (Address)
 import           Pos.Crypto
-import           Pos.Explorer.Web.ClientTypes (CAddress (..), decodeHashHex, encodeHashHex,
-                                               fromCAddress, fromCHash, fromCTxId, toCAddress,
-                                               toCHash, toCTxId)
+import           Pos.Explorer.Web.ClientTypes (CAddress (..), decodeHashHex,
+                     encodeHashHex, fromCAddress, fromCHash, fromCTxId,
+                     toCAddress, toCHash, toCTxId)
 import           Pos.Txp (Tx, TxId)
 import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)

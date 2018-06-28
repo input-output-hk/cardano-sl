@@ -8,14 +8,15 @@ import           Universum
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (def)
-import           System.Random (mkStdGen, randomIO)
 import           Pos.Util.Log (logInfo)
+import           System.Random (mkStdGen, randomIO)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Core (gdBootStakeholders, genesisData)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
-import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCountRange)
+import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
+                     tgpTxCountRange)
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp (txpGlobalSettings)

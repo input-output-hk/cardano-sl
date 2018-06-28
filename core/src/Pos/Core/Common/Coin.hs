@@ -29,8 +29,8 @@ import           Data.Data (Data)
 import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, int, (%))
 
-import           Pos.Util.Log.LogSafe (SecureLog)
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Util.Log.LogSafe (SecureLog)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coin is the least possible unit of currency.

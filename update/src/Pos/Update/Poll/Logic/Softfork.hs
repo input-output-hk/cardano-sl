@@ -16,14 +16,15 @@ import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 --import           Serokell.Util.Text (listJson)
 
-import           Pos.Core (BlockVersion, Coin, EpochIndex, HasProtocolConstants, HeaderHash,
-                     SlotId (..), SoftforkRule (..), StakeholderId, crucialSlot, sumCoins,
-                     unsafeIntegerToCoin)
+import           Pos.Core (BlockVersion, Coin, EpochIndex, HasProtocolConstants,
+                     HeaderHash, SlotId (..), SoftforkRule (..), StakeholderId,
+                     crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch, adoptBlockVersion,
-                     calcSoftforkThreshold, canBeAdoptedBV, updateSlottingData)
+import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
+                     adoptBlockVersion, calcSoftforkThreshold, canBeAdoptedBV,
+                     updateSlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util.AssertMode (inAssertMode)
 --import           Pos.Util.Log (logInfo)

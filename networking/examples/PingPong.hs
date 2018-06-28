@@ -13,8 +13,8 @@
 
 module Main where
 
+import           Control.Concurrent (forkIO, killThread, threadDelay)
 import           Control.Concurrent.Async (forConcurrently)
-import           Control.Concurrent (threadDelay, forkIO, killThread)
 import           Control.Exception (throwIO)
 import           Data.Binary (Binary)
 import qualified Data.ByteString as BS
@@ -27,7 +27,7 @@ import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
-import           Pos.Util.Trace.Named (setupLogging, appendName, logInfo)
+import           Pos.Util.Trace.Named (appendName, logInfo, setupLogging)
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.

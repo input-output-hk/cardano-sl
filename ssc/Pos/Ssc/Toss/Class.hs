@@ -13,10 +13,10 @@ import           Universum hiding (id)
 import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans (MonadTrans)
 
-import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot, StakeholderId, VssCertificate,
-                           VssCertificatesMap)
-import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening, OpeningsMap, SharesMap,
-                               SignedCommitment)
+import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot,
+                     StakeholderId, VssCertificate, VssCertificatesMap)
+import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening,
+                     OpeningsMap, SharesMap, SignedCommitment)
 import           Pos.Lrc.Types (RichmenStakes)
 
 ----------------------------------------------------------------------------

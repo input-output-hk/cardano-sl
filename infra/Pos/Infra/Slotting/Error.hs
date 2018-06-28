@@ -11,7 +11,8 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
 
 import           Pos.Core.Slotting (SlotId, slotIdF)
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 
 -- | Type aggregating run-time errors related to Slotting.
 data SlottingError = SEUnknownSlotStart !SlotId

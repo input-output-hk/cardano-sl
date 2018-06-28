@@ -18,8 +18,9 @@ import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
 import qualified Pos.Core as T
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
-                             SignTag (..), createPsk, proxySign, sign, toPublic)
+import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
+                     SecretKey, SignTag (..), createPsk, proxySign, sign,
+                     toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 
 import           Test.Pos.Block.Arbitrary as T

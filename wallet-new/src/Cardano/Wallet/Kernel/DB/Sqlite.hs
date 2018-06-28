@@ -23,20 +23,22 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
 import qualified Prelude
 import           Universum
 
-import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..),
-                                            IsSql92DataTypeSyntax, varCharType)
+import           Database.Beam.Backend.SQL (FromBackendRow,
+                     HasSqlValueSyntax (..), IsSql92DataTypeSyntax,
+                     varCharType)
 import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
-                                                  Sql92SelectOrderingSyntax)
+                     Sql92SelectOrderingSyntax)
 import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
 import qualified Database.Beam.Query as SQL
 import qualified Database.Beam.Query.Internal as SQL
-import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
+import           Database.Beam.Schema (Beamable, Database, DatabaseSettings,
+                     PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
 import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite)
-import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax, SqliteDataTypeSyntax,
-                                              SqliteExpressionSyntax, SqliteSelectSyntax,
-                                              SqliteValueSyntax, fromSqliteCommand,
-                                              sqliteBigIntType, sqliteRenderSyntaxScript)
+import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax,
+                     SqliteDataTypeSyntax, SqliteExpressionSyntax,
+                     SqliteSelectSyntax, SqliteValueSyntax, fromSqliteCommand,
+                     sqliteBigIntType, sqliteRenderSyntaxScript)
 import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 import qualified Database.SQLite.SimpleErrors as Sqlite
@@ -47,15 +49,15 @@ import           Control.Lens (Getter)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map as M
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
-import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
-                                        MigrationSteps, boolean, createTable, evaluateDatabase,
-                                        executeMigration, field, migrationStep, notNull,
-                                        runMigrationSteps, unCheckDatabase, unique)
+import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
+                     Migration, MigrationSteps, boolean, createTable,
+                     evaluateDatabase, executeMigration, field, migrationStep,
+                     notNull, runMigrationSteps, unCheckDatabase, unique)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
-import           Cardano.Wallet.Kernel.DB.TxMeta.Types (Limit (..), Offset (..), SortCriteria (..),
-                                                        SortDirection (..), Sorting (..))
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types (Limit (..), Offset (..),
+                     SortCriteria (..), SortDirection (..), Sorting (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)

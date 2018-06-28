@@ -32,9 +32,10 @@ import           Formatting (sformat, (%))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash, ProtocolMagic,
-                     SlotId (..), slotIdF)
-import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, UpdateVote (..))
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash,
+                     ProtocolMagic, SlotId (..), slotIdF)
+import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal,
+                     UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as DB
@@ -44,12 +45,15 @@ import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext (..))
 import qualified Pos.Update.DB as DB
-import           Pos.Update.MemState (LocalVotes, MemPool (..), MemState (..), MemVar (mvState),
-                     UpdateProposals, addToMemPool, withUSLock)
-import           Pos.Update.Poll (MonadPoll (deactivateProposal), MonadPollRead (getProposal),
-                     PollModifier, PollVerFailure (..), evalPollT, execPollT, filterProposalsByThd,
-                     getAdoptedBV, modifyPollModifier, normalizePoll, refreshPoll,
-                     reportUnexpectedError, runDBPoll, runPollT, verifyAndApplyUSPayload)
+import           Pos.Update.MemState (LocalVotes, MemPool (..), MemState (..),
+                     MemVar (mvState), UpdateProposals, addToMemPool,
+                     withUSLock)
+import           Pos.Update.Poll (MonadPoll (deactivateProposal),
+                     MonadPollRead (getProposal), PollModifier,
+                     PollVerFailure (..), evalPollT, execPollT,
+                     filterProposalsByThd, getAdoptedBV, modifyPollModifier,
+                     normalizePoll, refreshPoll, reportUnexpectedError,
+                     runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Update.Poll.Types (canCombineVotes, psVotes)
 import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (natTrace)

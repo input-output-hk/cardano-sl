@@ -1,13 +1,15 @@
-{-# LANGUAGE OverloadedStrings, NoImplicitPrelude, LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
-import           Universum
-import           Control.Exception (ErrorCall(..), handle)
+import           Control.Exception (ErrorCall (..), handle)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import           Data.FileEmbed (injectWith)
 import           Data.List (isInfixOf)
+import           Universum
 
 main :: IO ()
 main = do
@@ -40,7 +42,7 @@ injectWith' postfix toInj orig = handle (pure . toLeft) (toRight <$> evaluateNF 
   where
     inj = injectWith postfix toInj orig
     toRight (Just a) = Right a
-    toRight Nothing = Left ""
+    toRight Nothing  = Left ""
     toLeft (ErrorCall msg) = Left msg
 
 parseArgs :: IO (ByteString, [FilePath])

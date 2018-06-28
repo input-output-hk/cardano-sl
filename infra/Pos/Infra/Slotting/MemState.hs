@@ -23,13 +23,10 @@ import           Control.Monad.STM (retry)
 
 import           Pos.Core.Slotting (EpochIndex, Timestamp)
 import           Pos.Infra.Slotting.Types (EpochSlottingData, SlottingData,
-                                           getAllEpochIndices,
-                                           getCurrentEpochIndex,
-                                           getCurrentEpochSlottingData,
-                                           getNextEpochIndex,
-                                           getNextEpochSlottingData,
-                                           insertEpochSlottingDataUnsafe,
-                                           lookupEpochSlottingData)
+                     getAllEpochIndices, getCurrentEpochIndex,
+                     getCurrentEpochSlottingData, getNextEpochIndex,
+                     getNextEpochSlottingData, insertEpochSlottingDataUnsafe,
+                     lookupEpochSlottingData)
 
 ----------------------------------------------------------------------------
 -- Context

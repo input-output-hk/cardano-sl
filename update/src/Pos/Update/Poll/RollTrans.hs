@@ -23,8 +23,9 @@ import           Pos.Binary.Update ()
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion, maybeToPrev,
-                     psProposal, unChangedBVL, unChangedConfPropsL, unChangedPropsL, unChangedSVL,
+import           Pos.Update.Poll.Types (PrevValue, USUndo (..),
+                     cpsSoftwareVersion, maybeToPrev, psProposal, unChangedBVL,
+                     unChangedConfPropsL, unChangedPropsL, unChangedSVL,
                      unLastAdoptedBVL, unPrevProposersL, unSlottingDataL)
 import           Pos.Util.Util (ether)
 

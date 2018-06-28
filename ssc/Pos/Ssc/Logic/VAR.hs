@@ -12,25 +12,27 @@ module Pos.Ssc.Logic.VAR
 
 import           Control.Lens ((.=), _Wrapped)
 import           Control.Monad (forM_)
-import           Control.Monad.Writer (tell)
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph (hoist)
+import           Control.Monad.Writer (tell)
 import qualified Crypto.Random as Rand
-import qualified Data.HashMap.Strict as HM
 import           Data.Functor.Contravariant (contramap)
+import qualified Data.HashMap.Strict as HM
 
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
-import           Universum  hiding (forM_)
+import           Universum hiding (forM_)
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration,
-                           HasGenesisData, HasProtocolConstants, HeaderHash, epochIndexL,
-                           epochOrSlotG, headerHash)
+import           Pos.Core (BlockVersionData, ComponentBlock (..),
+                     HasCoreConfiguration, HasGenesisData,
+                     HasProtocolConstants, HeaderHash, epochIndexL,
+                     epochOrSlotG, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
+import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
+                     gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
 import           Pos.Infra.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
@@ -39,16 +41,18 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
-import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem, sscRunGlobalUpdate)
-import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, rollbackSsc,
-                               runPureToss, supplyPureTossEnv, verifyAndApplySscPayload,
-                               pureTossTrace, pureTossWithEnvTrace)
-                        
+import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem,
+                     sscRunGlobalUpdate)
+import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock,
+                     pureTossTrace, pureTossWithEnvTrace, rollbackSsc,
+                     runPureToss, supplyPureTossEnv, verifyAndApplySscPayload)
+
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
-import           Pos.Util.Trace (Trace, traceWith, natTrace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug, publicPrivateLogItem)
+import           Pos.Util.Trace (Trace, natTrace, traceWith)
+import           Pos.Util.Trace.Unstructured (LogItem, logDebug,
+                     publicPrivateLogItem)
 
 ----------------------------------------------------------------------------
 -- Modes
@@ -81,7 +85,7 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 -- All blocks must be from the same epoch.
 sscVerifyBlocks
     :: SscGlobalVerifyMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
@@ -160,7 +164,7 @@ onUnexpectedVerify
     :: forall m a.
        (MonadThrow m)
     => Trace m LogItem -> OldestFirst NE HeaderHash -> m a
-onUnexpectedVerify logTrace hashes = 
+onUnexpectedVerify logTrace hashes =
     assertionFailed (contramap publicPrivateLogItem logTrace) msg
   where
     fmt =

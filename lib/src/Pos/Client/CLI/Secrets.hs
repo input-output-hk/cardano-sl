@@ -12,9 +12,12 @@ import           Universum
 import           Control.Lens (ix)
 import           Crypto.Random (MonadRandom)
 
-import           Pos.Core (HasConfiguration, RichSecrets (..), genesisSecretsRich)
-import           Pos.Crypto (SecretKey, VssKeyPair, keyGen, runSecureRandom, vssKeyGen)
-import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
+import           Pos.Core (HasConfiguration, RichSecrets (..),
+                     genesisSecretsRich)
+import           Pos.Crypto (SecretKey, VssKeyPair, keyGen, runSecureRandom,
+                     vssKeyGen)
+import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss,
+                     writeUserSecret)
 
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import qualified Pos.Util.Log as Log

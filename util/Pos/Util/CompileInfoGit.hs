@@ -6,9 +6,9 @@ import           Universum
 
 import           Control.Exception.Safe (handleJust)
 import qualified Language.Haskell.TH as TH
+import           System.Exit (ExitCode (..))
 import           System.IO.Error (ioeGetErrorType, isDoesNotExistErrorType)
 import           System.Process (readProcessWithExitCode)
-import           System.Exit (ExitCode (..))
 
 -- | Git revision found by running git rev-parse. If git could not be
 -- executed, then this will be an empty string.

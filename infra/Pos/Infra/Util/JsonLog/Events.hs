@@ -36,11 +36,12 @@ import           JsonLog.CanJsonLog (CanJsonLog)
 import           JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
 import           Mockable (realTime)
-import           Serokell.Aeson.Options (defaultOptions)
 import           Pos.Util.Log (WithLogger)
+import           Serokell.Aeson.Options (defaultOptions)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,
-                           gbhPrevBlock, getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)
+import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
+                     SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
+                     headerHash, headerHashF, mkLocalSlotIndex)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)

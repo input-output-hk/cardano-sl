@@ -24,8 +24,9 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation.Cede.Class (MonadCede (..), MonadCedeRead (..))
-import           Pos.Delegation.Cede.Types (CedeModifier, DlgEdgeAction (..), cmHasPostedThisEpoch,
-                                            cmLookupCache, cmPskMods, dlgEdgeActionIssuer)
+import           Pos.Delegation.Cede.Types (CedeModifier, DlgEdgeAction (..),
+                     cmHasPostedThisEpoch, cmLookupCache, cmPskMods,
+                     dlgEdgeActionIssuer)
 import qualified Pos.Delegation.DB as DB
 
 ----------------------------------------------------------------------------

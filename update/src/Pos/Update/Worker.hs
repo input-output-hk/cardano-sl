@@ -16,8 +16,8 @@ import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Recovery.Info (recoveryCommGuard)
 import           Pos.Infra.Shutdown (triggerShutdown)
-import           Pos.Infra.Slotting.Util (ActionTerminationPolicy (..), OnNewSlotParams (..),
-                     defaultOnNewSlotParams, onNewSlot)
+import           Pos.Infra.Slotting.Util (ActionTerminationPolicy (..),
+                     OnNewSlotParams (..), defaultOnNewSlotParams, onNewSlot)
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB (getConfirmedProposals)
@@ -25,9 +25,9 @@ import           Pos.Update.Download (downloadUpdate)
 import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
-import           Pos.Util.Util (lensOf)
 import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
+import           Pos.Util.Util (lensOf)
 
 -- | Update System related workers.
 usWorkers

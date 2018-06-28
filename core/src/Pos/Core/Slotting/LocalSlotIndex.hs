@@ -21,8 +21,8 @@ import           Data.Ix (Ix)
 import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                     protocolConstants)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
+                     epochSlots, protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Util.Util (leftToPanic)
 

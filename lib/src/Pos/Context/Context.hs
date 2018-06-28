@@ -26,19 +26,22 @@ import           Control.Lens (lens, makeLensesWith)
 import           Data.Time.Clock (UTCTime)
 import           System.Wlog (LoggerConfig)
 
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..), SlogContext (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryHeader,
-                                  RecoveryHeaderTag)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
+                     BlockRetrievalQueueTag)
+import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..),
+                     SlogContext (..))
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
+                     RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+                     MisbehaviorMetrics (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..),
-                                     ShutdownContext (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), SimpleSlottingStateVar)
+                     ShutdownContext (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..),
+                     SimpleSlottingStateVar)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))

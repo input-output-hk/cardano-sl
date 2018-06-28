@@ -19,11 +19,13 @@ import qualified Data.Text.Buildable as Buildable
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()
 import           Pos.Core.Block.Main ()
-import           Pos.Core.Block.Union.Types (Block, BlockHeader (..), HasHeaderHash (..),
-                     HasPrevBlock (..), IsGenesisHeader, IsHeader, IsMainHeader (..),
-                     blockHeaderHash, choosingBlockHeader)
+import           Pos.Core.Block.Union.Types (Block, BlockHeader (..),
+                     HasHeaderHash (..), HasPrevBlock (..), IsGenesisHeader,
+                     IsHeader, IsMainHeader (..), blockHeaderHash,
+                     choosingBlockHeader)
 import           Pos.Core.Common (HasDifficulty (..))
-import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..))
+import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..),
+                     HasEpochOrSlot (..))
 import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------

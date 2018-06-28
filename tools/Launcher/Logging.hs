@@ -18,10 +18,10 @@ module Launcher.Logging
   (reportErrorDefault)
 where
 
+import           System.Directory (createDirectoryIfMissing)
+import           System.Environment (getEnv)
+import           System.FilePath ((</>))
 import           Universum
-import           System.Directory                (createDirectoryIfMissing)
-import           System.Environment              (getEnv)
-import           System.FilePath                 ((</>))
 
 getDefaultLogDir :: IO FilePath
 getDefaultLogDir =

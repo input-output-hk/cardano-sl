@@ -16,7 +16,8 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Util.Log
 import           Pos.Util.Log.Internal (getLinesLogged)
-import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS, logNoticeS, logWarningS)
+import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
+                     logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
 

@@ -33,9 +33,10 @@ import qualified Data.List as List
 import qualified Data.Set as S
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..), StakeholderId,
-                           VssCertificate (..), VssCertificatesMap (..), deleteVss, getCertId,
-                           insertVss, lookupVss, memberVss)
+import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..),
+                     StakeholderId, VssCertificate (..),
+                     VssCertificatesMap (..), deleteVss, getCertId, insertVss,
+                     lookupVss, memberVss)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.

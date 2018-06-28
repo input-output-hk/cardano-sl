@@ -77,10 +77,11 @@ import           Data.Typeable (Typeable)
 import           Data.Version (Version)
 import           Formatting (bprint, build, builder, later, shown, (%))
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
-                     unsafeGetCoin)
-import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
-                     deriveSafeBuildable, secretOnlyF, secureListF)
+import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
+                     SoftwareVersion, unsafeGetCoin)
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                     buildUnsecure, deriveSafeBuildable, secretOnlyF,
+                     secureListF)
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 import           Serokell.Util (listJsonIndent, mapBuilder)

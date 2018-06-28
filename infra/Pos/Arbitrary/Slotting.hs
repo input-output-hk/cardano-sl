@@ -7,10 +7,11 @@ module Pos.Arbitrary.Slotting () where
 import           Universum
 
 import           Test.QuickCheck (Arbitrary (..), arbitrary, oneof)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
-                                           createInitSlottingData)
+                     createInitSlottingData)
 
 import           Test.Pos.Core.Arbitrary ()
 

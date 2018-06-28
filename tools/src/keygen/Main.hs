@@ -19,19 +19,22 @@ import qualified Pos.Util.Log as Log
 
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), ProtocolMagic,
-                           RichSecrets (..), addressHash, ccGenesis, coreConfiguration,
-                           generateFakeAvvm, generateRichSecrets, mkVssCertificate, vcSigningKey,
-                           vssMaxTTL)
-import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, fullPublicKeyF,
-                             hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
+                     ProtocolMagic, RichSecrets (..), addressHash, ccGenesis,
+                     coreConfiguration, generateFakeAvvm, generateRichSecrets,
+                     mkVssCertificate, vcSigningKey, vssMaxTTL)
+import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
+                     VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
+                     redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
-import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys, usPrimKey, usVss,
-                                      usWallet, writeUserSecretRelease, wusRootKey)
+import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
+                     usPrimKey, usVss, usWallet, writeUserSecretRelease,
+                     wusRootKey)
 
-import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData, dumpRichSecrets)
-import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..), KeygenCommand (..),
-                                KeygenOptions (..), getKeygenOptions)
+import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
+                     dumpRichSecrets)
+import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
+                     KeygenCommand (..), KeygenOptions (..), getKeygenOptions)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -164,11 +167,11 @@ main = do
           Log.logInfo "Processing command"
           case koCommand of
               --RearrangeMask msk       -> rearrange msk
-              GenerateKey path        -> genPrimaryKey path
+              GenerateKey path -> genPrimaryKey path
               --GenerateVss path        -> genVssCert path
               -- --ReadKey path            -> readKey path
               -- --DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
               -- GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
               --DumpGenesisData dgdPath dgdCanonical
                                     -- -> CLI.dumpGenesisData dgdCanonical dgdPath
-              _                       -> Log.logWarning "command not understood"
+              _                -> Log.logWarning "command not understood"

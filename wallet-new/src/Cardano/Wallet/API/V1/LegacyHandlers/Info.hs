@@ -11,8 +11,8 @@ import           Cardano.Wallet.API.V1.Types as V1
 
 import           Mockable (MonadMockable)
 import           Ntp.Client (NtpStatus)
-import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 

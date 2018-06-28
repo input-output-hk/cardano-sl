@@ -14,8 +14,10 @@ import           Formatting (sformat, (%))
 import           Pos.Communication.Message ()
 import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (sendUpdateProposal, sendVote))
-import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkUpdateVoteSafe)
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (sendUpdateProposal, sendVote))
+import           Pos.Update (UpId, UpdateProposal, UpdateVote (..),
+                     mkUpdateVoteSafe)
 import           Pos.Util.Log (logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 

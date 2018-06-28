@@ -28,10 +28,10 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
 
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash, runSecureRandom,
-                             safeKeyGen)
-import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, peekUserSecret, usKeys,
-                                      usPrimKey, writeUserSecret)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash,
+                     runSecureRandom, safeKeyGen)
+import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret,
+                     peekUserSecret, usKeys, usPrimKey, writeUserSecret)
 
 import qualified Pos.Util.Log as Log
 

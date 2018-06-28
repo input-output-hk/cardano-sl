@@ -11,14 +11,15 @@ import           Control.Applicative.Combinators.NonEmpty (sepBy1)
 import           Control.Lens (Getting)
 import           Data.Loc (Span)
 import           Data.Monoid (First)
-import           Text.Earley (Grammar, Parser, Prod, Report, fullParses, parser, rule, terminal,
-                              (<?>))
+import           Text.Earley (Grammar, Parser, Prod, Report, fullParses, parser,
+                     rule, terminal, (<?>))
 
-import           Lang.Lexer (BracketSide, Token, getFilePath', tokenize, _BracketSideClosing,
-                             _BracketSideOpening, _TokenAddress, _TokenBlockVersion, _TokenFilePath,
-                             _TokenHash, _TokenKey, _TokenName, _TokenNumber, _TokenParenthesis,
-                             _TokenPublicKey, _TokenSemicolon, _TokenSoftwareVersion,
-                             _TokenStakeholderId, _TokenString)
+import           Lang.Lexer (BracketSide, Token, getFilePath', tokenize,
+                     _BracketSideClosing, _BracketSideOpening, _TokenAddress,
+                     _TokenBlockVersion, _TokenFilePath, _TokenHash, _TokenKey,
+                     _TokenName, _TokenNumber, _TokenParenthesis,
+                     _TokenPublicKey, _TokenSemicolon, _TokenSoftwareVersion,
+                     _TokenStakeholderId, _TokenString)
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
 

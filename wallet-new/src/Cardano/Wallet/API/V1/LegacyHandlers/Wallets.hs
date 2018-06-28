@@ -27,7 +27,8 @@ import           Pos.Update.Configuration ()
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.Error.Types as V0
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic,
+                     MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 

@@ -28,14 +28,15 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
 import           Pos.Core (StakeholderId, Timestamp (..))
-import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson, coreConfiguration,
-                     genesisData, prettyGenesisJson)
+import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
+                     coreConfiguration, genesisData, prettyGenesisJson)
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Infra.Util.TimeWarp (addrParser)
-import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
+import           Pos.Launcher.Configuration (Configuration (..),
+                     HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)
 import           Pos.Txp.Configuration (txpConfiguration)

@@ -43,7 +43,8 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
+import           Formatting (Format, bprint, build, fitLeft, later, sformat,
+                     (%), (%.))
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)

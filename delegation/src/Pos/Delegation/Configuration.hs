@@ -13,7 +13,8 @@ module Pos.Delegation.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
 import           Data.Reflection (Given (..), give)
 import           Serokell.Aeson.Options (defaultOptions)
 

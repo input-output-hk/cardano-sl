@@ -9,8 +9,9 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
-import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData, GenesisDelegation,
-                                   GenesisProtocolConstants, GenesisWStakeholders)
+import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData,
+                     GenesisDelegation, GenesisProtocolConstants,
+                     GenesisWStakeholders)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()

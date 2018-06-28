@@ -26,8 +26,10 @@ import           Pos.Core (ProxySKHeavy, StakeholderId)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead)
 import           Pos.Delegation.Cede (dlgLastPsk, getPsk, runDBCede)
-import           Pos.Delegation.Class (DelegationWrap (..), MonadDelegation, askDelegationState)
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Delegation.Class (DelegationWrap (..), MonadDelegation,
+                     askDelegationState)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 
 ----------------------------------------------------------------------------
 -- Exceptions

@@ -36,31 +36,33 @@ import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration, HasPrimaryKey (..),
-                           SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
-                           largestPubKeyAddressBoot)
+import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
+                     HasPrimaryKey (..), SlotId (..), Timestamp,
+                     epochOrSlotToSlot, getEpochOrSlot,
+                     largestPubKeyAddressBoot)
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
 import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
-                               dbPutSerBlundsSumDefault)
+                     dbPutSerBlundsSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration,
+                     mkDelegationVar)
 import           Pos.Exception (reportFatalError)
-import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
-                                            HasTxGenParams (..))
+import           Pos.Generator.Block.Param (BlockGenParams (..),
+                     HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..))
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, currentTimeSlottingSimple)
+                     MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings, TxpHolderTag,
-                          mkTxpLocalData)
+import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings,
+                     TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)

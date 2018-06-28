@@ -16,9 +16,10 @@ import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
-                                      getExplorerNodeOptions)
+                     getExplorerNodeOptions)
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
+                     getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (epochSlots)
@@ -26,18 +27,20 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
+import           Pos.Explorer.Txp (ExplorerExtraModifier,
+                     explorerTxpGlobalSettings)
+import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
+                     runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources,
-                               loggerBracket, runNode, runRealMode, withConfigurations)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
+                     NodeParams (..), NodeResources (..), bracketNodeResources,
+                     loggerBracket, runNode, runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
 import qualified Pos.Util.Log as Log
+import           Pos.Util.UserSecret (usVss)
 
 loggerName :: Log.LoggerName
 loggerName = "node"

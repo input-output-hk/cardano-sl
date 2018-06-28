@@ -50,6 +50,7 @@ import           Universum
 
 import           Data.IP (IPv4)
 import qualified Data.Set as Set (null)
+import qualified Data.Text as T
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -57,10 +58,9 @@ import           Network.DNS (DNSError)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
+import           Pos.Util.Log (LoggerName)
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           Pos.Util.Log (LoggerName)
-import qualified Data.Text as T
 
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Infra.Network.DnsDomains as DnsDomains

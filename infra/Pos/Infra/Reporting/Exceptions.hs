@@ -12,7 +12,8 @@ import           Control.Exception.Safe (Exception (..))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, shown, stext, string, (%))
 
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 
 data ReportingError
     = CantRetrieveLogs FilePath

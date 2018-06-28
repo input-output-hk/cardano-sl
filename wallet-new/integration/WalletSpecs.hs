@@ -5,8 +5,9 @@ module WalletSpecs (walletSpecs) where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors
+                     (WalletError (WalletAlreadyExists))
 import           Cardano.Wallet.Client.Http
-import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists))
 import           Control.Lens
 import           Test.Hspec
 

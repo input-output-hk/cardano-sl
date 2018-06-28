@@ -19,8 +19,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           System.Directory (canonicalizePath, doesFileExist, getTemporaryDirectory,
-                                   removeFile)
+import           System.Directory (canonicalizePath, doesFileExist,
+                     getTemporaryDirectory, removeFile)
 import           System.FilePath (takeFileName, (</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 
@@ -41,7 +41,7 @@ withLogTempFile :: Log.LoggerConfig -> (Maybe FilePath -> IO t) -> IO t
 withLogTempFile logConfig k = do
     mRawLogs <- readLogFile logConfig
     case mRawLogs of
-        Nothing -> k Nothing
+        Nothing      -> k Nothing
         Just rawLogs -> withTempLogFile rawLogs $ \fp -> k (Just fp)
 
 -- | Use a 'LoggerConfig' to get logs.
@@ -61,7 +61,7 @@ readLogFile logConfig = case mLogFile of
     basepath = fromMaybe "./" $ logConfig ^. lcBasePath
     allFiles = map ((</> basepath) . snd) $ Log.retrieveLogFiles logConfig
     mLogFile = case filter (".pub" `isSuffixOf`) allFiles of
-                 [] -> Nothing
+                 []    -> Nothing
                  (f:_) -> Just f
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int

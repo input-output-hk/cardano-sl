@@ -11,13 +11,16 @@ import           Test.QuickCheck.Monadic (assert)
 
 import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgSerializedBlock (..))
+import           Pos.Block.Network.Types (MsgBlock (..),
+                     MsgSerializedBlock (..))
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
-import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
+                     InplaceDB (..), bpGenBlock)
+import           Test.Pos.Configuration (HasStaticConfigurations,
+                     withStaticConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 -- |

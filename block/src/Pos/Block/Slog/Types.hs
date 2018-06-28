@@ -20,10 +20,11 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           System.Metrics.Label (Label)
 
-import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId, HasProtocolConstants,
-                           LocalSlotIndex, slotIdF, unflattenSlotId)
-import           Pos.Infra.Reporting.Metrics (MetricMonitorState)
+import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
+                     HasProtocolConstants, LocalSlotIndex, slotIdF,
+                     unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Infra.Reporting.Metrics (MetricMonitorState)
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of

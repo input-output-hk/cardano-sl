@@ -25,20 +25,22 @@ import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE (toList)
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
+import           Pos.Util.Log (WithLogger, logDebug)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
-import           Pos.Util.Log (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
+import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..),
+                     verifyHeader, verifyHeaders)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
-import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash, SlotId (..), blkSecurityParam,
-                           bvdMaxHeaderSize, difficultyL, epochIndexL, epochOrSlotG,
-                           getChainDifficulty, getEpochOrSlot, headerHash, headerHashG, headerSlotL,
-                           prevBlockL)
+import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash,
+                     SlotId (..), blkSecurityParam, bvdMaxHeaderSize,
+                     difficultyL, epochIndexL, epochOrSlotG,
+                     getChainDifficulty, getEpochOrSlot, headerHash,
+                     headerHashG, headerSlotL, prevBlockL)
 import           Pos.Core.Block (BlockHeader (..))
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB

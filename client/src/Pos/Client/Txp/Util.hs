@@ -44,7 +44,8 @@ module Pos.Client.Txp.Util
 import           Universum hiding (keys, tail)
 
 import           Control.Lens (makeLenses, (%=), (.=))
-import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
+import           Control.Monad.Except (ExceptT, MonadError (throwError),
+                     runExceptT)
 import           Data.Default (Default (..))
 import           Data.Fixed (Fixed, HasResolution)
 import qualified Data.HashSet as HS
@@ -61,20 +62,23 @@ import           Serokell.Util (listJson)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
-                           bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                           unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
+                     TxSizeLinear (..), bvdTxFeePolicy, calculateTxSizeLinear,
+                     coinToInteger, integerToCoin, isRedeemAddress, mkCoin,
+                     sumCoins, txSizeLinearMinValue, unsafeIntegerToCoin,
+                     unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
-                             SignTag (SignRedeemTx, SignTx), deterministicKeyGen, fakeSigner, hash,
-                             redeemSign, redeemToPublic, safeSign, safeToPublic)
+                     SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
+                     fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
+                     safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Script (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
-import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
-                          TxOutAux (..), TxSigData (..), Utxo)
+import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
+                     TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxSigData (..), Utxo)
 import           Pos.Util.Log.LogSafe (SecureLog, buildUnsecure)
 import           Test.QuickCheck (Arbitrary (..), elements)
 

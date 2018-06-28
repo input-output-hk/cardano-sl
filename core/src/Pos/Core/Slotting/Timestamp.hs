@@ -15,16 +15,18 @@ import           Universum
 
 import           Control.Lens (Iso', from, iso, makePrisms)
 import qualified Data.Text.Buildable as Buildable
-import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat, parseTimeM)
-import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
+import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat,
+                     parseTimeM)
+import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
+                     utcTimeToPOSIXSeconds)
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           Numeric.Lens (dividing)
 import qualified Prelude
 
-import           Pos.Util.Log.LogSafe (SecureLog)
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Util.Log.LogSafe (SecureLog)
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this

@@ -18,7 +18,8 @@ import           Control.Monad.Except (ExceptT, runExceptT)
 import           Control.Monad.Reader (Reader, asks, runReader)
 import           Control.Monad.State (State, runState, state)
 import           Control.Monad.Trans (MonadIO (liftIO))
-import           Data.Acid (AcidState, Query, Update, createArchive, createCheckpoint)
+import           Data.Acid (AcidState, Query, Update, createArchive,
+                     createCheckpoint)
 import           System.Directory (removeDirectoryRecursive)
 import           System.FilePath ((</>))
 

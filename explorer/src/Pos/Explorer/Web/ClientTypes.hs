@@ -68,13 +68,16 @@ import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary (biSize)
 import           Pos.Block.Types (Undo (..))
-import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotId (..), StakeholderId,
-                           Timestamp, addressF, coinToInteger, decodeTextAddress, gbHeader,
-                           gbhConsensus, getEpochIndex, getSlotIndex, headerHash, mkCoin,
-                           prevBlockL, sumCoins, timestampToPosix, unsafeAddCoin, unsafeGetCoin,
-                           unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
-import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo, txpTxs, _txOutputs)
+import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
+                     SlotId (..), StakeholderId, Timestamp, addressF,
+                     coinToInteger, decodeTextAddress, gbHeader, gbhConsensus,
+                     getEpochIndex, getSlotIndex, headerHash, mkCoin,
+                     prevBlockL, sumCoins, timestampToPosix, unsafeAddCoin,
+                     unsafeGetCoin, unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload,
+                     mcdSlot)
+import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
+                     txpTxs, _txOutputs)
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.GState as GS
 import qualified Pos.Lrc as Lrc (getLeader)

@@ -16,8 +16,9 @@ module Serokell.AcidState.ExtendedState
 
 import           Control.Monad.Extra (whenM)
 import           Control.Monad.Trans (MonadIO (liftIO))
-import           Data.Acid (AcidState, EventResult, EventState, IsAcidic, QueryEvent, UpdateEvent,
-                     closeAcidState, openLocalStateFrom)
+import           Data.Acid (AcidState, EventResult, EventState, IsAcidic,
+                     QueryEvent, UpdateEvent, closeAcidState,
+                     openLocalStateFrom)
 import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
 import           Data.Typeable (Typeable)

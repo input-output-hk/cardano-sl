@@ -46,7 +46,8 @@ import           NeatInterpolation
 import           Servant (Handler, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
-import           Servant.Swagger.UI (SwaggerSchemaUI', swaggerSchemaUIServerImpl)
+import           Servant.Swagger.UI (SwaggerSchemaUI',
+                     swaggerSchemaUIServerImpl)
 import           Servant.Swagger.UI.Internal (mkRecursiveEmbedded)
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen

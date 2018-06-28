@@ -15,42 +15,44 @@ module Pos.Txp.Network.Listeners
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
-import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary.Txp ()
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.Infra.Communication.Relay as Relay
-import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
+import           Pos.Infra.Util.JsonLog.Events (JLTxR (..))
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Unstructured (LogItem, logInfo)
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => ProtocolMagic
-    -> (JLEvent -> m ())  -- ^ How to log transactions
-    -> TxAux              -- ^ Incoming transaction to be processed
+    => Trace m LogItem
+    -> Trace m JLTxR    -- ^ How to log transactions
+    -> ProtocolMagic
+    -> TxAux            -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo pm logTx txAux = do
+handleTxDo logTrace jsonLogTrace pm txAux = do
     let txId = hash (taTx txAux)
     res <- txpProcessTx pm (txId, txAux)
-    let json me = logTx $ JLTxReceived $ JLTxR
+    let json me = traceWith jsonLogTrace $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me
             }
     case res of
         Right _ -> do
-            logInfo $
+            logInfo logTrace $
                 sformat ("Transaction has been added to storage: "%build) txId
             json Nothing
             pure True
         Left er -> do
-            logInfo $
+            logInfo logTrace $
                 sformat ("Transaction hasn't been added to storage: "%build%" , reason: "%build) txId er
             json $ Just $ sformat build er
             pure False
@@ -61,7 +63,6 @@ handleTxDo pm logTx txAux = do
 
 type TxpMode ctx m =
     ( MonadIO m
-    , WithLogger m
     , MonadTxpLocal m
     , MonadTxpMem (MempoolExt m) ctx m
     , Each '[Message]

@@ -36,8 +36,8 @@ import           JsonLog.CanJsonLog (CanJsonLog)
 import           JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
 import           Mockable (realTime)
+import           Pos.Util.Log (WithLogger)
 import           Serokell.Aeson.Options (defaultOptions)
-import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
                      SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
@@ -180,7 +180,7 @@ class HasJsonLogConfig ctx where
 
 jsonLogDefault
     :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadCatch m,
-        MonadIO m, WithLogger m)
+        WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
     jlc <- view jsonLogConfig

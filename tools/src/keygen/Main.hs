@@ -15,6 +15,8 @@ import           System.Wlog (WithLogger, debugPlus, logInfo, productionB,
                      setupLogging, termSeveritiesOutB, usingLoggerName)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
+import qualified Pos.Util.Log as Log
+
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
@@ -38,7 +40,7 @@ import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
 -- Helpers
 ----------------------------------------------------------------------------
 
-rearrangeKeyfile :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+rearrangeKeyfile :: (MonadIO m, MonadThrow m, Log.WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
@@ -49,15 +51,15 @@ rearrangeKeyfile fp = do
 -- Commands
 ----------------------------------------------------------------------------
 
-rearrange :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+rearrange :: (MonadIO m, MonadThrow m, Log.WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, Log.WithLogger m, MonadRandom m) => FilePath -> m ()
 genPrimaryKey path = do
     rs <- liftIO generateRichSecrets
     dumpRichSecrets path rs
     let pk = toPublic (rsPrimaryKey rs)
-    logInfo $
+    Log.logInfo $
         sformat
             ("Successfully generated primary key and dumped to "%string%
              ", stakeholder id: "%hashHexF%
@@ -66,19 +68,19 @@ genPrimaryKey path = do
             (addressHash pk)
             pk
 
-readKey :: (MonadIO m, WithLogger m) => FilePath -> m ()
+readKey :: (MonadIO m, MonadThrow m, Log.WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
-    logInfo $ maybe "No Primary key"
+    Log.logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
-    logInfo $ maybe "No wallet set"
+    Log.logInfo $ maybe "No wallet set"
                     (("Wallet set: " <>) . showKeyWithAddressHash . decryptESK . view wusRootKey) $
                     view usWallet us
-    logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
+    Log.logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
                            map (showKeyWithAddressHash . decryptESK) $
                            view usKeys us)
-    logInfo $ maybe "No vss"
+    Log.logInfo $ maybe "No vss"
                     (("Vss PK: " <>) . showPvssKey) $
                     view usVss us
 
@@ -97,10 +99,10 @@ decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk
 
 dumpAvvmSeeds
-    :: (MonadIO m, WithLogger m)
+    :: (MonadIO m, Log.WithLogger m)
     => DumpAvvmSeedsOptions -> m ()
 dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
-    logInfo $ "Generating fake avvm data into " <> fromString dasPath
+    Log.logInfo $ "Generating fake avvm data into " <> fromString dasPath
     liftIO $ createDirectoryIfMissing True dasPath
 
     when (dasNumber <= 0) $ error $
@@ -115,10 +117,10 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
         \(rPk,i) -> writeFile (dasPath </> "key"<>show i<>".pk")
                               (sformat redeemPkB64F rPk)
 
-    logInfo $ "Seeds were generated"
+    Log.logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m)
+    :: (HasConfigurations, MonadIO m, Log.WithLogger m, MonadThrow m, MonadRandom m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
     case ccGenesis coreConfiguration of
@@ -126,12 +128,12 @@ generateKeysByGenesis GenKeysOptions{..} = do
             error $ "Launched source file conf"
         GCSpec {} -> do
             dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern)
-            logInfo (toText gkoOutDir <> " generated successfully")
+            Log.logInfo (toText gkoOutDir <> " generated successfully")
 
 genVssCert
-    :: (HasConfigurations, WithLogger m, MonadIO m)
-    => ProtocolMagic -> FilePath -> m ()
-genVssCert pm path = do
+    :: (HasConfigurations, Log.WithLogger m, MonadIO m)
+    => FilePath -> m ()
+genVssCert path = do
     us <- readUserSecret path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
@@ -154,15 +156,22 @@ genVssCert pm path = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
+
+{-
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
-    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \_ pm -> do
-        logInfo "Processing command"
-        case koCommand of
-            RearrangeMask msk       -> rearrange msk
-            GenerateKey path        -> genPrimaryKey path
-            GenerateVss path        -> genVssCert pm path
-            ReadKey path            -> readKey path
-            DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
-            GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
-            DumpGenesisData dgdPath dgdCanonical
-                                    -> CLI.dumpGenesisData dgdCanonical dgdPath
+    usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ \_ -> do
+-}
+
+    Log.loggerBracket Log.Info "keygen" $ do
+
+          Log.logInfo "Processing command"
+          case koCommand of
+              --RearrangeMask msk       -> rearrange msk
+              GenerateKey path -> genPrimaryKey path
+              --GenerateVss path        -> genVssCert path
+              -- --ReadKey path            -> readKey path
+              -- --DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
+              -- GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
+              --DumpGenesisData dgdPath dgdCanonical
+                                    -- -> CLI.dumpGenesisData dgdCanonical dgdPath
+              _                -> Log.logWarning "command not understood"

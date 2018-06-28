@@ -15,7 +15,6 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 import           Mockable (MonadMockable)
-import           System.Wlog (logInfo)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
@@ -35,6 +34,7 @@ import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Util.Log (logInfo)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.WorkMode.Class (MinWorkMode)
 
@@ -83,7 +83,7 @@ prepareRedemptionTx pm rsk output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m)
+    :: MinWorkMode m
     => Diffusion m -> TxAux -> m Bool
 submitTxRaw diffusion txAux@TxAux {..} = do
     let txId = hash taTx

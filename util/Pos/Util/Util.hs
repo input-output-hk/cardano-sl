@@ -103,11 +103,10 @@ import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
+import qualified Pos.Util.Log as Log
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError,
-                     logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
@@ -325,13 +324,13 @@ multilineBounds maxSize = F.later formatList
    remaining = maxSize' - half
 
 -- | Catch and log an exception, then rethrow it
-logException :: LoggerName -> IO a -> IO a
-logException name = E.handleAsync (\e -> handler e >> E.throw e)
+logException :: Log.LoggingHandler -> Log.LoggerName -> IO a -> IO a
+logException lh name = E.handleAsync (\e -> handler e >> E.throw e)
   where
     handler :: E.SomeException -> IO ()
     handler exc = do
         let message = "logException: " <> pretty exc
-        usingLoggerName name (logError message) `E.catchAny` \loggingExc -> do
+        Log.usingLoggerName lh name (Log.logError message) `E.catchAny` \loggingExc -> do
             putStrLn message
             putStrLn $
                 "logException failed to use logging: " <> pretty loggingExc
@@ -339,7 +338,7 @@ logException name = E.handleAsync (\e -> handler e >> E.throw e)
 -- | 'bracket' which logs given message after acquiring the resource
 -- and before calling the callback with 'Info' severity.
 bracketWithLogging ::
-       (MonadMask m, WithLogger m)
+       (MonadMask m, Log.WithLogger m)
     => Text
     -> m a
     -> (a -> m b)
@@ -348,9 +347,9 @@ bracketWithLogging ::
 bracketWithLogging msg acquire release = bracket acquire release . addLogging
   where
     addLogging callback resource = do
-        logInfo $ "<bracketWithLogging:before> " <> msg
+        Log.logInfo $ "<bracketWithLogging:before> " <> msg
         callback resource <*
-            logInfo ("<bracketWithLogging:after> " <> msg)
+            Log.logInfo ("<bracketWithLogging:after> " <> msg)
 
 ----------------------------------------------------------------------------
 -- Misc
@@ -433,16 +432,16 @@ sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
 
 -- | 'tMeasure' with 'logDebug'.
-tMeasureLog :: (MonadIO m, WithLogger m) => Text -> m a -> m a
-tMeasureLog label = fmap fst . tMeasure logDebug label
+tMeasureLog :: (Log.WithLogger m) => Text -> m a -> m a
+tMeasureLog label = fmap fst . tMeasure Log.logDebug label
 
 -- | 'tMeasure' with 'putText'. For places you don't have
 -- 'WithLogger' constraint.
 tMeasureIO :: (MonadIO m) => Text -> m a -> m a
 tMeasureIO label = fmap fst . tMeasure putText label
 
-timed :: (MonadIO m, WithLogger m) => Text -> m a -> m (a, Microsecond)
-timed = tMeasure logDebug
+timed :: (Log.WithLogger m) => Text -> m a -> m (a, Microsecond)
+timed = tMeasure Log.logDebug
 
 -- | Takes the first time sample, executes action (forcing its
 -- result), takes the second time sample, logs it.

@@ -89,6 +89,7 @@ library
                      , cardano-sl-util
                      , conduit
                      , containers
+                     , contravariant
                      , data-default
                      , directory
                      , ether >= 0.5
@@ -99,7 +100,6 @@ library
                      , http-client-tls
                      , http-conduit
                      , lens
-                     , log-warper
                      , memory
                      , mtl
                      , reflection

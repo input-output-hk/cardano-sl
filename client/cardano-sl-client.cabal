@@ -42,7 +42,7 @@ library
                      , data-default
                      , formatting
                      , lens
-                     , log-warper
+                     --, log-warper
                      , mtl
                      , safe-exceptions
                      , serokell-util

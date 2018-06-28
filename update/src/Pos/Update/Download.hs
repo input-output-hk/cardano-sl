@@ -21,10 +21,10 @@ import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.HTTP.Simple (getResponseBody, getResponseStatus,
                      getResponseStatusCode, httpLBS, parseRequest,
                      setRequestManager)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logWarning)
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 import           System.Directory (doesFileExist)
-import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Update ()
@@ -40,6 +40,7 @@ import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Concurrent (withMVar)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens (..), (<//>))
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
@@ -61,8 +62,11 @@ installerHash = castHash . hash
 -- 1. This update is for our software.
 -- 2. This update is for our system (according to system tag).
 -- 3. This update brings newer software version than our current version.
-downloadUpdate :: forall ctx m . UpdateMode ctx m => ConfirmedProposalState -> m ()
-downloadUpdate cps = do
+downloadUpdate
+    :: forall ctx m . UpdateMode ctx m
+    => TraceNamed m
+    -> ConfirmedProposalState -> m ()
+downloadUpdate logTrace cps = do
     downloadLock <- ucDownloadLock <$> view (lensOf @UpdateContext)
     withMVar downloadLock $ \() -> do
         downloadedUpdateMVar <-
@@ -73,7 +77,7 @@ downloadUpdate cps = do
                 installed <- isUpdateInstalled updHash
                 if installed
                     then onAlreadyInstalled
-                    else downloadUpdateDo updHash cps
+                    else downloadUpdateDo logTrace updHash cps
             Just existingCPS -> onAlreadyDownloaded existingCPS
   where
     proposalToDL = cpsUpdateProposal cps
@@ -111,8 +115,12 @@ getUpdateHash ConfirmedProposalState{..} = do
         mupdHash
 
 -- Download and save archive update by given `ConfirmedProposalState`
-downloadUpdateDo :: UpdateMode ctx m => Hash Raw -> ConfirmedProposalState -> m ()
-downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
+downloadUpdateDo
+    :: UpdateMode ctx m
+    => TraceNamed m
+    -> Hash Raw
+    -> ConfirmedProposalState -> m ()
+downloadUpdateDo logTrace updHash cps@ConfirmedProposalState {..} = do
     updateServers <- views (lensOf @UpdateParams) upUpdateServers
 
     logInfo $ sformat ("We are going to start downloading an update for "%build)
@@ -150,7 +158,7 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
     whenLeft res logDownloadError
   where
     handleErr e =
-        Left (pretty e) <$ reportOrLogW "Update downloading failed: " e
+        Left (pretty e) <$ reportOrLogW logTrace "Update downloading failed: " e
     logDownloadError e =
         logWarning $ sformat
             ("Failed to download update proposal "%build%": "%stext)

@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.Yaml as Yaml
-import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
@@ -25,10 +24,11 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Ssc (SscParams (..))
 import           Pos.Update.Params (UpdateParams (..))
+import qualified Pos.Util.Log as Log
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
 
-loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
+loggingParams :: Log.LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams defaultName CommonNodeArgs{..} =
     LoggingParams
     { lpHandlerPrefix = logPrefix commonArgs
@@ -37,7 +37,7 @@ loggingParams defaultName CommonNodeArgs{..} =
     , lpConsoleLog    = Nothing -- no override by default
     }
 
-getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
+getBaseParams :: Log.LoggerName -> CommonNodeArgs -> BaseParams
 getBaseParams defaultLoggerName args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams defaultLoggerName args }
 
@@ -57,11 +57,11 @@ getKeyfilePath CommonNodeArgs {..}
 
 getNodeParams ::
        ( MonadIO m
-       , WithLogger m
+       , Log.WithLogger m
        , MonadCatch m
        , HasConfiguration
        )
-    => LoggerName
+    => Log.LoggerName
     -> CommonNodeArgs
     -> NodeArgs
     -> m NodeParams

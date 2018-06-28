@@ -14,10 +14,10 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core (HasProtocolConstants, SlotCount, SlotId, slotIdF,
                      slotSecurityParam)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.
@@ -93,14 +93,15 @@ getSyncStatusK = getSyncStatus lagBehindParam
 -- kinda synchronized with the network.  It is useful for workers
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo m, WithLogger m, HasProtocolConstants)
-    => Text -> m () -> m ()
-recoveryCommGuard actionName action =
+    :: (MonadRecoveryInfo m, HasProtocolConstants)
+    => TraceNamed m
+    -> Text -> m () -> m ()
+recoveryCommGuard logTrace actionName action =
     getSyncStatusK >>= \case
         SSKindaSynced -> action
         status ->
-            logDebug $
-            sformat ("recoveryCommGuard: we are skipping action '"%stext%
+            logDebug logTrace $
+                sformat ("recoveryCommGuard: we are skipping action '"%stext%
                      "', because "%build) actionName status
 
 -- | This function checks that last known block is more than K slots

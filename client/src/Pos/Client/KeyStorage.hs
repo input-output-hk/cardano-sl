@@ -27,12 +27,14 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
-import           System.Wlog (WithLogger)
 
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash,
                      runSecureRandom, safeKeyGen)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret,
                      peekUserSecret, usKeys, usPrimKey, writeUserSecret)
+
+import qualified Pos.Util.Log as Log
+
 
 type KeyData = TVar UserSecret
 
@@ -109,7 +111,7 @@ newSecretKey pp = do
 containsKey :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
 containsKey ls k = hash k `elem` map hash ls
 
-keyDataFromFile :: (MonadIO m, WithLogger m) => FilePath -> m KeyData
+keyDataFromFile :: (MonadIO m, Log.WithLogger m) => FilePath -> m KeyData
 keyDataFromFile fp = peekUserSecret fp >>= liftIO . STM.newTVarIO
 
 data KeyError =

@@ -72,7 +72,7 @@ import           Node.Message.Class (Message (..), MessageCode, Packing,
                      Serializable (..), pack, unpack)
 import           Node.Message.Decoder (ByteOffset, Decoder (..),
                      DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logInfo)
 import           System.Random (StdGen)
 
 
@@ -240,7 +240,7 @@ node
        ( Serializable packing MessageCode
        , Serializable packing peerData
        )
-    => Trace IO (Severity, T.Text)
+    => TraceNamed IO
     -> (IO LL.Statistics -> LL.NodeEndPoint)
     -> (IO LL.Statistics -> LL.ReceiveDelay)
        -- ^ delay on receiving input events.
@@ -289,9 +289,9 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
         return t
   where
     logNormalShutdown :: IO ()
-    logNormalShutdown = traceWith logTrace (Info, "stopping normally")
+    logNormalShutdown = logInfo logTrace $ "stopping normally"
     logException :: SomeException -> IO ()
-    logException e = traceWith logTrace (Error, sformat ("stopping with exception " % shown) e)
+    logException e = logError logTrace $ sformat ("stopping with exception " % shown) e
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut
@@ -310,14 +310,14 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
         -- a Word16, surely it serializes to (2 + c) bytes for some c).
         input <- recvNext packing maxBound inchan
         case input of
-            End -> traceWith logTrace (Debug, "handlerInOut : unexpected end of input")
+            End -> logDebug logTrace "handlerInOut : unexpected end of input"
             Input msgCode -> do
                 let listener = M.lookup msgCode listenerIndex
                 case listener of
                     Just (Listener action) ->
                         let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
-                    Nothing -> traceWith logTrace (Error, sformat ("no listener for "%shown) msgCode)
+                    Nothing -> logError logTrace $ sformat ("no listener for "%shown) msgCode
 
 -- | Try to receive and parse the next message, subject to a limit on the
 --   number of bytes which will be read.

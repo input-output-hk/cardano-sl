@@ -6,7 +6,7 @@ module Pos.GState.SanityCheck
 
 import           Universum
 
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)

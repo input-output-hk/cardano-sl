@@ -67,7 +67,6 @@ import           Data.NonEmptySet (NonEmptySet)
 import qualified Data.NonEmptySet as NESet
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Data.Text (Text)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units (Microsecond)
 import           Formatting (sformat, shown, (%))
@@ -76,7 +75,8 @@ import qualified Network.Transport as NT
 import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
 import           Node.Message.Decoder (Decoder (..), DecoderStep (..),
                      continueDecoding)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError,
+                     logWarning)
 import qualified System.Metrics.Distribution as Metrics (Distribution)
 import qualified System.Metrics.Distribution as Metrics.Distribution
 import qualified System.Metrics.Gauge as Metrics (Gauge)
@@ -202,7 +202,7 @@ constantReceiveDelay = pure . Just
 -- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
 --   state and a thread to dispatch network-transport events.
 data Node packingType peerData = Node {
-       nodeTrace            :: Trace IO (Severity, Text)
+       nodeTrace            :: TraceNamed IO
      , nodeEndPoint         :: NT.EndPoint
      , nodeCloseEndPoint    :: IO ()
      , nodeDispatcherThread :: Async ()
@@ -395,7 +395,7 @@ pstAddHandler provenance map = case provenance of
 -- | Remove a handler for a given peer. Second component is True if there
 --   are no more handlers for that peer.
 pstRemoveHandler
-    :: Trace IO (Severity, Text)
+  :: TraceNamed IO
     -> HandlerProvenance peerData t
     -> Map NT.EndPointAddress (MVar PeerStatistics)
     -> IO (Map NT.EndPointAddress (MVar PeerStatistics), Bool)
@@ -403,7 +403,7 @@ pstRemoveHandler logTrace provenance map = case provenance of
 
     Local peer _ -> case Map.lookup peer map of
         Nothing ->  do
-            traceWith logTrace (Warning, sformat ("tried to remove handler for "%shown%", but it is not in the map") peer)
+            logWarning logTrace $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
             return (map, False)
         Just !statsVar -> modifyMVar statsVar $ \stats ->
             let stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
@@ -413,7 +413,7 @@ pstRemoveHandler logTrace provenance map = case provenance of
 
     Remote peer _ -> case Map.lookup peer map of
         Nothing ->  do
-            traceWith logTrace (Warning, sformat ("tried to remove handler for "%shown%", but it is not in the map") peer)
+            logWarning logTrace $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
             return (map, False)
         Just !statsVar -> modifyMVar statsVar $ \stats ->
             let stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
@@ -524,7 +524,7 @@ stAddHandler !provenance !statistics = case provenance of
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
 stRemoveHandler
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> HandlerProvenance peerData t
     -> Microsecond
     -> Maybe SomeException
@@ -625,7 +625,7 @@ manualNodeEndPoint ep = NodeEndPoint {
 startNode
     :: forall packingType peerData .
        ( Serializable packingType peerData )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> Packing packingType IO
     -> peerData
     -> (Node packingType peerData -> NodeEndPoint)
@@ -671,7 +671,7 @@ startNode logTrace packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
                       }
                   return node
         }
-    traceWith logTrace (Debug, sformat ("startNode, we are " % shown % "") (nodeId node))
+    logDebug logTrace $ sformat ("startNode, we are " % shown % "") (nodeId node)
     return node
 
 -- | Stop a 'Node', closing its network transport and end point.
@@ -802,7 +802,6 @@ nodeDispatcher node handlerInOut =
 
     where
 
-    logTrace :: Trace IO (Severity, Text)
     logTrace = nodeTrace node
 
     nstate :: MVar (NodeState peerData)
@@ -836,7 +835,7 @@ nodeDispatcher node handlerInOut =
           -- When a heavyweight connection is lost we must close up all of the
           -- lightweight connections which it carried.
           NT.ErrorEvent (NT.TransportError (NT.EventConnectionLost peer bundle) reason) -> do
-              traceWith logTrace (Error, sformat ("EventConnectionLost received from the network layer: " % shown) reason)
+              logError logTrace $ sformat ("EventConnectionLost received from the network layer: " % shown) reason
               connectionLost state peer bundle >>= loop
 
           -- End point failure is unrecoverable.
@@ -894,7 +893,7 @@ nodeDispatcher node handlerInOut =
     connectionOpened state connid peer = case Map.lookup connid (dsConnections state) of
 
         Just (peer', _) -> do
-            traceWith logTrace (Warning, sformat ("ignoring duplicate connection " % shown % shown % shown) peer peer' connid)
+            logWarning logTrace $ sformat ("ignoring duplicate connection " % shown % shown % shown) peer peer' connid
             return state
 
         Nothing -> do
@@ -936,17 +935,17 @@ nodeDispatcher node handlerInOut =
     received state connid chunks = case Map.lookup connid (dsConnections state) of
 
         Nothing -> do
-            traceWith logTrace (Warning, sformat ("ignoring data on unknown connection " % shown) connid)
+            logWarning logTrace $ sformat ("ignoring data on unknown connection " % shown) connid
             return state
 
         -- This connection gave bogus peer data. Ignore the data.
         Just (peer, PeerDataParseFailure) -> do
-            traceWith logTrace (Warning, sformat ("ignoring data on failed connection (peer data) from " % shown) peer)
+            logWarning logTrace $ sformat ("ignoring data on failed connection (peer data) from " % shown) peer
             return state
 
         -- This connection gave a bad handshake. Ignore the data.
         Just (peer, HandshakeFailure) -> do
-            traceWith logTrace (Warning, sformat ("ignoring data on failed connection (handshake) from " % shown) peer)
+            logWarning logTrace $ sformat ("ignoring data on failed connection (handshake) from " % shown) peer
             return state
 
         -- This connection is awaiting the initial peer data.
@@ -961,7 +960,7 @@ nodeDispatcher node handlerInOut =
                     decoderStep' <- continueDecoding decoderStep (BS.concat chunks)
                     case decoderStep' of
                         Fail _ _ err -> do
-                            traceWith logTrace (Warning, sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err)
+                            logWarning logTrace $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                             return $ state {
                                     dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                   }
@@ -981,14 +980,14 @@ nodeDispatcher node handlerInOut =
                     -- Protocol error. We got data from some other lightweight
                     -- connection before the peer data was parsed.
                     False -> do
-                        traceWith logTrace (Warning, sformat ("peer data protocol error from " % shown) peer)
+                        logWarning logTrace $ sformat ("peer data protocol error from " % shown) peer
                         return state
 
                     True -> do
                         decoderStep <- runDecoder (decoderContinuation (Just (BS.concat chunks)))
                         case decoderStep of
                             Fail _ _ err -> do
-                                traceWith logTrace (Warning, sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err)
+                                logWarning logTrace $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                                 return $ state {
                                         dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                       }
@@ -1071,8 +1070,8 @@ nodeDispatcher node handlerInOut =
                                   modifyMVar chanVar $ \_ -> return (Nothing, ())
                                   case me of
                                       Nothing -> return ()
-                                      Just e -> traceWith logTrace (Error,
-                                          sformat (shown % " error in conversation response " % shown) nonce e)
+                                      Just e -> logError logTrace $
+                                          sformat (shown % " error in conversation response " % shown) nonce e
                               handler = bracketWithException
                                   (return ())
                                   (const cleanup)
@@ -1114,14 +1113,14 @@ nodeDispatcher node handlerInOut =
                               -- In any case, say the handshake failed so that
                               -- subsequent data is ignored.
                               Nothing -> do
-                                  traceWith logTrace (Warning, sformat ("got unknown nonce " % shown) nonce)
+                                  logWarning logTrace $ sformat ("got unknown nonce " % shown) nonce
                                   return $ state {
                                         dsConnections = Map.insert connid (peer, HandshakeFailure) (dsConnections state)
                                       }
 
                               -- Got a duplicate ACK.
                               Just Nothing -> do
-                                  traceWith logTrace (Warning, sformat ("duplicate ACK nonce from " % shown) peer)
+                                  logWarning logTrace $ sformat ("duplicate ACK nonce from " % shown) peer
                                   return $ state {
                                         dsConnections = Map.insert connid (peer, HandshakeFailure) (dsConnections state)
                                       }
@@ -1139,7 +1138,7 @@ nodeDispatcher node handlerInOut =
 
                     -- Handshake failure. Subsequent receives will be ignored.
                     | otherwise -> do
-                          traceWith logTrace (Warning, sformat ("unexpected control header from " % shown % " : " % shown) peer w)
+                          logWarning logTrace $ sformat ("unexpected control header from " % shown % " : " % shown) peer w
                           return $ state {
                                 dsConnections = Map.insert connid (peer, HandshakeFailure) (dsConnections state)
                               }
@@ -1162,7 +1161,7 @@ nodeDispatcher node handlerInOut =
     connectionClosed state connid = case Map.lookup connid (dsConnections state) of
 
         Nothing -> do
-            traceWith logTrace (Warning, sformat ("closed unknown connection " % shown) connid)
+            logWarning logTrace $ sformat ("closed unknown connection " % shown) connid
             return state
 
         Just (peer, connState) -> do
@@ -1202,7 +1201,7 @@ nodeDispatcher node handlerInOut =
         -- There must always be 0 connections from the peer, for
         -- network-transport must have posted the ConnectionClosed events for
         -- every inbound connection before posting EventConnectionLost.
-        traceWith logTrace (Warning, sformat ("lost connection bundle " % shown % " to " % shown) bundle peer)
+        logWarning logTrace $ sformat ("lost connection bundle " % shown % " to " % shown) bundle peer
         state' <- case Map.lookup peer (dsPeers state) of
             Just it -> do
                 -- This is *not* a network-transport bug; a connection lost
@@ -1255,7 +1254,7 @@ nodeDispatcher node handlerInOut =
                     let channelsAndPeerDataVars = Map.foldr folder [] map
                     return (st, channelsAndPeerDataVars)
 
-        traceWith logTrace (Warning, sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer)
+        logWarning logTrace $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer
 
         forM_ channelsAndPeerDataVars $ \(dumpBytes, peerDataVar) -> do
             _ <- tryPutMVar peerDataVar (error "no peer data because the connection was lost")
@@ -1269,7 +1268,7 @@ nodeDispatcher node handlerInOut =
 --   connections, and also for actions which use outbound connections.
 spawnHandler
     :: forall peerData t .
-       Trace IO (Severity, Text)
+       TraceNamed IO
     -> MVar (NodeState peerData)
     -> HandlerProvenance peerData (Maybe BS.ByteString -> IO ())
     -> IO t
@@ -1610,7 +1609,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
                     | otherwise -> throwIO (InternalError "impossible")
                 _ -> do
-                    traceWith nodeTrace (Error, "getPeerDataResponsibility: unexpected peer state")
+                    logError nodeTrace $ "getPeerDataResponsibility: unexpected peer state"
                     throwIO $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
@@ -1645,7 +1644,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
                     | False <- responsibility -> return it
                 _ -> do
-                    traceWith nodeTrace (Error, "dischargePeerDataResponsibility: unexpected peer state")
+                    logError nodeTrace $ "dischargePeerDataResponsibility: unexpected peer state"
                     throwIO $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {

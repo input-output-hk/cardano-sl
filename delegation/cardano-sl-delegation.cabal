@@ -54,7 +54,6 @@ library
                      , formatting
                      , generic-arbitrary
                      , lens
-                     , log-warper
                      , lrucache
                      , mmorph
                      , mtl

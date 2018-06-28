@@ -11,7 +11,7 @@ import           Universum
 
 import           Data.Default (Default)
 import           Mockable (Delay, Mockables, SharedAtomic)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Block.Configuration (HasBlockConfiguration)

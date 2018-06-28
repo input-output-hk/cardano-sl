@@ -12,7 +12,7 @@ import           Universum
 
 import           Formatting (build, sformat, shown, (%))
 import           Mockable (CurrentTime, Delay, Mockable)
-import           System.Wlog (WithLogger, logDebug, logWarning)
+import           Pos.Util.Log (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Delegation ()

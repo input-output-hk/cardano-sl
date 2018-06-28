@@ -75,12 +75,12 @@ import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
-import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Pos.Script (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
                      TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxSigData (..), Utxo)
+import           Pos.Util.Log.LogSafe (SecureLog, buildUnsecure)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import           Data.Semigroup (Semigroup)

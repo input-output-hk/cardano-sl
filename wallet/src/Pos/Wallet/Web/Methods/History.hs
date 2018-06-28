@@ -28,7 +28,7 @@ import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, ChainDifficulty, timestampToPosix)
 import           Pos.Core.Txp (TxId)
-import           Pos.Infra.Util.LogSafe (logInfoSP, secureListF)
+import           Pos.Util.Log.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),

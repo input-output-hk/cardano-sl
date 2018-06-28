@@ -27,7 +27,7 @@ import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
 import           Mockable (Production)
-import           System.Wlog (HasLoggerName (..))
+import           Pos.Util.Log (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
@@ -67,7 +67,7 @@ import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.LoggerName (HasLoggerName' (..))
+--import           Pos.Util.LoggerName (HasLoggerName' (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
@@ -149,9 +149,10 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = acRealModeContext_L . lensOf @tag
 
+{-
 instance HasLoggerName' AuxxContext where
     loggerName = acRealModeContext_L . loggerName
-
+-}
 instance HasSlogContext AuxxContext where
     slogContext = acRealModeContext_L . slogContext
 

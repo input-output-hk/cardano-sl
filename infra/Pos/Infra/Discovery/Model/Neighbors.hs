@@ -10,7 +10,7 @@ import           Pos.Infra.Communication.Protocol (ConversationActions, Message,
                      NodeId (..), SendActions (..))
 import           Pos.Infra.Discovery.Model.Class (Discovery (..),
                      withPeersConcurrently)
-import           System.Wlog (WithLogger, logDebug, logWarning)
+import           Pos.Util.Log (WithLogger, logDebug, logWarning)
 import           Universum
 
 sendToNeighbors

@@ -190,7 +190,6 @@ library
                      , formatting
                      , hashable
                      , lens
-                     , log-warper >= 1.0.3
                      , memory
                      , mtl
                      , plutus-prototype

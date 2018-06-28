@@ -65,6 +65,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util (listJson)
 
 import           Pos.Binary.Class (Bi (..), Encoding, biSize,
                      encodeCrcProtected)
@@ -79,6 +80,7 @@ import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
 import           Pos.Data.Attributes (Attributes (..), attrData, mkAttributes)
+import           Pos.Util.Log.LogSafe (SecureLog)
 
 import           Pos.Core.Common.AddrAttributes
 import           Pos.Core.Common.AddressHash
@@ -158,6 +160,12 @@ addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
 
 instance Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
+
+instance Buildable [Address] where
+    build = bprint listJson
+
+instance Buildable (SecureLog Address) where
+    build _ = "<address>"
 
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)

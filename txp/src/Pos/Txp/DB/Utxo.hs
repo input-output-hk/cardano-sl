@@ -39,7 +39,6 @@ import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
-import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF, mkCoin,
@@ -51,6 +50,7 @@ import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.Txp.Base (addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types (GenesisUtxo (..), Utxo)
+import           Pos.Util.Log (WithLogger, logError)
 
 ----------------------------------------------------------------------------
 -- Getters

@@ -19,7 +19,7 @@ import           Universum
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 import           Mockable (Production)
-import           System.Wlog (HasLoggerName (..), LoggerName)
+--import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub,
                      onRollbackBlocksStub)
@@ -55,11 +55,13 @@ import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt,
                      MonadTxpLocal (..), TxpHolderTag, txNormalize,
                      txProcessTransaction)
 import           Pos.Util.Lens (postfixLFields)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
+
 
 data RealModeContext ext = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -67,7 +69,7 @@ data RealModeContext ext = RealModeContext
     , rmcTxpLocalData  :: !(GenericTxpLocalData ext)
     , rmcDelegationVar :: !DelegationVar
     , rmcJsonLogConfig :: !JsonLogConfig
-    , rmcLoggerName    :: !LoggerName
+    , rmcLoggerName    :: !Log.LoggerName
     , rmcNodeContext   :: !NodeContext
     , rmcReporter      :: !(Reporter IO)
       -- ^ How to do reporting. It's in here so that we can have
@@ -134,15 +136,19 @@ instance HasSlogGState (RealModeContext ext) where
 instance HasNodeContext (RealModeContext ext) where
     nodeContext = rmcNodeContext_L
 
+{-
 instance HasLoggerName' (RealModeContext ext) where
     loggerName = rmcLoggerName_L
+-}
 
 instance HasJsonLogConfig (RealModeContext ext) where
     jsonLogConfig = rmcJsonLogConfig_L
 
+{-
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
     askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
+-}
 
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault

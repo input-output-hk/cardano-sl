@@ -70,6 +70,8 @@ import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair,
 
 import           Test.Pos.Crypto.Arbitrary ()
 
+import qualified Pos.Util.Log as Log
+
 #ifdef POSIX
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX
@@ -233,7 +235,7 @@ ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
-        logWarning $
+        Log.logWarning $
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
@@ -274,7 +276,7 @@ readUserSecret path = do
 
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
-peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
+peekUserSecret :: (MonadIO m, Log.WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     logInfo "initalizing user secret"
     initializeUserSecret path

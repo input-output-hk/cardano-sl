@@ -75,9 +75,9 @@ import           Pos.Infra.Slotting (MonadSlots (..), MonadSlotsData,
                      getSlotStartPure, getSystemStartM)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
-import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP,
-                     logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
+import           Pos.Util.Log.LogSafe (buildSafe, logDebugSP, logErrorSP,
+                     logInfoSP, logWarningSP, secretOnlyF, secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)

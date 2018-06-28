@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Core (HasPrimaryKey)
 import           Pos.DB.Class (MonadDB, MonadGState)

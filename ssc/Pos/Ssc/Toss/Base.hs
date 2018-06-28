@@ -44,7 +44,6 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import           Formatting (ords, sformat, (%))
-import           System.Wlog (logWarning)
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId,
@@ -62,6 +61,8 @@ import           Pos.Ssc.Base (verifyOpening, vssThreshold)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
                      MonadTossRead (..))
+import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Util (getKeys)
 
 ----------------------------------------------------------------------------
@@ -115,12 +116,15 @@ matchCommitment op = flip matchCommitmentPure op <$> getCommitments
 
 checkShares
     :: (MonadTossRead m, MonadTossEnv m)
-    => EpochIndex -> (StakeholderId, InnerSharesMap) -> m Bool
-checkShares epoch (id, sh) = do
+    => Trace m LogItem
+    -> EpochIndex
+    -> (StakeholderId, InnerSharesMap)
+    -> m Bool
+checkShares logTrace epoch (id, sh) = do
     certs <- getStableCertificates epoch
     let warnFmt = ("checkShares: no richmen for "%ords%" epoch")
     getRichmen epoch >>= \case
-        Nothing -> False <$ logWarning (sformat warnFmt epoch)
+        Nothing -> False <$ logWarning logTrace (sformat warnFmt epoch)
         Just richmen -> do
             let parts = computeParticipants (getKeys richmen) certs
             coms <- getCommitments
@@ -443,10 +447,11 @@ checkOpeningsPayload opens = do
 --     decrypted shares
 checkSharesPayload
     :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m)
-    => EpochIndex
+    => Trace m LogItem
+    -> EpochIndex
     -> SharesMap
     -> m ()
-checkSharesPayload epoch shares = do
+checkSharesPayload logTrace epoch shares = do
     -- We intentionally don't check that nodes which decrypted shares sent
     -- its commitments. If a node decrypted shares correctly, such node is
     -- useful for us, despite that it didn't send its commitment.
@@ -458,7 +463,7 @@ checkSharesPayload epoch shares = do
     exceptGuardM SharesAlreadySent
         (notM hasSharesToss) (HM.keys shares)
     exceptGuardEntryM DecrSharesNotMatchCommitment
-        (checkShares epoch) (HM.toList shares)
+        (checkShares logTrace epoch) (HM.toList shares)
 
 -- For certificates we check that
 --   * certificate hasn't been sent already
@@ -489,15 +494,16 @@ checkCertificatesPayload epoch certs = do
 checkPayload
     :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m,
         MonadRandom m)
-    => EpochIndex
+    => Trace m LogItem
+    -> EpochIndex
     -> SscPayload
     -> m ()
-checkPayload epoch payload = do
+checkPayload logTrace epoch payload = do
     let payloadCerts = spVss payload
     case payload of
         CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
         OpeningsPayload opens _    -> checkOpeningsPayload opens
-        SharesPayload shares _     -> checkSharesPayload epoch shares
+        SharesPayload shares _     -> checkSharesPayload logTrace epoch shares
         CertificatesPayload _      -> pass
     checkCertificatesPayload epoch payloadCerts
 

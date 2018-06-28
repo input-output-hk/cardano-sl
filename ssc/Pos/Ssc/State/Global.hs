@@ -15,7 +15,7 @@ module Pos.Ssc.State.Global
        ) where
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc ()

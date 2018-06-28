@@ -23,7 +23,7 @@ import qualified GHC.IO as GHC
 import qualified System.Metrics.Counter as EKG.Counter
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge as EKG.Gauge
-import           System.Wlog (CanLog (..), HasLoggerName (..))
+--import           Pos.Util.Log (CanLog (..), HasLoggerName (..))
 
 import           Control.Monad.Base (MonadBase (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
@@ -38,6 +38,7 @@ import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusive (..),
                      SharedExclusiveT)
 
+
 newtype Production t = Production
     { runProduction :: IO t
     } deriving (Functor, Applicative, Monad)
@@ -47,7 +48,7 @@ deriving instance MonadUnliftIO Production
 deriving instance MonadFix Production
 deriving instance MonadThrow Production
 deriving instance MonadCatch Production
-deriving instance CanLog Production
+--deriving instance CanLog Production    -- TODO
 deriving instance Rand.MonadRandom Production
 
 type instance ThreadId Production = Conc.ThreadId
@@ -158,9 +159,11 @@ instance MonadMask Production where
     uninterruptibleMask act = Production $ uninterruptibleMask $
         \unmask -> runProduction $ act $ Production . unmask . runProduction
 
+{- TODO
 instance HasLoggerName Production where
     askLoggerName = return "*production*"
     modifyLoggerName = const id
+-}
 
 instance MonadBase IO Production where
     liftBase = Production

@@ -21,10 +21,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
-import qualified System.Metrics.Counter as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
-import           UnliftIO (MonadUnliftIO)
-
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..),
                      MonadBlockApply, applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
@@ -61,7 +57,10 @@ import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
+import           Pos.Util.Log (logDebug, logInfo, logWarning)
 import           Pos.Util.Util (HasLens (..))
+import qualified System.Metrics.Counter as Metrics
+import           UnliftIO (MonadUnliftIO)
 
 
 ----------------------------------------------------------------------------

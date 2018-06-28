@@ -19,8 +19,8 @@ import           Data.Constraint (Dict (..))
 import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
+import           Pos.Util.Log (CanLog, HasLoggerName, logInfo)
 import           System.IO (hFlush, stdout)
-import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
 import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF,
                      hashHexF)

@@ -15011,7 +15011,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , loc
-, log-warper
 , megaparsec
 , MonadRandom
 , mtl
@@ -15082,7 +15081,6 @@ generic-arbitrary
 haskeline
 lens
 loc
-log-warper
 megaparsec
 MonadRandom
 mtl
@@ -15122,7 +15120,6 @@ cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
 formatting
-log-warper
 network-transport-tcp
 safe-exceptions
 temporary
@@ -15388,7 +15385,6 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , formatting
 , lens
-, log-warper
 , mtl
 , pipes
 , random
@@ -15444,7 +15440,6 @@ exceptions
 filepath
 formatting
 lens
-log-warper
 mtl
 pipes
 random
@@ -15740,7 +15735,6 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
-, log-warper
 , memory
 , mtl
 , plutus-prototype
@@ -15799,7 +15793,6 @@ fmt
 formatting
 hashable
 lens
-log-warper
 memory
 mtl
 plutus-prototype
@@ -16198,7 +16191,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , generic-arbitrary
 , lens
-, log-warper
 , lrucache
 , mmorph
 , mtl
@@ -16245,7 +16237,6 @@ ether
 formatting
 generic-arbitrary
 lens
-log-warper
 lrucache
 mmorph
 mtl
@@ -16716,7 +16707,6 @@ license = stdenv.lib.licenses.mit;
 , iproute
 , kademlia
 , lens
-, log-warper
 , lzma-conduit
 , mtl
 , network-info
@@ -16786,7 +16776,6 @@ http-client-tls
 iproute
 kademlia
 lens
-log-warper
 lzma-conduit
 mtl
 network-info
@@ -16889,7 +16878,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , QuickCheck
 , reflection
 , rocksdb-haskell-ng
@@ -16924,7 +16912,6 @@ conduit
 ether
 formatting
 lens
-log-warper
 reflection
 rocksdb-haskell-ng
 text-format
@@ -17016,7 +17003,6 @@ license = stdenv.lib.licenses.mit;
 , hspec-core
 , kademlia
 , lens
-, log-warper
 , mmorph
 , monad-control
 , mtl
@@ -17072,7 +17058,6 @@ formatting
 hashable
 kademlia
 lens
-log-warper
 mmorph
 monad-control
 mtl
@@ -17116,7 +17101,6 @@ containers
 hspec
 hspec-core
 lens
-log-warper
 mtl
 network-transport
 network-transport-inmemory
@@ -17258,7 +17242,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , generic-arbitrary
 , lens
-, log-warper
 , memory
 , mmorph
 , mono-traversable
@@ -17313,7 +17296,6 @@ exceptions
 formatting
 generic-arbitrary
 lens
-log-warper
 memory
 mmorph
 mono-traversable
@@ -17743,7 +17725,6 @@ license = stdenv.lib.licenses.mit;
 , http-client-tls
 , http-conduit
 , lens
-, log-warper
 , memory
 , mtl
 , reflection
@@ -17797,7 +17778,6 @@ http-client
 http-client-tls
 http-conduit
 lens
-log-warper
 memory
 mtl
 reflection
@@ -17892,10 +17872,12 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hashable
 , hspec
+, hspec-core
+, katip
 , lens
-, log-warper
 , lrucache
 , megaparsec
+, mmorph
 , mtl
 , optparse-applicative
 , parsec
@@ -17921,6 +17903,7 @@ license = stdenv.lib.licenses.mit;
 , universum
 , unliftio-core
 , unordered-containers
+, yaml
 }:
 mkDerivation {
 
@@ -17951,10 +17934,12 @@ file-embed
 filepath
 formatting
 hashable
+hspec
+katip
 lens
-log-warper
 lrucache
 megaparsec
+mmorph
 mtl
 optparse-applicative
 parsec
@@ -17977,6 +17962,7 @@ transformers-lift
 universum
 unliftio-core
 unordered-containers
+yaml
 ];
 libraryToolDepends = [
 cpphs
@@ -17985,6 +17971,8 @@ testHaskellDepends = [
 async
 base
 hspec
+hspec-core
+katip
 QuickCheck
 quickcheck-instances
 serokell-util

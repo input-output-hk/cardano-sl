@@ -54,7 +54,6 @@ library
                      , ether
                      , formatting
                      , lens
-                     , log-warper
                      , reflection
                      , rocksdb-haskell-ng
                      , text-format

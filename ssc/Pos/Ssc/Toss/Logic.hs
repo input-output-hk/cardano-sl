@@ -14,7 +14,6 @@ import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           System.Wlog (logError)
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
                      IsMainHeader, LocalSlotIndex, SlotCount, SlotId (siSlot),
@@ -33,6 +32,8 @@ import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Some (Some)
+import           Pos.Util.Trace (Trace, natTrace)
+import           Pos.Util.Trace.Unstructured (LogItem, logError)
 import           Pos.Util.Util (sortWithMDesc)
 
 -- | Verify 'SscPayload' with respect to data provided by
@@ -41,8 +42,9 @@ import           Pos.Util.Util (sortWithMDesc)
 verifyAndApplySscPayload
     :: (MonadToss m, MonadTossEnv m,
         MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifyAndApplySscPayload pm eoh payload = do
+    => Trace m LogItem
+    -> ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+verifyAndApplySscPayload  logTrace pm eoh payload = do
     -- Check the payload for internal consistency.
     either (throwError . SscInvalidPayload) pure (checkSscPayload pm payload)
     -- We can't trust payload from mempool, so we must call
@@ -53,8 +55,8 @@ verifyAndApplySscPayload pm eoh payload = do
     inAssertMode $
         whenRight eoh $ const $ verifySscPayload pm eoh payload
     let blockCerts = spVss payload
-    let curEpoch = either identity (^. epochIndexL) eoh
-    checkPayload curEpoch payload
+        curEpoch = either identity (^. epochIndexL) eoh
+    checkPayload logTrace curEpoch payload
 
     -- Apply
     case eoh of
@@ -94,13 +96,14 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackSsc :: (MonadToss m, HasProtocolConstants) =>
-    EpochOrSlot
+rollbackSsc :: (MonadToss m, HasProtocolConstants)
+    => Trace m LogItem
+    -> EpochOrSlot
     -> NewestFirst [] SscPayload
     -> m ()
-rollbackSsc oldestEOS (NewestFirst payloads)
+rollbackSsc logTrace oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
-        logError "rollbackSsc: most genesis block is passed to rollback"
+        logError logTrace "rollbackSsc: most genesis block is passed to rollback"
         setEpochOrSlot oldestEOS
         resetCO
         resetShares
@@ -117,9 +120,11 @@ rollbackSsc oldestEOS (NewestFirst payloads)
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
     :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> EpochIndex -> TossModifier -> m ()
-normalizeToss pm epoch TossModifier {..} =
+    => Trace m LogItem
+    -> ProtocolMagic -> EpochIndex -> TossModifier -> m ()
+normalizeToss logTrace pm epoch TossModifier {..} =
     normalizeTossDo
+        logTrace
         pm
         epoch
         ( HM.toList (getCommitmentsMap _tmCommitments)
@@ -131,14 +136,15 @@ normalizeToss pm epoch TossModifier {..} =
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
     :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> EpochIndex -> TossModifier -> m ()
-refreshToss pm epoch TossModifier {..} = do
+    => Trace m LogItem
+    -> ProtocolMagic -> EpochIndex -> TossModifier -> m ()
+refreshToss logTrace pm epoch TossModifier {..} = do
     comms <-
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
     opens <- takeMostValuable epoch (HM.toList _tmOpenings)
     shares <- takeMostValuable epoch (HM.toList _tmShares)
     certs <- takeMostValuable epoch (HM.toList (getVssCertificatesMap _tmCertificates))
-    normalizeTossDo pm epoch (comms, opens, shares, certs)
+    normalizeTossDo logTrace pm epoch (comms, opens, shares, certs)
 
 takeMostValuable
     :: (MonadToss m, MonadTossEnv m)
@@ -161,8 +167,9 @@ type TossModifierLists
 normalizeTossDo
     :: forall m.
        (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> EpochIndex -> TossModifierLists -> m ()
-normalizeTossDo pm epoch (comms, opens, shares, certs) = do
+    => Trace m LogItem
+    -> ProtocolMagic -> EpochIndex -> TossModifierLists -> m ()
+normalizeTossDo logTrace pm epoch (comms, opens, shares, certs) = do
     putsUseful $
         map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $
         comms
@@ -172,5 +179,5 @@ normalizeTossDo pm epoch (comms, opens, shares, certs) = do
   where
     putsUseful :: [SscPayload] -> m ()
     putsUseful entries = do
-        let verifyAndApply = runExceptT . verifyAndApplySscPayload pm (Left epoch)
+        let verifyAndApply = runExceptT . verifyAndApplySscPayload (natTrace lift logTrace) pm (Left epoch)
         mapM_ verifyAndApply entries

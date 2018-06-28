@@ -14,7 +14,7 @@ import           Formatting (sformat, shown, (%))
 import           Network.QDisc.Fair (fairQDisc)
 import qualified Network.Transport as NT
 import qualified Network.Transport.TCP as TCP
-import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logWarning)
 
 -- | Bracket a TCP transport with
 --
@@ -25,18 +25,18 @@ import           Pos.Util.Trace (Trace, traceWith)
 --   - Do not crash the server if 'accept' fails; instead, use the given
 --     'Trace' to log the reason and continue trying to accept new connections
 bracketTransportTCP
-    :: Trace IO Text
+    :: TraceNamed IO
     -> Microsecond
     -> TCP.TCPAddr
     -> (NT.Transport -> IO a)
     -> IO a
 bracketTransportTCP logTrace connectionTimeout tcpAddr k = bracket
-    (createTransportTCP logTrace connectionTimeout tcpAddr)
+    (createTransportTCP (appendName "transportTCP" logTrace) connectionTimeout tcpAddr)
     NT.closeTransport
     k
 
 createTransportTCP
-    :: Trace IO Text -- ^ Whenever there's an error accepting a new connection.
+    :: TraceNamed IO -- ^ Whenever there's an error accepting a new connection.
     -> Microsecond   -- ^ Connection timeout
     -> TCP.TCPAddr
     -> IO NT.Transport
@@ -51,6 +51,6 @@ createTransportTCP logTrace connectionTimeout addrInfo = do
              -- of service attack.
              , TCP.tcpCheckPeerHost = True
              , TCP.tcpServerExceptionHandler = \e ->
-                   traceWith logTrace (sformat ("Exception in tcp server: " % shown) e)
+                   logWarning logTrace $ sformat ("Exception in tcp server: " % shown) e
              })
     TCP.createTransport addrInfo tcpParams >>= either throwIO pure

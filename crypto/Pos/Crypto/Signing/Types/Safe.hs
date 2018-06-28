@@ -33,6 +33,7 @@ import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize,
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Types.Signing (PublicKey (..),
                      SecretKey (..), decodeXPrv, encodeXPrv, toPublic)
+import           Pos.Util.Log.LogSafe (SecureLog)
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey
@@ -78,6 +79,9 @@ instance Show PassPhrase where
     show _ = "<passphrase>"
 
 instance Buildable PassPhrase where
+    build _ = "<passphrase>"
+
+instance Buildable (SecureLog PassPhrase) where
     build _ = "<passphrase>"
 
 instance Default PassPhrase where

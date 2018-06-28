@@ -285,7 +285,8 @@ initBlockTestContext tp@TestParams {..} callback = do
                             error "initBlockTestContext: no genesisSecretKeys"
                         Just ks -> ks
             let btcAllSecrets = mkAllSecretsSimple secretKeys
-            let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
+            let btCtx = BlockTestContext
+                        {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo
 

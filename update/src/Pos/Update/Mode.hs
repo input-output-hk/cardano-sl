@@ -8,7 +8,7 @@ module Pos.Update.Mode
 import           Universum
 
 import           Mockable (MonadMockable)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Update ()

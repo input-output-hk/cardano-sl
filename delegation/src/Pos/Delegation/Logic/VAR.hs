@@ -22,8 +22,8 @@ import           Data.List ((\\))
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (CurrentTime, Mockable)
+import           Pos.Util.Log (WithLogger, logDebug)
 import           Serokell.Util (listJson, mapJson)
-import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId,

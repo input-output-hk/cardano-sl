@@ -53,9 +53,9 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
-import           System.Wlog (WithLogger, logWarning, logInfo)
+import           Pos.Util.Log (WithLogger, logWarning, logInfo)
 #else
-import           System.Wlog (WithLogger, logInfo)
+import           Pos.Util.Log (WithLogger, logInfo)
 #endif
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
@@ -67,8 +67,6 @@ import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKe
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 
 import           Test.Pos.Crypto.Arbitrary ()
-
-import qualified Pos.Util.Log as Log
 
 #ifdef POSIX
 import           Formatting (oct, sformat)
@@ -233,7 +231,7 @@ ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
-        Log.logWarning $
+        logWarning $
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
@@ -274,7 +272,7 @@ readUserSecret path = do
 
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
-peekUserSecret :: (MonadIO m, Log.WithLogger m) => FilePath -> m UserSecret
+peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     logInfo "initalizing user secret"
     initializeUserSecret path

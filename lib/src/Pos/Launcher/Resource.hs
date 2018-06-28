@@ -28,9 +28,9 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..))
 import           System.IO (BufferMode (..), hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
-import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
-                              logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
-                              setupLogging, showTidB)
+--import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
+--                              logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
+--                              setupLogging, showTidB)
 
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
@@ -62,6 +62,9 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithLogging, newInitFuture)
+import           Pos.Util.Log (WithLogger, LoggerConfig (..), logDebug, logInfo)
+import qualified Pos.Util.Log as Log (loggerBracket, setupLogging)
+import           Pos.Util.Trace (noTrace)
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd
@@ -232,12 +235,16 @@ getRealLoggerConfig LoggingParams{..} = do
         Just True  -> (<>) (consoleActionB defaultHandleAction)
         Just False -> (<>) (consoleActionB (\_ _ -> pass))
 
-setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params
+--setupLoggers :: MonadIO m => LoggingParams -> m ()
+--setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params
 
 -- | RAII for Logging.
-loggerBracket :: LoggingParams -> IO a -> IO a
-loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+loggerBracket :: (MonadIO m, WithLogger n) => LoggingParams -> n a -> m a
+--loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+loggerBracket params action = do
+    lh <- liftIO $ Log.setupLogging =<< getRealLoggerConfig params
+    Log.loggerBracket lh (lpDefaultName params) $
+      action
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -268,11 +275,12 @@ allocateNodeContext ancd txpSettings ekgStore = do
                                 , ancdTxpMemState = TxpLocalData {..}
                                 } = ancd
     logInfo "Allocating node context..."
+    --ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     logDebug "Got logger config"
     ncStateLock <- newStateLock =<< GS.getTip
     logDebug "Created a StateLock"
-    ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
+    ncStateLockMetrics <- liftIO $ recordTxpMetrics noTrace store txpMemPool
     logDebug "Created StateLock metrics"
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     logDebug "Created LRC sync"

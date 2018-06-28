@@ -33,10 +33,10 @@ import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..))
-import           Pos.Util.Trace (Severity, Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 sscListeners
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg

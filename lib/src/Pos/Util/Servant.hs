@@ -51,38 +51,38 @@ module Pos.Util.Servant
     , serverHandlerL'
     , inRouteServer
 
-    , applyLoggingToHandler
+    --, applyLoggingToHandler
     ) where
 
 import           Universum hiding (id)
 
-import           Control.Exception.Safe (handleAny)
+--import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
-import           Control.Monad.Except (ExceptT (..), MonadError (..))
+import           Control.Monad.Except (ExceptT (..) {-, MonadError (..)-})
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
-import           Data.Reflection (Reifies (..), reflect)
-import qualified Data.Text as T
+--import           Data.Reflection (Reifies (..), reflect)
+--import qualified Data.Text as T
 import qualified Data.Text.Buildable
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
+--import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Formatting (bprint, build, builder, {-fconst,-} formatToString, sformat, {-shown,-} stext,
                              string, (%))
-import           GHC.IO.Unsafe (unsafePerformIO)
+--import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
-                              ReflectMethod (..), ReqBody, Summary, Verb)
+                              {-ReflectMethod (..),-} ReqBody, Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
-import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
+import           Pos.Util.Log (LoggerName {-, LoggerNameBox, usingLoggerName-})
 
-import           Pos.Util.Log.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe,
-                                       logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Util.Log.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe
+                                      {-,logInfoSP, plainOrSecureF, secretOnlyF-})
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -540,6 +540,7 @@ newtype RequestId = RequestId Integer
 instance Buildable RequestId where
     build (RequestId id) = bprint ("#"%build) id
 
+{-
 -- | We want all servant servers to have non-overlapping ids,
 -- so using singleton counter here.
 requestsCounter :: TVar Integer
@@ -550,7 +551,8 @@ nextRequestId :: MonadIO m => m RequestId
 nextRequestId = atomically $ do
     modifyTVar' requestsCounter (+1)
     RequestId <$> readTVar requestsCounter
-
+-}
+{-
 -- | Modify an action so that it performs all the required logging.
 applyServantLogging
     :: ( MonadIO m
@@ -592,7 +594,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     inLogCtx :: LoggerNameBox m a -> m a
     inLogCtx logAction = do
         let ApiLoggingConfig{..} = reflect configP
-        usingLoggerName apiLoggerName logAction
+        usingLoggerName apiLoggingHandler apiLoggerName logAction
     eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->
@@ -605,11 +607,11 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     reportRequest reqId =
         case eParamLogs of
             Left e ->
-                inLogCtx $ logInfoSP $ \sl ->
+                inLogCtx $ logInfoSP lh $ \sl ->
                     sformat ("\n"%stext%secretOnlyF sl (" "%stext))
                         (colorizeDull Red "Unexecuted request due to error") e
             Right paramLogs -> do
-                inLogCtx $ logInfoSP $ \sl ->
+                inLogCtx $ logInfoSP lh $ \sl ->
                     sformat ("\n"%stext%" "%stext%"\n"%build)
                         cmethod
                         (colorizeDull White $ "Request " <> pretty reqId)
@@ -617,7 +619,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     responseTag reqId = "Response " <> pretty reqId
     reportResponse reqId timer resp = do
         durationText <- timer
-        inLogCtx $ logInfoSP $ \sl ->
+        inLogCtx $ logInfoSP lh $ \sl ->
             sformat ("\n    "%stext%" "%stext%" "%stext
                     %plainOrSecureF sl (stext%stext) (fconst ""%fconst ""))
                 (colorizeDull White $ responseTag reqId)
@@ -631,7 +633,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     servantErrHandler reqId timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        inLogCtx $ logInfoSP $ \_sl ->
+        inLogCtx $ logInfoSP lh $ \_sl ->
             sformat ("\n    "%stext%" "%stext%" "%stext)
                 (colorizeDull White $ responseTag reqId)
                 (colorizeDull Red errMsg)
@@ -639,20 +641,24 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         throwError err
     exceptionsHandler reqId timer e = do
         durationText <- timer
-        inLogCtx $ logInfoSP $ \_sl ->
+        inLogCtx $ logInfoSP lh $ \_sl ->
             sformat ("\n    "%stext%" "%shown%" "%stext)
                 (colorizeDull Red $ responseTag reqId)
                 e
                 durationText
         throwM e
-
+-}
+{-
 applyLoggingToHandler
     :: forall config method a.
        ( Buildable (WithTruncatedLog a)
        , Reifies config ApiLoggingConfig
        , ReflectMethod method
        )
-    => Proxy config -> Proxy (method :: k) -> (ApiParamsLogInfo, Handler a) -> Handler a
+    => Proxy config
+    -> Proxy (method :: k)
+    -> (ApiParamsLogInfo, Handler a)
+    -> Handler a
 applyLoggingToHandler configP methodP (paramsInfo, handler) =
     handler & serverHandlerL %~ withLogging paramsInfo
   where
@@ -683,6 +689,7 @@ instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
         \(paramsInfo, handler) ->
             handler & serverHandlerL' %~ modifyApiResult (Proxy @mod)
                     & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
+-}
 
 instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where

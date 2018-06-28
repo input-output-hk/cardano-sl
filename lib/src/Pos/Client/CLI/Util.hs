@@ -51,7 +51,7 @@ printFlags = do
     inAssertMode $ logInfo "Asserts are ON"
 
 printInfoOnStart ::
-       (HasConfigurations, WithLogger m, Mockable CurrentTime m, MonadIO m)
+       (HasConfigurations, WithLogger m, Mockable CurrentTime m)
     => CommonNodeArgs
     -> NtpConfiguration
     -> m ()

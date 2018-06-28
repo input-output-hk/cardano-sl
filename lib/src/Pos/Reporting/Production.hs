@@ -16,14 +16,14 @@ import           Pos.Infra.Reporting.NodeInfo (extendWithNodeInfo)
 import           Pos.Infra.Reporting.Logfiles (withLogTempFile)
 import           Pos.Util.CompileInfo (CompileTimeInfo)
 import           Pos.Util.Log (LoggerConfig)
-import           Pos.Util.Trace (Trace, Severity)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 data ProductionReporterParams = ProductionReporterParams
     { prpServers         :: ![Text]
     , prpLoggerConfig    :: !LoggerConfig
     , prpProtocolMagic   :: !ProtocolMagic
     , prpCompileTimeInfo :: !CompileTimeInfo
-    , prpTrace           :: !(Trace IO (Severity, Text))
+    , prpTrace           :: !(TraceNamed IO)
     }
 
 productionReporter

@@ -13,7 +13,6 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 import           Pipes (Producer)
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
@@ -36,7 +35,7 @@ import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Infra.Util.JsonLog.Events (JLEvent)
+import           Pos.Infra.Util.JsonLog.Events (JLTxR (..))
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
@@ -59,6 +58,8 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
                                                    isProposalNeeded, isVoteNeeded)
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
+import           Pos.Util.Log (WithLogger, logDebug)
+import           Pos.Util.Trace (Trace, noTrace)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
@@ -101,7 +102,7 @@ logicFull
     => ProtocolMagic
     -> StakeholderId
     -> SecurityParams
-    -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
+    -> Trace m JLTxR
     -> Logic m
 logicFull pm ourStakeholderId securityParams jsonLogTx =
     let
@@ -153,14 +154,14 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo noTrace jsonLogTx pm txAux
             }
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
             , handleInv = Update.isProposalNeeded . unTagged
             , handleReq = Update.getLocalProposalNVotes . unTagged
-            , handleData = Update.handleProposal pm
+            , handleData = Update.handleProposal noTrace pm
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
@@ -169,7 +170,7 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
             , handleInv = \(Tagged (id, pk, dec)) -> Update.isVoteNeeded id pk dec
             , handleReq = \(Tagged (id, pk, dec)) -> Update.getLocalVote id pk dec
-            , handleData = Update.handleVote pm
+            , handleData = Update.handleVote noTrace pm
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)
@@ -178,25 +179,25 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             CommitmentMsg
             (\(MCCommitment (pk, _, _)) -> addressHash pk)
             (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
-            (\(MCCommitment comm) -> sscProcessCommitment pm comm)
+            (\(MCCommitment comm) -> sscProcessCommitment noTrace pm comm)
 
         postSscOpening = postSscCommon
             OpeningMsg
             (\(MCOpening key _) -> key)
             (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
-            (\(MCOpening key open) -> sscProcessOpening pm key open)
+            (\(MCOpening key open) -> sscProcessOpening noTrace pm key open)
 
         postSscShares = postSscCommon
             SharesMsg
             (\(MCShares key _) -> key)
             (\id tm -> MCShares id <$> tm ^. tmShares . at id)
-            (\(MCShares key shares) -> sscProcessShares pm key shares)
+            (\(MCShares key shares) -> sscProcessShares noTrace pm key shares)
 
         postSscVssCert = postSscCommon
             VssCertificateMsg
             (\(MCVssCertificate vc) -> getCertId vc)
             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
-            (\(MCVssCertificate cert) -> sscProcessCertificate pm cert)
+            (\(MCVssCertificate cert) -> sscProcessCertificate noTrace pm cert)
 
         postSscCommon
             :: ( Buildable err, Buildable contents )
@@ -207,7 +208,7 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             -> KeyVal (Tagged contents StakeholderId) contents m
         postSscCommon sscTag contentsToKey toContents processData = KeyVal
             { toKey = pure . tagWith contentsProxy . contentsToKey
-            , handleInv = sscIsDataUseful sscTag . unTagged
+            , handleInv = sscIsDataUseful noTrace sscTag . unTagged
             , handleReq = \(Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
             , handleData = \dat -> do
                   let addr = contentsToKey dat

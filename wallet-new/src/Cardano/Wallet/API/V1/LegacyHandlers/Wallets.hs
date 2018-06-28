@@ -16,7 +16,6 @@ import qualified Pos.Wallet.Web.State.Storage as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -151,7 +150,7 @@ addWalletInfo
     => V0.WalletSnapshot
     -> V0.CWallet
     -> m Wallet
-addWalletInfo snapshot wallet = do
+addWalletInfo snapshot wallet =
     case V0.getWalletInfo (V0.cwId wallet) snapshot of
         Nothing ->
             throwM WalletNotFound

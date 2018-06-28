@@ -2,8 +2,6 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
-
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans.Arbitrary ()
@@ -14,6 +12,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
 
 import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
@@ -137,7 +136,6 @@ instance Example Payment where
                       <*> example
 
 instance Example WalletStateSnapshot
-
 
 
 -- IMPORTANT: if executing `grep "[]\|null" wallet-new/spec/swagger.json` returns any element - then we have to add Example instances for those objects because we don't want to see [] or null examples in our docs.

@@ -39,9 +39,10 @@ library
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Accounts
                        Cardano.Wallet.API.V1.Addresses
-                       Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Generic
+                       Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Handlers
+                       Cardano.Wallet.API.V1.Headers
                        Cardano.Wallet.API.V1.Info
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts

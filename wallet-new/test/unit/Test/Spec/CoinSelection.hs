@@ -35,9 +35,9 @@ import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance, utxoRes
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Spec.CoinSelection.Generators (InitialBalance (..), Pay (..), genGroupedUtxo,
-                     genPayee, genPayees, genRedeemPayee, genUniqueChangeAddress,
-                     genUtxoWithAtLeast)
+import           Test.Spec.CoinSelection.Generators (InitialBalance (..), Pay (..), genFiddlyPayees,
+                     genFiddlyUtxo, genGroupedUtxo, genPayee, genPayees, genRedeemPayee,
+                     genUniqueChangeAddress, genUtxoWithAtLeast)
 
 
 {-------------------------------------------------------------------------------
@@ -491,7 +491,7 @@ spec =
                 payBatch minFee receiverPays (InitialLovelace 1000) (PayLovelace 100) largestFirst
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
 
-        withMaxSuccess 1000 $ describe "random" $ do
+        withMaxSuccess 2000 $ describe "random" $ do
             prop "one payee, SenderPaysFee, fee = 0" $ forAll (
                 payOne freeLunch identity (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
@@ -549,7 +549,7 @@ spec =
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
 
-        describe "Expected failures" $ do
+        withMaxSuccess 2000 $ describe "Expected failures" $ do
             prop "Paying a redeem address should always be rejected" $ forAll (
                 payOne' genRedeemPayee linearFee receiverPays (InitialLovelace 1000) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) ->
@@ -558,6 +558,20 @@ spec =
                 payBatch linearFee receiverPays (InitialLovelace 10) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> do
                   paymentFailedWith utxo payee res [errorWas notEnoughMoney]
+
+        -- Tests that the coin selection is unaffected by the size of the
+        -- Addresses in Cardano, as in the past there was a subtle corner case
+        -- where coin selection would fail for Addresses of size < 104, which is
+        -- the average in Cardano.
+        withMaxSuccess 200 $ describe "Fiddly Addresses" $ do
+            prop "multiple payees, SenderPaysFee, fee = cardano" $ forAll (
+                pay genFiddlyUtxo genFiddlyPayees cardanoFee identity (InitialADA 1000) (PayADA 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
+            prop "multiple payees, ReceiverPaysFee, fee = cardano" $ forAll (
+                pay genFiddlyUtxo genFiddlyPayees cardanoFee receiverPays (InitialADA 1000) (PayADA 100) random
+                ) $ \(utxo, payee, res) ->
+                  paymentSucceededWith utxo payee res [feeWasPayed ReceiverPaysFee]
 
         -- Tests for the input grouping. By input grouping we mean the
         -- circumstance where one user of the wallet used the same 'Address'
@@ -569,16 +583,24 @@ spec =
         -- be at risk. This is why we allow an 'InputGrouping' option to be
         -- passed, which allows the coin selection to, if needed, pick all
         -- the associated inputs paying into the address we just picked.
-        describe "Input Grouping" $ do
+        withMaxSuccess 2000 $ describe "Input Grouping" $ do
             prop "Require grouping, fee = 0, one big group depletes the Utxo completely" $ forAll (
-                pay genGroupedUtxo genPayee freeLunch requireGrouping (InitialLovelace 1000) (PayLovelace 10) random
+                pay (genGroupedUtxo 1) genPayee freeLunch requireGrouping (InitialLovelace 1000) (PayLovelace 10) random
                 ) $ \(utxo, payee, res) -> do
                   paymentSucceededWith utxo payee res [utxoWasDepleted]
+            prop "Require grouping, fee = cardano, one big group depletes the Utxo completely" $ forAll (
+                pay (genGroupedUtxo 1) genPayee freeLunch requireGrouping (InitialADA 1000) (PayADA 10) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentSucceededWith utxo payee res [utxoWasDepleted]
+            prop "Require grouping, fee = 0, several groups allows the payment to be fullfilled" $ forAll (
+                pay (genGroupedUtxo 10) genPayee freeLunch requireGrouping (InitialLovelace 1000) (PayLovelace 10) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentSucceeded utxo payee res
             prop "Prefer grouping, fee = 0" $ forAll (
                 payOne freeLunch preferGrouping (InitialLovelace 1000) (PayLovelace 10) random
                 ) $ \(utxo, payee, res) -> do
                   paymentSucceeded utxo payee res
             prop "IgnoreGrouping, fee = 0 must not deplete the utxo" $ forAll (
-                pay genGroupedUtxo genPayee freeLunch ignoreGrouping (InitialLovelace 1000) (PayLovelace 10) random
+                pay (genGroupedUtxo 1) genPayee freeLunch ignoreGrouping (InitialLovelace 1000) (PayLovelace 10) random
                 ) $ \(utxo, payee, res) -> do
                   paymentSucceededWith utxo payee res [utxoWasNotDepleted]

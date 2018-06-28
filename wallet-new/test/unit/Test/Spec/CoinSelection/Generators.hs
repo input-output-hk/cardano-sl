@@ -3,7 +3,9 @@ module Test.Spec.CoinSelection.Generators (
       genGroupedUtxo
     , genPayee
     , genPayees
+    , genFiddlyPayees
     , genUtxo
+    , genFiddlyUtxo
     , InitialBalance(..)
     , Pay(..)
     , genUniqueChangeAddress
@@ -102,20 +104,14 @@ finalise :: Semigroup a
          => (Maybe a -> Core.Coin -> Gen a)
          -- ^ A function to generate a value of type 'a', together with
          -- the currently accumulated value, if any.
-         -> (a -> Core.Coin)
-         -- ^ A function to extract monetary value out of 'a'.
          -> Core.Coin
          -- ^ The amount to cover
          -> a
          -- ^ The current accumulator
          -> Gen a
-finalise genValue getValue amountToCover acc =
-    case amountToCover `Core.subCoin` (getValue acc) of
-         Nothing -> return acc
-         Just (Core.Coin 0) -> return acc
-         Just remaining -> do
-             lastValue <- genValue (Just acc) remaining
-             return $ acc <> lastValue
+finalise genValue remaining acc = do
+    lastValue <- genValue (Just acc) remaining
+    return $ acc <> lastValue
 
 fromStakeOptions :: forall a. (Container a, Semigroup a)
                  => StakeGenOptions
@@ -127,7 +123,8 @@ fromStakeOptions :: forall a. (Container a, Semigroup a)
 fromStakeOptions o genValue getValue =
     if stakeMaxEntries o == Just 1
        then (genValue Nothing) (stakeNeeded o)
-       else genCoin >>= genValue Nothing >>= go (stakeNeeded o)
+       else do c <- genCoin
+               genValue Nothing c >>= go (stakeNeeded o `Core.unsafeSubCoin` c)
     where
         genCoin :: Gen Core.Coin
         genCoin = do
@@ -144,7 +141,7 @@ fromStakeOptions o genValue getValue =
         go :: Core.Coin -> a -> Gen a
         go amountToCover acc =
             case needToStop (length acc) (stakeMaxEntries o) of
-                 True  -> finalise genValue getValue amountToCover acc
+                 True  -> finalise genValue amountToCover acc
                  False -> do
                      coin <- genCoin
                      acc' <- ((<>) acc) <$> genValue (Just acc) coin
@@ -152,7 +149,7 @@ fromStakeOptions o genValue getValue =
                          bal | bal >= stakeNeeded o && stakeGenerationTarget o == AtLeast -> return acc'
                          bal | bal >= stakeNeeded o && stakeGenerationTarget o == Exactly ->
                                  -- Cover 'amountToCover' exactly, on the old accumulator.
-                                 finalise genValue getValue amountToCover acc
+                                 finalise genValue amountToCover acc
                              | otherwise ->
                                  case amountToCover `Core.subCoin` coin of
                                      Nothing        -> error "invariant violated!"
@@ -175,6 +172,18 @@ genUtxo o = do
     fromStakeOptions o genValue utxoBalance
 
 -- | Generate some Utxo with @at least@ the supplied amount of money.
+genFiddlyUtxo :: InitialBalance -> Gen Core.Utxo
+genFiddlyUtxo payment = do
+    genUtxo $ StakeGenOptions {
+                  stakeOnEachInputPercentage = Just 0.2
+                , stakeGenerationTarget = Exactly
+                , stakeNeeded           = Core.mkCoin (toLovelaces payment)
+                , stakeMaxEntries       = Just 200
+                , fiddlyAddresses       = True
+                , allowRedeemAddresses  = False
+            }
+
+-- | Generate some Utxo with @at least@ the supplied amount of money.
 genUtxoWithAtLeast :: InitialBalance -> Gen Core.Utxo
 genUtxoWithAtLeast payment = do
     genUtxo $ StakeGenOptions {
@@ -190,8 +199,11 @@ genUtxoWithAtLeast payment = do
   Dealing with grouping
 -------------------------------------------------------------------------------}
 
-genGroupedUtxo :: InitialBalance -> Gen Core.Utxo
-genGroupedUtxo balance = do
+genGroupedUtxo :: Int
+               -- ^ The number of groups to generate
+               -> InitialBalance
+               -> Gen Core.Utxo
+genGroupedUtxo groups balance = do
     let toHave = case balance of
                      InitialLovelace amount -> amount
                      InitialADA amount      -> amount * 1000000
@@ -203,11 +215,12 @@ genGroupedUtxo balance = do
     -- i.e. the 'sinkAddress'.
     -- NOTE: We are really generating a pathological input as, in practice, we
     -- will have more than one group.
-    entries <- forM (divideInto 10 toHave) $ \slice -> do
-                   txIn <- Core.TxInUtxo <$> arbitrary <*> arbitrary
-                   let txOutAux = Core.TxOutAux (Core.TxOut sinkAddress (Core.mkCoin slice))
-                   return (txIn, txOutAux)
-    return (Map.fromList entries)
+    entries <- forM (divideInto groups toHave) $ \groupSlice ->
+                   forM (divideInto 10 groupSlice) $ \slice -> do
+                       txIn <- Core.TxInUtxo <$> arbitrary <*> arbitrary
+                       let txOutAux = Core.TxOutAux (Core.TxOut sinkAddress (Core.mkCoin slice))
+                       return (txIn, txOutAux)
+    return (Map.fromList . mconcat $ entries)
 
 -- | Divides the input 'Word64' into 'Int' different \"buckets\" all having
 -- the same value. If the initial quantity is not equally divideable, the last
@@ -260,6 +273,18 @@ genPayees payment = do
              , fiddlyAddresses       = False
              , allowRedeemAddresses  = False
              }
+
+-- | Generate some Utxo with @at least@ the supplied amount of money.
+genFiddlyPayees :: Pay -> Gen (NonEmpty Core.TxOut)
+genFiddlyPayees payment = do
+    genTxOut $ StakeGenOptions {
+                  stakeOnEachInputPercentage = Just 0.7
+                , stakeGenerationTarget = Exactly
+                , stakeNeeded           = Core.mkCoin (toLovelaces payment)
+                , stakeMaxEntries       = Just 10
+                , fiddlyAddresses       = True
+                , allowRedeemAddresses  = False
+            }
 
 -- | Generates a single payee.
 genPayee :: Pay -> Gen (NonEmpty Core.TxOut)

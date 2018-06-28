@@ -20,6 +20,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           System.Metrics.Label (Label)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
                      HasProtocolConstants, LocalSlotIndex, slotIdF,
                      unflattenSlotId)
@@ -95,3 +96,11 @@ instance HasProtocolConstants => Buildable SlogUndo where
     build (SlogUndo oldSlot) =
         "SlogUndo: " <>
         maybe "<nothing>" (bprint slotIdF . unflattenSlotId) oldSlot
+
+-- TH derived instances at the end of the file.
+
+deriveSimpleBi ''SlogUndo [
+    Cons 'SlogUndo [
+        Field [| getSlogUndo  :: Maybe FlatSlotId |]
+    ]]
+

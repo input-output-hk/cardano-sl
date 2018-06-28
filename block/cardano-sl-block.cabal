@@ -36,10 +36,6 @@ library
                         Pos.GState.BlockExtra
                         Pos.GState.SanityCheck
 
-                        -- Binary serialization
-                        Pos.Binary.Block.Types
-                        Pos.Binary.Block.Network
-
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
                         Pos.Block.Logic.Integrity

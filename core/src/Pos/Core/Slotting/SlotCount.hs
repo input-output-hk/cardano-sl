@@ -4,6 +4,7 @@ module Pos.Core.Slotting.SlotCount
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))
@@ -15,3 +16,5 @@ newtype SlotCount = SlotCount {getSlotCount :: Word64}
 instance Bi SlotCount where
     encode = encode . getSlotCount
     decode = SlotCount <$> decode
+
+deriveSafeCopySimple 0 'base ''SlotCount

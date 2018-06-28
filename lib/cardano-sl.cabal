@@ -52,9 +52,6 @@ library
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
-                        -- SafeCopy serialization (required in wallet)
-                        Pos.SafeCopy
-
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message
@@ -223,8 +220,8 @@ library
     build-depends:      unix
 
   if !os(windows) && !os(freebsd)
-    -- See: https://github.com/input-output-hk/stack2nix/issues/56
-    build-depends:      systemd
+     -- See: https://github.com/input-output-hk/stack2nix/issues/56
+     build-depends:      systemd
 
   hs-source-dirs:       src
   default-language:     Haskell2010

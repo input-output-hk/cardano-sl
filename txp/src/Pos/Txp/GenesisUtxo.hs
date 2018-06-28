@@ -12,9 +12,9 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 
-import           Pos.Core (Address, Coin, GenesisData (..), StakesMap, HasGenesisData,
-                           genesisData, getGenesisAvvmBalances, getGenesisNonAvvmBalances,
-                           makeRedeemAddress)
+import           Pos.Core (Address, Coin, GenesisData (..), HasGenesisData,
+                     StakesMap, genesisData, getGenesisAvvmBalances,
+                     getGenesisNonAvvmBalances, makeRedeemAddress)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (unsafeHash)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoToStakes)

@@ -23,8 +23,9 @@ import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing.Tag (signTag)
-import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
-                                           SignTag (..), Signature (..), ProxySignature (..))
+import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..),
+                     ProxySignature (..), PublicKey (..), SignTag (..),
+                     Signature (..))
 
 -- CHECK: @checkSig
 -- | Verify a signature.

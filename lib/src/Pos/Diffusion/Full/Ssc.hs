@@ -18,21 +18,22 @@ import           Pos.Binary.Limit (Limit)
 import           Pos.Binary.Ssc ()
 -- Message instances for various types.
 -- TODO should move these into the Diffusion module subtree.
-import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening, mlMCShares,
-                                           mlMCVssCertificate)
+import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening,
+                     mlMCShares, mlMCVssCertificate)
 import           Pos.Communication.Message ()
 import           Pos.Core (StakeholderId)
 import           Pos.Infra.Binary ()
-import           Pos.Infra.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
-                                                MempoolParams (NoMempool), Relay (..), ReqMsg,
-                                                ReqOrRes, relayListeners, relayPropagateOut)
-import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg, MkListeners, MsgType (..),
-                                                         NodeId, OutSpecs)
+import           Pos.Infra.Communication.Relay (DataMsg, InvOrData,
+                     InvReqDataParams (..), MempoolParams (NoMempool),
+                     Relay (..), ReqMsg, ReqOrRes, relayListeners,
+                     relayPropagateOut)
+import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg,
+                     MkListeners, MsgType (..), NodeId, OutSpecs)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..))
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
 import           Pos.Util.Trace (Severity, Trace)
 
 sscListeners

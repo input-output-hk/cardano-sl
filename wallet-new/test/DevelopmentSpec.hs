@@ -27,7 +27,8 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 
-import           Cardano.Wallet.API.Development.LegacyHandlers (deleteSecretKeys)
+import           Cardano.Wallet.API.Development.LegacyHandlers
+                     (deleteSecretKeys)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Data.Default (def)
 import           Servant

@@ -6,12 +6,13 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Hashable (Hashable)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, shown, (%))
 
-import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem, decodeUnknownCborDataItem,
-                     encodeKnownCborDataItem, encodeListLen, encodeUnknownCborDataItem,
-                     enforceSize)
+import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
+                     decodeUnknownCborDataItem, encodeKnownCborDataItem,
+                     encodeListLen, encodeUnknownCborDataItem, enforceSize)
 import           Pos.Core.Common.TxSizeLinear
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
@@ -58,3 +59,5 @@ instance Bi TxFeePolicy where
             _ -> TxFeePolicyUnknown tag  <$> decodeUnknownCborDataItem
 
 instance Hashable TxFeePolicy
+
+deriveSafeCopySimple 0 'base ''TxFeePolicy

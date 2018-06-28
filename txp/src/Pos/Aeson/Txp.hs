@@ -6,8 +6,9 @@ module Pos.Aeson.Txp where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
-                             ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
+import           Data.Aeson (FromJSON (..), FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSON (toJSON), ToJSONKey (..),
+                     object, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.Text as T
@@ -17,8 +18,8 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Core ()
 import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
-import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
-                               TxSigData)
+import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..),
+                     TxOut (..), TxOutAux, TxSigData)
 import           Pos.Crypto (decodeAbstractHash, hashHexF)
 import           Pos.Util.Util (aesonError, toAesonError)
 

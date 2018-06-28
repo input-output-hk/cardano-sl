@@ -24,10 +24,11 @@ import           Pos.Binary.Class (serialize')
 import           Pos.Block.Logic (applyBlocksUnsafe)
 import qualified Pos.Block.Lrc as Lrc
 import           Pos.Block.Slog (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, GenesisData (..), GenesisInitializer (..),
-                           StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,
-                           coinF, epochSlots, genesisData, genesisSecretKeysPoor,
-                           genesisSecretKeysRich)
+import           Pos.Core (Coin, EpochIndex, GenesisData (..),
+                     GenesisInitializer (..), StakeholderId,
+                     TestnetBalanceOptions (..), addressHash, blkSecurityParam,
+                     coinF, epochSlots, genesisData, genesisSecretKeysPoor,
+                     genesisSecretKeysRich)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
@@ -36,11 +37,13 @@ import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Lrc as Lrc
 import           Pos.Util.Util (getKeys)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
-                                            bpGenBlocks)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
+                     blockPropertyToProperty)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
+                     InplaceDB (..), bpGenBlock, bpGenBlocks)
 import           Test.Pos.Block.Property (blockPropertySpec)
-import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
+import           Test.Pos.Configuration (defaultTestBlockVersionData,
+                     withStaticConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 

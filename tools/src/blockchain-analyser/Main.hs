@@ -5,8 +5,8 @@ module Main where
 import           Universum
 
 import           Mockable (Production, runProduction)
-import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
-                                   withCurrentDirectory)
+import           System.Directory (canonicalizePath, doesDirectoryExist,
+                     getFileSize, listDirectory, withCurrentDirectory)
 
 import           Pos.Block.Types (Undo)
 import qualified Pos.Client.CLI as CLI
@@ -22,7 +22,8 @@ import           Pos.Launcher (withConfigurations)
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)
-import           Types (BlockchainInspector, DBFolderStat, initBlockchainAnalyser, prevBlock)
+import           Types (BlockchainInspector, DBFolderStat,
+                     initBlockchainAnalyser, prevBlock)
 
 -- | Like Unix's `du -s`, but works across all the major platforms and
 -- returns the total number of bytes the directory occupies on disk.

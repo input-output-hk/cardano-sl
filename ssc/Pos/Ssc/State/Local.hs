@@ -10,7 +10,7 @@ module Pos.Ssc.State.Local
 
 import           Universum
 
-import           Pos.Core (SlotId (..), HasProtocolConstants)
+import           Pos.Core (HasProtocolConstants, SlotId (..))
 import           Pos.DB (MonadDBRead)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Mem (MonadSscMem, askSscMem)

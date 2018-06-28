@@ -24,8 +24,10 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import qualified Prelude
 import           System.Random (Random, mkStdGen, randomR)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,
+                     vectorOf)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
                      genSscPayloadForSlot)
@@ -33,11 +35,12 @@ import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog (SlogUndo)
 import           Pos.Block.Types (Undo (..))
-import           Pos.Core (GenesisHash (..), HasGenesisHash, HasProtocolConstants, HeaderHash,
-                     epochSlots, genesisHash)
+import           Pos.Core (GenesisHash (..), HasGenesisHash,
+                     HasProtocolConstants, HeaderHash, epochSlots, genesisHash)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
-import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
+                     hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
 
 import           Test.Pos.Core.Arbitrary (genSlotId)

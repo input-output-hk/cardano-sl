@@ -6,6 +6,7 @@ import           Universum
 
 import qualified Data.ByteString as BS (pack, zipWith)
 import qualified Data.ByteString.Char8 as BSC (pack)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Semigroup (Semigroup (..))
 import qualified Data.Text.Buildable as Buildable
 import           Serokell.Util.Base16 (formatBase16)
@@ -36,3 +37,5 @@ deriveSimpleBi ''SharedSeed [
     Cons 'SharedSeed [
         Field [| getSharedSeed :: ByteString |]
     ]]
+
+deriveSafeCopySimple 0 'base ''SharedSeed

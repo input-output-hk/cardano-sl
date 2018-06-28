@@ -8,6 +8,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Char (isAscii)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 
 import           Pos.Binary.Class (Bi (..))
@@ -32,3 +33,4 @@ checkApplicationName (ApplicationName appName)
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 12
 
+deriveSafeCopySimple 0 'base ''ApplicationName

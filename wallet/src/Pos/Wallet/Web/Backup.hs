@@ -17,10 +17,11 @@ import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Crypto.Signing.Safe (emptyPassphrase, safeKeyGen)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
-                                             CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..),
+                     CId, CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (WalletSnapshot, getAccountMeta, getWalletMeta)
+import           Pos.Wallet.Web.State (WalletSnapshot, getAccountMeta,
+                     getWalletMeta)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
 currentBackupFormatVersion :: V.Version

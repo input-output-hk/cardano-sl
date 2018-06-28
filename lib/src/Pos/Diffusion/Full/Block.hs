@@ -25,50 +25,52 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
-import           Node.Conversation (sendRaw)
 import qualified Network.Broadcast.OutboundQueue as OQ
+import           Node.Conversation (sendRaw)
 import           Pipes (await, runEffect, (>->))
 import           Serokell.Util.Text (listJson)
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 
-import           Pos.Binary.Communication (serializeMsgSerializedBlock, serializeMsgStreamBlock)
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..), MsgStreamStart (..), MsgStreamUpdate (..),
-                                    MsgStream (..), MsgStreamBlock (..))
+import           Pos.Binary.Communication (serializeMsgSerializedBlock,
+                     serializeMsgStreamBlock)
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
+import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
+                     mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
+                     mlMsgStreamBlock)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (mlMsgGetBlocks, mlMsgHeaders, mlMsgBlock,
-                                           mlMsgGetHeaders, mlMsgStreamBlock, mlMsgStream)
 import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
-                           headerHash, bvdSlotDuration, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
+                     bvdSlotDuration, headerHash, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
+                     blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
-                                                   ConversationActions (..),
-                                                   EnqueueMsg, ListenerSpec,
-                                                   MkListeners (..),
-                                                   MsgType (..), NodeId,
-                                                   Origin (..), OutSpecs,
-                                                   constantListeners,
-                                                   waitForConversations,
-                                                   waitForDequeues,
-                                                   recvLimited)
-import           Pos.Infra.Diffusion.Types (StreamEntry (..), DiffusionHealth (..))
+                     ConversationActions (..), EnqueueMsg, ListenerSpec,
+                     MkListeners (..), MsgType (..), NodeId, Origin (..),
+                     OutSpecs, constantListeners, recvLimited,
+                     waitForConversations, waitForDequeues)
+import           Pos.Infra.Diffusion.Types (DiffusionHealth (..),
+                     StreamEntry (..))
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
 -- Dubious having this security stuff in here.
-import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
-                                      SecurityParams (..))
-import           Pos.Util (_neHead, _neLast)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
-                                  toOldestFirst, _NewestFirst, _OldestFirst)
+                     toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Security.Params (AttackTarget (..), AttackType (..),
+                     NodeAttackedError (..), SecurityParams (..))
+import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Timer (Timer, startTimer)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

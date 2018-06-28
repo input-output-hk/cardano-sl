@@ -10,21 +10,21 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.Sign.Ed25519 as EDS25519
 import           Crypto.Hash (HashAlgorithm)
+import qualified Crypto.Sign.Ed25519 as EDS25519
 
-import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
-                                safePut)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Crypto (AbstractHash, WithHash (..))
-import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..), RedeemSecretKey (..),
-                                            RedeemSignature (..))
-import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
-                                             ProxySignature (..), PublicKey (..), SecretKey (..),
-                                             Signature (..), Signed (..))
+import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..),
+                     RedeemSecretKey (..), RedeemSignature (..))
+import           Pos.Crypto.Signing.Signing (ProxyCert (..),
+                     ProxySecretKey (..), ProxySignature (..), PublicKey (..),
+                     SecretKey (..), Signature (..), Signed (..))
 
 import           Pos.Util.Util (cerealError)
 

@@ -16,11 +16,13 @@ module Pos.Core.Slotting.EpochOrSlot
 import           Universum
 
 import           Control.Lens (Getter, lens, to)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
+                     epochSlots)
 import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Slotting.EpochIndex
@@ -51,7 +53,6 @@ instance Buildable EpochOrSlot where
 instance Bi EpochOrSlot where
     encode (EpochOrSlot e) = encode e
     decode = EpochOrSlot <$> decode @(Either EpochIndex SlotId)
-
 
 instance HasEpochIndex EpochOrSlot where
     epochIndexL = lens (epochOrSlot identity siEpoch) setter
@@ -153,3 +154,5 @@ epochOrSlot f g = either f g . unEpochOrSlot
 -- returned.
 epochOrSlotToSlot :: HasProtocolConstants => EpochOrSlot -> SlotId
 epochOrSlotToSlot = epochOrSlot (flip SlotId minBound) identity
+
+deriveSafeCopySimple 0 'base ''EpochOrSlot

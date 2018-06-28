@@ -2,7 +2,8 @@ module Bench.Pos.Criterion.TxSigningBench
        ( runBenchmark
        ) where
 
-import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWith, env, whnf)
+import           Criterion.Main (Benchmark, bench, defaultConfig,
+                     defaultMainWith, env, whnf)
 import           Criterion.Types (Config (..))
 import           Test.QuickCheck (generate)
 import           Universum

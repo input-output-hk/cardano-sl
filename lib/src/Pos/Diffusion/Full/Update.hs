@@ -13,22 +13,20 @@ import           Universum
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 
-import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal, mkVoteId)
+import           Pos.Communication.Limits (mlUpdateProposalAndVotes,
+                     mlUpdateVote)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (mlUpdateVote, mlUpdateProposalAndVotes)
-import           Pos.Infra.Communication.Protocol (EnqueueMsg, MsgType (..),
-                                                   Origin (..), NodeId,
-                                                   MkListeners, OutSpecs)
-import           Pos.Infra.Communication.Relay (invReqDataFlowTK,
-                                                Relay (..), relayListeners,
-                                                InvReqDataParams (..),
-                                                MempoolParams (..),
-                                                relayPropagateOut)
+import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
+import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
+                     MsgType (..), NodeId, Origin (..), OutSpecs)
+import           Pos.Infra.Communication.Relay (InvReqDataParams (..),
+                     MempoolParams (..), Relay (..), invReqDataFlowTK,
+                     relayListeners, relayPropagateOut)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Update ()
-import           Pos.Util.Trace (Trace, Severity)
+import           Pos.Util.Trace (Severity, Trace)
 
 -- Send UpdateVote to given addresses.
 sendVote

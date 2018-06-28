@@ -19,10 +19,11 @@ import           Data.Constraint (Dict (..))
 import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
-import           System.IO (hFlush, stdout)
 import           Pos.Util.Log (CanLog, HasLoggerName, logInfo)
+import           System.IO (hFlush, stdout)
 
-import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF, hashHexF)
+import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF,
+                     hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 

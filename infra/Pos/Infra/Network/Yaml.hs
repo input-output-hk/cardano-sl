@@ -29,7 +29,8 @@ module Pos.Infra.Network.Yaml
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?),
+                     (.=))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import qualified Data.ByteString.Char8 as BS.C8

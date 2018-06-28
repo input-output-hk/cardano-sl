@@ -33,7 +33,7 @@ module Pos.Util.Modifier
        , toHashMap
        ) where
 
-import           Universum hiding (filter, mapMaybe, toList, keys)
+import           Universum hiding (filter, keys, mapMaybe, toList)
 import qualified Universum
 
 import           Data.Hashable (Hashable)
@@ -54,15 +54,16 @@ newtype MapModifier k v = MapModifier
 instance Functor (MapModifier k) where
     fmap f (MapModifier m) = MapModifier (f <<$>> m)
 
-instance (Eq k, Hashable k) =>
-         Monoid (MapModifier k v) where
-    mempty = MapModifier mempty
-    mappend m1 (MapModifier m2) = HM.foldlWithKey' step m1 m2
+instance (Eq k, Hashable k) => Semigroup (MapModifier k v) where
+    m1 <> (MapModifier m2) = HM.foldlWithKey' step m1 m2
       where
         step m k Nothing  = delete k m
         step m k (Just v) = insert k v m
 
-instance (Eq k, Hashable k) => Semigroup (MapModifier k v)
+instance (Eq k, Hashable k, Semigroup (MapModifier k v)) =>
+         Monoid (MapModifier k v) where
+    mempty = MapModifier mempty
+    mappend = (<>)
 
 instance (Buildable k, Buildable v) => Buildable (MapModifier k v) where
     build mm =

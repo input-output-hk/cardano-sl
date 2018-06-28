@@ -29,8 +29,8 @@ import           Control.Monad.Trans.Identity (IdentityT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson.Types (ToJSON)
-import           Serokell.Util.Lens (WrappedM (..))
 import           Pos.Util.Log (LoggerNameBox)
+import           Serokell.Util.Lens (WrappedM (..))
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.

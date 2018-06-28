@@ -4,6 +4,8 @@ module Pos.Core.Ssc.Opening
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
+
 import           Pos.Binary.Class (AsBinary, Bi (..))
 import           Pos.Crypto (Secret)
 
@@ -15,3 +17,5 @@ newtype Opening = Opening
 instance Bi Opening where
     encode = encode . getOpening
     decode = Opening <$> decode
+
+deriveSafeCopySimple 0 'base ''Opening

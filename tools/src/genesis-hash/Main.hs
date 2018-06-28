@@ -1,13 +1,15 @@
-{-# LANGUAGE NoImplicitPrelude, LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Main where
 
 import           Universum
 
-import System.IO (stdin)
-import Data.ByteString.Lazy.Char8 as L8
-import Text.JSON.Canonical (JSValue, parseCanonicalJSON, renderCanonicalJSON)
-import Crypto.Hash (Digest, hashlazy)
-import Crypto.Hash.Algorithms (Blake2b_256)
+import           Crypto.Hash (Digest, hashlazy)
+import           Crypto.Hash.Algorithms (Blake2b_256)
+import           Data.ByteString.Lazy.Char8 as L8
+import           System.IO (stdin)
+import           Text.JSON.Canonical (JSValue, parseCanonicalJSON,
+                     renderCanonicalJSON)
 
 main :: IO ()
 main = do
@@ -24,11 +26,11 @@ parseArgs = getArgs >>= \case
 readJSON :: Maybe FilePath -> IO JSValue
 readJSON mf = do
   bs <- case mf of
-    Just f -> L8.readFile f
+    Just f  -> L8.readFile f
     Nothing -> L8.hGetContents stdin
   case parseCanonicalJSON bs of
     Right v -> pure v
-    Left e -> die e >> exitFailure
+    Left e  -> die e >> exitFailure
 
 blakeHash :: JSValue -> Digest Blake2b_256
 blakeHash = hashlazy . renderCanonicalJSON

@@ -21,15 +21,16 @@ import           Data.Default.Class (Default (..))
 import           Data.X509 (CertificateChain, SignedCertificate)
 import           Data.X509.CertificateStore (makeCertificateStore)
 import           Network.Connection (TLSSettings (..))
-import           Network.HTTP.Client (Manager, ManagerSettings, defaultManagerSettings, newManager)
+import           Network.HTTP.Client (Manager, ManagerSettings,
+                     defaultManagerSettings, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
-import           Network.TLS (ClientHooks (..), ClientParams (..), Credentials (..),
-                              HostName, PrivKey, Shared (..), Supported (..), credentialLoadX509,
-                              noSessionManager)
+import           Network.TLS (ClientHooks (..), ClientParams (..),
+                     Credentials (..), HostName, PrivKey, Shared (..),
+                     Supported (..), credentialLoadX509, noSessionManager)
 import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM, Scheme (..),
-                                 ServantError (..), client, runClientM)
+import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
+                     Scheme (..), ServantError (..), client, runClientM)
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client

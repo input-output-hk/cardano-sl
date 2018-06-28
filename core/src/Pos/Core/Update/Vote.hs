@@ -10,6 +10,7 @@ module Pos.Core.Update.Vote
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, builder, later, (%))
@@ -17,8 +18,9 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core.Common (addressHash)
-import           Pos.Crypto (ProtocolMagic, PublicKey, SafeSigner, SecretKey, SignTag (SignUSVote),
-                     Signature, checkSig, safeSign, safeToPublic, shortHashF, sign, toPublic)
+import           Pos.Crypto (ProtocolMagic, PublicKey, SafeSigner, SecretKey,
+                     SignTag (SignUSVote), Signature, checkSig, safeSign,
+                     safeToPublic, shortHashF, sign, toPublic)
 
 import           Pos.Core.Update.Proposal
 
@@ -112,3 +114,5 @@ checkUpdateVote pm it =
     unless sigValid (throwError "UpdateVote: invalid signature")
   where
     sigValid = checkSig pm SignUSVote (uvKey it) (uvProposalId it, uvDecision it) (uvSignature it)
+
+deriveSafeCopySimple 0 'base ''UpdateVote

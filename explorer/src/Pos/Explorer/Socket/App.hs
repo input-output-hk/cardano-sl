@@ -26,16 +26,18 @@ import           Mockable (withAsync)
 import           Network.EngineIO (SocketId)
 import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
 import           Network.HTTP.Types.Status (status404)
-import           Network.SocketIO (RoutingTable, Socket, appendDisconnectHandler, initialize,
-                                   socketId)
-import           Network.Wai (Application, Middleware, Request, Response, pathInfo, responseLBS)
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setPort)
-import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors, corsOrigins,
-                                              simpleCorsResourcePolicy)
+import           Network.SocketIO (RoutingTable, Socket,
+                     appendDisconnectHandler, initialize, socketId)
+import           Network.Wai (Application, Middleware, Request, Response,
+                     pathInfo, responseLBS)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings,
+                     runSettings, setPort)
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors,
+                     corsOrigins, simpleCorsResourcePolicy)
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger, WithLogger,
-                              askLoggerName, logDebug, logInfo, logWarning, modifyLoggerName,
-                              usingLoggerName)
+import           System.Wlog (CanLog, HasLoggerName, LoggerName,
+                     NamedPureLogger, WithLogger, askLoggerName, logDebug,
+                     logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core (addressF, siEpoch)
@@ -44,18 +46,19 @@ import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ConnectionsVar, askingConnState,
-                                             mkConnectionsState, withConnState)
-import           Pos.Explorer.Socket.Methods (ClientEvent (..), ServerEvent (..), Subscription (..),
-                                              finishSession, getBlockTxs, getBlundsFromTo,
-                                              getTxInfo, notifyAddrSubscribers,
-                                              notifyBlocksLastPageSubscribers,
-                                              notifyEpochsLastPageSubscribers, notifyTxsSubscribers,
-                                              startSession, subscribeAddr, subscribeBlocksLastPage,
-                                              subscribeEpochsLastPage, subscribeTxs,
-                                              unsubscribeAddr, unsubscribeBlocksLastPage,
-                                              unsubscribeEpochsLastPage, unsubscribeTxs)
-import           Pos.Explorer.Socket.Util (emitJSON, on, on_, regroupBySnd, runPeriodically)
+import           Pos.Explorer.Socket.Holder (ConnectionsState, ConnectionsVar,
+                     askingConnState, mkConnectionsState, withConnState)
+import           Pos.Explorer.Socket.Methods (ClientEvent (..),
+                     ServerEvent (..), Subscription (..), finishSession,
+                     getBlockTxs, getBlundsFromTo, getTxInfo,
+                     notifyAddrSubscribers, notifyBlocksLastPageSubscribers,
+                     notifyEpochsLastPageSubscribers, notifyTxsSubscribers,
+                     startSession, subscribeAddr, subscribeBlocksLastPage,
+                     subscribeEpochsLastPage, subscribeTxs, unsubscribeAddr,
+                     unsubscribeBlocksLastPage, unsubscribeEpochsLastPage,
+                     unsubscribeTxs)
+import           Pos.Explorer.Socket.Util (emitJSON, on, on_, regroupBySnd,
+                     runPeriodically)
 import           Pos.Explorer.Web.ClientTypes (cteId, tiToTxEntry)
 import           Pos.Explorer.Web.Server (getMempoolTxs)
 

@@ -5,12 +5,14 @@ module Stats where
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Pos.Wallet.Web.State.Acidic (GetWalletStorage (..), closeState, openState, query)
+import           Pos.Wallet.Web.State.Acidic (GetWalletStorage (..), closeState,
+                     openState, query)
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Text.Printf (printf)
 
-import           Rendering (blankLine, bold, listOf, red, renderAccount, renderWallet, say)
+import           Rendering (blankLine, bold, listOf, red, renderAccount,
+                     renderWallet, say)
 
 {- For reference:
 

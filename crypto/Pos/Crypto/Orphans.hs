@@ -6,11 +6,14 @@ module Pos.Crypto.Orphans
 
 import           Universum
 
+import qualified Cardano.Crypto.Wallet as CC
+import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.SCRAPE as Scrape
 import           Crypto.Scrypt (EncryptedPass (..))
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Hashable (Hashable)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
@@ -22,6 +25,10 @@ instance Hashable Ed25519.Signature
 instance NFData Ed25519.PublicKey
 instance NFData Ed25519.SecretKey
 instance NFData Ed25519.Signature
+
+deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
+deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
+deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
 instance FromJSON Ed25519.PublicKey where
     parseJSON v = Ed25519.PublicKey . getJsonByteString <$> parseJSON v
@@ -90,3 +97,13 @@ instance Bi Scrape.ParallelProofs where
 instance Bi EncryptedPass where
     encode (EncryptedPass ep) = encode ep
     decode = EncryptedPass <$> decode
+
+
+deriveSafeCopySimple 0 'base ''CC.ChainCode
+deriveSafeCopySimple 0 'base ''CC.EncryptedKey
+
+deriveSafeCopySimple 0 'base ''CC.XSignature
+deriveSafeCopySimple 0 'base ''CC.XPub
+deriveSafeCopySimple 0 'base ''CC.XPrv
+
+

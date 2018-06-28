@@ -23,7 +23,7 @@ import           UTxO.Generator
 import           Wallet.Inductive
 import           Wallet.Inductive.Generator
 
-import           Pos.Core ( TxSizeLinear, calculateTxSizeLinear )
+import           Pos.Core (TxSizeLinear, calculateTxSizeLinear)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 
 {-------------------------------------------------------------------------------

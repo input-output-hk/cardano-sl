@@ -15,10 +15,10 @@ import           Universum
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build, sformat)
 import           Mockable (CurrentTime, Mockable, currentTime)
+import           Pos.Util.Log (WithLogger, logDebug)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
-import           Pos.Util.Log (WithLogger, logDebug)
 
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 

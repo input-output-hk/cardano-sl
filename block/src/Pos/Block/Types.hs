@@ -22,7 +22,8 @@ import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
+import           Pos.Core (HasConfiguration, HasDifficulty (..),
+                     HasHeaderHash (..))
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Delegation.Types (DlgUndo)

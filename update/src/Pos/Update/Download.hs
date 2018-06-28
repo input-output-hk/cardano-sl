@@ -18,16 +18,18 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, stext, (%))
 import           Network.HTTP.Client (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Network.HTTP.Simple (getResponseBody, getResponseStatus, getResponseStatusCode,
-                     httpLBS, parseRequest, setRequestManager)
+import           Network.HTTP.Simple (getResponseBody, getResponseStatus,
+                     getResponseStatusCode, httpLBS, parseRequest,
+                     setRequestManager)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logWarning)
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 import           System.Directory (doesFileExist)
-import           Pos.Util.Log (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Update ()
-import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..), UpdateProposal (..))
+import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
+                     UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.Exception (reportFatalError)
 import           Pos.Infra.Reporting (reportOrLogW)

@@ -38,7 +38,8 @@ import           Control.Lens (at)
 import qualified Data.ByteString as BS (hPut, readFile)
 import           Data.Default (Default (def))
 import           Formatting (formatToString)
-import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
+import           System.Directory (createDirectoryIfMissing, doesFileExist,
+                     removeFile)
 import           System.FilePath ((</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
@@ -52,11 +53,13 @@ import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
-                     SerializedBlund, SerializedUndo, getBlock, getDeserialized)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..),
+                     SerializedBlock, SerializedBlund, SerializedUndo,
+                     getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTipSomething)
-import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
+import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure,
+                     pureBlocksStorage)
 import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))

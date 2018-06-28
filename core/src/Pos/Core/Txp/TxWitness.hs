@@ -7,17 +7,19 @@ module Pos.Core.Txp.TxWitness
 
 import           Universum
 
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as LBS
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Base16 (base16F)
 
-import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem, decodeListLenCanonical,
-                     decodeUnknownCborDataItem, encodeKnownCborDataItem, encodeListLen,
+import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
+                     decodeListLenCanonical, decodeUnknownCborDataItem,
+                     encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, matchSize)
 import           Pos.Core.Common (Script, addressHash)
-import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
-                     shortHashF)
+import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
+                     Signature, hash, shortHashF)
 
 import           Pos.Core.Txp.Tx (Tx)
 
@@ -69,7 +71,7 @@ instance Bi TxInWitness where
         UnknownWitnessType tag bs ->
             encodeListLen 2 <>
             encode tag <>
-            encodeUnknownCborDataItem (BSL.fromStrict bs)
+            encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         len <- decodeListLenCanonical
         tag <- decode @Word8
@@ -102,3 +104,5 @@ instance Bi TxSigData where
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData
+
+deriveSafeCopySimple 0 'base ''TxInWitness

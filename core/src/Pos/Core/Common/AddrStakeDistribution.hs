@@ -10,6 +10,7 @@ import           Universum hiding (id)
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util (mapJson)
@@ -104,3 +105,5 @@ mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
         let distrSum = sum $ map getCoinPortion distrMap
         unless (distrSum == coinPortionDenominator) $
             throwError MkdSumNot1
+
+deriveSafeCopySimple 0 'base ''AddrStakeDistribution

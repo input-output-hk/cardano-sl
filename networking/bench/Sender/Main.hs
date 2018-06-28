@@ -1,11 +1,11 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE BangPatterns          #-}
 
 module Main where
 
@@ -17,10 +17,9 @@ import           Control.Exception.Safe (throwString)
 import           Control.Monad (forM, forM_)
 
 import           Data.Foldable (foldlM)
---import           Data.Functor.Contravariant (contramap)
---import           Data.Text (Text)
-import           Data.Time.Units (Microsecond)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
@@ -28,18 +27,17 @@ import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen, randomR)
 
 import qualified Network.Transport as NT
-
-import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
-                       converseWith, defaultNodeEnvironment, noReceiveDelay, node,
-                       simpleNodeEndPoint)
+import           Node (Conversation (..), ConversationActions (..), Node (Node),
+                     NodeAction (..), converseWith, defaultNodeEnvironment,
+                     noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig
-import           Pos.Util.Trace.Named(setupLogging, appendName)
+import           Pos.Util.Trace.Named (appendName, setupLogging)
 
-import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
-                                        logMeasure)
+import           Bench.Network.Commons (MeasureEvent (..), Payload (..),
+                     Ping (..), Pong (..), logMeasure)
 import           SenderOptions (Args (..), argsParser)
 
 data PingState = PingState
@@ -62,7 +60,7 @@ main = do
 
     --Log.loadLogConfig logsPrefix logConfig
     lc1 <- case logConfig of
-              Nothing -> return $ defaultInteractiveConfiguration Log.Debug
+              Nothing  -> return $ defaultInteractiveConfiguration Log.Debug
               Just lc0 -> parseLoggerConfig lc0
     lc <- setLogPrefix logsPrefix lc1
     logTrace <- setupLogging lc "bench-sender"

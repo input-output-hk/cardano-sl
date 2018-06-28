@@ -6,6 +6,7 @@ module Pos.Core.Ssc.Proof
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 
@@ -85,3 +86,5 @@ deriveSimpleBi ''SscProof [
     Cons 'CertificatesProof [
         Field [| sprVss      :: VssCertificatesHash |] ]
     ]
+
+deriveSafeCopySimple 0 'base ''SscProof

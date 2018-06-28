@@ -8,10 +8,12 @@ module Pos.Update.Poll.Logic.Rollback
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Core (ApplicationName, BlockVersion, NumSoftwareVersion, SoftwareVersion (..))
+import           Pos.Core (ApplicationName, BlockVersion, NumSoftwareVersion,
+                     SoftwareVersion (..))
 import           Pos.Core.Update (UpId)
 import           Pos.Update.Poll.Class (MonadPoll (..))
-import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, PrevValue (..),
+import           Pos.Update.Poll.Types (BlockVersionState,
+                     ConfirmedProposalState, PrevValue (..),
                      ProposalState (..), USUndo (..))
 import           Pos.Util.Trace.Named (TraceNamed)
 

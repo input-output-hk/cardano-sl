@@ -7,6 +7,7 @@ module Pos.Core.Common.TxSizeLinear
 import           Universum
 
 import           Data.Fixed (Nano)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Data.Memory.Units (Byte, toBytes)
@@ -44,3 +45,5 @@ calculateTxSizeLinear
 
 txSizeLinearMinValue :: TxSizeLinear -> Nano
 txSizeLinearMinValue (TxSizeLinear (Coeff minVal) _) = minVal
+
+deriveSafeCopySimple 0 'base ''TxSizeLinear

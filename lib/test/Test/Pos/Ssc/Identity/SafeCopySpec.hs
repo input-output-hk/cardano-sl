@@ -9,7 +9,6 @@ import           Universum
 
 import           Pos.Arbitrary.Ssc ()
 import qualified Pos.Core.Ssc as Ssc
-import           Pos.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
 

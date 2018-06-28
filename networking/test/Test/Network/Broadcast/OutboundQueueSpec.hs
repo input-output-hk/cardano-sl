@@ -18,14 +18,14 @@ import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
 --import qualified Pos.Util.Log as Log
-import           Test.Hspec (Spec, describe, it)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, property,
-                                  suchThat, (===))
-import qualified Test.QuickCheck as QC
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
 import           Pos.Util.Trace.Named (setupLogging)
+import           Test.Hspec (Spec, describe, it)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty,
+                     property, suchThat, (===))
+import qualified Test.QuickCheck as QC
 
 arbitraryNodeType :: Gen NodeType
 arbitraryNodeType = QC.elements [minBound .. maxBound]

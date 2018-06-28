@@ -15,15 +15,15 @@ import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants, IsMainHeader,
-                           LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
-                           VssCertificate, epochIndexL, epochOrSlot, getEpochOrSlot,
-                           getVssCertificatesMap, headerSlotL, mkCoin,
-                           mkVssCertificatesMapSingleton, slotSecurityParam)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
+                     IsMainHeader, LocalSlotIndex, SlotCount, SlotId (siSlot),
+                     StakeholderId, VssCertificate, epochIndexL, epochOrSlot,
+                     getEpochOrSlot, getVssCertificatesMap, headerSlotL,
+                     mkCoin, mkVssCertificatesMapSingleton, slotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
-                               SscPayload (..), checkSscPayload, getCommitmentsMap,
-                               mkCommitmentsMapUnsafe, spVss)
+import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
+                     SignedCommitment, SscPayload (..), checkSscPayload,
+                     getCommitmentsMap, mkCommitmentsMapUnsafe, spVss)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)
@@ -97,7 +97,7 @@ applyGenesisBlock epoch = do
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
 rollbackSsc :: (MonadToss m, HasProtocolConstants)
-    => Trace m LogItem 
+    => Trace m LogItem
     -> EpochOrSlot
     -> NewestFirst [] SscPayload
     -> m ()

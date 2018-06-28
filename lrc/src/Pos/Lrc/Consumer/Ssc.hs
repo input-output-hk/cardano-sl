@@ -18,7 +18,7 @@ module Pos.Lrc.Consumer.Ssc
 import           Universum
 
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData, bvdMpcThd,
-                           genesisBlockVersionData)
+                     genesisBlockVersionData)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.Lrc.Consumer (LrcConsumer, lrcConsumerFromComponentSimple)
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)

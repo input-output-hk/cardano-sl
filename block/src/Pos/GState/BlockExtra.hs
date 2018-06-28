@@ -28,15 +28,16 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, HasHeaderHash, HeaderHash, genesisHash, HasProtocolConstants,
-                           headerHash, slotIdF, unflattenSlotId, HasCoreConfiguration)
+import           Pos.Core (FlatSlotId, HasCoreConfiguration, HasHeaderHash,
+                     HasProtocolConstants, HeaderHash, genesisHash, headerHash,
+                     slotIdF, unflattenSlotId)
 import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Crypto (shortHashF)
-import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
-                         dbSerializeValue, getHeader)
-import           Pos.DB.Class (MonadBlockDBRead, getBlock, SerializedBlock)
-import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Crypto (shortHashF)
+import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
+                     RocksBatchOp (..), dbSerializeValue, getHeader)
+import           Pos.DB.Class (MonadBlockDBRead, SerializedBlock, getBlock)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -131,7 +132,7 @@ streamBlocks loadBlock forwardLink base = do
                 yield block
                 mNext <- lift $ forwardLink hhash
                 case mNext of
-                    Nothing -> pure ()
+                    Nothing     -> pure ()
                     Just hhash' -> loop  hhash'
 
 foldlUpWhileM

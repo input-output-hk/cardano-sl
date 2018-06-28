@@ -21,10 +21,11 @@ import           Test.Hspec (Spec, describe, it, shouldNotBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, oneof, (===))
 
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
-                                             CHash (..), CId (..), CProfile (..), CTxId (..),
-                                             CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
-                                             CWalletAssurance (..), CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr,
+                     CAccountMeta (..), CCoin (..), CHash (..), CId (..),
+                     CProfile (..), CTxId (..), CTxMeta (..), CUpdateInfo (..),
+                     CWAddressMeta (..), CWalletAssurance (..),
+                     CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
 import           Pos.Wallet.Web.State.Acidic (openState)
 import           Pos.Wallet.Web.State.State (askWalletSnapshot)

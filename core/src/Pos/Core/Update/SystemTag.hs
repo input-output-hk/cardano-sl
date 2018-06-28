@@ -13,6 +13,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Char (isAscii)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Distribution.System (Arch (..), OS (..))
 import           Distribution.Text (display)
@@ -59,3 +60,5 @@ archHelper archt = case archt of
     I386   -> "32"
     X86_64 -> "64"
     _      -> display archt
+
+deriveSafeCopySimple 0 'base ''SystemTag

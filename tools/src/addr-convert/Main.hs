@@ -6,9 +6,9 @@ import           Universum
 
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, option, optional, progDesc,
-                                      short)
+import           Options.Applicative (Parser, execParser, footerDoc, fullDesc,
+                     header, help, helper, info, infoOption, long, metavar,
+                     option, optional, progDesc, short)
 import           Options.Applicative.Types (readerAsk)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 

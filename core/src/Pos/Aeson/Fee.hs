@@ -14,7 +14,8 @@ import qualified Data.Aeson.Types as JSON
 import           Data.Fixed (Fixed (..), resolution)
 import qualified Data.HashMap.Strict as HM.S
 
-import           Pos.Core.Common (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Common (Coeff (..), TxFeePolicy (..),
+                     TxSizeLinear (..))
 import           Pos.Util.Util (aesonError, toAesonError)
 
 instance JSON.ToJSON Coeff where

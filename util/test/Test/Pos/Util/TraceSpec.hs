@@ -6,7 +6,7 @@ import           Universum hiding (replicate)
 
 import           Control.Concurrent (threadDelay)
 
-import           Data.Text (replicate, append)
+import           Data.Text (append, replicate)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
 import           Test.Hspec (Spec, describe, it)
@@ -16,7 +16,8 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.Internal (getLinesLogged)
-import           Pos.Util.LoggerConfig (defaultTestConfiguration, defaultInteractiveConfiguration)
+import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration,
+                     defaultTestConfiguration)
 import qualified Pos.Util.Trace as Tr
 import qualified Pos.Util.Trace.Named as Tn
 import qualified Pos.Util.Trace.Unstructured as Tu

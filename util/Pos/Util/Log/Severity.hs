@@ -3,7 +3,7 @@ module Pos.Util.Log.Severity
        ( Severity(..)
        ) where
 
-import           Data.Yaml (ToJSON (..), FromJSON (..), withText)
+import           Data.Yaml (FromJSON (..), ToJSON (..), withText)
 import           GHC.Generics
 
 import           Universum

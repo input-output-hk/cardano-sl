@@ -18,11 +18,12 @@ import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Ix (Ix)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                     protocolConstants)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
+                     epochSlots, protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Util.Util (leftToPanic)
 
@@ -101,3 +102,5 @@ unsafeMkLocalSlotIndex = unsafeMkLocalSlotIndexExplicit protocolConstants
 unsafeMkLocalSlotIndexExplicit :: ProtocolConstants -> Word16 -> LocalSlotIndex
 unsafeMkLocalSlotIndexExplicit pc =
     leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndexExplicit pc
+
+deriveSafeCopySimple 0 'base ''LocalSlotIndex

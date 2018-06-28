@@ -42,8 +42,8 @@ import           Serokell.Util (listJson)
 import           Universum
 
 import           Pos.Core (ComponentBlock (..), EpochIndex)
-import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening, OpeningsMap, SharesMap,
-                               SignedCommitment, SscPayload)
+import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening,
+                     OpeningsMap, SharesMap, SignedCommitment, SscPayload)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Ssc.Toss.Types (TossModifier)

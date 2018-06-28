@@ -7,6 +7,7 @@ module Pos.Core.Update.SoftforkRule
 import           Universum
 
 import           Control.Monad.Except (MonadError)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, (%))
 
@@ -58,3 +59,5 @@ deriveSimpleBi ''SoftforkRule [
         Field [| srMinThd       :: CoinPortion |],
         Field [| srThdDecrement :: CoinPortion |]
     ]]
+
+deriveSafeCopySimple 0 'base ''SoftforkRule -- 💋

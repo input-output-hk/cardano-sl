@@ -10,9 +10,10 @@ import           Universum
 
 import           Data.Time.Clock (getCurrentTime)
 
-import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig (..), Response,
-                     ResponseReport (..))
-import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), Response, ResponseReport (..))
+import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded,
+                     checkResponse)
 import           Client.Cardano.Wallet.Web.Api (newWallet)
 import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
 import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)

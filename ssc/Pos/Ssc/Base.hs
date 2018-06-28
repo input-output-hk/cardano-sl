@@ -48,17 +48,23 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class (biSize, fromBinary)
-import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
-                     StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
-import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants, vssMaxTTL,
-                     vssMinTTL)
+import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..),
+                     SlotCount, SlotId (..), StakeholderId, addressHash,
+                     unsafeMkLocalSlotIndexExplicit)
+import           Pos.Core.Configuration (HasProtocolConstants,
+                     protocolConstants, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Limits (stripHashMap)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), pcSlotSecurityParam)
-import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
-                     SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
-                     VssCertificatesMap (..), mkCommitmentsMapUnsafe)
-import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment), Threshold,
-                     checkSig, getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                     pcSlotSecurityParam)
+import           Pos.Core.Ssc (Commitment (..),
+                     CommitmentsMap (getCommitmentsMap), Opening (..),
+                     SignedCommitment, SscPayload (..),
+                     VssCertificate (vcExpiryEpoch), VssCertificatesMap (..),
+                     mkCommitmentsMapUnsafe)
+import           Pos.Crypto (ProtocolMagic, Secret, SecretKey,
+                     SignTag (SignCommitment), Threshold, checkSig,
+                     getDhSecret, secretToDhSecret, sign, toPublic,
+                     verifySecret)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

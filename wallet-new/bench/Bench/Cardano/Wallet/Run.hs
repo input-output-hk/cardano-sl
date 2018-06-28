@@ -6,12 +6,12 @@ module Bench.Cardano.Wallet.Run
 
 import           Universum
 
-import           Gauge.Main                  (bench, runMode, nfIO)
-import           Gauge.Main.Options          (Config (..), Mode (..), defaultConfig)
+import           Gauge.Main (bench, nfIO, runMode)
+import           Gauge.Main.Options (Config (..), Mode (..), defaultConfig)
 
 import           Bench.Cardano.Wallet.Random (waitRandom)
-import           Bench.Cardano.Wallet.Types  (CompleteConfig (..), EndpointConfig (..),
-                                              EndpointClient)
+import           Bench.Cardano.Wallet.Types (CompleteConfig (..),
+                     EndpointClient, EndpointConfig (..))
 
 -- | Runs benchmark using particular client.
 runBench

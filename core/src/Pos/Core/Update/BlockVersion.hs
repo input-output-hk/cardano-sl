@@ -5,6 +5,7 @@ module Pos.Core.Update.BlockVersion
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, shown)
 import qualified Prelude
@@ -42,3 +43,5 @@ deriveSimpleBi ''BlockVersion [
         Field [| bvMinor :: Word16 |],
         Field [| bvAlt   :: Word8  |]
     ]]
+
+deriveSafeCopySimple 0 'base ''BlockVersion

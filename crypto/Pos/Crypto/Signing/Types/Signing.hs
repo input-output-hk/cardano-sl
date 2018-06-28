@@ -41,18 +41,22 @@ import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Hashable (Hashable)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
+import           Formatting (Format, bprint, build, fitLeft, later, sformat,
+                     (%), (%.))
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
 import           Universum hiding (show)
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Orphans ()
-import           Pos.Util.Util (toAesonError, toCborError)
+import           Pos.Util.Util (cerealError, toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
 -- Utilities for From/ToJSON instances
@@ -158,6 +162,10 @@ instance FromJSON (Signature w) where
 instance ToJSON (Signature w) where
     toJSON = toJSON . sformat fullSignatureHexF
 
+instance SafeCopy (Signature a) where
+    putCopy (Signature sig) = contain $ safePut sig
+    getCopy = contain $ Signature <$> safeGet
+
 -- | Formatter for 'Signature' to show it in hex.
 fullSignatureHexF :: Format r (Signature a -> r)
 fullSignatureHexF = later $ \(Signature x) ->
@@ -194,6 +202,14 @@ instance Bi a => Bi (Signed a) where
          <*> decode
          <*> decode
 
+instance Bi a => SafeCopy (Signed a) where
+    putCopy (Signed v s) = contain $ safePut (Bi.serialize' (v,s))
+    getCopy = contain $ do
+        bs <- safeGet
+        case Bi.decodeFull bs of
+            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
+            Right (v,s) -> pure $ Signed v s
+
 ----------------------------------------------------------------------------
 -- Proxy signing
 ----------------------------------------------------------------------------
@@ -214,6 +230,10 @@ instance FromJSON (ProxyCert w) where
 instance Typeable w => Bi (ProxyCert w) where
     encode (ProxyCert a) = encodeXSignature a
     decode = fmap ProxyCert decodeXSignature
+
+instance SafeCopy (ProxyCert w) where
+    putCopy (ProxyCert sig) = contain $ safePut sig
+    getCopy = contain $ ProxyCert <$> safeGet
 
 -- | Formatter for 'ProxyCert' to show it in hex.
 fullProxyCertHexF :: Format r (ProxyCert a -> r)
@@ -287,7 +307,22 @@ instance (Typeable a, Bi w) =>
           <*> decode
           <*> decodeXSignature
 
+instance SafeCopy w => SafeCopy (ProxySignature w a) where
+    putCopy ProxySignature{..} = contain $ do
+        safePut psigPsk
+        safePut psigSig
+    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
+
 -- | Checks if delegate and issuer fields of proxy secret key are
 -- equal.
 isSelfSignedPsk :: ProxySecretKey w -> Bool
 isSelfSignedPsk psk = pskIssuerPk psk == pskDelegatePk psk
+
+
+-- These are *not* orphan instances, these types are defined in this file.
+-- However these need to be defined here to avoid TemplateHaskell compile
+-- phase errors.
+
+deriveSafeCopySimple 0 'base ''PublicKey
+deriveSafeCopySimple 0 'base ''SecretKey
+deriveSafeCopySimple 0 'base ''ProxySecretKey

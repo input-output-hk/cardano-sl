@@ -34,7 +34,6 @@ import           Cardano.Wallet.API.Indices (IxSet')
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 

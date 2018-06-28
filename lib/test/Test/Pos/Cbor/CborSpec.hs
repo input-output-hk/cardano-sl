@@ -23,13 +23,11 @@ import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Communication ()
-import qualified Pos.Block.Network as BT
-import qualified Pos.Block.Types as BT
+import           Pos.Binary.Ssc ()
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
 import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
-import qualified Pos.Core.Block as BT
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
@@ -47,8 +45,6 @@ import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
-import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Block.Arbitrary.Message ()
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
@@ -79,48 +75,6 @@ spec = withDefConfiguration $ \_ -> do
         describe "Types" $ do
           describe "Message length limit" $ do
               msgLenLimitedTest @VssCertificate mlVssCertificate
-        describe "Block types" $ do
-            describe "Bi instances" $ do
-                describe "Undo" $ do
-                    binaryTest @BT.SlogUndo
-                    modifyMaxSuccess (min 50) $ do
-                        binaryTest @BT.Undo
-                describe "Block network types" $ modifyMaxSuccess (min 10) $ do
-                    binaryTest @BT.MsgGetHeaders
-                    binaryTest @BT.MsgGetBlocks
-                    binaryTest @BT.MsgHeaders
-                    binaryTest @BT.MsgBlock
-                    binaryTest @BT.MsgStream
-                    binaryTest @BT.MsgStreamBlock
-                describe "Blockchains and blockheaders" $ do
-                    modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
-                        describe "GenesisBlockHeader" $ do
-                            binaryTest @BT.GenesisBlockHeader
-                        describe "MainBlockHeader" $ do
-                            binaryTest @BT.MainBlockHeader
-                    describe "GenesisBlockchain" $ do
-                        describe "BodyProof" $ do
-                            binaryTest @BT.GenesisExtraHeaderData
-                            binaryTest @BT.GenesisExtraBodyData
-                            binaryTest @(BT.BodyProof BT.GenesisBlockchain)
-                        describe "ConsensusData" $ do
-                            binaryTest @(BT.ConsensusData BT.GenesisBlockchain)
-                        describe "Body" $ do
-                            binaryTest @(BT.Body BT.GenesisBlockchain)
-                    describe "MainBlockchain" $ do
-                        describe "BodyProof" $ do
-                            binaryTest @(BT.BodyProof BT.MainBlockchain)
-                        describe "BlockSignature" $ do
-                            binaryTest @BT.BlockSignature
-                        describe "ConsensusData" $ do
-                            binaryTest @(BT.ConsensusData BT.MainBlockchain)
-                        modifyMaxSuccess (min 10) $ describe "Body" $ do
-                            binaryTest @(BT.Body BT.MainBlockchain)
-                        describe "MainToSign" $ do
-                            binaryTest @BT.MainToSign
-                        describe "Extra data" $ do
-                            binaryTest @BT.MainExtraHeaderData
-                            binaryTest @BT.MainExtraBodyData
         describe "Communication" $ do
             describe "Bi instances" $ do
                 binaryTest @C.HandlerSpec

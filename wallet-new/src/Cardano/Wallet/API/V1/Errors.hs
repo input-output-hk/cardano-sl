@@ -111,8 +111,6 @@ convertTxError err = case err of
         TxRedemptionDepleted
     TxError.SafeSignerNotFound addr ->
         TxSafeSignerNotFound (V1 addr)
-    TxError.RemainingMoneyError ->
-        UnsignedTxCreationError
     TxError.SignedTxNotBase16Format ->
         SignedTxSubmitError $ sformat build TxError.SignedTxNotBase16Format
     TxError.SignedTxUnableToDecode txt ->

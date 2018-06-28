@@ -126,7 +126,7 @@ data WalletClient m
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
     , postUnsignedTransaction
-         :: Payment -> Resp m RawTransaction
+         :: PaymentWithChangeAddress -> Resp m RawTransaction
     , postSignedTransaction
          :: SignedTransaction -> Resp m Transaction
     -- settings

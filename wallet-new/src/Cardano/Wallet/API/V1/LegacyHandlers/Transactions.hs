@@ -141,15 +141,20 @@ estimateFees pm Payment{..} = do
 newUnsignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => ProtocolMagic
-    -> Payment
+    -> PaymentWithChangeAddress
     -> m (WalletResponse RawTransaction)
-newUnsignedTransaction pm pmt@Payment {..} = do
+newUnsignedTransaction pm paymentWithChangeAddress = do
     -- We're creating new transaction as usually, but we mustn't sign/publish it.
     -- This transaction will be signed on the client-side (mobile client or
     -- hardware wallet), and after that transaction (with its signature) will be
     -- sent to backend.
+    let (PaymentWithChangeAddress pmt@Payment{..} changeAddressAsBase58) = paymentWithChangeAddress
+    changeAddress <- either (throwM . InvalidAddressFormat)
+                            pure
+                            (Core.decodeTextAddress changeAddressAsBase58)
+
     batchPayment <- createBatchPayment pmt
-    tx <- V0.newUnsignedTransaction pm batchPayment
+    tx <- V0.newUnsignedTransaction pm batchPayment changeAddress
     let txAsBytes = serialize' tx
     -- Transaction length cannot be greater than 4096 bytes.
     -- This requirement is mandatory for hardware wallets like Ledger Nano S.

@@ -25,7 +25,8 @@ import qualified Prelude
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 import           Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped
 import qualified Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst as Generic
-import           Cardano.Wallet.Kernel.CoinSelection.Generic.Random (PrivacyMode (..))
+import           Cardano.Wallet.Kernel.CoinSelection.Generic.Random
+                     (PrivacyMode (..))
 import qualified Cardano.Wallet.Kernel.CoinSelection.Generic.Random as Generic
 
 import           InputSelection.TxStats

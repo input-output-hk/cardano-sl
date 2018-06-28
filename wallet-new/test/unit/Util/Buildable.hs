@@ -3,9 +3,9 @@ module Util.Buildable (
     ShowThroughBuild(..)
   ) where
 
-import           Formatting (sformat, bprint)
+import           Data.Text.Buildable (Buildable (..))
+import           Formatting (bprint, sformat)
 import qualified Formatting as F
-import Data.Text.Buildable (Buildable(..))
 import           Prelude (Show (..))
 import           Test.QuickCheck (Arbitrary (..))
 import           Universum

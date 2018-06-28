@@ -10,13 +10,13 @@ import qualified Data.List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import           Formatting (sformat)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, Property, arbitrary, conjoin, counterexample, forAll)
+import           Test.QuickCheck (Gen, Property, arbitrary, conjoin,
+                     counterexample, forAll)
 
 import           Data.Text.Buildable (Buildable (..))
-import           Formatting (bprint, (%))
+import           Formatting (bprint, sformat, (%))
 import qualified Formatting as F
 import qualified Text.Tabl as Tabl
 
@@ -28,17 +28,21 @@ import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..), CoinSelPolicy,
-                     CoinSelectionOptions (..), ExpenseRegulation (..), InputGrouping (..), MkTx,
+import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..),
+                     CoinSelPolicy, CoinSelectionOptions (..),
+                     ExpenseRegulation (..), InputGrouping (..), MkTx,
                      largestFirst, mkStdTx, newOptions, random)
-import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance, utxoRestrictToInputs)
+import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
+                     utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Spec.CoinSelection.Generators (InitialBalance (..), Pay (..), genFiddlyPayees,
-                     genFiddlyUtxo, genGroupedUtxo, genPayee, genPayees, genRedeemPayee,
+import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
+                     Pay (..), genFiddlyPayees, genFiddlyUtxo, genGroupedUtxo,
+                     genPayee, genPayees, genRedeemPayee,
                      genUniqueChangeAddress, genUtxoWithAtLeast)
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 {-------------------------------------------------------------------------------
   Fees

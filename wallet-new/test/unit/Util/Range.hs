@@ -52,20 +52,26 @@ makeLenses ''Range
 makeLenses ''Ranges
 
 -- | Union two 'Range's
+instance (Num a, Ord a) => Semigroup (Range a) where
+  a <> b = Range {
+               _lo = Universum.min (a ^. lo) (b ^. lo)
+             , _hi = Universum.max (a ^. hi) (b ^. hi)
+             }
+
 instance (Num a, Ord a) => Monoid (Range a) where
-  mempty      = Range 0 0
-  mappend a b = Range {
-                    _lo = Universum.min (a ^. lo) (b ^. lo)
-                  , _hi = Universum.max (a ^. hi) (b ^. hi)
-                  }
+  mempty  = Range 0 0
+  mappend = (<>)
 
 -- | Union two 'Ranges'
+instance (Num a, Ord a, Num b, Ord b) => Semigroup (Ranges a b) where
+  a <> b = Ranges {
+               _x = mappend (a ^. x) (b ^. x)
+             , _y = mappend (a ^. y) (b ^. y)
+             }
+
 instance (Num a, Ord a, Num b, Ord b) => Monoid (Ranges a b) where
-  mempty      = Ranges mempty mempty
-  mappend a b = Ranges {
-                    _x = mappend (a ^. x) (b ^. x)
-                  , _y = mappend (a ^. y) (b ^. y)
-                  }
+  mempty  = Ranges mempty mempty
+  mappend = (<>)
 
 -- | Construct range from starting point and a width
 rangeWithWidth :: Num a => a -> a -> Range a

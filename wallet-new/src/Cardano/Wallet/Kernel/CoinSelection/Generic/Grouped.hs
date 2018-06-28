@@ -17,7 +17,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped (
   , groupUtxo
   ) where
 
-import           Universum hiding (Sum(..), group)
+import           Universum hiding (Sum (..), group)
 
 import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map

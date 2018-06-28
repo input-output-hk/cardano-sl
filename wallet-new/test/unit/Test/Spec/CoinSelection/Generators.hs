@@ -90,12 +90,10 @@ data GenerationTarget =
 arbitraryAddress :: StakeGenOptions
                  -> Gen Core.Address
 arbitraryAddress opts = do
-    let fiddlyCondition a = if fiddlyAddresses opts
-                               then length (sformat F.build a) < 104
-                               else True
-    let redeemCondition a = if allowRedeemAddresses opts
-                               then True
-                               else not (Core.isRedeemAddress a)
+    let fiddlyCondition a = not (fiddlyAddresses opts) ||
+                                (length (sformat F.build a) < 104)
+    let redeemCondition a = allowRedeemAddresses opts ||
+                            not (Core.isRedeemAddress a)
     arbitrary `suchThat` (\a -> fiddlyCondition a && redeemCondition a)
 
 

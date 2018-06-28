@@ -36,7 +36,7 @@ module Util.Histogram (
   , nLargestBins
   ) where
 
-import           Universum hiding (empty, max, writeFile, toList)
+import           Universum hiding (empty, max, toList, writeFile)
 import qualified Universum
 
 import qualified Data.IntMap.Strict as Map

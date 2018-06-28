@@ -13,7 +13,7 @@ module Util.MultiSet (
   , medianWithDefault
   ) where
 
-import Universum hiding (empty, toList)
+import           Universum hiding (empty)
 
 import qualified Data.Map.Strict as Map
 

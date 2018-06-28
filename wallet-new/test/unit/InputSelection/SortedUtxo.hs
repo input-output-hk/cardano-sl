@@ -19,7 +19,7 @@ module InputSelection.SortedUtxo (
   , toUtxo
   ) where
 
-import           Universum hiding (empty, sort)
+import           Universum hiding (empty)
 
 import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map

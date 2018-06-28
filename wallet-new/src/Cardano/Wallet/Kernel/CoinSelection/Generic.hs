@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE TypeFamilyDependencies     #-}
 
 module Cardano.Wallet.Kernel.CoinSelection.Generic (
@@ -303,9 +304,8 @@ catchJustSoft :: Monad m
               => CoinSelT utxo CoinSelErr m a
               -> (CoinSelSoftErr -> CoinSelT utxo CoinSelHardErr m a)
               -> CoinSelT utxo CoinSelHardErr m a
-catchJustSoft = catchJust $ \e -> case e of
-                                    CoinSelErrHard e' -> Left  e'
-                                    CoinSelErrSoft e' -> Right e'
+catchJustSoft = catchJust $ \case CoinSelErrHard e' -> Left  e'
+                                  CoinSelErrSoft e' -> Right e'
 
 {-------------------------------------------------------------------------------
   Policy

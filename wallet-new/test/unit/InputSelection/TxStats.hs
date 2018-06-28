@@ -12,7 +12,7 @@ import           Data.Fixed (E2, Fixed)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 
-import           Util.Histogram (Histogram, BinSize(..))
+import           Util.Histogram (BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
 import           Util.MultiSet (MultiSet)
 import qualified Util.MultiSet as MultiSet
@@ -40,18 +40,21 @@ data TxStats = TxStats {
     , txStatsRatios    :: !(MultiSet (Fixed E2))
     }
 
+instance Semigroup TxStats where
+   a <> b = TxStats {
+            txStatsNumInputs = mappendUsing Histogram.add  txStatsNumInputs
+          , txStatsRatios    = mappendUsing MultiSet.union txStatsRatios
+          }
+    where
+      mappendUsing :: (a -> a -> a) -> (TxStats -> a) -> a
+      mappendUsing op f = f a `op` f b
+
 instance Monoid TxStats where
   mempty = TxStats {
         txStatsNumInputs = Histogram.empty (BinSize 1)
       , txStatsRatios    = MultiSet.empty
       }
-  mappend a b = TxStats {
-        txStatsNumInputs = mappendUsing Histogram.add  txStatsNumInputs
-      , txStatsRatios    = mappendUsing MultiSet.union txStatsRatios
-      }
-    where
-      mappendUsing :: (a -> a -> a) -> (TxStats -> a) -> a
-      mappendUsing op f = f a `op` f b
+  mappend = (<>)
 
 {-------------------------------------------------------------------------------
   Partial transaction statistics
@@ -77,18 +80,21 @@ data PartialTxStats = PartialTxStats {
     , ptxStatsRatios    :: !(MultiSet (Fixed E2))
     }
 
+instance Semigroup PartialTxStats where
+  a <> b = PartialTxStats {
+             ptxStatsNumInputs = mappendUsing (+)            ptxStatsNumInputs
+           , ptxStatsRatios    = mappendUsing MultiSet.union ptxStatsRatios
+           }
+    where
+      mappendUsing :: (a -> a -> a) -> (PartialTxStats -> a) -> a
+      mappendUsing op f = f a `op` f b
+
 instance Monoid PartialTxStats where
   mempty = PartialTxStats {
         ptxStatsNumInputs = 0
       , ptxStatsRatios    = MultiSet.empty
       }
-  mappend a b = PartialTxStats {
-        ptxStatsNumInputs = mappendUsing (+)            ptxStatsNumInputs
-      , ptxStatsRatios    = mappendUsing MultiSet.union ptxStatsRatios
-      }
-    where
-      mappendUsing :: (a -> a -> a) -> (PartialTxStats -> a) -> a
-      mappendUsing op f = f a `op` f b
+  mappend = (<>)
 
 -- | Construct transaciton statistics from partial statistics
 fromPartialTxStats :: PartialTxStats -> TxStats

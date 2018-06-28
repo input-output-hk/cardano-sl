@@ -57,6 +57,7 @@ import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logWarning)
 import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens (..))
 import qualified System.Metrics.Counter as Metrics
@@ -75,6 +76,7 @@ type LrcModeFull ctx m =
     , MonadBlockApply ctx m
     , MonadReader ctx m
     , SscMessageConstraints
+    , WithLogger m
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable
@@ -236,7 +238,8 @@ leadersComputationDo epochId seed =
 
 richmenComputationDo
     :: forall ctx m.
-       LrcMode ctx m
+      ( LrcMode ctx m
+      )
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getRealTotalStake

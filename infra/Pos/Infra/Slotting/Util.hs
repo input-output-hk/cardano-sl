@@ -30,11 +30,6 @@ import           Universum
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, timeout)
-<<<<<<< HEAD
-import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
-                           Timestamp (..), flattenSlotId, slotIdF)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
-=======
 --import           Pos.Util.Log (WithLogger)  -- logDebug, logInfo, logNotice, logWarning)
 
 import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
@@ -42,7 +37,6 @@ import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolC
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo,
                                           recoveryInProgress)
 --import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
->>>>>>> adiemand/CBR-207/introduce_katip
 import           Pos.Infra.Reporting.Methods (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
@@ -52,15 +46,8 @@ import           Pos.Infra.Slotting.MemState (MonadSlotsData, getCurrentNextEpoc
                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData, computeSlotStart,
                                      lookupEpochSlottingData)
-<<<<<<< HEAD
-import           Pos.Util.Trace (Trace, noTrace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug, logInfo, logNotice,
-                                              logWarning)
-import           Pos.Util.Trace.Named (LogNamed, appendName, named)
-=======
 import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug, logInfo, logNotice, logWarning)
->>>>>>> adiemand/CBR-207/introduce_katip
 import           Pos.Util.Util (maybeThrow)
 
 

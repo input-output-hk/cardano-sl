@@ -75,6 +75,14 @@ reportFatalError logTrace msg = do
     traceWith logTrace (Error, colorize Red msg)
     throwM $ CardanoFatalError msg
 
+
+reportFatalError0 :: (MonadThrow m, WithLogger m) => Text -> m a
+reportFatalError0 msg = do 
+    logError $ colorize Red msg
+    throwM $ CardanoFatalError msg
+
+
+
 -- | Print red message about fatal error and throw exception.
 traceFatalError
     :: MonadThrow m
@@ -95,8 +103,9 @@ assertionFailed :: MonadThrow m => Trace m (Severity, Text) -> Text -> m a
 assertionFailed logTrace msg =
     traceFatalError logTrace $ "assertion failed: " <> msg
 
+
 assertionFailed0
     :: (WithLogger m, MonadThrow m)
     => Text -> m a
 assertionFailed0 msg =
-    reportFatalError $ "assertion failed: " <> msg
+    reportFatalError0 $ "assertion failed: " <> msg

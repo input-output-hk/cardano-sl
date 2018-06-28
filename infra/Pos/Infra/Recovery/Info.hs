@@ -16,12 +16,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
 
 import           Pos.Core (SlotCount, SlotId, slotIdF, slotSecurityParam, HasProtocolConstants)
-<<<<<<< HEAD
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
-=======
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
->>>>>>> adiemand/CBR-207/introduce_katip
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.

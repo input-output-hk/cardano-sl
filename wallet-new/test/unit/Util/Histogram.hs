@@ -16,10 +16,13 @@ module Util.Histogram (
   , toList
   , fromMap
   , fromList
-    -- * Output
+    -- * I/O
   , writeFile
+  , readFile
+    -- * Ranges
   , SplitRanges(..)
   , splitRanges
+  , splitGivenRanges
   , range
     -- * Construction
   , BinSize(..)
@@ -36,11 +39,12 @@ module Util.Histogram (
   , nLargestBins
   ) where
 
-import           Universum hiding (empty, max, toList, writeFile)
+import           Universum hiding (empty, max, readFile, toList, writeFile)
 import qualified Universum
 
 import qualified Data.IntMap.Strict as Map
 import qualified Data.Set as Set
+import qualified Prelude
 import qualified System.IO as IO
 
 import           Util.Range (Range (..), Ranges (..), SplitRanges (..))
@@ -56,6 +60,7 @@ type Count = Int
 data Histogram =
     -- | Non-empty histogram (known binsize)
     Histogram !BinSize !(IntMap Count)
+  deriving (Show)
 
 toMap :: Histogram -> IntMap Count
 toMap (Histogram _ m) = m
@@ -91,12 +96,32 @@ writeFile fp hist =
       forM_ (toList hist) $ \(step, count) ->
         IO.hPutStrLn h $ show step ++ "\t" ++ show count
 
+-- | Read file previously written by 'writeFile'
+--
+-- Since we do not store the bin size, this must be passed separately. We
+-- cannot verify this value.
+readFile :: BinSize -> FilePath -> IO Histogram
+readFile binSize fp = parse <$> Prelude.readFile fp
+  where
+    parse :: String -> Histogram
+    parse = fromList binSize
+          . map parseLine
+          . Prelude.lines
+
+    parseLine :: String -> (Bin, Count)
+    parseLine str =
+        let (bin, '\t':count) = break (== '\t') str
+        in (Prelude.read bin, Prelude.read count)
+
 {-------------------------------------------------------------------------------
   Construction
 -------------------------------------------------------------------------------}
 
 newtype BinSize = BinSize { binSizeToInt :: Int }
   deriving (Eq, Buildable)
+
+instance Show BinSize where
+  show = show . binSizeToInt
 
 -- | Construct histogram by counting all the doubles per bin
 --
@@ -207,6 +232,32 @@ splitRanges n m (Histogram _ h) =
                      else (Range.with b xRange, numBins + 1) : xRanges'
         yRange'   = Range.with c yRange
 
+-- | Like 'splitRanges', but with explicitly specified ranges
+splitGivenRanges :: [Bin] -> Histogram -> SplitRanges Bin Count
+splitGivenRanges = \splits (Histogram _ h) ->
+    case Map.toList h of
+      [] -> error "splitGivenRanges: empty histogram"
+      (b, c) : bins -> go ([(Range 0 b, 1)], Range.singleton c) splits bins
+  where
+    go :: ([(Range Bin, Int)], Range Count)  -- Accumulator
+       -> [Bin]                              -- Unhandled splits
+       -> [(Bin, Count)]                     -- To do
+       -> SplitRanges Bin Count
+    go (xRanges, yRange) _ [] = SplitRanges {
+          _splitXRanges = reverse xRanges
+        , _splitYRange  = yRange
+        }
+    go (xRanges, yRange) splits ((b, c) : bins) =
+        case splits of
+          s:splits' | b >= s ->
+            let xRanges'' = (Range.singleton b, 1) : xRanges in
+            go (xRanges'', yRange') splits' bins
+          _otherwise ->
+            let xRanges'' = (Range.with b xRange, numBins + 1) : xRanges' in
+            go (xRanges'', yRange') splits bins
+      where
+        (xRange, numBins) : xRanges' = xRanges -- cannot be empty
+        yRange' = Range.with c yRange
 
 -- | Specialization of 'splitRanges' with no maximum gap.
 range :: Histogram -> Ranges Bin Count

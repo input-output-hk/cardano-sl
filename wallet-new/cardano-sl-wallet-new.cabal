@@ -369,6 +369,8 @@ test-suite wallet-unit-tests
   main-is:            WalletUnitTest.hs
   other-modules:      InputSelection.Evaluation
                       InputSelection.Evaluation.Generic
+                      InputSelection.Evaluation.Options
+                      InputSelection.Evaluation.Replot
                       InputSelection.Evaluation.TimeSeries
                       InputSelection.FromGeneric
                       InputSelection.Generator
@@ -479,6 +481,7 @@ test-suite wallet-unit-tests
                     , directory
                     , filepath
                     , normaldistribution
+                    , optparse-applicative
                     , random
                     , time
 

@@ -4,12 +4,8 @@
 
 -- | Parts of the evaluator that are generic in choice of domain
 module InputSelection.Evaluation.Generic (
-    -- * Plot parameters
-    Resolution(..)
-  , PlotParams(..)
-  , defaultPlotParams
     -- * Generalize over UTxO representation
-  , ValueToDouble(..)
+    ValueToDouble(..)
   , IsUtxo(..)
     -- * Statistics
     -- ** Per slot
@@ -81,6 +77,7 @@ import           Text.Printf (printf)
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 
+import           InputSelection.Evaluation.Options
 import           InputSelection.Evaluation.TimeSeries (SlotNr (..), TimeSeries)
 import qualified InputSelection.Evaluation.TimeSeries as TS
 import           InputSelection.Generator (Event (..))
@@ -92,38 +89,6 @@ import qualified Util.Histogram as Hist
 import qualified Util.MultiSet as MultiSet
 import           Util.Range (Range (..), Ranges (..), SplitRanges (..))
 import qualified Util.Range as Range
-
-{-------------------------------------------------------------------------------
-  Plot parameters
--------------------------------------------------------------------------------}
-
--- | Resolution of the resulting file
-data Resolution = Resolution {
-      resolutionWidth  :: Int
-    , resolutionHeight :: Int
-    }
-
-data PlotParams = PlotParams {
-      -- | Prefix (path) for all generated files
-      prefix      :: FilePath
-
-      -- | Binsize for the UTxO histogram
-    , utxoBinSize :: BinSize
-
-      -- | Resolution of the resulting images
-      -- This should have a 2:1 aspect ratio.
-    , resolution  :: Resolution
-    }
-
-defaultPlotParams :: FilePath -> PlotParams
-defaultPlotParams prefix = PlotParams {
-      prefix      = prefix
-    , utxoBinSize = BinSize 10
-    , resolution  = Resolution {
-                        resolutionWidth  = 800
-                      , resolutionHeight = 400
-                      }
-    }
 
 {-------------------------------------------------------------------------------
   Generalize over UTxO
@@ -314,10 +279,10 @@ data IntState utxo = IntState {
 makeLenses ''IntState
 
 initIntState :: IsUtxo utxo
-             => PlotParams
+             => EvalOptions
              -> Map (Input (Dom utxo)) (Output (Dom utxo))
              -> IntState utxo
-initIntState PlotParams{..} utxo = IntState {
+initIntState EvalOptions{..} utxo = IntState {
       _stUtxo       = utxoFromMap utxo
     , _stPending    = Map.empty
     , _stStats      = initOverallStats utxoBinSize
@@ -518,6 +483,8 @@ data Bounds dom = Bounds {
     , _boundsMedianRatio   :: Ranges TS.OverallSlotNr (Fixed E2)
     }
 
+deriving instance Show (Value dom) => Show (Bounds dom)
+
 makeLenses ''Bounds
 
 -- | Derive compute final bounds from accumulated statistics
@@ -542,7 +509,7 @@ deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
     , _boundsTxInputs      = Hist.range (txStatsNumInputs _overallTxStats)
                            & Range.x . Range.lo .~ 0
                            & Range.y . Range.lo .~ 0
-    , _boundsUtxoSize      = TS.range (fromIntegral  <$> _accUtxoSize)
+    , _boundsUtxoSize      = TS.range _accUtxoSize
     , _boundsUtxoBalance   = TS.range _accUtxoBalance
                            & Range.y . Range.lo .~ valueZero
                            & Range.y . Range.hi %~ unsafeValueAdjust RoundUp 1.01
@@ -561,14 +528,11 @@ deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
 -- a priori which ranges we should use for the graphs (and it is important
 -- that we use the same range for all frames).
 data PlotInstr = PlotInstr {
-      -- | Slot number
-      piSlotNr         :: SlotNr
-
       -- | File prefix for current-step data
       --
       -- I.e., this is data like the UTxO and number of transaction inputs
       -- histogram (but not time series data, see 'piStep').
-    , piFilePrefix     :: FilePath
+      piFilePrefix     :: FilePath
 
       -- | Frame counter
       --
@@ -577,8 +541,12 @@ data PlotInstr = PlotInstr {
     , piFrame          :: Int
 
       -- | Number of failed payment attempts
-    , piFailedPayments :: Int
+      --
+      -- This is a 'Maybe' because when we reconstruct the plot instructions
+      -- (in 'replot'), we cannot recover this information.
+    , piFailedPayments :: Maybe Int
     }
+  deriving (Show)
 
 -- | Render in gnuplot syntax
 renderPlotInstr :: CoinSelDom dom
@@ -603,7 +571,7 @@ renderPlotInstr utxoBinSize
     % "set size 0.7,1\n"
     % "set origin 0,0\n"
     % "set xtics autofreq rotate by -45\n"
-    % "set label 1 'failed: " % build % "' at graph 0.95, 0.90 front right\n"
+    % "set label 1 '" % build % "' at graph 0.95, 0.90 front right\n"
     % "set boxwidth " % build % "\n"
     % "plot '" % build % ".histogram' using 1:2 notitle with boxes\n"
     % "unset label 1\n"
@@ -648,7 +616,7 @@ renderPlotInstr utxoBinSize
     -- current UTxO
     setupSplitAxis
     (bounds ^. boundsUtxoHistogram . Range.splitYRange)
-    piFailedPayments
+    (maybe "" (sformat ("failed: " % build)) piFailedPayments)
     utxoBinSize
     piFilePrefix
     resetSplitAxis
@@ -672,8 +640,8 @@ renderPlotInstr utxoBinSize
 
 -- | Render a complete set of plot instructions
 writePlotInstrs :: CoinSelDom dom
-                => PlotParams -> FilePath -> Bounds dom -> [PlotInstr] -> IO ()
-writePlotInstrs PlotParams{..} script bounds is = do
+                => EvalOptions -> FilePath -> Bounds dom -> [PlotInstr] -> IO ()
+writePlotInstrs EvalOptions{..} script bounds is = do
     withFile script WriteMode $ \h -> do
       Text.hPutStrLn h $ sformat
           ( "set grid\n"
@@ -718,21 +686,20 @@ writeStats prefix binSize =
           Nothing ->
             return (accSlotStats, reverse accInstrs)
           Just (slotNr, overallStats, slotStats) -> do
-            instr <- liftIO $ go slotNr frame overallStats slotStats
+            instr <- liftIO $ go frame overallStats slotStats
             let accSlotStats' = stepAccStats slotNr overallStats slotStats accSlotStats
                 accInstrs'    = instr : accInstrs
                 frame'        = frame + 1
             loop accSlotStats' accInstrs' frame'
 
-    go :: SlotNr -> Int -> OverallStats -> SlotStats dom -> IO PlotInstr
-    go slotNr frame OverallStats{..} SlotStats{..} = do
+    go :: Int -> OverallStats -> SlotStats dom -> IO PlotInstr
+    go frame OverallStats{..} SlotStats{..} = do
         Hist.writeFile (filepath <.> "histogram") slotUtxoHistogram
         Hist.writeFile (filepath <.> "txinputs") (txStatsNumInputs _overallTxStats)
         return PlotInstr {
-            piSlotNr         = slotNr
-          , piFilePrefix     = filename
+            piFilePrefix     = filename
           , piFrame          = frame
-          , piFailedPayments = _overallFailedPayments
+          , piFailedPayments = Just _overallFailedPayments
           }
       where
         filename = printf "%08d" frame
@@ -774,14 +741,14 @@ data NamedPolicy dom m = forall utxo. (IsUtxo utxo, Dom utxo ~ dom) =>
 -- * Random, privacy mode off
 -- * Random, privacy mode on
 evaluateUsingEvents :: forall dom m. (MonadIO m, MonadCatch m)
-                    => PlotParams
+                    => EvalOptions
                     -> FilePath              -- ^ Prefix for this event stream
                     -> Map (Input dom) (Output dom) -- ^ Initial UTxO
                     -> [NamedPolicy dom m]   -- ^ Policies to evaluate
                     -> (SlotNr -> Bool)      -- ^ Slots to render
                     -> ConduitT () (Event dom) m () -- ^ Event stream
                     -> m ()
-evaluateUsingEvents plotParams@PlotParams{..}
+evaluateUsingEvents evalOptions@EvalOptions{..}
                     eventsPrefix
                     initUtxo
                     policies
@@ -810,7 +777,7 @@ evaluateUsingEvents plotParams@PlotParams{..}
           prefix'
           shouldRender
           policy
-          (initIntState plotParams initUtxo)
+          (initIntState evalOptions initUtxo)
           events
         liftIO $ do
           TS.writeFile   (prefix' </> "growth")   (accStats     ^. accUtxoSize)
@@ -819,7 +786,7 @@ evaluateUsingEvents plotParams@PlotParams{..}
           Hist.writeFile (prefix' </> "deposits") (overallStats ^. overallDeposits)
           Hist.writeFile (prefix' </> "payments") (overallStats ^. overallPayments)
           writePlotInstrs
-            plotParams
+            evalOptions
             (prefix' </> "mkframes.gnuplot")
             (deriveBounds overallStats accStats)
             plotInstr

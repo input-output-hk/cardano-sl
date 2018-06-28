@@ -7,7 +7,8 @@ import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
 import           InputSelection.Evaluation (evaluateInputPolicies)
-import           InputSelection.Evaluation.Generic (defaultPlotParams)
+import           InputSelection.Evaluation.Options (Command (..), evalCommand, getEvalOptions)
+import           InputSelection.Evaluation.Replot (replot)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
@@ -27,18 +28,23 @@ import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 main :: IO ()
 main = do
-    args <- getArgs
-    case args of
-      ["--show-context"] ->
-        showContext
-      ["--evaluate-input-policies", prefix] ->
-        evaluateInputPolicies (defaultPlotParams prefix)
-      _otherwise ->
+    mEvalOptions <- getEvalOptions
+    case mEvalOptions of
+      Nothing -> do
+        -- _showContext
         runTranslateNoErrors $ withConfig $ return $ hspec tests
+      Just evalOptions ->
+        -- NOTE: The coin selection must be invoked with @eval@
+        -- Run @wallet-unit-tests eval --help@ for details.
+        case evalCommand evalOptions of
+          RunSimulation simOpts ->
+            evaluateInputPolicies evalOptions simOpts
+          Replot replotOpts ->
+            replot evalOptions replotOpts
 
 -- | Debugging: show the translation context
-showContext :: IO ()
-showContext = do
+_showContext :: IO ()
+_showContext = do
     putStrLn $ runTranslateNoErrors $ withConfig $
       sformat build <$> ask
     putStrLn $ runTranslateNoErrors $

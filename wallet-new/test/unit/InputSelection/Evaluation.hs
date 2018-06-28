@@ -6,7 +6,7 @@ module InputSelection.Evaluation (
     evaluateInputPolicies
   ) where
 
-import           Universum
+import           Universum hiding (Ratio (..))
 
 import           Data.Conduit
 import qualified Data.Map.Strict as Map
@@ -18,6 +18,7 @@ import           System.IO (hFlush, stdout)
 import           Cardano.Wallet.Kernel.CoinSelection.Generic (CoinSelPolicy)
 
 import           InputSelection.Evaluation.Generic
+import           InputSelection.Evaluation.Options
 import           InputSelection.Evaluation.TimeSeries (SlotNr (..))
 import           InputSelection.FromGeneric
 import           InputSelection.Generator (Event (..), World (..))
@@ -113,6 +114,9 @@ largeThenRandom changeAfter = NamedPolicy "largeThenRandom" $
   Distributions
 -------------------------------------------------------------------------------}
 
+constant :: Int -> Constant
+constant n = Constant (1000 * fromIntegral n)
+
 normal :: Int -> Normal
 normal n = Normal (1000 * fromIntegral n) (100 * fromIntegral n)
 
@@ -123,32 +127,67 @@ erlang k n = Erlang k (1 / (1000 * fromIntegral n))
   Run evaluation
 -------------------------------------------------------------------------------}
 
-evaluateInputPolicies :: PlotParams -> IO ()
-evaluateInputPolicies plotParams@PlotParams{..} = do
+data Ratio =
+    -- | There are more deposits than payments
+    --
+    -- This is the typical case for an exchange.
+    --
+    -- The number indicates the ratio.
+    MoreDeposits Int
+
+    -- | There are more payments than deposits
+    --
+    -- This might be the case for an end user.
+  | MorePayments Int
+
+evaluateInputPolicies :: EvalOptions -> SimulationOptions -> IO ()
+evaluateInputPolicies evalOptions@EvalOptions{..} SimulationOptions{..} = do
     -- Our chosen policy, against different distributions of deposits/payments
 
-    go "normal-1to1"   [randomOn] 100000 $ nTo1  1 normal
-    go "normal-3to1"   [randomOn] 100000 $ nTo1  3 normal
-    go "normal-10to1"  [randomOn] 100000 $ nTo1 10 normal
+    go "constant-1to1"  [randomOn] numCycles $ nTo1 (MoreDeposits  1) constant
+    go "constant-3to1"  [randomOn] numCycles $ nTo1 (MoreDeposits  3) constant
+    go "constant-10to1" [randomOn] numCycles $ nTo1 (MoreDeposits 10) constant
+    go "constant-1to3"  [randomOn] numCycles $ nTo1 (MorePayments  3) constant
+    go "constant-1to10" [randomOn] numCycles $ nTo1 (MorePayments 10) constant
 
-    go "erlang1-1to1"  [randomOn] 100000 $ nTo1  1 (erlang 1)
-    go "erlang1-3to1"  [randomOn] 100000 $ nTo1  3 (erlang 1)
-    go "erlang1-10to1" [randomOn] 100000 $ nTo1 10 (erlang 1)
+    go "normal-1to1"    [randomOn] numCycles $ nTo1 (MoreDeposits  1) normal
+    go "normal-3to1"    [randomOn] numCycles $ nTo1 (MoreDeposits  3) normal
+    go "normal-10to1"   [randomOn] numCycles $ nTo1 (MoreDeposits 10) normal
+    go "normal-1to3"    [randomOn] numCycles $ nTo1 (MorePayments  3) normal
+    go "normal-1to10"   [randomOn] numCycles $ nTo1 (MorePayments 10) normal
 
-    go "erlang2-1to1"  [randomOn] 100000 $ nTo1  1 (erlang 2)
-    go "erlang2-3to1"  [randomOn] 100000 $ nTo1  3 (erlang 2)
-    go "erlang2-10to1" [randomOn] 100000 $ nTo1 10 (erlang 2)
+    go "erlang1-1to1"   [randomOn] numCycles $ nTo1 (MoreDeposits  1) (erlang 1)
+    go "erlang1-3to1"   [randomOn] numCycles $ nTo1 (MoreDeposits  3) (erlang 1)
+    go "erlang1-10to1"  [randomOn] numCycles $ nTo1 (MoreDeposits 10) (erlang 1)
+    go "erlang1-1to3"   [randomOn] numCycles $ nTo1 (MorePayments  3) (erlang 1)
+    go "erlang1-1to10"  [randomOn] numCycles $ nTo1 (MorePayments 10) (erlang 1)
 
-    go "erlang3-1to1"  [randomOn] 100000 $ nTo1  1 (erlang 3)
-    go "erlang3-3to1"  [randomOn] 100000 $ nTo1  3 (erlang 3)
-    go "erlang3-10to1" [randomOn] 100000 $ nTo1 10 (erlang 3)
+    go "erlang2-1to1"   [randomOn] numCycles $ nTo1 (MoreDeposits  1) (erlang 2)
+    go "erlang2-3to1"   [randomOn] numCycles $ nTo1 (MoreDeposits  3) (erlang 2)
+    go "erlang2-10to1"  [randomOn] numCycles $ nTo1 (MoreDeposits 10) (erlang 2)
+    go "erlang2-1to3"   [randomOn] numCycles $ nTo1 (MorePayments  3) (erlang 2)
+    go "erlang2-1to10"  [randomOn] numCycles $ nTo1 (MorePayments 10) (erlang 2)
+
+    go "erlang3-1to1"   [randomOn] numCycles $ nTo1 (MoreDeposits  1) (erlang 3)
+    go "erlang3-3to1"   [randomOn] numCycles $ nTo1 (MoreDeposits  3) (erlang 3)
+    go "erlang3-10to1"  [randomOn] numCycles $ nTo1 (MoreDeposits 10) (erlang 3)
+    go "erlang3-1to3"   [randomOn] numCycles $ nTo1 (MorePayments  3) (erlang 3)
+    go "erlang3-1to10"  [randomOn] numCycles $ nTo1 (MorePayments 10) (erlang 3)
+
+    go "erlang10-1to1"  [randomOn] numCycles $ nTo1 (MoreDeposits  1) (erlang 10)
+    go "erlang10-3to1"  [randomOn] numCycles $ nTo1 (MoreDeposits  3) (erlang 10)
+    go "erlang10-10to1" [randomOn] numCycles $ nTo1 (MoreDeposits 10) (erlang 10)
+    go "erlang10-1to3"  [randomOn] numCycles $ nTo1 (MorePayments  3) (erlang 10)
+    go "erlang10-1to10" [randomOn] numCycles $ nTo1 (MorePayments 10) (erlang 10)
 
    -- Other policies
 
-    go "normal-1to1"  [largest]                   600 $ nTo1  1 normal
-    go "normal-1to1"  [randomOff]              100000 $ nTo1  1 normal
-    go "normal-3to1"  [largest]                100000 $ nTo1  3 normal
-    go "normal-3to1"  [largeThenRandom 100000] 115000 $ nTo1  3 normal
+    go "normal-1to1"  [largest]                          600          $ nTo1 (MoreDeposits 1) normal
+    go "normal-1to1"  [randomOff]                  numCycles          $ nTo1 (MoreDeposits 1) normal
+    go "normal-3to1"  [largest]                    numCycles          $ nTo1 (MoreDeposits 3) normal
+    go "normal-3to1"  [largeThenRandom numCycles] (numCycles .* 1.15) $ nTo1 (MoreDeposits 3) normal
+    go "normal-1to3"  [largest]                    numCycles          $ nTo1 (MorePayments 3) normal
+    go "normal-1to3"  [largeThenRandom numCycles] (numCycles .* 1.15) $ nTo1 (MorePayments 3) normal
   where
     go :: FilePath  -- Prefix for this event stream
        -> [NamedPolicy (DSL GivenHash World) (GenHashT IO)] -- Policies to evaluate
@@ -156,25 +195,21 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
        -> (Int -> ConduitT () (Event (DSL GivenHash World)) (GenHashT IO) ())
                     -- Event stream (parameterized by number of cycles)
        -> IO ()
-    go eventsPrefix policies numCycles events = do
+    go eventsPrefix policies cycles events = do
       putStr $ sformat ("Running " % build % " " % listJson % ".. ")
                  eventsPrefix
                  (map namedPolicyName policies)
       hFlush stdout
       start <- getCurrentTime
       withHash 1 $ evaluateUsingEvents
-                     plotParams
+                     evalOptions
                      eventsPrefix
                      initUtxo
                      policies
-                     (renderEvery (numCycles `div` numFrames))
-                     (events numCycles)
+                     (renderEvery (cycles `div` numFrames))
+                     (events cycles)
       finish <- getCurrentTime
       putStrLn $ sformat ("ok (" % build % ")") (finish `diffUTCTime` start)
-
-    -- Number of frames we want for each animation
-    numFrames :: Int
-    numFrames = 200
 
     -- Render every n steps
     renderEvery :: Int -> SlotNr -> Bool
@@ -182,20 +217,31 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
 
     -- Event stream
     nTo1 :: Distribution distr
-         => Int                  -- Ratio of deposits:withdrawals (@N:1@)
+         => Ratio
          -> (Int -> distr)       -- Distribution
          -> Int                  -- Number of cycles
          -> ConduitT () (Event (DSL GivenHash World)) (GenHashT IO) ()
-    nTo1 n distr numCycles = Gen.fromDistr Gen.FromDistrParams {
+    nTo1 (MoreDeposits n) distr cycles = Gen.fromDistr Gen.FromDistrParams {
           Gen.fromDistrDep    = distr 1
         , Gen.fromDistrPay    = distr n
         , Gen.fromDistrNumDep = Constant (fromIntegral n)
         , Gen.fromDistrNumPay = Constant 1
-        , Gen.fromDistrCycles = numCycles
+        , Gen.fromDistrCycles = cycles
+        }
+    nTo1 (MorePayments n) distr cycles = Gen.fromDistr Gen.FromDistrParams {
+          Gen.fromDistrDep    = distr n
+        , Gen.fromDistrPay    = distr 1
+        , Gen.fromDistrNumDep = Constant 1
+        , Gen.fromDistrNumPay = Constant (fromIntegral n)
+        , Gen.fromDistrCycles = cycles
         }
 
     -- Initial UTxO for all these tests
     initUtxo :: Map (Input GivenHash World) (Output GivenHash World)
     initUtxo = let i = Input (GivenHash 0) 0
-                   o = Output Us 1000000
+                   o = Output Us initBalance
                in Map.singleton i o
+
+
+    (.*) :: Int -> Double -> Int
+    (.*) n f = round $ fromIntegral n * f

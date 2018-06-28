@@ -11,14 +11,17 @@ module InputSelection.Evaluation.TimeSeries (
   , PolicySlotNr
     -- * Time series
   , TimeSeries(..)
-  , empty
   , toList
+  , fromList
+  , empty
   , insert
   , range
+    -- I/O
   , writeFile
+  , readFile
   ) where
 
-import           Universum hiding (empty, toList, writeFile)
+import           Universum hiding (empty, toList, writeFile, readFile)
 
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.Map.Strict as Map
@@ -74,6 +77,9 @@ newtype TimeSeries a = TimeSeries {
 toList :: TimeSeries a -> [(SlotNr, a)]
 toList = Map.toList . timeSeriesToMap
 
+fromList :: [(SlotNr, a)] -> TimeSeries a
+fromList = TimeSeries . Map.fromList
+
 empty :: TimeSeries a
 empty = TimeSeries Map.empty
 
@@ -91,6 +97,10 @@ range (TimeSeries m) = Ranges {
   where
     slots :: [OverallSlotNr]
     slots = map overallSlotNr (Map.keys m)
+
+{-------------------------------------------------------------------------------
+  I/O
+-------------------------------------------------------------------------------}
 
 -- | Write out a time series to disk
 --
@@ -111,3 +121,30 @@ writeFile fp =
          , Prelude.show a
          ])
      . toList
+
+readFile :: forall a. Read a => FilePath -> IO (TimeSeries a)
+readFile fp = parse <$> Prelude.readFile fp
+  where
+    parse :: String -> TimeSeries a
+    parse = fromList . map parseLine . Prelude.lines
+
+    parseLine :: String -> (SlotNr, a)
+    parseLine str =
+        let [overall, policy, policySlot, a] = splitWhen (== '\t') str
+        in ( SlotNr {
+                 overallSlotNr = Prelude.read overall
+               , policyNr      = Prelude.read policy
+               , policySlotNr  = Prelude.read policySlot
+               }
+           , Prelude.read a
+           )
+
+{-------------------------------------------------------------------------------
+  Auxiliary
+-------------------------------------------------------------------------------}
+
+splitWhen :: (a -> Bool) -> [a] -> [[a]]
+splitWhen p xs =
+    case break p xs of
+      (prefix, [])               -> [prefix]
+      (prefix, _match:remainder) -> prefix : splitWhen p remainder

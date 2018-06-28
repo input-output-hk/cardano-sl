@@ -86,6 +86,9 @@ newtype SafeValue (h :: * -> *) a = Value { fromSafeValue :: DSL.Value }
 instance Show (SafeValue h a) where
   show = Prelude.show . fromSafeValue
 
+instance Read (SafeValue h a) where
+  readsPrec p = map (bimap Value identity) . Prelude.readsPrec p
+
 safeZero :: SafeValue h a
 safeZero = Value 0
 

@@ -271,6 +271,10 @@ data CoinSelHardErr =
     -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
   | CoinSelHardErrCannotCoverFee
 
+    -- | When trying to construct a transaction, the max number of allowed
+    -- inputs was reached.
+  | CoinSelHardErrMaxInputsReached Word64
+
     -- | UTxO exhausted during input selection
     --
     -- We record the balance of the UTxO as well as the size of the payment
@@ -513,9 +517,12 @@ nLargestFromMapBy f n m =
 -- @O(n)@
 nLargestFromListBy :: forall a b. Ord b => (a -> b) -> Word64 -> [a] -> [a]
 nLargestFromListBy f n = \xs ->
+    -- If the map resulting from manipulating @xs@ is empty, we need to
+    -- return straight away as otherwise the call to 'Map.findMin' later
+    -- would fail.
     let (firstN, rest) = splitAt (fromIntegral n) xs
         acc            = Map.fromListWith (++) $ map (\a -> (f a, [a])) firstN
-    in go acc rest
+    in if Map.null acc then [] else go acc rest
   where
     -- We cache the minimum element in the accumulator, since looking this up
     -- is an @O(log n)@ operation.
@@ -595,6 +602,12 @@ instance Buildable CoinSelHardErr where
     % "}"
     )
     out
+  build (CoinSelHardErrMaxInputsReached inputs) = bprint
+    ( "CoinSelHardErrMaxInputsReached"
+    % "{ inputs: " % build
+    % "}"
+    )
+    inputs
   build (CoinSelHardErrCannotCoverFee) = bprint
     ( "CoinSelHardErrCannotCoverFee" )
   build (CoinSelHardErrUtxoExhausted bal val) = bprint

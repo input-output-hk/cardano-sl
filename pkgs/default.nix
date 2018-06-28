@@ -18326,6 +18326,7 @@ license = stdenv.lib.licenses.mit;
 , data-default-class
 , directory
 , exceptions
+, filepath
 , formatting
 , gauge
 , generics-sop
@@ -18342,6 +18343,7 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , neat-interpolation
 , network-transport
+, normaldistribution
 , optparse-applicative
 , pretty-show
 , QuickCheck
@@ -18364,6 +18366,7 @@ license = stdenv.lib.licenses.mit;
 , stm
 , string-conv
 , swagger2
+, tabl
 , text
 , text-format
 , time
@@ -18423,6 +18426,7 @@ cardano-sl-wallet
 conduit
 connection
 containers
+cryptonite
 data-default
 data-default-class
 exceptions
@@ -18538,17 +18542,22 @@ cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-wallet
+conduit
 constraints
 containers
+cryptonite
 data-default
 directory
+filepath
 formatting
 hspec
 lens
 log-warper
 mtl
+normaldistribution
 QuickCheck
 quickcheck-instances
+random
 safe-exceptions
 serokell-util
 servant
@@ -18557,6 +18566,7 @@ servant-swagger
 servant-swagger-ui
 string-conv
 swagger2
+tabl
 text
 text-format
 time
@@ -57911,6 +57921,29 @@ doHaddock = false;
 doCheck = false;
 description = "A monad and monad transformer for nondeterministic computations";
 license = "LGPL";
+
+}) {};
+"normaldistribution" = callPackage
+({
+  mkDerivation
+, base
+, random
+, stdenv
+}:
+mkDerivation {
+
+pname = "normaldistribution";
+version = "1.1.0.3";
+sha256 = "6d7ba381946f76f3bd848c90e5bcc6f6ae5c418f7ae294cfc2559541fa02f7e0";
+libraryHaskellDepends = [
+base
+random
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/bjornbm/normaldistribution";
+description = "Minimum fuss normally distributed random values";
+license = stdenv.lib.licenses.bsd3;
 
 }) {};
 "normalization-insensitive" = callPackage

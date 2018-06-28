@@ -369,6 +369,10 @@ outputWasRedeem :: CoinSelHardErr -> Bool
 outputWasRedeem (CoinSelHardErrOutputIsRedeemAddress _) = True
 outputWasRedeem _                                       = False
 
+maxInputsReached :: CoinSelHardErr -> Bool
+maxInputsReached (CoinSelHardErrMaxInputsReached _) = True
+maxInputsReached _                                  = False
+
 errorWas :: (CoinSelHardErr -> Bool)
          -> Core.Utxo
          -> NonEmpty Core.TxOut
@@ -398,15 +402,16 @@ maxNumInputs = 300
 mkTx :: Core.ProtocolMagic -> SecretKey -> MkTx Gen
 mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
 
-pay :: (InitialBalance -> Gen Core.Utxo)
-    -> (Pay -> Gen (NonEmpty Core.TxOut))
-    -> (Int -> NonEmpty Core.Coin -> Core.Coin)
-    -> (CoinSelectionOptions -> CoinSelectionOptions)
-    -> InitialBalance
-    -> Pay
-    -> Policy
-    -> Gen RunResult
-pay genU genP feeFunction adjustOptions bal amount policy =
+payRestrictInputsTo :: Word64
+                    -> (InitialBalance -> Gen Core.Utxo)
+                    -> (Pay -> Gen (NonEmpty Core.TxOut))
+                    -> (Int -> NonEmpty Core.Coin -> Core.Coin)
+                    -> (CoinSelectionOptions -> CoinSelectionOptions)
+                    -> InitialBalance
+                    -> Pay
+                    -> Policy
+                    -> Gen RunResult
+payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
     withDefConfiguration $ \pm -> do
         utxo  <- genU bal
         payee <- genP amount
@@ -417,10 +422,20 @@ pay genU genP feeFunction adjustOptions bal amount policy =
                    options
                    (genUniqueChangeAddress utxo payee)
                    (mkTx pm key)
-                   maxNumInputs
+                   maxInputs
                    (fmap Core.TxOutAux payee)
                    utxo
         return (utxo, payee, res)
+
+pay :: (InitialBalance -> Gen Core.Utxo)
+    -> (Pay -> Gen (NonEmpty Core.TxOut))
+    -> (Int -> NonEmpty Core.Coin -> Core.Coin)
+    -> (CoinSelectionOptions -> CoinSelectionOptions)
+    -> InitialBalance
+    -> Pay
+    -> Policy
+    -> Gen RunResult
+pay = payRestrictInputsTo maxNumInputs
 
 payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
        -> (CoinSelectionOptions -> CoinSelectionOptions)
@@ -558,6 +573,14 @@ spec =
                 payBatch linearFee receiverPays (InitialLovelace 10) (PayLovelace 100) random
                 ) $ \(utxo, payee, res) -> do
                   paymentFailedWith utxo payee res [errorWas notEnoughMoney]
+            prop "Restricting too much the number of inputs results in an hard error for a single payee" $ forAll (
+                payRestrictInputsTo 1 genUtxoWithAtLeast genPayee freeLunch identity (InitialLovelace 200) (PayLovelace 100) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentFailedWith utxo payee res [errorWas maxInputsReached]
+            prop "Restricting too much the number of inputs results in an hard error for multiple payees" $ forAll (
+                payRestrictInputsTo 1 genUtxoWithAtLeast genPayees freeLunch identity (InitialLovelace 200) (PayLovelace 100) random
+                ) $ \(utxo, payee, res) -> do
+                  paymentFailedWith utxo payee res [errorWas maxInputsReached]
 
         -- Tests that the coin selection is unaffected by the size of the
         -- Addresses in Cardano, as in the past there was a subtle corner case

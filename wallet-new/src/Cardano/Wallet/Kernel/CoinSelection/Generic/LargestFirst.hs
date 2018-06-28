@@ -50,9 +50,17 @@ atLeast :: forall utxo m. (Monad m, PickFromUtxo utxo)
 atLeast maxNumInputs targetMin = do
     utxo <- get
     case go emptySelection utxo (pickLargest maxNumInputs utxo) of
-      Nothing -> throwError $ CoinSelHardErrUtxoExhausted
-                                (utxoBalance utxo)
-                                targetMin
+      Nothing -> do
+          -- If we failed to cover 'targetMin' it might be because we
+          -- depleted the Utxo or simply because our 'maxNumInputs' was
+          -- to stringent and in normal conditions we @would have@ covered
+          -- targetMin. To diversify the two errors, if
+          -- 'utxoBalance utxo >= targetMin' it means this is a max input
+          -- failure, otherwise we have genuinely exhausted the utxo.
+          let balance = utxoBalance utxo
+          if balance < targetMin
+             then throwError $ CoinSelHardErrUtxoExhausted balance targetMin
+             else throwError $ CoinSelHardErrMaxInputsReached maxNumInputs
       Just (selected, remainingUtxo) -> do
         put remainingUtxo
         return selected

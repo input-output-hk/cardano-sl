@@ -68,10 +68,11 @@ prepareUnsignedTx
     -> InputSelectionPolicy
     -> NonEmpty Address
     -> NonEmpty TxOutAux
+    -> Address
     -> m (Either TxError (Tx, NonEmpty TxOut))
-prepareUnsignedTx pm pendingAddrs inputSelectionPolicy addrs outputs = do
+prepareUnsignedTx pm pendingAddrs inputSelectionPolicy addrs outputs changeAddress = do
     utxo <- getOwnUtxos (toList addrs)
-    createUnsignedTx pm pendingAddrs inputSelectionPolicy utxo outputs
+    createUnsignedTx pm pendingAddrs inputSelectionPolicy utxo outputs changeAddress
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

@@ -117,8 +117,6 @@ data TxError =
       -- ^ Redemption address has already been used
     | SafeSignerNotFound !Address
       -- ^ The safe signer at the specified address was not found
-    | RemainingMoneyError
-      -- ^ Problem with remaining money, for new unsigned transaction.
     | SignedTxNotBase16Format
       -- ^ Externally-signed transaction is not in Base16-format.
     | SignedTxUnableToDecode !Text
@@ -153,8 +151,6 @@ instance Buildable TxError where
         bprint "Redemption address balance is 0"
     build (SafeSignerNotFound addr) =
         bprint ("Address "%build%" has no associated safe signer") addr
-    build RemainingMoneyError =
-        "Problem with remaining money, during creation of the new unsigned transaction"
     build SignedTxNotBase16Format =
         "Externally-signed transaction is not in Base16-format."
     build (SignedTxUnableToDecode msg) =
@@ -174,7 +170,6 @@ isCheckedTxError = \case
     OutputIsRedeem{}                   -> True
     RedemptionDepleted{}               -> True
     SafeSignerNotFound{}               -> True
-    RemainingMoneyError{}              -> True
     SignedTxNotBase16Format{}          -> True
     SignedTxUnableToDecode{}           -> True
     SignedTxSignatureNotBase16Format{} -> True
@@ -542,13 +537,16 @@ mkOutputsWithRem addrData TxRaw {..}
 mkOutputsWithRemForUnsignedTx
     :: TxCreateMode m
     => TxRaw
+    -> Address
     -> TxCreator m TxOutputs
-mkOutputsWithRemForUnsignedTx TxRaw {..}
+mkOutputsWithRemForUnsignedTx TxRaw {..} changeAddress
     | trRemainingMoney == mkCoin 0 = pure trOutputs
-    | otherwise =
-        -- We cannot get a new address here, because we're creating unsigned
-        -- transaction for an external wallet.
-        throwError RemainingMoneyError
+    | otherwise = do
+        -- Change is here, so we have to use provided 'changeAddress' for it.
+        -- It is assumed that 'changeAddress' was created (as usual HD-address)
+        -- by external wallet and stored in the corresponding wallet.
+        let txOutForChange = TxOut changeAddress trRemainingMoney
+        pure $ TxOutAux txOutForChange :| toList trOutputs
 
 prepareInpsOuts
     :: TxCreateMode m
@@ -569,10 +567,11 @@ prepareInpsOutsForUnsignedTx
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
+    -> Address
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
-prepareInpsOutsForUnsignedTx pm pendingTx utxo outputs = do
+prepareInpsOutsForUnsignedTx pm pendingTx utxo outputs changeAddress = do
     txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
-    outputsWithRem <- mkOutputsWithRemForUnsignedTx txRaw
+    outputsWithRem <- mkOutputsWithRemForUnsignedTx txRaw changeAddress
     pure (trInputs, outputsWithRem)
 
 createGenericTx
@@ -646,10 +645,11 @@ createUnsignedTx
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
+    -> Address
     -> m (Either TxError (Tx,NonEmpty TxOut))
-createUnsignedTx pm pendingTx selectionPolicy utxo outputs =
+createUnsignedTx pm pendingTx selectionPolicy utxo outputs changeAddress =
     runTxCreator selectionPolicy $ do
-        (inps, outs) <- prepareInpsOutsForUnsignedTx pm pendingTx utxo outputs
+        (inps, outs) <- prepareInpsOutsForUnsignedTx pm pendingTx utxo outputs changeAddress
         let tx = makeUnsignedAbstractTx inps outs
         pure (tx, map fst inps)
 

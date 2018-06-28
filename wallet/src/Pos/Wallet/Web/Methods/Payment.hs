@@ -106,8 +106,9 @@ newUnsignedTransaction
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
     -> NewBatchPayment
+    -> Address
     -> m Tx
-newUnsignedTransaction pm NewBatchPayment {..} = do
+newUnsignedTransaction pm NewBatchPayment {..} changeAddress = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       createNewUnsignedTransaction
@@ -115,6 +116,7 @@ newUnsignedTransaction pm NewBatchPayment {..} = do
           (AccountMoneySource src)
           npbTo
           npbInputSelectionPolicy
+          changeAddress
 
 
 type MonadFees ctx m =
@@ -267,8 +269,9 @@ createNewUnsignedTransaction
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
+    -> Address
     -> m Tx
-createNewUnsignedTransaction pm moneySource dstDistr policy = do
+createNewUnsignedTransaction pm moneySource dstDistr policy changeAddress = do
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation (including unsigned ones) is disabled by configuration!"
@@ -289,7 +292,7 @@ createNewUnsignedTransaction pm moneySource dstDistr policy = do
     outputs <- coinDistrToOutputs dstDistr
     let pendingAddrs = getPendingAddresses ws policy
     rewrapTxError "Cannot create unsigned transaction" $
-        prepareUnsignedTx pm pendingAddrs policy srcAddrs outputs >>= \case
+        prepareUnsignedTx pm pendingAddrs policy srcAddrs outputs changeAddress >>= \case
             Left txError ->
                 throwM (RequestError $ show txError)
             Right (tx, _) ->

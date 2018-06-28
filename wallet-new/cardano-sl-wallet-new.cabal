@@ -308,6 +308,7 @@ executable wal-integr-test
                      , aeson-diff
                      , aeson-pretty
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto

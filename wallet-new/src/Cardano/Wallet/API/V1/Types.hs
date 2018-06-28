@@ -1888,6 +1888,16 @@ instance BuildableSafeGen NodeInfo where
 -- If constructor does not have additional data (like in case of `WalletNotFound` error),
 -- then "diagnostic" field will be empty object.
 --
+-- Note that this exception type should only be used for errors that we throw to
+-- short-circuit an API request, and this type is primarily used for formatting
+-- to the JSend format generically. Because the type has so many constructors,
+-- it should not be used in the 'Left' case of an 'Either' result -- you lose
+-- type-safety in which constructors you should be throwing and handling.
+-- Instead, use a smaller type that doens't have an 'Exception' instance, and do
+-- your best to handle it using 'Either', 'ExceptT', etc. without it bubbling
+-- out to the client. Add the constructor case here and convert to the
+-- 'WalletError' only if you need to tell the end user of it.
+--
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }

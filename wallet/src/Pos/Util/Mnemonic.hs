@@ -116,7 +116,7 @@ genEntropy =
         eitherToIO =
             either (throwM . UnexpectedMnemonicErr) return
     in
-        (eitherToIO . mkEntropy) =<< Crypto.getEntropy size
+        (eitherToIO . mkEntropy) =<< Crypto.getEntropy (size `div` 8)
 
 
 -- | Smart-constructor for the Mnemonic

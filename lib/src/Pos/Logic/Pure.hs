@@ -209,9 +209,8 @@ txProof = TxProof
     }
 
 sscProof :: SscProof
-sscProof = CertificatesProof
-    { sprVss = unsafeMkAbstractHash mempty
-    }
+sscProof = CertificatesProof $ unsafeMkAbstractHash mempty
+
 
 dlgProof :: Hash DlgPayload
 dlgProof = unsafeMkAbstractHash mempty

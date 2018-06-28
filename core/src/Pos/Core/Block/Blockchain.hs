@@ -34,6 +34,7 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (build, sformat, (%))
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
@@ -149,6 +150,28 @@ instance
     , NFData (ExtraHeaderData b)
     ) => NFData (GenericBlockHeader b)
 
+instance ( SafeCopy (BHeaderHash b)
+         , SafeCopy (BodyProof b)
+         , SafeCopy (ConsensusData b)
+         , SafeCopy (ExtraHeaderData b)
+         ) =>
+         SafeCopy (GenericBlockHeader b) where
+    getCopy =
+        contain $
+        do _gbhProtocolMagic <- safeGet
+           _gbhPrevBlock <- safeGet
+           _gbhBodyProof <- safeGet
+           _gbhConsensus <- safeGet
+           _gbhExtra <- safeGet
+           return $! UnsafeGenericBlockHeader {..}
+    putCopy UnsafeGenericBlockHeader {..} =
+        contain $
+        do safePut _gbhProtocolMagic
+           safePut _gbhPrevBlock
+           safePut _gbhBodyProof
+           safePut _gbhConsensus
+           safePut _gbhExtra
+
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
 --
@@ -203,6 +226,25 @@ instance ( Typeable b
 --    , NFData (Body b)
 --    , NFData (ExtraBodyData b)
 --    ) => NFData (GenericBlock b)
+instance ( SafeCopy (BHeaderHash b)
+         , SafeCopy (BodyProof b)
+         , SafeCopy (ConsensusData b)
+         , SafeCopy (ExtraHeaderData b)
+         , SafeCopy (Body b)
+         , SafeCopy (ExtraBodyData b)
+         ) =>
+         SafeCopy (GenericBlock b) where
+    getCopy =
+        contain $
+        do _gbHeader <- safeGet
+           _gbBody <- safeGet
+           _gbExtra <- safeGet
+           return $! UnsafeGenericBlock {..}
+    putCopy UnsafeGenericBlock {..} =
+        contain $
+        do safePut _gbHeader
+           safePut _gbBody
+           safePut _gbExtra
 
 ----------------------------------------------------------------------------
 -- Smart constructors

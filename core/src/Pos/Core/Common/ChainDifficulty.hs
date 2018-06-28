@@ -6,10 +6,11 @@ module Pos.Core.Common.ChainDifficulty
 
 import           Universum
 
-import           Pos.Util.Some (Some, liftLensSome)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common.BlockCount
+import           Pos.Util.Some (Some, liftLensSome)
 
 -- | Chain difficulty represents necessary effort to generate a
 -- chain. In the simplest case it can be number of blocks in chain.
@@ -30,3 +31,6 @@ deriveSimpleBi ''ChainDifficulty [
     Cons 'ChainDifficulty [
         Field [| getChainDifficulty :: BlockCount |]
     ]]
+
+deriveSafeCopySimple 0 'base ''ChainDifficulty
+

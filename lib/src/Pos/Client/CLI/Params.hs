@@ -20,12 +20,13 @@ import           Pos.Client.CLI.Secrets (prepareUserSecret)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
-import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
+                     NodeParams (..))
 import           Pos.Ssc (SscParams (..))
 import           Pos.Update.Params (UpdateParams (..))
+import qualified Pos.Util.Log as Log
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
-import qualified Pos.Util.Log as Log
 
 loggingParams :: Log.LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams defaultName CommonNodeArgs{..} =

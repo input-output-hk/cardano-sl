@@ -41,10 +41,14 @@ import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), FullDiffusionInternals (..),
-                     RunFullDiffusionInternals (..), diffusionLayerFullExposeInternals)
-import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
+                     FullDiffusionInternals (..),
+                     RunFullDiffusionInternals (..),
+                     diffusionLayerFullExposeInternals)
+import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion
+                     (bracketTransportTCP)
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..),
+                     StreamEntry (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))

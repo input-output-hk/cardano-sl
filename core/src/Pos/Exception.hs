@@ -20,7 +20,7 @@ import qualified Data.Text.Buildable
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
 import           Pos.Util.Log (WithLogger, logError)
-import           Pos.Util.Trace (Trace, traceWith, Severity (Error))
+import           Pos.Util.Trace (Severity (Error), Trace, traceWith)
 import qualified Pos.Util.Trace.Named as TN
 import           Serokell.Util (Color (Red), colorize)
 import qualified Text.Show

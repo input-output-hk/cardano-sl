@@ -16,7 +16,8 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Hash.IO (HashAlgorithm, hashDigestSize)
 
 import           Pos.Binary.Limit (Limit)
-import           Pos.Crypto (AbstractHash, DecShare, EncShare, PublicKey, Secret, Signature (..), VssPublicKey)
+import           Pos.Crypto (AbstractHash, DecShare, EncShare, PublicKey,
+                     Secret, Signature (..), VssPublicKey)
 
 mlAbstractHash :: forall algo a . HashAlgorithm algo => Limit (AbstractHash algo a)
 mlAbstractHash = fromIntegral (hashDigestSize (error "AbstractHash limit" :: algo) + 4)

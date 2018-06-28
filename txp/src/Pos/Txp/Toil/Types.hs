@@ -37,7 +37,8 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, later)
 import           Serokell.Util.Text (mapBuilderJson)
 
-import           Pos.Core (Address, Coin, StakeholderId, unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, StakeholderId, unsafeAddCoin,
+                     unsafeSubCoin)
 import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux (..), TxUndo, _TxOut)
 import qualified Pos.Util.Modifier as MM
 

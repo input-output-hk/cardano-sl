@@ -29,15 +29,16 @@ import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
-import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
+import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
+                     mlVssCertificate)
 import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Core.Block as BT
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Binary ()
-import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
-                     mlReqMsg)
+import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
+                     mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
@@ -47,7 +48,8 @@ import qualified Pos.Txp as T
 import qualified Pos.Update as U
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
-import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty, msgLenLimitedTest)
+import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
+                     msgLenLimitedTest)
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Block.Arbitrary.Message ()
 import           Test.Pos.Configuration (withDefConfiguration)

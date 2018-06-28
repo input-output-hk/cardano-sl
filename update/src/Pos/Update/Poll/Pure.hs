@@ -19,9 +19,9 @@ import           Pos.Crypto (hash)
 import           Pos.Update.BlockVersion (applyBVM)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import qualified Pos.Update.Poll.PollState as Poll
-import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
-                     UndecidedProposalState (..), cpsSoftwareVersion, propStateToEither,
-                     psProposal)
+import           Pos.Update.Poll.Types (BlockVersionState (..),
+                     DecidedProposalState (..), UndecidedProposalState (..),
+                     cpsSoftwareVersion, propStateToEither, psProposal)
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: StateT Poll.PollState Identity a

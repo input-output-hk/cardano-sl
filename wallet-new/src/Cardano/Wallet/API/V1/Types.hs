@@ -81,6 +81,8 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
+import           Data.Semigroup (Semigroup)
+
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
@@ -89,7 +91,8 @@ import qualified Data.Char as C
 import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
+                     GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
@@ -107,7 +110,8 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 
-import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
+                     UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
@@ -126,9 +130,11 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe,
-                     buildSafeList, buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Diffusion.Subscription.Status
+                     (SubscriptionStatus (..))
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                     buildSafe, buildSafeList, buildSafeMaybe,
+                     deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()
@@ -387,9 +393,12 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Semigroup (V1 Core.PassPhrase) where
+    V1 a <> V1 b = V1 (a <> b)
+
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
-    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+    mappend = (<>)
 
 type WalletName = Text
 

@@ -97,21 +97,24 @@ module Pos.Wallet.Web.State.State
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants, HeaderHash, SlotId,
-                           protocolConstants)
+import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants,
+                     HeaderHash, SlotId, protocolConstants)
 import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
-import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId, CTxMeta,
-                                             CUpdateInfo, CWalletMeta, PassPhraseLU, Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId,
+                     CProfile, CTxId, CTxMeta, CUpdateInfo, CWalletMeta,
+                     PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
-import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState, openState)
+import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState,
+                     openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
-import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
-                                               CurrentAndRemoved (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), RestorationBlockDepth (..),
-                                               SyncStatistics, SyncThroughput, WalletBalances,
-                                               WalletInfo, WalletStorage, WalletSyncState (..))
+import           Pos.Wallet.Web.State.Storage (AddressInfo (..),
+                     AddressLookupMode (..), CAddresses,
+                     CurrentAndRemoved (..), CustomAddressType (..),
+                     PtxMetaUpdate (..), RestorationBlockDepth (..),
+                     SyncStatistics, SyncThroughput, WalletBalances,
+                     WalletInfo, WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 

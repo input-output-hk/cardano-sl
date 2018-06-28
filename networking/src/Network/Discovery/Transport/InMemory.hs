@@ -14,7 +14,8 @@ import qualified Data.Set as S
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
 import           Network.Transport.InMemory
-import           Network.Transport.InMemory.Internal (TransportState (..), ValidTransportState (..))
+import           Network.Transport.InMemory.Internal (TransportState (..),
+                     ValidTransportState (..))
 
 import           Network.Discovery.Abstract
 import           Network.Transport

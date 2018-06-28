@@ -40,7 +40,8 @@ import           Data.Aeson.Types (Parser)
 import           Data.ByteArray (constEq, convert)
 import           Data.ByteString (ByteString)
 import           Data.Default (Default (def))
-import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems, minItems)
+import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems,
+                     minItems)
 import           Formatting (bprint, build, formatToString, (%))
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
@@ -115,7 +116,7 @@ genEntropy =
         eitherToIO =
             either (throwM . UnexpectedMnemonicErr) return
     in
-        (eitherToIO . mkEntropy) =<< Crypto.getEntropy size
+        (eitherToIO . mkEntropy) =<< Crypto.getEntropy (size `div` 8)
 
 
 -- | Smart-constructor for the Mnemonic

@@ -10,7 +10,8 @@ import           Options.Applicative
 
 import           Cardano.Wallet.API (devAPI, v0API, v1API)
 import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
-import           Pos.Util.CompileInfo (CompileTimeInfo(CompileTimeInfo), gitRev)
+import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
+                     gitRev)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import qualified Data.Aeson as Aeson

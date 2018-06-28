@@ -32,7 +32,8 @@ import qualified Crypto.Random as Rand
 import           Data.DList (DList)
 import qualified Data.DList as DList
 
-import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState, sscGlobal, sscLocal)
+import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState,
+                     sscGlobal, sscLocal)
 import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Trace.Unstructured (LogItem)
 import           Pos.Util.Util (HasLens (..))
@@ -85,7 +86,7 @@ sscRunLocalQuery action = do
 sscRunLocalSTM
     :: forall ctx m a.
        (MonadSscMem ctx m, MonadIO m)
-    => Trace m LogItem 
+    => Trace m LogItem
     -> WriterT (DList LogItem) (StateT SscLocalData STM) a
     -> m a
 sscRunLocalSTM logTrace action = do

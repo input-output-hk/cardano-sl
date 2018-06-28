@@ -12,8 +12,8 @@ module Pos.Crypto.Random
 import           Crypto.Number.Basic (numBytes)
 import           Crypto.Number.Serialize (os2ip)
 import           Crypto.OpenSSL.Random (randBytes)
-import           Crypto.Random (ChaChaDRG, MonadPseudoRandom, MonadRandom, drgNewSeed,
-                                getRandomBytes, seedFromInteger, withDRG)
+import           Crypto.Random (ChaChaDRG, MonadPseudoRandom, MonadRandom,
+                     drgNewSeed, getRandomBytes, seedFromInteger, withDRG)
 import qualified Data.ByteArray as ByteArray (convert)
 import           Universum
 

@@ -1,5 +1,5 @@
+{-# LANGUAGE BangPatterns     #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE BangPatterns #-}
 
 import           Control.Applicative (empty)
 import           Control.Exception.Safe (throwString)
@@ -22,14 +22,14 @@ import           System.IO (FilePath)
 import           Data.Attoparsec.Text (parseOnly)
 import           Options.Applicative.Simple (simpleOptions)
 
-import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), MeasureInfo (..), MsgId,
-                                        Payload (..), Timestamp, logMessageParser,
-                                        measureInfoParser)
+import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..),
+                     MeasureInfo (..), MsgId, Payload (..), Timestamp,
+                     logMessageParser, measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
 
 import qualified Pos.Util.Log as Log
 import           Pos.Util.LoggerConfig (jsonInteractiveConfiguration)
-import           Pos.Util.Trace.Named (TraceNamed, setupLogging, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning, setupLogging)
 
 
 

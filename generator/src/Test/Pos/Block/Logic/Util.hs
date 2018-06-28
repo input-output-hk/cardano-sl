@@ -24,16 +24,19 @@ import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (BlockCount, GenesisData (..), HasGenesisData, HasProtocolConstants,
-                           SlotId (..), epochIndexL, genesisData)
+import           Pos.Core (BlockCount, GenesisData (..), HasGenesisData,
+                     HasProtocolConstants, SlotId (..), epochIndexL,
+                     genesisData)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBlockGenInit,
-                                      genBlocks, tgpTxCountRange)
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
+import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..),
+                     MonadBlockGenInit, genBlocks, tgpTxCountRange)
+import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal,
+                     TxpGlobalSettings, txpGlobalSettings)
 import           Pos.Util (HasLens', _neLast)
-import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
+                     btcSlotIdL)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.
 newtype EnableTxPayload = EnableTxPayload Bool

@@ -22,7 +22,8 @@ import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.Infra.Communication.Relay as Relay
 import           Pos.Infra.Util.JsonLog.Events (JLTxR (..))
-import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
+import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
+                     txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Trace.Unstructured (LogItem, logInfo)

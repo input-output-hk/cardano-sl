@@ -8,7 +8,6 @@ import           Test.Hspec (Spec, describe)
 import           Universum
 
 import qualified Pos.Core.Block as BT
-import           Pos.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
 import           Test.Pos.Block.Arbitrary ()

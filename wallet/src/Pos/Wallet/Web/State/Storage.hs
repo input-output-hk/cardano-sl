@@ -109,30 +109,36 @@ import           Universum
 import qualified Data.Acid as Acid
 
 import           Control.Arrow ((***))
-import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non', to, toListOf,
-                     traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non',
+                     to, toListOf, traversed, (%=), (+=), (.=), (<<.=), (?=),
+                     _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
-import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple, extension)
+import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple,
+                     extension)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash,
-                     ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
+                     HeaderHash, ProtocolConstants (..), SlotId, Timestamp,
+                     VssMaxTTL (..), VssMinTTL (..))
+-- import           Pos.Binary.SafeCopy ()
+import           Pos.Core.Binary ()
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.SafeCopy ()
-import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
-                     utxoToAddressCoinMap)
+import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier,
+                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
-                     ptxCond, ptxSubmitTiming, _PtxCreating)
-import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
-                     mkPtxSubmitTiming, ptxMarkAcknowledgedPure, resetFailedPtx)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
+                     PtxSubmitTiming (..), ptxCond, ptxSubmitTiming,
+                     _PtxCreating)
+import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx,
+                     incPtxSubmitTimingPure, mkPtxSubmitTiming,
+                     ptxMarkAcknowledgedPure, resetFailedPtx)
 import           Serokell.Util (zoom')
 
 -- | Type alias for indices which are used to maintain order

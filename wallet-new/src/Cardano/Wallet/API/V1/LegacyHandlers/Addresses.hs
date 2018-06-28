@@ -19,9 +19,11 @@ import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes as V0
 import           Pos.Wallet.Web.ClientTypes.Types (CAccount (..))
 import qualified Pos.Wallet.Web.Methods as V0
-import qualified Pos.Wallet.Web.Methods.Logic as V0 (getMempoolSnapshot, getWAddress)
+import qualified Pos.Wallet.Web.Methods.Logic as V0 (getMempoolSnapshot,
+                     getWAddress)
 import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot)
-import           Pos.Wallet.Web.State.State (WalletSnapshot, askWalletDB, getWalletSnapshot)
+import           Pos.Wallet.Web.State.State (WalletSnapshot, askWalletDB,
+                     getWalletSnapshot)
 import qualified Pos.Wallet.Web.State.State as V0State
 import           Pos.Wallet.Web.State.Storage (getWalletAddresses)
 import qualified Pos.Wallet.Web.State.Storage as V0

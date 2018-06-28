@@ -13,11 +13,12 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
-import           Pos.Core (HasGenesisData, StakesList, StakeholderId, coinToInteger, mkCoin, sumCoins,
-                           unsafeIntegerToCoin)
+import           Pos.Core (HasGenesisData, StakeholderId, StakesList,
+                     coinToInteger, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Txp.Base (txOutStake)
-import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake, setStake, setTotalStake)
+import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
+                     setStake, setTotalStake)
 
 -- | Apply transactions to stakes.
 applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM [StakeholderId]

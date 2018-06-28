@@ -26,9 +26,11 @@ import           Universum
 import           Data.Functor.Contravariant (Op (..), contramap)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
-import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..), LogPrivacy (..))
+import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..),
+                     LogPrivacy (..))
 
-import           Pos.Util.Log.LogSafe (logMCond, selectPublicLogs, selectSecretLogs)
+import           Pos.Util.Log.LogSafe (logMCond, selectPublicLogs,
+                     selectSecretLogs)
 
 type TraceNamed m = Trace m (LogNamed TrU.LogItem)
 

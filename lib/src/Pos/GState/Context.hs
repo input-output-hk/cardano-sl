@@ -13,11 +13,12 @@ import           Universum
 
 import           Control.Lens (lens, makeClassy)
 
-import           Pos.Block.Slog (HasSlogGState (..), SlogGState, cloneSlogGState)
+import           Pos.Block.Slog (HasSlogGState (..), SlogGState,
+                     cloneSlogGState)
 import           Pos.DB.Pure (cloneDBPure)
 import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
-                                     cloneSlottingVar, slottingVar)
+                     cloneSlottingVar, slottingVar)
 import           Pos.Lrc.Context (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (noTrace)

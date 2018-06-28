@@ -2,14 +2,16 @@ module Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
     ( spec
     ) where
 
+import           Control.Concurrent.Async (AsyncCancelled (..), async, cancel,
+                     waitCatch)
 import           Control.Concurrent.MVar (newEmptyMVar, takeMVar)
-import           Control.Concurrent.Async (AsyncCancelled (..), async, cancel, waitCatch)
-import           Control.Exception (throwIO, fromException)
+import           Control.Exception (fromException, throwIO)
 import           System.IO.Error (userError)
-import           Test.Hspec (Expectation, Spec, describe, it, shouldBe, expectationFailure)
+import           Test.Hspec (Expectation, Spec, describe, expectationFailure,
+                     it, shouldBe)
 
-import           Pos.Infra.Diffusion.Subscription.Common (SubscriptionTerminationReason (..),
-                                                          networkSubscribeTo)
+import           Pos.Infra.Diffusion.Subscription.Common
+                     (SubscriptionTerminationReason (..), networkSubscribeTo)
 
 spec :: Spec
 spec = describe "Exception handling" $ do
@@ -27,7 +29,7 @@ syncExceptionSpec = do
         (throwIO ioerror)
 
     case reason of
-        Normal -> expectationFailure "expected exceptional termination reason"
+        Normal                    -> expectationFailure "expected exceptional termination reason"
         Exceptional someException -> fromException someException `shouldBe` Just ioerror
   where
     ioerror = userError "failure"

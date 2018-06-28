@@ -11,15 +11,11 @@ import           Universum
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Binary.Class (Bi)
-import           Pos.Infra.Communication.Protocol (ConversationActions,
-                                                   HandlerSpec (..),
-                                                   ListenerSpec (..), Message,
-                                                   NodeId, OutSpecs,
-                                                   VerInfo (..),
-                                                   checkProtocolMagic,
-                                                   checkingInSpecs,
-                                                   messageCode)
 import           Pos.Infra.Binary ()
+import           Pos.Infra.Communication.Protocol (ConversationActions,
+                     HandlerSpec (..), ListenerSpec (..), Message, NodeId,
+                     OutSpecs, VerInfo (..), checkProtocolMagic,
+                     checkingInSpecs, messageCode)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Util.Trace.Named (TraceNamed)
 

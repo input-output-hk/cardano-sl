@@ -47,24 +47,31 @@ module Pos.Core.Block.Union.Types
 import           Codec.CBOR.Decoding (decodeWordCanonical)
 import           Codec.CBOR.Encoding (encodeWord)
 import           Control.Lens (Getter, LensLike', choosing, makePrisms, to)
+
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
+import qualified Data.Serialize as Cereal
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf, encodeListLen, enforceSize)
+import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,
+                     encodeListLen, enforceSize)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbHeader, gbhPrevBlock)
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
 import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
-import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..))
+import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..),
+                     SlotId (..))
 import           Pos.Core.Ssc (mkSscProof)
 import           Pos.Core.Txp (mkTxProof)
-import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
+import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..),
+                     mkUpdateProof)
+import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash,
+                     unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
-import           Pos.Util.Util (cborError)
+import           Pos.Util.Util (cborError, cerealError)
 
 ----------------------------------------------------------------------------
 -- GenesisBlockchain
@@ -142,6 +149,16 @@ instance Bi BlockSignature where
           1 -> BlockPSignatureLight <$> decode
           2 -> BlockPSignatureHeavy <$> decode
           _ -> cborError $ "decode@BlockSignature: unknown tag: " <> show tag
+
+instance SafeCopy BlockSignature where
+    getCopy = contain $ Cereal.getWord8 >>= \case
+        0 -> BlockSignature <$> safeGet
+        1 -> BlockPSignatureLight <$> safeGet
+        2 -> BlockPSignatureHeavy <$> safeGet
+        t -> cerealError $ "getCopy@BlockSignature: couldn't read tag: " <> show t
+    putCopy (BlockSignature sig)            = contain $ Cereal.putWord8 0 >> safePut sig
+    putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
 -- | Data to be signed in main block.
 data MainToSign
@@ -223,6 +240,21 @@ instance ( Bi BlockHeader
         , mpProxySKsProof = hash _mbDlgPayload
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
+
+instance SafeCopy MainConsensusData where
+    getCopy =
+        contain $
+        do _mcdSlot <- safeGet
+           _mcdLeaderKey <- safeGet
+           _mcdDifficulty <- safeGet
+           _mcdSignature <- safeGet
+           return $! MainConsensusData {..}
+    putCopy MainConsensusData {..} =
+        contain $
+        do safePut _mcdSlot
+           safePut _mcdLeaderKey
+           safePut _mcdDifficulty
+           safePut _mcdSignature
 
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock

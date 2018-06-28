@@ -6,7 +6,8 @@ module Pos.Infra.Ntp.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
 import           Data.List.NonEmpty as NE
 import           Data.Time.Units (fromMicroseconds)
 import           Ntp.Client (NtpClientSettings (..))
@@ -14,11 +15,11 @@ import           Serokell.Aeson.Options (defaultOptions)
 
 data NtpConfiguration = NtpConfiguration
     {
-      ntpcServers                     :: [String]
+      ntpcServers         :: [String]
       -- ^ List of DNS names of ntp servers
-    , ntpcResponseTimeout             :: !Integer
+    , ntpcResponseTimeout :: !Integer
       -- ^ how long to await for responses from ntp servers (in microseconds)
-    , ntpcPollDelay                   :: !Integer
+    , ntpcPollDelay       :: !Integer
       -- ^ how long to wait between sending requests to the ntp servers (in
       -- microseconds)
     } deriving (Show, Generic)

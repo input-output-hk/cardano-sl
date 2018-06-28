@@ -18,7 +18,8 @@ import           Formatting (bprint, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Core (ComponentBlock (..), ProxySKHeavy, StakeholderId)
-import           Pos.Core.Delegation (DlgPayload (..), checkDlgPayload, ProxySKBlockInfo)
+import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo,
+                     checkDlgPayload)
 import           Pos.Crypto (ProxySecretKey, PublicKey, isSelfSignedPsk)
 
 -- | Undo for the delegation component.

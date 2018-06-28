@@ -66,8 +66,8 @@ import           Data.Default (Default (..))
 --import qualified Data.Text as T
 import qualified Data.Text.Buildable
 --import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Formatting (bprint, build, builder, {-fconst,-} formatToString, sformat, {-shown,-} stext,
-                             string, (%))
+import           Formatting (bprint, build, builder, {-fconst,-} formatToString,
+                     sformat, {-shown,-} stext, string, (%))
 --import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
@@ -76,13 +76,14 @@ import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryPara
                               {-ReflectMethod (..),-} ReqBody, Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
-import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
+import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
+                     Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           Pos.Util.Log (LoggerName {-, LoggerNameBox, usingLoggerName-})
 
-import           Pos.Util.Log.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe
-                                      {-,logInfoSP, plainOrSecureF, secretOnlyF-})
+import           Pos.Util.Log.LogSafe (SecureLog, BuildableSafe, SecuredText,
+                     buildSafe {-,logInfoSP, plainOrSecureF, secretOnlyF-})
 
 -------------------------------------------------------------------------
 -- Utility functions

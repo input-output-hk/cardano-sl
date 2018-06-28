@@ -60,8 +60,8 @@ import           Fmt ((+|), (|+))
 
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup, UtxoModifier,
-                                     mpLocalTxs, mpSize, svStakes, svTotal)
+import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup,
+                     UtxoModifier, mpLocalTxs, mpSize, svStakes, svTotal)
 import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
 

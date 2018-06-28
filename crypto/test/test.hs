@@ -4,8 +4,8 @@ import           Test.Hspec (hspec)
 
 import           Spec (spec)
 
-import qualified Test.Pos.Crypto.Bi
 import           Test.Pos.Binary.Helpers (runTests)
+import qualified Test.Pos.Crypto.Bi
 
 main :: IO ()
 main = do

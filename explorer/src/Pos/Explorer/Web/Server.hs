@@ -56,38 +56,43 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
-import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex, HeaderHash, Timestamp,
-                           coinToInteger, difficultyL, gbHeader, gbhConsensus, getChainDifficulty,
-                           isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot, sumCoins,
-                           timestampToPosix, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
-import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx, txOutValue, txpTxs,
-                               _txOutputs)
-import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
-import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs,
-                          withTxpLocalData)
-import           Pos.Util (divRoundUp, maybeThrow)
+import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
+                     HeaderHash, Timestamp, coinToInteger, difficultyL,
+                     gbHeader, gbhConsensus, getChainDifficulty,
+                     isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot,
+                     sumCoins, timestampToPosix, unsafeAddCoin,
+                     unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Block (Block, MainBlock, mainBlockSlot,
+                     mainBlockTxPayload, mcdSlot)
 import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx,
+                     txOutValue, txpTxs, _txOutputs)
+import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
+import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool,
+                     mpLocalTxs, topsortTxs, withTxpLocalData)
+import           Pos.Util (divRoundUp, maybeThrow)
 import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Core (TxExtra (..))
-import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddrHistory,
-                                  getLastTransactions, getTxExtra, getUtxoSum)
+import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance,
+                     getAddrHistory, getLastTransactions, getTxExtra,
+                     getUtxoSum)
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
-                                            HasGenesisRedeemAddressInfo (..))
-import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..), explorerApi)
-import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
-                                               CAddressType (..), CAddressesFilter (..),
-                                               CBlockEntry (..), CBlockSummary (..),
-                                               CGenesisAddressInfo (..), CGenesisSummary (..),
-                                               CHash, CTxBrief (..), CTxEntry (..), CTxId (..),
-                                               CTxSummary (..), TxInternal (..), convertTxOutputs,
-                                               convertTxOutputsMB, fromCAddress, fromCHash,
-                                               fromCTxId, getEpochIndex, getSlotIndex, mkCCoin,
-                                               mkCCoinMB, tiToTxEntry, toBlockEntry, toBlockSummary,
-                                               toCAddress, toCHash, toCTxId, toTxBrief)
+                     HasGenesisRedeemAddressInfo (..))
+import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..),
+                     explorerApi)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
+                     CAddressSummary (..), CAddressType (..),
+                     CAddressesFilter (..), CBlockEntry (..),
+                     CBlockSummary (..), CGenesisAddressInfo (..),
+                     CGenesisSummary (..), CHash, CTxBrief (..), CTxEntry (..),
+                     CTxId (..), CTxSummary (..), TxInternal (..),
+                     convertTxOutputs, convertTxOutputsMB, fromCAddress,
+                     fromCHash, fromCTxId, getEpochIndex, getSlotIndex,
+                     mkCCoin, mkCCoinMB, tiToTxEntry, toBlockEntry,
+                     toBlockSummary, toCAddress, toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
 
 

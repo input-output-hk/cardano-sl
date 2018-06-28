@@ -22,7 +22,6 @@ library
                        Pos.Crypto.Limits
                        Pos.Crypto.Orphans
                        Pos.Crypto.Random
-                       Pos.Crypto.SafeCopy
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Signing
                        Pos.Crypto.Signing.Redeem

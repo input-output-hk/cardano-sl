@@ -37,7 +37,8 @@ import           Universum
 
 import qualified Data.Semigroup as Semigroup
 import           Test.Hspec (Expectation, Selector, shouldThrow)
-import           Test.QuickCheck (Property, counterexample, property, (.&&.), (===))
+import           Test.QuickCheck (Property, counterexample, property, (.&&.),
+                     (===))
 import           Test.QuickCheck.Gen (Gen, choose)
 import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)

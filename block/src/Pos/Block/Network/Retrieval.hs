@@ -8,8 +8,8 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
-import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
-                                         tryTakeTMVar, readTBQueue, TBQueue)
+import           Control.Concurrent.STM (TBQueue, putTMVar, readTBQueue,
+                     swapTMVar, tryReadTBQueue, tryReadTMVar, tryTakeTMVar)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -17,24 +17,29 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import qualified System.Metrics.Gauge as Gauge
 import           Pos.Util.Log (logDebug, logError, logInfo, logWarning)
+import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
-                                          triggerRecovery)
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
+                     getHeadersOlderExp)
+import           Pos.Block.Network.Logic (BlockNetLogicException (..),
+                     handleBlocks, triggerRecovery)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag,
+                     BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
+                     isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion, StreamEntry (..))
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks, streamBlocks))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (getBlocks, streamBlocks))
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE,
+                     reportOrLogW)
 import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens (..))
 
@@ -348,7 +353,7 @@ streamProcessBlocks pm diffusion nodeId desired checkpoints = do
                      logDebug $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
                                         (block ^. difficultyL)
               case wqgM of
-                   Nothing -> pure ()
+                   Nothing  -> pure ()
                    Just wqg -> liftIO $ Gauge.dec wqg
 
               if n' `mod` batchSize == 0

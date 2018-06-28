@@ -12,11 +12,13 @@ module Pos.Core.Block.Genesis.Types
 
 import           Universum
 
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
-                     enforceSize)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (Hash)
@@ -37,6 +39,15 @@ instance Bi GenesisProof where
     encode (GenesisProof h) = encode h
     decode = GenesisProof <$> decode
 
+instance SafeCopy GenesisProof where
+    getCopy =
+        contain $
+        do x <- safeGet
+           return $! GenesisProof x
+    putCopy (GenesisProof x) =
+        contain $
+        do safePut x
+
 data GenesisConsensusData = GenesisConsensusData
     { -- | Index of the slot for which this genesis block is relevant.
       _gcdEpoch      :: !EpochIndex
@@ -53,6 +64,17 @@ instance Bi GenesisConsensusData where
     decode = do
       enforceSize "ConsensusData GenesisBlockchain" 2
       GenesisConsensusData <$> decode <*> decode
+
+instance SafeCopy GenesisConsensusData where
+    getCopy =
+        contain $
+        do _gcdEpoch <- safeGet
+           _gcdDifficulty <- safeGet
+           return $! GenesisConsensusData {..}
+    putCopy GenesisConsensusData {..} =
+        contain $
+        do safePut _gcdEpoch
+           safePut _gcdDifficulty
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()
@@ -82,6 +104,15 @@ instance Bi GenesisBody where
 
 instance NFData GenesisBody
 
+instance SafeCopy GenesisBody where
+    getCopy =
+        contain $
+        do _gbLeaders <- safeGet
+           return $! GenesisBody {..}
+    putCopy GenesisBody {..} =
+        contain $
+        do safePut _gbLeaders
+
 -- | Represents genesis block header attributes.
 type GenesisBodyAttributes = Attributes ()
 
@@ -107,3 +138,6 @@ deriveSimpleBi ''GenesisExtraBodyData [
     Cons 'GenesisExtraBodyData [
         Field [| _gebAttributes :: GenesisBodyAttributes |]
     ]]
+
+deriveSafeCopySimple 0 'base ''GenesisExtraHeaderData
+deriveSafeCopySimple 0 'base ''GenesisExtraBodyData

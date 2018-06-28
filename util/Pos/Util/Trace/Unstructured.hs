@@ -48,7 +48,7 @@ module Pos.Util.Trace.Unstructured
 import           Universum
 --import qualified Control.Exception as E
 
-import           Data.Functor.Contravariant (Op (..){-, contramap-})
+import           Data.Functor.Contravariant (Op (..))
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (Trace (..), traceWith)
 
@@ -64,9 +64,9 @@ data LogPrivacy where
 
 -- | An unstructured log item.
 data LogItem = LogItem
-    { liPrivacy    :: LogPrivacy
-    , liSeverity   :: Log.Severity
-    , liMessage    :: Text
+    { liPrivacy  :: LogPrivacy
+    , liSeverity :: Log.Severity
+    , liMessage  :: Text
     } deriving (Show)
 
 publicLogItem :: (Log.Severity, Text) -> LogItem

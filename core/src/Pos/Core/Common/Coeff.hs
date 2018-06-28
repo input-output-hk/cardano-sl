@@ -5,6 +5,7 @@ module Pos.Core.Common.Coeff
 import           Universum
 
 import           Data.Fixed (Fixed (..), Nano, showFixed)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..))
@@ -21,3 +22,5 @@ instance Bi Coeff where
     decode = Coeff <$> decode @Nano
 
 instance Hashable Coeff
+
+deriveSafeCopySimple 0 'base ''Coeff

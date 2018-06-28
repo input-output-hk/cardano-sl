@@ -18,7 +18,8 @@ import           Universum
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..))
 import           GHC.TypeLits
-import           Pos.Util.Servant (ApiLoggingConfig (..), HasLoggingServer (..), LoggingApiRec)
+import           Pos.Util.Servant (ApiLoggingConfig (..), HasLoggingServer (..),
+                     LoggingApiRec)
 import qualified Servant.Server.Internal as SI
 
 import           Servant

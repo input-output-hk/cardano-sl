@@ -34,7 +34,7 @@ module Cardano.Wallet.Client
 import           Universum
 
 import           Control.Exception (Exception (..))
-import           Servant.Client (Response, GenResponse (..), ServantError (..))
+import           Servant.Client (GenResponse (..), Response, ServantError (..))
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination

@@ -20,13 +20,13 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
-                             withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON, withObject, (.:), (.:?))
 import           Data.Default (Default (..))
-import           Data.Time.Units (fromMicroseconds)
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as Text
+import           Data.Time.Units (fromMicroseconds)
 
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
@@ -142,7 +142,7 @@ readAssetLockedSrcAddrs :: AssetLockPath -> IO (Set Address)
 readAssetLockedSrcAddrs (AssetLockPath fp) = do
     res <- filter keepLine . fmap Text.strip . lines <$> readFile fp
     case partitionEithers $ map decodeTextAddress res of
-        ([], xs) -> pure $ Set.fromList xs
+        ([], xs)  -> pure $ Set.fromList xs
         (errs, _) -> error $ "Error reading assetLock file:\n" <> unlines errs
   where
     keepLine t =

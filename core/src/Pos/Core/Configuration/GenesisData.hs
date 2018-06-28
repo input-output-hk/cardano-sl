@@ -10,7 +10,8 @@ module Pos.Core.Configuration.GenesisData
 import           Universum
 
 import           Data.Reflection (Given (..), give)
-import           Pos.Core.Genesis (GenesisData (..), getGenesisVssCertificatesMap)
+import           Pos.Core.Genesis (GenesisData (..),
+                     getGenesisVssCertificatesMap)
 import           Pos.Core.Ssc (VssCertificatesMap)
 
 type HasGenesisData = Given GenesisData

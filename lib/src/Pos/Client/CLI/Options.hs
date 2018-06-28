@@ -29,8 +29,8 @@ import           Pos.Util.OptParse (fromParsec)
 
 import           Pos.Communication (NodeId)
 import           Pos.Core (Timestamp (..))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
-                     addressToNodeId)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
+                     addrParserNoWildcard, addressToNodeId)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 
 data CommonArgs = CommonArgs

@@ -17,11 +17,11 @@ import           Pos.Communication.Limits (mlTxMsgContents)
 import           Pos.Communication.Message ()
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
-import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners, MsgType (..), NodeId,
-                     Origin (..), OutSpecs)
-import           Pos.Infra.Communication.Relay (InvReqDataParams (..), MempoolParams (..),
-                     Relay (..), invReqDataFlowTK, invReqMsgType, relayListeners,
-                     relayPropagateOut, resOk)
+import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
+                     MsgType (..), NodeId, Origin (..), OutSpecs)
+import           Pos.Infra.Communication.Relay (InvReqDataParams (..),
+                     MempoolParams (..), Relay (..), invReqDataFlowTK,
+                     invReqMsgType, relayListeners, relayPropagateOut, resOk)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))

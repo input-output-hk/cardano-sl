@@ -47,7 +47,8 @@ module Pos.Generator.BlockEvent
 import           Universum
 
 import           Control.Lens (folded, makeLenses, makePrisms, to, toListOf)
-import           Control.Monad.Random.Strict (RandT, Random (..), RandomGen, mapRandT, weighted)
+import           Control.Monad.Random.Strict (RandT, Random (..), RandomGen,
+                     mapRandT, weighted)
 import qualified Data.ByteString.Short as SBS
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
@@ -60,13 +61,14 @@ import           Serokell.Util (listJson)
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (GenesisWStakeholders, HeaderHash, headerHash, prevBlockL)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst, _OldestFirst)
+import           Pos.Core (GenesisWStakeholders, HeaderHash, headerHash,
+                     prevBlockL)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toNewestFirst, toOldestFirst, _OldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Hashing (hashHexF)
-import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode, MonadBlockGen,
-                                      TxGenParams (..), genBlocks)
+import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode,
+                     MonadBlockGen, TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
 import           Pos.Txp (TxpGlobalSettings)
 import           Pos.Txp.Configuration (HasTxpConfiguration)

@@ -10,8 +10,8 @@ import           System.FilePath
 import           System.IO (hPutStrLn)
 import           Text.Printf (hPrintf)
 
-import           Pos.Util.Util (histogram)
 import qualified Pos.Util.Log
+import           Pos.Util.Util (histogram)
 
 import           Options
 import           Statistics

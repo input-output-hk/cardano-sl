@@ -22,15 +22,17 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List.Extra (nubOrdOn)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
+import           Pos.Core.Binary ()
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (ProtocolMagic)
 
-import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCertificate, getCertId,
-                     toCertPair)
+import           Pos.Core.Ssc.VssCertificate (VssCertificate (..),
+                     checkVssCertificate, getCertId, toCertPair)
 import           Pos.Util.Util (cborError)
 
 -- | VssCertificatesMap contains all valid certificates collected
@@ -169,3 +171,5 @@ decodeVssCertificates = do
     -- though, since its values include more than just the signing keys.
     when (length certs > length vssMap) (cborError "duplicate vss key")
     pure vssMap
+
+deriveSafeCopySimple 0 'base ''VssCertificatesMap

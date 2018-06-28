@@ -15,17 +15,22 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Word (Word32)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
-                     decodeUnknownCborDataItem, deriveSimpleBi, encodeKnownCborDataItem,
-                     encodeListLen, encodeUnknownCborDataItem, enforceSize, serialize, serialize')
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     decodeKnownCborDataItem, decodeUnknownCborDataItem,
+                     deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
+                     encodeUnknownCborDataItem, enforceSize, serialize,
+                     serialize')
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                     MsgHeaders (..), MsgSerializedBlock (..), MsgStream (..), MsgStreamBlock (..),
-                     MsgStreamStart (..), MsgStreamUpdate (..))
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
 import           Pos.Core (BlockVersion, HeaderHash)
 import           Pos.DB.Class (Serialized (..))
-import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                     MsgSubscribe (..), MsgSubscribe1 (..), VerInfo (..))
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
+                     HandlerSpecs, MsgSubscribe (..), MsgSubscribe1 (..),
+                     VerInfo (..))
 import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component

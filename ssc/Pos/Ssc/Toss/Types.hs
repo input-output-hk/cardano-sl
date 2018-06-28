@@ -16,10 +16,11 @@ import           Control.Lens (makeLenses)
 import qualified Data.Text.Buildable as Buildable
 import           Universum
 
-import           Pos.Core (LocalSlotIndex, SlotId, VssCertificatesMap, HasProtocolConstants)
+import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId,
+                     VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap)
-import           Pos.Ssc.Base (isCommitmentId, isCommitmentIdx, isOpeningId, isOpeningIdx,
-                               isSharesId, isSharesIdx)
+import           Pos.Ssc.Base (isCommitmentId, isCommitmentIdx, isOpeningId,
+                     isOpeningIdx, isSharesId, isSharesIdx)
 
 -- | Tag corresponding to SSC data.
 data SscTag
@@ -56,10 +57,9 @@ data TossModifier = TossModifier
 
 makeLenses ''TossModifier
 
-instance Monoid TossModifier where
-    mempty = TossModifier mempty mempty mempty mempty
-    mappend (TossModifier leftComms leftOpens leftShares leftCerts)
-            (TossModifier rightComms rightOpens rightShares rightCerts) =
+instance Semigroup TossModifier where
+   (TossModifier leftComms leftOpens leftShares leftCerts)
+     <> (TossModifier rightComms rightOpens rightShares rightCerts) =
         TossModifier
         { _tmCommitments = rightComms <> leftComms
         , _tmOpenings = rightOpens <> leftOpens
@@ -67,4 +67,7 @@ instance Monoid TossModifier where
         , _tmCertificates = rightCerts <> leftCerts
         }
 
-instance Semigroup TossModifier
+instance Monoid TossModifier where
+    mempty = TossModifier mempty mempty mempty mempty
+    mappend = (<>)
+

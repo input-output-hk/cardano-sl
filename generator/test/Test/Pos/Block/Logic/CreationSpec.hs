@@ -7,19 +7,23 @@ module Test.Pos.Block.Logic.CreationSpec
 import           Universum
 
 import           Data.Default (def)
-import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit, fromBytes)
+import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit,
+                     fromBytes)
 import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose, counterexample,
-                                  elements, forAll, generate, listOf, listOf1, oneof, property)
+import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
+                     counterexample, elements, forAll, generate, listOf,
+                     listOf1, oneof, property)
 
-import           Pos.Arbitrary.Ssc (commitmentMapEpochGen, vssCertificateEpochGen)
+import           Pos.Arbitrary.Ssc (commitmentMapEpochGen,
+                     vssCertificateEpochGen)
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration, SlotId (..),
-                           blkSecurityParam, genesisBlockVersionData, mkVssCertificatesMapLossy,
-                           protocolConstants, unsafeMkLocalSlotIndex)
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration,
+                     SlotId (..), blkSecurityParam, genesisBlockVersionData,
+                     mkVssCertificatesMapLossy, protocolConstants,
+                     unsafeMkLocalSlotIndex)
 import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Txp (TxAux)
@@ -30,7 +34,8 @@ import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration,
+                     withDefUpdateConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)

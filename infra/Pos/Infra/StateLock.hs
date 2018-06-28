@@ -34,10 +34,10 @@ import           System.Mem (getAllocationCounter)
 
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
-import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock, newPriorityLock,
-                                                   withPriorityLock)
-import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
+                     newPriorityLock, withPriorityLock)
 import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Util (HasLens', lensOf)
 
 
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our
@@ -107,7 +107,7 @@ type MonadStateLock ctx slr m
 -- action is an old tip, result is put as a new tip.
 modifyStateLock :: forall ctx slr m a.
        MonadStateLock ctx slr m
-    => Trace m Value 
+    => Trace m Value
     -> Priority
     -> slr
     -> (HeaderHash -> m (HeaderHash, a))

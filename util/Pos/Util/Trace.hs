@@ -21,9 +21,9 @@ module Pos.Util.Trace
     , Log.Severity (..)
     ) where
 
-import           Universum hiding (trace, newEmptyMVar)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Pos.Util.Log as Log
+import           Universum hiding (newEmptyMVar, trace)
 
 -- | Abstracts logging.
 newtype Trace m s = Trace

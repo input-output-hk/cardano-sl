@@ -10,6 +10,7 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Txp.Tx
@@ -51,3 +52,5 @@ instance Bi TxPayload where
 -- | Check a TxPayload by checking all of the Txs it contains.
 checkTxPayload :: MonadError Text m => TxPayload -> m ()
 checkTxPayload it = forM_ (_txpTxs it) checkTx
+
+deriveSafeCopySimple 0 'base ''TxPayload

@@ -79,10 +79,11 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
 
-import           Pos.Util.Log (CanLog (..), LogContext, LoggingHandler, Severity (..), WithLogger)
+import           Pos.Util.Log (CanLog (..), LogContext, LoggingHandler,
+                     Severity (..), WithLogger)
 import           Pos.Util.Log.Internal (getConfig, getLogEnv, sev2klog)
-import           Pos.Util.LoggerConfig (LogHandler (..), LogSecurityLevel (..), lcLoggerTree,
-                                        lhName, ltHandlers)
+import           Pos.Util.LoggerConfig (LogHandler (..), LogSecurityLevel (..),
+                     lcLoggerTree, lhName, ltHandlers)
 
 import qualified Katip as K
 import qualified Katip.Core as KC

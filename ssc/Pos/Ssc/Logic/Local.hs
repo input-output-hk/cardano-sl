@@ -30,13 +30,15 @@ import           Serokell.Util (magnify')
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData (..), EpochIndex, HasGenesisData, HasProtocolConstants,
-                           SlotId (..), StakeholderId, VssCertificate, epochIndexL,
-                           mkVssCertificatesMapSingleton)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, SscPayload (..),
-                               mkCommitmentsMap)
+import           Pos.Core (BlockVersionData (..), EpochIndex, HasGenesisData,
+                     HasProtocolConstants, SlotId (..), StakeholderId,
+                     VssCertificate, epochIndexL,
+                     mkVssCertificatesMapSingleton)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     SscPayload (..), mkCommitmentsMap)
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (MonadBlockDBRead, MonadDBRead, MonadGState (gsAdoptedBVData))
+import           Pos.DB (MonadBlockDBRead, MonadDBRead,
+                     MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen, tryGetSscRichmen)
@@ -45,15 +47,18 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
-                              sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM{-, syncingStateWith-})
-import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,
-                               execTossT, hasCertificateToss, hasCommitmentToss, hasOpeningToss,
-                               hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
-                               supplyPureTossEnv, tmCertificates, tmCommitments, tmOpenings,
-                               tmShares, verifyAndApplySscPayload, pureTossWithEnvTrace)
-import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
-                                sscGlobal)
+import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate,
+                     askSscMem, sscRunGlobalQuery, sscRunLocalQuery,
+                     sscRunLocalSTM)
+import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT,
+                     evalPureTossWithLogger, evalTossT, execTossT,
+                     hasCertificateToss, hasCommitmentToss, hasOpeningToss,
+                     hasSharesToss, isGoodSlotForTag, normalizeToss,
+                     pureTossWithEnvTrace, refreshToss, supplyPureTossEnv,
+                     tmCertificates, tmCommitments, tmOpenings, tmShares,
+                     verifyAndApplySscPayload)
+import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch,
+                     ldModifier, ldSize, sscGlobal)
 import           Pos.Util.Trace (Trace, natTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)
@@ -73,7 +78,7 @@ sscGetLocalPayloadQ
 sscGetLocalPayloadQ SlotId {..} logTrace = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
-    isExpected <- 
+    isExpected <-
         if expectedEpoch == siEpoch then pure True
         else False <$ lift (logWarning logTrace warningMsg)
     magnify' ldModifier $
@@ -148,7 +153,7 @@ sscNormalizeU pm (epoch, stake) bvd gs = do
 -- | Check whether SSC data with given tag and public key can be added
 -- to current local data.
 sscIsDataUseful
-    :: forall ctx m. 
+    :: forall ctx m.
        ( MonadIO m
        , MonadSlots ctx m
        , MonadSscMem ctx m
@@ -192,7 +197,7 @@ type SscDataProcessingMode ctx m =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCommitment
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> SignedCommitment
     -> m (Either SscVerifyError ())
@@ -204,7 +209,7 @@ sscProcessCommitment logTrace pm comm =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> StakeholderId
     -> Opening
@@ -217,7 +222,7 @@ sscProcessOpening logTrace pm id opening =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> StakeholderId
     -> InnerSharesMap
@@ -230,7 +235,7 @@ sscProcessShares logTrace pm id shares =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> VssCertificate
     -> m (Either SscVerifyError ())
@@ -240,7 +245,7 @@ sscProcessCertificate logTrace pm cert =
 
 sscProcessData
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> SscTag
     -> SscPayload
@@ -275,7 +280,7 @@ sscProcessData logTrace pm tag payload =
 sscProcessDataDo
     :: (MonadState SscLocalData m, HasGenesisData
       , Rand.MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem 
+    => Trace m LogItem
     -> ProtocolMagic
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData
@@ -306,9 +311,9 @@ sscProcessDataDo logTrace pm richmenData bvd gs payload =
             evalPureTossWithLogger gs logTrace $
             supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
-            execTossT oldTM $ 
+            execTossT oldTM $
             verifyAndApplySscPayload
-                (natTrace (lift .lift) pureTossWithEnvTrace) 
+                (natTrace (lift .lift) pureTossWithEnvTrace)
                 pm
                 (Left storedEpoch)
                 payload

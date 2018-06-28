@@ -13,6 +13,7 @@ import           Mockable (Async, Delay, Mockable)
 import           Network.Kademlia (takeSnapshot)
 
 import           Pos.Binary.Class (serialize)
+import           Pos.Core (HasProtocolConstants)
 import           Pos.Core.Slotting (flattenSlotId, slotIdF)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (kademliaDumpInterval)
@@ -24,7 +25,6 @@ import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots)
 import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
 import           Pos.Util.Trace.Named (TraceNamed, logNotice)
-import           Pos.Core (HasProtocolConstants)
 
 type DhtWorkMode ctx m =
     ( MonadSlots ctx m

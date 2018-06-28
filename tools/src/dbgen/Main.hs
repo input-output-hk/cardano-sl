@@ -18,20 +18,22 @@ import           Data.Time.Units (fromMicroseconds)
 import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
-import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
-                                 gtSscParams)
+import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
+                     NodeArgs (..), getNodeParams, gtSscParams)
 import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                          topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                     topologyDequeuePolicy, topologyEnqueuePolicy,
+                     topologyFailurePolicy)
 import           Pos.Infra.Reporting (noReporter)
 import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
-                               bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
-                               npUserSecret, withConfigurations)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
+                     NodeResources (..), bracketNodeResources,
+                     defaultConfigurationOptions, npBehaviorConfig,
+                     npUserSecret, withConfigurations)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))

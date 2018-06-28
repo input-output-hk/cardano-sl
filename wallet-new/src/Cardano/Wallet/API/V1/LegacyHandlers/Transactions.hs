@@ -24,7 +24,8 @@ import qualified Pos.Wallet.Web.Util as V0
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
-import           Cardano.Wallet.API.V1.Migration (HasConfigurations, MonadV1, migrate)
+import           Cardano.Wallet.API.V1.Migration (HasConfigurations, MonadV1,
+                     migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 

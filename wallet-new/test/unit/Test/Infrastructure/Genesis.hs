@@ -35,7 +35,7 @@ data GenesisValues h = GenesisValues {
     , hashBoot :: h (Transaction h Addr)
 
       -- | Fee policy
-    , txFee :: Int -> [Value] -> Value
+    , txFee    :: Int -> [Value] -> Value
     }
 
 -- | Compute genesis values from the bootstrap transaction

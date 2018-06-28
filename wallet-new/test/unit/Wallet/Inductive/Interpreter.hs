@@ -34,7 +34,7 @@ data History h a = History {
       historyState :: [Text]
 
       -- | Continuation of the history (if any)
-    , historyStep :: Maybe (WalletEvent h a, History h a)
+    , historyStep  :: Maybe (WalletEvent h a, History h a)
     }
 
 -- | "Difference history"

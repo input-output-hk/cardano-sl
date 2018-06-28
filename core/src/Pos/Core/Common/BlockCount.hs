@@ -4,8 +4,10 @@ module Pos.Core.Common.BlockCount
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           System.Random (Random (..))
+
+import           Pos.Binary.Class (Bi (..))
 
 newtype BlockCount = BlockCount {getBlockCount :: Word64}
     deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
@@ -14,3 +16,5 @@ newtype BlockCount = BlockCount {getBlockCount :: Word64}
 instance Bi BlockCount where
     encode = encode . getBlockCount
     decode = BlockCount <$> decode
+
+deriveSafeCopySimple 0 'base ''BlockCount

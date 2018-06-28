@@ -11,8 +11,9 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
-import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData, Coin, EpochIndex,
-                     HeaderHash, NumSoftwareVersion, ScriptVersion, StakeholderId, coinF)
+import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,
+                     Coin, EpochIndex, HeaderHash, NumSoftwareVersion,
+                     ScriptVersion, StakeholderId, coinF)
 import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
 import           Pos.Crypto (shortHashF)
 import           Pos.Infra.Reporting (MonadReporting, reportError)

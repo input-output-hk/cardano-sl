@@ -15,7 +15,8 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
 
-import           Pos.Core (SlotCount, SlotId, slotIdF, slotSecurityParam, HasProtocolConstants)
+import           Pos.Core (HasProtocolConstants, SlotCount, SlotId, slotIdF,
+                     slotSecurityParam)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 -- | An algebraic data type which represents how well we are

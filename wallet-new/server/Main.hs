@@ -17,33 +17,38 @@ import           Pos.Core (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
-import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
-                     bracketNodeResources, loggerBracket, lpDefaultName, runNode,
-                     withConfigurations)
-import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions,
-                     HasConfigurations)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration,
+                     ntpClientSettings)
+import           Pos.Launcher (NodeParams (..), NodeResources (..),
+                     bpLoggingParams, bracketNodeResources, loggerBracket,
+                     lpDefaultName, runNode, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..),
+                     ConfigurationOptions, HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                     runWRealMode)
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
+                     getWalletAddresses, runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot,
+                     flushWalletStorage)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
-import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
+import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage,
+                     usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
-import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
-                     WalletBackendParams (..), WalletStartupOptions (..), getWalletNodeOptions,
+import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
+                     NewWalletBackendParams (..), WalletBackendParams (..),
+                     WalletStartupOptions (..), getWalletNodeOptions,
                      walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer,
+                     bracketKernelPassiveWallet)
 
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName

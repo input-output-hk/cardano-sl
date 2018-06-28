@@ -17,9 +17,8 @@ import           Katip.Core
 import           Katip.Format.Time (formatAsIso8601)
 import           Katip.Scribes.Handle (brackets, getKeys)
 import           System.FilePath ((</>))
-import           System.IO (Handle, BufferMode (LineBuffering),
-                            IOMode (WriteMode), hFlush, hSetBuffering,
-                            stdout)
+import           System.IO (BufferMode (LineBuffering), Handle,
+                     IOMode (WriteMode), hFlush, hSetBuffering, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import qualified Pos.Util.Log.Internal as Internal

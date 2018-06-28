@@ -11,8 +11,6 @@ module Bench.Network.Commons
        , Payload (..)
        , logMeasure
 
-       --, loadLogConfig
-
        , Timestamp
        , MeasureEvent (..)
        , MeasureInfo (..)
@@ -33,7 +31,6 @@ import           Data.Data (Data)
 import           Data.Functor (($>))
 import           Data.Int (Int64)
 import           Data.Monoid ((<>))
---import           Data.Text (Text)
 import           Data.Text.Buildable (Buildable (build))
 import           Data.Time.Units (toMicroseconds)
 

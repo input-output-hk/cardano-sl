@@ -41,12 +41,18 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
 import           Universum
 
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, deriveSimpleBiCxt, encodeListLen,
+                     enforceSize)
 import           Pos.Core (ComponentBlock (..), EpochIndex)
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening,
-                     OpeningsMap, SharesMap, SignedCommitment, SscPayload)
+                     OpeningsMap, SharesMap, SignedCommitment, SscPayload,
+                     VssCertificatesMap (..))
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Ssc.Toss.Types (TossModifier)
+import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import qualified Pos.Ssc.VssCertData as VCD
 
 ----------------------------------------------------------------------------
@@ -111,6 +117,14 @@ instance Buildable SscGlobalState where
                 ("  certificates from: "%listJson%"\n")
                 (VCD.keys _sgsVssCertificates)
 
+deriveSimpleBiCxt [t|()|] ''SscGlobalState [
+    Cons 'SscGlobalState [
+        Field [| _sgsCommitments     :: CommitmentsMap |],
+        Field [| _sgsOpenings        :: OpeningsMap    |],
+        Field [| _sgsShares          :: SharesMap      |],
+        Field [| _sgsVssCertificates :: VssCertData    |]
+    ]]
+
 -- | Needed options for creating SscContext
 data SscParams = SscParams
     { spSscEnabled :: !Bool        -- ^ Whether node should participate in
@@ -153,6 +167,14 @@ data SscSecretStorage = SscSecretStorage
     , -- | Epoch for which this secret were generated
       sssEpoch      :: !EpochIndex
     } deriving (Generic, Show, Eq)
+
+deriveSimpleBi ''SscSecretStorage [
+    Cons 'SscSecretStorage [
+        Field [| sssCommitment :: SignedCommitment |],
+        Field [| sssOpening    :: Opening          |],
+        Field [| sssEpoch      :: EpochIndex       |]
+    ]]
+
 
 ----------------------------------------------------------------------------
 -- SscLocalData

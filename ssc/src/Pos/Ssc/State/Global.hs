@@ -18,7 +18,6 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex (..), HasGenesisData,
                      HasProtocolConstants, SlotId (..),
                      VssCertificatesMap (..))

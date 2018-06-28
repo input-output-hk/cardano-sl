@@ -24,11 +24,12 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Node.Message.Class (Message)
 
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core (StakeholderId, VssCertificate, addressHash,
                      getCertId)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment)
-import           Pos.Infra.Communication.Types.Relay (InvOrData, ReqMsg,
-                     ReqOrRes)
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvOrData,
+                     ReqMsg, ReqOrRes)
 import           Pos.Ssc.Toss.Types (SscTag (..))
 
 class HasSscTag a where
@@ -50,6 +51,27 @@ makePrisms ''MCCommitment
 makePrisms ''MCOpening
 makePrisms ''MCShares
 makePrisms ''MCVssCertificate
+
+instance Bi (DataMsg MCCommitment) where
+    encode (DataMsg (MCCommitment signedComm)) = encode signedComm
+    decode = DataMsg . MCCommitment <$> decode
+
+instance Bi (DataMsg MCOpening) where
+    encode (DataMsg (MCOpening sId opening)) = encodeListLen 2 <> encode sId <> encode opening
+    decode = do
+        enforceSize "DataMsg MCOpening" 2
+        DataMsg <$> (MCOpening <$> decode <*> decode)
+
+instance Bi (DataMsg MCShares) where
+    encode (DataMsg (MCShares sId innerMap)) = encodeListLen 2 <> encode sId <> encode innerMap
+    decode = do
+        enforceSize "DataMsg MCShares" 2
+        DataMsg <$> (MCShares <$> decode <*> decode)
+
+instance Bi (DataMsg MCVssCertificate) where
+    encode (DataMsg (MCVssCertificate vss)) = encode vss
+    decode = DataMsg . MCVssCertificate <$> decode
+
 
 instance Buildable MCCommitment where
     build (MCCommitment (pk, _, _))  =

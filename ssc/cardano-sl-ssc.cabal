@@ -57,10 +57,6 @@ library
 
     Pos.Arbitrary.Ssc
 
-    Pos.Binary.Ssc
-    Pos.Binary.Ssc.Types
-    Pos.Binary.Ssc.Relay
-
     Pos.Security.Params
     Pos.Security.Util
 

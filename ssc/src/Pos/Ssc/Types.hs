@@ -41,19 +41,15 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
-                     deriveSimpleBi, deriveSimpleBiCxt, encodeListLen,
-                     enforceSize)
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
+                     deriveSimpleBiCxt)
 import           Pos.Core (ComponentBlock (..), EpochIndex)
-import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening,
-                     OpeningsMap, SharesMap, SignedCommitment, SscPayload,
-                     VssCertificatesMap (..))
+                     OpeningsMap, SharesMap, SignedCommitment, SscPayload)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Ssc.Toss.Types (TossModifier)
-import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
-import qualified Pos.Ssc.VssCertData as VCD
+import           Pos.Ssc.VssCertData as VCD
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -122,7 +118,7 @@ deriveSimpleBiCxt [t|()|] ''SscGlobalState [
         Field [| _sgsCommitments     :: CommitmentsMap |],
         Field [| _sgsOpenings        :: OpeningsMap    |],
         Field [| _sgsShares          :: SharesMap      |],
-        Field [| _sgsVssCertificates :: VssCertData    |]
+        Field [| _sgsVssCertificates :: VCD.VssCertData    |]
     ]]
 
 -- | Needed options for creating SscContext

@@ -10,7 +10,6 @@ module Pos.Ssc.Logic.Global
 
 import           Universum
 
-import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..),
                      vcVssKey)
 import           Pos.DB (MonadDBRead)

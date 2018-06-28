@@ -21,7 +21,6 @@ import qualified Test.QuickCheck as QC
 
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
-import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex, SlotId (..), StakeholderId,
                      Timestamp (..), VssCertificate (..),
                      VssCertificatesMap (..), blkSecurityParam, bvdMpcThd,

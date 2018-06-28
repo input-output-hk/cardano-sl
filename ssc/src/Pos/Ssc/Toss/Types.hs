@@ -17,7 +17,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
-                                   deriveSimpleBiCxt)
+                     deriveSimpleBiCxt)
 import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId,
                      VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap)

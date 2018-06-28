@@ -6,7 +6,6 @@ module Pos.Ssc.SecretStorage
 
 import           Universum
 
-import           Pos.Binary.Ssc.Types ()
 import           Pos.Core (EpochIndex)
 import           Pos.Core.Ssc (Opening, SignedCommitment)
 import           Pos.DB (MonadDB, MonadDBRead)

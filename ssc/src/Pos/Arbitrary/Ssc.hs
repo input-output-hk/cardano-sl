@@ -25,7 +25,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..),
                      VssCertificatesMap, mkVssCertificate,
                      mkVssCertificatesMapLossy)

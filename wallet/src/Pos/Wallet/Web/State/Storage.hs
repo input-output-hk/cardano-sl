@@ -126,8 +126,9 @@ import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HeaderHash, ProtocolConstants (..), SlotId, Timestamp,
                      VssMaxTTL (..), VssMinTTL (..))
+-- import           Pos.Binary.SafeCopy ()
+import           Pos.Core.Binary ()
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier,
                      applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import qualified Pos.Util.Modifier as MM

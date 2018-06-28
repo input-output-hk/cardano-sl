@@ -15715,6 +15715,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
+, cereal
 , containers
 , cpphs
 , cryptonite
@@ -15741,6 +15742,7 @@ license = stdenv.lib.licenses.mit;
 , random
 , reflection
 , safe-exceptions
+, safecopy
 , serokell-util
 , stdenv
 , template-haskell
@@ -15775,6 +15777,7 @@ cardano-sl-crypto
 cardano-sl-networking
 cardano-sl-util
 cborg
+cereal
 containers
 cryptonite
 data-default
@@ -15794,6 +15797,7 @@ plutus-prototype
 random
 reflection
 safe-exceptions
+safecopy
 serokell-util
 template-haskell
 text

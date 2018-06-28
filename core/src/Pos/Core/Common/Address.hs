@@ -61,6 +61,7 @@ import qualified Data.ByteString as BS
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
                      decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
@@ -434,3 +435,6 @@ encodeAddr Address {..} =
 
 encodeAddrCRC32 :: Address -> Encoding
 encodeAddrCRC32 Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
+
+deriveSafeCopySimple 0 'base ''Address'
+deriveSafeCopySimple 0 'base ''Address

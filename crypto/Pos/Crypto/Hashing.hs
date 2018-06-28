@@ -53,6 +53,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection (reifyNat)
+import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
 import qualified Prelude
@@ -61,6 +62,7 @@ import           System.IO.Unsafe (unsafeDupablePerformIO)
 
 import           Pos.Binary.Class (Bi (..), Raw)
 import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Util.Util (parseJSONWithRead, toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
@@ -92,6 +94,10 @@ withHash :: Bi a => a -> WithHash a
 withHash a = WithHash a (force h)
   where
     h = hash a
+
+instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 -- | Hash wrapper with phantom type for more type-safety.
 -- Made abstract in order to support different algorithms in
@@ -139,6 +145,10 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
         toCborError $ case Hash.digestFromByteString bs of
             Nothing -> Left "AbstractHash.decode: invalid digest"
             Just x  -> Right (AbstractHash x)
+
+instance (HashAlgorithm algo, Typeable algo, Typeable a) => SafeCopy (AbstractHash algo a) where
+   putCopy = putCopyBi
+   getCopy = getCopyBi
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo

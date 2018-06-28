@@ -5,6 +5,7 @@ module Pos.Core.Common.AddrAttributes
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, builder, (%))
 
@@ -90,3 +91,5 @@ instance Bi (Attributes AddrAttributes) where
                 0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> Bi.deserialize v
                 1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> Bi.deserialize v
                 _ -> pure Nothing
+
+deriveSafeCopySimple 0 'base ''AddrAttributes

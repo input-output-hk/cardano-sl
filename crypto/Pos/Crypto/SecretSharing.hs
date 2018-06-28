@@ -45,6 +45,7 @@ import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (zipWith3)
 import qualified Data.List.NonEmpty as NE
+import           Data.SafeCopy (SafeCopy (..))
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, sformat, stext, (%))
@@ -52,6 +53,7 @@ import           Formatting (bprint, int, sformat, stext, (%))
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi (..),
                      Cons (..), Field (..), cborError, decodeFull',
                      deriveSimpleBi, serialize')
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Crypto.Hashing (hash, shortHashF)
 import           Pos.Crypto.Orphans ()
 import           Pos.Crypto.Random (deterministic)
@@ -147,6 +149,10 @@ deriveSimpleBi ''SecretProof [
         Field [| spCommitments    :: [Scrape.Commitment]   |]
     ]
   ]
+
+instance Bi SecretProof => SafeCopy SecretProof where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 ----------------------------------------------------------------------------
 -- Functions

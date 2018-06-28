@@ -12,6 +12,8 @@ module Pos.Core.Block.Main.Types
 
 import           Universum
 
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 import           Formatting (bprint, build, builder, (%))
@@ -52,6 +54,18 @@ instance Bi MainProof where
                          decode <*>
                          decode
 
+instance SafeCopy SscProof => SafeCopy MainProof where
+    getCopy = contain $ do
+        mpTxProof <- safeGet
+        mpMpcProof      <- safeGet
+        mpProxySKsProof <- safeGet
+        mpUpdateProof   <- safeGet
+        return $! MainProof{..}
+    putCopy MainProof {..} = contain $ do
+        safePut mpTxProof
+        safePut mpMpcProof
+        safePut mpProxySKsProof
+        safePut mpUpdateProof
 
 -- | Represents main block header attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending header with new
@@ -114,6 +128,20 @@ instance Bi MainBody where
 
 instance NFData MainBody
 
+instance SafeCopy SscPayload =>
+         SafeCopy MainBody where
+    getCopy = contain $ do
+        _mbTxPayload     <- safeGet
+        _mbSscPayload    <- safeGet
+        _mbDlgPayload    <- safeGet
+        _mbUpdatePayload <- safeGet
+        return $! MainBody{..}
+    putCopy MainBody {..} = contain $ do
+        safePut _mbTxPayload
+        safePut _mbSscPayload
+        safePut _mbDlgPayload
+        safePut _mbUpdatePayload
+
 -- | Represents main block body attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending block with new
 -- fields via softfork.
@@ -141,3 +169,6 @@ deriveSimpleBi ''MainExtraBodyData [
     Cons 'MainExtraBodyData [
         Field [| _mebAttributes :: BlockBodyAttributes |]
     ]]
+
+deriveSafeCopySimple 0 'base ''MainExtraBodyData
+deriveSafeCopySimple 0 'base ''MainExtraHeaderData

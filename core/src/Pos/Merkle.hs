@@ -29,10 +29,12 @@ import qualified Data.ByteString.Builder.Extra as Builder
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.Foldable as Foldable
+import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
 import           Pos.Binary.Class (Bi (..), Raw, serializeBuilder)
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Crypto (AbstractHash (..), Hash, hashRaw)
 
 {-# ANN module ("HLint : ignore Unnecessary hiding" :: Text) #-}
@@ -48,6 +50,10 @@ instance Buildable (MerkleRoot a) where
 instance (Bi a, Bi (Hash Raw)) => Bi (MerkleRoot a) where
     encode = encode . getMerkleRoot
     decode = MerkleRoot <$> decode
+
+instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 -- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
@@ -74,6 +80,10 @@ instance (Bi a, Bi (Hash Raw)) => Bi (MerkleTree a) where
     encode = encode . Foldable.toList
     decode = mkMerkleTree <$> decode
 
+instance (Bi (MerkleTree a), Typeable a) => SafeCopy (MerkleTree a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
+
 data MerkleNode a
     = MerkleBranch { mRoot  :: MerkleRoot a
                    , mLeft  :: MerkleNode a
@@ -89,6 +99,10 @@ instance Foldable MerkleNode where
         MerkleLeaf{mVal}            -> f mVal
         MerkleBranch{mLeft, mRight} ->
             Foldable.foldMap f mLeft `mappend` Foldable.foldMap f mRight
+
+instance (Bi (MerkleNode a), Typeable a) => SafeCopy (MerkleNode a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 toLazyByteString :: Builder -> LBS.ByteString
 toLazyByteString = Builder.toLazyByteStringWith (Builder.safeStrategy 1024 4096) mempty

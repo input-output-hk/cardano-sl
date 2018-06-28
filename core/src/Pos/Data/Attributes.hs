@@ -19,6 +19,8 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Default (Default (..))
 import qualified Data.Hashable as H
 import qualified Data.Map as M
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
@@ -83,6 +85,17 @@ instance Bi (Attributes ()) where
 instance Hashable h => Hashable (Attributes h)
 
 instance NFData h => NFData (Attributes h)
+
+instance SafeCopy h => SafeCopy (Attributes h) where
+    getCopy =
+        contain $
+        do attrData <- safeGet
+           attrRemain <- safeGet
+           return $! Attributes {..}
+    putCopy Attributes {..} =
+        contain $
+        do safePut attrData
+           safePut attrRemain
 
 -- | Check whether all data from 'Attributes' is known, i. e. was
 -- successfully parsed into some structured data.
@@ -173,3 +186,5 @@ decodeAttributes initval updater = do
                 { attrData   = newData
                 , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
                 }
+
+deriveSafeCopySimple 0 'base ''UnparsedFields

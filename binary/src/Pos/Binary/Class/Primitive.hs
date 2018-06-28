@@ -48,6 +48,7 @@ import qualified Data.ByteString.Builder.Extra as Builder
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.Digest.CRC32 (CRC32 (..))
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
@@ -187,6 +188,10 @@ newtype Raw = Raw ByteString
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
     } deriving (Show, Eq, Ord, Hashable, NFData)
+
+instance SafeCopy (AsBinary a) where
+    getCopy = contain $ AsBinary <$> safeGet
+    putCopy = contain . safePut . getAsBinary
 
 -- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where

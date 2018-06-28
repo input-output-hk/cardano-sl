@@ -13,6 +13,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, builder, (%))
@@ -161,3 +162,4 @@ deriveSimpleBi ''UpdateProposalToSign [
         Field [| upsAttr :: UpAttributes                   |]
     ]]
 
+deriveSafeCopySimple 0 'base ''UpdateProposal

@@ -6,6 +6,7 @@ module Pos.Core.Delegation.LightDlgIndices
 
 import           Universum
 
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           Serokell.Util (pairF)
@@ -33,6 +34,10 @@ instance Buildable LightDlgIndices where
 instance Bi LightDlgIndices where
     encode = encode . getLightDlgIndices
     decode = LightDlgIndices <$> decode
+
+instance SafeCopy LightDlgIndices where
+    getCopy = contain $ LightDlgIndices <$> safeGet
+    putCopy x = contain $ safePut $ getLightDlgIndices x
 
 -- | Light delegation proxy signature, that holds a pair of epoch
 -- indices.

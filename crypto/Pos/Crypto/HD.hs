@@ -30,6 +30,7 @@ import qualified Crypto.MAC.Poly1305 as Poly
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.ByteArray as BA (convert)
 import           Data.ByteString.Char8 as B
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 import           Universum
 
@@ -65,6 +66,8 @@ instance ToJSON HDAddressPayload where
 instance Bi HDAddressPayload where
     encode (HDAddressPayload payload) = encode payload
     decode = HDAddressPayload <$> decode
+
+deriveSafeCopySimple 0 'base ''HDAddressPayload
 
 -- | Compute passphrase as hash of the root public key.
 deriveHDPassphrase :: PublicKey -> HDPassphrase

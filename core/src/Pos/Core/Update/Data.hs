@@ -4,6 +4,7 @@ module Pos.Core.Update.Data
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
@@ -51,3 +52,5 @@ deriveSimpleBi ''UpdateData [
         Field [| udUpdaterHash  :: Hash Raw |],
         Field [| udMetadataHash :: Hash Raw |]
     ]]
+
+deriveSafeCopySimple 0 'base ''UpdateData

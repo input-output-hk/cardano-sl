@@ -9,11 +9,12 @@ import           Universum
 
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
-
-import           Pos.Core.Slotting (EpochIndex)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
                      enforceSize, fromBinary, serialize')
+import           Pos.Core.Binary ()
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature,
                      VssPublicKey)
 import           Pos.Util.Util (cborError)
@@ -58,3 +59,5 @@ getCommShares =
     traverseOf (each . _1) (rightToMaybe . fromBinary) <=<      -- decode keys
     traverseOf (each . _2 . each) (rightToMaybe . fromBinary) . -- decode shares
     HM.toList . commShares
+
+deriveSafeCopySimple 0 'base ''Commitment

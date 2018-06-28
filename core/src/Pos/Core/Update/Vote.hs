@@ -10,6 +10,7 @@ module Pos.Core.Update.Vote
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, builder, later, (%))
@@ -113,3 +114,5 @@ checkUpdateVote pm it =
     unless sigValid (throwError "UpdateVote: invalid signature")
   where
     sigValid = checkSig pm SignUSVote (uvKey it) (uvProposalId it, uvDecision it) (uvSignature it)
+
+deriveSafeCopySimple 0 'base ''UpdateVote

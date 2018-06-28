@@ -8,8 +8,10 @@ import           Universum
 
 import           Control.Lens (choosing)
 import           Data.Ix (Ix)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, (%))
+
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Util.Some (Some, liftLensSome)
 
@@ -53,3 +55,5 @@ isBootstrapEra
     -> Bool
 isBootstrapEra unlockStakeEpoch epoch =
     epoch < unlockStakeEpoch
+
+deriveSafeCopySimple 0 'base ''EpochIndex

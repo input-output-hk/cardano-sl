@@ -57,10 +57,9 @@ data TossModifier = TossModifier
 
 makeLenses ''TossModifier
 
-instance Monoid TossModifier where
-    mempty = TossModifier mempty mempty mempty mempty
-    mappend (TossModifier leftComms leftOpens leftShares leftCerts)
-            (TossModifier rightComms rightOpens rightShares rightCerts) =
+instance Semigroup TossModifier where
+   (TossModifier leftComms leftOpens leftShares leftCerts)
+     <> (TossModifier rightComms rightOpens rightShares rightCerts) =
         TossModifier
         { _tmCommitments = rightComms <> leftComms
         , _tmOpenings = rightOpens <> leftOpens
@@ -68,4 +67,7 @@ instance Monoid TossModifier where
         , _tmCertificates = rightCerts <> leftCerts
         }
 
-instance Semigroup TossModifier
+instance Monoid TossModifier where
+    mempty = TossModifier mempty mempty mempty mempty
+    mappend = (<>)
+

@@ -5,6 +5,8 @@ module Pos.Core.Genesis.NonAvvmBalances
 
 import           Universum
 
+import           Data.Semigroup ()
+
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
@@ -24,6 +26,7 @@ instance (Hashable Address) =>
     build (GenesisNonAvvmBalances m) =
         bprint ("GenesisNonAvvmBalances: " %mapJson) m
 
+deriving instance Hashable Address => Semigroup GenesisNonAvvmBalances
 deriving instance Hashable Address => Monoid GenesisNonAvvmBalances
 
 -- | Generate genesis address distribution out of avvm

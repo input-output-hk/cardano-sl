@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Core types used in 'Slotting'.
 
 module Pos.Infra.Slotting.Types
@@ -27,6 +28,7 @@ import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..),
                      Timestamp (..), addTimeDiffToTimestamp, getSlotIndex)
 import           Pos.Util.Util ()
 
+import           Data.Semigroup (Semigroup)
 
 ----------------------------------------------------------------------------
 -- Type declarations
@@ -52,7 +54,12 @@ type NextEpochSlottingData    = EpochSlottingData
 newtype SlottingData = SlottingData
     { getSlottingDataMap :: Map EpochIndex EpochSlottingData
     -- ^ Map containing the @EpochSlottingData@ for all the (known) @Epoch@
-    } deriving (Eq, Show, Generic, Monoid)
+    }
+#if MIN_VERSION_base(4,9,0)
+    deriving (Eq, Show, Generic, Semigroup, Monoid)
+#else
+    deriving (Eq, Show, Generic, Monoid)
+#endif
 
 instance NFData SlottingData
 

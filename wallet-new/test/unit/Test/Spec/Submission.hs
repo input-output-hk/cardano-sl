@@ -1,5 +1,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -Wno-compat #-}
+-- We are missing (MonadFail Gen), therfore [a,b,c,d] <- vectorOf 4 will trigger a warning with -compat
 module Test.Spec.Submission (
     spec
   , dependentTransactions

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Module for safe (zero-memory) signing
 
 module Pos.Crypto.Signing.Types.Safe
@@ -20,6 +21,7 @@ import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
+import           Data.Semigroup (Semigroup)
 import           Data.Text.Buildable (build)
 import qualified Data.Text.Buildable as B
 import           Formatting (int, sformat, (%))
@@ -59,7 +61,11 @@ instance Bi EncryptedSecretKey where
          <*> decode
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
+#if MIN_VERSION_base(4,9,0)
+    deriving (Eq, Ord, Semigroup, Monoid, NFData, ByteArray, ByteArrayAccess)
+#else
     deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
+#endif
 
 passphraseLength :: Int
 passphraseLength = 32

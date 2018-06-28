@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -82,6 +83,8 @@ import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
                      TxSigData (..), Utxo)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
+import           Data.Semigroup (Semigroup)
+
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
@@ -90,7 +93,11 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 -- | List of addresses which are refered by at least one output of transaction
 -- which is not yet confirmed i.e. detected in block.
 newtype PendingAddresses = PendingAddresses (Set Address)
+#if MIN_VERSION_base(4,9,0)
+    deriving (Show, Semigroup, Monoid)
+#else
     deriving (Show, Monoid)
+#endif
 
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =

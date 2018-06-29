@@ -15366,17 +15366,24 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
+, cardano-sl-delegation-test
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
+, cardano-sl-txp-test
 , cardano-sl-update
+, cardano-sl-update-test
 , cardano-sl-util
+, cardano-sl-util-test
 , cborg
 , conduit
 , containers
@@ -15389,10 +15396,14 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
+, generic-arbitrary
+, hspec
 , lens
 , log-warper
 , mtl
 , pipes
+, QuickCheck
+, quickcheck-instances
 , random
 , reflection
 , rocksdb-haskell-ng
@@ -15464,6 +15475,39 @@ unliftio
 unordered-containers
 ];
 libraryToolDepends = [
+cpphs
+];
+testHaskellDepends = [
+base
+bytestring
+cardano-sl-binary
+cardano-sl-binary-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-delegation-test
+cardano-sl-ssc
+cardano-sl-txp-test
+cardano-sl-update
+cardano-sl-update-test
+cardano-sl-util
+cardano-sl-util-test
+containers
+formatting
+generic-arbitrary
+hspec
+QuickCheck
+quickcheck-instances
+random
+serokell-util
+text
+text-format
+time-units
+universum
+unordered-containers
+];
+testToolDepends = [
 cpphs
 ];
 doHaddock = false;

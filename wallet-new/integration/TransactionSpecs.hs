@@ -290,31 +290,36 @@ transactionSpecs wRef wc = do
         , pmtSpendingPassword = Nothing
         }
 
-    makeAddressAndStoreIt publicKey encSecretKey wallet anAccount = do
+    makeAddressAndStoreIt _publicKey encSecretKey wallet anAccount = do
         -- we have to create HD address because we will sync this wallet
         -- with the blockchain to see its actual balance
 
-        -- create HD secret key based on the 'encSecretKey'.
-        let noPassCheck = ShouldCheckPassphrase False
+        -- create HD secret key based on the 'encSecretKey'
+        let passCheck = ShouldCheckPassphrase True
             accountIndex = accIndex anAccount
-            (Just hdSecretKey) = deriveHDSecretKey noPassCheck
+            (Just hdSecretKey) = deriveHDSecretKey passCheck
                                                    emptyPassphrase
                                                    encSecretKey
                                                    accountIndex
+        -- derive public key from HD secret key
+        let hdPublicKey = encToPublic hdSecretKey
 
         -- we need HD passphrase to read HD derivation path later,
-        -- during synchronization.
+        -- during synchronization with the blockchain
         addrIndex <- randomAddressIndex
-        let hdPassphrase = deriveHDPassphrase publicKey
+        let hdPassphrase = deriveHDPassphrase hdPublicKey
             forBootstrapEra = Core.IsBootstrapEraAddr True
             (Just (anAddress, _)) = Core.createHDAddressH forBootstrapEra
-                                                          noPassCheck
+                                                          passCheck
                                                           emptyPassphrase
                                                           hdPassphrase
                                                           hdSecretKey
                                                           [accountIndex]
                                                           addrIndex
             anAddressAsBase58 = Core.addrToBase58Text anAddress
+
+        let addressCreatedFromThisPK = Core.checkPubKeyAddress hdPublicKey anAddress
+        addressCreatedFromThisPK `shouldBe` True
 
         -- store this HD-address in the wallet's account
         storeResponse <- postStoreAddress wc

@@ -6,11 +6,46 @@ flags:
 
 extra-package-dbs: []
 
-# util -> networking → binary →  crypto → core → db → [lrc, infra]
-#              → [ssc, txp, update, delegation] → block → lib → ...
-# Then we have two branches:
-# ... → client → generator → [auxx, explorer, wallet] → wallet-new
-# ... → [node, tools]
+#################################################################################
+# Dependency graph
+#################################################################################
+#
+#                    tools        wallet-new
+#                         ↘      ↙
+#          auxx  explorer  wallet
+#              ↘     ↓    ↙      \
+#                generator        \
+#                    ↓             \
+#                  client  node     |
+#                    ↓      |       ↓
+#     +-------------lib←----+     node-ipc
+#     |              ↓              |
+#     |            block            |
+#     |           /  |  \           |
+#     |         ↙    ↓   ↘          |
+#     |  delegation ssc update      |
+#     |          \   |   /          |
+#     |           ↘  ↓ ↙            |
+#     |             lrc             |
+#     |               ↘             |
+#     |                txp          |
+#     |                  ↘          |
+#     |                  infra←-----+
+#     |                    ↓
+#     |                   db
+#     |                    ↓
+#     |                  core
+#     |                 ↙    \
+#     |              crypto   \
+#     |                ↓       ↓
+#     |            binary    networking
+#     ↓                 ↘    ↙
+#  acid-state-exts       util
+#
+#################################################################################
+#
+# A script for generating this graph can be found in `scripts/package-dep-graph.sh`
+
 packages:
 - util
 - util/test

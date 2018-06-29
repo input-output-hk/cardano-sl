@@ -24,9 +24,11 @@ import           Universum hiding (keys)
 import           Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, toMicroseconds)
 
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi)
 import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..),
                      Timestamp (..), addTimeDiffToTimestamp, getSlotIndex)
-import           Pos.Util.Util ()
+import           Pos.Util.Util (cborError)
 
 import           Data.Semigroup (Semigroup)
 
@@ -41,6 +43,12 @@ data EpochSlottingData = EpochSlottingData
     , esdStartDiff    :: !TimeDiff
     -- ^ Difference between epoch start and system start time.
     } deriving (Eq, Show, Generic)
+
+deriveSimpleBi ''EpochSlottingData [
+    Cons 'EpochSlottingData [
+        Field [| esdSlotDuration :: Millisecond |],
+        Field [| esdStartDiff    :: TimeDiff    |]
+    ]]
 
 instance NFData EpochSlottingData
 
@@ -60,6 +68,18 @@ newtype SlottingData = SlottingData
 #else
     deriving (Eq, Show, Generic, Monoid)
 #endif
+
+instance Bi SlottingData where
+  encode slottingData = encode $ getSlottingDataMap slottingData
+  decode = checkIfSlottindDataValid $ decode
+    where
+      -- We first check if the data we are trying to decode is valid.
+      -- We don't want to throw a runtime error.
+      checkIfSlottindDataValid slottingDataM = do
+          slottingData <- slottingDataM
+          if isValidSlottingDataMap slottingData
+              then pure $ createSlottingDataUnsafe slottingData
+              else cborError "Invalid slotting data state!"
 
 instance NFData SlottingData
 

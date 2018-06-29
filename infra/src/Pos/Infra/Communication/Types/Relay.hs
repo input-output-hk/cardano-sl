@@ -13,12 +13,16 @@ module Pos.Infra.Communication.Types.Relay
        , RelayLogEvent (..)
        ) where
 
+import           Universum
+
 import           Control.Lens (Wrapped (..), iso)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Tagged (Tagged)
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
-import           Universum
+
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
@@ -28,6 +32,10 @@ data InvMsg key = InvMsg
     }
     deriving (Show, Eq)
 
+instance Bi key => Bi (InvMsg key) where
+    encode = encode . imKey
+    decode = InvMsg <$> decode
+
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
 data ReqMsg key = ReqMsg
@@ -36,8 +44,21 @@ data ReqMsg key = ReqMsg
     }
     deriving (Show, Eq)
 
+instance Bi key => Bi (ReqMsg key) where
+    encode = encode . rmKey
+    decode = ReqMsg <$> decode
+
 data MempoolMsg tag = MempoolMsg
     deriving (Show, Eq)
+
+instance Typeable tag => Bi (MempoolMsg tag) where
+    -- The extra byte is needed because time-warp doesn't work with
+    -- possibly-empty messages. 228 was chosen as homage to @pva701
+    encode MempoolMsg = encode (228 :: Word8)
+    decode = do
+        x <- decode @Word8
+        when (x /= 228) $ cborError "wrong byte"
+        pure MempoolMsg
 
 -- | Data message. Can be used to send actual data.
 data DataMsg contents = DataMsg
@@ -58,6 +79,10 @@ data ResMsg key = ResMsg
     -- ^ True if the request was successfully processed.
     }
     deriving (Show, Eq)
+
+instance Bi key => Bi (ResMsg key) where
+    encode (ResMsg {..}) = encode (resKey, resOk)
+    decode = uncurry ResMsg <$> decode
 
 type ReqOrRes key = Either (ReqMsg key) (ResMsg key)
 

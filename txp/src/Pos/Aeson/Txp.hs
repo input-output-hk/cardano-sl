@@ -30,8 +30,10 @@ txInFromText t = case T.splitOn "_" t of
     _                        -> Left $ "Invalid TxIn " <> t
 
 txInToText :: TxIn -> Text
-txInToText TxInUtxo {..}        = sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
-txInToText (TxInUnknown tag bs) = sformat ("TxInUnknown_"%int%"_"%B16.base16F) tag bs
+txInToText (TxInUtxo txInHash txInIndex) =
+    sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
+txInToText (TxInUnknown tag bs) =
+    sformat ("TxInUnknown_"%int%"_"%B16.base16F) tag bs
 
 instance FromJSON TxIn where
     parseJSON v = toAesonError =<< txInFromText <$> parseJSON v

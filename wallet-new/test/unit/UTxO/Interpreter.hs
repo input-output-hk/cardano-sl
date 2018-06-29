@@ -275,23 +275,17 @@ instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
         then do
           AddrInfo{..} <- int $ DSL.outAddr spentOutput
           -- See explanation at 'bootstrapTransaction'
-          return ((
-                addrInfoAddrKey
-              , TxInUtxo {
-                    txInHash  = unsafeHash addrInfoCardano
-                  , txInIndex = 0
-                  }
-              ), resolvedInput)
+          return (
+                   (addrInfoAddrKey, TxInUtxo (unsafeHash addrInfoCardano) 0)
+                 , resolvedInput
+                 )
         else do
           AddrInfo{..} <- int     $ DSL.outAddr spentOutput
           inpTrans'    <- intHash $ inpTrans
-          return ((
-                addrInfoAddrKey
-              , TxInUtxo {
-                    txInHash  = inpTrans'
-                  , txInIndex = inpIndex
-                  }
-              ), resolvedInput)
+          return (
+                   (addrInfoAddrKey, TxInUtxo inpTrans' inpIndex)
+                 , resolvedInput
+                 )
 
 instance Interpret h (DSL.Output Addr) where
   type Interpreted (DSL.Output Addr) = TxOutAux

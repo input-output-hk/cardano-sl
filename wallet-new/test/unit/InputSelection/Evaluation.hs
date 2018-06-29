@@ -3,26 +3,29 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module InputSelection.Evaluation (
-    evaluateInputPolicies
+    evalUsingGenData
+  , evalUsingReplay
   ) where
 
 import           Universum hiding (Ratio (..))
 
-import           Data.Conduit
+import           Conduit
+import           Crypto.Random (MonadRandom)
 import qualified Data.Map.Strict as Map
 import           Data.Time
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (listJson)
+import           System.FilePath (takeBaseName)
 import           System.IO (hFlush, stdout)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic (CoinSelPolicy)
 
+import           InputSelection.Evaluation.Events (Event (..), World (..))
+import qualified InputSelection.Evaluation.Events as Events
 import           InputSelection.Evaluation.Generic
 import           InputSelection.Evaluation.Options
 import           InputSelection.Evaluation.TimeSeries (SlotNr (..))
 import           InputSelection.FromGeneric
-import           InputSelection.Generator (Event (..), World (..))
-import qualified InputSelection.Generator as Gen
 import           InputSelection.SortedUtxo (SortedUtxo)
 import           InputSelection.TxStats
 import           Util.Distr
@@ -79,28 +82,32 @@ sortedUtxo = Proxy
 standardUtxo :: Proxy (Utxo h a)
 standardUtxo = Proxy
 
-largest :: Hash h World => NamedPolicy (DSL h World) (GenHashT IO)
+largest :: (Monad m, Hash h World)
+        => NamedPolicy (DSL h World) (GenHashT m)
 largest = NamedPolicy "largest" $
     simpleCompPolicy
       (wrap sortedUtxo largestFirst Us maxInps)
   where
     maxInps = 50
 
-randomOn :: Hash h World => NamedPolicy (DSL h World) (GenHashT IO)
+randomOn :: (MonadRandom m, Hash h World)
+         => NamedPolicy (DSL h World) (GenHashT m)
 randomOn = NamedPolicy "randomOn" $
     simpleCompPolicy
       (wrap standardUtxo (random PrivacyModeOn) Us maxInps)
   where
     maxInps = 50
 
-randomOff :: Hash h World => NamedPolicy (DSL h World) (GenHashT IO)
+randomOff :: (MonadRandom m, Hash h World)
+          => NamedPolicy (DSL h World) (GenHashT m)
 randomOff = NamedPolicy "randomOff" $
     simpleCompPolicy
       (wrap standardUtxo (random PrivacyModeOff) Us maxInps)
   where
     maxInps = 50
 
-largeThenRandom :: Hash h World => Int -> NamedPolicy (DSL h World) (GenHashT IO)
+largeThenRandom :: (MonadRandom m, Hash h World)
+                => Int -> NamedPolicy (DSL h World) (GenHashT m)
 largeThenRandom changeAfter = NamedPolicy "largeThenRandom" $
     firstThen
       changeAfter
@@ -140,8 +147,8 @@ data Ratio =
     -- This might be the case for an end user.
   | MorePayments Int
 
-evaluateInputPolicies :: EvalOptions -> SimulationOptions -> IO ()
-evaluateInputPolicies evalOptions@EvalOptions{..} SimulationOptions{..} = do
+evalUsingGenData :: EvalOptions -> SimulationOptions -> IO ()
+evalUsingGenData evalOptions@EvalOptions{..} SimulationOptions{..} = do
     -- Our chosen policy, against different distributions of deposits/payments
 
     go "constant-1to1"  [randomOn] numCycles $ nTo1 (MoreDeposits  1) constant
@@ -211,29 +218,25 @@ evaluateInputPolicies evalOptions@EvalOptions{..} SimulationOptions{..} = do
       finish <- getCurrentTime
       putStrLn $ sformat ("ok (" % build % ")") (finish `diffUTCTime` start)
 
-    -- Render every n steps
-    renderEvery :: Int -> SlotNr -> Bool
-    renderEvery n step = overallSlotNr step `mod` n == 0
-
     -- Event stream
     nTo1 :: Distribution distr
          => Ratio
          -> (Int -> distr)       -- Distribution
          -> Int                  -- Number of cycles
          -> ConduitT () (Event (DSL GivenHash World)) (GenHashT IO) ()
-    nTo1 (MoreDeposits n) distr cycles = Gen.fromDistr Gen.FromDistrParams {
-          Gen.fromDistrDep    = distr 1
-        , Gen.fromDistrPay    = distr n
-        , Gen.fromDistrNumDep = Constant (fromIntegral n)
-        , Gen.fromDistrNumPay = Constant 1
-        , Gen.fromDistrCycles = cycles
+    nTo1 (MoreDeposits n) distr cycles = Events.fromDistr Events.FromDistrParams {
+          Events.fromDistrDep    = distr 1
+        , Events.fromDistrPay    = distr n
+        , Events.fromDistrNumDep = Constant (fromIntegral n)
+        , Events.fromDistrNumPay = Constant 1
+        , Events.fromDistrCycles = cycles
         }
-    nTo1 (MorePayments n) distr cycles = Gen.fromDistr Gen.FromDistrParams {
-          Gen.fromDistrDep    = distr n
-        , Gen.fromDistrPay    = distr 1
-        , Gen.fromDistrNumDep = Constant 1
-        , Gen.fromDistrNumPay = Constant (fromIntegral n)
-        , Gen.fromDistrCycles = cycles
+    nTo1 (MorePayments n) distr cycles = Events.fromDistr Events.FromDistrParams {
+          Events.fromDistrDep    = distr n
+        , Events.fromDistrPay    = distr 1
+        , Events.fromDistrNumDep = Constant 1
+        , Events.fromDistrNumPay = Constant (fromIntegral n)
+        , Events.fromDistrCycles = cycles
         }
 
     -- Initial UTxO for all these tests
@@ -245,3 +248,23 @@ evaluateInputPolicies evalOptions@EvalOptions{..} SimulationOptions{..} = do
 
     (.*) :: Int -> Double -> Int
     (.*) n f = round $ fromIntegral n * f
+
+-- Render every n steps
+renderEvery :: Int -> SlotNr -> Bool
+renderEvery n step = overallSlotNr step `mod` n == 0
+
+{-------------------------------------------------------------------------------
+  Replay
+-------------------------------------------------------------------------------}
+
+evalUsingReplay :: EvalOptions -> ReplayOptions -> IO ()
+evalUsingReplay evalOptions ReplayOptions{..} =
+    runResourceT $
+      withHash 1 $
+        evaluateUsingEvents
+          evalOptions
+          (takeBaseName replayFile) -- eventsPrefix
+          Map.empty -- initial UTxO
+          [randomOn]
+          (renderEvery replayRenderEvery)
+          (Events.replay replayMultiplier replayFile)

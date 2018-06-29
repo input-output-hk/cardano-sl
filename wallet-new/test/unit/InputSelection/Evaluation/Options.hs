@@ -4,6 +4,7 @@ module InputSelection.Evaluation.Options (
   , EvalOptions(..)
   , SimulationOptions(..)
   , ReplotOptions(..)
+  , ReplayOptions(..)
   , Command(..)
     -- * Parser
   , getEvalOptions
@@ -63,8 +64,24 @@ data ReplotOptions = ReplotOptions {
     , replotSubdir    :: String
     }
 
+data ReplayOptions = ReplayOptions {
+      -- | Multiplier to apply to the data
+      replayMultiplier :: Double
+
+      -- | Render every @n@ slots
+      --
+      -- Since we do not a priori know how many slots the file has, we cannot
+      -- compute this value from the total number of slots and a desired number
+      -- of frames.
+    , replayRenderEvery :: Int
+
+      -- | File with data
+    , replayFile :: FilePath
+    }
+
 data Command =
       RunSimulation SimulationOptions
+    | Replay ReplayOptions
     | Replot ReplotOptions
 
 {-------------------------------------------------------------------------------
@@ -139,10 +156,31 @@ parseReplotOptions = ReplotOptions
           , metavar "PATH"
           ])
 
+parseReplayOptions :: Parser ReplayOptions
+parseReplayOptions = ReplayOptions
+    <$> (option auto $ mconcat [
+            help "Multiply all input values"
+          , long "multiply"
+          , value 1.0
+          , showDefault
+          ])
+    <*> (option auto $ mconcat [
+            help "Render a frame every N slots"
+          , long "render-every"
+          , value 1
+          , showDefault
+          , metavar "N"
+          ])
+    <*> (argument str $ mconcat [
+            help "File containing values to replay. Should contain one deposit (positive number) or payment (negative number) per line."
+          , metavar "PATH"
+          ])
+
 parseCommand :: Parser Command
 parseCommand = subparser $ mconcat [
       cmd "run" (RunSimulation <$> parseSimulationOptions) "Run the simulation"
     , cmd "replot" (Replot <$> parseReplotOptions) "Reconstruct 'mkframes.gnuplot'"
+    , cmd "replay" (Replay <$> parseReplayOptions) "Replay event stream from file"
     ]
   where
     cmd :: String -> Parser Command -> String -> Mod CommandFields Command

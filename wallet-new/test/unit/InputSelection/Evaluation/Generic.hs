@@ -77,10 +77,10 @@ import           Text.Printf (printf)
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 
+import           InputSelection.Evaluation.Events (Event (..))
 import           InputSelection.Evaluation.Options
 import           InputSelection.Evaluation.TimeSeries (SlotNr (..), TimeSeries)
 import qualified InputSelection.Evaluation.TimeSeries as TS
-import           InputSelection.Generator (Event (..))
 import           InputSelection.SortedUtxo (SortedUtxo)
 import qualified InputSelection.SortedUtxo as Sorted
 import           InputSelection.TxStats

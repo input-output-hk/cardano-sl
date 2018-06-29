@@ -11,11 +11,11 @@ import qualified Prelude
 import           System.Directory (getDirectoryContents)
 import           System.FilePath ((</>))
 
+import           InputSelection.Evaluation.Events (World)
 import           InputSelection.Evaluation.Generic
 import           InputSelection.Evaluation.Options
 import qualified InputSelection.Evaluation.TimeSeries as TS
 import           InputSelection.FromGeneric
-import           InputSelection.Generator (World)
 import qualified Util.Histogram as H
 import           Util.Range (Range(..))
 import qualified Util.Range as Range

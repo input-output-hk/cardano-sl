@@ -6,7 +6,7 @@ import           Universum
 import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
-import           InputSelection.Evaluation (evaluateInputPolicies)
+import           InputSelection.Evaluation (evalUsingGenData, evalUsingReplay)
 import           InputSelection.Evaluation.Options (Command (..), evalCommand, getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
 import           UTxO.Bootstrap (bootstrapTransaction)
@@ -38,7 +38,9 @@ main = do
         -- Run @wallet-unit-tests eval --help@ for details.
         case evalCommand evalOptions of
           RunSimulation simOpts ->
-            evaluateInputPolicies evalOptions simOpts
+            evalUsingGenData evalOptions simOpts
+          Replay replayOpts ->
+            evalUsingReplay evalOptions replayOpts
           Replot replotOpts ->
             replot evalOptions replotOpts
 

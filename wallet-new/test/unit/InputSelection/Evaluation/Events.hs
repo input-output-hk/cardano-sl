@@ -1,19 +1,23 @@
-module InputSelection.Generator (
+module InputSelection.Evaluation.Events (
     Event(..)
     -- * Configurable event stream
   , World(..)
   , FromDistrParams(..)
   , fromDistr
+    -- * From file
+  , replay
   ) where
 
 import           Universum
 
-import           Data.Conduit
+import           Conduit
+import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.Map.Strict as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import qualified Prelude
 import           Serokell.Util (listJson, mapJson)
-import           Test.QuickCheck
+import           Test.QuickCheck hiding (replay)
 
 import qualified Cardano.Wallet.Kernel.CoinSelection.Generic as Generic
 
@@ -96,6 +100,39 @@ fromDistr FromDistrParams{..} = do
       where
         aux :: Value -> [Output GivenHash World]
         aux val = [Output Them val]
+
+{-------------------------------------------------------------------------------
+  Replay from file
+-------------------------------------------------------------------------------}
+
+-- | Replay events from a file
+--
+-- The file should have one @Double@ value per line: positive for deposits,
+-- negative for payments. A multipler is applied to each value.
+--
+-- We yield a 'NextSlot' after each payment, effectively making change
+-- available immediately.
+replay :: forall m. (GenHash m, MonadResource m)
+       => Double   -- ^ Multiplier
+       -> FilePath -- ^ File to read
+       -> ConduitT () (Event (DSL GivenHash World)) m ()
+replay mult fp =
+       sourceFile fp
+    .| linesUnboundedAsciiC
+    .| mapC BS.C8.unpack
+    .| go
+  where
+    go :: ConduitT String (Event (DSL GivenHash World)) m ()
+    go = awaitForever $ \str ->
+           let n' :: Double = mult * Prelude.read str
+               n  :: Value  = round (abs n')
+           in if n' < 0
+                then do yield $ Pay [Output Them n]
+                        yield $ NextSlot
+                else do h <- lift $ genHash
+                        let i = Input (GivenHash h) 0
+                            o = Output Us n
+                        yield $ Deposit (Map.singleton i o)
 
 {-------------------------------------------------------------------------------
   Pretty-printing

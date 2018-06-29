@@ -33,6 +33,7 @@ import qualified Data.List as List
 import qualified Data.Set as S
 import           Formatting (build, sformat, (%))
 
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..),
                      StakeholderId, VssCertificate (..),
                      VssCertificatesMap (..), deleteVss, getCertId, insertVss,
@@ -74,6 +75,28 @@ flip makeLensesFor ''VssCertData
   , ("whenExpire"  , "_whenExpire")
   , ("expiredCerts", "_expiredCerts")
   ]
+
+instance Bi VssCertData where
+    encode VssCertData {..} = mconcat
+        [ encodeListLen 6
+        , encode lastKnownEoS
+        -- It may look weird to encode 'VssCertificatesMap' as a
+        -- map, but it's done this way for historical reasons.
+        , encode (getVssCertificatesMap certs)
+        , encode whenInsMap
+        , encode whenInsSet
+        , encode whenExpire
+        , encode expiredCerts
+        ]
+    decode = do
+        enforceSize "VssCertData" 6
+        lastKnownEoS <- decode
+        certs <- UnsafeVssCertificatesMap <$> decode
+        whenInsMap <- decode
+        whenInsSet <- decode
+        whenExpire <- decode
+        expiredCerts <- decode
+        return VssCertData {..}
 
 -- | Create empty 'VssCertData'.
 empty :: VssCertData

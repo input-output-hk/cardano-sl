@@ -16,11 +16,14 @@ import           Control.Lens (makeLenses)
 import qualified Data.Text.Buildable as Buildable
 import           Universum
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
+                     deriveSimpleBiCxt)
 import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId,
                      VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap)
 import           Pos.Ssc.Base (isCommitmentId, isCommitmentIdx, isOpeningId,
                      isOpeningIdx, isSharesId, isSharesIdx)
+import           Pos.Util.Util (cborError)
 
 -- | Tag corresponding to SSC data.
 data SscTag
@@ -35,6 +38,12 @@ instance Buildable SscTag where
     build OpeningMsg        = "opening"
     build SharesMsg         = "shares"
     build VssCertificateMsg = "VSS certificate"
+
+deriveSimpleBi ''SscTag [
+    Cons 'CommitmentMsg [],
+    Cons 'OpeningMsg [],
+    Cons 'SharesMsg [],
+    Cons 'VssCertificateMsg []]
 
 isGoodSlotForTag :: HasProtocolConstants => SscTag -> LocalSlotIndex -> Bool
 isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
@@ -71,3 +80,10 @@ instance Monoid TossModifier where
     mempty = TossModifier mempty mempty mempty mempty
     mappend = (<>)
 
+deriveSimpleBiCxt [t|()|] ''TossModifier [
+    Cons 'TossModifier [
+        Field [| _tmCommitments  :: CommitmentsMap     |],
+        Field [| _tmOpenings     :: OpeningsMap        |],
+        Field [| _tmShares       :: SharesMap          |],
+        Field [| _tmCertificates :: VssCertificatesMap |]
+    ]]

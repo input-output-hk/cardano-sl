@@ -20,7 +20,6 @@ import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Binary.Ssc ()
 import           Pos.Core (BlockVersionData, ComponentBlock (..),
                      HasCoreConfiguration, HasGenesisData,
                      HasProtocolConstants, HeaderHash, epochIndexL,

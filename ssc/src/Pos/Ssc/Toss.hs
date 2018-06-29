@@ -8,7 +8,6 @@ module Pos.Ssc.Toss
        , module Pos.Ssc.Toss.Types
        ) where
 
-import           Pos.Binary.Ssc.Toss ()
 import           Pos.Ssc.Toss.Base
 import           Pos.Ssc.Toss.Class
 import           Pos.Ssc.Toss.Logic

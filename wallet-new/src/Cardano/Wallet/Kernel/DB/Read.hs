@@ -2,6 +2,7 @@ module Cardano.Wallet.Kernel.DB.Read (
     -- * Read-only, pure getters
     accountUtxo
   , accountTotalBalance
+  , hdWallets
   ) where
 
 import           Universum
@@ -13,7 +14,7 @@ import           Pos.Core (Coin)
 import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdWallets)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 
@@ -52,3 +53,7 @@ accountUtxo snapshot accountId
 accountTotalBalance :: DB -> HdAccountId -> Coin
 accountTotalBalance snapshot accountId
     = walletQuery' snapshot (Spec.queryAccountTotalBalance accountId)
+
+-- | Returns the total balance for this 'HdAccountId'.
+hdWallets :: DB -> HdWallets
+hdWallets snapshot = snapshot ^. dbHdWallets

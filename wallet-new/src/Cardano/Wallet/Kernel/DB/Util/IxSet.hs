@@ -17,6 +17,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , getEQ
   , member
   , size
+  , onlyOne
     -- * Construction
   , fromList
   , omap
@@ -28,7 +29,8 @@ import           Universum hiding (Foldable)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
-import           Data.Foldable (Foldable (..))
+import           Data.Foldable (Foldable)
+import qualified Data.Foldable
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Set as Set
@@ -145,6 +147,15 @@ member pk = isJust . view (Lens.at pk)
 
 size :: IxSet a -> Int
 size = IxSet.size . unwrapIxSet
+
+-- | Safely returns the 'head' of this 'IxSet', but only if it is a singleton
+-- one, i.e. only if it has @exactly@ one element in it. Usually this is
+-- used in tandem with 'getEQ' to witness the existence of exactly one element
+-- in the set indexed by a particular index.
+onlyOne :: IxSet a -> Maybe a
+onlyOne ixset = case IxSet.toList . unwrapIxSet $ ixset of
+                  [WrapOrdByPrimKey x] -> Just x
+                  _                    -> Nothing
 
 {-------------------------------------------------------------------------------
   Construction

@@ -13,6 +13,8 @@ import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopy)
 
+import           Test.QuickCheck (Arbitrary (..))
+
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -41,6 +43,11 @@ data NewPendingFailed =
     NewPendingInputsUnavailable (Set (InDb Core.TxIn))
 
 deriveSafeCopy 1 'base ''NewPendingFailed
+
+-- NOTE(adn) Short-circuiting the rabbit-hole with this instance by generating
+-- an empty set, thus avoiding the extra dependency on @cardano-sl-core-test@.
+instance Arbitrary NewPendingFailed where
+    arbitrary = pure . NewPendingInputsUnavailable $ mempty
 
 {-------------------------------------------------------------------------------
   Wallet spec mandated updates

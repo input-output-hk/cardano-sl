@@ -204,14 +204,15 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
 -- | A 'Plugin' to start the wallet REST server
 --
 -- NOTE: There is no web socket support in the new wallet for now.
-walletBackend :: NewWalletBackendParams
+walletBackend :: ProtocolMagic
+              -> NewWalletBackendParams
               -> (PassiveWalletLayer Production, PassiveWallet)
               -> Plugin Kernel.WalletMode
-walletBackend (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
+walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-        bracketKernelActiveWallet passiveLayer passiveWallet diffusion' $ \active -> do
+        bracketKernelActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active -> do
           ctx <- view shutdownContext
           let
             portCallback :: Word16 -> IO ()

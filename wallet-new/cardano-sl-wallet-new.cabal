@@ -93,10 +93,12 @@ library
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Keystore
+                       Cardano.Wallet.Kernel.Internal
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
+                       Cardano.Wallet.Kernel.Transactions
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Kernel.Util
                        Cardano.Wallet.Kernel.Util.StrictStateT
@@ -120,7 +122,6 @@ library
   other-modules:       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
-                       Cardano.Wallet.WalletLayer.QuickCheck
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
@@ -178,6 +179,7 @@ library
                      , QuickCheck
                      , mwc-random
                      , reflection
+                     , retry
                      , safe-exceptions
                      , safecopy
                      , serokell-util
@@ -500,6 +502,7 @@ test-suite wallet-new-specs
                     SwaggerSpec
                     RequestSpec
                     WalletHandlersSpec
+                    Cardano.Wallet.WalletLayer.QuickCheck
 
   default-language: Haskell2010
   default-extensions: BangPatterns

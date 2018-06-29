@@ -32,10 +32,11 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..),
                      CoinSelPolicy, CoinSelectionOptions (..),
                      ExpenseRegulation (..), InputGrouping (..), MkTx,
                      largestFirst, mkStdTx, newOptions, random)
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (estimateCardanoFee)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
-import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genFiddlyPayees, genFiddlyUtxo, genGroupedUtxo,

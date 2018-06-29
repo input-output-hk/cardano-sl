@@ -19,6 +19,9 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , unsafeValueSub
   , unsafeValueSum
   , unsafeValueAdjust
+    -- * Addresses
+  , HasAddress(..)
+  , utxoEntryAddr
     -- * Monad
   , CoinSelT -- opaque
   , coinSelLiftExcept
@@ -70,6 +73,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
+import           Test.QuickCheck (Arbitrary (..))
 
 import           Cardano.Wallet.Kernel.Util (withoutKeys)
 import           Cardano.Wallet.Kernel.Util.StrictStateT
@@ -174,6 +178,19 @@ unsafeValueAdjust :: CoinSelDom dom
                   => Rounding -> Double -> Value dom -> Value dom
 unsafeValueAdjust r x y = fromMaybe (error "unsafeValueAdjust: out of range") $
     valueAdjust r x y
+
+{-------------------------------------------------------------------------------
+  Describing domains which have addresses
+-------------------------------------------------------------------------------}
+
+class (CoinSelDom dom, Ord (Address dom)) => HasAddress dom where
+  type Address dom = a | a -> dom
+
+  outAddr :: Output dom -> Address dom
+
+utxoEntryAddr :: HasAddress dom => UtxoEntry dom -> Address dom
+utxoEntryAddr = outAddr . utxoEntryOut
+
 
 {-------------------------------------------------------------------------------
   Coin selection monad
@@ -287,6 +304,14 @@ data CoinSelHardErr =
 
     -- | UTxO depleted using input selection
   | CoinSelHardErrUtxoDepleted
+
+    -- | This wallet does not \"own\" the input address
+  | forall dom. HasAddress dom =>
+      CoinSelHardErrAddressNotOwned (Address dom)
+
+
+instance Arbitrary CoinSelHardErr where
+    arbitrary = pure CoinSelHardErrUtxoDepleted
 
 -- | The input selection request failed
 --
@@ -620,6 +645,9 @@ instance Buildable CoinSelHardErr where
     val
   build (CoinSelHardErrUtxoDepleted) = bprint
     ( "CoinSelHardErrUtxoDepleted" )
+  build (CoinSelHardErrAddressNotOwned _) = bprint
+    ( "CoinSelHardErrAddressNotOwned"
+    )
 
 instance CoinSelDom dom => Buildable (Fee dom) where
   build = bprint build . getFee

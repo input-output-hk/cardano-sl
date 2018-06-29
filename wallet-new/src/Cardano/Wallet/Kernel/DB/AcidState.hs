@@ -35,6 +35,8 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 
+import           Test.QuickCheck (Arbitrary (..), oneof)
+
 import           Data.Acid (Query, Update, makeAcidic)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
@@ -95,6 +97,11 @@ data NewPendingError =
   | NewPendingFailed Spec.NewPendingFailed
 
 deriveSafeCopy 1 'base ''NewPendingError
+
+instance Arbitrary NewPendingError where
+    arbitrary = oneof [ NewPendingUnknown <$> arbitrary
+                      , NewPendingFailed  <$> arbitrary
+                      ]
 
 newPending :: HdAccountId
            -> InDb Core.TxAux

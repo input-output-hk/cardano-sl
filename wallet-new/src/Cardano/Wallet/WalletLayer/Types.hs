@@ -19,6 +19,9 @@ module Cardano.Wallet.WalletLayer.Types
     , applyBlocks
     , rollbackBlocks
     -- * Errors
+    , WalletLayerError(..)
+    , NewPaymentError(..)
+    , EstimateFeesError(..)
     , CreateAddressError(..)
     ) where
 
@@ -35,12 +38,21 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      Wallet, WalletId, WalletUpdate)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
+import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (TimeExecutionLimit)
 
-import           Pos.Block.Types (Blund)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Test.QuickCheck (Arbitrary (..), oneof)
+
+import           Cardano.Wallet.API.V1.Types (EstimatedFees, Payment)
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (ExpenseRegulation, InputGrouping)
+
+import           Pos.Block.Types (Blund)
+import           Pos.Core (Tx)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Crypto (PassPhrase)
+
 
 ------------------------------------------------------------
 -- Common errors
@@ -71,6 +83,19 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressAddressDecodingFailed " % build) txt
     build (CreateAddressTimeLimitReached timeLimit) =
         bprint ("CreateAddressTimeLimitReached " % build) timeLimit
+
+
+------------------------------------------------------------
+-- General-purpose errors which may arise when working with
+-- the wallet layer
+------------------------------------------------------------
+
+data WalletLayerError =
+    InvalidAddressConversionFailed Text
+    -- ^ Trying to decode the input 'Text' into a Cardano 'Address' failed
+    deriving Show
+
+instance Exception WalletLayerError
 
 ------------------------------------------------------------
 -- Passive wallet layer
@@ -157,4 +182,42 @@ rollbackBlocks pwl = pwl ^. pwlRollbackBlocks
 data ActiveWalletLayer m = ActiveWalletLayer {
       -- | The underlying passive wallet layer
       walletPassiveLayer :: PassiveWalletLayer m
+
+      -- | Performs a payment.
+    , pay :: PassPhrase
+          -- ^ The \"spending password\" to decrypt the 'EncryptedSecretKey'.
+          -> InputGrouping
+          -- ^ An preference on how to group inputs during coin selection.
+          -> ExpenseRegulation
+          -- ^ Who pays the fee, if the sender or the receivers.
+          -> Payment
+          -- ^ The payment we need to perform.
+          -> m (Either NewPaymentError Tx)
+      -- | Estimates the fees for a payment.
+    , estimateFees   :: PassPhrase
+                     -- ^ The \"spending password\" to decrypt the 'EncryptedSecretKey'.
+                     -> InputGrouping
+                     -- ^ An preference on how to group inputs during coin selection
+                     -> ExpenseRegulation
+                     -- ^ Who pays the fee, if the sender or the receivers.
+                     -> Payment
+                     -- ^ The payment we need to perform.
+                     -> m (Either EstimateFeesError EstimatedFees)
     }
+
+------------------------------------------------------------
+-- Active wallet errors
+------------------------------------------------------------
+
+data NewPaymentError =
+      NewPaymentError Kernel.PaymentError
+    | NewPaymentTimeLimitReached TimeExecutionLimit
+
+data EstimateFeesError =
+      EstimateFeesError Kernel.EstimateFeesError
+    | EstimateFeesTimeLimitReached TimeExecutionLimit
+
+instance Arbitrary EstimateFeesError where
+    arbitrary = oneof [ EstimateFeesError <$> arbitrary
+                      , EstimateFeesTimeLimitReached <$> arbitrary
+                      ]

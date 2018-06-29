@@ -17,7 +17,7 @@ import           InputSelection.Evaluation.Options
 import qualified InputSelection.Evaluation.TimeSeries as TS
 import           InputSelection.FromGeneric
 import qualified Util.Histogram as H
-import           Util.Range (Range(..))
+import           Util.Range (Range (..))
 import qualified Util.Range as Range
 import           UTxO.DSL (GivenHash)
 

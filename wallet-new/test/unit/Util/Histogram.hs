@@ -236,7 +236,7 @@ splitRanges n m (Histogram _ h) =
 splitGivenRanges :: [Bin] -> Histogram -> SplitRanges Bin Count
 splitGivenRanges = \splits (Histogram _ h) ->
     case Map.toList h of
-      [] -> error "splitGivenRanges: empty histogram"
+      []            -> error "splitGivenRanges: empty histogram"
       (b, c) : bins -> go ([(Range 0 b, 1)], Range.singleton c) splits bins
   where
     go :: ([(Range Bin, Int)], Range Count)  -- Accumulator

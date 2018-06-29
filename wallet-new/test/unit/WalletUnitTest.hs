@@ -7,7 +7,8 @@ import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
 import           InputSelection.Evaluation (evalUsingGenData, evalUsingReplay)
-import           InputSelection.Evaluation.Options (Command (..), evalCommand, getEvalOptions)
+import           InputSelection.Evaluation.Options (Command (..), evalCommand,
+                     getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)

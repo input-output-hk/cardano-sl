@@ -18555,6 +18555,7 @@ lens
 log-warper
 mtl
 normaldistribution
+optparse-applicative
 QuickCheck
 quickcheck-instances
 random

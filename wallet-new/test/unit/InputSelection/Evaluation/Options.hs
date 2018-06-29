@@ -44,10 +44,10 @@ data EvalOptions = EvalOptions {
 
 data SimulationOptions = SimulationOptions {
       -- | Number of cycles (slots)
-      numCycles :: Int
+      numCycles   :: Int
 
       -- Number of frames we want for each animation
-    , numFrames :: Int
+    , numFrames   :: Int
 
       -- Initial balance
     , initBalance :: Word64
@@ -66,7 +66,7 @@ data ReplotOptions = ReplotOptions {
 
 data ReplayOptions = ReplayOptions {
       -- | Multiplier to apply to the data
-      replayMultiplier :: Double
+      replayMultiplier  :: Double
 
       -- | Render every @n@ slots
       --
@@ -76,7 +76,7 @@ data ReplayOptions = ReplayOptions {
     , replayRenderEvery :: Int
 
       -- | File with data
-    , replayFile :: FilePath
+    , replayFile        :: FilePath
     }
 
 data Command =

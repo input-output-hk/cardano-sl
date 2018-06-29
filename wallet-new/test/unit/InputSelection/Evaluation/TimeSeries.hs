@@ -21,7 +21,7 @@ module InputSelection.Evaluation.TimeSeries (
   , readFile
   ) where
 
-import           Universum hiding (empty, toList, writeFile, readFile)
+import           Universum hiding (empty, readFile, toList, writeFile)
 
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.Map.Strict as Map

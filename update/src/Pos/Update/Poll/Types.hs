@@ -187,8 +187,8 @@ cpsSoftwareVersion = upSoftwareVersion . cpsUpdateProposal
 
 -- | State of UpdateProposal.
 data ProposalState
-    = PSUndecided { unPSUndecided :: !UndecidedProposalState }
-    | PSDecided   { unPSDecided   :: !DecidedProposalState }
+    = PSUndecided !UndecidedProposalState
+    | PSDecided   !DecidedProposalState
       deriving (Eq, Generic, Show)
 
 propStateToEither :: ProposalState -> Either UndecidedProposalState DecidedProposalState

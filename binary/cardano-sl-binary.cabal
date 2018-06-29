@@ -89,14 +89,16 @@ test-suite test
   main-is:             test.hs
   other-modules:
                        Spec
+                       Test.Pos.Binary.BiSerialize
                        Test.Pos.Binary.Cbor.CborSpec
                        Test.Pos.Binary.Helpers
-                       Test.Pos.Binary.BiSerialize
+                       Test.Pos.Binary.Helpers.GoldenRoundTrip
                        Test.Pos.Cbor.RefImpl
                        Test.Pos.Cbor.Canonicity
 
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , bytestring
                      , canonical-json
@@ -108,8 +110,11 @@ test-suite test
                      , containers
                      , cryptonite
                      , data-default
+                     , directory
                      , extra
+                     , filepath
                      , filelock
+                     , file-embed
                      , fmt
                      , formatting
                      , generic-arbitrary
@@ -118,6 +123,7 @@ test-suite test
                      , hspec
                      , lens
                      , mtl
+                     , pretty-show
                      , pvss
                      , quickcheck-instances
                      , random
@@ -125,6 +131,7 @@ test-suite test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
+                     , template-haskell
                      , text
                      , text-format
                      , time-units

@@ -154,10 +154,10 @@ blockBody = MainBody
 -- the fewest fields...
 emptySscPayload :: SscPayload
 emptySscPayload = CertificatesPayload
-    { spVss = UnsafeVssCertificatesMap
+    (UnsafeVssCertificatesMap
           { getVssCertificatesMap = mempty
           }
-    }
+    )
 
 emptyDlgPayload :: DlgPayload
 emptyDlgPayload = UnsafeDlgPayload
@@ -210,8 +210,7 @@ txProof = TxProof
 
 sscProof :: SscProof
 sscProof = CertificatesProof
-    { sprVss = unsafeMkAbstractHash mempty
-    }
+    (unsafeMkAbstractHash mempty)
 
 dlgProof :: Hash DlgPayload
 dlgProof = unsafeMkAbstractHash mempty

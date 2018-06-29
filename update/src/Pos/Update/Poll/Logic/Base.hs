@@ -38,7 +38,6 @@ import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
-import           Pos.Binary.Update ()
 import           Pos.Core (BlockVersion (..), Coin, CoinPortion (..),
                      EpochIndex, HasProtocolConstants, HeaderHash,
                      IsMainHeader (..), SlotId, SoftforkRule (..),

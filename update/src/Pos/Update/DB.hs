@@ -49,7 +49,6 @@ import           Serokell.Data.Memory.Units (Byte)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Binary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty,
                      HasCoreConfiguration, NumSoftwareVersion, SlotId,
                      SoftwareVersion (..), StakeholderId, TimeDiff (..),

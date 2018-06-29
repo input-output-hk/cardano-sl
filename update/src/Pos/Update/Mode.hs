@@ -11,7 +11,6 @@ import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Binary.Update ()
 import           Pos.Core.Configuration ()
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)

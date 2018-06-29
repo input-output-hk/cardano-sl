@@ -53,6 +53,9 @@ import qualified Data.Text.Buildable
 import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     decodeListLenCanonical, deriveIndexedBi, deriveSimpleBi,
+                     encodeListLen)
 import           Pos.Core (ChainDifficulty, Coin, HeaderHash, ScriptVersion,
                      StakeholderId, mkCoin)
 import           Pos.Core.Slotting (EpochIndex, SlotId)
@@ -60,7 +63,9 @@ import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionModifier (..), NumSoftwareVersion,
                      SoftwareVersion, UpId, UpdateProposal (..), UpdateVote)
 import           Pos.Crypto (PublicKey)
+import           Pos.Infra.Binary ()
 import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------
 -- VoteState
@@ -73,6 +78,12 @@ data VoteState
     | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
     deriving (Show, Generic, Eq)
+
+deriveSimpleBi ''VoteState [
+    Cons 'PositiveVote [],
+    Cons 'NegativeVote [],
+    Cons 'PositiveRevote [],
+    Cons 'NegativeRevote []]
 
 instance NFData VoteState
 
@@ -119,6 +130,17 @@ type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
 -- Proposal State
 ----------------------------------------------------------------------------
 
+-- | Extra data required by wallet, stored in UndecidedProposalState
+data UpsExtra = UpsExtra
+    { ueProposedBlk :: !HeaderHash
+    -- ^ Block in which this update was proposed
+    } deriving (Show, Generic, Eq)
+
+deriveSimpleBi ''UpsExtra [
+    Cons 'UpsExtra [
+        Field [| ueProposedBlk :: HeaderHash |]
+    ]]
+
 -- | State of UpdateProposal which can't be classified as approved or
 -- rejected.
 data UndecidedProposalState = UndecidedProposalState
@@ -136,11 +158,29 @@ data UndecidedProposalState = UndecidedProposalState
       -- ^ Extra data
     } deriving (Show, Generic, Eq)
 
--- | Extra data required by wallet, stored in UndecidedProposalState
-data UpsExtra = UpsExtra
-    { ueProposedBlk :: !HeaderHash
-    -- ^ Block in which this update was proposed
+deriveSimpleBi ''UndecidedProposalState [
+    Cons 'UndecidedProposalState [
+        Field [| upsVotes         :: StakeholderVotes |],
+        Field [| upsProposal      :: UpdateProposal   |],
+        Field [| upsSlot          :: SlotId           |],
+        Field [| upsPositiveStake :: Coin             |],
+        Field [| upsNegativeStake :: Coin             |],
+        Field [| upsExtra         :: Maybe UpsExtra   |]
+    ]]
+
+-- | Extra data required by wallet, stored in DecidedProposalState.
+data DpsExtra = DpsExtra
+    { deDecidedBlk :: !HeaderHash
+      -- ^ HeaderHash  of block in which this update was approved/rejected
+    , deImplicit   :: !Bool
+      -- ^ Which way we approve/reject this update proposal: implicit or explicit
     } deriving (Show, Generic, Eq)
+
+deriveSimpleBi ''DpsExtra [
+    Cons 'DpsExtra [
+        Field [| deDecidedBlk :: HeaderHash |],
+        Field [| deImplicit   :: Bool       |]
+    ]]
 
 -- | State of UpdateProposal which can be classified as approved or
 -- rejected.
@@ -156,13 +196,13 @@ data DecidedProposalState = DecidedProposalState
       -- ^ Extra data
     } deriving (Show, Generic, Eq)
 
--- | Extra data required by wallet, stored in DecidedProposalState.
-data DpsExtra = DpsExtra
-    { deDecidedBlk :: !HeaderHash
-      -- ^ HeaderHash  of block in which this update was approved/rejected
-    , deImplicit   :: !Bool
-      -- ^ Which way we approve/reject this update proposal: implicit or explicit
-    } deriving (Show, Generic, Eq)
+deriveSimpleBi ''DecidedProposalState [
+    Cons 'DecidedProposalState [
+        Field [| dpsDecision   :: Bool                   |],
+        Field [| dpsUndecided  :: UndecidedProposalState |],
+        Field [| dpsDifficulty :: Maybe ChainDifficulty  |],
+        Field [| dpsExtra      :: Maybe DpsExtra         |]
+    ]]
 
 -- | Information about confirmed proposals stored in DB.
 data ConfirmedProposalState = ConfirmedProposalState
@@ -177,6 +217,19 @@ data ConfirmedProposalState = ConfirmedProposalState
     , cpsNegativeStake  :: !Coin
     } deriving (Show, Generic, Eq)
 
+deriveSimpleBi ''ConfirmedProposalState [
+    Cons 'ConfirmedProposalState [
+        Field [| cpsUpdateProposal :: UpdateProposal   |],
+        Field [| cpsImplicit       :: Bool             |],
+        Field [| cpsProposed       :: HeaderHash       |],
+        Field [| cpsDecided        :: HeaderHash       |],
+        Field [| cpsConfirmed      :: HeaderHash       |],
+        Field [| cpsAdopted        :: Maybe HeaderHash |],
+        Field [| cpsVotes          :: StakeholderVotes |],
+        Field [| cpsPositiveStake  :: Coin             |],
+        Field [| cpsNegativeStake  :: Coin             |]
+    ]]
+
 -- | Get 'BlockVersion' from 'ConfirmedProposalState'.
 cpsBlockVersion :: ConfirmedProposalState -> BlockVersion
 cpsBlockVersion = upBlockVersion . cpsUpdateProposal
@@ -190,6 +243,14 @@ data ProposalState
     = PSUndecided !UndecidedProposalState
     | PSDecided   !DecidedProposalState
       deriving (Eq, Generic, Show)
+
+deriveIndexedBi ''ProposalState [
+    Cons 'PSUndecided [
+        Field [| 0 :: UndecidedProposalState |]
+    ],
+    Cons 'PSDecided [
+        Field [| 0 :: DecidedProposalState   |]
+    ]]
 
 propStateToEither :: ProposalState -> Either UndecidedProposalState DecidedProposalState
 propStateToEither (PSUndecided ups) = Left ups
@@ -247,6 +308,16 @@ data BlockVersionState = BlockVersionState
     -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
     } deriving (Eq, Show, Generic)
 
+deriveSimpleBi ''BlockVersionState [
+    Cons 'BlockVersionState [
+        Field [| bvsModifier          :: BlockVersionModifier  |],
+        Field [| bvsConfirmedEpoch    :: Maybe EpochIndex      |],
+        Field [| bvsIssuersStable     :: HashSet StakeholderId |],
+        Field [| bvsIssuersUnstable   :: HashSet StakeholderId |],
+        Field [| bvsLastBlockStable   :: Maybe HeaderHash      |],
+        Field [| bvsLastBlockUnstable :: Maybe HeaderHash      |]
+    ]]
+
 -- | Check whether proposal which generated given 'BlockVersionState'
 -- is confirmed.
 bvsIsConfirmed :: BlockVersionState -> Bool
@@ -269,6 +340,15 @@ bvsMaxBlockSize = bvmMaxBlockSize . bvsModifier
 data PrevValue a = PrevValue a | NoExist
     deriving (Generic, Show, Eq)
 
+instance Bi a => Bi (PrevValue a) where
+    encode (PrevValue a) = encodeListLen 1 <> encode a
+    encode NoExist       = encodeListLen 0
+    decode = do
+        len <- decodeListLenCanonical
+        case len of
+            1 -> PrevValue <$> decode
+            0 -> pure NoExist
+            _ -> cborError $ "decode@PrevValue: invalid len: " <> show len
 
 maybeToPrev :: Maybe a -> PrevValue a
 maybeToPrev (Just x) = PrevValue x
@@ -286,6 +366,16 @@ data USUndo = USUndo
     -- ^ 'SlottingData' which should be modified as the result of this rollback
     } deriving (Generic, Show, Eq)
 
+deriveSimpleBi ''USUndo [
+    Cons 'USUndo [
+        Field [| unChangedBV :: HashMap BlockVersion (PrevValue BlockVersionState)                |],
+        Field [| unLastAdoptedBV :: Maybe BlockVersion                                            |],
+        Field [| unChangedProps :: HashMap UpId (PrevValue ProposalState)                         |],
+        Field [| unChangedSV :: HashMap ApplicationName (PrevValue NumSoftwareVersion)            |],
+        Field [| unChangedConfProps :: HashMap SoftwareVersion (PrevValue ConfirmedProposalState) |],
+        Field [| unPrevProposers :: Maybe (HashSet StakeholderId)                                 |],
+        Field [| unSlottingData :: Maybe SlottingData                                             |]
+    ]]
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")

@@ -13,7 +13,7 @@ module Pos.Infra.Communication.Types.Relay
        , RelayLogEvent (..)
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (Wrapped (..), iso)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
@@ -22,6 +22,8 @@ import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
 
 import           Pos.Binary.Class (Bi (..))
+import qualified Pos.Core.Update as U
+import           Pos.Crypto (hash)
 import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have
@@ -64,6 +66,20 @@ instance Typeable tag => Bi (MempoolMsg tag) where
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Generic, Show, Eq)
+
+instance Bi (DataMsg U.UpdateVote) where
+    encode = encode . dmContents
+    decode = DataMsg <$> decode
+
+instance Bi (DataMsg (U.UpdateProposal, [U.UpdateVote])) where
+    encode = encode . dmContents
+    decode = do
+        c@(up, votes) <- decode
+        let !id = hash up
+        -- FIXME don't do this in the decoder.
+        unless (all ((id ==) . U.uvProposalId) votes) $ cborError $
+            "decode@DataMsg@Update: vote's uvProposalId must be equal UpId"
+        pure $ DataMsg c
 
 type InvOrData key contents = Either (InvMsg key) (DataMsg contents)
 

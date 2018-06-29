@@ -19,7 +19,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Binary.Update ()
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..),
                      UpdateData (..), UpdatePayload (..), UpdateProposal,
                      UpdateProposalToSign (..), UpdateVote (..),

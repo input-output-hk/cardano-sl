@@ -19,7 +19,6 @@ import qualified Data.HashSet as HS
 import qualified Ether
 import           System.Wlog (logWarning)
 
-import           Pos.Binary.Update ()
 import           Pos.Core (SoftwareVersion (..), addressHash)
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Crypto (hash)

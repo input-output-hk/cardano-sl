@@ -17,11 +17,6 @@ library
   exposed-modules:
                        Pos.Update
 
-                       -- Binary
-                       Pos.Binary.Update
-                       Pos.Binary.Update.Relay
-                       Pos.Binary.Update.Poll
-
                        -- Aeson
                        Pos.Aeson.Update
 

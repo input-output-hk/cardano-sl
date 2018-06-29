@@ -19,7 +19,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List as List (find)
 import qualified Ether
 
-import           Pos.Binary.Update ()
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))

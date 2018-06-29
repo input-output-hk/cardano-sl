@@ -50,7 +50,7 @@ spec = do
 
       it "can construct and verify chain that spans epochs" $
         let epochSlots = runTranslateNoErrors $ asks (ccEpochSlots . tcCardano)
-        in intAndVerifyPure linearFeePolicy (spanEpochs epochSlots) `shouldSatisfy` expectInvalid
+        in intAndVerifyPure linearFeePolicy (spanEpochs epochSlots) `shouldSatisfy` expectValid
 
     describe "Translation QuickCheck tests" $ do
       prop "can translate randomly generated chains" $
@@ -184,7 +184,7 @@ spanEpochs epochSlots GenesisValues{..} = OldestFirst $
        -> Value         -- r1's current total balance
        -> Int           -- Number of cycles to go
        -> [Block h Addr]
-    go _ _ _ _ _ 0 = []
+    go _ _ _ _ _ 1 = []
     go freshHash r0utxo r1utxo r0balance r1balance n =
         let tPing = ping freshHash       r0utxo r0balance
             tPong = pong (freshHash + 1) r1utxo r1balance
@@ -270,7 +270,7 @@ intAndVerifyChain pc = runTranslateT $ do
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst
-                    $ map Right chain'
+                    $ chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
           (Invalid _ e' , Invalid _ e) -> return $ ExpectedInvalid e' e

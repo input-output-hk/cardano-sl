@@ -18844,6 +18844,7 @@ optparse-applicative
 QuickCheck
 quickcheck-instances
 random
+reflection
 safe-exceptions
 serokell-util
 servant

@@ -242,31 +242,28 @@ pushTx (t, id) = do
         minusStake sm' = foldl' (flip . uncurry $ HM.insertWith (flip unsafeSubCoin)) sm' inputStakes
       in (plusStake . minusStake)
 
+-- | Add an epoch boundary into the context.
+--
+--   This sets the "previous block" header, increased the next slot number, and
+--   increases the epoch.
+pushEpochBoundary :: forall h e m. Monad m => GenesisBlock -> IntT h e m ()
+pushEpochBoundary ebb = put =<< liftTranslateInt . aux =<< get
+  where
+    aux :: IntCtxt h -> TranslateT IntException m (IntCtxt h)
+    aux ic = do
+      nextSlot' <- mapTranslateErrors IntExMkSlot $ translateNextSlot (icNextSlot ic)
+      return $ ic
+        { icNextSlot = nextSlot'
+        , icEpochLeaders = ebb ^. genBlockLeaders
+        , icPrevBlock = BlockHeaderGenesis $ ebb ^. gbHeader
+        , icEpoch = ebb ^. genBlockEpoch
+        }
+
 -- | Add a block into the context
 --
 -- This sets the " previous block " header and increases the next slot number.
 pushBlock :: forall h e m. Monad m => MainBlock -> IntT h e m ()
-pushBlock block = do
-    CardanoContext{..} <- asks tcCardano
-    let pc = genesisProtocolConstantsToProtocolConstants $ gdProtocolConsts ccData
-
-    -- Create an epoch boundary block on the epoch boundary
-    ic <- get
-    when (isEpochBoundary ic) $ do
-        let leaders = give pc $ followTheSatoshi ccEpochSlots boringSharedSeed (HM.toList $ icCrucialStakes ic)
-            sbb = mkGenesisBlock testProtocolMagic (Right $ icPrevBlock ic) (icEpoch ic) leaders
-        nextSlot' <- liftTranslateInt $ mapTranslateErrors IntExMkSlot $ translateNextSlot (icNextSlot ic)
-        put $ ic
-            { icNextSlot = nextSlot'
-            , icEpochLeaders = leaders
-            , icPrevBlock = BlockHeaderGenesis $ sbb ^. gbHeader
-            , icEpoch = nextEpoch $ icEpoch ic
-            }
-
-    s  <- get
-    s' <- liftTranslateInt $ aux s
-    put s'
-
+pushBlock block = put =<< (liftTranslateInt . aux) =<< get
   where
     aux :: IntCtxt h -> TranslateT IntException m (IntCtxt h)
     aux ic = mapTranslateErrors IntExMkSlot $ do
@@ -287,19 +284,6 @@ pushBlock block = do
           }
     isCrucialSlot :: IntCtxt h -> ProtocolConstants -> Bool
     isCrucialSlot s pc = give pc $ icNextSlot s == crucialSlot (icEpoch s)
-    isEpochBoundary s = icEpoch s /= siEpoch (icNextSlot s)
-
-    -- | This is a shared seed which never changes. Obviously it is not an
-    -- accurate reflection of how Cardano works.
-    boringSharedSeed :: SharedSeed
-    boringSharedSeed = SharedSeed "Static shared seed"
-
-    -- | Protocol magic for use in tests.
-    testProtocolMagic :: ProtocolMagic
-    testProtocolMagic = ProtocolMagic 21345
-
-    nextEpoch :: EpochIndex -> EpochIndex
-    nextEpoch (EpochIndex i) = EpochIndex $ i + 1
 
 intHash :: (Monad m, DSL.Hash h Addr)
         => h (DSL.Transaction h Addr) -> IntT h e m TxId
@@ -461,16 +445,45 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
   int :: forall e m. (Monad m)
       => DSL.Block h Addr -> IntT h e m RawResolvedBlock
   int (OldestFirst txs) = do
+      -- Create an epoch boundary block on the epoch boundary
+      ic <- get
+      mebb <- if isEpochBoundary ic
+              then do
+                (pc, slots) <- liftTranslateInt $ do
+                  cc <- asks tcCardano
+                  return ( genesisProtocolConstantsToProtocolConstants . gdProtocolConsts $ ccData cc
+                         , ccEpochSlots cc
+                         )
+                let newLeaders = give pc $ followTheSatoshi slots boringSharedSeed (HM.toList $ icCrucialStakes ic)
+                    newEpoch = nextEpoch $ icEpoch ic
+                    sbb = mkGenesisBlock testProtocolMagic (Right $ icPrevBlock ic) newEpoch newLeaders
+                pushEpochBoundary sbb >> return (Just sbb)
+              else return Nothing
+
       (txs', resolvedTxInputs) <- unpack <$> mapM int txs
       leaders <- gets icEpochLeaders
       prev    <- gets icPrevBlock
       slot    <- gets icNextSlot
       block   <- liftTranslateInt $ mkBlock leaders prev slot txs'
       pushBlock block
-      return $ mkRawResolvedBlock block resolvedTxInputs
+      return $ mkRawResolvedBlock block mebb resolvedTxInputs
     where
       unpack :: [RawResolvedTx] -> ([TxAux], [ResolvedTxInputs])
       unpack = unzip . map (rawResolvedTx &&& rawResolvedTxInputs)
+
+      isEpochBoundary s = icEpoch s /= siEpoch (icNextSlot s)
+
+      -- | This is a shared seed which never changes. Obviously it is not an
+      -- accurate reflection of how Cardano works.
+      boringSharedSeed :: SharedSeed
+      boringSharedSeed = SharedSeed "Static shared seed"
+
+      -- | Protocol magic for use in tests.
+      testProtocolMagic :: ProtocolMagic
+      testProtocolMagic = ProtocolMagic 21345
+
+      nextEpoch :: EpochIndex -> EpochIndex
+      nextEpoch (EpochIndex i) = EpochIndex $ i + 1
 
       mkBlock :: SlotLeaders
               -> BlockHeader
@@ -507,12 +520,15 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
       blockSizeLimit = 2 * 1024 * 1024 -- 2 MB
 
 instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
-  type Interpreted (DSL.Chain h Addr) = OldestFirst [] MainBlock
+  type Interpreted (DSL.Chain h Addr) = OldestFirst [] Block
 
   int :: forall e m. (Monad m)
-      => DSL.Chain h Addr -> IntT h e m (OldestFirst [] MainBlock)
-  int (OldestFirst blocks) = OldestFirst <$>
-      mapM (fmap rawResolvedBlock . int) blocks
+      => DSL.Chain h Addr -> IntT h e m (OldestFirst [] Block)
+  int (OldestFirst blocks) = OldestFirst . join <$>
+      mapM (fmap blockWithBoundary . int) blocks
+    where
+      blockWithBoundary (UnsafeRawResolvedBlock block Nothing _) = [Right block]
+      blockWithBoundary (UnsafeRawResolvedBlock block (Just ebb) _ ) = [Left ebb, Right block]
 
 {-------------------------------------------------------------------------------
   Auxiliary

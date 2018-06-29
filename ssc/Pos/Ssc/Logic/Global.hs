@@ -21,8 +21,9 @@ import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)
 import           Pos.Ssc.Seed (calculateSeed)
 import           Pos.Ssc.Types (sgsCommitments, sgsOpenings, sgsShares, sgsVssCertificates)
 import qualified Pos.Ssc.VssCertData as VCD
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem)
+import           Pos.Util.Trace.Named (TraceNamed)
+import qualified Pos.Util.Trace.Named as TN 
+
 
 ----------------------------------------------------------------------------
 -- Seed
@@ -36,7 +37,7 @@ sscCalculateSeed
        , HasLrcContext ctx
        , MonadIO m
        )
-    => Trace m LogItem
+    => TraceNamed m 
     -> EpochIndex
     -> m (Either SscSeedError SharedSeed)
 sscCalculateSeed logTrace epoch = do
@@ -45,7 +46,7 @@ sscCalculateSeed logTrace epoch = do
     -- calculating the seed for N+1-th epoch, we should still use data from
     -- N-th epoch.
     richmen <- getSscRichmen "sscCalculateSeed" (epoch - 1)
-    sscRunGlobalQuery $ sscCalculateSeedQ richmen logTrace
+    sscRunGlobalQuery $ sscCalculateSeedQ richmen (TN.named logTrace)
 
 sscCalculateSeedQ
     :: RichmenStakes

@@ -55,8 +55,10 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
                                 sscGlobal)
 import           Pos.Util.Trace (Trace, natTrace)
-import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
+--import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
+import qualified Pos.Util.Trace.Named as TN
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
@@ -64,7 +66,7 @@ import           Pos.Util.Trace.Writer (writerTrace)
 sscGetLocalPayload
     :: forall ctx m.
        (MonadIO m, MonadSscMem ctx m, HasProtocolConstants)
-    => Trace m LogItem -> SlotId -> m SscPayload
+    => TraceNamed m -> SlotId -> m SscPayload
 sscGetLocalPayload logTrace si = sscRunLocalQuery (sscGetLocalPayloadQ si logTrace)
 
 sscGetLocalPayloadQ
@@ -75,7 +77,7 @@ sscGetLocalPayloadQ SlotId {..} logTrace = do
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <- 
         if expectedEpoch == siEpoch then pure True
-        else False <$ lift (logWarning logTrace warningMsg)
+        else False <$ lift (TN.logWarning logTrace warningMsg)
     magnify' ldModifier $
         getPayload isExpected <*> getCertificates isExpected
   where
@@ -102,7 +104,7 @@ sscNormalize
        , MonadIO m
        , Rand.MonadRandom m
        )
-    => Trace m LogItem
+    => Trace m TN.LogItem
     -> ProtocolMagic -> m ()
 sscNormalize logTrace pm = do
     tipEpoch <- view epochIndexL <$> getTipHeader
@@ -156,7 +158,7 @@ sscIsDataUseful
        , HasGenesisData
        , HasProtocolConstants
        )
-    => Trace m LogItem -> SscTag -> StakeholderId -> m Bool
+    => Trace m TN.LogItem -> SscTag -> StakeholderId -> m Bool
 sscIsDataUseful logTrace tag id =
     ifM
         (maybe False (isGoodSlotForTag tag . siSlot) <$> getCurrentSlot)
@@ -192,7 +194,7 @@ type SscDataProcessingMode ctx m =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCommitment
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => TraceNamed m  
     -> ProtocolMagic
     -> SignedCommitment
     -> m (Either SscVerifyError ())
@@ -204,7 +206,7 @@ sscProcessCommitment logTrace pm comm =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => TraceNamed m  
     -> ProtocolMagic
     -> StakeholderId
     -> Opening
@@ -217,7 +219,7 @@ sscProcessOpening logTrace pm id opening =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => TraceNamed m 
     -> ProtocolMagic
     -> StakeholderId
     -> InnerSharesMap
@@ -230,7 +232,7 @@ sscProcessShares logTrace pm id shares =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => TraceNamed m  
     -> ProtocolMagic
     -> VssCertificate
     -> m (Either SscVerifyError ())
@@ -240,7 +242,7 @@ sscProcessCertificate logTrace pm cert =
 
 sscProcessData
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem 
+    => TraceNamed m  
     -> ProtocolMagic
     -> SscTag
     -> SscPayload
@@ -258,7 +260,7 @@ sscProcessData logTrace pm tag payload =
                 let logTrace' = contramap DList.singleton writerTrace
                 gs <- sscRunGlobalQuery ask
                 ExceptT $
-                    sscRunLocalSTM logTrace $
+                    sscRunLocalSTM (TN.named logTrace) $
                     executeMonadBaseRandom seed $
                     sscProcessDataDo logTrace' pm (epoch, richmen) bvd gs payload
   where
@@ -275,7 +277,7 @@ sscProcessData logTrace pm tag payload =
 sscProcessDataDo
     :: (MonadState SscLocalData m, HasGenesisData
       , Rand.MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem 
+    => Trace m TN.LogItem 
     -> ProtocolMagic
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData

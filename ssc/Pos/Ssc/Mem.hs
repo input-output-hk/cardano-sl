@@ -35,6 +35,8 @@ import qualified Data.DList as DList
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState, sscGlobal, sscLocal)
 import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Trace.Unstructured (LogItem)
+import           Pos.Util.Trace.Named (TraceNamed)
+--import qualified Pos.Util.Trace.Named as TN
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
@@ -64,7 +66,7 @@ syncingStateWith var action = do
 ----------------------------------------------------------------------------
 
 type SscLocalQuery a = forall m . Monad m =>
-    Trace m LogItem ->
+    TraceNamed m  ->
     ReaderT SscLocalData m a
 
 type SscLocalUpdate a =

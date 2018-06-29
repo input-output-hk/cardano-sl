@@ -56,10 +56,7 @@ import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
 import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc, scVssKeyPair,
                                 sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
---import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem)
-import qualified Pos.Util.Trace.Unstructured as TU
+
 import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Util.Trace.Named as TN
 import           Pos.Util.Util (getKeys, leftToPanic)
@@ -105,7 +102,7 @@ onNewSlotSsc logTrace0 pm = \diffusion -> onNewSlotNoLogging defaultOnNewSlotPar
             onNewSlotShares logTraceU pm (sbSendShares behavior) slotId (sendSscShares diffusion)
     where
     logTrace = TN.appendName "newslot" logTrace0
-    logTraceU = TN.named logTrace
+    logTraceU = {-TN.named-} logTrace
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
@@ -127,7 +124,7 @@ checkNSendOurCert logTrace pm sendCert = do
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
             ourVssCertificate <- getOurVssCertificate slot
-            sscProcessOurMessage logTraceU (sscProcessCertificate logTraceU pm ourVssCertificate)
+            sscProcessOurMessage logTrace (sscProcessCertificate logTrace pm ourVssCertificate)
             _ <- sendCert ourVssCertificate
             TN.logDebugS logTrace "Announced our VssCertificate."
 
@@ -145,7 +142,7 @@ checkNSendOurCert logTrace pm sendCert = do
                     | otherwise -> sendCertDo True sl
                 Nothing -> sendCertDo False sl
   where
-    logTraceU = TN.named logTrace
+    --logTraceU = TN.named logTrace
     getOurVssCertificate :: SlotId -> m VssCertificate
     getOurVssCertificate slot =
         -- TODO: do this optimization
@@ -206,15 +203,15 @@ onNewSlotCommitment logTrace pm slotId@SlotId {..} sendCommitment
               sendOurCommitment comm
 
     sendOurCommitment comm = do
-        sscProcessOurMessage logTraceU (sscProcessCommitment logTraceU pm comm)
-        sendOurData logTraceU sendCommitment CommitmentMsg comm siEpoch 0
-    logTraceU = TN.named logTrace
+        sscProcessOurMessage logTrace (sscProcessCommitment logTrace pm comm)
+        sendOurData logTrace sendCommitment CommitmentMsg comm siEpoch 0
+    --logTraceU = TN.named logTrace
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: ( SscMode ctx m
        )
-    => Trace m LogItem
+    => TraceNamed m 
     -> ProtocolMagic
     -> SscOpeningParams
     -> SlotId
@@ -227,9 +224,9 @@ onNewSlotOpening logTrace pm params SlotId {..} sendOpening
         globalData <- sscGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. sgsCommitments . to getCommitmentsMap . at ourId of
-                Nothing -> TU.logDebugS logTrace noCommMsg
+                Nothing -> TN.logDebugS logTrace noCommMsg
                 Just _  -> SS.getOurOpening siEpoch >>= \case
-                    Nothing   -> TU.logWarningS logTrace noOpenMsg
+                    Nothing   -> TN.logWarningS logTrace noOpenMsg
                     Just open -> sendOpeningDo ourId open
   where
     noCommMsg =
@@ -250,7 +247,7 @@ onNewSlotOpening logTrace pm params SlotId {..} sendOpening
 onNewSlotShares
     :: ( SscMode ctx m
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> SscSharesParams
     -> SlotId
@@ -264,7 +261,7 @@ onNewSlotShares logTrace pm params SlotId {..} sendShares = do
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- views sscContext scVssKeyPair
-        sendSharesDo ourId =<< getOurShares ourVss logTrace
+        sendSharesDo ourId =<< getOurShares ourVss (TN.named logTrace)
   where
     sendSharesDo ourId shares = do
         let shares' = case params of
@@ -283,18 +280,18 @@ onNewSlotShares logTrace pm params SlotId {..} sendShares = do
 
 sscProcessOurMessage
     :: (Buildable err, SscMode ctx m)
-    => Trace m LogItem -> m (Either err ()) -> m ()
+    => TraceNamed m -> m (Either err ()) -> m ()
 sscProcessOurMessage logTrace action =
     action >>= logResult
   where
-    logResult (Right _) = TU.logDebugS logTrace "We have accepted our message"
+    logResult (Right _) = TN.logDebugS logTrace "We have accepted our message"
     logResult (Left er) =
-        TU.logWarningS logTrace $
+        TN.logWarningS logTrace $
         sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData
     :: SscMode ctx m
-    => Trace m LogItem
+    => TraceNamed m 
     -> (contents -> m ())
     -> SscTag
     -> contents
@@ -306,9 +303,9 @@ sendOurData logTrace sendIt msgTag dt epoch slMultiplier = do
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend logTrace msgTag epoch slMultiplier
-    TU.logInfoS logTrace $ sformat ("Announcing our "%build) msgTag
+    TN.logInfoS logTrace $ sformat ("Announcing our "%build) msgTag
     _ <- sendIt dt
-    TU.logDebugS logTrace $ sformat ("Sent our " %build%" to neighbors") msgTag
+    TN.logDebugS logTrace $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.
@@ -383,7 +380,7 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: SscMode ctx m
-    => Trace m LogItem -> SscTag -> EpochIndex -> Word16 -> m ()
+    => TraceNamed m -> SscTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend logTrace msgTag epoch slMultiplier = do
     let slot =
             leftToPanic "waitUntilSend: " $
@@ -399,7 +396,7 @@ waitUntilSend logTrace msgTag epoch slMultiplier = do
         timeToWait <- randomTimeInInterval delta
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
-        TU.logDebugS logTrace $
+        TN.logDebugS logTrace $
             sformat
                 ("Waiting for " %shown % " before sending " %build)
                 ttwMillisecond

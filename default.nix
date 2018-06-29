@@ -151,12 +151,16 @@ let
     in
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
-    shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
-    swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
-    buildWalletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+    tests = {
+      shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
+      stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { src = ./.; stylish-haskell = cardanoPkgs.stylish-haskell; };
+      buildWalletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+      swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
+    };
+    fixStylishHaskell = pkgs.callPackage ./scripts/haskell/stylish.nix { stylish-haskell = cardanoPkgs.stylish-haskell; };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;

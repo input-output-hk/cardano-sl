@@ -34,6 +34,7 @@ import           Serokell.Util.Text (listBuilderJSON)
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Text as P
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Crypto.Random (runSecureRandom)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
 
@@ -57,9 +58,17 @@ getMeaningPart (DHTKey (HashId bs)) = snd $ BS.splitAt hashPartLength bs
 newtype DHTData = DHTData ()
   deriving (Eq, Ord, Show, Generic)
 
+instance Bi DHTData where
+    encode (DHTData unit) = encode unit
+    decode = DHTData <$> decode
+
 -- | DHT key, 32-byte long (18-byte hash + 14-byte nonce)
 newtype DHTKey = DHTKey { hashNodeId :: HashId }
   deriving (Eq, Ord, Generic)
+
+instance Bi DHTKey where
+    encode (DHTKey (HashId bs)) = encode bs
+    decode = DHTKey . HashId <$> decode
 
 instance Hashable DHTKey where
     hashWithSalt s (DHTKey (HashId bs)) = hashWithSalt s bs

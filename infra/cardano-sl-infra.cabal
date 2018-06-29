@@ -107,8 +107,6 @@ library
                         -- Pos.Infra.Binary
                         Pos.Infra.Binary
                         Pos.Infra.Binary.DHTModel
-                        Pos.Infra.Binary.Slotting
-                        Pos.Infra.Binary.Relay
 
                         -- Pos.Util
                         Pos.Infra.Util.JsonLog.Events

@@ -147,10 +147,8 @@ buildProperTx pm inputList (inCoin, outCoin) =
     newTxHash = hash newTx
     ins  = fmap (view _2) txList
     outs = fmap (view _4) txList
-    mkWitness fromSk = PkWitness
-        { twKey = toPublic fromSk
-        , twSig = sign pm SignTx fromSk TxSigData {
-                      txSigTxHash = newTxHash } }
+    mkWitness fromSk =
+        PkWitness (toPublic fromSk) (sign pm SignTx fromSk $ TxSigData newTxHash)
     makeTxOutput s c =
         TxOut (makePubKeyAddress (IsBootstrapEraAddr True) $ toPublic s) c
 

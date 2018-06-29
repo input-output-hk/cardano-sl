@@ -212,7 +212,7 @@ signatureIsValid
     -> (TxInWitness, Maybe TxOutAux)
     -- ^ input witness + output spent by the input
     -> Bool
-signatureIsValid pm tx (PkWitness{..}, Just TxOutAux{..}) =
+signatureIsValid pm tx (PkWitness twKey twSig, Just TxOutAux{..}) =
     let txSigData = TxSigData
             { txSigTxHash = hash tx }
     in checkPubKeyAddress twKey (txOutAddress toaOut) &&

@@ -8,8 +8,8 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
-import           Control.Concurrent.STM (TBQueue, putTMVar, readTBQueue,
-                     swapTMVar, tryReadTBQueue, tryReadTMVar, tryTakeTMVar)
+import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue,
+                     tryReadTMVar, tryTakeTMVar)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -17,7 +17,6 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -35,7 +34,7 @@ import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
-import           Pos.Infra.Diffusion.Types (Diffusion, StreamEntry (..))
+import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (getBlocks, streamBlocks))
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE,
@@ -331,7 +330,7 @@ streamProcessBlocks
     -> m ()
 streamProcessBlocks pm diffusion nodeId desired checkpoints = do
     logInfo "streaming start"
-    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop 0 [])
+    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
     case r of
          Nothing -> do
              logInfo "streaming not supported, reverting to batch mode"
@@ -340,28 +339,7 @@ streamProcessBlocks pm diffusion nodeId desired checkpoints = do
              logInfo "streaming done"
              return ()
   where
-    loop :: Word32 -> [Block] -> (Word32, Maybe Gauge.Gauge, TBQueue StreamEntry) -> m ()
-    loop !n !blocks (streamWindow, wqgM, blockChan) = do
-        streamEntry <- atomically $ readTBQueue blockChan
-        case streamEntry of
-          StreamEnd         -> addBlocks blocks
-          StreamBlock block -> do
-              let batchSize = min 64 streamWindow
-              let n' = n + 1
-              when (n' `mod` 256 == 0) $
-                     logDebug $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
-                                        (block ^. difficultyL)
-              case wqgM of
-                   Nothing  -> pure ()
-                   Just wqg -> liftIO $ Gauge.dec wqg
-
-              if n' `mod` batchSize == 0
-                 then do
-                     addBlocks (block : blocks)
-                     loop n' [] (streamWindow, wqgM, blockChan)
-                 else
-                     loop n' (block : blocks) (streamWindow, wqgM, blockChan)
-
-    addBlocks [] = return ()
-    addBlocks (block : blocks) =
+    writeCallback :: [Block] -> m ()
+    writeCallback [] = return ()
+    writeCallback (block:blocks) =
         handleBlocks pm (OldestFirst (NE.reverse $ block :| blocks)) diffusion

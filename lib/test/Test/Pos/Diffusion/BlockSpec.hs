@@ -8,8 +8,6 @@ module Test.Pos.Diffusion.BlockSpec
 import           Universum
 
 
-import           Control.Concurrent.STM (readTBQueue)
---import           Control.DeepSeq (NFData, force)
 import           Control.DeepSeq (force)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Lazy as LBS
@@ -39,8 +37,7 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      FullDiffusionInternals (..),
                      RunFullDiffusionInternals (..),
                      diffusionLayerFullExposeInternals)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..),
-                     StreamEntry (..))
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
@@ -208,18 +205,16 @@ blockDownloadBatch serverAddress ~(blockHeader, checkpoints) client =  do
 blockDownloadStream :: NodeId -> IORef Bool -> IORef [Block] -> (Int -> IO ()) -> (HeaderHash, [HeaderHash]) -> Diffusion IO-> IO ()
 blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(blockHeader, checkpoints) client = do
     setStreamIORef 1
-    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (loop (0::Word32) [])
+    recvIORef <- newIORef []
+    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (writeCallback recvIORef)
+
+    expectedBlocks <- readIORef streamIORef
+    recvBlocks <- readIORef recvIORef
+    writeIORef resultIORef $ expectedBlocks == reverse recvBlocks
     return ()
   where
-    loop n recvBlocks (streamWindow, wqgM, blockChan) = do
-        streamEntry <- atomically $ readTBQueue blockChan
-        case streamEntry of
-          StreamEnd         -> do
-              expectedBlocks <- readIORef streamIORef
-              writeIORef resultIORef $ expectedBlocks == reverse recvBlocks
-              return ()
-          StreamBlock !b -> do
-              loop n (b : recvBlocks) (streamWindow, wqgM, blockChan)
+    writeCallback recvBlocks !blocks =
+        modifyIORef' recvBlocks (\d -> blocks <> d)
 
 -- Generate a list of n+1 blocks
 generateBlocks :: Int -> NonEmpty Block

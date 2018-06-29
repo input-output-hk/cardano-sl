@@ -29,7 +29,6 @@ import           Node (Node, NodeAction (..), NodeEnvironment (..),
                      defaultNodeEnvironment, node, simpleNodeEndPoint)
 import           Node.Conversation (Conversation, Converse, converseWith)
 import qualified System.Metrics as Monitoring
-import           System.Metrics.Gauge (Gauge)
 
 import           System.Random (newStdGen)
 
@@ -67,7 +66,7 @@ import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
 import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Infra.Diffusion.Types (Diffusion (..),
-                     DiffusionHealth (..), DiffusionLayer (..), StreamEntry)
+                     DiffusionHealth (..), DiffusionLayer (..))
 import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..),
                      NodeType, SubscriptionWorker (..), initQueue,
                      topologyHealthStatus, topologyRunKademlia,
@@ -358,7 +357,7 @@ diffusionLayerFullExposeInternals fdconf
                         NodeId
                      -> HeaderHash
                      -> [HeaderHash]
-                     -> ((Word32, Maybe Gauge, STM.TBQueue StreamEntry) -> IO t)
+                     -> ([Block] -> IO t)
                      -> IO (Maybe t)
         streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 

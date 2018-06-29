@@ -6,13 +6,11 @@ module Pos.Infra.Diffusion.Types
     , Diffusion (..)
     , hoistDiffusion
     , dummyDiffusionLayer
-    , StreamEntry (..)
     , DiffusionHealth (..)
     ) where
 
 import           Universum
 
-import           Control.Concurrent.STM (TBQueue)
 import           Data.Map.Strict (Map)
 import           Formatting (Format, stext)
 import           System.Metrics.Gauge (Gauge)
@@ -29,11 +27,6 @@ import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 
-
--- | Datatype used for the queue of blocks, produced by network streaming and
--- then consumed by a continuation resonsible for writing blocks to store.
--- StreamEnd signals end of stream.
-data StreamEntry = StreamEnd | StreamBlock !Block
 
 data DiffusionHealth = DiffusionHealth {
     dhStreamWriteQueue :: !Gauge -- Number of blocks stored in the block stream write queue
@@ -54,7 +47,7 @@ data Diffusion m = Diffusion
                             NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> ((Word32, Maybe Gauge, TBQueue StreamEntry) -> m t)
+                         -> ([Block] -> m t)
                          -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.

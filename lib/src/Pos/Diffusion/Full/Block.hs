@@ -29,7 +29,6 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Conversation (sendRaw)
 import           Pipes (await, runEffect, (>->))
 import           Serokell.Util.Text (listJson)
-import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
@@ -44,7 +43,7 @@ import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgStreamBlock)
 import           Pos.Communication.Message ()
 import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
-                     bvdSlotDuration, headerHash, prevBlockL)
+                     bvdSlotDuration, difficultyL, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
                      blockHeader)
 import           Pos.Crypto (shortHashF)
@@ -57,8 +56,7 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
                      MkListeners (..), MsgType (..), NodeId, Origin (..),
                      OutSpecs, constantListeners, recvLimited,
                      waitForConversations, waitForDequeues)
-import           Pos.Infra.Diffusion.Types (DiffusionHealth (..),
-                     StreamEntry (..))
+import           Pos.Infra.Diffusion.Types (DiffusionHealth (..))
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
@@ -275,6 +273,11 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
               Just (MsgBlock block) -> do
                   retrieveBlocksDo conv bvd (i - 1) (block : acc)
 
+-- | Datatype used for the queue of blocks, produced by network streaming and
+-- then consumed by a continuation resonsible for writing blocks to store.
+-- StreamEnd signals end of stream.
+data StreamEntry = StreamEnd | StreamBlock !Block
+
 -- | Stream some blocks from the network.
 -- Returns Nothing if streaming is disabled by the client or not supported by the peer.
 streamBlocks
@@ -287,15 +290,15 @@ streamBlocks
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
-    -> ((Word32, Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
+    -> ([Block] -> IO t)
     -> IO (Maybe t)
 streamBlocks _        _   _     0            _       _      _         _           _ = return Nothing -- Fallback to batch mode
 streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
-    let wqgM = dhStreamWriteQueue <$> smM
+    let batchSize = min 64 streamWindow
     fallBack <- atomically $ Conc.newTVar False
     requestVar <- requestBlocks fallBack blockChan
-    r <- k (streamWindow, wqgM, blockChan) `finally` (atomically $ do
+    r <- processBlocks batchSize 0 [] blockChan `finally` (atomically $ do
         status <- Conc.readTVar requestVar
         case status of
              OQ.PacketAborted -> pure (pure ())
@@ -307,6 +310,28 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
     if r' then pure Nothing
           else pure $ Just r
   where
+
+    processBlocks :: Word32 -> Word32 -> [Block] -> Conc.TBQueue StreamEntry -> IO t
+    processBlocks batchSize !n !blocks blockChan = do
+        streamEntry <- atomically $ Conc.readTBQueue blockChan
+        case streamEntry of
+             StreamEnd         -> k blocks
+             StreamBlock block -> do
+                 let n' = n + 1
+                 when (n' `mod` 256 == 0) $
+                      traceWith logTrace (Debug,
+                           sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
+                                   (block ^. difficultyL))
+                 case smM of
+                      Nothing -> pure ()
+                      Just sm -> liftIO $ Gauge.dec $ dhStreamWriteQueue sm
+
+                 if n' `mod` batchSize == 0
+                     then do
+                         _ <- k (block : blocks)
+                         processBlocks batchSize n' [] blockChan
+                     else
+                         processBlocks batchSize n' (block : blocks) blockChan
 
     writeStreamEnd :: Conc.TBQueue StreamEntry -> IO ()
     writeStreamEnd blockChan = atomically $ Conc.writeTBQueue blockChan StreamEnd

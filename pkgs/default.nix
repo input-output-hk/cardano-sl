@@ -14690,6 +14690,7 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-sl-delegation
 , cardano-sl-delegation-test
 , cardano-sl-infra
+, cardano-sl-infra-test
 , cardano-sl-lrc
 , cardano-sl-lrc-test
 , cardano-sl-networking
@@ -14895,6 +14896,7 @@ cardano-sl-db
 cardano-sl-delegation
 cardano-sl-delegation-test
 cardano-sl-infra
+cardano-sl-infra-test
 cardano-sl-lrc
 cardano-sl-lrc-test
 cardano-sl-networking
@@ -16690,7 +16692,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-report-server
 , cardano-sl-binary
 , cardano-sl-core
-, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-networking
@@ -16708,7 +16709,6 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
-, generic-arbitrary
 , hashable
 , hspec
 , http-client
@@ -16762,7 +16762,6 @@ bytestring
 cardano-report-server
 cardano-sl-binary
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-networking
@@ -16779,7 +16778,6 @@ ether
 exceptions
 filepath
 formatting
-generic-arbitrary
 hashable
 http-client
 http-client-tls
@@ -16794,7 +16792,6 @@ network-transport
 network-transport-tcp
 optparse-applicative
 parsec
-QuickCheck
 reflection
 safe-exceptions
 serokell-util
@@ -16838,9 +16835,11 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-util-test
 , containers
+, generic-arbitrary
 , hedgehog
 , kademlia
 , memory
+, QuickCheck
 , stdenv
 , universum
 }:
@@ -16858,9 +16857,11 @@ cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-util-test
 containers
+generic-arbitrary
 hedgehog
 kademlia
 memory
+QuickCheck
 universum
 ];
 doHaddock = false;
@@ -17833,6 +17834,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
+, cardano-sl-infra-test
 , cardano-sl-update
 , cardano-sl-util-test
 , containers
@@ -17855,6 +17857,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
+cardano-sl-infra-test
 cardano-sl-update
 cardano-sl-util-test
 containers

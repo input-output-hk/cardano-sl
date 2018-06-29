@@ -16,7 +16,6 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
@@ -27,6 +26,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..),
                      UndecidedProposalState (..), UpsExtra (..))
 
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Slotting ()
 import           Test.Pos.Update.Arbitrary.Core ()
 import           Test.Pos.Util.Modifier ()
 

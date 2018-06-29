@@ -307,6 +307,7 @@ test-suite cardano-test
                      , cardano-sl-delegation
                      , cardano-sl-delegation-test
                      , cardano-sl-infra
+                     , cardano-sl-infra-test
                      , cardano-sl-lrc
                      , cardano-sl-lrc-test
                      , cardano-sl-networking

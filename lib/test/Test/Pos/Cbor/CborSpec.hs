@@ -23,7 +23,6 @@ import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Ssc ()
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)

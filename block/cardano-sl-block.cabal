@@ -139,6 +139,7 @@ test-suite test
                        Spec
                        Test.Pos.Block.Arbitrary
                        Test.Pos.Block.Arbitrary.Message
+                       Test.Pos.Block.BlockSpec
                        Test.Pos.Block.CborSpec
                        Test.Pos.Block.SafeCopySpec
 

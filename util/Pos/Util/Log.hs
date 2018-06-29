@@ -41,6 +41,8 @@ import           Universum
 import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
+--import           UnliftIO (MonadUnliftIO, unliftIO)
+--import           UnliftIO.Exception (bracket)
 -- import           Control.Monad.Writer (WriterT (..))
 
 import           Pos.Util.Log.Severity (Severity (..))
@@ -234,7 +236,7 @@ loggerBracket lh name f = do
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
             Just le -> bracket (return le) K.closeScribes $
-                          \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
+                \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 -- | for compatibility (TODO check if still referenced)
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO LoggingHandler

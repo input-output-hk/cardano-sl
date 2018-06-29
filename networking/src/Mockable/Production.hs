@@ -23,7 +23,7 @@ import qualified GHC.IO as GHC
 import qualified System.Metrics.Counter as EKG.Counter
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge as EKG.Gauge
---import           Pos.Util.Log (CanLog (..), HasLoggerName (..))
+--import           Pos.Util.Log (CanLog (..))
 
 import           Control.Monad.Base (MonadBase (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))

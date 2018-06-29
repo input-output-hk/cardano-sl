@@ -57,6 +57,7 @@ module Pos.Util.Util
        , multilineBounds
        , logException
        , bracketWithLogging
+       , bracketWithTrace
 
        -- * Misc
        , mconcatPair
@@ -104,6 +105,7 @@ import qualified Formatting as F
 import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
 import qualified Pos.Util.Log as Log
+import qualified Pos.Util.Trace.Named as TN
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
@@ -350,6 +352,24 @@ bracketWithLogging msg acquire release = bracket acquire release . addLogging
         Log.logInfo $ "<bracketWithLogging:before> " <> msg
         callback resource <*
             Log.logInfo ("<bracketWithLogging:after> " <> msg)
+
+-- | 'bracket' which logs given message after acquiring the resource
+-- and before calling the callback with 'Info' severity.
+bracketWithTrace
+    :: (MonadMask m)
+    => TN.TraceNamed m
+    -> Text
+    -> m a
+    -> (a -> m b)
+    -> (a -> m c)
+    -> m c
+bracketWithTrace logTrace msg acquire release =
+  bracket acquire release . addLogging
+  where
+    addLogging callback resource = do
+        TN.logInfo logTrace $ "<bracketWithTrace:before> " <> msg
+        callback resource <*
+            TN.logInfo logTrace ("<bracketWithTrace:after> " <> msg)
 
 ----------------------------------------------------------------------------
 -- Misc

@@ -9,7 +9,7 @@ module Pos.Ssc.State
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Pos.Util.Log (WithLogger)
+--import           Pos.Util.Log (WithLogger)
 
 import           Pos.DB (MonadDBRead)
 import           Pos.Infra.Slotting.Class (MonadSlots)
@@ -19,14 +19,16 @@ import           Pos.Ssc.Types (SscState (..))
 import           Pos.Ssc.State.Global
 import           Pos.Ssc.State.Local
 
+import           Pos.Util.Trace.Named (TraceNamed)
+
 mkSscState
     :: forall ctx m .
-       ( WithLogger m
-       , MonadDBRead m
+       ( MonadDBRead m
        , MonadSlots ctx m
        )
-    => m SscState
-mkSscState = do
-    gState <- sscLoadGlobalState
+    => TraceNamed m
+    -> m SscState
+mkSscState logTrace = do
+    gState <- sscLoadGlobalState logTrace
     ld <- sscNewLocalData
     liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld

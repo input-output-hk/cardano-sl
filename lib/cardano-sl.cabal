@@ -262,9 +262,6 @@ test-suite cardano-test
                        -- Standard module with some magic
                        Spec
 
-                       -- Pos.Block testing
-                       Test.Pos.Block.Identity.SafeCopySpec
-
                        Test.Pos.Slotting.TypesSpec
 
                        -- Ssc

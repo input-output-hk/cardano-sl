@@ -140,6 +140,7 @@ test-suite test
                        Test.Pos.Block.Arbitrary
                        Test.Pos.Block.Arbitrary.Message
                        Test.Pos.Block.CborSpec
+                       Test.Pos.Block.SafeCopySpec
 
   build-depends:       base
                      , bytestring

@@ -1,6 +1,4 @@
-{-# LANGUAGE TypeApplications          #-}
-
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Pos.Block.CborSpec
        ( spec
@@ -14,7 +12,8 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import qualified Pos.Block.Network as Core
 import qualified Pos.Block.Types as Block
 import qualified Pos.Core.Block as Core
-import           Pos.Core.Configuration (withGenesisSpec, defaultCoreConfiguration)
+import           Pos.Core.Configuration (defaultCoreConfiguration,
+                     withGenesisSpec)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Block.Arbitrary.Message ()

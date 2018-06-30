@@ -65,10 +65,11 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithTrace, newInitFuture)
-import           Pos.Util.Log (WithLogger, LoggerConfig (..), LoggerName, LoggingHandler (..), logDebug, logInfo)
-import qualified Pos.Util.Log as Log (LogContextT, loggerBracket, parseLoggerConfig,
+import           Pos.Util.Log (LogContextT, LoggerConfig (..), LoggerName,
+                     LoggingHandler (..), WithLogger, logDebug, logInfo)
+import qualified Pos.Util.Log as Log (loggerBracket, parseLoggerConfig,
                      setupLogging)
-import           Pos.Util.Trace (noTrace, natTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Util.Trace.Named as TN (logDebug, logInfo, logWarning)
 
@@ -79,9 +80,10 @@ import qualified System.Systemd.Daemon as Systemd
 
 import qualified Pos.Util.Log.Internal as Internal
 
+import           Control.Monad.Trans.Reader (mapReaderT)
 import qualified Katip as K
 import qualified Katip.Core as KC
-
+import qualified Katip.Monadic as KM
 ----------------------------------------------------------------------------
 -- Data type
 ----------------------------------------------------------------------------
@@ -252,23 +254,26 @@ getRealLoggerConfig LoggingParams{..} =
 -}
 
 -- | RAII for Logging.   TODO  make use of Trace!!
-loggerBracket :: (MonadIO m, WithLogger n) => LoggingParams -> n a -> m a
+loggerBracket :: (MonadIO m) => LoggingParams -> LogContextT Production a -> m a
 --loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 loggerBracket params action = do
     lh <- liftIO $ Log.setupLogging =<< getRealLoggerConfig params
-    liftIO $ loggerBracket' lh (lpDefaultName params) $
-      action
+    liftIO $ Log.loggerBracket lh (lpDefaultName params) $
+        (natLogContextT action)
+
+natLogContextT :: K.KatipContextT Production a -> K.KatipContextT IO a
+natLogContextT (KM.KatipContextT p) = KM.KatipContextT $ mapReaderT runProduction p
 
 demo_action :: Int -> Production ()
 demo_action _ = return ()
 
-loggerBracket' :: LoggingHandler -> LoggerName -> Log.LogContextT Production a -> IO a
-loggerBracket' lh name f = do
-    mayle <- Internal.getLogEnv lh
-    case mayle of
-            Nothing -> error "logging not yet initialized. Abort."
-            Just le -> bracket (return le) K.closeScribes $
-                \le_ -> runProduction $ K.runKatipContextT le_ () (Internal.s2kname name) $ f
+-- loggerBracket' :: LoggingHandler -> LoggerName -> (LogContextT Production) a -> Production a
+-- loggerBracket' lh name f = do
+--     mayle <- liftIO $ Internal.getLogEnv lh
+--     case mayle of
+--             Nothing -> error "logging not yet initialized. Abort."
+--             Just le -> liftIO $ bracket (return le) K.closeScribes $
+--                 \le_ -> runProduction $ K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 
 ----------------------------------------------------------------------------

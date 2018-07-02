@@ -41,12 +41,12 @@ data GenesisConfiguration
       -- | Genesis from a 'GenesisSpec'.
     = GCSpec !GenesisSpec
       -- | 'GenesisData' is stored in a file.
-    | GCSrc !FilePath
+    | GCSrc { gcsFile :: !FilePath
             -- ^ Path to file where 'GenesisData' is stored. Must be
             -- in JSON, not necessary canonical.
-            !(Hash Raw)
+            , gcsHash :: !(Hash Raw)
             -- ^ Hash of canonically encoded 'GenesisData'.
-
+            }
     deriving (Show)
 
 data CoreConfiguration = CoreConfiguration

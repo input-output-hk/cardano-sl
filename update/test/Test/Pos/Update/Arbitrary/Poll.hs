@@ -17,7 +17,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Binary.Update ()
-import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types (BlockVersionState (..),
@@ -34,7 +33,7 @@ instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary UndecidedProposalState where
+instance Arbitrary UndecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -42,7 +41,7 @@ instance Arbitrary DpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary DecidedProposalState where
+instance Arbitrary DecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -50,7 +49,7 @@ instance Arbitrary ConfirmedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary ProposalState  where
+instance Arbitrary ProposalState  where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -58,17 +57,17 @@ instance Arbitrary BlockVersionState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary PollModifier where
+instance Arbitrary PollModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary PollState where
+instance Arbitrary PollState where
     arbitrary = do
         ps <- genericArbitrary
         return (ps & psActivePropsIdx %~ HM.filter (not . null))
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary USUndo where
+instance Arbitrary USUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

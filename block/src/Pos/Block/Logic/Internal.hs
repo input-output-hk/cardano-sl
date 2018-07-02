@@ -38,10 +38,11 @@ import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply,
                      MonadSlogBase, ShouldCallBListener, slogApplyBlocks,
                      slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
-                     gbHeader, headerHash, mainBlockDlgPayload,
-                     mainBlockSscPayload, mainBlockTxPayload,
-                     mainBlockUpdatePayload)
+import           Pos.Core (ComponentBlock (..), IsGenesisHeader,
+                     ProtocolConstants, epochIndexL, gbHeader, headerHash,
+                     mainBlockDlgPayload, mainBlockSscPayload,
+                     mainBlockTxPayload, mainBlockUpdatePayload,
+                     pcBlkSecurityParam, pcEpochSlots)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -128,13 +129,13 @@ type MonadMempoolNormalization ctx m
       )
 
 -- | Normalize mempool.
-normalizeMempool :: MonadMempoolNormalization ctx m => ProtocolMagic -> m ()
-normalizeMempool pm = do
+normalizeMempool :: MonadMempoolNormalization ctx m => ProtocolMagic -> ProtocolConstants -> m ()
+normalizeMempool pm pc = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize pm
-    txpNormalize pm
+    sscNormalize pm pc
+    txpNormalize pm (pcEpochSlots pc)
     usNormalize
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
@@ -147,11 +148,12 @@ applyBlocksUnsafe
        , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> ProtocolConstants
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksUnsafe pm scb blunds pModifier = do
+applyBlocksUnsafe pm pc scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -171,7 +173,7 @@ applyBlocksUnsafe pm scb blunds pModifier = do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksDbUnsafeDo pm scb x pModifier
+    app x = applyBlocksDbUnsafeDo pm pc scb x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
@@ -181,22 +183,23 @@ applyBlocksDbUnsafeDo
        , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> ProtocolConstants
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksDbUnsafeDo pm scb blunds pModifier = do
+applyBlocksDbUnsafeDo pm pc scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
-    slogBatch <- slogApplyBlocks scb blunds
+    slogBatch <- slogApplyBlocks (pcBlkSecurityParam pc) scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks pm (map toUpdateBlock blocks) pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks pm (pcBlkSecurityParam pc) (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks pm (map toSscBlock blocks) Nothing
+        sscApplyBlocks pm pc (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -211,19 +214,20 @@ applyBlocksDbUnsafeDo pm scb blunds pModifier = do
 rollbackBlocksUnsafe
     :: MonadBlockApply ctx m
     => ProtocolMagic
+    -> ProtocolConstants
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m ()
-rollbackBlocksUnsafe pm bsc scb toRollback = do
-    slogRoll <- slogRollbackBlocks bsc scb toRollback
+rollbackBlocksUnsafe pm pc bsc scb toRollback = do
+    slogRoll <- slogRollbackBlocks pc bsc scb toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (map toDlgBlund toRollback)
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (pcEpochSlots pc)
         (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll

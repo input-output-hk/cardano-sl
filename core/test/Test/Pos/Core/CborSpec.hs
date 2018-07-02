@@ -79,7 +79,7 @@ instance Bi (Attributes X2) where
 
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
+spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ _ ->
     describe "Cbor Bi instances" $ do
         describe "Core.Address" $ do
             binaryTest @Address

@@ -55,6 +55,7 @@ import qualified Servant
 import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 
 import           Pos.Context (HasNodeContext)
+import           Pos.Core (BlockCount, ProtocolConstants)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util (lensOf)
 
@@ -122,10 +123,11 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     => ProtocolMagic
+                    -> ProtocolConstants
                     -> WalletBackendParams
                     -> TVar NtpStatus
                     -> Plugin WalletWebMode
-legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
+legacyWalletBackend pm pc WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
       logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
@@ -155,6 +157,7 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
               Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer
                 (V0.convertHandler ctx)
                 pm
+                pc
                 diffusion
                 ntpStatus
                 walletRunMode
@@ -162,6 +165,7 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
               Servant.serve API.walletAPI $ LegacyServer.walletServer
                 (V0.convertHandler ctx)
                 pm
+                pc
                 diffusion
                 ntpStatus
 
@@ -237,19 +241,23 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, pa
     lower env = runProduction . (`runReaderT` env)
 
 -- | A @Plugin@ to resubmit pending transactions.
-resubmitterPlugin :: HasConfigurations => ProtocolMagic -> Plugin WalletWebMode
-resubmitterPlugin pm = [\diffusion -> askWalletDB >>= \db ->
-                        startPendingTxsResubmitter pm db (sendTx diffusion)]
+resubmitterPlugin
+    :: HasConfigurations
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> Plugin WalletWebMode
+resubmitterPlugin pm pc = [\diffusion -> askWalletDB >>= \db ->
+                        startPendingTxsResubmitter pm pc db (sendTx diffusion)]
 
 -- | A @Plugin@ to notify frontend via websockets.
 notifierPlugin :: HasConfigurations => Plugin WalletWebMode
 notifierPlugin = [const V0.notifierPlugin]
 
 -- | The @Plugin@ responsible for the restoration & syncing of a wallet.
-syncWalletWorker :: HasConfigurations => Plugin WalletWebMode
-syncWalletWorker = pure $ const $
+syncWalletWorker :: HasConfigurations => BlockCount -> Plugin WalletWebMode
+syncWalletWorker k = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
-    (view (lensOf @SyncQueue) >>= processSyncRequest)
+    (view (lensOf @SyncQueue) >>= processSyncRequest k)
 
 -- | "Attaches" the middleware to this 'Application', if any.
 -- When running in debug mode, chances are we want to at least allow CORS to test the API

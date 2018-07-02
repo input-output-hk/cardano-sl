@@ -49,6 +49,8 @@ import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
 import           UTxO.Translate
 
+import           Test.Pos.Core.Dummy (dummyK)
+
 {-------------------------------------------------------------------------------
   Errors that may occur during interpretation
 -------------------------------------------------------------------------------}
@@ -396,6 +398,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
           withConfig $
             createMainBlockPure
               pm
+              dummyK
               blockSizeLimit
               prev
               (Just (bsiPSK, bsiLeader))
@@ -403,7 +406,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
               bsiKey
               (RawPayload
                   (toList ts)
-                  (defaultSscPayload (siSlot slotId)) -- TODO
+                  (defaultSscPayload dummyK (siSlot slotId)) -- TODO
                   dlgPayload
                   updPayload
                 )

@@ -16,7 +16,7 @@ import qualified System.Metrics as Ekg
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQSec)
 import           Pos.Block.Slog.Types (HasSlogGState (..), LastBlkSlots,
                      SlogContext (..), SlogGState (..), sgsLastBlkSlots)
-import           Pos.Core (blkSecurityParam)
+import           Pos.Core (BlockCount)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.GState.BlockExtra (getLastSlots)
 import           Pos.Infra.Reporting (MetricMonitorState, mkMetricMonitorState)
@@ -29,19 +29,19 @@ mkSlogGState = do
     return SlogGState {..}
 
 -- | Make new 'SlogContext' using data from DB.
-mkSlogContext ::
-    forall m. (MonadIO m, MonadDBRead m, HasBlockConfiguration)
-    => Ekg.Store
+mkSlogContext
+    :: forall m
+     . (MonadIO m, MonadDBRead m, HasBlockConfiguration)
+    => BlockCount
+    -> Ekg.Store
     -> m SlogContext
-mkSlogContext store = do
+mkSlogContext k store = do
     _scGState <- mkSlogGState
 
     let mkMMonitorState :: Text -> m (MetricMonitorState a)
         mkMMonitorState = flip mkMetricMonitorState store
     -- Chain quality metrics stuff.
-    let metricNameK =
-            sformat ("chain_quality_last_k_("%int%")_blocks_%")
-                blkSecurityParam
+    let metricNameK = sformat ("chain_quality_last_k_("%int%")_blocks_%") k
     let metricNameOverall = "chain_quality_overall_%"
     let metricNameFixed =
             sformat ("chain_quality_last_"%int%"_sec_%")

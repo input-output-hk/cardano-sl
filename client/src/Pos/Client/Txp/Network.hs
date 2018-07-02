@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy,
                      createMTx, createRedemptionTx)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Types (InvOrDataTK)
-import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
+import           Pos.Core (Address, Coin, SlotCount, makeRedeemAddress, mkCoin,
                      unsafeAddCoin)
 import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..),
                      txaF)
@@ -52,6 +52,7 @@ type TxMode m
 prepareMTx
     :: TxMode m
     => ProtocolMagic
+    -> SlotCount
     -> (Address -> Maybe SafeSigner)
     -> PendingAddresses
     -> InputSelectionPolicy
@@ -59,9 +60,10 @@ prepareMTx
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-prepareMTx pm hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
+prepareMTx pm epochSlots hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
-    eitherToThrow =<< createMTx pm pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
+    eitherToThrow =<<
+        createMTx pm epochSlots pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

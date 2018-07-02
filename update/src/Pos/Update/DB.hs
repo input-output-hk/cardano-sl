@@ -51,9 +51,9 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (serialize')
 import           Pos.Binary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty,
-                     HasCoreConfiguration, NumSoftwareVersion, SlotId,
-                     SoftwareVersion (..), StakeholderId, TimeDiff (..),
-                     epochSlots)
+                     HasCoreConfiguration, NumSoftwareVersion,
+                     ProtocolConstants, SlotId, SoftwareVersion (..),
+                     StakeholderId, TimeDiff (..), pcEpochSlots)
 import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData (..), UpId,
                      UpdateProposal (..))
@@ -173,8 +173,8 @@ instance HasCoreConfiguration => RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: MonadDB m => m ()
-initGStateUS = do
+initGStateUS :: MonadDB m => ProtocolConstants -> m ()
+initGStateUS pc = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
@@ -184,7 +184,7 @@ initGStateUS = do
     genesisSlotDuration = bvdSlotDuration genesisBlockVersionData
 
     genesisEpochDuration :: Microsecond
-    genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
+    genesisEpochDuration = fromIntegral (pcEpochSlots pc) * convertUnit genesisSlotDuration
 
     esdCurrent :: EpochSlottingData
     esdCurrent = EpochSlottingData

@@ -14,27 +14,23 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose,
                      infiniteListOf, suchThat, (===))
 
-import           Pos.Core (BlockCount, Coin, SharedSeed, SlotCount,
-                     StakeholderId, StakesList, addressHash, mkCoin, sumCoins,
-                     unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core (Coin, ProtocolConstants (..), SharedSeed, SlotCount,
+                     StakeholderId, StakesList, addressHash, mkCoin,
+                     pcEpochSlots, sumCoins, unsafeAddCoin,
+                     unsafeIntegerToCoin)
 import           Pos.Crypto (PublicKey)
 import           Pos.Lrc.Fts (followTheSatoshi)
 
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyProtocolConstants)
 import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
-
-blkSecurityParam :: BlockCount
-blkSecurityParam = 2
-
-epochSlots :: SlotCount
-epochSlots = 20
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
 numberOfRuns :: Int
 -- The higher is 'blkSecurityParam', the longer epochs will be and the more
 -- time FTS will take
-numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
+numberOfRuns = 300000 `div` pcK dummyProtocolConstants
 
 spec :: Spec
 spec = do
@@ -98,20 +94,27 @@ instance Arbitrary StakeAndHolder where
             stakesList = map addressHash (toList restPks) `zip` values
         return (myPk, stakesList)
 
-ftsListLength :: SharedSeed -> StakeAndHolder -> Property
+ftsListLength
+    :: SharedSeed
+    -> StakeAndHolder
+    -> Property
 ftsListLength seed (getNoStake -> (_, stakes)) =
-  length (followTheSatoshi epochSlots seed stakes) === fromIntegral epochSlots
+    length (followTheSatoshi dummyEpochSlots seed stakes)
+        === fromIntegral dummyEpochSlots
 
-ftsNoStake :: SharedSeed -> StakeAndHolder -> Property
+ftsNoStake
+    :: SharedSeed
+    -> StakeAndHolder
+    -> Property
 ftsNoStake seed (getNoStake -> (addressHash -> sId, stakes)) =
-  sId `qcNotElem` followTheSatoshi epochSlots seed stakes
+  sId `qcNotElem` followTheSatoshi dummyEpochSlots seed stakes
 
 -- It will be broken if 'Coin' is 0, but 'arbitrary' can't generate 0
 -- for unknown reason.
 ftsAllStake :: SharedSeed -> PublicKey -> Coin -> Bool
 ftsAllStake seed pk v =
   let stakes = [(addressHash pk, v)]
-  in  all (== addressHash pk) $ followTheSatoshi epochSlots seed stakes
+  in  all (== addressHash pk) $ followTheSatoshi dummyEpochSlots seed stakes
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]
@@ -177,7 +180,7 @@ ftsReasonableStake stakeProbability threshold (getStream     -> ftsList) (getSta
         / (1 - stakeProbability)
     newStakes :: [(StakeholderId, Coin)]
     newStakes = (addressHash pk, newStake) : stakes
-    picks     = followTheSatoshi epochSlots seed newStakes
+    picks     = followTheSatoshi dummyEpochSlots seed newStakes
     pLen      = length picks
     newPresent =
       present + if stId `elem` picks then 1 / (fromIntegral numberOfRuns) else 0

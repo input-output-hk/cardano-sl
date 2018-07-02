@@ -49,6 +49,8 @@ import           Pos.Crypto
 import           Pos.Lrc.Genesis
 import           Pos.Txp
 
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
+
 import           UTxO.Crypto
 
 {-------------------------------------------------------------------------------
@@ -78,7 +80,7 @@ data CardanoContext = CardanoContext {
 initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
 initCardanoContext pm = CardanoContext{..}
   where
-    ccLeaders  = genesisLeaders epochSlots
+    ccLeaders  = genesisLeaders dummyEpochSlots
     ccStakes   = genesisStakes
     ccBlock0   = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
     ccData     = genesisData

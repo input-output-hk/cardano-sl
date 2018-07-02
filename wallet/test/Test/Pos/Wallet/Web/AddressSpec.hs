@@ -29,13 +29,14 @@ import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses,
                      wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet,
                      mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ ->
+spec = withDefConfigurations $ \_ ->
     describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $
@@ -56,7 +57,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
     address <- generator accId passphrase
 
-    largeAddress <- lift getFakeChangeAddress
+    largeAddress <- lift $ getFakeChangeAddress dummyEpochSlots
 
     assertProperty
         (biSize largeAddress >= biSize address)
@@ -66,7 +67,8 @@ fakeAddressHasMaxSizeTest generator accSeed = do
 -- Unfortunatelly, its randomness doesn't depend on QuickCheck seed,
 -- so another proper generator is helpful.
 changeAddressGenerator :: HasConfigurations => AddressGenerator
-changeAddressGenerator accId passphrase = lift $ getNewAddress (accId, passphrase)
+changeAddressGenerator accId passphrase =
+    lift $ getNewAddress dummyEpochSlots (accId, passphrase)
 
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: AddressGenerator

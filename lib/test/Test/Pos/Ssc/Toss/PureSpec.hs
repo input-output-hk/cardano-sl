@@ -27,7 +27,7 @@ import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Toss" $ do
+spec = withDefConfiguration $ describe "Toss" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "PureToss" $ smaller 30 $ do
         prop "Adding and deleting a signed commitment in the 'PureToss' monad is the\
@@ -53,7 +53,7 @@ data TossAction
     | SetEpochOrSlot EpochOrSlot
     deriving (Show, Eq, Generic)
 
-instance HasConfiguration => Arbitrary TossAction where
+instance Arbitrary TossAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

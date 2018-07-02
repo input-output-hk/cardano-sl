@@ -30,6 +30,7 @@ import           Ntp.Client (NtpStatus)
 
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Core (ProtocolConstants)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)
@@ -80,16 +81,17 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve swaggerWalletApi <$> serv
 
 walletServer
-    :: forall ctx m.
-       ( MonadFullWalletWebMode ctx m, HasCompileInfo )
+    :: forall ctx m
+     . (MonadFullWalletWebMode ctx m, HasCompileInfo)
     => ProtocolMagic
+    -> ProtocolConstants
     -> Diffusion m
     -> TVar NtpStatus
-    -> (forall x. m x -> Handler x)
+    -> (forall x . m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer pm diffusion ntpStatus nat = do
+walletServer pm pc diffusion ntpStatus nat = do
     mapM_ (findKey >=> syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
-    return $ servantHandlersWithSwagger pm ntpStatus submitTx nat
+    return $ servantHandlersWithSwagger pm pc ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.
     submitTx = sendTx diffusion

@@ -1,15 +1,24 @@
 -- | Protocol constants and some derived terms.
 
 module Pos.Core.ProtocolConstants
-    ( ProtocolConstants (..)
-    , VssMinTTL (..)
-    , VssMaxTTL (..)
+       ( ProtocolConstants (..)
+       , VssMinTTL (..)
+       , VssMaxTTL (..)
 
-    , pcBlkSecurityParam
-    , pcSlotSecurityParam
-    , pcChainQualityThreshold
-    , pcEpochSlots
-    ) where
+       , vssMaxTTL
+       , vssMinTTL
+
+       , pcBlkSecurityParam
+
+       , pcSlotSecurityParam
+       , kSlotSecurityParam
+
+       , pcChainQualityThreshold
+       , kChainQualityThreshold
+
+       , pcEpochSlots
+       , kEpochSlots
+       ) where
 
 import           Universum
 
@@ -36,6 +45,14 @@ newtype VssMaxTTL = VssMaxTTL
     { getVssMaxTTL :: Word32
     } deriving (Eq, Show, Bounded, Enum, Generic)
 
+-- | VSS certificates max timeout to live (number of epochs)
+vssMaxTTL :: Integral i => ProtocolConstants -> i
+vssMaxTTL = fromIntegral . getVssMaxTTL . pcVssMaxTTL
+
+-- | VSS certificates min timeout to live (number of epochs)
+vssMinTTL :: Integral i => ProtocolConstants -> i
+vssMinTTL = fromIntegral . getVssMinTTL . pcVssMinTTL
+
 -- | Security parameter which is maximum number of blocks which can be
 -- rolled back.
 pcBlkSecurityParam :: ProtocolConstants -> BlockCount
@@ -44,7 +61,10 @@ pcBlkSecurityParam = fromIntegral . pcK
 -- | Security parameter expressed in number of slots. It uses chain
 -- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
 pcSlotSecurityParam :: ProtocolConstants -> SlotCount
-pcSlotSecurityParam = fromIntegral . (*) 2 . getBlockCount . pcBlkSecurityParam
+pcSlotSecurityParam = kSlotSecurityParam . pcBlkSecurityParam
+
+kSlotSecurityParam :: BlockCount -> SlotCount
+kSlotSecurityParam = fromIntegral . (*) 2 . getBlockCount
 
 -- We don't have a special newtype for it, so it can be any
 -- 'Fractional'. I think adding newtype here would be overkill
@@ -55,13 +75,18 @@ pcSlotSecurityParam = fromIntegral . (*) 2 . getBlockCount . pcBlkSecurityParam
 --
 -- | Minimal chain quality (number of blocks divided by number of
 -- slots) necessary for security of the system.
-pcChainQualityThreshold :: (Fractional fractional) => ProtocolConstants -> fractional
-pcChainQualityThreshold pc =
-    realToFrac (pcBlkSecurityParam pc) / realToFrac (pcSlotSecurityParam pc)
+pcChainQualityThreshold :: Fractional f => ProtocolConstants -> f
+pcChainQualityThreshold = kChainQualityThreshold . pcBlkSecurityParam
+
+kChainQualityThreshold :: Fractional f => BlockCount -> f
+kChainQualityThreshold k = realToFrac k / realToFrac (kSlotSecurityParam k)
 
 -- | Number of slots inside one epoch.
 --
 -- FIXME strange that it's defined in terms of block security param.
 -- Shouldn't it be the other way around?
 pcEpochSlots :: ProtocolConstants -> SlotCount
-pcEpochSlots = fromIntegral . (*) 10 . getBlockCount . pcBlkSecurityParam
+pcEpochSlots = kEpochSlots . pcBlkSecurityParam
+
+kEpochSlots :: BlockCount -> SlotCount
+kEpochSlots = fromIntegral . (*) 10 . getBlockCount

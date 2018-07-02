@@ -37,6 +37,9 @@ import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify
 
+import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyK,
+                     dummyProtocolConstants)
+
 {-------------------------------------------------------------------------------
   Verification environment
 -------------------------------------------------------------------------------}
@@ -223,8 +226,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 -- corresponding functions from the Cardano core. This didn't look very easy
 -- so I skipped it for now.
 verifyBlocksPrefix
-    :: HasConfiguration
-    => ProtocolMagic
+    :: ProtocolMagic
     -> HeaderHash    -- ^ Expected tip
     -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
@@ -293,8 +295,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 -- * Uses 'gsAdoptedBVData' instead of 'getAdoptedBVFull'
 -- * Use hard-coded 'dataMustBeKnown' (instead of deriving this from 'adoptedBV')
 slogVerifyBlocks
-    :: HasConfiguration
-    => ProtocolMagic
+    :: ProtocolMagic
     -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
@@ -313,12 +314,12 @@ slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
         _ -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks pm curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks pm dummyProtocolConstants curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
-    let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
+    let toFlatSlot = fmap (flattenSlotId dummyEpochSlots . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe toFlatSlot (toList blocks)
     let combinedSlots :: OldestFirst [] FlatSlotId
@@ -328,7 +329,7 @@ slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
     let removedSlots :: OldestFirst [] FlatSlotId
         removedSlots =
             combinedSlots & _Wrapped %~
-            (take $ length combinedSlots - fromIntegral blkSecurityParam)
+            (take $ length combinedSlots - fromIntegral dummyK)
     -- Note: here we exploit the fact that genesis block can be only 'head'.
     -- If we have genesis block, then size of 'newSlots' will be less than
     -- number of blocks we verify. It means that there will definitely

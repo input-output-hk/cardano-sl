@@ -225,7 +225,7 @@ generateBlocks blocks =
     doGenerateBlock :: Int -> Block
     doGenerateBlock seed =
         let size = 4 in
-        force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
+        force $ Right (generateMainBlock protocolMagic seed size)
 
     doGenerateBlocks :: Int -> [Block]
     doGenerateBlocks 0 = []
@@ -285,4 +285,3 @@ spec = describe "Blockdownload" $ do
     it "Batch of blocks" $ do
         r <- batchSimple 2200
         r `shouldBe` True
-

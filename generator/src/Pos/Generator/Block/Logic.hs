@@ -24,8 +24,11 @@ import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
-import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
-                     epochIndexL, getEpochOrSlot, getSlotIndex)
+import           Pos.Core (EpochOrSlot (..), ProtocolConstants, SlotId (..),
+                     addressHash, epochIndexL, epochOrSlotEnumFromTo,
+                     epochOrSlotFromEnum, epochOrSlotSucc, epochOrSlotToEnum,
+                     getEpochOrSlot, getSlotIndex, localSlotIndexMinBound,
+                     pcBlkSecurityParam, pcEpochSlots)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
@@ -67,21 +70,25 @@ type BlockTxpGenMode g ctx m =
 genBlocks ::
        forall g ctx m t . (HasTxpConfiguration, BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
     => ProtocolMagic
+    -> ProtocolConstants
     -> BlockGenParams
     -> (Maybe Blund -> t)
     -> RandT g m t
-genBlocks pm params inj = do
-    ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
+genBlocks pm pc params inj = do
+    ctx <- lift $ mkBlockGenContext @(MempoolExt m) epochSlots params
     mapRandT (`runReaderT` ctx) genBlocksDo
   where
+    epochSlots = pcEpochSlots pc
     genBlocksDo = do
         let numberOfBlocks = params ^. bgpBlockCount
         tipEOS <- getEpochOrSlot <$> lift DB.getTipHeader
-        let startEOS = succ tipEOS
-        let finishEOS = toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
-        foldM' genOneBlock mempty [startEOS .. finishEOS]
+        let startEOS = epochOrSlotSucc epochSlots tipEOS
+        let finishEOS =
+                epochOrSlotToEnum epochSlots
+                    $ epochOrSlotFromEnum epochSlots tipEOS + fromIntegral numberOfBlocks
+        foldM' genOneBlock mempty (epochOrSlotEnumFromTo epochSlots startEOS finishEOS)
 
-    genOneBlock t eos = ((t <>) . inj) <$> genBlock pm eos
+    genOneBlock t eos = ((t <>) . inj) <$> genBlock pm pc eos
 
     foldM' combine = go
       where
@@ -99,21 +106,22 @@ genBlock
        , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> ProtocolConstants
     -> EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock pm eos = do
+genBlock pm pc eos = do
     let epoch = eos ^. epochIndexL
-    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot pm epoch)
+    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot pm pc epoch)
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
         EpochOrSlot (Left _) -> do
             tipHeader <- lift DB.getTipHeader
-            let slot0 = SlotId epoch minBound
+            let slot0 = SlotId epoch localSlotIndexMinBound
             let genesisBlock = mkGenesisBlock pm (Right tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
-            genPayload pm slot
+            genPayload pm (pcEpochSlots pc) slot
             leader <-
                 lift $ maybeThrow
                     (BGInternal "no leader")
@@ -143,16 +151,16 @@ genBlock pm eos = do
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal pm slot proxySkInfo >>= \case
+        createMainBlockInternal pm (pcBlkSecurityParam pc) slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply :: Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
-        verifyBlocksPrefix pm (one block) >>= \case
+        verifyBlocksPrefix pm pc (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
             Right (undos, pollModifier) -> do
-                let undo = undos ^. _Wrapped . _neHead
+                let undo  = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                applyBlocksUnsafe pm (ShouldCallBListener True) (one blund) (Just pollModifier)
-                normalizeMempool pm
+                applyBlocksUnsafe pm pc (ShouldCallBListener True) (one blund) (Just pollModifier)
+                normalizeMempool pm pc
                 pure blund

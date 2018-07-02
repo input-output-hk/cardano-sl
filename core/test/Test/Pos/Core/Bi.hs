@@ -39,7 +39,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
 import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
                      LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
+import           Pos.Core.ProtocolConstants (pcEpochSlots)
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
                      SlotId (..), TimeDiff (..), Timestamp (..))
@@ -108,7 +108,7 @@ golden_BlockHeaderMain =
     goldenTestBi exampleBlockHeaderMain "test/golden/BlockHeaderMain"
 
 roundTripBlockHeaderBi :: Property
-roundTripBlockHeaderBi = eachOf 10 (feedPMC genBlockHeader) roundTripsBiBuildable
+roundTripBlockHeaderBi = eachOf 10 (feedPMEpochSlots genBlockHeader) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- BlockHeaderAttributes
@@ -135,7 +135,7 @@ golden_BlockSignature_Heavy =
     goldenTestBi exampleBlockPSignatureHeavy "test/golden/BlockSignature_Heavy"
 
 roundTripBlockSignatureBi :: Property
-roundTripBlockSignatureBi = eachOf 10 (feedPMC genBlockSignature) roundTripsBiBuildable
+roundTripBlockSignatureBi = eachOf 10 (feedPMEpochSlots genBlockSignature) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- GenesisBlockHeader
@@ -192,7 +192,7 @@ golden_MainBlockHeader :: Property
 golden_MainBlockHeader = goldenTestBi exampleMainBlockHeader "test/golden/MainBlockHeader"
 
 roundTripMainBlockHeaderBi :: Property
-roundTripMainBlockHeaderBi = eachOf 20 (feedPMC genMainBlockHeader) roundTripsBiBuildable
+roundTripMainBlockHeaderBi = eachOf 20 (feedPMEpochSlots genMainBlockHeader) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- MainBody
@@ -212,7 +212,7 @@ golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
                                 exampleChainDifficulty exampleBlockSignature
 
 roundTripMainConsensusData :: Property
-roundTripMainConsensusData = eachOf 20 (feedPMC genMainConsensusData) roundTripsBiShow
+roundTripMainConsensusData = eachOf 20 (feedPMEpochSlots genMainConsensusData) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- MainExtraBodyData
@@ -250,7 +250,7 @@ golden_MainToSign :: Property
 golden_MainToSign = goldenTestBi exampleMainToSign "test/golden/MainToSign"
 
 roundTripMainToSignBi :: Property
-roundTripMainToSignBi = eachOf 20 (feedPMC genMainToSign) roundTripsBiShow
+roundTripMainToSignBi = eachOf 20 (feedPMEpochSlots genMainToSign) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- Address
@@ -558,7 +558,7 @@ golden_EpochOrSlotSI = goldenTestBi eos "test/golden/EpochOrSlotSI"
   where eos = EpochOrSlot (Right exampleSlotId)
 
 roundTripEpochOrSlotBi :: Property
-roundTripEpochOrSlotBi = eachOf 1000 (feedPC genEpochOrSlot) roundTripsBiBuildable
+roundTripEpochOrSlotBi = eachOf 1000 (feedEpochSlots genEpochOrSlot) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- FlatSlotId
@@ -578,7 +578,7 @@ golden_LocalSlotIndex = goldenTestBi lsi "test/golden/LocalSlotIndex"
   where lsi = UnsafeLocalSlotIndex 52
 
 roundTripLocalSlotIndexBi :: Property
-roundTripLocalSlotIndexBi = eachOf 1000 (feedPC genLocalSlotIndex) roundTripsBiBuildable
+roundTripLocalSlotIndexBi = eachOf 1000 (feedEpochSlots genLocalSlotIndex) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- SlotCount
@@ -597,7 +597,7 @@ golden_SlotId :: Property
 golden_SlotId = goldenTestBi exampleSlotId "test/golden/SlotId"
 
 roundTripSlotIdBi :: Property
-roundTripSlotIdBi = eachOf 1000 (feedPC genSlotId) roundTripsBiBuildable
+roundTripSlotIdBi = eachOf 1000 (feedEpochSlots genSlotId) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TimeDiff
@@ -1241,14 +1241,14 @@ roundTripVssCertificatesMap = eachOf 10 (feedPM genVssCertificatesMap) roundTrip
 feedPM :: (ProtocolMagic -> H.Gen a) -> H.Gen a
 feedPM genA = genA =<< genProtocolMagic
 
-feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a
-feedPC genA = genA =<< genProtocolConstants
+feedEpochSlots :: (SlotCount -> H.Gen a) -> H.Gen a
+feedEpochSlots genA = genA =<< pcEpochSlots <$> genProtocolConstants
 
-feedPMC :: (ProtocolMagic -> ProtocolConstants -> H.Gen a) -> H.Gen a
-feedPMC genA = do
+feedPMEpochSlots :: (ProtocolMagic -> SlotCount -> H.Gen a) -> H.Gen a
+feedPMEpochSlots genA = do
     pm <- genProtocolMagic
-    pc <- genProtocolConstants
-    genA pm pc
+    epochSlots <- pcEpochSlots <$> genProtocolConstants
+    genA pm epochSlots
 
 
 --------------------------------------------------------------------------------

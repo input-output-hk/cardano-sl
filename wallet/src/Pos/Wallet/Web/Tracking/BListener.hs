@@ -21,8 +21,8 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HeaderHash, Timestamp, difficultyL, headerSlotL,
-                     prevBlockL)
+import           Pos.Core (HeaderHash, ProtocolConstants, Timestamp,
+                     difficultyL, headerSlotL, prevBlockL)
 import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader,
                      mainBlockTxPayload)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -125,16 +125,18 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
 
 -- Perform this action under block lock.
 onRollbackBlocksWebWallet
-    :: forall ctx m .
-    ( AccountMode ctx m
-    , WS.WalletDbReader ctx m
-    , MonadDBRead m
-    , MonadSlots ctx m
-    , MonadReporting m
-    , CanLogInParallel m
-    )
-    => NewestFirst NE Blund -> m SomeBatchOp
-onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
+    :: forall ctx m
+     . ( AccountMode ctx m
+       , WS.WalletDbReader ctx m
+       , MonadDBRead m
+       , MonadSlots ctx m
+       , MonadReporting m
+       , CanLogInParallel m
+       )
+    => ProtocolConstants
+    -> NewestFirst NE Blund
+    -> m SomeBatchOp
+onRollbackBlocksWebWallet pc blunds = setLogger . reportTimeouts "rollback" $ do
     db <- WS.askWalletDB
     ws <- WS.getWalletSnapshot db
     let newestFirst = getNewestFirst blunds
@@ -163,7 +165,7 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         let rollbackBlockWith trackingOperation = do
               let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
                   mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
-              rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
+              rollbackModifierFromWallet pc db trackingOperation wid newTip mapModifier
               logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
         rollbackBlockWith SyncWallet

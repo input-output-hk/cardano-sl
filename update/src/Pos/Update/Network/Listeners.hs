@@ -14,7 +14,7 @@ import           Universum
 import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logNotice, logWarning)
 
-import           Pos.Core (ProtocolMagic)
+import           Pos.Core (BlockCount, ProtocolMagic)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Logic.Local (processProposal, processVote)
 import           Pos.Update.Mode (UpdateMode)
@@ -22,16 +22,17 @@ import           Pos.Update.Mode (UpdateMode)
 handleProposal
     :: forall ctx m . UpdateMode ctx m
     => ProtocolMagic
+    -> BlockCount
     -> (UpdateProposal, [UpdateVote])
     -> m Bool
-handleProposal pm (proposal, votes) = do
-    res <- processProposal pm proposal
+handleProposal pm k (proposal, votes) = do
+    res <- processProposal pm k proposal
     logProp proposal res
     let processed = isRight res
     processed <$ when processed (mapM_ processVoteLog votes)
   where
     processVoteLog :: UpdateVote -> m ()
-    processVoteLog vote = processVote pm vote >>= logVote vote
+    processVoteLog vote = processVote pm k vote >>= logVote vote
     logVote vote (Left cause) =
         logWarning $ sformat ("Proposal is accepted but vote "%build%
                               " is rejected, the reason is: "%build)
@@ -55,10 +56,11 @@ handleProposal pm (proposal, votes) = do
 handleVote
     :: UpdateMode ctx m
     => ProtocolMagic
+    -> BlockCount
     -> UpdateVote
     -> m Bool
-handleVote pm uv = do
-    res <- processVote pm uv
+handleVote pm k uv = do
+    res <- processVote pm k uv
     logProcess uv res
     pure $ isRight res
   where

@@ -21,6 +21,7 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Core (ProtocolConstants)
 import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
                      MainConsensusData (..), MainToSign (..))
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
@@ -28,7 +29,6 @@ import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
 import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..),
                      MainProof, mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
-import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (checkSscPayload)
@@ -51,13 +51,12 @@ verifyBlockHeader pm (BlockHeaderMain bhm) = verifyMainBlockHeader pm bhm
 
 -- | Verify a Block in isolation.
 verifyBlock
-    :: ( MonadError Text m
-       , HasProtocolConstants
-       )
+    :: MonadError Text m
     => ProtocolMagic
+    -> ProtocolConstants
     -> Block
     -> m ()
-verifyBlock pm = either verifyGenesisBlock (verifyMainBlock pm)
+verifyBlock pm pc = either verifyGenesisBlock (verifyMainBlock pm pc)
 
 -- | To verify a genesis block we only have to check the body proof.
 verifyGenesisBlock
@@ -71,12 +70,12 @@ verifyMainBlock
     :: ( MonadError Text m
        , Bi BlockHeader
        , Bi MainProof
-       , HasProtocolConstants
        )
     => ProtocolMagic
+    -> ProtocolConstants
     -> GenericBlock MainBlockchain
     -> m ()
-verifyMainBlock pm block@UnsafeGenericBlock {..} = do
+verifyMainBlock pm pc block@UnsafeGenericBlock {..} = do
     verifyMainBlockHeader pm _gbHeader
     verifyMainBody pm _gbBody
     -- No need to verify the main extra body data. It's an 'Attributes ()'
@@ -93,6 +92,7 @@ verifyMainBlock pm block@UnsafeGenericBlock {..} = do
     either (throwError . pretty) pure $
         verifySscPayload
             pm
+            pc
             (Right (Some _gbHeader))
             (_mbSscPayload _gbBody)
 

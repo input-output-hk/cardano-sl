@@ -17,7 +17,7 @@ import           Universum
 import           Formatting (build, sformat, (%))
 
 import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
-import           Pos.Core (HasConfiguration, protocolConstants)
+import           Pos.Core (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Txp (ToilVerFailure (..))
@@ -45,23 +45,28 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: (HasConfiguration, MonadThrow m, MonadSlots ctx m)
-    => WalletSnapshot
-    -> CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
-mkPendingTx ws wid _ptxTxId _ptxTxAux th = do
+    :: (MonadThrow m, MonadSlots ctx m)
+    => ProtocolConstants
+    -> WalletSnapshot
+    -> CId Wal
+    -> TxId
+    -> TxAux
+    -> TxHistoryEntry
+    -> m PendingTx
+mkPendingTx pc ws wid _ptxTxId _ptxTxAux th = do
     void $ maybeThrow noWallet $ getWalletMeta ws wid
 
-    _ptxCreationSlot <- getCurrentSlotInaccurate
+    _ptxCreationSlot <- getCurrentSlotInaccurate $ pcEpochSlots pc
     return PendingTx
-        { _ptxCond = PtxCreating th
-        , _ptxWallet = wid
-        , _ptxPeerAck = False
-        , _ptxSubmitTiming = mkPtxSubmitTiming protocolConstants _ptxCreationSlot
+        { _ptxCond         = PtxCreating th
+        , _ptxWallet       = wid
+        , _ptxPeerAck      = False
+        , _ptxSubmitTiming = mkPtxSubmitTiming pc _ptxCreationSlot
         , ..
         }
   where
     noWallet =
-        RequestError $ sformat ("Failed to get meta of wallet "%build) wid
+        RequestError $ sformat ("Failed to get meta of wallet " % build) wid
 
 -- | Whether formed transaction ('TxAux') has reasonable chances to be applied
 -- later after specified error.

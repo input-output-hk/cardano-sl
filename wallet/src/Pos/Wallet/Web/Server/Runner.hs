@@ -26,6 +26,7 @@ import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Core (ProtocolConstants)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
@@ -49,19 +50,18 @@ import           Pos.Web (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: forall a .
-       ( HasConfigurations
-       , HasCompileInfo
-       )
+    :: forall a
+     . (HasConfigurations, HasCompileInfo)
     => ProtocolMagic
+    -> ProtocolConstants
     -> WalletDB
     -> ConnectionsVar
     -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> Production a
-runWRealMode pm db conn syncRequests res action = Production $
-    runRealMode pm res $ \diffusion ->
+runWRealMode pm pc db conn syncRequests res action = Production $
+    runRealMode pm pc res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
@@ -70,13 +70,14 @@ walletServeWebFull
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> ProtocolConstants
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
     -> Bool                    -- ^ whether to include genesis keys
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull pm pc diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
     let
       portCallback :: Word16 -> IO ()
@@ -90,7 +91,7 @@ walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
 
         wwmc <- walletWebModeContext
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode pm diffusion ntpStatus (convertHandler wwmc)
+            walletServer @WalletWebModeContext @WalletWebMode pm pc diffusion ntpStatus (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)

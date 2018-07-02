@@ -18,9 +18,10 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
-                     ProtocolMagic, RichSecrets (..), addressHash, ccGenesis,
-                     coreConfiguration, generateFakeAvvm, generateRichSecrets,
-                     mkVssCertificate, vcSigningKey, vssMaxTTL)
+                     ProtocolConstants, ProtocolMagic, RichSecrets (..),
+                     addressHash, ccGenesis, coreConfiguration,
+                     generateFakeAvvm, generateRichSecrets, mkVssCertificate,
+                     vcSigningKey, vssMaxTTL)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)
@@ -129,9 +130,12 @@ generateKeysByGenesis GenKeysOptions{..} = do
             logInfo (toText gkoOutDir <> " generated successfully")
 
 genVssCert
-    :: (HasConfigurations, WithLogger m, MonadIO m)
-    => ProtocolMagic -> FilePath -> m ()
-genVssCert pm path = do
+    :: (WithLogger m, MonadIO m)
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> FilePath
+    -> m ()
+genVssCert pm pc path = do
     us <- readUserSecret path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
@@ -139,7 +143,7 @@ genVssCert pm path = do
                  pm
                  primKey
                  (asBinary (toVssPublicKey vssKey))
-                 (vssMaxTTL - 1)
+                 (vssMaxTTL pc - 1)
     putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
               (addressHash $ vcSigningKey cert)
               (decodeUtf8 $
@@ -155,12 +159,12 @@ main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
-    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \_ pm -> do
+    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \_ pm pc -> do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk
             GenerateKey path        -> genPrimaryKey path
-            GenerateVss path        -> genVssCert pm path
+            GenerateVss path        -> genVssCert pm pc path
             ReadKey path            -> readKey path
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg

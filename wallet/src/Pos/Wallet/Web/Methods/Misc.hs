@@ -46,7 +46,8 @@ import           Ntp.Client (NtpStatus (..))
 
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
+import           Pos.Core (HasConfiguration, ProtocolConstants, SlotId,
+                     SoftwareVersion (..), pcEpochSlots)
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
@@ -214,10 +215,13 @@ dumpState = WalletStateSnapshot <$> askWalletSnapshot
 -- Tx resubmitting
 ----------------------------------------------------------------------------
 
-resetAllFailedPtxs :: (HasConfiguration, MonadSlots ctx m, WalletDbReader ctx m) => m NoContent
-resetAllFailedPtxs = do
+resetAllFailedPtxs
+    :: (MonadSlots ctx m, WalletDbReader ctx m)
+    => ProtocolConstants
+    -> m NoContent
+resetAllFailedPtxs pc = do
     db <- askWalletDB
-    getCurrentSlotBlocking >>= resetFailedPtxs db
+    getCurrentSlotBlocking (pcEpochSlots pc) >>= resetFailedPtxs pc db
     return NoContent
 
 ----------------------------------------------------------------------------

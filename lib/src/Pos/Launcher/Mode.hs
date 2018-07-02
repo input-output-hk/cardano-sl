@@ -87,9 +87,7 @@ instance HasConfiguration => MonadDB InitMode where
     dbDelete = dbDeleteDefault
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance (HasConfiguration, MonadSlotsData ctx InitMode) =>
-         MonadSlots ctx InitMode
-  where
+instance MonadSlotsData ctx InitMode => MonadSlots ctx InitMode where
     getCurrentSlot           = getCurrentSlotSimple
     getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple

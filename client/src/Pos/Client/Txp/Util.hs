@@ -63,11 +63,11 @@ import           Serokell.Util (listJson)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
-                     TxSizeLinear (..), bvdTxFeePolicy, calculateTxSizeLinear,
-                     coinToInteger, integerToCoin, isRedeemAddress, mkCoin,
-                     sumCoins, txSizeLinearMinValue, unsafeIntegerToCoin,
-                     unsafeSubCoin)
+import           Pos.Core (Address, Coin, SlotCount, StakeholderId,
+                     TxFeePolicy (..), TxSizeLinear (..), bvdTxFeePolicy,
+                     calculateTxSizeLinear, coinToInteger, integerToCoin,
+                     isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
+                     unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
@@ -498,32 +498,35 @@ prepareTxRaw pendingTx utxo outputs fee = do
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
     :: TxCreateMode m
-    => AddrData m
+    => SlotCount
+    -> AddrData m
     -> TxRaw
     -> TxCreator m TxOutputs
-mkOutputsWithRem addrData TxRaw {..}
+mkOutputsWithRem epochSlots addrData TxRaw {..}
     | trRemainingMoney == mkCoin 0 = pure trOutputs
     | otherwise = do
-        changeAddr <- lift . lift $ getNewAddress addrData
+        changeAddr <- lift . lift $ getNewAddress epochSlots addrData
         let txOut = TxOut changeAddr trRemainingMoney
         pure $ TxOutAux txOut :| toList trOutputs
 
 prepareInpsOuts
     :: TxCreateMode m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
-prepareInpsOuts pm pendingTx utxo outputs addrData = do
-    txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
-    outputsWithRem <- mkOutputsWithRem addrData txRaw
+prepareInpsOuts pm epochSlots pendingTx utxo outputs addrData = do
+    txRaw@TxRaw {..} <- prepareTxWithFee pm epochSlots pendingTx utxo outputs
+    outputsWithRem <- mkOutputsWithRem epochSlots addrData txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
     :: TxCreateMode m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> (TxOwnedInputs TxOut -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
@@ -531,15 +534,16 @@ createGenericTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTx pm pendingTx creator inputSelectionPolicy utxo outputs addrData =
-    runTxCreator inputSelectionPolicy $ do
-        (inps, outs) <- prepareInpsOuts pm pendingTx utxo outputs addrData
+createGenericTx pm epochSlots pendingTx creator inputSelectionPolicy utxo outputs addrData
+    = runTxCreator inputSelectionPolicy $ do
+        (inps, outs) <- prepareInpsOuts pm epochSlots pendingTx utxo outputs addrData
         txAux <- either throwError return $ creator inps outs
         pure (txAux, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> (TxInputs -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
@@ -547,13 +551,15 @@ createGenericTxSingle
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTxSingle pm pendingTx creator = createGenericTx pm pendingTx (creator . map snd)
+createGenericTxSingle pm epochSlots pendingTx creator =
+    createGenericTx pm epochSlots pendingTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
     :: TxCreateMode m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> InputSelectionPolicy
     -> Utxo
@@ -561,8 +567,8 @@ createMTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx pm pendingTx groupInputs utxo hdwSigners outputs addrData =
-    createGenericTx pm pendingTx (makeMPubKeyTxAddrs pm getSigner)
+createMTx pm epochSlots pendingTx groupInputs utxo hdwSigners outputs addrData =
+    createGenericTx pm epochSlots pendingTx (makeMPubKeyTxAddrs pm getSigner)
         groupInputs utxo outputs addrData
   where
     getSigner address =
@@ -574,28 +580,30 @@ createMTx pm pendingTx groupInputs utxo hdwSigners outputs addrData =
 createTx
     :: TxCreateMode m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> Utxo
     -> SafeSigner
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createTx pm pendingTx utxo ss outputs addrData =
-    createGenericTxSingle pm pendingTx (\i o -> Right $ makePubKeyTx pm ss i o)
+createTx pm epochSlots pendingTx utxo ss outputs addrData =
+    createGenericTxSingle pm epochSlots pendingTx (\i o -> Right $ makePubKeyTx pm ss i o)
     OptimizeForHighThroughput utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
     :: TxCreateMode m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> Utxo
     -> [(StakeholderId, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMOfNTx pm pendingTx utxo keys outputs addrData =
-    createGenericTxSingle pm pendingTx (\i o -> Right $ makeMOfNTx pm validator sks i o)
+createMOfNTx pm epochSlots pendingTx utxo keys outputs addrData =
+    createGenericTxSingle pm epochSlots pendingTx (\i o -> Right $ makeMOfNTx pm validator sks i o)
     OptimizeForSecurity utxo outputs addrData
   where
     ids = map fst keys
@@ -639,24 +647,26 @@ withLinearFeePolicy action = view tcdFeePolicy >>= \case
 prepareTxWithFee
     :: MonadAddresses m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-prepareTxWithFee pm pendingTx utxo outputs = withLinearFeePolicy $ \linearPolicy ->
-    stabilizeTxFee pm pendingTx linearPolicy utxo outputs
+prepareTxWithFee pm epochSlots pendingTx utxo outputs = withLinearFeePolicy $ \linearPolicy ->
+    stabilizeTxFee pm epochSlots pendingTx linearPolicy utxo outputs
 
 -- | Compute, how much fees we should pay to send money to given
 -- outputs
 computeTxFee
     :: MonadAddresses m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxFee
-computeTxFee pm pendingTx utxo outputs = do
-    TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
+computeTxFee pm epochSlots pendingTx utxo outputs = do
+    TxRaw {..} <- prepareTxWithFee pm epochSlots pendingTx utxo outputs
     let outAmount = sumTxOutCoins trOutputs
         inAmount = sumCoins $ map (txOutValue . fst) trInputs
         remaining = coinToInteger trRemainingMoney
@@ -710,12 +720,13 @@ stabilizeTxFee
     :: forall m
      . MonadAddresses m
     => ProtocolMagic
+    -> SlotCount
     -> PendingAddresses
     -> TxSizeLinear
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-stabilizeTxFee pm pendingTx linearPolicy utxo outputs = do
+stabilizeTxFee pm epochSlots pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
     mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
     case mtx of
@@ -731,7 +742,7 @@ stabilizeTxFee pm pendingTx linearPolicy utxo outputs = do
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
-        fakeChangeAddr <- lift . lift $ getFakeChangeAddress
+        fakeChangeAddr <- lift . lift $ getFakeChangeAddress epochSlots
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx pm fakeChangeAddr txRaw
 

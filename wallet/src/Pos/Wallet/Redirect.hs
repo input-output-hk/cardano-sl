@@ -28,8 +28,8 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
 import qualified Pos.Context as PC
-import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx,
-                     TxAux (..), TxId, TxUndo, difficultyL,
+import           Pos.Core (ChainDifficulty, HasConfiguration, SlotCount,
+                     Timestamp, Tx, TxAux (..), TxId, TxUndo, difficultyL,
                      getCurrentTimestamp)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (ProtocolMagic, WithHash (..))
@@ -129,15 +129,18 @@ applyLastUpdateWebWallet = triggerShutdown
 ----------------------------------------------------------------------------
 
 txpProcessTxWebWallet
-    :: forall ctx m .
-    ( TxpProcessTransactionMode ctx m
-    , AccountMode ctx m
-    , WS.WalletDbReader ctx m
-    )
-    => ProtocolMagic -> (TxId, TxAux) -> m (Either ToilVerFailure ())
-txpProcessTxWebWallet pm tx@(txId, txAux) = do
+    :: forall ctx m
+     . ( TxpProcessTransactionMode ctx m
+       , AccountMode ctx m
+       , WS.WalletDbReader ctx m
+       )
+    => ProtocolMagic
+    -> SlotCount
+    -> (TxId, TxAux)
+    -> m (Either ToilVerFailure ())
+txpProcessTxWebWallet pm epochSlots tx@(txId, txAux) = do
     db <- WS.askWalletDB
-    txProcessTransaction pm tx >>= traverse (const $ addTxToWallets db)
+    txProcessTransaction pm epochSlots tx >>= traverse (const $ addTxToWallets db)
   where
     addTxToWallets :: WS.WalletDB -> m ()
     addTxToWallets db = do
@@ -162,5 +165,5 @@ txpNormalizeWebWallet
     :: ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => ProtocolMagic -> m ()
+    => ProtocolMagic -> SlotCount -> m ()
 txpNormalizeWebWallet = txNormalize

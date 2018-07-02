@@ -119,6 +119,7 @@ import           Test.Pos.Block.Logic.Mode (BlockTestContext (..),
                      getCurrentSlotBlockingTestDefault,
                      getCurrentSlotInaccurateTestDefault,
                      getCurrentSlotTestDefault, initBlockTestContext)
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -210,7 +211,7 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
             wtcSyncQueue <- STM.newTQueueIO
-            wtcSlottingStateVar <- mkSimpleSlottingStateVar
+            wtcSlottingStateVar <- mkSimpleSlottingStateVar dummyEpochSlots
             pure WalletTestContext {..}
         callback wtc
 
@@ -294,11 +295,10 @@ instance HasLens DelegationVar WalletTestContext DelegationVar where
 instance HasLens SscMemTag WalletTestContext SscState where
     lensOf = wtcBlockTestContext_L . lensOf @SscMemTag
 
-instance (HasConfiguration, MonadSlotsData ctx WalletTestMode)
-       => MonadSlots ctx WalletTestMode where
-    getCurrentSlot = getCurrentSlotTestDefault
-    getCurrentSlotBlocking = getCurrentSlotBlockingTestDefault
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateTestDefault
+instance MonadSlotsData ctx WalletTestMode => MonadSlots ctx WalletTestMode where
+    getCurrentSlot _ = getCurrentSlotTestDefault
+    getCurrentSlotBlocking _ = getCurrentSlotBlockingTestDefault
+    getCurrentSlotInaccurate _ = getCurrentSlotInaccurateTestDefault
     currentTimeSlotting = currentTimeSlottingTestDefault
 
 instance HasUserSecret WalletTestContext where
@@ -380,8 +380,8 @@ instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (State
 
 instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
-    getNewAddress = getNewAddressWebWallet
-    getFakeChangeAddress = pure largestHDAddressBoot
+    getNewAddress _ = getNewAddressWebWallet
+    getFakeChangeAddress _ = pure largestHDAddressBoot
 
 instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault

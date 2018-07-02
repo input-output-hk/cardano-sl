@@ -95,7 +95,6 @@ library
                        Pos.Core.Configuration.GeneratedSecrets
                        Pos.Core.Configuration.GenesisData
                        Pos.Core.Configuration.GenesisHash
-                       Pos.Core.Configuration.Protocol
 
                        -- Context
                        Pos.Core.Context.PrimaryKey
@@ -267,6 +266,7 @@ test-suite test
 
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Dummy
 
   build-depends:       base
                      , base16-bytestring

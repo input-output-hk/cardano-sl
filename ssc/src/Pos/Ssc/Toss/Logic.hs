@@ -16,11 +16,14 @@ import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
 
-import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
-                     IsMainHeader, LocalSlotIndex, SlotCount, SlotId (siSlot),
-                     StakeholderId, VssCertificate, epochIndexL, epochOrSlot,
-                     getEpochOrSlot, getVssCertificatesMap, headerSlotL,
-                     mkCoin, mkVssCertificatesMapSingleton, slotSecurityParam)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), IsMainHeader,
+                     LocalSlotIndex, ProtocolConstants, SlotCount,
+                     SlotId (siSlot), StakeholderId, VssCertificate,
+                     epochIndexL, epochOrSlot, epochOrSlotPred,
+                     epochOrSlotToEnum, getEpochOrSlot, getSlotIndex,
+                     getVssCertificatesMap, headerSlotL, mkCoin,
+                     mkVssCertificatesMapSingleton, pcBlkSecurityParam,
+                     pcSlotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
                      SignedCommitment, SscPayload (..), checkSscPayload,
@@ -39,22 +42,29 @@ import           Pos.Util.Util (sortWithMDesc)
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- SscVerifyError is thrown using 'MonadError' type class.
 verifyAndApplySscPayload
-    :: (MonadToss m, MonadTossEnv m,
-        MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifyAndApplySscPayload pm eoh payload = do
+    :: ( MonadToss m
+       , MonadTossEnv m
+       , MonadError SscVerifyError m
+       , MonadRandom m
+       )
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> Either EpochIndex (Some IsMainHeader)
+    -> SscPayload
+    -> m ()
+verifyAndApplySscPayload pm pc eoh payload = do
     -- Check the payload for internal consistency.
     either (throwError . SscInvalidPayload) pure (checkSscPayload pm payload)
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
-    whenLeft eoh $ const $ verifySscPayload pm eoh payload
+    whenLeft eoh $ const $ verifySscPayload pm pc eoh payload
     -- We perform @verifySscPayload@ for block when we construct it
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
-        whenRight eoh $ const $ verifySscPayload pm eoh payload
+        whenRight eoh $ const $ verifySscPayload pm pc eoh payload
     let blockCerts = spVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
-    checkPayload curEpoch payload
+    checkPayload (pcBlkSecurityParam pc) curEpoch payload
 
     -- Apply
     case eoh of
@@ -66,9 +76,9 @@ verifyAndApplySscPayload pm eoh payload = do
             -- it's guaranteed that rollback on more than 'slotSecurityParam'
             -- can't happen
             let indexToCount :: LocalSlotIndex -> SlotCount
-                indexToCount = fromIntegral . fromEnum
+                indexToCount = fromIntegral . getSlotIndex
             let slot = epochOrSlot (const 0) (indexToCount . siSlot) eos
-            when (slotSecurityParam <= slot && slot < 2 * slotSecurityParam) $
+            when (pcSlotSecurityParam pc <= slot && slot < 2 * pcSlotSecurityParam pc) $
                 resetShares
     mapM_ putCertificate blockCerts
     case payload of
@@ -94,18 +104,20 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackSsc :: (MonadToss m, HasProtocolConstants) =>
-    EpochOrSlot
+rollbackSsc
+    :: MonadToss m
+    => SlotCount
+    -> EpochOrSlot
     -> NewestFirst [] SscPayload
     -> m ()
-rollbackSsc oldestEOS (NewestFirst payloads)
-    | oldestEOS == toEnum 0 = do
+rollbackSsc epochSlots oldestEOS (NewestFirst payloads)
+    | oldestEOS == epochOrSlotToEnum epochSlots 0 = do
         logError "rollbackSsc: most genesis block is passed to rollback"
         setEpochOrSlot oldestEOS
         resetCO
         resetShares
     | otherwise = do
-        setEpochOrSlot (pred oldestEOS)
+        setEpochOrSlot (epochOrSlotPred epochSlots oldestEOS)
         mapM_ rollbackSscDo payloads
   where
     rollbackSscDo (CommitmentsPayload comms _) =
@@ -116,11 +128,16 @@ rollbackSsc oldestEOS (NewestFirst payloads)
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
-    :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> EpochIndex -> TossModifier -> m ()
-normalizeToss pm epoch TossModifier {..} =
+    :: (MonadToss m, MonadTossEnv m, MonadRandom m)
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> EpochIndex
+    -> TossModifier
+    -> m ()
+normalizeToss pm pc epoch TossModifier {..} =
     normalizeTossDo
         pm
+        pc
         epoch
         ( HM.toList (getCommitmentsMap _tmCommitments)
         , HM.toList _tmOpenings
@@ -130,15 +147,19 @@ normalizeToss pm epoch TossModifier {..} =
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
-    :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> EpochIndex -> TossModifier -> m ()
-refreshToss pm epoch TossModifier {..} = do
+    :: (MonadToss m, MonadTossEnv m, MonadRandom m)
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> EpochIndex
+    -> TossModifier
+    -> m ()
+refreshToss pm pc epoch TossModifier {..} = do
     comms <-
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
     opens <- takeMostValuable epoch (HM.toList _tmOpenings)
     shares <- takeMostValuable epoch (HM.toList _tmShares)
     certs <- takeMostValuable epoch (HM.toList (getVssCertificatesMap _tmCertificates))
-    normalizeTossDo pm epoch (comms, opens, shares, certs)
+    normalizeTossDo pm pc epoch (comms, opens, shares, certs)
 
 takeMostValuable
     :: (MonadToss m, MonadTossEnv m)
@@ -159,10 +180,14 @@ type TossModifierLists
        , [(StakeholderId, VssCertificate)])
 
 normalizeTossDo
-    :: forall m.
-       (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> EpochIndex -> TossModifierLists -> m ()
-normalizeTossDo pm epoch (comms, opens, shares, certs) = do
+    :: forall m
+     . (MonadToss m, MonadTossEnv m, MonadRandom m)
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> EpochIndex
+    -> TossModifierLists
+    -> m ()
+normalizeTossDo pm pc epoch (comms, opens, shares, certs) = do
     putsUseful $
         map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $
         comms
@@ -172,5 +197,5 @@ normalizeTossDo pm epoch (comms, opens, shares, certs) = do
   where
     putsUseful :: [SscPayload] -> m ()
     putsUseful entries = do
-        let verifyAndApply = runExceptT . verifyAndApplySscPayload pm (Left epoch)
+        let verifyAndApply = runExceptT . verifyAndApplySscPayload pm pc (Left epoch)
         mapM_ verifyAndApply entries

@@ -39,9 +39,9 @@ import           Mockable (realTime)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
-                     SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
-                     headerHash, headerHashF, mkLocalSlotIndex)
+import           Pos.Core (EpochIndex (..), HeaderHash, SlotCount, SlotId (..),
+                     gbHeader, gbhPrevBlock, getSlotIndex, headerHash,
+                     headerHashF, mkLocalSlotIndex)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)
@@ -127,30 +127,32 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotId :: (HasConfiguration, MonadError Text m) => JLSlotId -> m SlotId
-fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
+fromJLSlotId :: MonadError Text m => SlotCount -> JLSlotId -> m SlotId
+fromJLSlotId epochSlots (ep, sl) =
+    SlotId (EpochIndex ep) <$> mkLocalSlotIndex epochSlots sl
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
-fromJLSlotIdUnsafe x = case fromJLSlotId x of
+fromJLSlotIdUnsafe :: SlotCount -> JLSlotId -> SlotId
+fromJLSlotIdUnsafe epochSlots x = case fromJLSlotId epochSlots x of
     Right y -> y
     Left  _ -> error "illegal slot id"
 
 -- | Return event of created block.
-jlCreatedBlock :: HasConfiguration => Block -> JLEvent
-jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
-  where
-    jlHash = showHeaderHash $ headerHash block
-    jlPrevBlock = showHeaderHash $ case block of
+jlCreatedBlock :: SlotCount -> Block -> JLEvent
+jlCreatedBlock epochSlots block = JLCreatedBlock $ JLBlock
+    { jlHash      = showHeaderHash $ headerHash block
+    , jlPrevBlock = showHeaderHash $ case block of
         Left  gB -> view gbhPrevBlock (gB ^. gbHeader)
         Right mB -> view gbhPrevBlock (mB ^. gbHeader)
-    jlSlot = (getEpochIndex $ siEpoch slot, getSlotIndex $ siSlot slot)
-    jlTxs = case block of
-              Left _   -> []
-              Right mB -> map fromTx . toList $ mB ^. mainBlockTxPayload . txpTxs
+    , jlTxs       = case block of
+        Left  _  -> []
+        Right mB -> map fromTx . toList $ mB ^. mainBlockTxPayload . txpTxs
+    , jlSlot      = (getEpochIndex $ siEpoch slot, getSlotIndex $ siSlot slot)
+    }
+  where
     slot :: SlotId
     slot = case block of
-        Left  gB -> let slotZero = case mkLocalSlotIndex 0 of
+        Left  gB -> let slotZero = case mkLocalSlotIndex epochSlots 0 of
                                         Right sz -> sz
                                         Left _   -> error "impossible branch"
                     in SlotId (gB ^. genBlockEpoch) slotZero

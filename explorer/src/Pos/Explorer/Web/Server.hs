@@ -57,8 +57,8 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
 import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
-                     HeaderHash, Timestamp, coinToInteger, difficultyL,
-                     gbHeader, gbhConsensus, getChainDifficulty,
+                     HeaderHash, SlotCount, Timestamp, coinToInteger,
+                     difficultyL, gbHeader, gbhConsensus, getChainDifficulty,
                      isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot,
                      sumCoins, timestampToPosix, unsafeAddCoin,
                      unsafeIntegerToCoin, unsafeSubCoin)
@@ -121,23 +121,23 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers
     :: forall ctx m. ExplorerMode ctx m
-    => Diffusion m -> ServerT ExplorerApi m
-explorerHandlers _diffusion =
+    => SlotCount -> Diffusion m -> ServerT ExplorerApi m
+explorerHandlers epochSlots _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
-        , _blocksPages        = getBlocksPage
+        , _blocksPages        = getBlocksPage epochSlots
         , _blocksPagesTotal   = getBlocksPagesTotal
-        , _blocksSummary      = getBlockSummary
+        , _blocksSummary      = getBlockSummary epochSlots
         , _blocksTxs          = getBlockTxs
         , _txsLast            = getLastTxs
         , _txsSummary         = getTxSummary
         , _addressSummary     = getAddressSummary
-        , _epochPages         = getEpochPage
-        , _epochSlots         = getEpochSlot
+        , _epochPages         = getEpochPage epochSlots
+        , _epochSlots         = getEpochSlot epochSlots
         , _genesisSummary     = getGenesisSummary
         , _genesisPagesTotal  = getGenesisPagesTotal
         , _genesisAddressInfo = getGenesisAddressInfo
-        , _statsTxs           = getStatsTxs
+        , _statsTxs           = getStatsTxs epochSlots
         }
         :: ExplorerApiRecord (AsServerT m))
 
@@ -176,10 +176,11 @@ getBlocksTotal = do
 -- Currently the pages are in chronological order.
 getBlocksPage
     :: ExplorerMode ctx m
-    => Maybe Word -- ^ Page number
+    => SlotCount
+    -> Maybe Word -- ^ Page number
     -> Maybe Word -- ^ Page size
     -> m (Integer, [CBlockEntry])
-getBlocksPage mPageNumber mPageSize = do
+getBlocksPage epochSlots mPageNumber mPageSize = do
 
     let pageSize = toPageSize mPageSize
 
@@ -207,7 +208,7 @@ getBlocksPage mPageNumber mPageSize = do
     -- TODO: Fix this Int / Integer thing once we merge repositories
     pageBlocksHH    <- getPageHHsOrThrow $ fromIntegral pageNumber
     blunds          <- forM pageBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (blundToMainBlockUndo blunds) toBlockEntry
+    cBlocksEntry    <- forM (blundToMainBlockUndo blunds) (toBlockEntry epochSlots)
 
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, reverse cBlocksEntry)
@@ -258,8 +259,9 @@ getBlocksPagesTotal mPageSize = do
 -- for the page size since this is called from __explorer only__.
 getBlocksLastPage
     :: ExplorerMode ctx m
-    => m (Integer, [CBlockEntry])
-getBlocksLastPage = getBlocksPage Nothing (Just defaultPageSizeWord)
+    => SlotCount -> m (Integer, [CBlockEntry])
+getBlocksLastPage epochSlots =
+    getBlocksPage epochSlots Nothing (Just defaultPageSizeWord)
 
 
 -- | Get last transactions from the blockchain.
@@ -300,12 +302,13 @@ getLastTxs = do
 -- | Get block summary.
 getBlockSummary
     :: ExplorerMode ctx m
-    => CHash
+    => SlotCount
+    -> CHash
     -> m CBlockSummary
-getBlockSummary cHash = do
+getBlockSummary epochSlots cHash = do
     headerHash <- unwrapOrThrow $ fromCHash cHash
     mainBlund  <- getMainBlund headerHash
-    toBlockSummary mainBlund
+    toBlockSummary epochSlots mainBlund
 
 
 -- | Get transactions from a block.
@@ -601,10 +604,11 @@ getGenesisPagesTotal mPageSize addrFilt = do
 -- | Search the blocks by epoch and slot.
 getEpochSlot
     :: ExplorerMode ctx m
-    => EpochIndex
+    => SlotCount
+    -> EpochIndex
     -> Word16
     -> m [CBlockEntry]
-getEpochSlot epochIndex slotIndex = do
+getEpochSlot epochSlots epochIndex slotIndex = do
 
     -- The slots start from 0 so we need to modify the calculation of the index.
     let page = fromIntegral $ (slotIndex `div` 10) + 1
@@ -613,7 +617,7 @@ getEpochSlot epochIndex slotIndex = do
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex page
     blunds          <- forM epochBlocksHH getBlundOrThrow
-    forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
+    forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) (toBlockEntry epochSlots)
   where
     blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
@@ -650,10 +654,11 @@ getEpochSlot epochIndex slotIndex = do
 -- | Search the blocks by epoch and epoch page number.
 getEpochPage
     :: ExplorerMode ctx m
-    => EpochIndex
+    => SlotCount
+    -> EpochIndex
     -> Maybe Int
     -> m (Int, [CBlockEntry])
-getEpochPage epochIndex mPage = do
+getEpochPage epochSlots epochIndex mPage = do
 
     -- Get the page if it exists, return first page otherwise.
     let page = fromMaybe 1 mPage
@@ -669,7 +674,7 @@ getEpochPage epochIndex mPage = do
     let sortedBlunds     = sortBlocksByEpochSlots blunds
     let sortedMainBlocks = blundToMainBlockUndo sortedBlunds
 
-    cBlocksEntry        <- forM sortedMainBlocks toBlockEntry
+    cBlocksEntry        <- forM sortedMainBlocks (toBlockEntry epochSlots)
 
     pure (epochPagesNumber, cBlocksEntry)
   where
@@ -704,11 +709,12 @@ getEpochPage epochIndex mPage = do
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m
-    => Maybe Word
+    => SlotCount
+    -> Maybe Word
     -> m (Integer, [(CTxId, Byte)])
-getStatsTxs mPageNumber = do
+getStatsTxs epochSlots mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage mPageNumber (Just defaultPageSizeWord)
+    blocksPage <- getBlocksPage epochSlots mPageNumber (Just defaultPageSizeWord)
     getBlockPageTxsInfo blocksPage
   where
     getBlockPageTxsInfo

@@ -14,7 +14,8 @@ import qualified Serokell.Util.Base64 as B64
 
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
-import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
+import           Pos.Core (ProtocolConstants, TxAux (..), TxOut (..),
+                     getCurrentTimestamp)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, aesDecrypt, hash,
                      redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
@@ -36,12 +37,17 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsDetector)
 
 redeemAda
     :: MonadWalletTxFull ctx m
-    => ProtocolMagic -> (TxAux -> m Bool) -> PassPhrase -> CWalletRedeem -> m CTx
-redeemAda pm submitTx passphrase CWalletRedeem {..} = do
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> (TxAux -> m Bool)
+    -> PassPhrase
+    -> CWalletRedeem
+    -> m CTx
+redeemAda pm pc submitTx passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
         $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
-    redeemAdaInternal pm submitTx passphrase crWalletId seedBs
+    redeemAdaInternal pm pc submitTx passphrase crWalletId seedBs
   where
     invalidBase64 =
         throwM . RequestError $ "Seed is invalid base64(url) string: " <> crSeed
@@ -52,17 +58,18 @@ redeemAda pm submitTx passphrase CWalletRedeem {..} = do
 redeemAdaPaperVend
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> CPaperVendWalletRedeem
     -> m CTx
-redeemAdaPaperVend pm submitTx passphrase CPaperVendWalletRedeem {..} = do
+redeemAdaPaperVend pm pc submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
     let aesKey = mnemonicToAesKey (bpToList pvBackupPhrase)
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
-    redeemAdaInternal pm submitTx passphrase pvWalletId seedDecBs
+    redeemAdaInternal pm pc submitTx passphrase pvWalletId seedDecBs
   where
     invalidBase58 =
         throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
@@ -73,12 +80,13 @@ redeemAdaPaperVend pm submitTx passphrase CPaperVendWalletRedeem {..} = do
 redeemAdaInternal
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal pm submitTx passphrase cAccId seedBs = do
+redeemAdaInternal pm pc submitTx passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
@@ -99,9 +107,9 @@ redeemAdaInternal pm submitTx passphrase cAccId seedBs = do
             txInputs = [TxOut redeemAddress redeemBalance]
             th = THEntry txHash tx Nothing txInputs [dstAddr] ts
             dstWallet = aiWId accId
-        ptx <- mkPendingTx ws dstWallet txHash txAux th
+        ptx <- mkPendingTx pc ws dstWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx pm db submitTx ptx
+        th <$ submitAndSaveNewPtx pm pc db submitTx ptx
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId

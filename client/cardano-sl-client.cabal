@@ -104,6 +104,7 @@ test-suite cardano-client-test
                      , cardano-sl
                      , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db

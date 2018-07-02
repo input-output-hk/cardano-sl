@@ -30,9 +30,7 @@ import           Pos.Block.Configuration (HasBlockConfiguration,
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
-import           Pos.Core (StakeholderId, addressHash)
-import           Pos.Core.Configuration (HasProtocolConstants,
-                     protocolConstants)
+import           Pos.Core (ProtocolConstants, StakeholderId, addressHash)
 import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
@@ -78,11 +76,13 @@ runRealMode
        -- though they should use only @RealModeContext@
        )
     => ProtocolMagic
+    -> ProtocolConstants
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode pm nr@NodeResources {..} act = runServer
+runRealMode pm pc nr@NodeResources {..} act = runServer
     pm
+    pc
     ncNodeParams
     (EkgNodeMetrics nrEkgStore)
     ncShutdownContext
@@ -90,12 +90,12 @@ runRealMode pm nr@NodeResources {..} act = runServer
     act'
   where
     NodeContext {..} = nrContext
-    NodeParams {..} = ncNodeParams
-    securityParams = bcSecurityParams npBehaviorConfig
+    NodeParams {..}  = ncNodeParams
+    securityParams   = bcSecurityParams npBehaviorConfig
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull pm ourStakeholderId securityParams jsonLog
+    logic = logicFull pm pc ourStakeholderId securityParams jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
@@ -145,20 +145,17 @@ elimRealMode pm NodeResources {..} diffusion action = runProduction $ do
 -- network connection timeout (nt-tcp), and, and the 'recoveryHeadersMessage'
 -- number.
 runServer
-    :: forall t .
-       ( HasProtocolConstants
-       , HasBlockConfiguration
-       , HasNodeConfiguration
-       , HasUpdateConfiguration
-       )
+    :: forall t
+     . (HasBlockConfiguration, HasNodeConfiguration, HasUpdateConfiguration)
     => ProtocolMagic
+    -> ProtocolConstants
     -> NodeParams
     -> EkgNodeMetrics
     -> ShutdownContext
     -> (Diffusion IO -> Logic IO)
     -> (Diffusion IO -> IO t)
     -> IO t
-runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
+runServer pm pc NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
     diffusionLayerFull fdconf
                        npNetworkConfig
                        (Just ekgNodeMetrics)
@@ -175,7 +172,7 @@ runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShut
   where
     fdconf = FullDiffusionConfiguration
         { fdcProtocolMagic = pm
-        , fdcProtocolConstants = protocolConstants
+        , fdcProtocolConstants = pc
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout

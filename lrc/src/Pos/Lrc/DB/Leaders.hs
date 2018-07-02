@@ -19,9 +19,8 @@ module Pos.Lrc.DB.Leaders
 import           Universum
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount,
-                     SlotId (SlotId), SlotLeaders, StakeholderId,
-                     flattenSlotId, unsafeMkLocalSlotIndex)
+import           Pos.Core (EpochIndex, SlotCount, SlotId (SlotId), SlotLeaders,
+                     StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi,
                      putBi, toRocksOps)
@@ -34,8 +33,8 @@ import           Pos.Lrc.Genesis (genesisLeaders)
 getLeadersForEpoch :: MonadDBRead m => EpochIndex -> m (Maybe SlotLeaders)
 getLeadersForEpoch = getBi . leadersForEpochKey
 
-getLeader :: MonadDBRead m => SlotId -> m (Maybe StakeholderId)
-getLeader = getBi . leaderKey
+getLeader :: MonadDBRead m => SlotCount -> SlotId -> m (Maybe StakeholderId)
+getLeader epochSlots = getBi . leaderKey epochSlots
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -45,10 +44,10 @@ getLeader = getBi . leaderKey
 -- The DB contains two mappings:
 -- * EpochIndex -> SlotLeaders
 -- * SlotId -> StakeholderId (added in CSE-240)
-putLeadersForEpoch :: MonadDB m => EpochIndex -> SlotLeaders -> m ()
-putLeadersForEpoch epoch leaders = do
+putLeadersForEpoch :: MonadDB m => SlotCount -> EpochIndex -> SlotLeaders -> m ()
+putLeadersForEpoch epochSlots epoch leaders = do
     let opsAllAtOnce  = toRocksOps $ putLeadersForEpochAllAtOnceOps epoch leaders
-        opsSeparately = toRocksOps $ putLeadersForEpochSeparatelyOps epoch leaders
+        opsSeparately = toRocksOps $ putLeadersForEpochSeparatelyOps epochSlots epoch leaders
     putBatch $ opsAllAtOnce <> opsSeparately
 
 ----------------------------------------------------------------------------
@@ -63,7 +62,7 @@ prepareLrcLeaders epochSlots =
         if not hasLeadersForEpoch0 then
             -- The node is not initialized at all. Only need to put leaders
             -- for the first epoch.
-            putLeadersForEpoch 0 (genesisLeaders epochSlots)
+            putLeadersForEpoch epochSlots 0 (genesisLeaders epochSlots)
         else
             -- The node was initialized before CSE-240.
             -- Need to migrate data for all epochs.
@@ -75,7 +74,7 @@ prepareLrcLeaders epochSlots =
         maybeLeaders <- getLeadersForEpoch i
         case maybeLeaders of
             Just leaders -> do
-                putBatchBi $ putLeadersForEpochSeparatelyOps i leaders
+                putBatchBi $ putLeadersForEpochSeparatelyOps epochSlots i leaders
                 initLeaders (i + 1)
             Nothing -> pure ()
 
@@ -92,8 +91,8 @@ putInitFlag = putBi lrcDbLeadersInitFlag ()
 leadersForEpochKey :: EpochIndex -> ByteString
 leadersForEpochKey = mappend "l/" . serialize'
 
-leaderKey :: HasProtocolConstants => SlotId -> ByteString
-leaderKey = mappend "ls/" . serialize' . flattenSlotId
+leaderKey :: SlotCount -> SlotId -> ByteString
+leaderKey epochSlots = mappend "ls/" . serialize' . flattenSlotId epochSlots
 
 lrcDbLeadersInitFlag :: ByteString
 lrcDbLeadersInitFlag = "linit/"
@@ -113,15 +112,15 @@ putLeadersForEpochAllAtOnceOps epoch leaders =
     [(leadersForEpochKey epoch, leaders)]
 
 putLeadersForEpochSeparatelyOps
-    :: HasProtocolConstants
-    => EpochIndex
+    :: SlotCount
+    -> EpochIndex
     -> SlotLeaders
     -> [(ByteString, StakeholderId)]
-putLeadersForEpochSeparatelyOps epoch leaders =
-    [(leaderKey $ mkSlotId epoch i, leader)
+putLeadersForEpochSeparatelyOps epochSlots epoch leaders =
+    [(leaderKey epochSlots $ mkSlotId epoch i, leader)
     | (i, leader) <- zip [0..] $ toList leaders]
   where
     mkSlotId :: EpochIndex -> Word16 -> SlotId
     mkSlotId epoch' slot =
         -- Using @unsafeMkLocalSlotIndex@ because we trust the callers.
-        SlotId epoch' (unsafeMkLocalSlotIndex slot)
+        SlotId epoch' (unsafeMkLocalSlotIndex epochSlots slot)

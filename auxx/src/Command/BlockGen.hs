@@ -13,7 +13,7 @@ import           System.Wlog (logInfo)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Core (gdBootStakeholders, genesisData)
+import           Pos.Core (ProtocolConstants, gdBootStakeholders, genesisData)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
                      tgpTxCountRange)
@@ -25,9 +25,8 @@ import           Pos.Util.CompileInfo (withCompileInfo)
 import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)
 
-
-generateBlocks :: MonadAuxxMode m => ProtocolMagic -> GenBlocksParams -> m ()
-generateBlocks pm GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
+generateBlocks :: MonadAuxxMode m => ProtocolMagic -> ProtocolConstants -> GenBlocksParams -> m ()
+generateBlocks pm pc GenBlocksParams {..} = withStateLock HighPriority ApplyBlock $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 
@@ -38,13 +37,13 @@ generateBlocks pm GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ 
                 { _bgpSecrets         = allSecrets
                 , _bgpGenStakeholders = gdBootStakeholders genesisData
                 , _bgpBlockCount      = fromIntegral bgoBlockN
-                -- tx generation is disalbed for now
+                -- tx generation is disabled for now
                 , _bgpTxGenParams     = def & tgpTxCountRange .~ (0,0)
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
                 , _bgpTxpGlobalSettings = txpGlobalSettings pm
                 }
-    withCompileInfo $ evalRandT (genBlocks pm bgenParams (const ())) (mkStdGen seed)
+    withCompileInfo $ evalRandT (genBlocks pm pc bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     logInfo $ "Generated with seed " <> show seed

@@ -15,7 +15,8 @@ import           Universum
 import           Data.Default (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core (HeaderHash, SlotId (..), UpdateProposals)
+import           Pos.Core (HeaderHash, SlotCount, SlotId (..), UpdateProposals,
+                     localSlotIndexMinBound)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
@@ -54,11 +55,10 @@ newtype MemVar = MemVar
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
 newMemVar
-    :: (MonadIO m, MonadDBRead m, MonadSlots ctx m)
-    => m MemVar
-newMemVar = do
-    let slot0 = SlotId 0 minBound
-    msSlot <- fromMaybe slot0 <$> getCurrentSlot
+    :: (MonadIO m, MonadDBRead m, MonadSlots ctx m) => SlotCount -> m MemVar
+newMemVar epochSlots = do
+    let slot0 = SlotId 0 localSlotIndexMinBound
+    msSlot <- fromMaybe slot0 <$> getCurrentSlot epochSlots
     msTip <- getTip
     let ms = MemState { msPool = def, msModifier = mempty, .. }
     liftIO $ MemVar <$> newTVarIO ms

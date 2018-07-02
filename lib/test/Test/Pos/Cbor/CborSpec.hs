@@ -61,7 +61,7 @@ type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 ----------------------------------------
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> do
+spec = withDefConfiguration $ do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do

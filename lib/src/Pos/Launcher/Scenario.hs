@@ -20,7 +20,7 @@ import           System.Wlog (WithLogger, askLoggerName, logInfo)
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                      GenesisDelegation (..), GenesisWStakeholders (..),
-                     addressHash, gdFtsSeed, genesisData)
+                     ProtocolConstants, addressHash, gdFtsSeed, genesisData)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
@@ -104,17 +104,16 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode
-    :: ( HasCompileInfo
-       , HasTxpConfiguration
-       , WorkMode ctx m
-       )
+    :: (HasCompileInfo, HasTxpConfiguration, WorkMode ctx m)
     => ProtocolMagic
+    -> ProtocolConstants
     -> NodeResources ext
     -> [Diffusion m -> m ()]
-    -> Diffusion m -> m ()
-runNode pm nr plugins = runNode' nr workers' plugins
+    -> Diffusion m
+    -> m ()
+runNode pm pc nr plugins = runNode' nr workers' plugins
   where
-    workers' = allWorkers pm nr
+    workers' = allWorkers pm pc nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

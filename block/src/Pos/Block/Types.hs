@@ -3,6 +3,7 @@
 module Pos.Block.Types
        ( SlogUndo (..)
        , Undo (..)
+       , buildUndo
        , Blund
 
        , LastKnownHeader
@@ -17,16 +18,14 @@ module Pos.Block.Types
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting (Format, bprint, build, later, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Delegation ()
 import           Pos.Binary.Update ()
-import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Core (HasConfiguration, HasDifficulty (..),
-                     HasHeaderHash (..))
+import           Pos.Block.Slog.Types (SlogUndo (..), buildSlogUndo)
+import           Pos.Core (HasDifficulty (..), HasHeaderHash (..), SlotCount)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Delegation.Types (DlgUndo)
@@ -47,14 +46,14 @@ instance NFData Undo
 -- | Block and its Undo.
 type Blund = (Block, Undo)
 
-instance HasConfiguration => Buildable Undo where
-    build Undo{..} =
-        bprint ("Undo:\n"%
-                "  undoTx: "%listJson%"\n"%
-                "  undoDlg: "%build%"\n"%
-                "  undoUS: "%build%"\n"%
-                "  undoSlog: "%build)
-               (map (bprint listJson) undoTx) undoDlg undoUS undoSlog
+buildUndo :: SlotCount -> Format r (Undo -> r)
+buildUndo epochSlots = later $ \Undo{..} ->
+    bprint ("Undo:\n"%
+            "  undoTx: "%listJson%"\n"%
+            "  undoDlg: "%build%"\n"%
+            "  undoUS: "%build%"\n"%
+            "  undoSlog: "%buildSlogUndo epochSlots)
+            (map (bprint listJson) undoTx) undoDlg undoUS undoSlog
 
 instance HasDifficulty Blund where
     difficultyL = _1 . difficultyL

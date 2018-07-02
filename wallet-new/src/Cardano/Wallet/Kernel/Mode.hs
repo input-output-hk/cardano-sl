@@ -89,8 +89,8 @@ walletRollbackBlocks _w _bs = do
     return mempty
 
 instance MonadBListener WalletMode where
-  onApplyBlocks    bs = getWallet >>= (`walletApplyBlocks`    bs)
-  onRollbackBlocks bs = getWallet >>= (`walletRollbackBlocks` bs)
+  onApplyBlocks      bs = getWallet >>= (`walletApplyBlocks`    bs)
+  onRollbackBlocks _ bs = getWallet >>= (`walletRollbackBlocks` bs)
 
 {-------------------------------------------------------------------------------
   Run the wallet
@@ -98,12 +98,13 @@ instance MonadBListener WalletMode where
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               => ProtocolMagic
+              -> ProtocolConstants
               -> NodeResources ()
               -> PassiveWalletLayer Production
               -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
-runWalletMode pm nr wallet action =
-    Production $ runRealMode pm nr $ \diffusion ->
+runWalletMode pm pc nr wallet action =
+    Production $ runRealMode pm pc nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
@@ -183,9 +184,7 @@ instance HasConfiguration => MonadDB WalletMode where
   dbDelete      = dbDeleteDefault
   dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance ( HasConfiguration
-         , MonadSlotsData ctx WalletMode
-         ) => MonadSlots ctx WalletMode where
+instance MonadSlotsData ctx WalletMode => MonadSlots ctx WalletMode where
   getCurrentSlot           = getCurrentSlotSimple
   getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
   getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple

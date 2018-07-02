@@ -49,7 +49,7 @@ prepareUserSecret CommonNodeArgs {devGenesisSecretI} userSecret = do
 
 -- Make sure UserSecret contains a primary key.
 fillPrimaryKey ::
-       (MonadIO m, Log.WithLogger m)
+       Log.WithLogger m
     => Maybe SecretKey
     -> UserSecret
     -> m (SecretKey, UserSecret)
@@ -57,7 +57,7 @@ fillPrimaryKey = fillUserSecretPart (snd <$> keyGen) usPrimKey "signing key"
 
 -- Make sure UserSecret contains a VSS key.
 fillUserSecretVSS ::
-       (MonadIO m, Log.WithLogger m)
+       Log.WithLogger m
     => Maybe VssKeyPair
     -> UserSecret
     -> m (VssKeyPair, UserSecret)

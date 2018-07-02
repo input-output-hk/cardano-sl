@@ -60,8 +60,9 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes,
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal,
                      handleVote)
-import           Pos.Util.Log (WithLogger, logDebug)
+--import           Pos.Util.Log (WithLogger, logDebug)
 import           Pos.Util.Trace (Trace, noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
@@ -81,7 +82,6 @@ import           Pos.Util.Util (HasLens (..))
 type LogicWorkMode ctx m =
     ( HasConfiguration
     , HasBlockConfiguration
-    , WithLogger m
     , MonadReader ctx m
     , MonadMask m
     , MonadBlockDBRead m
@@ -101,12 +101,13 @@ type LogicWorkMode ctx m =
 logicFull
     :: forall ctx m .
        ( LogicWorkMode ctx m )
-    => ProtocolMagic
+    => TraceNamed m
+    -> Trace m JLTxR
+    -> ProtocolMagic
     -> StakeholderId
     -> SecurityParams
-    -> Trace m JLTxR
     -> Logic m
-logicFull pm ourStakeholderId securityParams jsonLogTx =
+logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
@@ -225,11 +226,11 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             ignoreFmt =
                 "Malicious emulation: data "%build%" for id "%build%" is ignored"
             handleDataDo dat id shouldIgnore
-                | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
+                | shouldIgnore = False <$ logDebug logTrace (sformat ignoreFmt id dat)
                 | otherwise = sscProcessMessage processData dat
             sscProcessMessage sscProcessMessageDo dat =
                 sscProcessMessageDo dat >>= \case
-                    Left err -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) err)
+                    Left err -> False <$ logDebug logTrace (sformat ("Data is rejected, reason: "%build) err)
                     Right () -> return True
 
     in Logic {..}

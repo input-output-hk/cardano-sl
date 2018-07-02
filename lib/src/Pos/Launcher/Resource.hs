@@ -33,7 +33,7 @@ import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (mkSlogContext)
-import           Pos.Client.CLI.Util (readLoggerConfig)
+--import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
@@ -65,12 +65,12 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithTrace, newInitFuture)
-import           Pos.Util.Log (WithLogger, LoggerConfig (..), LoggerName, LoggingHandler (..), logDebug, logInfo)
-import qualified Pos.Util.Log as Log (LogContextT, loggerBracket, parseLoggerConfig,
-                     setupLogging)
+--import           Pos.Util.Log (WithLogger, LoggerConfig (..), LoggerName, LoggingHandler, logDebug, logInfo)
+import qualified Pos.Util.Log as Log
+-- (LogContextT (..), {-loggerBracket,-} parseLoggerConfig, setupLogging)
 import           Pos.Util.Trace (noTrace, natTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
-import qualified Pos.Util.Trace.Named as TN (logDebug, logInfo, logWarning)
+import qualified Pos.Util.Trace.Named as TN --(logDebug, logInfo, logWarning)
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd
@@ -80,7 +80,7 @@ import qualified System.Systemd.Daemon as Systemd
 import qualified Pos.Util.Log.Internal as Internal
 
 import qualified Katip as K
-import qualified Katip.Core as KC
+--import qualified Katip.Core as KC
 
 ----------------------------------------------------------------------------
 -- Data type
@@ -234,7 +234,7 @@ bracketNodeResources logTrace np sp txp initDB action = do
 -- Logging
 ----------------------------------------------------------------------------
 
-getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
+getRealLoggerConfig :: MonadIO m => LoggingParams -> m Log.LoggerConfig
 getRealLoggerConfig LoggingParams{..} =
     Log.parseLoggerConfig $ fromMaybe "--unk--" lpConfigPath
 {-
@@ -252,23 +252,19 @@ getRealLoggerConfig LoggingParams{..} =
 -}
 
 -- | RAII for Logging.   TODO  make use of Trace!!
-loggerBracket :: (MonadIO m, WithLogger n) => LoggingParams -> n a -> m a
+loggerBracket :: LoggingParams -> Log.LogContextT Production () -> Production ()
 --loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 loggerBracket params action = do
     lh <- liftIO $ Log.setupLogging =<< getRealLoggerConfig params
-    liftIO $ loggerBracket' lh (lpDefaultName params) $
-      action
+    loggerBracket' lh (lpDefaultName params) action
 
-demo_action :: Int -> Production ()
-demo_action _ = return ()
-
-loggerBracket' :: LoggingHandler -> LoggerName -> Log.LogContextT Production a -> IO a
+loggerBracket' :: Log.LoggingHandler -> Log.LoggerName -> Log.LogContextT Production () -> Production ()
 loggerBracket' lh name f = do
-    mayle <- Internal.getLogEnv lh
+    mayle <- liftIO $ Internal.getLogEnv lh
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
-            Just le -> bracket (return le) K.closeScribes $
-                \le_ -> runProduction $ K.runKatipContextT le_ () (Internal.s2kname name) $ f
+            Just le -> liftIO $ bracket (return le) K.closeScribes $
+              \le_ -> runProduction $ K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 
 ----------------------------------------------------------------------------
@@ -285,7 +281,7 @@ data AllocateNodeContextData ext = AllocateNodeContextData
     }
 
 allocateNodeContext
-    :: forall ext m .
+    :: forall ext .
       ( HasConfiguration
       , HasNodeConfiguration
       , HasBlockConfiguration
@@ -383,6 +379,6 @@ notifyReady logTrace = do
         Just () -> return ()
         Nothing -> TN.logWarning logTrace "notifyReady failed to notify systemd."
 #else
-notifyReady :: MonadIO m => TraceNamed m -> m ()
+notifyReady :: TraceNamed m -> m ()
 notifyReady logTrace = TN.logInfo logTrace "notifyReady: no systemd support enabled"
 #endif

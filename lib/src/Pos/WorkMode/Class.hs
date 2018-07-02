@@ -15,7 +15,6 @@ import           Universum
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
@@ -48,6 +47,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util (HasLens, HasLens')
+import           Pos.Util.Log (WithLogger)
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m

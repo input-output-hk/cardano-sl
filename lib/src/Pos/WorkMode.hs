@@ -46,9 +46,9 @@ import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
                      MonadSlotsData)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                     JsonLogConfig, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Infra.Util.JsonLog.Events ({- HasJsonLogConfig (..), -}
+                     JsonLogConfig {-, jsonLogDefault -})
+--import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt,
@@ -56,8 +56,9 @@ import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt,
                      txProcessTransaction)
 import           Pos.Util.Lens (postfixLFields)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
+import           Pos.Util.Trace (noTrace)
+--import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
+--                     modifyLoggerNameDefault)
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
@@ -141,8 +142,10 @@ instance HasLoggerName' (RealModeContext ext) where
     loggerName = rmcLoggerName_L
 -}
 
+{- TODO
 instance HasJsonLogConfig (RealModeContext ext) where
     jsonLogConfig = rmcJsonLogConfig_L
+-}
 
 {-
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
@@ -150,8 +153,10 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
     modifyLoggerName = modifyLoggerNameDefault
 -}
 
+{- TODO
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
+-}
 
 instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
       => MonadSlots ctx (RealMode ext)
@@ -185,7 +190,7 @@ type instance MempoolExt (RealMode ext) = ext
 instance (HasConfiguration, HasTxpConfiguration) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
-    txpProcessTx = txProcessTransaction
+    txpProcessTx = txProcessTransaction noTrace noTrace
 
 instance MonadReporting (RealMode ext) where
     report rt = Mtl.ask >>= liftIO . flip runReporter rt . rmcReporter

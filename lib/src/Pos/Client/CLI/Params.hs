@@ -25,6 +25,7 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc (SscParams (..))
 import           Pos.Update.Params (UpdateParams (..))
 import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
 
@@ -68,7 +69,7 @@ getNodeParams ::
 getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
         prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
-    npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
+    npNetworkConfig <- intNetworkConfigOpts noTrace networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)

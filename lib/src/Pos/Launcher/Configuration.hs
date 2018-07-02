@@ -31,7 +31,8 @@ import           Data.Time.Units (fromMicroseconds)
 
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
-import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo, usingLoggerName)
+import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
+                     usingLoggerName)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.

@@ -212,8 +212,9 @@ equivalentT activeWallet (pk,esk) = \mkWallet w ->
                      -> HD.HdAccountId
                      -> TranslateT (EquivalenceViolation h) m ()
     checkWalletState ctxt@InductiveCtxt{..} accountId = do
-        cmp "utxo"          utxo         (`Kernel.accountUtxo` accountId)
-        cmp "totalBalance"  totalBalance (`Kernel.accountTotalBalance` accountId)
+        snapshot <- liftIO (Kernel.getWalletSnapshot passiveWallet)
+        cmp "utxo"          utxo         (snapshot `Kernel.accountUtxo` accountId)
+        cmp "totalBalance"  totalBalance (snapshot `Kernel.accountTotalBalance` accountId)
         -- TODO: check other properties
       where
         cmp :: ( Interpret h a
@@ -223,12 +224,11 @@ equivalentT activeWallet (pk,esk) = \mkWallet w ->
                )
             => Text
             -> (Wallet h Addr -> a)
-            -> (Kernel.PassiveWallet -> IO (Interpreted a))
+            -> Interpreted a
             -> TranslateT (EquivalenceViolation h) m ()
-        cmp fld f g = do
+        cmp fld f kernel = do
           let dsl = f inductiveCtxtWallet
           translated <- toCardano ctxt fld dsl
-          kernel     <- liftIO $ g passiveWallet
 
           unless (translated == kernel) $
             throwError EquivalenceViolation {

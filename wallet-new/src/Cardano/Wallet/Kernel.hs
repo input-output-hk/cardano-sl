@@ -9,9 +9,8 @@
 module Cardano.Wallet.Kernel (
     -- * Passive wallet
     PassiveWallet -- opaque
+  , DB -- opaque
   , WalletId
-  , accountUtxo
-  , accountTotalBalance
   , applyBlock
   , applyBlocks
   , bracketPassiveWallet
@@ -20,6 +19,10 @@ module Cardano.Wallet.Kernel (
   , walletLogMessage
   , walletPassive
   , wallets
+    -- * The only effectful getter you will ever need
+  , getWalletSnapshot
+    -- * Pure getters acting on a DB snapshot
+  , module Getters
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
@@ -34,8 +37,6 @@ import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 
-import           Formatting (build, sformat)
-
 import           System.Wlog (Severity (..))
 
 import           Data.Acid (AcidState)
@@ -49,23 +50,24 @@ import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), CreateHdWallet (..), DB,
-                     NewPending (..), NewPendingError, Snapshot (..),
-                     dbHdWallets, defDB)
+                     NewPending (..), NewPendingError, Snapshot (..), defDB)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
-import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
                      addPending, defaultResubmitFunction, exponentialBackoff,
                      newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
-import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))
+-- Handy re-export of the pure getters
+
+import           Cardano.Wallet.Kernel.DB.Read as Getters
+
+import           Pos.Core (AddressHash, Timestamp (..), TxAux (..))
 
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, hash)
@@ -299,25 +301,6 @@ cancelPending :: PassiveWallet -> Cancelled -> IO ()
 cancelPending passiveWallet cancelled =
     update' (passiveWallet ^. wallets) $ CancelPending (fmap InDb cancelled)
 
-{-------------------------------------------------------------------------------
-  Wallet Account read-only API
--------------------------------------------------------------------------------}
-
-walletQuery' :: forall e a. (Buildable e)
-             => PassiveWallet
-             -> HdQueryErr e a
-             -> IO a
-walletQuery' pw qry= do
-    snapshot <- query' (pw ^. wallets) Snapshot
-    let res = qry (snapshot ^. dbHdWallets)
-    either err return res
-    where
-        err = error . sformat build
-
-accountUtxo :: PassiveWallet -> HdAccountId -> IO Utxo
-accountUtxo pw accountId
-    = walletQuery' pw (Spec.queryAccountUtxo accountId)
-
-accountTotalBalance :: PassiveWallet -> HdAccountId -> IO Coin
-accountTotalBalance pw accountId
-    = walletQuery' pw (Spec.queryAccountTotalBalance accountId)
+-- | The only effectful query on this 'PassiveWallet'.
+getWalletSnapshot :: PassiveWallet -> IO DB
+getWalletSnapshot pw = query' (pw ^. wallets) Snapshot

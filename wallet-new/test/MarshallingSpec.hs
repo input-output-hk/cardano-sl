@@ -25,7 +25,8 @@ import qualified Pos.Core as Core
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
 import           Cardano.Wallet.API.Response (JSONValidationError)
-import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..), MigrationError)
+import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..),
+                     MigrationError)
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import qualified Cardano.Wallet.Util as Util

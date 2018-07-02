@@ -277,6 +277,7 @@ test-suite cardano-test
                        Test.Pos.ConstantsSpec
                        Test.Pos.Diffusion.BlockSpec
                        Test.Pos.Genesis.CanonicalSpec
+                       Test.Pos.Launcher.ConfigurationSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Infra.Slotting.TypesSpec
                        Test.Pos.Types.Identity.SafeCopySpec
@@ -326,6 +327,7 @@ test-suite cardano-test
                      , generic-arbitrary
                      , hspec
                      , lens
+                     , log-warper
                      , mtl
                      , network-transport
                      , network-transport-inmemory
@@ -339,6 +341,7 @@ test-suite cardano-test
                      , tagged
                      , text
                      , text-format
+                     , time
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

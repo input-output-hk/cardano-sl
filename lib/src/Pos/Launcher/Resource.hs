@@ -261,8 +261,8 @@ loggerBracket params action = do
     liftIO $ Log.loggerBracket lh (lpDefaultName params) $
         (natLogContextT action)
 
-natLogContextT :: K.KatipContextT Production a -> K.KatipContextT IO a
-natLogContextT (KM.KatipContextT p) = KM.KatipContextT $ mapReaderT runProduction p
+-- natLogContextT :: K.KatipContextT Production a -> K.KatipContextT IO a
+-- natLogContextT (KM.KatipContextT p) = KM.KatipContextT $ mapReaderT runProduction p
 
 demo_action :: Int -> Production ()
 demo_action _ = return ()

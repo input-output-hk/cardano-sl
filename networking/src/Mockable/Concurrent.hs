@@ -30,7 +30,7 @@ module Mockable.Concurrent (
   , withAsync
   , withAsyncWithUnmask
   , asyncThreadId
-  , race
+--   , race
 
   , Concurrently(..)
   , concurrently

@@ -11,7 +11,6 @@ module Cardano.Wallet.Kernel.Types (
   , mkRawResolvedBlock
   -- ** Abstract Wallet/AccountIds
   , WalletId (..)
-  , WalletESKs
   , accountToWalletId
     -- ** From raw to derived types
   , fromRawResolvedTx
@@ -28,7 +27,6 @@ import           Data.Word (Word32)
 import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut,
                      TxOutAux (..), gbBody, mbTxs, mbWitnesses, txInputs,
                      txOutputs)
-import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
@@ -58,12 +56,6 @@ data WalletId =
     -}
 
     deriving (Eq, Ord)
-
--- | Map of Wallet Master keys indexed by WalletId
---
--- TODO: We may need to rethink having this in-memory
--- ESK should _not_ end up in the wallet's acid-state log
-type WalletESKs = Map WalletId EncryptedSecretKey
 
 accountToWalletId :: HD.HdAccountId -> WalletId
 accountToWalletId accountId

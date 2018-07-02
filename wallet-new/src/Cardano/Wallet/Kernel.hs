@@ -32,7 +32,7 @@ module Cardano.Wallet.Kernel (
 import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar, modifyMVar_, withMVar)
+import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
 import           Data.Time.Clock.POSIX (getPOSIXTime)
@@ -44,9 +44,11 @@ import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Keystore (Keystore)
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
                      prefilterBlock, prefilterUtxo)
-import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), CreateHdWallet (..), DB,
@@ -84,9 +86,12 @@ import           Pos.Txp (Utxo)
 --
 data PassiveWallet = PassiveWallet {
       -- | Send log message
-      _walletLogMessage :: Severity -> Text -> IO () -- ^ Logger
-    , _walletESKs       :: MVar WalletESKs           -- ^ ESKs indexed by WalletId
-    , _wallets          :: AcidState DB              -- ^ Database handle
+      _walletLogMessage :: Severity -> Text -> IO ()
+      -- ^ Logger
+    , _walletKeystore   :: Keystore
+      -- ^ An opaque handle to a place where we store the 'EncryptedSecretKey'.
+    , _wallets          :: AcidState DB
+      -- ^ Database handle
     }
 
 makeLenses ''PassiveWallet
@@ -101,13 +106,14 @@ makeLenses ''PassiveWallet
 -- it shouldn't be too specific.
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
+                     -> Keystore
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet _walletLogMessage f =
+bracketPassiveWallet _walletLogMessage keystore f =
     bracket (liftIO $ openMemoryState defDB)
             (\_ -> return ())
             (\db ->
                 bracket
-                  (liftIO $ initPassiveWallet _walletLogMessage db)
+                  (liftIO $ initPassiveWallet _walletLogMessage keystore db)
                   (\_ -> return ())
                   f)
 
@@ -115,14 +121,13 @@ bracketPassiveWallet _walletLogMessage f =
   Manage the WalletESKs Map
 -------------------------------------------------------------------------------}
 
--- | Insert an ESK, indexed by WalletId, to the WalletESK map
+-- | Insert an ESK, indexed by WalletId, to the Keystore.
 insertWalletESK :: PassiveWallet -> WalletId -> EncryptedSecretKey -> IO ()
 insertWalletESK pw wid esk
-    = modifyMVar_ (pw ^. walletESKs) (return . f)
-    where f = Map.insert wid esk
+    = Keystore.insert wid esk (pw ^. walletKeystore)
 
-withWalletESKs :: forall a. PassiveWallet -> (WalletESKs -> IO a) -> IO a
-withWalletESKs pw = withMVar (pw ^. walletESKs)
+withKeystore :: forall a. PassiveWallet -> (Keystore -> IO a) -> IO a
+withKeystore pw action = action (pw ^. walletKeystore)
 
 {-------------------------------------------------------------------------------
   Wallet Initialisers
@@ -130,11 +135,11 @@ withWalletESKs pw = withMVar (pw ^. walletESKs)
 
 -- | Initialise Passive Wallet with empty Wallets collection
 initPassiveWallet :: (Severity -> Text -> IO ())
+                  -> Keystore
                   -> AcidState DB
                   -> IO PassiveWallet
-initPassiveWallet logMessage db = do
-    esks <- Universum.newMVar Map.empty
-    return $ PassiveWallet logMessage esks db
+initPassiveWallet logMessage keystore db = do
+    return $ PassiveWallet logMessage keystore db
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -193,11 +198,9 @@ prefilterBlock' :: PassiveWallet
                 -> ResolvedBlock
                 -> IO (Map HdAccountId PrefilteredBlock)
 prefilterBlock' pw b =
-    withWalletESKs pw $ \esks ->
-        return
-        $ Map.unions
-        $ map prefilterBlock_
-        $ Map.toList esks
+    withKeystore pw $ \keystore ->
+        Keystore.toList keystore >>= \l -> return . Map.unions
+                                                  . map prefilterBlock_ $ l
     where
         prefilterBlock_ (wid,esk) = prefilterBlock wid esk b
 

@@ -42,6 +42,7 @@ import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage,
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      NewWalletBackendParams (..), WalletBackendParams (..),
                      WalletStartupOptions (..), getWalletNodeOptions,
@@ -126,7 +127,8 @@ actionWithNewWallet pm sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelPassiveWallet logMessage' $ \walletLayer passiveWallet -> do
+      keystore <- Keystore.legacyKeystore (nrContext nr)
+      bracketKernelPassiveWallet logMessage' keystore $ \walletLayer passiveWallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode pm
                                   nr

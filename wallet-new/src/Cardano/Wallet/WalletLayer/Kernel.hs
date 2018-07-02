@@ -17,6 +17,7 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
@@ -35,9 +36,10 @@ import           Pos.Crypto.Signing
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
     => (Severity -> Text -> IO ())
+    -> Keystore
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction f =
-    Kernel.bracketPassiveWallet logFunction $ \w -> do
+bracketPassiveWallet logFunction keystore f =
+    Kernel.bracketPassiveWallet logFunction keystore $ \w -> do
 
       -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp

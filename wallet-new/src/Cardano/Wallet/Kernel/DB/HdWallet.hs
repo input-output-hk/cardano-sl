@@ -58,6 +58,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomOrCreateHdAddress
   , assumeHdRootExists
   , assumeHdAccountExists
+    -- * General-utility functions
+  , eskToHdRootId
   ) where
 
 import           Universum
@@ -430,6 +432,14 @@ assumeHdRootExists _id = return ()
 -- Helper function which can be used as an argument to 'zoomOrCreateHdAddress'
 assumeHdAccountExists :: HdAccountId -> Update' HdWallets e ()
 assumeHdAccountExists _id = return ()
+
+{-------------------------------------------------------------------------------
+  General-utility functions
+-------------------------------------------------------------------------------}
+
+-- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'.
+eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
+eskToHdRootId = HdRootId . InDb . Core.addressHash . Core.encToPublic
 
 {-------------------------------------------------------------------------------
   Pretty printing

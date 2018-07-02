@@ -12,7 +12,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Pos.Core.Chrono
 
-import           Util
+import           Cardano.Wallet.Kernel.Util
 import           Util.Validated
 import           UTxO.DSL
 import           Wallet.Inductive

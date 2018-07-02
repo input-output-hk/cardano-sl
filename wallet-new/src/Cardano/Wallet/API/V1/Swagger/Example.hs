@@ -16,7 +16,6 @@ import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
 
 import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 

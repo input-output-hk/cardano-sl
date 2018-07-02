@@ -142,7 +142,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Char as C
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import qualified Pos.Client.Txp.Util as Core
 import qualified Pos.Core as Core
 import qualified Pos.Crypto.Signing as Core

@@ -46,7 +46,6 @@ import           Test.QuickCheck
 
 import qualified Data.Aeson.Options as Serokell
 import qualified Data.Char as Char
-import qualified Data.Text.Buildable
 import qualified Formatting.Buildable
 
 

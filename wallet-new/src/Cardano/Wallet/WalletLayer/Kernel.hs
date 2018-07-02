@@ -154,7 +154,7 @@ bracketPassiveWallet logFunction keystore f =
                                  return $ Left (CreateAddressAddressDecodingFailed wId)
                              Right rootAddr -> do
                                 let hdRootId = HD.HdRootId . InDb $ rootAddr
-                                let hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accIdx)
+                                let hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx (V1.getAccIndex accIdx))
                                 let passPhrase = maybe mempty coerce mbSpendingPassword
                                 res <- liftIO $ Kernel.createAddress passPhrase
                                                                      (AccountIdHdRnd hdAccountId)
@@ -255,7 +255,9 @@ setupPayment grouping regulation payment = do
                csoExpenseRegulation = regulation
              , csoInputGrouping     = grouping
              }
-        accountIndex   = HD.HdAccountIx (psAccountIndex . pmtSource $ payment)
+
+    let accountIndex = HD.HdAccountIx (V1.getAccIndex . psAccountIndex . pmtSource $ payment)
+
         accountId = HD.HdAccountId {
                     _hdAccountIdParent = hdRootId
                   , _hdAccountIdIx     = accountIndex

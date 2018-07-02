@@ -33,7 +33,7 @@ import           Test.QuickCheck.Gen (oneof)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Control.Lens as Lens
 import qualified Control.Monad.Catch as Catch
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import qualified Pos.Client.Txp.Util as V0
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core

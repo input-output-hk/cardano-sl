@@ -43,7 +43,6 @@ mkHttpManagerSettings :: ManagerSettings
 mkHttpManagerSettings =
     defaultManagerSettings
 
-
 mkHttpsManagerSettings
     :: (HostName, Port)              -- ^ Target server hostname & port
     -> [SignedCertificate]           -- ^ CA certificate chain

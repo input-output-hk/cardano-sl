@@ -9,15 +9,14 @@ module Cardano.Wallet.API.V1.Generic
 
 import           Universum hiding (All, Generic)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.Util (mkJsonKey)
 import           Data.Aeson
 import           Data.Aeson.Types (Parser)
 import           Data.List ((!!))
 import           Generics.SOP
 import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..),
                      defaultJsonOptions)
-
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
-import           Cardano.Wallet.Util (mkJsonKey)
 import           Pos.Util.Util (aesonError)
 
 import qualified Data.HashMap.Strict as HM

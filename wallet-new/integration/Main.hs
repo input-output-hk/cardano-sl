@@ -6,11 +6,14 @@ module Main where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import qualified Data.ByteString.Char8 as B8
+import           Control.Lens (_Left)
 import           Data.Map (fromList)
 import           Data.Traversable (for)
 import           Data.X509.File (readSignedObject)
-import           Network.HTTP.Client (Manager)
+import           Network.HTTP.Client (Manager, ManagerSettings,
+                     managerModifyRequest, requestVersion)
+import           Network.HTTP.Types (status505)
+import           Network.HTTP.Types.Version (http20)
 import           System.Environment (withArgs)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
@@ -18,11 +21,13 @@ import           Test.Hspec
 import           AddressSpecs (addressSpecs)
 import           CLI
 import           Functions
-import qualified QuickCheckSpecs as QuickCheck
 import           TransactionSpecs (transactionSpecs)
 import           Types
-import           Util (WalletRef, newWalletRef)
+import           Util (WalletRef, newWalletRef, shouldPrism)
 import           WalletSpecs (walletSpecs)
+
+import qualified Data.ByteString.Char8 as B8
+import qualified QuickCheckSpecs as QuickCheck
 
 -- | Here we want to run main when the (local) nodes
 -- have started.
@@ -40,9 +45,10 @@ main = do
     let serverId = (serverHost, B8.pack $ show serverPort)
     caChain <- readSignedObject tlsCACertPath
     clientCredentials <- orFail =<< credentialLoadX509 tlsClientCertPath tlsPrivKeyPath
-    manager <- newManager $ mkHttpsManagerSettings serverId caChain clientCredentials
-
+    let httpsManagerSettings = mkHttpsManagerSettings serverId caChain clientCredentials
     let baseUrl = BaseUrl Https serverHost serverPort mempty
+
+    manager <- newManager httpsManagerSettings
 
     let walletClient :: MonadIO m => WalletClient m
         walletClient = liftClient $ mkHttpClient baseUrl manager
@@ -57,6 +63,7 @@ main = do
         walletState
         actionDistribution
 
+
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef
 
@@ -67,15 +74,17 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
-    printT "Starting deterministic tests."
     withArgs [] . hspec $ deterministicTests wRef walletClient manager
+
+    -- Basic ping ensuring HTTP/2.0 is disabled
+    withArgs [] . hspec =<< mkHTTP20Check baseUrl httpsManagerSettings
   where
     orFail :: MonadFail m => Either String a -> m a
     orFail =
         either (fail . ("Error decoding X509 certificates: " <>)) return
 
     actionDistribution :: ActionProbabilities
-    actionDistribution = do
+    actionDistribution =
         (PostWallet, Weight 2)
             :| (PostTransaction, Weight 5)
             : fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
@@ -94,7 +103,7 @@ initialWalletState wc = do
         _transactions     = mempty
         _actionsNum       = 0
         _successActions   = mempty
-    pure $ WalletState {..}
+    pure WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)
 
@@ -104,3 +113,21 @@ deterministicTests wref wc manager = do
     walletSpecs wref wc
     transactionSpecs wref wc
     QuickCheck.mkSpec manager
+
+
+mkHTTP20Check :: BaseUrl -> ManagerSettings -> IO Spec
+mkHTTP20Check baseUrl httpsManagerSettings = do
+    managerHTTP20 <- newManager (mkHttps20ManagerSettings httpsManagerSettings)
+    let walletClientHTTP20 = liftClient $ mkHttpClient baseUrl managerHTTP20
+    return $ it "The API isn't accessible via HTTP/2.0" $ do
+        eresp <- getWallets walletClientHTTP20
+        err <- eresp `shouldPrism` _Left
+        let status = case err of
+                ClientHttpError (FailureResponse (Response s _ _ _)) -> Just s
+                _                                                    -> Nothing
+        status `shouldBe` Just status505
+  where
+    mkHttps20ManagerSettings :: ManagerSettings -> ManagerSettings
+    mkHttps20ManagerSettings settings = settings
+        { managerModifyRequest = \req -> pure $ req { requestVersion =  http20 }
+        }

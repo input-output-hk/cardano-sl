@@ -55,7 +55,7 @@ import           Pos.Update.Poll (MonadPoll (deactivateProposal),
                      normalizePoll, refreshPoll, reportUnexpectedError,
                      runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Update.Poll.Types (canCombineVotes, psVotes)
-import           Pos.Util.Log (WithLogger)
+--import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Pos.Util.Util (HasLens (..), HasLens')
@@ -64,7 +64,7 @@ type USLocalLogicMode ctx m =
     ( MonadIO m
     , MonadDBRead m
     , MonadUnliftIO m
-    , WithLogger m
+    --, WithLogger m
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLrcContext ctx

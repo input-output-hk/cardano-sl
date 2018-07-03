@@ -8,7 +8,6 @@ module Pos.Update.Mode
 import           Universum
 
 import           Mockable (MonadMockable)
-import           Pos.Util.Log (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Update ()
@@ -26,8 +25,7 @@ import           Pos.Update.Params (UpdateParams)
 import           Pos.Util.Util (HasLens (..))
 
 type UpdateMode ctx m
-    = ( WithLogger m
-      , MonadMockable m
+    = ( MonadMockable m
       , MonadIO m
       , MonadUnliftIO m
       , MonadMask m

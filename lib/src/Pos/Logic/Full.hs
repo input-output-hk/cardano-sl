@@ -151,7 +151,7 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
         postBlockHeader = Block.handleUnsolicitedHeader pm
 
         postPskHeavy :: ProxySKHeavy -> m Bool
-        postPskHeavy = Delegation.handlePsk pm
+        postPskHeavy = Delegation.handlePsk logTrace pm
 
         postTx = KeyVal
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents

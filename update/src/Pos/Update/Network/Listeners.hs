@@ -12,7 +12,6 @@ module Pos.Update.Network.Listeners
 import           Universum
 
 import           Formatting (build, sformat, (%))
---import           Pos.Util.Log (WithLogger, logNotice, logWarning)
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))

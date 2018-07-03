@@ -97,6 +97,6 @@ updateTriggerWorker
 updateTriggerWorker logTrace0 = \_ -> do
     logInfo logTrace "Update trigger worker is locked"
     void $ takeMVar . ucDownloadedUpdate =<< view (lensOf @UpdateContext)
-    triggerShutdown
+    triggerShutdown logTrace
   where
     logTrace = natTrace liftIO logTrace0

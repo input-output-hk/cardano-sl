@@ -27,6 +27,7 @@ import           Pos.Infra.Shutdown.Logic (triggerShutdown)
 import           Pos.Infra.Shutdown.Types (ShutdownContext)
 import           Pos.Util.Log (Severity (..), WithLogger, logError, logInfo,
                      usingLoggerName)
+import           Pos.Util.Trace (noTrace)
 import           System.Environment (lookupEnv)
 import           System.IO (hFlush, hGetLine, hSetNewlineMode,
                      noNewlineTranslation)
@@ -136,5 +137,5 @@ ipcListener handle port = do
       logError $ "exception caught in NodeIPC: " <> (show err)
       when (isEOFError err) $ logError "its an eof"
       liftIO $ hFlush stdout
-      triggerShutdown
+      triggerShutdown noTrace
   catch loop handler

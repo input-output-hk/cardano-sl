@@ -57,7 +57,7 @@ import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
@@ -97,21 +97,23 @@ runRealMode logTrace pm nr@NodeResources {..} act = runServer
     securityParams = bcSecurityParams npBehaviorConfig
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
+    logTrace' :: TraceNamed (RealMode ext)
+    logTrace' = natTrace liftIO logTrace
     logic :: Logic (RealMode ext)
-    logic = logicFull logTrace noTrace pm ourStakeholderId securityParams -- TODO jsonLog
+    logic = logicFull logTrace' noTrace pm ourStakeholderId securityParams -- TODO jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace' pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace pm nr diffusion) diffusion
-        in elimRealMode logTrace pm nr diffusion (act diffusion')
+        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace' pm nr diffusion) diffusion
+        in elimRealMode logTrace' pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding a Production (IO).
 elimRealMode
     :: forall t ext.
        ( HasCompileInfo)
-    => TraceNamed IO
+      => TraceNamed (RealMode ext)
     -> ProtocolMagic
     -> NodeResources ext
     -> Diffusion IO

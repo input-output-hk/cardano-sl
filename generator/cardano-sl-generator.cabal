@@ -133,6 +133,7 @@ test-suite cardano-generator-test
                      , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-delegation
+                     , cardano-sl-delegation-test
                      , cardano-sl-generator
                      , cardano-sl-lrc
                      , cardano-sl-ssc

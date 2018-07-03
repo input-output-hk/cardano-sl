@@ -15,7 +15,8 @@ import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Core (gdBootStakeholders, genesisData)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
-import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCountRange)
+import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
+                     tgpTxCountRange)
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp (txpGlobalSettings)
@@ -43,7 +44,7 @@ generateBlocks pm GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ 
                 , _bgpSkipNoKey       = True
                 , _bgpTxpGlobalSettings = txpGlobalSettings pm
                 }
-    withCompileInfo def $ evalRandT (genBlocks pm bgenParams (const ())) (mkStdGen seed)
+    withCompileInfo $ evalRandT (genBlocks pm bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     logInfo $ "Generated with seed " <> show seed

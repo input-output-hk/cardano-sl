@@ -24,15 +24,17 @@ import           Universum
 
 import           Data.Bits (Bits (..))
 import           Data.ByteArray (ByteArrayAccess, convert)
-import qualified Data.ByteString.Lazy as LBS
 import           Data.ByteString.Builder (Builder, byteString)
 import qualified Data.ByteString.Builder.Extra as Builder
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.Foldable as Foldable
+import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
-import           Pos.Binary.Class (Bi, Raw, serializeBuilder)
+import           Pos.Binary.Class (Bi (..), Raw, serializeBuilder)
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Crypto (AbstractHash (..), Hash, hashRaw)
 
 {-# ANN module ("HLint : ignore Unnecessary hiding" :: Text) #-}
@@ -45,8 +47,16 @@ newtype MerkleRoot a = MerkleRoot
 instance Buildable (MerkleRoot a) where
     build (MerkleRoot h) = "MerkleRoot|" <> Buildable.build h
 
+instance (Bi a, Bi (Hash Raw)) => Bi (MerkleRoot a) where
+    encode = encode . getMerkleRoot
+    decode = MerkleRoot <$> decode
+
+instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
+
 -- | Straightforward merkle tree representation in Haskell.
-data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
+data MerkleTree a = MerkleEmpty | MerkleTree !Word32 !(MerkleNode a)
     deriving (Eq, Generic)
 
 instance NFData a => NFData (MerkleTree a)
@@ -64,48 +74,66 @@ instance Foldable MerkleTree where
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (Foldable.toList tree)
 
+-- This instance is both faster and more space-efficient (as confirmed by a
+-- benchmark). Hashing turns out to be faster than decoding extra data.
+instance (Bi a, Bi (Hash Raw)) => Bi (MerkleTree a) where
+    encode = encode . Foldable.toList
+    decode = mkMerkleTree <$> decode
+
+instance (Bi (MerkleTree a), Typeable a) => SafeCopy (MerkleTree a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
+
 data MerkleNode a
-    = MerkleBranch { mRoot  :: MerkleRoot a
-                   , mLeft  :: MerkleNode a
-                   , mRight :: MerkleNode a}
-    | MerkleLeaf { mRoot :: MerkleRoot a
-                 , mVal  :: a}
+    -- | MerkleBranch mRoot mLeft mRight
+    = MerkleBranch !(MerkleRoot a) !(MerkleNode a) !(MerkleNode a)
+    -- | MerkleLeaf mRoot mVal
+    | MerkleLeaf !(MerkleRoot a) a
     deriving (Eq, Show, Generic)
 
 instance NFData a => NFData (MerkleNode a)
 
 instance Foldable MerkleNode where
     foldMap f x = case x of
-        MerkleLeaf{mVal}            -> f mVal
-        MerkleBranch{mLeft, mRight} ->
+        MerkleLeaf _ mVal             -> f mVal
+        MerkleBranch _ mLeft mRight   ->
             Foldable.foldMap f mLeft `mappend` Foldable.foldMap f mRight
+
+instance (Bi (MerkleNode a), Typeable a) => SafeCopy (MerkleNode a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 toLazyByteString :: Builder -> LBS.ByteString
 toLazyByteString = Builder.toLazyByteStringWith (Builder.safeStrategy 1024 4096) mempty
 
 mkLeaf :: Bi a => a -> MerkleNode a
-mkLeaf a =
-    MerkleLeaf
-    { mVal  = a
-    , mRoot = MerkleRoot $ coerce $
-              hashRaw (toLazyByteString ((byteString (one 0)) <> serializeBuilder a))
-    }
+mkLeaf a = MerkleLeaf mRoot a
+    where
+      mRoot = MerkleRoot $ coerce $
+          hashRaw (toLazyByteString ((byteString (one 0)) <> serializeBuilder a))
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a
-mkBranch a b =
-    MerkleBranch
-    { mLeft  = a
-    , mRight = b
-    , mRoot  = MerkleRoot $ coerce $
-               hashRaw $ toLazyByteString $ mconcat
-                   [ byteString (one 1)
-                   , merkleRootToBuilder (mRoot a)
-                   , merkleRootToBuilder (mRoot b) ]
+mkBranch nodeA nodeB =
+    case (nodeA, nodeB) of
+        (MerkleBranch mRootA _ _, MerkleBranch mRootB _ _) ->
+            mkBranch' mRootA mRootB
+        (MerkleBranch mRootA _ _, MerkleLeaf mRootB _)     ->
+            mkBranch' mRootA mRootB
+        (MerkleLeaf mRootA _    , MerkleLeaf mRootB _)     ->
+            mkBranch' mRootA mRootB
+        (MerkleLeaf mRootA _    , MerkleBranch mRootB _ _) ->
+            mkBranch' mRootA mRootB
+    where
+      mkBranch' a b = MerkleBranch (mkRoot a b) nodeA nodeB
 
-    }
-  where
-    merkleRootToBuilder :: MerkleRoot a -> Builder
-    merkleRootToBuilder (MerkleRoot (AbstractHash d)) = byteString (convert d)
+merkleRootToBuilder :: MerkleRoot a -> Builder
+merkleRootToBuilder (MerkleRoot (AbstractHash d)) = byteString (convert d)
+
+mkRoot :: MerkleRoot a -> MerkleRoot a -> MerkleRoot a
+mkRoot a b = MerkleRoot $ coerce $ hashRaw $ toLazyByteString $ mconcat
+    [ byteString (one 1)
+    , merkleRootToBuilder (a)
+    , merkleRootToBuilder (b) ]
 
 -- | Smart constructor for 'MerkleTree'.
 mkMerkleTree :: Bi a => [a] -> MerkleTree a
@@ -122,7 +150,10 @@ mkMerkleTree ls = MerkleTree (fromIntegral lsLen) (go lsLen ls)
 -- | Returns root of merkle tree.
 mtRoot :: MerkleTree a -> MerkleRoot a
 mtRoot MerkleEmpty      = emptyHash
-mtRoot (MerkleTree _ x) = mRoot x
+mtRoot (MerkleTree _ x) =
+    case x of
+        (MerkleBranch mRoot _ _) -> mRoot
+        (MerkleLeaf mRoot _)     -> mRoot
 
 emptyHash :: MerkleRoot a
 emptyHash = MerkleRoot (hashRaw mempty)

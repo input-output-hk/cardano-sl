@@ -27,7 +27,7 @@ jsonLogs logDir = do
     f :: FilePath -> Maybe (Text, FilePath)
     f logFile = case parseOnly nodeIndexParser $ toText logFile of
         Right name -> Just (name, logFile)
-        Left _  -> Nothing
+        Left _     -> Nothing
 
 nodeIndexParser :: Parser Text
 nodeIndexParser = takeTill (== '.') <* ".json"

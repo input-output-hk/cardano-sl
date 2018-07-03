@@ -84,6 +84,7 @@ dev: &dev
 
   txp: &dev_txp
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
 
   dlg: &dev_dlg
     dlgCacheParam: 500
@@ -92,6 +93,7 @@ dev: &dev
   block: &dev_block
     networkDiameter: 3
     recoveryHeadersMessage: 20 # should be greater than k
+    streamWindow: 2048
 
     # Chain quality thresholds and other constants to detect suspicious things
     nonCriticalCQBootstrap: 0.95
@@ -281,6 +283,7 @@ mainnet_base: &mainnet_base
 
   txp: &mainnet_base_txp
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
 
   dlg: &mainnet_base_dlg
     dlgCacheParam: 500
@@ -289,6 +292,7 @@ mainnet_base: &mainnet_base
   block: &mainnet_base_block
     networkDiameter: 18
     recoveryHeadersMessage: 2200 # should be greater than k
+    streamWindow: 2048
 
     # Chain quality thresholds and other constants to detect suspicious things
     nonCriticalCQBootstrap: 0.95
@@ -14776,7 +14780,7 @@ mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 7
+    applicationVersion: 8
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14786,7 +14790,7 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 7
+    applicationVersion: 8
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14796,11 +14800,90 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 7
+    applicationVersion: 8
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
       bvAlt: 0
+
+
+##############################################################################
+##                                                                          ##
+##   Testnet config                                                         ##
+##                                                                          ##
+##############################################################################
+
+testnet_full: &testnet_full
+  <<: *mainnet_base
+  core: &testnet_full_core
+    <<: *mainnet_base_core
+    genesis:
+      src:
+        file: testnet-genesis.json
+        hash: f0204568043f6cb8068a81ddc1e9ca575615aed12a3a815678afc5ca12a94eb8
+
+  update: &testnet_full_update
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+
+testnet_wallet: &testnet_wallet
+  <<: *testnet_full
+  update: &testnet_wallet_update
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
+
+testnet_wallet_win64: &testnet_wallet_win64
+  <<: *testnet_wallet
+  update:
+    <<: *testnet_wallet_update
+    systemTag: win64
+
+testnet_wallet_macos64: &testnet_wallet_macos64
+  <<: *testnet_wallet
+  update:
+    <<: *testnet_wallet_update
+    systemTag: macos64
+
+testnet_wallet_linux64: &testnet_wallet_linux64
+  <<: *testnet_wallet
+  update:
+    <<: *testnet_wallet_update
+    systemTag: linux
+
+# Should be used to generate genesis
+testnet_launch: &testnet_launch
+  <<: *testnet_full
+  core: &testnet_gen_core
+    <<: *testnet_full_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec:
+        <<: *mainnet_base_spec
+        protocolConstants:
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 1097911063
+        avvmDistr: *mainnet_avvmDistr
+        initializer:
+          testBalance:
+            poors:        100
+            richmen:      7
+            richmenShare: 0.93
+            totalBalance: 13887504355000000
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 1000000000000 # 1e6 ADA
+          avvmBalanceFactor: 0.1
+          useHeavyDlg: True
+          seed: 0 # should be overridden using --configuration-seed
 
 ##############################################################################
 ##                                                                          ##
@@ -14821,7 +14904,7 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 12
+    applicationVersion: 13
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14831,7 +14914,7 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 12
+    applicationVersion: 13
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14841,7 +14924,7 @@ mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 12
+    applicationVersion: 13
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

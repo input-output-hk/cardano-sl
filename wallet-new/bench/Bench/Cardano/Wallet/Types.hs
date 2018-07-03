@@ -15,7 +15,8 @@ module Bench.Cardano.Wallet.Types
 
 import           Universum
 
-import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CAccountId (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccountId (..), CId (..),
+                     Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 
 -- | Complete configuration for benchmarking.

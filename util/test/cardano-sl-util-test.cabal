@@ -15,9 +15,10 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Test.Pos.Util.Base16
-                       Test.Pos.Util.QuickCheck
+                       Test.Pos.Util.Gen
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.Orphans
+                       Test.Pos.Util.QuickCheck
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.QuickCheck.Arbitrary
 
@@ -29,6 +30,7 @@ library
                      , cardano-sl-util
                      , cryptonite
                      , formatting
+                     , hedgehog
                      , hspec
                      , mtl
                      , quickcheck-instances

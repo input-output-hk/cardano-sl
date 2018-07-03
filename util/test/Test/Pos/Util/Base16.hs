@@ -8,8 +8,8 @@ import           Universum
 
 import qualified Data.Attoparsec.ByteString.Char8 as PBC
 import qualified Data.Attoparsec.ByteString.Lazy as PLB
-import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Base16.Lazy as B16
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Text.Printf (printf)
 

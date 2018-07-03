@@ -16,9 +16,10 @@ import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
-                                      getExplorerNodeOptions)
+                     getExplorerNodeOptions)
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
+                     getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (epochSlots)
@@ -26,15 +27,18 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
+import           Pos.Explorer.Txp (ExplorerExtraModifier,
+                     explorerTxpGlobalSettings)
+import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
+                     runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources, loggerBracket, runNode,
-                               runRealMode, withConfigurations)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
+                     NodeParams (..), NodeResources (..), bracketNodeResources,
+                     loggerBracket, runNode, runRealMode, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 
 loggerName :: LoggerName
@@ -54,8 +58,8 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $ \ntpConfig pm ->
-    withCompileInfo $(retrieveCompileTimeInfo) $ do
+    withConfigurations blPath conf $ \ntpConfig pm ->
+    withCompileInfo $ do
         CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
@@ -75,6 +79,9 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 Production (runExplorerRealMode pm nr (runNode pm nr plugins))
   where
 
+    blPath :: Maybe AssetLockPath
+    blPath = AssetLockPath <$> cnaAssetLockPath
+
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
@@ -89,7 +96,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
          in runRealMode pm nr $ \diffusion ->
-                explorerModeToRealMode (go (hoistDiffusion (lift . lift) diffusion))
+                explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
 
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

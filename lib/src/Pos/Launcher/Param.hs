@@ -62,6 +62,7 @@ data NodeParams = NodeParams
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
     , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
+    , npAssetLockPath  :: !(Maybe FilePath)     -- ^ Path to assetLocked source address file.
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

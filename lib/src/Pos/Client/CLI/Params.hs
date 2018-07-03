@@ -21,7 +21,8 @@ import           Pos.Client.CLI.Secrets (prepareUserSecret)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
-import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
+                     NodeParams (..))
 import           Pos.Ssc (SscParams (..))
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
@@ -88,5 +89,6 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
         , npStatsdParams = statsdParams
+        , npAssetLockPath = cnaAssetLockPath
         , ..
         }

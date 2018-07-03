@@ -8,8 +8,8 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
-import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
-                                         tryTakeTMVar)
+import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue,
+                     tryReadTMVar, tryTakeTMVar)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -20,20 +20,25 @@ import           Mockable (delay)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
-                                          triggerRecovery)
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
+                     getHeadersOlderExp)
+import           Pos.Block.Network.Logic (BlockNetLogicException (..),
+                     handleBlocks, triggerRecovery)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag,
+                     BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
+                     isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (getBlocks, streamBlocks))
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE,
+                     reportOrLogW)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join
@@ -163,7 +168,7 @@ retrievalWorker pm diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ getProcessBlocks pm diffusion nodeId (headerHash rHeader) checkpoints
+        void $ streamProcessBlocks pm diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -308,3 +313,33 @@ getProcessBlocks pm diffusion nodeId desired checkpoints = do
                   else pure False
           when exitedRecovery $
               logInfo "Recovery mode exited gracefully on receiving block we needed"
+
+-- Attempts to catch up by streaming blocks from peer.
+-- Will fall back to getProcessBlocks if streaming is disabled
+-- or not supported by peer.
+streamProcessBlocks
+    :: forall ctx m.
+       ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => ProtocolMagic
+    -> Diffusion m
+    -> NodeId
+    -> HeaderHash
+    -> [HeaderHash]
+    -> m ()
+streamProcessBlocks pm diffusion nodeId desired checkpoints = do
+    logInfo "streaming start"
+    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
+    case r of
+         Nothing -> do
+             logInfo "streaming not supported, reverting to batch mode"
+             getProcessBlocks pm diffusion nodeId desired checkpoints
+         Just _  -> do
+             logInfo "streaming done"
+             return ()
+  where
+    writeCallback :: [Block] -> m ()
+    writeCallback [] = return ()
+    writeCallback (block:blocks) =
+        handleBlocks pm (OldestFirst (NE.reverse $ block :| blocks)) diffusion

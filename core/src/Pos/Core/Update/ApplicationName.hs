@@ -8,11 +8,18 @@ import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Char (isAscii)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
+
+import           Pos.Binary.Class (Bi (..))
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
+
+instance Bi ApplicationName where
+    encode appName = encode (getApplicationName appName)
+    decode = ApplicationName <$> decode
 
 -- | Smart constructor of 'ApplicationName'.
 checkApplicationName :: MonadError Text m => ApplicationName -> m ()
@@ -25,3 +32,5 @@ checkApplicationName (ApplicationName appName)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 12
+
+deriveSafeCopySimple 0 'base ''ApplicationName

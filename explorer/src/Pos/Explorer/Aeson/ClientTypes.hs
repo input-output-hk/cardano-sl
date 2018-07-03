@@ -16,11 +16,10 @@ import qualified Data.ByteString.Builder as BS (string8)
 import           Data.Fixed (showFixed)
 
 import           Pos.Aeson ()
-import           Pos.Explorer.Web.ClientTypes (CAda (..), CAddress, CAddressSummary, CAddressType,
-                                               CBlockEntry, CBlockSummary, CCoin,
-                                               CGenesisAddressInfo, CGenesisSummary, CHash,
-                                               CNetworkAddress, CTxBrief, CTxEntry, CTxId,
-                                               CTxSummary)
+import           Pos.Explorer.Web.ClientTypes (CAda (..), CAddress,
+                     CAddressSummary, CAddressType, CBlockEntry, CBlockSummary,
+                     CCoin, CGenesisAddressInfo, CGenesisSummary, CHash,
+                     CNetworkAddress, CTxBrief, CTxEntry, CTxId, CTxSummary)
 import           Pos.Explorer.Web.Error (ExplorerError)
 
 deriveJSON defaultOptions ''CHash

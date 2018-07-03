@@ -19,9 +19,9 @@ import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto
                    (PassPhrase(..), AbstractHash, EncryptedSecretKey, PublicKey,
-                    encToPublic, abstractHash)
-import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
+                    encToPublic, abstractHash, safeDeterministicKeyGen)
 import qualified Pos.Wallet.Web.ClientTypes.Types as WebTypes
+import           Pos.Util.Mnemonic (mnemonicToSeed)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
@@ -67,7 +67,7 @@ bracketPassiveWallet
   :: forall n m a
   .  (MonadIO n, MonadIO m, MonadMask m)
   => (Severity -> Text -> IO ())
-  -> (PassiveWalletLayer n -> m a)
+  -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a)
   -> m a
 bracketPassiveWallet logf k =
    Kernel.bracketPassiveWallet logf $ \pw -> do
@@ -76,7 +76,7 @@ bracketPassiveWallet logf k =
       Actions.withWalletWorker wai $ \send -> do
          let send' :: Actions.WalletAction Blund -> n ()
              send' = liftIO . STM.atomically . send
-         k $ PassiveWalletLayer
+         flip k pw $ PassiveWalletLayer
              { _pwlCreateWallet = mkPwlCreateWallet pw
              , _pwlGetWalletIds   = error "Not implemented!"
              , _pwlGetWallet      = error "Not implemented!"
@@ -98,12 +98,10 @@ bracketPassiveWallet logf k =
 mkPwlCreateWallet
   :: MonadIO m => Kernel.PassiveWallet -> V1T.NewWallet -> m V1T.Wallet
 mkPwlCreateWallet pw nw = liftIO $ do
-  let bp :: BackupPhrase = unV1 (V1T.newwalBackupPhrase nw)
   let pp :: PassPhrase = maybe (PassPhrase mempty) unV1
                                (V1T.newwalSpendingPassword nw)
-  esk :: EncryptedSecretKey <- case safeKeysFromPhrase pp bp of
-     Left _ -> fail "Can't obtain encrypted secret key"
-     Right (x,_) -> pure x
+  let (_,esk) = safeDeterministicKeyGen
+                   (mnemonicToSeed (unV1 (V1T.newwalBackupPhrase nw))) pp
   let pubkh :: AbstractHash Blake2b_224 PublicKey
       pubkh = abstractHash (encToPublic esk)
   hsp <- case V1T.newwalSpendingPassword nw of
@@ -132,10 +130,12 @@ mkPwlCreateWallet pw nw = liftIO $ do
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall m n a. (MonadIO m, MonadMask m)
+    :: forall m n a
+    . (MonadIO m, MonadMask m)
     => PassiveWalletLayer n
     -> WalletDiffusion
-    -> (ActiveWalletLayer n -> m a) -> m a
+    -> (ActiveWalletLayer n -> m a)
+    -> m a
 bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})

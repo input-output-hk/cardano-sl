@@ -19,25 +19,33 @@ import           System.Wlog (Severity)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
+import           Cardano.Wallet.Kernel (PassiveWallet)
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
-                                                  applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
+                     PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
 
 ------------------------------------------------------------
 -- Kernel
 ------------------------------------------------------------
 bracketKernelPassiveWallet
-    :: forall m n a. (MonadIO m, MonadIO n, MonadMask n)
+    :: forall m n a
+    .  (MonadIO m, MonadIO n, MonadMask n)
     => (Severity -> Text -> IO ())
-    -> (PassiveWalletLayer m -> n a) -> n a
+    -> (PassiveWalletLayer m -> PassiveWallet -> n a)
+    -> n a
 bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
 
 bracketKernelActiveWallet
     :: forall m n a. (MonadIO n, MonadMask n)
-    => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
-bracketKernelActiveWallet  = Kernel.bracketActiveWallet
+    => PassiveWalletLayer m
+    -> PassiveWallet
+    -> WalletDiffusion
+    -> (ActiveWalletLayer m -> n a)
+    -> n a
+bracketKernelActiveWallet pwl _ wd kawl =
+  Kernel.bracketActiveWallet pwl wd kawl
 
 ------------------------------------------------------------
 -- Legacy

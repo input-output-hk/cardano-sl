@@ -14,29 +14,32 @@ import           Data.List.Extra (nubOrdOn)
 import           System.Random (mkStdGen, randomR)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..), Property, elements,
-                                  listOf, property, sublistOf, suchThat, vector, (.&&.), (===),
-                                  (==>))
+import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
+                     Property, elements, listOf, property, sublistOf, suchThat,
+                     vector, (.&&.), (===), (==>))
 
-import           Pos.Arbitrary.Ssc (BadCommAndOpening (..), BadSignedCommitment (..),
-                                    CommitmentOpening (..))
+import           Pos.Arbitrary.Ssc (BadCommAndOpening (..),
+                     BadSignedCommitment (..), CommitmentOpening (..))
 import           Pos.Binary (AsBinary)
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration, StakeholderId,
-                           VssCertificate (..), VssCertificatesMap (..), addressHash, crucialSlot,
-                           genesisBlockVersionData, insertVss, mkCoin, _vcVssKey)
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (..), InnerSharesMap,
-                               Opening, OpeningsMap, SharesMap, SignedCommitment,
-                               mkCommitmentsMapUnsafe)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
-                             toPublic)
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
+                     StakeholderId, VssCertificate (..),
+                     VssCertificatesMap (..), addressHash, crucialSlot,
+                     genesisBlockVersionData, insertVss, mkCoin, _vcVssKey)
+import           Pos.Core.Ssc (Commitment, CommitmentSignature,
+                     CommitmentsMap (..), InnerSharesMap, Opening, OpeningsMap,
+                     SharesMap, SignedCommitment, mkCommitmentsMapUnsafe)
+import           Pos.Crypto (DecShare, PublicKey, SecretKey,
+                     SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
-                          SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
-                          checkCommitmentsPayload, checkOpeningsPayload, checkSharesPayload,
-                          runPureToss, sgsCommitments, sgsOpenings, sgsShares, sgsVssCertificates,
-                          supplyPureTossEnv)
-import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment, verifyCommitmentSignature,
-                               verifyOpening)
+import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv,
+                     SscGlobalState (..), SscVerifyError (..),
+                     VssCertData (..), checkCertificatesPayload,
+                     checkCommitmentsPayload, checkOpeningsPayload,
+                     checkSharesPayload, runPureToss, sgsCommitments,
+                     sgsOpenings, sgsShares, sgsVssCertificates,
+                     supplyPureTossEnv)
+import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment,
+                     verifyCommitmentSignature, verifyOpening)
 import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 

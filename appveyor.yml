@@ -89,11 +89,11 @@ before_test:
 
 test_script:
   - cd "%WORK_DIR%"
-  - stack exec --system-ghc -- ghc-pkg recache
-  - stack --verbosity warn setup --system-ghc --no-reinstall > nul
+  - stack config --system-ghc set system-ghc --global true
+  - stack exec -- ghc-pkg recache
+  - stack --verbosity warn setup --no-reinstall > nul
   # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487. Also install cpphs because it's a build-tool and Stack can't figure out by itself that it should be installed
   - scripts\ci\appveyor-retry call stack --verbosity warn install happy cpphs
-      --system-ghc
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32
@@ -109,7 +109,6 @@ test_script:
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
   - scripts\ci\appveyor-retry call stack --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
-      --system-ghc
       -j 3
       --no-terminal
       --local-bin-path %WORK_DIR%

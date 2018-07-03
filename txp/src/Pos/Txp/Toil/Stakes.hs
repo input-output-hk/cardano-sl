@@ -16,11 +16,12 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug)
 
-import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin, sumCoins,
-                           unsafeIntegerToCoin)
+import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin,
+                     sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Txp.Base (txOutStake)
-import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake, setStake, setTotalStake)
+import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
+                     setStake, setTotalStake)
 
 -- | Apply transactions to stakes.
 applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()

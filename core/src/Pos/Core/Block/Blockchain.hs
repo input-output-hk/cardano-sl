@@ -34,9 +34,11 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (build, sformat, (%))
 
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Crypto (ProtocolMagic (..))
 
 ----------------------------------------------------------------------------
 -- Blockchain class
@@ -119,12 +121,56 @@ deriving instance
     , Eq (ExtraHeaderData b)
     ) => Eq (GenericBlockHeader b)
 
+instance ( Typeable b
+         , Bi (BHeaderHash b)
+         , Bi (BodyProof b)
+         , Bi (ConsensusData b)
+         , Bi (ExtraHeaderData b)
+         ) =>
+         Bi (GenericBlockHeader b) where
+    encode bh =  encodeListLen 5
+              <> encode (getProtocolMagic (_gbhProtocolMagic bh))
+              <> encode (_gbhPrevBlock bh)
+              <> encode (_gbhBodyProof bh)
+              <> encode (_gbhConsensus bh)
+              <> encode (_gbhExtra bh)
+    decode = do
+        enforceSize "GenericBlockHeader b" 5
+        _gbhProtocolMagic <- ProtocolMagic <$> decode
+        _gbhPrevBlock <- decode
+        _gbhBodyProof <- decode
+        _gbhConsensus <- decode
+        _gbhExtra     <- decode
+        pure UnsafeGenericBlockHeader {..}
+
 instance
     ( NFData (BHeaderHash b)
     , NFData (BodyProof b)
     , NFData (ConsensusData b)
     , NFData (ExtraHeaderData b)
     ) => NFData (GenericBlockHeader b)
+
+instance ( SafeCopy (BHeaderHash b)
+         , SafeCopy (BodyProof b)
+         , SafeCopy (ConsensusData b)
+         , SafeCopy (ExtraHeaderData b)
+         ) =>
+         SafeCopy (GenericBlockHeader b) where
+    getCopy =
+        contain $
+        do _gbhProtocolMagic <- safeGet
+           _gbhPrevBlock <- safeGet
+           _gbhBodyProof <- safeGet
+           _gbhConsensus <- safeGet
+           _gbhExtra <- safeGet
+           return $! UnsafeGenericBlockHeader {..}
+    putCopy UnsafeGenericBlockHeader {..} =
+        contain $
+        do safePut _gbhProtocolMagic
+           safePut _gbhPrevBlock
+           safePut _gbhBodyProof
+           safePut _gbhConsensus
+           safePut _gbhExtra
 
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
@@ -155,12 +201,50 @@ deriving instance
     , Eq (ExtraHeaderData b)
     ) => Eq (GenericBlock b)
 
+instance ( Typeable b
+         , Bi (BHeaderHash b)
+         , Bi (Body b)
+         , Bi (BodyProof b)
+         , Bi (ConsensusData b)
+         , Bi (ExtraBodyData b)
+         , Bi (ExtraHeaderData b)
+         ) => Bi (GenericBlock b) where
+    encode gb =  encodeListLen 3
+              <> encode (_gbHeader gb)
+              <> encode (_gbBody gb)
+              <> encode (_gbExtra gb)
+    decode = do
+        enforceSize "GenericBlock" 3
+        _gbHeader <- decode
+        _gbBody   <- decode
+        _gbExtra  <- decode
+        pure UnsafeGenericBlock {..}
+
 -- Derived partially in Instances
 --instance
 --    ( NFData (GenericBlockHeader b)
 --    , NFData (Body b)
 --    , NFData (ExtraBodyData b)
 --    ) => NFData (GenericBlock b)
+instance ( SafeCopy (BHeaderHash b)
+         , SafeCopy (BodyProof b)
+         , SafeCopy (ConsensusData b)
+         , SafeCopy (ExtraHeaderData b)
+         , SafeCopy (Body b)
+         , SafeCopy (ExtraBodyData b)
+         ) =>
+         SafeCopy (GenericBlock b) where
+    getCopy =
+        contain $
+        do _gbHeader <- safeGet
+           _gbBody <- safeGet
+           _gbExtra <- safeGet
+           return $! UnsafeGenericBlock {..}
+    putCopy UnsafeGenericBlock {..} =
+        contain $
+        do safePut _gbHeader
+           safePut _gbBody
+           safePut _gbExtra
 
 ----------------------------------------------------------------------------
 -- Smart constructors

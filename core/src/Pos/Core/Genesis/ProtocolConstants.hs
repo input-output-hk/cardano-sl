@@ -6,7 +6,8 @@ module Pos.Core.Genesis.ProtocolConstants
 
 import           Universum
 
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                     VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto.Configuration (ProtocolMagic)
 
 -- | 'GensisProtocolConstants' are not really part of genesis global state,

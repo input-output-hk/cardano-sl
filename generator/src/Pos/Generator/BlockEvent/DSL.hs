@@ -35,18 +35,19 @@ import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Core (GenesisWStakeholders)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
-                                  _NewestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toOldestFirst, _NewestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Generator.Block (BlockTxpGenMode, MonadBlockGen)
-import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..), BlockEvent' (..),
-                                           BlockEventApply' (..), BlockEventRollback' (..),
-                                           BlockRollbackFailure (..), BlockRollbackResult (..),
-                                           BlockScenario, BlockScenario' (..), Chance (..),
-                                           CheckCount (..), Path, PathSegment, SnapshotId,
-                                           SnapshotOperation (..), byChance,
-                                           enrichWithSnapshotChecking, genBlocksInStructure,
-                                           pathSequence)
+import           Pos.Generator.BlockEvent (BlockApplyResult (..),
+                     BlockDesc (..), BlockEvent' (..), BlockEventApply' (..),
+                     BlockEventRollback' (..), BlockRollbackFailure (..),
+                     BlockRollbackResult (..), BlockScenario,
+                     BlockScenario' (..), Chance (..), CheckCount (..), Path,
+                     PathSegment, SnapshotId, SnapshotOperation (..), byChance,
+                     enrichWithSnapshotChecking, genBlocksInStructure,
+                     pathSequence)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 
 data BlockEventGenState = BlockEventGenState
     { _begsEvents      :: !(NewestFirst [] (BlockEvent' Path))
@@ -115,7 +116,7 @@ snapshotEq snapshotId = emitEvent $
     BlkEvSnap (SnapshotEq snapshotId)
 
 runBlockEventGenT
-    :: BlockTxpGenMode g ctx m
+    :: (HasTxpConfiguration, BlockTxpGenMode g ctx m)
     => ProtocolMagic
     -> AllSecrets
     -> GenesisWStakeholders

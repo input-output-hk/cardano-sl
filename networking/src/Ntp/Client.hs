@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE NoImplicitPrelude   #-}
@@ -19,7 +18,8 @@ module Ntp.Client
 import           Universum
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (withAsync, async, concurrently, forConcurrently, race)
+import           Control.Concurrent.Async (async, concurrently, forConcurrently,
+                     race, withAsync)
 import           Control.Concurrent.STM (TVar, check, modifyTVar')
 import           Control.Exception.Safe (Exception, catchAny, handleAny)
 import           Control.Monad (forever)
@@ -27,17 +27,19 @@ import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (catMaybes, isNothing)
-import           Data.Time.Units (TimeUnit, Microsecond, toMicroseconds)
+import           Data.Time.Units (Microsecond, TimeUnit, toMicroseconds)
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
-import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
+import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress,
+                     addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
 import           System.Wlog (LoggerNameBox)
 import qualified System.Wlog as Wlog
 
-import           Ntp.Packet (NtpPacket (..), NtpOffset, evalClockOffset, mkCliNtpPacket, ntpPacketSize)
-import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
-                           udpLocalAddresses, withSocketsDoLifted)
+import           Ntp.Packet (NtpOffset, NtpPacket (..), evalClockOffset,
+                     mkCliNtpPacket, ntpPacketSize)
+import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4,
+                     selectIPv6, udpLocalAddresses, withSocketsDoLifted)
 
 data NtpStatus =
       -- | The difference between ntp time and local system time

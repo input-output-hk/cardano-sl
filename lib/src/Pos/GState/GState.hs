@@ -8,7 +8,8 @@ import           Universum
 
 import           Pos.Core (GenesisData (..), HeaderHash, genesisData)
 import           Pos.DB.Class (MonadDB)
-import           Pos.DB.GState.Common (initGStateCommon, isInitialized, setInitialized)
+import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
+                     setInitialized)
 import           Pos.Delegation.DB (initGStateDlg)
 import           Pos.GState.BlockExtra (initGStateBlockExtra)
 import           Pos.Ssc.DB (initSscDB)

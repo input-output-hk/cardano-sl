@@ -15,17 +15,18 @@ import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import           Formatting (sformat, string, (%))
-import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo)
+import           System.Wlog (CanLog, HasLoggerName, logDebug, logError,
+                     logInfo)
 
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
-import           Pos.Crypto (Hash, ProtocolMagic, emptyPassphrase, hash, hashHexF, unsafeHash,
-                             withSafeSigner, withSafeSigners)
+import           Pos.Crypto (Hash, ProtocolMagic, emptyPassphrase, hash,
+                     hashHexF, unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Exception (reportFatalError)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mkUpdateProposalWSign,
-                             mkUpdateVoteSafe)
+import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash,
+                     mkUpdateProposalWSign, mkUpdateVoteSafe)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
 import           Mode (MonadAuxxMode)

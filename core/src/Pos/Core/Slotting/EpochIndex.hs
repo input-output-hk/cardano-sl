@@ -8,8 +8,11 @@ import           Universum
 
 import           Control.Lens (choosing)
 import           Data.Ix (Ix)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, (%))
+
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Util.Some (Some, liftLensSome)
 
 -- | Index of epoch.
@@ -30,6 +33,10 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
 
+instance Bi EpochIndex where
+    encode (EpochIndex epoch) = encode epoch
+    decode = EpochIndex <$> decode
+
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
 -- from the epoch specified as the epoch that unlocks stakes:
 --
@@ -48,3 +55,5 @@ isBootstrapEra
     -> Bool
 isBootstrapEra unlockStakeEpoch epoch =
     epoch < unlockStakeEpoch
+
+deriveSafeCopySimple 0 'base ''EpochIndex

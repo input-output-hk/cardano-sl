@@ -21,13 +21,12 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core ()
-import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain, MainConsensusData (..),
-                                 MainToSign (..))
+import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
+                     MainConsensusData (..), MainToSign (..))
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
-                                            GenericBlockHeader (..), gbExtra)
-import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..), MainProof,
-                                      mainBlockEBDataProof)
+                     GenericBlockHeader (..), gbExtra)
+import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..),
+                     MainProof, mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
@@ -35,8 +34,8 @@ import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (checkSscPayload)
 import           Pos.Core.Txp (checkTxPayload)
 import           Pos.Core.Update (checkSoftwareVersion, checkUpdatePayload)
-import           Pos.Crypto (ProtocolMagic, ProxySignature (..), SignTag (..), checkSig, hash,
-                             isSelfSignedPsk, proxyVerify)
+import           Pos.Crypto (ProtocolMagic, ProxySignature (..), SignTag (..),
+                     checkSig, hash, isSelfSignedPsk, proxyVerify)
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
 

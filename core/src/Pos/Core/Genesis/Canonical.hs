@@ -23,33 +23,38 @@ import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Base64 (base64F)
 import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Text (readDecimal, readUnsignedDecimal)
-import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, JSValue (..),
-                                      ReportSchemaErrors (expected), ToJSON (..), ToObjectKey (..),
-                                      expectedButGotValue, fromJSField, fromJSObject, mkObject)
+import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54,
+                     JSValue (..), ReportSchemaErrors (expected), ToJSON (..),
+                     ToObjectKey (..), expectedButGotValue, fromJSField,
+                     fromJSObject, mkObject)
 
 import           Pos.Binary.Class (AsBinary (..))
-import           Pos.Binary.Core.Address ()
-import           Pos.Core.Common (Address, Coeff (..), Coin (..), CoinPortion (..), SharedSeed (..),
-                                  StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
-                                  decodeTextAddress, getCoinPortion, unsafeGetCoin)
+import           Pos.Core.Common (Address, Coeff (..), Coin (..),
+                     CoinPortion (..), SharedSeed (..), StakeholderId,
+                     TxFeePolicy (..), TxSizeLinear (..), addressF,
+                     decodeTextAddress, getCoinPortion, unsafeGetCoin)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc (VssCertificate (..), VssCertificatesMap (..),
-                               validateVssCertificatesMap)
+                     validateVssCertificatesMap)
 import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
-                             decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
-                             fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
-                             parseFullSignature, redeemPkB64UrlF)
+import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey,
+                     RedeemPublicKey, Signature, decodeAbstractHash,
+                     fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
+                     fullSignatureHexF, hashHexF, parseFullProxyCert,
+                     parseFullPublicKey, parseFullSignature, redeemPkB64UrlF)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 
 import           Pos.Core.Genesis.AvvmBalances (GenesisAvvmBalances (..))
 import           Pos.Core.Genesis.Data (GenesisData (..))
-import           Pos.Core.Genesis.Delegation (GenesisDelegation (..), recreateGenesisDelegation)
+import           Pos.Core.Genesis.Delegation (GenesisDelegation (..),
+                     recreateGenesisDelegation)
 import           Pos.Core.Genesis.NonAvvmBalances (GenesisNonAvvmBalances (..))
-import           Pos.Core.Genesis.ProtocolConstants (GenesisProtocolConstants (..))
-import           Pos.Core.Genesis.VssCertificatesMap (GenesisVssCertificatesMap (..))
+import           Pos.Core.Genesis.ProtocolConstants
+                     (GenesisProtocolConstants (..))
+import           Pos.Core.Genesis.VssCertificatesMap
+                     (GenesisVssCertificatesMap (..))
 import           Pos.Core.Genesis.WStakeholders (GenesisWStakeholders (..))
 
 ----------------------------------------------------------------------------

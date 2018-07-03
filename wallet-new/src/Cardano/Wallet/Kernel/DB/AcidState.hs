@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-} -- to enable... deriveSafeCopy 1 'base ''EncryptedSecretKey
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -13,6 +12,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , Snapshot(..)
     -- ** Spec mandated updates
   , NewPending(..)
+  , CancelPending(..)
   , ApplyBlock(..)
   , SwitchToFork(..)
     -- ** Updates on HD wallets
@@ -33,6 +33,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
+import           Control.Monad.Except (MonadError, catchError)
 
 import           Data.Acid (Query, Update, makeAcidic)
 import qualified Data.Map.Strict as Map
@@ -42,8 +43,8 @@ import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Txp (Utxo)
 
-import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId, PrefilteredBlock (..),
-                                                    PrefilteredUtxo)
+import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
+                     PrefilteredBlock (..), PrefilteredUtxo)
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
@@ -103,6 +104,28 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
     zoom hdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
+
+-- | Cancels the input transactions from the 'Checkpoints' of each of
+-- the accounts cointained in the 'Cancelled' map.
+--
+-- The reason why this function doesn't take a 'HdRootId' as an argument
+-- is because the submission layer doesn't have the notion of \"which HdWallet
+-- is this transaction associated with?\", but it merely dispatch and cancels
+-- transactions for all the wallets managed by this edge node.
+cancelPending :: Map HdAccountId (InDb (Set Core.TxId)) -> Update DB ()
+cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
+    forM_ (Map.toList cancelled) $ \(accountId, InDb txids) ->
+        -- Here we are deliberately swallowing the possible exception
+        -- returned by the wrapped 'zoom' as the only reason why this update
+        -- might fail is if, in the meantime, the target account was cancelled,
+        -- in which case we do want the entire computation to abort, but simply
+        -- skip cancelling the transactions for the account that has been removed.
+        handleError (\(_e :: UnknownHdAccount) -> return ()) $
+            zoomHdAccountId identity accountId $ do
+              modify' (over hdAccountCheckpoints (Spec.cancelPending txids))
+    where
+        handleError :: MonadError e m => (e -> m a) -> m a -> m a
+        handleError = flip catchError
 
 -- | Apply prefiltered block (indexed by HdAccountId) to the matching accounts.
 --
@@ -271,6 +294,7 @@ makeAcidic ''DB [
       'snapshot
       -- Updates on the "spec state"
     , 'newPending
+    , 'cancelPending
     , 'applyBlock
     , 'switchToFork
       -- Updates on HD wallets

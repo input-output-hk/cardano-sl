@@ -14,7 +14,8 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import qualified GHC.Exts as IL (IsList (..))
 
-import           Pos.Core.Chrono (Chrono (..), NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (Chrono (..), NE, NewestFirst (..),
+                     OldestFirst (..))
 
 import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)

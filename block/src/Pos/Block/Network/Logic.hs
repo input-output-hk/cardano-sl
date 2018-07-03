@@ -15,7 +15,8 @@ module Pos.Block.Network.Logic
 
 import           Universum
 
-import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
+import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue,
+                     writeTVar)
 import           Control.Exception (IOException)
 import           Control.Exception.Safe (Exception (..))
 import qualified Data.List.NonEmpty as NE
@@ -30,27 +31,31 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
-                                  verifyAndApplyBlocks)
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
+                     lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
-                                           BlockRetrievalTask (..))
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
+                     BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
-                           prevBlockL)
+import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
+                     headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
-                                  _OldestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     _NewestFirst, _OldestFirst)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.Block.Load as DB
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
+                     MisbehaviorMetrics (..))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
+                     jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)

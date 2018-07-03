@@ -18,14 +18,14 @@ import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal, normalizeMempool,
-                                  verifyBlocksPrefix)
+import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal,
+                     normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
-import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
-                           getSlotIndex)
+import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
+                     epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
@@ -33,14 +33,16 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
-import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, MonadBlockGen,
-                                           MonadBlockGenInit, mkBlockGenContext, usingPrimaryKey,
-                                           withCurrentSlot)
-import           Pos.Generator.Block.Param (BlockGenParams, HasBlockGenParams (..))
+import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
+                     MonadBlockGen, MonadBlockGenInit, mkBlockGenContext,
+                     usingPrimaryKey, withCurrentSlot)
+import           Pos.Generator.Block.Param (BlockGenParams,
+                     HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
@@ -62,9 +64,8 @@ type BlockTxpGenMode g ctx m =
 -- Intermediate results will be forced. Blocks can be generated, written to
 -- disk, then collected by using '()' as the monoid and 'const ()' as the
 -- injector, for example.
-genBlocks
-    :: forall g ctx m t
-     . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
+genBlocks ::
+       forall g ctx m t . (HasTxpConfiguration, BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
     => ProtocolMagic
     -> BlockGenParams
     -> (Maybe Blund -> t)
@@ -95,6 +96,7 @@ genBlock
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+       , HasTxpConfiguration
        )
     => ProtocolMagic
     -> EpochOrSlot

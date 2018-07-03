@@ -38,8 +38,8 @@ import           Formatting (build, sformat, (%))
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw, validateProxySecretKey,
-                                           verifyProxyCert)
+import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw,
+                     validateProxySecretKey, verifyProxyCert)
 import           Pos.Crypto.Signing.Tag (signTag)
 import           Pos.Crypto.Signing.Types.Signing
 import           Pos.Crypto.Signing.Types.Tag (SignTag)
@@ -146,7 +146,7 @@ proxySign pm t sk@(SecretKey delegateSk) psk m
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify
-    :: (Bi w, Bi a)
+    :: Bi a
     => ProtocolMagic -> SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
 proxyVerify pm t ProxySignature{..} omegaPred m =
     predCorrect && sigValid

@@ -41,6 +41,7 @@ executable dbgen
   if !flag(for-installer)
    build-depends:      base >= 4.7 && < 5
                      , acid-state
+                     , acid-state-exts
                      , aeson
                      , ansi-terminal
                      , bytestring
@@ -524,6 +525,30 @@ executable cardano-x509-certificates
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -O2
+
+executable genesis-hash
+  hs-source-dirs:      src/genesis-hash
+  main-is:             Main.hs
+  if !flag(for-installer)
+   build-depends:      base
+                     , universum
+                     , bytestring
+                     , cryptonite
+                     , canonical-json
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  if flag(for-installer)
+    buildable: False
+  else
+    buildable: True
 
 library
   hs-source-dirs:      .

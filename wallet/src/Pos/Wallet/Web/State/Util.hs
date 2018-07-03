@@ -7,11 +7,13 @@ module Pos.Wallet.Web.State.Util
 import           Universum
 
 import           Data.Acid (createArchive, createCheckpoint)
-import           Data.Time.Units (TimeUnit, Second)
+import           Data.Time.Units (Second, TimeUnit)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Serokell.AcidState.ExtendedState (ExtendedState (..), extendedStateToAcid)
-import           System.Directory (getModificationTime, listDirectory, removeFile)
+import           Serokell.AcidState.ExtendedState (ExtendedState (..),
+                     extendedStateToAcid)
+import           System.Directory (getModificationTime, listDirectory,
+                     removeFile)
 import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logDebug, logError)
 

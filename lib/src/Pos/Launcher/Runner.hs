@@ -25,27 +25,37 @@ import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
-import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
+import           Pos.Block.Configuration (HasBlockConfiguration,
+                     recoveryHeadersMessage, streamWindow)
+import           Pos.Configuration (HasNodeConfiguration,
+                     networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
-import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
+import           Pos.Core.Configuration (HasProtocolConstants,
+                     protocolConstants)
 import           Pos.Crypto (ProtocolMagic, toPublic)
-import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
-import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..), hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
-import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
+                     diffusionLayerFull)
+import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..),
+                     hoistDiffusion)
+import           Pos.Infra.Network.Types (NetworkConfig (..),
+                     topologyRoute53HealthCheckEnabled)
+import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
+                     registerEkgMetrics, withEkgServer)
 import           Pos.Infra.Reporting.Statsd (withStatsd)
 import           Pos.Infra.Shutdown (ShutdownContext, waitForShutdown)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
+                     NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Logic.Full (logicFull)
 import           Pos.Logic.Types (Logic, hoistLogic)
 import           Pos.Recovery.Instance ()
-import           Pos.Reporting.Production (ProductionReporterParams (..), productionReporter)
+import           Pos.Reporting.Production (ProductionReporterParams (..),
+                     productionReporter)
 import           Pos.Txp (MonadTxpLocal)
-import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
@@ -90,7 +100,7 @@ runRealMode pm nr@NodeResources {..} act = runServer
     makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO diffusion
+        let diffusion' = hoistDiffusion liftIO (elimRealMode pm nr diffusion) diffusion
          in elimRealMode pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
@@ -170,6 +180,7 @@ runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShut
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
         , fdcTrace = wlogTrace "diffusion"
+        , fdcStreamWindow = streamWindow
         }
     exitOnShutdown action = do
         _ <- race (waitForShutdown shdnContext) action

@@ -35,7 +35,8 @@ import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..),
+                     applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
@@ -103,7 +104,7 @@ runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               -> Production a
 runWalletMode pm nr wallet action =
     Production $ runRealMode pm nr $ \diffusion ->
-        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
+        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do

@@ -1,9 +1,9 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecursiveDo         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Diffusion.Full
     ( FullDiffusionConfiguration (..)
@@ -15,30 +15,37 @@ module Pos.Diffusion.Full
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
 import           Control.Concurrent.Async (Concurrently (..))
+import qualified Control.Concurrent.STM as STM
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (Format)
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
+import           Network.Broadcast.OutboundQueue.Types (MsgType (..),
+                     Origin (..))
 import           Network.Transport (Transport)
-import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
-import           Node.Conversation (Converse, converseWith, Conversation)
+import           Node (Node, NodeAction (..), NodeEnvironment (..),
+                     defaultNodeEnvironment, node, simpleNodeEndPoint)
+import           Node.Conversation (Conversation, Converse, converseWith)
+import qualified System.Metrics as Monitoring
+
 import           System.Random (newStdGen)
 
-import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
-import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
-                                    EnqueueMsg, makeEnqueueMsg, bipPacking, Listener,
-                                    MkListeners (..), HandlerSpecs, InSpecs (..),
-                                    OutSpecs (..), createOutSpecs, toOutSpecs, convH,
-                                    InvOrDataTK, MsgSubscribe, MsgSubscribe1,
-                                    makeSendActions, SendActions, Msg)
-import           Pos.Core (BlockVersionData (..), BlockVersion, HeaderHash, ProxySKHeavy,
-                           StakeholderId, ProtocolConstants (..))
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                     MsgHeaders, MsgStream, MsgStreamBlock)
+import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
+                     InvOrDataTK, Listener, MkListeners (..), Msg,
+                     MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
+                     PackingType, PeerData, SendActions, VerInfo (..),
+                     bipPacking, convH, createOutSpecs, makeEnqueueMsg,
+                     makeSendActions, toOutSpecs)
+import           Pos.Core (BlockVersion, BlockVersionData (..), HeaderHash,
+                     ProtocolConstants (..), ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core.Ssc (Opening, InnerSharesMap, SignedCommitment, VssCertificate)
+import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
@@ -47,35 +54,33 @@ import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
 import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc
 import qualified Pos.Diffusion.Full.Txp as Diffusion.Txp
 import qualified Pos.Diffusion.Full.Update as Diffusion.Update
+import           Pos.Infra.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Infra.DHT.Real (KademliaDHTInstance (..),
-                                     KademliaParams (..),
-                                     startDHTInstance, stopDHTInstance,
-                                     kademliaJoinNetworkNoThrow,
-                                     kademliaJoinNetworkRetry)
+                     KademliaParams (..), kademliaJoinNetworkNoThrow,
+                     kademliaJoinNetworkRetry, startDHTInstance,
+                     stopDHTInstance)
 import           Pos.Infra.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Infra.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Infra.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
-                                                          emptySubscriptionStates)
+                     emptySubscriptionStates)
 import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
-import           Pos.Infra.Communication.Relay.Logic (invReqDataFlowTK)
-import           Pos.Infra.Network.Types (NetworkConfig (..), Bucket (..),
-                                          initQueue, topologySubscribers,
-                                          SubscriptionWorker (..),
-                                          NodeType,
-                                          topologySubscriptionWorker,
-                                          topologyRunKademlia,
-                                          topologyHealthStatus)
-import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Infra.Diffusion.Types (Diffusion (..),
+                     DiffusionHealth (..), DiffusionLayer (..))
+import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..),
+                     NodeType, SubscriptionWorker (..), initQueue,
+                     topologyHealthStatus, topologyRunKademlia,
+                     topologySubscribers, topologySubscriptionWorker)
 import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
-                                          registerEkgNodeMetrics)
+                     registerEkgNodeMetrics)
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
-import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
+import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
-import           Pos.Util.Trace (Trace, Severity (Error))
+import           Pos.Util.Trace (Severity (Error), Trace)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 {-# ANN module ("HLint: ignore Use whenJust" :: Text) #-}
@@ -87,6 +92,7 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcRecoveryHeadersMessage :: !Word
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
+    , fdcStreamWindow           :: !Word32
     , fdcTrace                  :: !(Trace IO (Severity, Text))
     }
 
@@ -182,12 +188,20 @@ diffusionLayerFullExposeInternals fdconf
         protocolConstants = fdcProtocolConstants fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
+        streamWindow = fdcStreamWindow fdconf
         logTrace = fdcTrace fdconf
 
     -- Subscription states.
     subscriptionStates <- emptySubscriptionStates
 
     keepaliveTimer <- newTimer
+
+    diffusionHealth <- case mEkgNodeMetrics of
+                            Nothing -> return Nothing
+                            Just m  -> liftIO $ do
+                                wqgM <- Monitoring.createGauge (withCardanoNamespace "diffusion.WriteQueue") $ enmStore m
+                                wM   <- Monitoring.createGauge (withCardanoNamespace "diffusion.Window")     $ enmStore m
+                                return $ Just $ DiffusionHealth wqgM wM
 
     let -- VerInfo is a diffusion-layer-specific thing. It's only used for
         -- negotiating with peers.
@@ -267,11 +281,16 @@ diffusionLayerFullExposeInternals fdconf
             , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
                                                             (Proxy :: Proxy MsgBlock)
                                                     ]
+            , streamBlockHeaderOuts
             ]
 
         announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
                                                      (Proxy :: Proxy MsgGetHeaders)
                                              ]
+
+        streamBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgStream)
+                                                   (Proxy :: Proxy MsgStreamBlock)
+                                           ]
 
         -- Plainly mempty from the definition of allWorkers.
         slottingWorkerOutSpecs = mempty
@@ -333,6 +352,14 @@ diffusionLayerFullExposeInternals fdconf
 
         requestTip :: IO (Map NodeId (IO BlockHeader))
         requestTip = Diffusion.Block.requestTip logTrace logic enqueue recoveryHeadersMessage
+
+        streamBlocks :: forall t .
+                        NodeId
+                     -> HeaderHash
+                     -> [HeaderHash]
+                     -> ([Block] -> IO t)
+                     -> IO (Maybe t)
+        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue

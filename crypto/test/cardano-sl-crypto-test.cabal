@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Test.Pos.Crypto.Arbitrary
+                       Test.Pos.Crypto.Bi
                        Test.Pos.Crypto.Dummy
                        Test.Pos.Crypto.Gen
 
@@ -24,7 +25,9 @@ library
   build-depends:       QuickCheck
                      , base
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-crypto
                      , cardano-sl-util
                      , cardano-sl-util-test

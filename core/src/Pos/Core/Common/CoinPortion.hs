@@ -11,6 +11,7 @@ module Pos.Core.Common.CoinPortion
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, float, int, sformat, (%))
 
@@ -35,6 +36,8 @@ newtype CoinPortion = CoinPortion
 instance Bi CoinPortion where
     encode = encode . getCoinPortion
     decode = CoinPortion <$> decode
+
+deriveSafeCopySimple 0 'base ''CoinPortion
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64

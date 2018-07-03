@@ -7,10 +7,11 @@ module Client.Cardano.Wallet.Web.Analyze
 
 import           Universum
 
-import           Bench.Cardano.Wallet.Config.Endpoints (extractEndpointConfigFor)
-import           Bench.Cardano.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
-                                                        EndpointConfig (..), Response,
-                                                        ResponseReport (..))
+import           Bench.Cardano.Wallet.Config.Endpoints
+                     (extractEndpointConfigFor)
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), EndpointConfig (..), Response,
+                     ResponseReport (..))
 
 -- | Sometimes we don't want to analyze response from the server.
 analyzeResponseIfNeeded

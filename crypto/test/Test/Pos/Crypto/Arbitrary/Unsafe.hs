@@ -11,14 +11,17 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
-import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
-                                           toVssPublicKey)
+import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm,
+                     unsafeAbstractHash)
+import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey,
+                     deterministicVssKeyGen, toVssPublicKey)
 
-import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed, mkSigned)
+import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed,
+                     mkSigned)
 
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
+import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..),
+                     arbitrarySizedS)
 
 instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Bi.unsafeDeserialize' . Bi.serialize' <$> arbitrarySizedS 64
@@ -46,7 +49,7 @@ instance ArbitraryUnsafe VssKeyPair where
 instance ArbitraryUnsafe VssPublicKey where
     arbitraryUnsafe = toVssPublicKey <$> arbitraryUnsafe
 
-instance (HashAlgorithm algo, Bi a) =>
+instance HashAlgorithm algo =>
          ArbitraryUnsafe (AbstractHash algo a) where
     arbitraryUnsafe = unsafeAbstractHash <$>
         choose (minBound, maxBound :: Word64)

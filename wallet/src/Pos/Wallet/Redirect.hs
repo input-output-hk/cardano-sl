@@ -28,8 +28,9 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
 import qualified Pos.Context as PC
-import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx, TxAux (..), TxId,
-                           TxUndo, difficultyL, getCurrentTimestamp)
+import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx,
+                     TxAux (..), TxId, TxUndo, difficultyL,
+                     getCurrentTimestamp)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (ProtocolMagic, WithHash (..))
 import qualified Pos.DB.BlockIndex as DB
@@ -37,19 +38,21 @@ import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots (..), getNextEpochSlotDuration)
-import           Pos.Txp (MempoolExt, MonadTxpLocal (..), ToilVerFailure, TxpLocalWorkMode,
-                          TxpProcessTransactionMode, getLocalUndos, txNormalize,
-                          txProcessTransaction, withTxpLocalData)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..), ToilVerFailure,
+                     TxpLocalWorkMode, TxpProcessTransactionMode,
+                     getLocalUndos, txNormalize, txProcessTransaction,
+                     withTxpLocalData)
 import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
+                     MonadUpdates (..))
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking (THEntryExtra, buildTHEntryExtra,
-                                          eskToWalletDecrCredentials, isTxEntryInteresting)
+                     eskToWalletDecrCredentials, isTxEntryInteresting)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo

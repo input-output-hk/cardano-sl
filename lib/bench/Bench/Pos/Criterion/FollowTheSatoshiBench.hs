@@ -2,7 +2,8 @@ module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where
 
-import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWith, env, whnf)
+import           Criterion.Main (Benchmark, bench, defaultConfig,
+                     defaultMainWith, env, whnf)
 import           Criterion.Types (Config (..))
 import           Formatting (int, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)

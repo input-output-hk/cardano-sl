@@ -38,10 +38,12 @@ mkdir -p "$DIR_GENERATED_TYPES"
 
 echo "Generating $DIR_GENERATED_TYPES lenses."
 
-purescript-derive-lenses \
-  < "$DIR_GENERATED_TYPES/../Types.purs" \
-  --moduleName Pos.Core.Slotting.Lenses.Types \
-  > "$DIR_GENERATED_TYPES/Types.purs"
+for mod in LocalSlotIndex EpochIndex; do
+  purescript-derive-lenses \
+    < "$DIR_GENERATED_TYPES/../$mod.purs" \
+    --moduleName "Pos.Core.Slotting.Lenses.$mod" \
+    > "$DIR_GENERATED_TYPES/$mod.purs"
+done
 
 #FRONTEND
 

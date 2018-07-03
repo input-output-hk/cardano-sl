@@ -1,40 +1,42 @@
 module Pos.Core.Ssc.Payload
        ( SscPayload (..)
        , checkSscPayload
+       , spVss
        ) where
 
 import           Universum hiding (id)
 
 import           Control.Monad.Except (MonadError)
 import qualified Data.HashMap.Strict as HM
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, int, (%))
 import           Serokell.Util (listJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveIndexedBi)
 import           Pos.Core.Ssc.CommitmentsMap
 import           Pos.Core.Ssc.OpeningsMap
 import           Pos.Core.Ssc.SharesMap
 import           Pos.Core.Ssc.VssCertificate (VssCertificate (vcExpiryEpoch))
 import           Pos.Core.Ssc.VssCertificatesMap
+import           Pos.Util.Util (cborError)
 
 -- | Payload included into blocks.
 data SscPayload
     = CommitmentsPayload
-        { spComms :: !CommitmentsMap
-        , spVss   :: !VssCertificatesMap }
+        !CommitmentsMap
+        !VssCertificatesMap
     | OpeningsPayload
-        { spOpenings :: !OpeningsMap
-        , spVss      :: !VssCertificatesMap }
+        !OpeningsMap
+        !VssCertificatesMap
     | SharesPayload
-        { spShares :: !SharesMap
-        , spVss    :: !VssCertificatesMap }
+        !SharesMap
+        !VssCertificatesMap
     | CertificatesPayload
-        { spVss    :: !VssCertificatesMap }
+        !VssCertificatesMap
     deriving (Eq, Show, Generic)
 
 instance NFData SscPayload
@@ -85,9 +87,34 @@ isEmptySscPayload (OpeningsPayload opens certs)    = null opens && null certs
 isEmptySscPayload (SharesPayload shares certs)     = null shares && null certs
 isEmptySscPayload (CertificatesPayload certs)      = null certs
 
+spVss :: SscPayload -> VssCertificatesMap
+spVss (CommitmentsPayload _ vss) = vss
+spVss (OpeningsPayload    _ vss) = vss
+spVss (SharesPayload      _ vss) = vss
+spVss (CertificatesPayload  vss) = vss
+
 checkSscPayload
-    :: ( MonadError Text m, Bi EpochIndex )
+    :: MonadError Text m
     => ProtocolMagic
     -> SscPayload
     -> m ()
 checkSscPayload pm payload = checkVssCertificatesMap pm (spVss payload)
+
+
+-- TH-generated instances go to the end of the file
+
+deriveIndexedBi ''SscPayload [
+    Cons 'CommitmentsPayload [
+        Field [| 0 :: CommitmentsMap     |],
+        Field [| 1 :: VssCertificatesMap |] ],
+    Cons 'OpeningsPayload [
+        Field [| 0 :: OpeningsMap        |],
+        Field [| 1 :: VssCertificatesMap |] ],
+    Cons 'SharesPayload [
+        Field [| 0 :: SharesMap          |],
+        Field [| 1 :: VssCertificatesMap |] ],
+    Cons 'CertificatesPayload [
+        Field [| 0 :: VssCertificatesMap |] ]
+    ]
+
+deriveSafeCopySimple 0 'base ''SscPayload

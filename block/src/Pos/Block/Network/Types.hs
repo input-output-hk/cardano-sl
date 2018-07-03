@@ -6,6 +6,10 @@ module Pos.Block.Network.Types
        , MsgHeaders (..)
        , MsgBlock (..)
        , MsgSerializedBlock (..)
+       , MsgStream (..)
+       , MsgStreamStart (..)
+       , MsgStreamUpdate (..)
+       , MsgStreamBlock (..)
        ) where
 
 import qualified Data.Text.Buildable
@@ -13,10 +17,13 @@ import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 import           Universum
 
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Core (HeaderHash)
 import           Pos.Core.Block (Block, BlockHeader (..))
-import           Pos.DB.Class (SerializedBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..))
+import           Pos.DB.Class (SerializedBlock)
+import           Pos.Util.Util (cborError)
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.
@@ -51,6 +58,12 @@ instance Buildable MsgGetHeaders where
         bprint ("MsgGetHeaders {from = "%listJson%", to = "%build%"}")
                mghFrom (maybe "<Nothing>" (bprint build) mghTo)
 
+deriveSimpleBi ''MsgGetHeaders [
+    Cons 'MsgGetHeaders [
+        Field [| mghFrom :: [HeaderHash]     |],
+        Field [| mghTo   :: Maybe HeaderHash |]
+    ]]
+
 -- | 'GetBlocks' message (see protocol specification).
 data MsgGetBlocks = MsgGetBlocks
     { mgbFrom :: !HeaderHash
@@ -62,11 +75,29 @@ instance Buildable MsgGetBlocks where
         bprint ("MsgGetBlocks {from = "%build%", to = "%build%"}")
                mgbFrom mgbTo
 
+deriveSimpleBi ''MsgGetBlocks [
+    Cons 'MsgGetBlocks [
+        Field [| mgbFrom :: HeaderHash |],
+        Field [| mgbTo   :: HeaderHash |]
+    ]]
+
 -- | 'Headers' message (see protocol specification).
 data MsgHeaders
     = MsgHeaders (NewestFirst NE BlockHeader)
     | MsgNoHeaders Text
     deriving (Eq, Show, Generic)
+
+instance Bi MsgHeaders where
+    encode = \case
+        MsgHeaders b -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        MsgNoHeaders t -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+    decode = do
+        enforceSize "MsgHeaders" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgHeaders <$> decode
+            1 -> MsgNoHeaders <$> decode
+            t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
 -- | 'Block' message (see protocol specification).
 data MsgBlock
@@ -74,8 +105,81 @@ data MsgBlock
     | MsgNoBlock Text
     deriving (Eq, Show, Generic)
 
+instance Bi MsgBlock where
+    encode = \case
+        MsgBlock b -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        MsgNoBlock t -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+    decode = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgBlock <$> decode
+            1 -> MsgNoBlock <$> decode
+            t -> cborError $ "MsgBlock wrong tag: " <> show t
+
 -- | 'SerializedBlock' message
 data MsgSerializedBlock
     = MsgSerializedBlock SerializedBlock
     | MsgNoSerializedBlock Text
     deriving (Generic)
+
+data MsgStreamStart = MsgStreamStart
+    { mssFrom   :: ![HeaderHash]
+    , mssTo     :: !HeaderHash
+    , mssWindow :: !Word32
+    } deriving (Generic, Show, Eq)
+
+deriveSimpleBi ''MsgStreamStart [
+    Cons 'MsgStreamStart [
+        Field [| mssFrom   :: [HeaderHash] |],
+        Field [| mssTo     :: HeaderHash |],
+        Field [| mssWindow :: Word32 |]
+    ]]
+
+data MsgStreamUpdate = MsgStreamUpdate
+    { msuWindow :: !Word32
+    } deriving (Generic, Show, Eq)
+
+deriveSimpleBi ''MsgStreamUpdate [
+    Cons 'MsgStreamUpdate [
+        Field [| msuWindow :: Word32 |]
+    ]]
+
+data MsgStream
+    = MsgStart MsgStreamStart
+    | MsgUpdate MsgStreamUpdate
+    deriving (Eq, Show, Generic)
+
+instance Bi MsgStream where
+    encode = \case
+        MsgStart s  -> encodeListLen 2 <> encode (0 :: Word8) <> encode s
+        MsgUpdate u -> encodeListLen 2 <> encode (1 :: Word8) <> encode u
+    decode = do
+        enforceSize "MsgStream" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStart  <$> decode
+            1 -> MsgUpdate <$> decode
+            t -> cborError $ "MsgStream wrong tag: " <> show t
+
+data MsgStreamBlock
+    = MsgStreamBlock Block
+    | MsgStreamNoBlock Text
+    | MsgStreamEnd
+    deriving (Eq, Show, Generic)
+
+instance Bi MsgStreamBlock where
+    encode = \case
+        MsgStreamBlock b -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        MsgStreamNoBlock t -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+        MsgStreamEnd -> encodeListLen 2 <> encode (2 :: Word8) <> encode (0 :: Word8)
+    decode = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStreamBlock <$> decode
+            1 -> MsgStreamNoBlock <$> decode
+            2 -> do
+                 (_ :: Word8 )<- decode
+                 pure MsgStreamEnd
+            t -> cborError $ "MsgStreamBlock wrong tag: " <> show t

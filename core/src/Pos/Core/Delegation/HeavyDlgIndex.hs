@@ -7,9 +7,11 @@ module Pos.Core.Delegation.HeavyDlgIndex
 
 import           Universum
 
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build)
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProxySecretKey (..), ProxySignature, PublicKey)
 
@@ -26,6 +28,14 @@ instance Hashable HeavyDlgIndex
 
 instance Buildable HeavyDlgIndex where
     build (HeavyDlgIndex i) = bprint build i
+
+instance Bi HeavyDlgIndex where
+    encode = encode . getHeavyDlgIndex
+    decode = HeavyDlgIndex <$> decode
+
+instance SafeCopy HeavyDlgIndex where
+    getCopy = contain $ HeavyDlgIndex <$> safeGet
+    putCopy x = contain $ safePut $ getHeavyDlgIndex x
 
 -- | Simple proxy signature without ttl/epoch index constraints.
 type ProxySigHeavy a = ProxySignature HeavyDlgIndex a

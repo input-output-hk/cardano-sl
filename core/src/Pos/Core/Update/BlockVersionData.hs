@@ -5,6 +5,7 @@ module Pos.Core.Update.BlockVersionData
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, int, (%))
@@ -14,6 +15,8 @@ import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
 import           Pos.Util.Orphans ()
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core.Binary ()
 import           Pos.Core.Update.SoftforkRule
 
 -- | Data which is associated with 'BlockVersion'.
@@ -72,3 +75,23 @@ instance Buildable BlockVersionData where
 -- instead of unlock stake epoch.
 isBootstrapEraBVD :: BlockVersionData -> EpochIndex -> Bool
 isBootstrapEraBVD adoptedBVD = isBootstrapEra (bvdUnlockStakeEpoch adoptedBVD)
+
+deriveSimpleBi ''BlockVersionData [
+    Cons 'BlockVersionData [
+        Field [| bvdScriptVersion     :: ScriptVersion |],
+        Field [| bvdSlotDuration      :: Millisecond   |],
+        Field [| bvdMaxBlockSize      :: Byte          |],
+        Field [| bvdMaxHeaderSize     :: Byte          |],
+        Field [| bvdMaxTxSize         :: Byte          |],
+        Field [| bvdMaxProposalSize   :: Byte          |],
+        Field [| bvdMpcThd            :: CoinPortion   |],
+        Field [| bvdHeavyDelThd       :: CoinPortion   |],
+        Field [| bvdUpdateVoteThd     :: CoinPortion   |],
+        Field [| bvdUpdateProposalThd :: CoinPortion   |],
+        Field [| bvdUpdateImplicit    :: FlatSlotId    |],
+        Field [| bvdSoftforkRule      :: SoftforkRule  |],
+        Field [| bvdTxFeePolicy       :: TxFeePolicy   |],
+        Field [| bvdUnlockStakeEpoch  :: EpochIndex    |]
+    ]]
+
+deriveSafeCopySimple 0 'base ''BlockVersionData

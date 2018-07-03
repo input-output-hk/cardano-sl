@@ -14,7 +14,8 @@ import           Universum
 import           Data.Scientific (Scientific)
 
 import           Lang.Name (Name)
-import           Pos.Core (Address, BlockVersion, SoftwareVersion, StakeholderId)
+import           Pos.Core (Address, BlockVersion, SoftwareVersion,
+                     StakeholderId)
 import           Pos.Crypto (AHash, PublicKey)
 
 data Expr cmd

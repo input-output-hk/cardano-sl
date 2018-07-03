@@ -24,9 +24,6 @@ library
                        Pos.Delegation.Types
                        Pos.Delegation.Worker
 
-                       -- Arbitrary instances
-                       Pos.Arbitrary.Delegation
-
                        -- Binary serialization
                        Pos.Binary.Delegation
 

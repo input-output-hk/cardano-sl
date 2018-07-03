@@ -29,7 +29,8 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Core (HeaderHash, ProxySKHeavy, headerHash)
 import           Pos.DB (MonadBlockDBRead)
 import           Pos.DB.BlockIndex (getTipHeader)
-import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgCacheParam)
+import           Pos.Delegation.Configuration (HasDlgConfiguration,
+                     dlgCacheParam)
 import           Pos.Delegation.Types (DlgMemPool)
 import           Pos.Util.Util (HasLens (..))
 

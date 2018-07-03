@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -44,7 +45,8 @@ module Pos.Client.Txp.Util
 import           Universum hiding (keys, tail)
 
 import           Control.Lens (makeLenses, (%=), (.=))
-import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
+import           Control.Monad.Except (ExceptT, MonadError (throwError),
+                     runExceptT)
 import           Data.Default (Default (..))
 import           Data.Fixed (Fixed, HasResolution)
 import qualified Data.HashSet as HS
@@ -61,22 +63,27 @@ import           Serokell.Util (listJson)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
-                           bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                           unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
+                     TxSizeLinear (..), bvdTxFeePolicy, calculateTxSizeLinear,
+                     coinToInteger, integerToCoin, isRedeemAddress, mkCoin,
+                     sumCoins, txSizeLinearMinValue, unsafeIntegerToCoin,
+                     unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
-                             SignTag (SignRedeemTx, SignTx), deterministicKeyGen, fakeSigner, hash,
-                             redeemSign, redeemToPublic, safeSign, safeToPublic)
+                     SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
+                     fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
+                     safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Pos.Script (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
-import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
-                          TxOutAux (..), TxSigData (..), Utxo)
+import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
+                     TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxSigData (..), Utxo)
 import           Test.QuickCheck (Arbitrary (..), elements)
+
+import           Data.Semigroup (Semigroup)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -86,7 +93,11 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 -- | List of addresses which are refered by at least one output of transaction
 -- which is not yet confirmed i.e. detected in block.
 newtype PendingAddresses = PendingAddresses (Set Address)
+#if MIN_VERSION_base(4,9,0)
+    deriving (Show, Semigroup, Monoid)
+#else
     deriving (Show, Monoid)
+#endif
 
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =
@@ -243,10 +254,7 @@ makeMPubKeyTx
 makeMPubKeyTx pm getSs = makeAbstractTx mkWit
   where mkWit addr sigData =
           getSs addr <&> \ss ->
-              PkWitness
-              { twKey = safeToPublic ss
-              , twSig = safeSign pm SignTx ss sigData
-              }
+              PkWitness (safeToPublic ss) (safeSign pm SignTx ss sigData)
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
@@ -279,10 +287,8 @@ makeMOfNTx
 makeMOfNTx pm validator sks txInputs txOutputs = either absurd identity $
     makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
   where
-    mkWit _ sigData = Right $ ScriptWitness
-            { twValidator = validator
-            , twRedeemer = multisigRedeemer pm sigData sks
-            }
+    mkWit _ sigData =
+        Right $ ScriptWitness validator (multisigRedeemer pm sigData sks)
 
 makeRedemptionTx
     :: ProtocolMagic
@@ -293,10 +299,8 @@ makeRedemptionTx
 makeRedemptionTx pm rsk txInputs txOutputs = either absurd identity $
     makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
   where rpk = redeemToPublic rsk
-        mkWit _ sigData = Right $ RedeemWitness
-            { twRedeemKey = rpk
-            , twRedeemSig = redeemSign pm SignRedeemTx rsk sigData
-            }
+        mkWit _ sigData =
+            Right $ RedeemWitness rpk (redeemSign pm SignRedeemTx rsk sigData)
 
 -- | Helper for summing values of `TxOutAux`s
 sumTxOutCoins :: NonEmpty TxOutAux -> Integer

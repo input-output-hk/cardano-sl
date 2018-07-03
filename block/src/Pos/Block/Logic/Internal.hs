@@ -34,19 +34,22 @@ import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
-import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
-                                 ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply,
+                     MonadSlogBase, ShouldCallBListener, slogApplyBlocks,
+                     slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, gbHeader, headerHash,
-                           mainBlockDlgPayload, mainBlockSscPayload, mainBlockTxPayload,
-                           mainBlockUpdatePayload)
+import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
+                     gbHeader, headerHash, mainBlockDlgPayload,
+                     mainBlockSscPayload, mainBlockTxPayload,
+                     mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback, dlgRollbackBlocks)
+import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback,
+                     dlgRollbackBlocks)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Exception (assertionFailed)
 import           Pos.GState.SanityCheck (sanityCheckDB)
@@ -56,6 +59,7 @@ import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Logic (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Types (SscBlock)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.MemState (MonadTxpLocal (..))
 import           Pos.Txp.Settings (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update (UpdateBlock)
@@ -139,7 +143,9 @@ normalizeMempool pm = do
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: MonadBlockApply ctx m
+    :: ( MonadBlockApply ctx m
+       , HasTxpConfiguration
+       )
     => ProtocolMagic
     -> ShouldCallBListener
     -> OldestFirst NE Blund
@@ -171,7 +177,9 @@ applyBlocksUnsafe pm scb blunds pModifier = do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
-    :: MonadBlockApply ctx m
+    :: ( MonadBlockApply ctx m
+       , HasTxpConfiguration
+       )
     => ProtocolMagic
     -> ShouldCallBListener
     -> OldestFirst NE Blund

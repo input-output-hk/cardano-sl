@@ -38,9 +38,10 @@ import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
-                                      WalletWebModeContextTag, realModeToWalletWebMode,
-                                      walletWebModeToRealMode)
-import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
+                     WalletWebModeContextTag, realModeToWalletWebMode,
+                     walletWebModeToRealMode)
+import           Pos.Wallet.Web.Server.Launcher (walletApplication,
+                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -62,7 +63,7 @@ runWRealMode
 runWRealMode pm db conn syncRequests res action = Production $
     runRealMode pm res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
-            action (hoistDiffusion realModeToWalletWebMode diffusion)
+            action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
 walletServeWebFull
     :: ( HasConfigurations

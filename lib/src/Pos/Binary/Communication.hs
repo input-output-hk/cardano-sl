@@ -6,6 +6,7 @@
 
 module Pos.Binary.Communication
     ( serializeMsgSerializedBlock
+    , serializeMsgStreamBlock
     ) where
 
 import           Universum
@@ -13,22 +14,19 @@ import           Universum
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
-                                   decodeUnknownCborDataItem, deriveSimpleBi,
-                                   encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize,
-                                   serialize')
-import           Pos.Binary.Core ()
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     decodeKnownCborDataItem, decodeUnknownCborDataItem,
+                     deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
+                     encodeUnknownCborDataItem, enforceSize, serialize,
+                     serialize')
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
-import           Pos.Core (BlockVersion, HeaderHash)
+import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..),
+                     MsgStreamBlock (..))
+import           Pos.Core (BlockVersion)
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
-                                                         HandlerSpecs,
-                                                         MsgSubscribe (..),
-                                                         MsgSubscribe1 (..),
-                                                         VerInfo (..))
+                     HandlerSpecs, MsgSubscribe (..), MsgSubscribe1 (..),
+                     VerInfo (..))
 import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component
@@ -37,49 +35,21 @@ import           Pos.Util.Util (cborError)
 -- Blocks
 ----------------------------------------------------------------------------
 
-deriveSimpleBi ''MsgGetHeaders [
-    Cons 'MsgGetHeaders [
-        Field [| mghFrom :: [HeaderHash]     |],
-        Field [| mghTo   :: Maybe HeaderHash |]
-    ]]
-
-deriveSimpleBi ''MsgGetBlocks [
-    Cons 'MsgGetBlocks [
-        Field [| mgbFrom :: HeaderHash |],
-        Field [| mgbTo   :: HeaderHash |]
-    ]]
-
-instance Bi MsgHeaders where
-    encode = \case
-        (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
-        (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
-    decode = do
-        enforceSize "MsgHeaders" 2
-        tag <- decode @Word8
-        case tag of
-            0 -> MsgHeaders <$> decode
-            1 -> MsgNoHeaders <$> decode
-            t -> cborError $ "MsgHeaders wrong tag: " <> show t
-
-instance Bi MsgBlock where
-    encode = \case
-        (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
-        (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
-    decode = do
-        enforceSize "MsgBlock" 2
-        tag <- decode @Word8
-        case tag of
-            0 -> MsgBlock <$> decode
-            1 -> MsgNoBlock <$> decode
-            t -> cborError $ "MsgBlock wrong tag: " <> show t
-
 -- Serialize `MsgSerializedBlock` with the property
 -- ```
 -- serialize (MsgBlock b) = serializeMsgSerializedBlock (MsgSerializedBlock $ serialize b)
 -- ```
 serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
-serializeMsgSerializedBlock (MsgSerializedBlock b) = "\x82\x0" <> unSerialized b
+serializeMsgSerializedBlock (MsgSerializedBlock b)   = "\x82\x0" <> unSerialized b
 serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
+
+-- Serialize `MsgSerializedBlock` with the property
+-- ```
+-- serialize (MsgStreamBlock b) = serializeMsgStreamBlock (MsgSerializedBlock $ serialize b)
+-- ```
+serializeMsgStreamBlock :: MsgSerializedBlock -> LBS.ByteString
+serializeMsgStreamBlock (MsgSerializedBlock b)   = "\x82\x0" <> LBS.fromStrict (unSerialized b)
+serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t)
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.

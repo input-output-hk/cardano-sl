@@ -9,8 +9,7 @@ import           Formatting (sformat)
 
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe, specify)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Property,
-                                  (==>))
+import           Test.QuickCheck (Property, (==>))
 
 import           Universum
 

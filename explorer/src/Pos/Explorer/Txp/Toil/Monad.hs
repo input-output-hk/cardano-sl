@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
 -- | Monads used for explorer's toil.
@@ -37,12 +37,13 @@ import           System.Wlog (NamedPureLogger)
 
 import           Pos.Core (Address, Coin, TxId)
 import           Pos.Explorer.Core (AddrHistory, TxExtra)
-import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..), ExplorerExtraModifier,
-                                              eemAddrBalances, eemAddrHistories, eemLocalTxsExtra,
-                                              eemNewUtxoSum)
-import           Pos.Txp.Toil (ExtendedGlobalToilM, ExtendedLocalToilM, StakesLookupF)
-import qualified Pos.Util.Modifier as MM
+import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..),
+                     ExplorerExtraModifier, eemAddrBalances, eemAddrHistories,
+                     eemLocalTxsExtra, eemNewUtxoSum)
+import           Pos.Txp.Toil (ExtendedGlobalToilM, ExtendedLocalToilM,
+                     StakesLookupF)
 import           Pos.Util (type (~>))
+import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------
 -- Monadic actions with extra txp data.

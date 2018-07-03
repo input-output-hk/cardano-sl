@@ -14,10 +14,6 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                        -- Arbitrary
-                        Pos.Arbitrary.Slotting
-                        Pos.Arbitrary.Infra
-
                         -- Diffusion layer
                         Pos.Infra.Diffusion.Transport.TCP
                         Pos.Infra.Diffusion.Types
@@ -111,8 +107,6 @@ library
                         -- Pos.Infra.Binary
                         Pos.Infra.Binary
                         Pos.Infra.Binary.DHTModel
-                        Pos.Infra.Binary.Slotting
-                        Pos.Infra.Binary.Relay
 
                         -- Pos.Util
                         Pos.Infra.Util.JsonLog.Events
@@ -131,7 +125,6 @@ library
                       , bytestring
                       , cardano-sl-binary
                       , cardano-sl-core
-                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-networking
@@ -148,7 +141,6 @@ library
                       , exceptions
                       , filepath
                       , formatting
-                      , generic-arbitrary
                       , lzma-conduit
                       , hashable
                       , http-client
@@ -162,7 +154,6 @@ library
                       , network-transport
                       , network-transport-tcp
                       , optparse-applicative
-                      , QuickCheck
                       , reflection
                       , safe-exceptions
                       , serokell-util >= 0.1.3.4
@@ -185,6 +176,7 @@ library
     exposed-modules:   Pos.Infra.Util.SigHandler
     build-depends:     unix
 
+  hs-source-dirs:      src
   default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable

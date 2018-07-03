@@ -23,28 +23,33 @@ import           Control.Monad.Except (mapExceptT, runExceptT, throwError)
 import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
+import           Data.Reflection (given)
 import           Formatting (build, sformat, (%))
 import           JsonLog (CanJsonLog (..))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
-                              logWarning)
+import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
+                     logDebug, logError, logWarning)
 
-import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, ProtocolMagic, siEpoch)
+import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash,
+                     ProtocolMagic, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (MonadSlots (..))
-import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock,
+                     StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
 import           Pos.Txp.Logic.Common (buildUtxo)
-import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
-                                   TxpLocalWorkMode, getLocalTxsMap, getLocalUndos, getMemPool,
-                                   getTxpExtra, getUtxoModifier, setTxpLocalData, withTxpLocalData,
-                                   withTxpLocalDataLog)
+import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
+                     MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,
+                     getLocalUndos, getMemPool, getTxpExtra, getUtxoModifier,
+                     setTxpLocalData, withTxpLocalData, withTxpLocalDataLog)
 import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
-                               ToilVerFailure (..), UndoMap, Utxo, UtxoLookup, UtxoModifier,
-                               extendLocalToilM, mpLocalTxs, normalizeToil, processTx, utxoToLookup)
+                     ToilVerFailure (..), UndoMap, Utxo, UtxoLookup,
+                     UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
+                     processTx, utxoToLookup)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Util (HasLens')
 
@@ -86,7 +91,8 @@ txProcessTransactionNoLock pm =
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
-    processTxHoisted = mapExceptT extendLocalToilM ... processTx pm
+    processTxHoisted bvd =
+        mapExceptT extendLocalToilM ... (processTx pm bvd (tcAssetLockedSrcAddrs given))
 
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
@@ -188,7 +194,8 @@ txNormalize =
         -> HashMap TxId TxAux
         -> ExtendedLocalToilM () () ()
     normalizeToilHoisted pm bvd epoch txs =
-        extendLocalToilM $ normalizeToil pm bvd epoch $ HM.toList txs
+        extendLocalToilM $
+            normalizeToil pm bvd (tcAssetLockedSrcAddrs txpConfiguration) epoch $ HM.toList txs
 
 txNormalizeAbstract ::
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)

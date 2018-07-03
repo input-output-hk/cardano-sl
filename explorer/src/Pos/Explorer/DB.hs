@@ -42,14 +42,14 @@ import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
-                           SlotCount, coinToInteger, unsafeAddCoin)
+import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration,
+                     HeaderHash, SlotCount, coinToInteger, unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
-                         MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
-                         encodeWithKeyPrefix)
+import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
+                     MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
+                     dbIterSource, dbSerializeValue, encodeWithKeyPrefix)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))

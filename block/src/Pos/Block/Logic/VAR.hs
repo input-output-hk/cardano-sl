@@ -17,30 +17,34 @@ import           Universum
 
 import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (_Wrapped)
-import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
-                                       withExceptT)
+import           Control.Monad.Except (ExceptT (ExceptT),
+                     MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
 import           System.Wlog (logDebug)
 
-import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (..),
-                                  VerifyBlocksException (..))
-import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
-                                           MonadBlockVerify, MonadMempoolNormalization,
-                                           applyBlocksUnsafe, normalizeMempool,
-                                           rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
-                                           toUpdateBlock)
+import           Pos.Block.Error (ApplyBlocksException (..),
+                     RollbackException (..), VerifyBlocksException (..))
+import           Pos.Block.Logic.Internal (BypassSecurityCheck (..),
+                     MonadBlockApply, MonadBlockVerify,
+                     MonadMempoolNormalization, applyBlocksUnsafe,
+                     normalizeMempool, rollbackBlocksUnsafe, toSscBlock,
+                     toTxpBlock, toUpdateBlock)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
-import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
+import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown,
+                     slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst)
+import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG,
+                     prevBlockL)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toNewestFirst, toOldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
-import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
+import           Pos.Txp.Configuration (HasTxpConfiguration)
+import           Pos.Txp.Settings
+                     (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
@@ -66,8 +70,10 @@ import           Pos.Util.Util (HasLens (..))
 -- 3.  Ensure that the number of undos from @txp@ and @dlg@ is the same.
 -- 4.  Return all undos.
 verifyBlocksPrefix
-    :: forall ctx m
-     . (MonadBlockVerify ctx m)
+    :: forall ctx m.
+       ( HasTxpConfiguration
+       , MonadBlockVerify ctx m
+       )
     => ProtocolMagic
     -> OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
@@ -122,8 +128,8 @@ type BlockLrcMode ctx m = (MonadBlockApply ctx m, LrcModeFull ctx m)
 -- return the header hash of the new tip. It's up to the caller to log a
 -- warning that partial application has occurred.
 verifyAndApplyBlocks
-    :: forall ctx m
-     . ( BlockLrcMode ctx m
+    :: forall ctx m.
+       ( BlockLrcMode ctx m
        , MonadMempoolNormalization ctx m
        , HasMisbehaviorMetrics ctx
        )

@@ -34,13 +34,16 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin,
-                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin, HasCoreConfiguration)
+import           Pos.Core (Coin, HasCoreConfiguration, StakeholderId, StakesMap,
+                     coinF, mkCoin, sumCoins, unsafeAddCoin,
+                     unsafeIntegerToCoin)
 import           Pos.Crypto (shortHashF)
-import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
-                         RocksBatchOp (..), dbIterSource, dbSerializeValue)
+import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB,
+                     MonadDBRead, RocksBatchOp (..), dbIterSource,
+                     dbSerializeValue)
 import           Pos.DB.GState.Common (gsPutBi)
-import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey, getRealTotalStake)
+import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey,
+                     getRealTotalStake)
 import           Pos.Txp.Toil.Types (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo (utxoToStakes)
 

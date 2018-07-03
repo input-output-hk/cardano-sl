@@ -60,24 +60,20 @@ instance ToLovelaces Pay where
 -------------------------------------------------------------------------------}
 
 data StakeGenOptions = StakeGenOptions {
-      stakeOnEachInputPercentage :: Maybe Double
-      -- ^ How much of the total stake each input should hold. For example,
-      -- passing 1.0 would mean that 100% of the stake will be allocated on a
-      -- single input, which would make running the coin selection policy harder
-      -- with multiple outputs. If not specified, the generator will pick a
-      -- random value in (0.0,1.0] for each generated output.
-    , stakeGenerationTarget      :: GenerationTarget
+      stakeMaxValue         :: Maybe Core.Coin
+    -- ^ Never generate an entry with more than 'Core.Coin' on it.
+    , stakeGenerationTarget :: GenerationTarget
     -- ^ How close we want to hit our target.
-    , stakeNeeded                :: Core.Coin
+    , stakeNeeded           :: Core.Coin
     -- ^ How much stake we want to generate
-    , stakeMaxEntries            :: Maybe Int
+    , stakeMaxEntries       :: Maybe Int
     -- ^ If specified, stop generating entries if they exceed the supplied
     -- number, to keep the Utxo size under control.
-    , fiddlyAddresses            :: Bool
+    , fiddlyAddresses       :: Bool
     -- ^ If set to 'True', the generator will try to produce addresses which
     -- base58 encoding is < 104 characters, as in the past this created problems
     -- to the coin selection algorithm.
-    , allowRedeemAddresses       :: Bool
+    , allowRedeemAddresses  :: Bool
     }
 
 data GenerationTarget =
@@ -126,15 +122,14 @@ fromStakeOptions o genValue getValue =
     where
         genCoin :: Gen Core.Coin
         genCoin = do
-            stakePercentage <- case stakeOnEachInputPercentage o of
-                                   Nothing -> choose (0.1, 1.0)
-                                   Just r  -> pure r
-            let adjust c = ceiling $ ((fromIntegral (Core.coinToInteger c)) * stakePercentage)
-            Core.mkCoin <$> choose (1, adjust (stakeNeeded o))
+            money <- case stakeMaxValue o of
+                         Nothing -> choose (1, Core.getCoin (stakeNeeded o))
+                         Just r  -> choose (1, min (Core.getCoin r) (Core.getCoin $ stakeNeeded o))
+            return $ Core.mkCoin money
 
         needToStop :: Int -> Maybe Int -> Bool
         needToStop _ Nothing               = False
-        needToStop actual (Just requested) = actual >= requested
+        needToStop actual (Just requested) = (actual + 1) == requested
 
         go :: Core.Coin -> a -> Gen a
         go amountToCover acc =
@@ -172,10 +167,12 @@ genUtxo o = do
 -- | Generate some Utxo with @at least@ the supplied amount of money.
 genFiddlyUtxo :: InitialBalance -> Gen Core.Utxo
 genFiddlyUtxo payment = do
+    let balance         = toLovelaces payment
+        twentyPercentOf = balance `div` 5
     genUtxo $ StakeGenOptions {
-                  stakeOnEachInputPercentage = Just 0.2
+                  stakeMaxValue         = Just (Core.mkCoin twentyPercentOf)
                 , stakeGenerationTarget = Exactly
-                , stakeNeeded           = Core.mkCoin (toLovelaces payment)
+                , stakeNeeded           = Core.mkCoin balance
                 , stakeMaxEntries       = Just 200
                 , fiddlyAddresses       = True
                 , allowRedeemAddresses  = False
@@ -184,8 +181,10 @@ genFiddlyUtxo payment = do
 -- | Generate some Utxo with @at least@ the supplied amount of money.
 genUtxoWithAtLeast :: InitialBalance -> Gen Core.Utxo
 genUtxoWithAtLeast payment = do
+    let balance         = toLovelaces payment
+        twentyPercentOf = balance `div` 5
     genUtxo $ StakeGenOptions {
-                  stakeOnEachInputPercentage = Just 0.2
+                  stakeMaxValue       = Just (Core.mkCoin twentyPercentOf)
                 , stakeGenerationTarget = AtLeast
                 , stakeNeeded           = Core.mkCoin (toLovelaces payment)
                 , stakeMaxEntries       = Just 100
@@ -202,9 +201,7 @@ genGroupedUtxo :: Int
                -> InitialBalance
                -> Gen Core.Utxo
 genGroupedUtxo groups balance = do
-    let toHave = case balance of
-                     InitialLovelace amount -> amount
-                     InitialADA amount      -> amount * 1000000
+    let toHave = toLovelaces balance
 
     -- This is the 'sink address' all of the Utxo entries have "paid into".
     sinkAddress <- arbitrary `suchThat` (not . Core.isRedeemAddress)
@@ -260,44 +257,71 @@ genTxOut opts = fromStakeOptions opts genOne paymentAmount
             addr  <- arbitraryAddress opts
             return (Core.TxOut addr coins :| [])
 
+utxoSmallestEntry :: Core.Utxo -> Core.Coin
+utxoSmallestEntry utxo =
+    case sort (Map.toList utxo) of
+         [] -> error "utxoSmallestEntry: invariant violated, empty Utxo given."
+         (x:_) -> Core.txOutValue . Core.toaOut $ snd x
+
 -- | Generates multiple payees.
-genPayees :: Pay -> Gen (NonEmpty Core.TxOut)
-genPayees payment = do
+genPayees :: Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
+genPayees utxo payment = do
+    let balance            = toLovelaces payment
+        halfOfUtxoSmallest = (Core.getCoin $ utxoSmallestEntry utxo) `div` 2
     genTxOut StakeGenOptions {
-               stakeOnEachInputPercentage = Just 0.15
+               stakeMaxValue         = Just (Core.mkCoin halfOfUtxoSmallest)
              , stakeGenerationTarget = AtLeast
-             , stakeNeeded           = Core.mkCoin (toLovelaces payment)
-             , stakeMaxEntries       = Just 5
+             , stakeNeeded           = Core.mkCoin balance
+             -- NOTE: A sufficient (but not necessary) condition for random
+             -- input selection to not fail is:
+             --
+             -- 1. We have twice as many outputs in the UTxO as payments
+             -- 2. The smallest UTxO entry is at least twice the largest payment.
+             --
+             -- Then when random selection considers a single output, it will
+             -- use at most 2 outputs (since any more would exceed the upper
+             -- bound on the size of the change, set to 1x the payment value),
+             -- and hence leave sufficient UTxO entries to cover the remaining
+             -- payments.
+             -- In principle it would suffice to have the (smallest) pair of
+             -- UTxO entries be 3x the size of the (largest) payment; setting
+             -- this to 4x means we can also cover the fees from the change
+             -- outputs, without needing additional UTxO entries.
+             , stakeMaxEntries       = Just $ length utxo `div` 2
              , fiddlyAddresses       = False
              , allowRedeemAddresses  = False
              }
 
--- | Generate some Utxo with @at least@ the supplied amount of money.
-genFiddlyPayees :: Pay -> Gen (NonEmpty Core.TxOut)
-genFiddlyPayees payment = do
+-- | Generate \"fiddly\" payees, which are payees which might include addresses
+-- which length is < 104 chars.
+genFiddlyPayees :: Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
+genFiddlyPayees utxo payment = do
+    let balance            = toLovelaces payment
+        halfOfUtxoSmallest = (Core.getCoin $ utxoSmallestEntry utxo) `div` 2
     genTxOut $ StakeGenOptions {
-                  stakeOnEachInputPercentage = Just 0.7
+                  stakeMaxValue         = Just (Core.mkCoin halfOfUtxoSmallest)
                 , stakeGenerationTarget = Exactly
-                , stakeNeeded           = Core.mkCoin (toLovelaces payment)
-                , stakeMaxEntries       = Just 10
+                , stakeNeeded           = Core.mkCoin balance
+                , stakeMaxEntries       = Just $ length utxo `div` 2
                 , fiddlyAddresses       = True
                 , allowRedeemAddresses  = False
             }
 
 -- | Generates a single payee.
-genPayee :: Pay -> Gen (NonEmpty Core.TxOut)
-genPayee payment = do
+genPayee :: Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
+genPayee _utxo payment = do
+    let balance            = toLovelaces payment
     genTxOut StakeGenOptions {
-              stakeOnEachInputPercentage = Nothing
+              stakeMaxValue         = Nothing
             , stakeGenerationTarget = AtLeast
-            , stakeNeeded           = Core.mkCoin (toLovelaces payment)
+            , stakeNeeded           = Core.mkCoin balance
             , stakeMaxEntries       = Just 1
             , fiddlyAddresses       = False
             , allowRedeemAddresses  = False
             }
 
 -- | Generates a single payee which has a redeem address inside.
-genRedeemPayee :: Pay -> Gen (NonEmpty Core.TxOut)
-genRedeemPayee payment = do
+genRedeemPayee :: Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
+genRedeemPayee _utxo payment = do
     a <- arbitrary `suchThat` Core.isRedeemAddress
     return (Core.TxOut a (Core.mkCoin (toLovelaces payment)) :| [])

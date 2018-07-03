@@ -408,7 +408,7 @@ mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
 
 payRestrictInputsTo :: Word64
                     -> (InitialBalance -> Gen Core.Utxo)
-                    -> (Pay -> Gen (NonEmpty Core.TxOut))
+                    -> (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))
                     -> (Int -> NonEmpty Core.Coin -> Core.Coin)
                     -> (CoinSelectionOptions -> CoinSelectionOptions)
                     -> InitialBalance
@@ -418,7 +418,7 @@ payRestrictInputsTo :: Word64
 payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
     withDefConfiguration $ \pm -> do
         utxo  <- genU bal
-        payee <- genP amount
+        payee <- genP utxo amount
         key   <- arbitrary
         let options = adjustOptions (newOptions feeFunction)
         res <- bimap STB identity <$>
@@ -432,7 +432,7 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
         return (utxo, payee, res)
 
 pay :: (InitialBalance -> Gen Core.Utxo)
-    -> (Pay -> Gen (NonEmpty Core.TxOut))
+    -> (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))
     -> (Int -> NonEmpty Core.Coin -> Core.Coin)
     -> (CoinSelectionOptions -> CoinSelectionOptions)
     -> InitialBalance
@@ -450,7 +450,7 @@ payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
 payOne = pay genUtxoWithAtLeast genPayee
 
 -- | Like 'payOne', but allows a custom 'Gen' for the payees to be supplied
-payOne' :: (Pay -> Gen (NonEmpty Core.TxOut))
+payOne' :: (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))
         -> (Int -> NonEmpty Core.Coin -> Core.Coin)
         -> (CoinSelectionOptions -> CoinSelectionOptions)
         -> InitialBalance

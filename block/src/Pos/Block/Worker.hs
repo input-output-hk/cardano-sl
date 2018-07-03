@@ -322,7 +322,7 @@ reportTotalBlocks ::
 reportTotalBlocks = do
     difficulty <- view difficultyL <$> DB.getTipHeader
     monitor <- difficultyMonitor <$> view scDifficultyMonitorState
-    recordValue monitor difficulty
+    recordValue noTrace monitor difficulty
 
 -- We don't need debug messages, we can see it from other messages.
 difficultyMonitor ::
@@ -335,19 +335,19 @@ reportSlottingData slotId = do
     let epoch = siEpoch slotId
     epochMonitor <-
         noReportMonitor fromIntegral Nothing <$> view scEpochMonitorState
-    recordValue epochMonitor epoch
+    recordValue noTrace epochMonitor epoch
     -- local slot
     let localSlot = siSlot slotId
     localSlotMonitor <-
         noReportMonitor (fromIntegral . getSlotIndex) Nothing <$>
         view scLocalSlotMonitorState
-    recordValue localSlotMonitor localSlot
+    recordValue noTrace localSlotMonitor localSlot
     -- global slot
     let globalSlot = flattenSlotId slotId
     globalSlotMonitor <-
         noReportMonitor fromIntegral Nothing <$>
         view scGlobalSlotMonitorState
-    recordValue globalSlotMonitor globalSlot
+    recordValue noTrace globalSlotMonitor globalSlot
 
 reportCrucialValues :: BlockWorkMode ctx m => m ()
 reportCrucialValues = do
@@ -382,9 +382,9 @@ chainQualityChecker curSlot kThSlot = do
     let monitorK = cqkMetricMonitor monitorStateK isBootstrapEra
     monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
     monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
-    whenJustM (calcChainQualityM curFlatSlot) (recordValue monitorK)
-    whenJustM calcOverallChainQuality $ recordValue monitorOverall
-    whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
+    whenJustM (calcChainQualityM curFlatSlot) (recordValue noTrace monitorK)
+    whenJustM calcOverallChainQuality $ recordValue noTrace monitorOverall
+    whenJustM calcChainQualityFixedTime $ recordValue noTrace monitorFixed
 
 -- Monitor for chain quality for last k blocks.
 cqkMetricMonitor ::

@@ -39,8 +39,9 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal)
 import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Data.Aeson (ToJSON, encode)
 import           Data.ByteString.Lazy.Char8 (hPutStrLn)
-import           Formatting (sformat, shown, (%))
-import           Pos.Util.Log (WithLogger, logWarning)
+--import           Formatting (sformat, shown, (%))
+--import           Pos.Util.Trace (noTrace)
+--import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Serokell.Util.Lens (WrappedM (..))
 import           System.IO (Handle, hFlush)
 import           Universum
@@ -140,27 +141,27 @@ instance Mockable Metrics m => Mockable Metrics (JsonLogT m) where
     liftMockable = liftMockableWrappedM
 
 jsonLogDefault
-    :: (ToJSON a, MonadCatch m, WithLogger m)
+    :: (ToJSON a, MonadIO m, MonadCatch m)
     => JsonLogConfig
-    -> a -> m ()
+    -> a
+    -> m ()
 jsonLogDefault jlc x =
     case jlc of
         JsonLogDisabled -> return ()
         JsonLogConfig v decide -> do
             event <- toEvent <$> timedIO x
             b     <- liftIO (decide event)
-                `catchAny` \e -> do
-                    logWarning $ sformat ("error in deciding whether to json log: "%shown) e
+                `catchAny` \_ -> do
+                    --logWarning logTrace $ sformat ("error in deciding whether to json log: "%shown) e
                     return False
             when b $ liftIO (withMVar v $ \h -> (hPutStrLn h (encode event) >> hFlush h))
-                `catchAny` \e ->
-                    logWarning $ sformat ("can't write json log: "%shown) e
+                `catchAny` \_ -> return ()
+                    --logWarning logTrace $ sformat ("can't write json log: "%shown) e
 
 instance ( MonadIO m
-         , WithLogger m
          , MonadCatch m) => CanJsonLog (JsonLogT m) where
 
-    jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)
+    jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)   -- TODO
 
 -- | This function simply discards all JSON log messages.
 runWithoutJsonLogT :: JsonLogT m a -> m a

@@ -47,7 +47,6 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util (HasLens, HasLens')
-import           Pos.Util.Log (WithLogger)
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m
@@ -92,8 +91,7 @@ type WorkMode ctx m
 
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
-    = ( WithLogger m
-      , CanJsonLog m
+    = ( CanJsonLog m
       , MonadMockable m
       , MonadIO m
       , MonadUnliftIO m

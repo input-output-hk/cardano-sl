@@ -20,7 +20,6 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Util (microsecondsToUTC)
-import           Pos.Util.Log (WithLogger)
 import           Pos.Util.LRU (filterLRU)
 import           Pos.Util.Trace.Named (TraceNamed)
 
@@ -32,7 +31,6 @@ type DlgWorkerConstraint ctx m
        , Mockable Delay m
        , HasShutdownContext ctx
        , MonadDelegation ctx m
-       , WithLogger m
        , MonadReporting m
        , MonadReader ctx m
        , Mockable CurrentTime m

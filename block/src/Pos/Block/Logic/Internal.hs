@@ -51,7 +51,7 @@ import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback,
                      dlgRollbackBlocks)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
-import           Pos.Exception (assertionFailed0)
+import           Pos.Exception (assertionFailed)
 import           Pos.GState.SanityCheck (sanityCheckDB)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Lrc.Context (HasLrcContext)
@@ -154,7 +154,7 @@ applyBlocksUnsafe
     -> m ()
 applyBlocksUnsafe pm scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
-    unless (null nextEpoch) $ assertionFailed0 $
+    unless (null nextEpoch) $ assertionFailed noTrace $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
                  "thisEpoch"%listJson%"\nnextEpoch:"%listJson)
                 (map (headerHash . fst) thisEpoch)
@@ -193,7 +193,7 @@ applyBlocksDbUnsafeDo pm scb blunds pModifier = do
     slogBatch <- slogApplyBlocks scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks noTrace pm (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks noTrace (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks noTrace $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
@@ -218,7 +218,7 @@ rollbackBlocksUnsafe
     -> m ()
 rollbackBlocksUnsafe pm bsc scb toRollback = do
     slogRoll <- slogRollbackBlocks bsc scb toRollback
-    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (map toDlgBlund toRollback)
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks noTrace (map toDlgBlund toRollback)
     usRoll <- SomeBatchOp <$> usRollbackBlocks noTrace
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)

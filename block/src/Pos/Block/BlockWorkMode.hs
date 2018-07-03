@@ -11,7 +11,6 @@ import           Universum
 
 import           Data.Default (Default)
 import           Mockable (Delay, Mockables, SharedAtomic)
---import           Pos.Util.Log (WithLogger)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Block.Configuration (HasBlockConfiguration)
@@ -78,7 +77,6 @@ type BlockWorkMode ctx m =
     , HasLens' ctx UpdateContext
 
     , CanJsonLog m
-    --, WithLogger m
 
     , HasBlockConfiguration
     )

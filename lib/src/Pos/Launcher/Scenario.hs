@@ -15,7 +15,7 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Mockable (mapConcurrently)
 import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, askLoggerName, logInfo)
+--import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
@@ -25,7 +25,7 @@ import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Reporting (reportError)
+--import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (waitSystemStart)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Txp (bootDustThreshold)
@@ -34,7 +34,8 @@ import           Pos.Update.Configuration (HasUpdateConfiguration,
                      curSoftwareVersion, lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Log.LogSafe (logInfoS)
+--import           Pos.Util.Log.LogSafe (logInfoS)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo, logInfoS)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -45,21 +46,22 @@ runNode'
        ( HasCompileInfo
        , WorkMode ctx m
        )
-    => NodeResources ext
+    => TraceNamed m
+    -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode' NodeResources {..} workers' plugins' = \diffusion -> do
-    logInfo $ "Built with: " <> pretty compileInfo
+runNode' logTrace NodeResources {..} workers' plugins' = \diffusion -> do
+    logInfo logTrace $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
     let pkHash = addressHash pk
-    logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
+    logInfoS logTrace $ sformat ("My public key is: "%build%", pk hash: "%build)
         pk pkHash
 
     let genesisStakeholders = gdBootStakeholders genesisData
-    logInfo $ sformat
+    logInfo logTrace $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
         bootDustThreshold
@@ -68,19 +70,19 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     let genesisDelegation = gdHeavyDelegation genesisData
     let formatDlgPair (issuerId, delegateId) =
             bprint (build%" -> "%build) issuerId delegateId
-    logInfo $ sformat ("GenesisDelegation (stakeholder ids): "%listJson)
+    logInfo logTrace $ sformat ("GenesisDelegation (stakeholder ids): "%listJson)
             $ map (formatDlgPair . second (addressHash . pskDelegatePk))
             $ HM.toList
             $ unGenesisDelegation genesisDelegation
 
     firstGenesisHash <- GS.getFirstGenesisBlockHash
-    logInfo $ sformat
+    logInfo logTrace $ sformat
         ("First genesis block hash: "%build%", genesis seed is "%build)
         firstGenesisHash
         (gdFtsSeed genesisData)
 
     tipHeader <- DB.getTipHeader
-    logInfo $ sformat ("Current tip header: "%build) tipHeader
+    logInfo logTrace $ sformat ("Current tip header: "%build) tipHeader
 
     waitSystemStart
     let runWithReportHandler action =
@@ -97,6 +99,7 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     reportHandler (SomeException e) = do
         loggerName <- askLoggerName
         reportError $
+        --logError logTrace $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

@@ -15,11 +15,11 @@ import           Universum
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build, sformat)
 import           Mockable (CurrentTime, Mockable, currentTime)
-import           Pos.Util.Log (WithLogger, logDebug)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
@@ -103,12 +103,12 @@ noReportMonitor converter debugFormat st =
 recordValue ::
        ( MonadIO m
        , Mockable CurrentTime m
-       , WithLogger m
        )
-    => MetricMonitor value
+    => TraceNamed m
+    -> MetricMonitor value
     -> value
     -> m ()
-recordValue MetricMonitor {..} v = do
+recordValue logTrace MetricMonitor {..} v = do
     let MetricMonitorState {..} = mmState
     let vInt = mmConvertValue v
     liftIO $ Gauge.set mmsGauge vInt
@@ -116,7 +116,7 @@ recordValue MetricMonitor {..} v = do
     curTime <- currentTime
     lastReportedValue <- readTVarIO mmsLastReportedValue
     case mmReportMisbehaviour (curTime - lastReportTime) lastReportedValue v of
-        Nothing -> whenJust mmDebugFormat $ logDebug . flip sformat v
+        Nothing -> whenJust mmDebugFormat $ (logDebug logTrace) . flip sformat v
         Just _ -> do
             atomically $ do
                 writeTVar mmsLastReportTime curTime

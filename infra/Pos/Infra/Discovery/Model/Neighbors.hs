@@ -10,48 +10,48 @@ import           Pos.Infra.Communication.Protocol (ConversationActions, Message,
                      NodeId (..), SendActions (..))
 import           Pos.Infra.Discovery.Model.Class (Discovery (..),
                      withPeersConcurrently)
-import           Pos.Util.Log (WithLogger, logDebug, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logWarning)
 import           Universum
 
 sendToNeighbors
     :: ( Discovery which m
        , MonadMockable m
        , Bi body
-       , WithLogger m
        , Message body
        )
-    => Proxy which
+    => TraceNamed m
+    -> Proxy which
     -> SendActions m
     -> body
     -> m ()
-sendToNeighbors which sendActions msg = do
+sendToNeighbors logTrace which sendActions msg = do
     void $ withPeersConcurrently which $ \nodes -> do
-        logDebug $ "sendToNeighbors: sending to nodes: " <> show nodes
+        logDebug logTrace $ "sendToNeighbors: sending to nodes: " <> show nodes
         return (\node -> handleAll (logSendErr node) $ sendTo sendActions node msg)
-    logDebug "sendToNeighbors: sending to nodes done"
+    logDebug logTrace "sendToNeighbors: sending to nodes done"
     where
     logSendErr node e =
-        logWarning $ sformat ("Error sending to " % shown % ": " % shown) node e
+        logWarning  logTrace $ sformat ("Error sending to " % shown % ": " % shown) node e
 
 converseToNeighbors
     :: ( Discovery which m
        , MonadMockable m
-       , WithLogger m
        , Bi rcv
        , Bi snd
        , Message snd
        , Message rcv
        )
-    => Proxy which
+    => TraceNamed m
+    -> Proxy which
     -> SendActions m
     -> (NodeId -> ConversationActions snd rcv m -> m ())
     -> m ()
-converseToNeighbors which  sendActions handler = do
+converseToNeighbors logTrace which sendActions handler = do
     void $ withPeersConcurrently which $ \nodes -> do
-        logDebug $ "converseToNeighbors: sending to nodes: " <> show nodes
+        logDebug logTrace $ "converseToNeighbors: sending to nodes: " <> show nodes
         return $ \node -> do
             handleAll (logErr node) $ withConnectionTo sendActions node $ \_ -> handler node
-            logDebug $ "converseToNeighbors: DONE conversing to node " <> show node
-    logDebug "converseToNeighbors: sending to nodes done"
+            logDebug logTrace $ "converseToNeighbors: DONE conversing to node " <> show node
+    logDebug logTrace "converseToNeighbors: sending to nodes done"
     where
-    logErr node e = logWarning $ sformat ("Error in conversation to " % shown % ": " % shown) node e
+      logErr node e = logWarning logTrace $ sformat ("Error in conversation to " % shown % ": " % shown) node e

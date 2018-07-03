@@ -27,7 +27,6 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
-import           Pos.Util.Log (WithLogger)
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
@@ -50,7 +49,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
                      (CommonOp (PutMaxSeenDifficulty, PutTip),
                      getMaxSeenDifficulty)
-import           Pos.Exception (assertionFailed0, reportFatalError)
+import           Pos.Exception (assertionFailed, traceNamedFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
@@ -60,6 +59,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration,
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace (noTrace)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -106,7 +106,6 @@ type MonadSlogBase ctx m =
     ( MonadSlots ctx m
     , MonadIO m
     , MonadDBRead m
-    , WithLogger m
     , HasUpdateConfiguration
     )
 
@@ -290,7 +289,7 @@ slogRollbackBlocks ::
 slogRollbackBlocks (BypassSecurityCheck bypassSecurity)
                    (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
-        assertionFailed0 $
+        assertionFailed noTrace $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     -- We should never allow a situation when we summarily roll back by more
     -- than 'k' blocks
@@ -305,7 +304,8 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity)
             -- no rollback further than k blocks
             maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
     unless (bypassSecurity || secure) $
-        reportFatalError "slogRollbackBlocks: the attempted rollback would \
+        traceNamedFatalError noTrace
+                         "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."
     bListenerBatch <- if callBListener then onRollbackBlocks blunds

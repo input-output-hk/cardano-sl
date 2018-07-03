@@ -102,18 +102,18 @@ runRealMode logTrace pm nr@NodeResources {..} act = runServer
     logic :: Logic (RealMode ext)
     logic = logicFull logTrace' noTrace pm ourStakeholderId securityParams -- TODO jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace' pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace' pm nr diffusion) diffusion
-        in elimRealMode logTrace' pm nr diffusion (act diffusion')
+        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace pm nr diffusion) diffusion
+        in elimRealMode logTrace pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding a Production (IO).
 elimRealMode
     :: forall t ext.
        ( HasCompileInfo)
-      => TraceNamed (RealMode ext)
+    => TraceNamed IO
     -> ProtocolMagic
     -> NodeResources ext
     -> Diffusion IO

@@ -20,7 +20,6 @@ import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
                      cloneSlottingVar, slottingVar)
 import           Pos.Lrc.Context (HasLrcContext, LrcContext, cloneLrcContext)
-import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 
@@ -67,7 +66,7 @@ getGStateImplicit = lens getter setter
 -- | Create a new 'GStateContext' which is a copy of the given context
 -- and can be modified independently.
 cloneGStateContext ::
-       (MonadIO m, WithLogger m, MonadThrow m)
+       (MonadIO m, MonadThrow m)
     => GStateContext
     -> m GStateContext
 cloneGStateContext GStateContext {..} = case _gscDB of
@@ -81,7 +80,6 @@ cloneGStateContext GStateContext {..} = case _gscDB of
 -- | Make a full copy of GState and run given action with this copy.
 withClonedGState ::
        ( MonadIO m
-       , WithLogger m
        , MonadThrow m
        , MonadReader ctx m
        , HasGStateContext ctx

@@ -22,6 +22,7 @@ module JsonLog.CanJsonLog
     , jsonLogWrappedM
     ) where
 
+import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader (ReaderT)
 import           Control.Monad.State (StateT)
 import           Control.Monad.Trans.Class (MonadTrans (..))
@@ -29,12 +30,14 @@ import           Control.Monad.Trans.Identity (IdentityT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson.Types (ToJSON)
-import           Pos.Util.Log (LoggerNameBox)
+--import           Pos.Util.Log (LoggerNameBox)
+--import           Pos.Util.Trace (natTrace)
+--import           Pos.Util.Trace.Named (TraceNamed)
 import           Serokell.Util.Lens (WrappedM (..))
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.
-class Monad m => CanJsonLog m where
+class MonadIO m => CanJsonLog m where
 
     -- | @'jsonLog' x@ serializes @x@ to JSON and
     -- writes the resulting JSON value to the JSON log.
@@ -52,11 +55,13 @@ instance CanJsonLog m => CanJsonLog (IdentityT m)
 instance CanJsonLog m => CanJsonLog (ReaderT r m)
 instance CanJsonLog m => CanJsonLog (StateT s m)
 instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
-instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
+--instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
 -- | @'jsonLogWrappedM'@ is a convenience default implementation
 -- of @'jsonLog'@ to facilitate providing instances of class @'CanJsonLog'@
 -- for instances of class @'WrappedM'@.
-jsonLogWrappedM :: (WrappedM m, CanJsonLog (UnwrappedM m), ToJSON a) => a -> m ()
+jsonLogWrappedM
+    :: (WrappedM m, CanJsonLog (UnwrappedM m), ToJSON a)
+    => a -> m ()
 jsonLogWrappedM = unpackM . jsonLog

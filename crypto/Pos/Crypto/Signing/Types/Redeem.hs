@@ -12,6 +12,7 @@ module Pos.Crypto.Signing.Types.Redeem
 
 import           Control.Exception.Safe (Exception (..))
 import qualified Crypto.Sign.Ed25519 as Ed25519
+import           Data.Aeson (FromJSON, ToJSON, Value (..), parseJSON, toJSON)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
@@ -36,7 +37,28 @@ import           Pos.Crypto.Orphans ()
 newtype RedeemPublicKey = RedeemPublicKey Ed25519.PublicKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
-deriveJSON defaultOptions ''RedeemPublicKey
+instance ToJSON RedeemPublicKey where
+    toJSON (RedeemPublicKey pubKey) =
+        toJSON . String . B64.encode $ Ed25519.openPublicKey pubKey
+
+instance FromJSON RedeemPublicKey where
+    parseJSON (String pubKey) =
+        let
+          redPubKeyBS = fromRight
+              (error $ (T.pack "Error parsing RedeemPublicKey: ") `T.append` pubKey)
+              (B64.decode pubKey)
+        in return $ redeemPkBuild redPubKeyBS
+    parseJSON _ = error $ T.pack "Invalid JSON Value"
+
+-- | Creates a public key from 32 byte bytestring, fails with 'error'
+-- otherwise.
+redeemPkBuild :: ByteString -> RedeemPublicKey
+redeemPkBuild bs
+    | BS.length bs /= 32 =
+        error $
+        "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
+        ", when should be 32"
+    | otherwise = RedeemPublicKey $ Ed25519.PublicKey $ bs
 
 deriving instance Bi RedeemPublicKey
 
@@ -123,12 +145,3 @@ fromAvvmPk addrText = do
     unless (len == 32) $ Left (ApeAddressLength len)
     pure $ redeemPkBuild addrParsed
 
--- | Creates a public key from 32 byte bytestring, fails with 'error'
--- otherwise.
-redeemPkBuild :: ByteString -> RedeemPublicKey
-redeemPkBuild bs
-    | BS.length bs /= 32 =
-        error $
-        "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
-        ", when should be 32"
-    | otherwise = RedeemPublicKey $ Ed25519.PublicKey $ bs

@@ -9,7 +9,7 @@ type API =
     "daedalus"
         :> ( "update"
             :> ( "apply" :> Get '[ValidJSON] (WalletResponse ())
-                :<|> "postpone" :> Get '[ValidJSON] (WalletResponse ())
+            :<|> "postpone" :> Get '[ValidJSON] (WalletResponse ())
             )
         :<|> "papervend" :>  "redemptions" :> "ada" :> Get '[ValidJSON] (WalletResponse ())
         :<|> "redemptions" :> "ada" :> Get '[ValidJSON] (WalletResponse ())

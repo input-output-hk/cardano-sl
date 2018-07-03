@@ -16,6 +16,7 @@ module Pos.Launcher.Configuration
 
        -- Exposed mostly for testing.
        , readAssetLockedSrcAddrs
+       , withConfigurationsM
        ) where
 
 import           Universum
@@ -30,7 +31,8 @@ import           Data.Time.Units (fromMicroseconds)
 
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
-import           System.Wlog (WithLogger, logInfo)
+import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
+                     usingLoggerName)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
@@ -111,14 +113,15 @@ instance Default ConfigurationOptions where
 
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
-withConfigurations
-    :: (WithLogger m, MonadThrow m, MonadIO m)
-    => Maybe AssetLockPath
+withConfigurationsM
+    :: forall m r. (MonadThrow m, MonadIO m)
+    => LoggerName
+    -> Maybe AssetLockPath
     -> ConfigurationOptions
     -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
     -> m r
-withConfigurations mAssetLockPath cfo act = do
-    logInfo ("using configurations: " <> show cfo)
+withConfigurationsM logName mAssetLockPath cfo act = do
+    logInfo' ("using configurations: " <> show cfo)
     cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
     assetLock <- case mAssetLockPath of
         Nothing -> pure mempty
@@ -131,6 +134,20 @@ withConfigurations mAssetLockPath cfo act = do
         withTxpConfiguration (addAssetLock assetLock $ ccTxp cfg) $
         withBlockConfiguration (ccBlock cfg) $
         withNodeConfiguration (ccNode cfg) $ act (ccNtp cfg)
+
+    where
+    logInfo' :: Text -> m ()
+    logInfo' = liftIO . usingLoggerName logName . logInfo
+
+withConfigurations
+    :: (WithLogger m, MonadThrow m, MonadIO m)
+    => Maybe AssetLockPath
+    -> ConfigurationOptions
+    -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
+    -> m r
+withConfigurations mAssetLockPath cfo act = do
+    loggerName <- askLoggerName
+    withConfigurationsM loggerName mAssetLockPath cfo act
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
 addAssetLock bset tcfg =

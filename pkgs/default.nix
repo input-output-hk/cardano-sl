@@ -14919,6 +14919,7 @@ formatting
 generic-arbitrary
 hspec
 lens
+log-warper
 mtl
 network-transport
 network-transport-inmemory
@@ -14933,6 +14934,7 @@ stm
 tagged
 text
 text-format
+time
 time-units
 universum
 unordered-containers

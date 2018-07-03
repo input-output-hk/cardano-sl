@@ -67,6 +67,13 @@ let
     "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
     "--configuration-key ${environments.${environment}.confKey}"
   ];
+  utf8LocaleSetting = ''
+    export LC_ALL=en_GB.UTF-8
+    export LANG=en_GB.UTF-8
+  '' + optionalString (pkgs.glibcLocales != null) ''
+    export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
+  '';
+
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   #!${pkgs.stdenv.shell} -e
 
@@ -81,15 +88,13 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   else
     RUNTIME_ARGS=""
   fi
-  export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
 
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs
 
   echo "Launching a node connected to '${environment}' ..."
   ${ifWallet ''
-  export LC_ALL=en_GB.UTF-8
-  export LANG=en_GB.UTF-8
+  ${utf8LocaleSetting}
   if [ ! -d ${stateDir}/tls ]; then
     mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
     ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \

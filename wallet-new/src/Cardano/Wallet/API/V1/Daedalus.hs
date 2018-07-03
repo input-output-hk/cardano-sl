@@ -15,5 +15,42 @@ type API =
         :<|> "redemptions" :> "ada" :> Get '[ValidJSON] (WalletResponse ())
         )
 
+-- redeemAda
+-- ProtocolMagic -> (TxAux -> m Bool) -> PassPhrase -> CWalletRedeem -> m CTx
+--
+-- -- | Query data for redeem
+-- data CWalletRedeem = CWalletRedeem
+--     { crWalletId :: !CAccountId
+--     , crSeed     :: !Text -- TODO: newtype!
+--     } deriving (Show, Generic)
+
+-- redeemAdaPaperVend
+--     :: MonadWalletTxFull ctx m
+--     => ProtocolMagic
+--     -> (TxAux -> m Bool)
+--     -> PassPhrase
+--     -> CPaperVendWalletRedeem
+--     -> m CTx
+-- data CPaperVendWalletRedeem = CPaperVendWalletRedeem
+--     { pvWalletId     :: !CAccountId
+--     , pvSeed         :: !Text -- TODO: newtype!
+--     , pvBackupPhrase :: !(CBackupPhrase 9)
+--     } deriving (Show, Generic)
 
 
+-- update postpone
+-- -- | Postpone next update after restart
+-- postponeUpdate :: (MonadIO m, WalletDbReader ctx m) => m NoContent
+-- postponeUpdate = askWalletDB >>= removeNextUpdate >> return NoContent
+--
+
+-- update apply
+--
+-- -- | Delete next update info and restart immediately
+-- applyUpdate :: ( MonadIO m
+--                , WalletDbReader ctx m
+--                , MonadUpdates m
+--                )
+--             => m NoContent
+-- applyUpdate = askWalletDB >>= removeNextUpdate
+--               >> applyLastUpdate >> return NoContent

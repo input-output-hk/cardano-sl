@@ -22,8 +22,8 @@ import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration,
                      SlotId (..), blkSecurityParam, genesisBlockVersionData,
-                     mkVssCertificatesMapLossy, protocolConstants,
-                     unsafeMkLocalSlotIndex)
+                     mkVssCertificatesMapLossy, pcEpochSlots,
+                     protocolConstants, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Txp (TxAux)
@@ -137,7 +137,8 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
         -> SecretKey
         -> Either Text MainBlock
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
-        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ fromIntegral $ blkSecurityParam * 2)
+        let neutralSId = SlotId 0
+                (unsafeMkLocalSlotIndexExplicit (pcEpochSlots protocolConstants) $ fromIntegral $ blkSecurityParam * 2)
         in producePureBlock
              limit prevHeader txs Nothing neutralSId proxyCerts (defSscPld neutralSId) updatePayload sk
 
@@ -161,7 +162,7 @@ validSscPayloadGen :: HasConfiguration => Gen (SscPayload, SlotId)
 validSscPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $
         vssCertificateEpochGen dummyProtocolMagic protocolConstants 0
-    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
+    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndexExplicit (pcEpochSlots protocolConstants) (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen dummyProtocolMagic 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)
           , do openingsMap <- makeSmall arbitrary

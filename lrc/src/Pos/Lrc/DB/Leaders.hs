@@ -21,7 +21,8 @@ import           Universum
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount,
                      SlotId (SlotId), SlotLeaders, StakeholderId,
-                     flattenSlotId, unsafeMkLocalSlotIndex)
+                     flattenSlotId, pcEpochSlots, protocolConstants,
+                     unsafeMkLocalSlotIndexExplicit)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi,
                      putBi, toRocksOps)
@@ -123,5 +124,5 @@ putLeadersForEpochSeparatelyOps epoch leaders =
   where
     mkSlotId :: EpochIndex -> Word16 -> SlotId
     mkSlotId epoch' slot =
-        -- Using @unsafeMkLocalSlotIndex@ because we trust the callers.
-        SlotId epoch' (unsafeMkLocalSlotIndex slot)
+        -- Using @unsafeMkLocalSlotIndexExplicit@ because we trust the callers.
+        SlotId epoch' (unsafeMkLocalSlotIndexExplicit (pcEpochSlots protocolConstants) slot)

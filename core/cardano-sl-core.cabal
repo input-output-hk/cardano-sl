@@ -169,6 +169,7 @@ library
                      , ansi-terminal
                      , base
                      , base58-bytestring
+                     , bifunctors
                      , bytestring
                      , Cabal
                      , canonical-json

@@ -209,6 +209,8 @@ function node_cmd {
   keys_args="--genesis-secret $i"
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
+  elif [[ "$DEMO_GENESIS_KEYS_DIR" != "" ]]; then
+      keys_args="--keyfile \"$DEMO_GENESIS_KEYS_DIR/key$i.sk\""
   fi
 
   if [[ $NO_REBUILD == "" ]]; then

@@ -1,10 +1,78 @@
 # CHANGELOG
 
+## Cardano SL 1.3.0 (Mainnet)
+
+### Features
+
+- The V1 API and its test coverage are finalized (CBR-101).
+
+- Expose SubscriptionStatus as part of /api/v1/node-info (CBR-186).
+
+- Better error message for missing charset (Wallet Backend - CBR-223).
+
+- Create AVVM mnemonic page screenshot (CBR-281).
+
+- Sending raw data, without deserialization, to the network using diffusion layer (CBR-277).
+
+- Speed up block retrieval (CDEC-49).
+
+- Back port Timer to Pos.Diffusion.Subscription.Common (CDEC-243).
+
+- Message size limits should not be configurable (CDEC-260).
+
+- Consolidate the block and undo into a single file per block (CDEC-293).
+
+- Upgrade to GHC 8.2.2 (CBR-51).
+
+### Specifications & documentation
+
+- The formal specifications for the new wallet backend are finished (CBR-60).
+
+- Document the new Wallet V1 API (CBR-102, CBR-183, CO-105 & CBR-278).
+
+- Write a devops guide for the Exchanges (CBR-137).
+
+- Feedback about the current Wallet API has been collected from Exchanges (CBR-104).
+
+- Complete Peer Discovery (P2P) design (CDEC-157).
+
+- Specification of shared seed generation via VSS (CDEC-180).
+
+- Specification of Randomness Generation (CDEC-208).
+
+- As-is specifications of ATRedeem addresses (CDEC-366).
+
+### Testing
+
+- Implement WalletActiveLayer & WalletPassiveLayer for wallet testing purposes (CBR-163).
+
+- Add integration deterministic tests for the Transaction endpoints (CBR-184).
+
+### Fixes
+
+- High (and recurrent) IO traffic in Wallet is solved by removing bad logging of made transaction (CBR-83).
+
+- V1 API wallet restoration issues solved by using asynchronous restoration (CBR-185).
+
+- Fix AppVeyor hard limitation on Windows (CBR-268).
+
+- Node doesn't reconnect to the network (CDEC-259).
+
+- Wallet balance shows wrong Ada amount. Transaction is irrelevant to given wallet (CO-256).
+
+- Fix tmux versions in demo-script (CO-295).
+
+- Cannot create a Wallet via API V1 Wallet API (CO-315).
+
+- Clean script fails if file is missing (CO-316).
+
+- The endpoint /api/settings/time/difference sometimes returns incorrect value (TSD-42).
+
 ## Cardano SL 1.2.1 (Mainnet)
 
 Bug fix release.
 
-- The wallet launcher now uses a lock file. This prevents problems on
+- The Wallet Launcher now uses a lock file. This prevents problems on
   Windows if upgrading Daedalus while the old version is still
   running. (DEVOPS-872)
 

@@ -8,12 +8,24 @@ module Cardano.Wallet.API.V1.Daedalus where
 type API =
     "daedalus"
         :> ( "update"
-            :> ( "apply" :> Get '[ValidJSON] (WalletResponse ())
-            :<|> "postpone" :> Get '[ValidJSON] (WalletResponse ())
+            :> ( "apply"
+                :> Post '[ValidJSON] NoContent
+            :<|> "postpone"
+                :> Post '[ValidJSON] NoContent
             )
-        :<|> "papervend" :>  "redemptions" :> "ada" :> Get '[ValidJSON] (WalletResponse ())
-        :<|> "redemptions" :> "ada" :> Get '[ValidJSON] (WalletResponse ())
+        :<|> "redemptions"
+            :> "ada"
+            :> QueryParam "paper_vend_passphrase" (Mnemomic 9)
+            :> ReqBody '[ValidJSON] WalletRedemption
+            :> Get '[ValidJSON] (WalletResponse Transaction)
         )
+
+newtype Seed = Seed Text
+
+data WalletRedemption = WalletRedemption
+    { walletRedemptionWalletId :: WalletId
+    , walletRedemptionSeed :: Seed
+    } deriving (Eq, Show, Generic)
 
 -- redeemAda
 -- ProtocolMagic -> (TxAux -> m Bool) -> PassPhrase -> CWalletRedeem -> m CTx
@@ -37,6 +49,10 @@ type API =
 --     , pvBackupPhrase :: !(CBackupPhrase 9)
 --     } deriving (Show, Generic)
 
+-- The redemption datatypes differ only by the backup phrase. Otherwise the
+-- wallet ID and seed are both present. Potentially we can unify these into the
+-- same endpoint. Seems like a query parameter like `paper_vend_passphrase=...`
+-- would do nicely.
 
 -- update postpone
 -- -- | Postpone next update after restart
@@ -54,3 +70,5 @@ type API =
 --             => m NoContent
 -- applyUpdate = askWalletDB >>= removeNextUpdate
 --               >> applyLastUpdate >> return NoContent
+--
+--

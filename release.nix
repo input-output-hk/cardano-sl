@@ -60,9 +60,7 @@ let
     inherit (mapped'.connectScripts."${cluster}") wallet explorer;
   };
   nixosTests = import ./nixos-tests;
-  shellcheckTests = iohkPkgs.shellcheckTests;
-  swaggerSchemaValidation = iohkPkgs.swaggerSchemaValidation;
-  walletIntegrationTests = iohkPkgs.buildWalletIntegrationTests;
+  tests = iohkPkgs.tests;
   makeRelease = cluster: {
     name = cluster;
     value = {
@@ -71,7 +69,7 @@ let
     };
   };
 in mapped // {
-  inherit walletIntegrationTests swaggerSchemaValidation shellcheckTests;
+  inherit tests;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out

@@ -3,11 +3,7 @@
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
 module Pos.Infra.Slotting.MemState
-       ( HasSlottingVar(..)
-       , MonadSlotsData
-       , SlottingVar
-       , cloneSlottingVar
-       , withSlottingVarAtomM
+       ( withSlottingVarAtomM
        , getSystemStartM
        , getAllEpochIndicesM
        , getCurrentNextEpochIndexM
@@ -15,6 +11,7 @@ module Pos.Infra.Slotting.MemState
        , getEpochSlottingDataM
        , putEpochSlottingDataM
        , waitCurrentEpochEqualsM
+       , module Sinbin
        ) where
 
 import           Universum
@@ -28,31 +25,13 @@ import           Pos.Infra.Slotting.Types (EpochSlottingData, SlottingData,
                      getNextEpochSlottingData, insertEpochSlottingDataUnsafe,
                      lookupEpochSlottingData)
 
-----------------------------------------------------------------------------
--- Context
-----------------------------------------------------------------------------
-
-type SlottingVar = TVar SlottingData
-
--- | Create a new 'SlottingVar' with the same contents as the given
--- variable has.
-cloneSlottingVar :: MonadIO m => SlottingVar -> m SlottingVar
-cloneSlottingVar = readTVarIO >=> newTVarIO
-
--- | System start and slotting data
-class HasSlottingVar ctx where
-    slottingTimestamp :: Lens' ctx Timestamp
-    slottingVar       :: Lens' ctx SlottingVar
+import           Pos.Sinbin.Slotting.Class as Sinbin (HasSlottingVar (..),
+                     MonadSlots (..), MonadSlotsData, SlottingVar,
+                     cloneSlottingVar)
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
-
-type MonadSlotsData ctx m =
-    ( MonadReader ctx m
-    , HasSlottingVar ctx
-    , MonadIO m
-    )
 
 -- TODO(ks): We might need a functions similar to `withSlottingDataAtomM` that
 -- executes an STM action (function) and returns the result in @IO@ monad.

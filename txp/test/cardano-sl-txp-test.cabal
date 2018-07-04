@@ -13,9 +13,6 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                       Test.Pos.Txp.Arbitrary
-                       Test.Pos.Txp.Arbitrary.Network
-                       Test.Pos.Txp.Arbitrary.Unsafe
 
   build-depends:       QuickCheck
                      , base

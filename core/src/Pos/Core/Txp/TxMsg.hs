@@ -1,14 +1,13 @@
--- | Types used for communication about transactions.
-
-module Pos.Txp.Network.Types
+module Pos.Core.Txp.TxMsg
        ( TxMsgContents (..)
        ) where
 
-import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
 import           Universum
 
-import           Pos.Core.Txp (TxAux (..), txaF)
+import           Data.Text.Buildable (Buildable (..))
+import           Formatting (bprint, (%))
+
+import           Pos.Core.Txp.TxAux (TxAux (..), txaF)
 
 -- | Data message. Can be used to send one transaction per message.
 -- Transaction is sent with auxilary data.

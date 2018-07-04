@@ -14,7 +14,9 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Test.Pos.Infra.Arbitrary
+                       Test.Pos.Infra.Arbitrary.Communication
                        Test.Pos.Infra.Arbitrary.Slotting
+                       Test.Pos.Infra.Arbitrary.Txp
                        Test.Pos.Infra.Gen
 
   build-depends:       QuickCheck

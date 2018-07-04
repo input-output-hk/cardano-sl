@@ -144,6 +144,7 @@ library
                        -- Txp
                        Pos.Core.Txp.Tx
                        Pos.Core.Txp.TxAux
+                       Pos.Core.Txp.TxMsg
                        Pos.Core.Txp.TxOutAux
                        Pos.Core.Txp.TxPayload
                        Pos.Core.Txp.TxProof

@@ -44,9 +44,9 @@ import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
 import           Pos.Data.Attributes (areAttributesKnown)
 
 import           Test.Pos.Core.Arbitrary (genSlotId)
+import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
-import           Test.Pos.Txp.Arbitrary (genTxPayload)
 import           Test.Pos.Update.Arbitrary (genUpdatePayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot

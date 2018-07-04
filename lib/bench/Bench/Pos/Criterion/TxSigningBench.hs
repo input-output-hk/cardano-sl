@@ -12,7 +12,7 @@ import           Pos.Crypto (SecretKey, SignTag (SignTx), sign)
 import           Pos.Ssc ()
 import           Pos.Txp (TxId, TxSig, TxSigData (..))
 
-import           Test.Pos.Txp.Arbitrary.Unsafe ()
+import           Test.Pos.Core.Arbitrary.Txp.Unsafe ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
 import           Bench.Configuration (benchProtocolMagic)

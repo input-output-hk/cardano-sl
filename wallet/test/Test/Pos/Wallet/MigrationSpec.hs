@@ -32,7 +32,7 @@ import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Pos.Wallet.Web.State.Storage
 
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 
 --------------------------------------------------------------------------------
 -- Reverse migrations

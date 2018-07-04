@@ -16582,6 +16582,7 @@ cpphs
 benchmarkHaskellDepends = [
 base
 cardano-sl
+cardano-sl-core-test
 cardano-sl-txp
 cardano-sl-txp-test
 criterion
@@ -16608,6 +16609,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-block-test
 , cardano-sl-client
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
@@ -16710,6 +16712,7 @@ cardano-sl-binary
 cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
@@ -17423,6 +17426,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-block
 , cardano-sl-client
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-infra
@@ -17518,6 +17522,7 @@ cardano-sl-binary
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
@@ -18594,6 +18599,7 @@ cardano-sl
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-delegation

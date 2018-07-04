@@ -19,6 +19,8 @@ library
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Arbitrary.Txp
+                       Test.Pos.Core.Arbitrary.Txp.Unsafe
 
   build-depends:       QuickCheck
                      , base

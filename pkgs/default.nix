@@ -15770,6 +15770,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , base58-bytestring
+, bifunctors
 , bytestring
 , Cabal
 , canonical-json
@@ -15837,6 +15838,7 @@ aeson
 ansi-terminal
 base
 base58-bytestring
+bifunctors
 bytestring
 Cabal
 canonical-json
@@ -15893,6 +15895,7 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 cryptonite
+deepseq
 formatting
 generic-arbitrary
 hedgehog

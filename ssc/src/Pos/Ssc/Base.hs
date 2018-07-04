@@ -50,7 +50,7 @@ import           Serokell.Util (VerificationRes, verifyGeneric)
 import           Pos.Binary.Class (biSize, fromBinary)
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..),
                      SlotCount, SlotId (..), StakeholderId, addressHash,
-                     unsafeMkLocalSlotIndexExplicit)
+                     pcEpochSlots, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Limits (stripHashMap)
@@ -84,7 +84,7 @@ mkSignedCommitment
 mkSignedCommitment pm sk i c = (toPublic sk, c, sign pm SignCommitment sk (i, c))
 
 toLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex
-toLocalSlotIndex pc = unsafeMkLocalSlotIndexExplicit pc . fromIntegral
+toLocalSlotIndex pc = unsafeMkLocalSlotIndexExplicit (pcEpochSlots pc) . fromIntegral
 
 isCommitmentIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
 isCommitmentIdxExplicit pc =

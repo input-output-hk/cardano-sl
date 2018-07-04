@@ -6,11 +6,16 @@ module Pos.Core.Slotting.LocalSlotIndex
        , mkLocalSlotIndexThrow_
        , addLocalSlotIndex
 
+       , localSlotIndexToEnum
+       , localSlotIndexFromEnum
+       , localSlotIndexSucc
+       , localSlotIndexPred
+
        , localSlotIndexMinBound
        , localSlotIndexMaxBound
+       , localSlotIndexMaxBoundExplicit
        , localSlotIndices
 
-       , unsafeMkLocalSlotIndex
        , unsafeMkLocalSlotIndexExplicit
        ) where
 
@@ -23,7 +28,7 @@ import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
-                     epochSlots, protocolConstants)
+                     epochSlots)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Util.Util (leftToPanic)
 
@@ -60,6 +65,9 @@ localSlotIndexMinBound = UnsafeLocalSlotIndex 0
 localSlotIndexMaxBound :: ProtocolConstants -> LocalSlotIndex
 localSlotIndexMaxBound pc = UnsafeLocalSlotIndex (fromIntegral (pcEpochSlots pc) - 1)
 
+localSlotIndexMaxBoundExplicit :: SlotCount -> LocalSlotIndex
+localSlotIndexMaxBoundExplicit es = UnsafeLocalSlotIndex (fromIntegral es - 1)
+
 -- | All local slot indices for the given number of slots in epoch, in ascending
 -- order.
 localSlotIndices :: SlotCount -> [LocalSlotIndex]
@@ -82,8 +90,8 @@ mkLocalSlotIndexThrow_ es idx = case mkLocalSlotIndex_ es idx of
 mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
 mkLocalSlotIndex = mkLocalSlotIndexThrow_ epochSlots
 
-mkLocalSlotIndexExplicit :: MonadError Text m => ProtocolConstants -> Word16 -> m LocalSlotIndex
-mkLocalSlotIndexExplicit pc = mkLocalSlotIndexThrow_ (pcEpochSlots pc)
+mkLocalSlotIndexExplicit :: MonadError Text m => SlotCount -> Word16 -> m LocalSlotIndex
+mkLocalSlotIndexExplicit es = mkLocalSlotIndexThrow_ es
 
 -- | Shift slot index by given amount, and return 'Nothing' if it has
 -- overflowed past 'epochSlots'.
@@ -95,12 +103,34 @@ addLocalSlotIndex x (UnsafeLocalSlotIndex i)
     s :: Word64
     s = fromIntegral x + fromIntegral i
 
--- | Unsafe constructor of 'LocalSlotIndex'.
-unsafeMkLocalSlotIndex :: HasProtocolConstants => Word16 -> LocalSlotIndex
-unsafeMkLocalSlotIndex = unsafeMkLocalSlotIndexExplicit protocolConstants
+unsafeMkLocalSlotIndexExplicit :: SlotCount -> Word16 -> LocalSlotIndex
+unsafeMkLocalSlotIndexExplicit es =
+    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndexExplicit es
 
-unsafeMkLocalSlotIndexExplicit :: ProtocolConstants -> Word16 -> LocalSlotIndex
-unsafeMkLocalSlotIndexExplicit pc =
-    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndexExplicit pc
+-- -----------------------------------------------------------------------------
+-- LocalSlotIndex used to have an 'Enum' instance, but the pending removal of
+-- 'HasProtocolConstants' means that is no longer possible. Instead we use
+-- functions.
+
+localSlotIndexToEnum :: SlotCount -> Int -> LocalSlotIndex
+localSlotIndexToEnum es i
+    | i >= fromIntegral es = error
+        "localSlotIndexToEnum: greater than maxBound"
+    | i < 0 = error "localSlotIndexToEnum: less than minBound"
+    | otherwise = UnsafeLocalSlotIndex (fromIntegral i)
+
+localSlotIndexFromEnum :: LocalSlotIndex -> Int
+localSlotIndexFromEnum = fromIntegral . getSlotIndex
+
+localSlotIndexSucc :: SlotCount -> LocalSlotIndex -> LocalSlotIndex
+localSlotIndexSucc es =
+    localSlotIndexToEnum es . (+ 1) . localSlotIndexFromEnum
+
+localSlotIndexPred :: SlotCount -> LocalSlotIndex -> LocalSlotIndex
+localSlotIndexPred es =
+    localSlotIndexToEnum es . subtract 1 . localSlotIndexFromEnum
+
+-- -----------------------------------------------------------------------------
+-- TH derived instances at the end of the file.
 
 deriveSafeCopySimple 0 'base ''LocalSlotIndex

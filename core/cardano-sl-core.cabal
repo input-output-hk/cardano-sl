@@ -169,6 +169,7 @@ library
                      , ansi-terminal
                      , base
                      , base58-bytestring
+                     , bifunctors
                      , bytestring
                      , Cabal
                      , canonical-json
@@ -264,6 +265,7 @@ test-suite test
                        Test.Pos.Core.LimitsSpec
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
+                       Test.Pos.Core.EnumEmpTest
 
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
@@ -281,6 +283,7 @@ test-suite test
                      , cardano-sl-util-test
                      , containers
                      , cryptonite
+                     , deepseq
                      , formatting
                      , generic-arbitrary
                      , hedgehog

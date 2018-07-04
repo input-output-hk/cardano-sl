@@ -13,6 +13,7 @@
 \usepackage{forest}
 \usepackage{IEEEtrantools}
 \usepackage{microtype}
+\usepackage{graphicx,color}
 
 \usepackage{hyperref}
 \hypersetup{
@@ -32,6 +33,9 @@
 \makeatother
 
 \usetikzlibrary{arrows}
+
+\newcommand{\njd}[1]{\textcolor{purple}{\emph{#1}}}
+\addtolength{\marginparwidth}{-0.1\marginparwidth}
 
 \newcommand{\powerset}[1]{\mathbb{P}(#1)}
 \newcommand{\order}[1]{\mathcal{O}\left(#1\right)}
@@ -130,11 +134,11 @@ requirements.
 
 For the node-to-node protocol this is driven by the functional and performance
 needs of Ouroboros. The node-to-node protocol is conducted in a P2P environment
-with very limited trust between peers. Though the node-to-node protocol is
-point-to-point, each node is expected to converse with several other nodes. A
-concern in this setting is asymmetric resource consumption attacks. Ease of
-implementation is a nice to have, but is subordinate to the other hard
-constraints.
+with very limited trust between peers. The node-to-node protocol utilises
+store-and-forward over selected \emph{bearers} which form the underlying
+connectivity graph. A concern in this setting is asymmetric resource consumption
+attacks. Ease of implementation is a nice to have, but is subordinate to the
+other hard constraints.
 
 A node-to-consumer protocol is intended to support blockchain applications
 like wallets and explorers, or Cardano-specific caches or proxies. The setting
@@ -156,38 +160,42 @@ It is worth discussing briefly why it makes sense to consider a node-to-consumer
 protocol distinct from a node-to-node protocol.
 
 There are a number of applications that simply want to consume the blockchain,
-but are able to rely on a trusted or semi-trusted Cardano consensus node. These
-applications do not need to engage in the full consensus protocol, and may be
-happy to delegate the necessary chain validation.
+but are able to rely on an upstream trusted or semi-trusted Cardano consensus
+node. These applications do not need to engage in the full consensus protocol,
+and may be happy to delegate the necessary chain validation.
 
-Examples include 3rd party applications that want to observe the blockchain.
-It may also include certain kinds of light client that wish to follow the
+Examples include 3rd party applications that want to observe the blockchain,
+examples being business processes triggered by transactions or analytics.  It
+may also include certain kinds of light client that wish to follow the
 blockchain but not do full validation.
 
-Once one considers a node-to-consumer protocol as a first class citizen then
-it opens up opportunities for different system architecture choices. The
+Once one considers a node-to-consumer protocol as a first class citizen then it
+opens up opportunities for different system architecture choices. The
 architecture of the original Cardano Mainnet release was entirely homogeneous:
-every node behaved the same, each trusted nothing but itself and paid the
-full networking and processing cost of engaging in the consensus protocol.
-In particular everything was integrated into a single process: the consensus
+every node behaved the same, each trusted nothing but itself and paid the full
+networking and processing cost of engaging in the consensus protocol.  In
+particular everything was integrated into a single process: the consensus
 algorithm itself, serving data to other peers and components such as the wallet
-or explorer. If we were to have a robust and efficient node-to-consumer
-protocol then we can make many other choices.
+or explorer. If we were to have a robust and efficient node-to-consumer protocol
+then we can make many other choices. \marginpar{\njd{Process memory space as
+    the basis of trust}}.
 
 With an efficient \emph{local} IPC protocol we can have applications like
 wallets and explorers as separate processes. Even for tightly integrated
-components it can make sense to run them in separate OS processes. The timing
-constraints for a consensus node are much easier to manage when it does not
-have to share CPU resources with chain consumers. There have been cases in
-production where a highly loaded wallet component takes more than its allowed
-allocation of CPU resources and causes the local node to miss its deadlines.
-By giving a consensus node a dedicated CPU core it becomes more plausible to
-provide the necessary hard real time guarantees. In addition, scaling on
-multi-core machines is significantly easier with multiple OS processes than
-with a multi-threaded OS process with a shared-heap. This could allow for
-larger capacity Cardano relay deployments where there are multiple network
-facing proxy processes that all get their chain from a single local consensus
-node.
+components it can make sense to run them in separate OS processes. Not only is
+the timing constraints for a consensus node are much easier to manage when it
+does not have to share CPU resources with chain consumers, but it enables the
+use of operating system features to give finer control over resource consumption
+for sophisticated end-users.
+There have been cases in production where a highly
+loaded wallet component takes more than its allowed allocation of CPU resources
+and causes the local node to miss its deadlines.  By giving a consensus node a
+dedicated CPU core it becomes more plausible to provide the necessary hard real
+time guarantees. In addition, scaling on multi-core machines is significantly
+easier with multiple OS processes than with a multi-threaded OS process with a
+shared-heap. This could allow for larger capacity Cardano relay deployments
+where there are multiple network facing proxy processes that all get their chain
+from a single local consensus node.
 
 With an efficient \emph{network} IPC protocol we can do similar things but
 extend it across multiple machines. For example, clusters of relays operated
@@ -196,17 +204,35 @@ node-to-consumer protocol than a node-to-node protocol. Similarly it allows for
 wallet or explorer-like applications that need to scale out, and are able to
 make use of a trusted node.
 
+\njd{In someways what is being proposed here is that by creating the notion of
+  a `chain-observer' we can gain flexibility, reduce both computational and
+  space complexity and enable a range of `lighter-weight' products and derived
+  services.
+  }
+
 \section{Node-to-consumer protocols}
 
 TODO: cover notes on:
 \begin{itemize}
 \item chain producer representations and in-memory storage with high degrees of forking
+  \begin{itemize}
+  \item bounds on likely forking numbers, thus bounding the attack surface,
+    likely to susceptible to analysis via some (pretty simple - i.e have
+    analytical solutions) Markov Chain models.
+    \item use-cases
+  \end{itemize}
 \item chain producer keeping state about consumers
 \item immutable vs volatile distinction in representation and protocols
 \item stateful protocol
 \item stateless protocol
-\item recursion as an indicator of completeness
-\item family of protocol variations for different environments: STM, IO, local IPC, remote IPC
+\item recursion as an indicator of completeness \marginpar{\njd{what does this mean Duncan?}}
+\item family of protocol variations for different environments: STM, IO, local
+  IPC, remote IPC
+  \njd{\\noting different levels of implict trust here - we need
+    to think whether the STM enviroment is one we treat differently (e.g. trust
+    forwarding only correctly signed blocks reducing the checks in the consumer
+    end) or do we assume even shared process nodes are potentially missbehaving
+    and play up the way in which that helps defend against other forms of attack? }
 \item optimised case for immutable chain, e.g. shared files
 \item STM interface
 \item coping with talking to a load-balanced cluster of imperfectly synced producers
@@ -242,10 +268,11 @@ signed blocks.
 
 \subsection{Drawbacks in the current Ouroboros network protocol implementation}
 
-The implementation establishes connections with a small number of other peers.
-There is no argument as to why this should ensure full (or even majority)
-connectivity of honest parties in the presence of a significant number of
-adversarial parties.
+In the current architectural deployment there is an assumption that certain
+nodes are being run by trusted parties and, as such, non-adversarial. There is
+no current formal argument as to how, in the presence of nodes acting
+adversarially with respect to data diffusion, at what level of adversarial
+action performance is compromised.
 
 \subsection{Broadcasting versus subscribing}
 
@@ -268,9 +295,9 @@ of the chain back to an intersection point.
 We will restrict ourselves to algorithms that can plausibly be argued are
 equivalent to broadcasting chains.
 
-\subsection{Trying to bound Ouroboros network resource use}
+\subsection{Trying to bound Ouroboros bearer, compute and storage resource use}
 
-There are a few aspects to bounding network resource use in this setting.
+There are a few aspects to bounding resource use in this distributed setting.
 \begin{enumerate}
 \item We can try to establish some absolute bound on the required resources.
 \item With or without an absolute bound we can try to arrange things so that it
@@ -297,7 +324,7 @@ proof of work, while in PoS the header contains representation of the proof of
 stake: a signature showing that it was created by the appropriate party. In
 Ouroboros the PoS signature means that nodes that are up to date (at least
 within the same epoch) can verify that the header itself is plausible, and
-exclude incorrectly signed headers.
+exclude incorrectly signed or inplausible headers.
 
 A small fixed size header means that we can bound the network resource use
 to send or receive a single header, and can also bound the CPU resources needed
@@ -314,7 +341,7 @@ Additionally the Ouroboros algorithm imposes a number of useful constraints:
       contains the block number so by comparing the block number of the
       broadcast header against the current length of the node's chain, we can
       exclude chains that are shorter and so could never be picked.
-\item Ouroboros classic (but not BG) specifies that a node will only ever pick
+\item Ouroboros classic (but not BG\marginpar{\njd{first use - expand}}) specifies that a node will only ever pick
       a chain that diverges from its current chain within the last K blocks,
       implying that forks can be at most K long. This places a bound (of K) on
       the range in which a node needs to look for an intersection between the
@@ -357,6 +384,11 @@ block per slot, it does not mean that different honest nodes will not have
 different blocks in the same slot, since an adversary can in previous slots
 have sent different headers to different nodes.
 
+\njd{\centering I'm not certain I agree with this, or perhaps I don't agree
+  with the implied generality. Honest generator nodes will only generate one
+  block per slot - so only one of those can exist per slot. Dishonest nodes can
+  generate many such blocks, agreed - maybe that needs to be brought out.}
+
 \paragraph{An overall bound} Suppose the victim node has a chain with
 at least $K$ blocks covering the last $K \leq s \leq 2K$ slots, and $n$ slots
 between the slot of the head block of chain on the victim node's and the
@@ -370,6 +402,10 @@ adversary is allowed to wait until it gets lucky in the probability
 distribution. Each of these chains can be up to approximately $(n+K) * \rho$
 long. Of course only the chains that are actually longer than the victim node's
 current chain are valid.
+
+\njd{This would seem to be the right spot for the simple MC analysis on
+  distribution of burst lengths\\
+\includegraphics[totalheight=2cm]{burst-length-mc.png}}
 
 \subsubsection{Raising the difficulty for attackers}
 
@@ -446,7 +482,7 @@ The sketch of the protocol is as follows:
       non-adversarial cases of follow-on blocks or short forks.
 \item The defender must check the block signature and discard it if it is
       invalid. Honest nodes should never forward invalid signed blocks so this
-      indicates the immediate peer is dishonest and should be dropped.
+      indicates the immediate peer\marginpar{\njd{the direct bearer peer}} is dishonest and should be dropped.
 \item Assuming the block signature is valid, and it's slot number and block
       number indicate it is of interest, the node must now remember the slot
       and hash of this block header since any other validly signed block header
@@ -460,12 +496,12 @@ The sketch of the protocol is as follows:
 \item The defender now issues a request containing a set of block numbers (or
       offsets backwards from the chain head) on the attackers chain. The
       request is for the corresponding slot numbers and block header hashes.
-      These can be made quite small, e.g. the first 64bits of the block hashes.
+      These can be made quite small, e.g. the first 64bits of the block hashes\marginpar{\njd{they could be even smaller? what risk in 8, 16 or 32 bits?}}.
       The purpose of this request is to force the attacker to reveal
       information up front so that it cannot take an adaptive approach to our
       later requests. If the range that the defender is interested in is too
       big for a single request, it should pick points (or ranges of points?)
-      randomly.
+      randomly. \\ \njd{If smaller hashes are not that much weaker this might help with message sizes at this point}
 \item The attacker now sends the slot numbers and block header hashes, or the
       request times out, and the defender can stop chasing this chain. Note
       that this does not indicate the immediate peer is an adversary since we
@@ -496,7 +532,7 @@ The sketch of the protocol is as follows:
 \item Finally it can apply the new chain to its chain state if it is still
       longer than its current chain.
 \item It is important to abandon this protocol if it takes too long overall.
-      A single slot-worth of time may be appropriate.
+      A single slot-worth of time may be appropriate. \\ \njd{maybe this should be a progress condition not an abandonment. What would the mitigation action be if abandoned? - restarting could bery well be exactly the wrong thing to do - i.e can we structure the protocol interactions so assure monotonic progress}
 \item It is important to retain valid signed headers in a cache, even if the
       chain chasing was abandoned due to a timeout. This is because while an
       attacker can make lots of different invalid chains that are all wildly
@@ -511,7 +547,8 @@ The sketch of the protocol is as follows:
 
 TODO: need better name than attacker here, since the immediate peer may be
 honest and just be proxying for the real attacker. This is due to us wanting
-to broadcast headers before waiting for the full chain to be validated.
+to broadcast headers before waiting for the full chain to be validated.\\
+\njd{fuzzy logic here we come? or some Bayesian reasoning approach?}
 
 TODO: during this whole process, the chain state may have updated already and
 the chain we're chasing may be redundant.
@@ -519,9 +556,38 @@ the chain we're chasing may be redundant.
 TODO: consider priority between the chains we're chasing, e.g. when we get a
 full chain of headers, dedicate the bandwidth to fetching the blocks rather
 than chasing more? Do it adaptively as the lie probability dwindles? Or does
-that dangerously favour short adversary chains over genuine longer ones?
+that dangerously favour short adversary chains over genuine longer ones? \\
+
+\njd{If we tie key resource consumption ratio - thinking mainly
+  network resource here - to fractional belief and we only manipulate
+  ratios not preemption (i.e weight not pitch) then a short-chain
+  attacker who dawdled would free up resources for a longer one to
+  overtake it. We may be able to make this a non-problem.}
 
 \bibliographystyle{apalike}
 \bibliography{references}
+
+\appendix
+\section{Credible worst case scenario(s)}
+\subsection{Bounding case}
+\begin{itemize}
+\item attacker can totally eclipse node
+\item attacker has  $\rho = \frac{1}{2} - \epsilon, \epsilon > 0$ stake
+\end{itemize}
+\subsection{Duration of miss-information}
+\begin{itemize}
+\item how many slots could an attacker maintain a fiction with a)
+  unfettered power of eclipse; b) $\rho$ adverserial stake at its disposal.
+\item what indicators of certainty are available to inform end user?
+\end{itemize}
+\subsection{Inherent Assymetry}
+\begin{itemize}
+\item How much un-eclipsed information is needed to detect eclipse? Is
+  a unicast channel enough? (this would permit other technological
+  approaches in the longer run)
+\item Given that a node is not totally eclipsed (i.e $\exists$
+  potentially reachable non-adversrial bearer node) how does this help?
+\end{itemize}  
+
 
 \end{document}

@@ -1,4 +1,4 @@
-{ runCommand, stylish-haskell, src, lib, git }:
+{ runCommand, stylish-haskell, src, lib, localLib, git }:
 
 let
   cleanSourceFilter = with lib;
@@ -11,6 +11,7 @@ let
 in
 runCommand "cardano-stylish-check" { succeedOnFailure = true; buildInputs = [ stylish-haskell git ]; } ''
   set +e
+  ${localLib.utf8LocaleSetting}
   cp -a ${src'} tmp-cardano
   chmod -R 0755 tmp-cardano
   cd tmp-cardano

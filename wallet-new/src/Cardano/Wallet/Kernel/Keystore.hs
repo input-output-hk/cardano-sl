@@ -8,6 +8,7 @@
 --}
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 
 module Cardano.Wallet.Kernel.Keystore (
       Keystore -- opaque
@@ -174,15 +175,14 @@ insert :: WalletId
        -> Keystore
        -> IO ()
 insert _walletId esk (Keystore ks) =
-    modifyMVar_ ks $ \internalStorage ->
-        case internalStorage of
-             StorageInitialised us -> do
-                return . StorageInitialised $
-                    if view usKeys us `contains` esk
-                             then us
-                             else us & over usKeys (esk :)
-             StorageReleased ->
-                 throwM (KeystoreErrorAlreadyReleased KeystoreInsert)
+    modifyMVar_ ks $ \case
+        StorageInitialised us -> do
+           return . StorageInitialised $
+               if view usKeys us `contains` esk
+                        then us
+                        else us & over usKeys (esk :)
+        StorageReleased ->
+            throwM (KeystoreErrorAlreadyReleased KeystoreInsert)
     where
       -- Comparator taken from the old code which needs to hash
       -- all the 'EncryptedSecretKey' in order to compare them.
@@ -198,11 +198,10 @@ lookup :: WalletId
        -> Keystore
        -> IO (Maybe EncryptedSecretKey)
 lookup wId (Keystore ks) =
-    withMVar ks $ \internalStorage ->
-        case internalStorage of
-             StorageInitialised us -> return $ lookupKey us wId
-             StorageReleased ->
-                 throwM (KeystoreErrorAlreadyReleased KeystoreLookup)
+    withMVar ks $ \case
+        StorageInitialised us -> return $ lookupKey us wId
+        StorageReleased ->
+            throwM (KeystoreErrorAlreadyReleased KeystoreLookup)
 
 
 lookupKey :: UserSecret -> WalletId -> Maybe EncryptedSecretKey
@@ -216,15 +215,14 @@ delete :: WalletId
        -> Keystore
        -> IO ()
 delete walletId (Keystore ks) = do
-    modifyMVar_ ks $ \internalStorage ->
-        case internalStorage of
-             StorageReleased ->
-                 throwM (KeystoreErrorAlreadyReleased KeystoreDelete)
-             StorageInitialised us -> do
-                let mbEsk = lookupKey us walletId
-                let erase = Data.List.deleteBy (\a b -> hash a == hash b)
-                let us' = maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
-                return (StorageInitialised us')
+    modifyMVar_ ks $ \case
+        StorageReleased ->
+            throwM (KeystoreErrorAlreadyReleased KeystoreDelete)
+        StorageInitialised us -> do
+           let mbEsk = lookupKey us walletId
+           let erase = Data.List.deleteBy (\a b -> hash a == hash b)
+           let us' = maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
+           return (StorageInitialised us')
 
 {-------------------------------------------------------------------------------
   Converting a Keystore into container types
@@ -233,10 +231,9 @@ delete walletId (Keystore ks) = do
 -- | Returns all the 'EncryptedSecretKey' known to this 'Keystore'.
 toList :: Keystore -> IO [(WalletId, EncryptedSecretKey)]
 toList (Keystore ks) =
-    withMVar ks $ \internalStorage ->
-        case internalStorage of
-             StorageReleased ->
-                 throwM (KeystoreErrorAlreadyReleased KeystoreToList)
-             StorageInitialised us -> do
-                let kss = us ^. usKeys
-                return $ map (\k -> (WalletIdHdRnd (eskToHdRootId k), k)) kss
+    withMVar ks $ \case
+        StorageReleased ->
+            throwM (KeystoreErrorAlreadyReleased KeystoreToList)
+        StorageInitialised us -> do
+           let kss = us ^. usKeys
+           return $ map (\k -> (WalletIdHdRnd (eskToHdRootId k), k)) kss

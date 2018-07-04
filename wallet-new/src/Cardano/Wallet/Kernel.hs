@@ -198,9 +198,8 @@ prefilterBlock' :: PassiveWallet
                 -> ResolvedBlock
                 -> IO (Map HdAccountId PrefilteredBlock)
 prefilterBlock' pw b =
-    withKeystore pw $ \keystore ->
-        Keystore.toList keystore >>= \l -> return . Map.unions
-                                                  . map prefilterBlock_ $ l
+    withKeystore pw $ \ks ->
+        (Map.unions . map prefilterBlock_) <$> Keystore.toList ks
     where
         prefilterBlock_ (wid,esk) = prefilterBlock wid esk b
 

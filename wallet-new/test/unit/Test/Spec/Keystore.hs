@@ -23,6 +23,8 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 import           Util.Buildable (ShowThroughBuild (..))
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- | Creates, operate on a keystore and finally destroys it.
 withKeystore :: (Keystore -> IO a) -> IO a
 withKeystore action =

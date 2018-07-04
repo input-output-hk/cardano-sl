@@ -10,7 +10,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
 
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext)
@@ -51,7 +50,7 @@ instance HasSscContext (WebModeContext ext) where
 instance HasPrimaryKey (WebModeContext ext) where
     primaryKey = wmcNodeContext_L . primaryKey
 
-type WebMode ext = Mtl.ReaderT (WebModeContext ext) Production
+type WebMode ext = Mtl.ReaderT (WebModeContext ext) IO
 
 instance HasConfiguration => MonadDBRead (WebMode ext) where
     dbGet = dbGetDefault

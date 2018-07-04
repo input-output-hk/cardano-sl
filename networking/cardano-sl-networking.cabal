@@ -71,6 +71,7 @@ Library
                       , formatting
                       , hashable
                       , kademlia
+                      , katip
                       , lens
                       , mmorph
                       , monad-control

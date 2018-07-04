@@ -77,11 +77,6 @@ import qualified System.Systemd.Daemon as Systemd
 #endif
 
 
-import qualified Pos.Util.Log.Internal as Internal
-
-import qualified Katip as K
---import qualified Katip.Core as KC
-
 ----------------------------------------------------------------------------
 -- Data type
 ----------------------------------------------------------------------------
@@ -256,16 +251,18 @@ loggerBracket :: LoggingParams -> Log.LogContextT Production () -> Production ()
 --loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 loggerBracket params action = do
     lh <- liftIO $ Log.setupLogging =<< getRealLoggerConfig params
-    loggerBracket' lh (lpDefaultName params) action
+    Log.loggerBracket lh (lpDefaultName params) action
 
+    --loggerBracket' lh (lpDefaultName params) action
+{-
 loggerBracket' :: Log.LoggingHandler -> Log.LoggerName -> Log.LogContextT Production () -> Production ()
 loggerBracket' lh name f = do
     mayle <- liftIO $ Internal.getLogEnv lh
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
             Just le -> liftIO $ bracket (return le) K.closeScribes $
-              \le_ -> runProduction $ K.runKatipContextT le_ () (Internal.s2kname name) $ f
-
+              \le_ -> runProduction ( K.runKatipContextT le_ () (Internal.s2kname name) $ f )
+-}
 
 ----------------------------------------------------------------------------
 -- NodeContext

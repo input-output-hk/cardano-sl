@@ -230,13 +230,20 @@ usingLoggerNames lh names f = do
     @
 
 -}
-loggerBracket :: LoggingHandler -> LoggerName -> LogContextT IO a -> IO a
-loggerBracket lh name f = do
-    mayle <- Internal.getLogEnv lh
+loggerBracket :: (MonadMask m, MonadIO m) => LoggingHandler -> LoggerName -> LogContextT m a -> m a
+loggerBracket lh name action = do
+    mayle <- liftIO $ Internal.getLogEnv lh
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
-            Just le -> bracket (return le) K.closeScribes $
-                \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
+            Just le -> mask $ \unmasked -> do
+                           res <- (unmasked $ body le) `onException` (finalizer le)
+                           finalizer le
+                           return res
+    where
+      finalizer le_ = do
+          _ <- liftIO $ K.closeScribes le_
+          return ()
+      body le_ = K.runKatipContextT le_ () (Internal.s2kname name) action
 
 -- | for compatibility (TODO check if still referenced)
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO LoggingHandler

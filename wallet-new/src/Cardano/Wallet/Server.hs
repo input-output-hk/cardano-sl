@@ -6,6 +6,7 @@ module Cardano.Wallet.Server
     ) where
 
 import           Servant
+import           System.Wlog (Severity)
 import           Universum
 
 import           Cardano.Wallet.API
@@ -23,25 +24,20 @@ import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 --
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
-walletServer :: ActiveWalletLayer m
-             -> Server WalletAPI
-walletServer w = v0Handler :<|> v1Handler
-  where
-    -- TODO: Not sure if we want to support the V0 API with the new wallet.
-    -- For now I'm assuming we're not going to.
-    --
-    -- TODO: It'd be nicer to not throw an exception here, but servant doesn't
-    -- make this very easy at the moment.
-    v0Handler    = error "V0 API no longer supported"
-    v1Handler    = V1.handlers w
+walletServer
+  :: (Severity -> Text -> IO ()) -- ^ Logging function.
+  -> ActiveWalletLayer IO
+  -> ServerT WalletAPI IO
+walletServer logf awl =
+   error "V0 API no longer supported" :<|> V1.handlers logf awl
 
-walletDevServer :: ActiveWalletLayer m
-             -> RunMode
-             -> Server WalletDevAPI
-walletDevServer w runMode = devHandler :<|> walletHandler
-  where
-    devHandler    = Dev.handlers runMode
-    walletHandler = walletServer w
+walletDevServer
+  :: (Severity -> Text -> IO ()) -- ^ Logging function.
+  -> ActiveWalletLayer IO
+  -> RunMode
+  -> ServerT WalletDevAPI IO
+walletDevServer logf awl runMode =
+   Dev.handlers runMode :<|> walletServer logf awl
 
 walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDocAPI
 walletDocServer = v0DocHandler :<|> v1DocHandler

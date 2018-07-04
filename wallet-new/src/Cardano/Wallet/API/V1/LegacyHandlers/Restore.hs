@@ -42,6 +42,7 @@ restoreWalletFromSeed logf passphrase cwInit = do
            , V1T.newwalOperation = V1T.RestoreWallet }
   bracketKernelPassiveWallet logf $ \pwl -> do
      w <- _pwlCreateWallet pwl nw
+
      pure (CWallet
         { cwId = case V1T.walId w of V1T.WalletId x -> CId (CHash x)
         , cwMeta = cWM
@@ -61,4 +62,51 @@ restoreWalletFromSeed logf passphrase cwInit = do
 --     Restore.restoreWallet credentials
 --     WS.setWalletReady db wId True
 --     L.getWallet wId
---
+
+-- | Restores a wallet from seed, by synchronously restoring its balance (and the initial address
+-- set) from the global UTXO, and then asynchronously restoring this wallet transaction history.
+restoreWallet
+  :: (Severity -> Text -> IO ()) -- ^ Logging function.
+  -> HdWallets
+  -> EncryptedSecretKey
+  -> V1T.WalletId
+  -> m ()
+restoreWallet logf db esk wId = do
+        logf Debug "New Restoration request for a wallet..."
+        genesisBlockHeaderE <- firstGenesisHeader
+        case genesisBlockHeaderE of
+            Left syncError -> processSyncError syncError
+            Right genesisBlock -> do
+                restoreGenesisAddresses db credentials
+                restoreWalletBalance db credentials
+                -- At this point, we consider ourselves synced with the UTXO up-to the
+                -- 'RestorationBlockDepth' we compute now. During 'syncWalletWithBlockchain',
+                -- we will restore the wallet history from the beginning of the chain by ignoring
+                -- any Utxo changes, but we will always add transactions to the pool of known ones.
+                -- By doing so, the BListener is free to track new blocks (both in terms of balance update
+                -- & tx tracking), allowing the user to use the wallet even if is technically restoring.
+                restorationBlockDepth <- WS.RestorationBlockDepth . view difficultyL <$> DB.getTipHeader
+
+                -- Mark this wallet as officially in restore. As soon as we will pass the point where
+                -- the 'RestorationBlockDepth' is greater than the current store one, we would flip the
+                -- state of this wallet to a "normal" sync, and the two paths will be reunited once for all.
+                setWalletRestorationSyncTip db walletId restorationBlockDepth (headerHash genesisBlock)
+
+                -- Once we have a consistent update of the model, we submit the request to the worker.
+                submitSyncRequest (newRestoreRequest credentials restorationBlockDepth)
+
+-- | Restores the genesis addresses for a wallet, given its 'WalletDecrCredentials'.
+-- NOTE: This doesn't have any effect on the balance as if these addresses still have
+-- coins on them, this will be captured by the call to 'restoreWalletBalance', but yet
+-- we want to add them to the pool of known addresses for history-rebuilding purposes.
+restoreGenesisAddresses
+  :: WalletDB
+  -> WalletDecrCredentials
+  -> m ()
+data HdWallets = HdWallets {
+restoreGenesisAddresses db credentials =
+    let ownGenesisData =
+            selectOwnAddresses credentials (txOutAddress . toaOut . snd) $
+            M.toList $ unGenesisUtxo genesisUtxo
+        ownGenesisAddrs = map snd ownGenesisData
+    in mapM_ (WS.addWAddress db) ownGenesisAddrs

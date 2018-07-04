@@ -31,7 +31,7 @@ import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Types
                    (RawResolvedBlock (..), fromRawResolvedBlock)
-import           Cardano.Wallet.API.V1.Types (V1, unV1)
+import           Cardano.Wallet.API.V1.Types (V1(V1), unV1)
 import qualified Cardano.Wallet.API.V1.Types as V1T
 import           Cardano.Wallet.WalletLayer.Types
                    (ActiveWalletLayer(..), PassiveWalletLayer (..))
@@ -74,10 +74,10 @@ bracketPassiveWallet logf k =
       let wai :: Actions.WalletActionInterp IO Blund
           wai = passiveWalletActionInterp logf pw
       Actions.withWalletWorker wai $ \send -> do
-         let send' :: Actions.WalletAction Blund -> n ()
-             send' = liftIO . STM.atomically . send
+         let send' :: Actions.WalletAction Blund -> IO ()
+             send' = STM.atomically . send
          flip k pw $ PassiveWalletLayer
-             { _pwlCreateWallet = mkPwlCreateWallet pw
+             { _pwlCreateWallet = mkPwlCreateWallet pw send'
              , _pwlGetWalletIds   = error "Not implemented!"
              , _pwlGetWallet      = error "Not implemented!"
              , _pwlUpdateWallet   = error "Not implemented!"
@@ -91,13 +91,17 @@ bracketPassiveWallet logf k =
 
              , _pwlGetAddresses   = error "Not implemented!"
 
-             , _pwlApplyBlocks    = send' . Actions.ApplyBlocks
-             , _pwlRollbackBlocks = send' . Actions.RollbackBlocks
+             , _pwlApplyBlocks    = liftIO . send' . Actions.ApplyBlocks
+             , _pwlRollbackBlocks = liftIO . send' . Actions.RollbackBlocks
              }
 
 mkPwlCreateWallet
-  :: MonadIO m => Kernel.PassiveWallet -> V1T.NewWallet -> m V1T.Wallet
-mkPwlCreateWallet pw nw = liftIO $ do
+  :: MonadIO m
+  => Kernel.PassiveWallet
+  -> (Actions.WalletAction Blund -> IO ())
+  -> V1T.NewWallet
+  -> m V1T.Wallet
+mkPwlCreateWallet pw send nw = liftIO $ do
   let pp :: PassPhrase = maybe (PassPhrase mempty) unV1
                                (V1T.newwalSpendingPassword nw)
   let (_,esk) = safeDeterministicKeyGen
@@ -115,16 +119,36 @@ mkPwlCreateWallet pw nw = liftIO $ do
   let wn = HD.WalletName (V1T.newwalName nw)
   Kernel.createWalletHdRnd pw wn hsp al pubkh esk Map.empty >>= \case
      Left _ -> fail "Couldn't createWalletHdRnd"
-     Right _ -> pure $ V1T.Wallet
-        { V1T.walId                         = undefined :: V1T.WalletId
-        , V1T.walName                       = undefined :: V1T.WalletName
-        , V1T.walBalance                    = undefined :: (V1 Core.Coin)
-        , V1T.walHasSpendingPassword        = undefined :: Bool
-        , V1T.walSpendingPasswordLastUpdate = undefined :: (V1 Core.Timestamp)
-        , V1T.walCreatedAt                  = undefined :: (V1 Core.Timestamp)
-        , V1T.walAssuranceLevel             = undefined :: V1T.AssuranceLevel
-        , V1T.walSyncState                  = undefined :: V1T.SyncState
-        }
+     Right (hdR, []) -> do
+        let w = V1T.Wallet
+                { V1T.walId = undefined :: V1T.WalletId
+                , V1T.walName = V1T.newwalName nw
+                , V1T.walBalance =
+                     -- TODO [CBR-27]: Return useful data here.
+                     V1 (Core.Coin 0)
+                , V1T.walHasSpendingPassword = case hsp of
+                     HD.NoSpendingPassword -> False
+                     HD.HasSpendingPassword _ -> True
+                , V1T.walSpendingPasswordLastUpdate = case hsp of
+                     HD.NoSpendingPassword ->
+                        V1 (let InDb x = HD._hdRootCreatedAt hdR in x)
+                     HD.HasSpendingPassword (InDb ts) -> V1 ts
+                , V1T.walCreatedAt =
+                        V1 (let InDb x = HD._hdRootCreatedAt hdR in x)
+                , V1T.walSyncState = case V1T.newwalOperation nw of
+                     V1T.CreateWallet -> V1T.Synced
+                     V1T.RestoreWallet -> V1T.Restoring $
+                        -- TODO [CBR-27] Return useful data here.
+                        V1T.SyncProgress
+                        { V1T.spEstimatedCompletionTime =
+                            V1T.mkEstimatedCompletionTime 0
+                        , V1T.spThroughput = V1T.mkSyncThroughput 0
+                        , V1T.spPercentage = V1T.mkSyncPercentage 0 }
+                , V1T.walAssuranceLevel = V1T.newwalAssuranceLevel nw
+                }
+        case V1T.newwalOperation nw of
+           V1T.CreateWallet -> pure w
+           V1T.RestoreWallet -> undefined
 
 
 -- | Initialize the active wallet.

@@ -1,12 +1,15 @@
 { runCommand, shellcheck, src, lib }:
 
 let
-  cleanSourceFilter = with lib;
+  # just the shell scripts
+  src' = lib.cleanSourceWith {
+   inherit src;
+   filter = with lib;
     name: type: let baseName = baseNameOf (toString name); in (
       (type == "regular" && hasSuffix ".sh" baseName) ||
       (type == "directory")
     );
-  src' = builtins.filterSource cleanSourceFilter src;
+  };
 in
 runCommand "iohk-ops-shellcheck" { buildInputs = [ shellcheck ]; } ''
 EXIT_STATUS=0

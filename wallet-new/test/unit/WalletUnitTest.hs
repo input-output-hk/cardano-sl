@@ -17,6 +17,7 @@ import           UTxO.Translate (runTranslateNoErrors, withConfig)
 
 import qualified Test.Spec.CoinSelection
 import qualified Test.Spec.Kernel
+import qualified Test.Spec.Keystore
 import qualified Test.Spec.Models
 import qualified Test.Spec.Submission
 import qualified Test.Spec.Translation
@@ -68,3 +69,4 @@ tests = describe "Wallet unit tests" $ do
     Test.Spec.Submission.spec
     txMetaStorageSpecs
     Test.Spec.CoinSelection.spec
+    Test.Spec.Keystore.spec

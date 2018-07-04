@@ -152,6 +152,7 @@ library
                      , cryptonite
                      , data-default
                      , data-default-class
+                     , directory
                      , exceptions
                      , formatting
                      , generics-sop
@@ -383,6 +384,7 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.Kernel
+                      Test.Spec.Keystore
                       Test.Spec.Models
                       Test.Spec.Submission
                       Test.Spec.Translation

@@ -22,6 +22,7 @@ import           Universum
 
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
+import           Data.Text.Buildable (Buildable (..))
 import           Data.Word (Word32)
 
 import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut,
@@ -30,6 +31,9 @@ import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut,
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
+
+import           Formatting (bprint, (%))
+import qualified Formatting as F
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -56,6 +60,10 @@ data WalletId =
     -}
 
     deriving (Eq, Ord)
+
+instance Buildable WalletId where
+    build (WalletIdHdRnd rootId) =
+        bprint ("WalletIdHdRnd " % F.build) rootId
 
 accountToWalletId :: HD.HdAccountId -> WalletId
 accountToWalletId accountId

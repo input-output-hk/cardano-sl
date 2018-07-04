@@ -13,6 +13,7 @@ import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
+import           Pos.Context (ncUserSecret)
 import           Pos.Core (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
@@ -127,13 +128,15 @@ actionWithNewWallet pm sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      keystore <- Keystore.legacyKeystore (nrContext nr)
-      bracketKernelPassiveWallet logMessage' keystore $ \walletLayer passiveWallet -> do
-        liftIO $ logMessage' Info "Wallet kernel initialized"
-        Kernel.Mode.runWalletMode pm
-                                  nr
-                                  walletLayer
-                                  (mainAction (walletLayer, passiveWallet) nr)
+      userSecret <- atomically $ readTVar (ncUserSecret $ nrContext nr)
+      liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
+          bracketKernelPassiveWallet logMessage' keystore $ \walletLayer passiveWallet -> do
+            liftIO $ logMessage' Info "Wallet kernel initialized"
+            runProduction $
+                Kernel.Mode.runWalletMode pm
+                                          nr
+                                          walletLayer
+                                          (mainAction (walletLayer, passiveWallet) nr)
   where
     mainAction
         :: (PassiveWalletLayer Production, PassiveWallet)

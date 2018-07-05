@@ -69,10 +69,10 @@ import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 
-import           Pos.Core (AddressHash, Timestamp (..), TxAux (..))
+import           Pos.Core (Timestamp (..), TxAux (..))
 
 import           Pos.Core.Chrono (OldestFirst)
-import           Pos.Crypto (EncryptedSecretKey, PublicKey, hash)
+import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Txp (Utxo)
 
 {-------------------------------------------------------------------------------
@@ -165,10 +165,10 @@ createWalletHdRnd :: PassiveWallet
                   -> HD.WalletName
                   -> HasSpendingPassword
                   -> AssuranceLevel
-                  -> (AddressHash PublicKey, EncryptedSecretKey)
+                  -> EncryptedSecretKey
                   -> Utxo
                   -> IO (Either HD.CreateHdRootError [HdAccountId])
-createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,esk) utxo = do
+createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel esk utxo = do
     created <- InDb <$> getCurrentTimestamp
     let newRoot = HD.initHdRoot rootId name spendingPassword assuranceLevel created
 
@@ -178,7 +178,7 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,
         utxoByAccount = prefilterUtxo rootId esk utxo
         accountIds    = Map.keys utxoByAccount
 
-        rootId        = HD.HdRootId . InDb $ pk
+        rootId        = eskToHdRootId esk
         walletId      = WalletIdHdRnd rootId
 
         insertESK _arg = insertWalletESK pw walletId esk >> return (Right accountIds)

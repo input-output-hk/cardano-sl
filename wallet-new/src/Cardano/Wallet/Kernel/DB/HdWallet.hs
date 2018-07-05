@@ -125,8 +125,18 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
   HD wallets
 -------------------------------------------------------------------------------}
 
--- | HD wallet root ID
-data HdRootId = HdRootId (InDb (Core.AddressHash Core.PublicKey))
+-- | HD wallet root ID. Conceptually, this is just an 'Address' in the form
+-- of 'Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxxJgxdAYHrDeSCSbCxrvx', but is,
+-- in a sense, a special breed as its derived from the 'PublicKey' (derived
+-- from some BIP-39 mnemonics, typically) and which does not depend from any
+-- delegation scheme, as you cannot really pay into this 'Address'. This
+-- ensures that, given an 'EncryptedSecretKey' we can derive its 'PublicKey'
+-- and from that the 'Core.Address'.
+-- On the \"other side\", given a RESTful 'WalletId' (which is ultimately
+-- just a Text) it's possible to call 'decodeTextAddress' to grab a valid
+-- 'Core.Address', and then transform this into a 'Kernel.WalletId' type
+-- easily.
+data HdRootId = HdRootId (InDb Core.Address)
   deriving (Eq, Ord)
 
 -- | HD wallet account ID
@@ -297,7 +307,9 @@ instance HasPrimKey HdAddress where
     type PrimKey HdAddress = HdAddressId
     primKey = _hdAddressId
 
-type HdRootIxs    = '[]
+-- | An 'HdRoot' can be accessed via its 'Core.Address', which is the
+-- Cardano 'Address' derived by the PublicKey associated with it.
+type HdRootIxs    = '[Core.Address]
 type HdAccountIxs = '[HdRootId]
 type HdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
 
@@ -308,6 +320,8 @@ type instance IndicesOf HdAddress = HdAddressIxs
 instance IxSet.Indexable (HdRootId ': HdRootIxs)
                          (OrdByPrimKey HdRoot) where
     indices = ixList
+                (ixFun (\hdRoot -> case view hdRootId hdRoot of
+                                        HdRootId (InDb addr) -> [addr]))
 
 instance IxSet.Indexable (HdAccountId ': HdAccountIxs)
                          (OrdByPrimKey HdAccount) where
@@ -439,7 +453,7 @@ assumeHdAccountExists _id = return ()
 
 -- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'.
 eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
-eskToHdRootId = HdRootId . InDb . Core.addressHash . Core.encToPublic
+eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 
 {-------------------------------------------------------------------------------
   Pretty printing

@@ -52,7 +52,7 @@ spec =
                     -> Expectation
     checkEquivalent activeWallet ind = do
        shouldReturnValidated $ runTranslateT $ do
-         equivalentT activeWallet (encKpHash ekp, encKpEnc ekp) (mkWallet (== addr)) ind
+         equivalentT activeWallet (encKpEnc ekp) (mkWallet (== addr)) ind
       where
         [addr]       = Set.toList $ inductiveOurs ind
         AddrInfo{..} = resolveAddr addr transCtxt

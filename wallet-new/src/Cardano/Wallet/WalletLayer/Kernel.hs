@@ -52,9 +52,8 @@ bracketPassiveWallet logFunction keystore f =
 
       -- TODO (temporary): build a sample wallet from a backup phrase
       _ <- liftIO $ do
-        let pk = error "TODO: need `AddressHash PublicKey` along with ESK to create a wallet"
         let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
-        Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel (pk, esk) Map.empty
+        Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel esk Map.empty
 
       f (passiveWalletLayer w invoke) w
 

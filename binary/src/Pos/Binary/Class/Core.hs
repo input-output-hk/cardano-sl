@@ -5,8 +5,11 @@
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE DeriveFunctor    #-}
+{-# LANGUAGE CPP              #-}
 
 -- | Bi typeclass and most basic functions.
+
+#include "MachDeps.h"
 
 module Pos.Binary.Class.Core
     ( Bi(..)
@@ -30,13 +33,12 @@ module Pos.Binary.Class.Core
     -- * Utils
     , toCborError
     , cborError
-
+    , withWordSize
+    
     , Range(..)
     , szEval
     , Size
     , Length(..)
-    , punch
-    , plug
     , isTodo
     , szCases
     , szLazy
@@ -58,6 +60,7 @@ import qualified Codec.CBOR.Write as CBOR.Write
 import qualified Data.Binary as Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BS.Lazy
+import qualified Data.Char as Char
 import           Data.Coerce
 import           Data.Fixed (Fixed (..), Nano)
 import qualified Data.HashMap.Strict as HM
@@ -71,6 +74,7 @@ import           Data.Time.Units (Microsecond, Millisecond)
 import           Data.Typeable (typeRep, TypeRep)
 import qualified Data.Vector as Vector
 import qualified Data.Vector.Generic as Vector.Generic
+import           Foreign.Storable (sizeOf)
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
@@ -104,6 +108,26 @@ matchSize :: Int -> Text -> Int -> D.Decoder s ()
 matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
     cborError (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
+
+withSize :: Integral s => s -> a -> a -> a -> a -> a -> a
+withSize s a1 a2 a3 a4 a5 =
+    if | s <= 0x17 -> a1
+       | s <= 0xff -> a2
+       | s <= 0xffff -> a3
+#if WORD_SIZE_IN_BITS == 64
+       | s <= 0xffffffff -> a4
+       | otherwise -> a5
+#elif WORD_SIZE_IN_BITS == 32
+       | otherwise -> a4
+#define ARCH_32bit
+#else
+#error expected WORD_SIZE_IN_BITS to be 32 or 64
+#endif
+
+-- | Compute size of a @'Word'@, this is used for computation of @'Word8'@, ..,
+-- @'Word32'@ encoded size.
+withWordSize :: (Integral s, Integral a) => s -> a
+withWordSize s = withSize s 1 2 3 5 9
 
 ----------------------------------------
 
@@ -173,7 +197,7 @@ instance Bi Char where
     decodeList    = do txt <- D.decodeStringCanonical
                        return (toString txt) -- unpack lazily
 
-    encodedSizeExpr _ pxy = encodedSizeRange pxy
+    encodedSizeExpr _ pxy = encodedSizeRange (Char.ord <$> pxy)
     encodedListSizeExpr size _ =
         let bsLength = size (Proxy @(Length [Char])) * size (Proxy @Char)
         in  bsLength + apMono "(withSize _ 1 2 3 4 5)" (\x -> withSize x 1 2 3 4 5) bsLength
@@ -186,10 +210,9 @@ instance Bi Integer where
     encode = E.encodeInteger
     decode = D.decodeIntegerCanonical
 
-encodedSizeRange :: forall a. (Bi a, Bounded a) => Proxy a -> Size
-encodedSizeRange _ = szCases
-    [ fromIntegral $ encodedSize (minBound @a)
-    , fromIntegral $ encodedSize (maxBound @a) ]
+encodedSizeRange :: forall a. (Integral a, Bounded a) => Proxy a -> Size
+encodedSizeRange _ = szCases $
+  map (fromIntegral . (withWordSize :: a -> Integer)) [ minBound, maxBound ]
 
 instance Bi Word where
     encode = E.encodeWord
@@ -300,7 +323,7 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
 instance Bi BS.ByteString where
     encode = E.encodeBytes
     decode = D.decodeBytesCanonical
-    encodedSizeExpr size pxy = let len = size (Proxy @(Length BS.ByteString))
+    encodedSizeExpr size _ = let len = size (Proxy @(Length BS.ByteString))
         in apMono "withWordSize@Int" (withWordSize @Int . fromIntegral) len + len
 
 instance Bi Text.Text where
@@ -856,22 +879,6 @@ szLazy = todo (encodedSizeExpr szLazy)
 
 szGreedy :: Bi a => (Proxy a -> Size)
 szGreedy = encodedSizeExpr szGreedy
-
-data HoleF f t = HoleF | ExistingF (f t) deriving Functor
-
-type family Holey f
-type instance Holey (Fix f) = Fix (HoleF f)
-
-punch :: Functor f => (Fix f -> Bool) -> Fix f -> Holey (Fix f)
-punch f = ana phi
-  where
-    phi x@(Fix e) = if f x then HoleF else ExistingF e
-
-plug :: Functor f => Fix f -> Holey (Fix f) -> Fix f
-plug x = cata phi
-  where
-    phi HoleF = x
-    phi (ExistingF e) = Fix e
 
 isTodo :: Size -> Bool
 isTodo (Fix (TodoF _ _)) = True

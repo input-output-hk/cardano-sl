@@ -32,7 +32,7 @@ import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      decodeKnownCborDataItem, decodeUnknownCborDataItem,
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, enforceSize)
+                     encodeUnknownCborDataItem, enforceSize, szCases)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF)
 import           Pos.Crypto (Hash, hash, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -73,9 +73,9 @@ instance Bi Tx where
         UnsafeTx <$> decode <*> decode <*> decode
 
     encodedSizeExpr size pxy = 1
-        + size (T._txInputs     <$> pxy)
-        + size (T._txOutputs    <$> pxy)
-        + size (T._txAttributes <$> pxy)
+        + size (_txInputs     <$> pxy)
+        + size (_txOutputs    <$> pxy)
+        + size (_txAttributes <$> pxy)
 
 instance NFData Tx
 
@@ -160,9 +160,10 @@ instance Bi TxIn where
         case tag of
             0 -> uncurry TxInUtxo <$> decodeKnownCborDataItem
             _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
-    encodedSizeExpr size pxy = szCases [ 2 + size ((,) <$> (T.txInHash  <$> pxy)
-                                                       <*> (T.txInIndex <$> pxy))
-                                       ]
+    encodedSizeExpr size _ = 2 +
+        szCases [ let TxInUtxo txInHash txInIndex = error "unused"
+                  in 2 + size ((,) <$> pure txInHash <*> pure txInIndex)
+                ]
 
 instance NFData TxIn
 

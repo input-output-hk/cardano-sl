@@ -67,7 +67,7 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Encoding, biSize,
-                     encodeCrcProtected, encodeCrcProtectedSizeExpr, szCases)
+                     encodeCrcProtected, encodedCrcProtectedSizeExpr)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)

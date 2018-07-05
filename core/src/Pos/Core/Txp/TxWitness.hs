@@ -16,7 +16,8 @@ import           Serokell.Util.Base16 (base16F)
 import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
                      decodeListLenCanonical, decodeUnknownCborDataItem,
                      encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, matchSize)
+                     encodeUnknownCborDataItem, matchSize,
+                     knownCborDataItemSizeExpr, szCases)
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                      Signature, hash, shortHashF)
@@ -89,14 +90,15 @@ instance Bi TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
-    encodedSizeExpr size pxy = 2 +
-        szCases [ let PkWitness key sig     = error "unused"
-                  in knownCborDataItemSizeExpr ((,) <$> key <*> sig)
-                , let ScriptWitness key sig = error "unused"
-                  in knownCborDataItemSizeExpr ((,) <$> key <*> sig)
-                , let RedeemWitness key sig = error "unused"
-                  in knownCborDataItemSizeExpr ((,) <$> key <*> sig)
-                ]
+    encodedSizeExpr size _ = 2 +
+        (szCases $ map knownCborDataItemSizeExpr $
+            [ let PkWitness key sig     = error "unused"
+              in size ((,) <$> pure key <*> pure sig)
+            , let ScriptWitness key sig = error "unused"
+              in size ((,) <$> pure key <*> pure sig)
+            , let RedeemWitness key sig = error "unused"
+              in size ((,) <$> pure key <*> pure sig)
+            ])
 
 instance NFData TxInWitness
 
@@ -110,7 +112,7 @@ data TxSigData = TxSigData
 instance Bi TxSigData where
     encode (TxSigData {..}) = encode txSigTxHash
     decode = TxSigData <$> decode
-    encodedSizeExpr size pxy = size (T.txSigTxHash <$> pxy)
+    encodedSizeExpr size pxy = size (txSigTxHash <$> pxy)
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData

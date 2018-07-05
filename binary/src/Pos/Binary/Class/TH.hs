@@ -183,7 +183,6 @@ deriveIndexedBiInternal predsMB headTy constrs = do
     ty <- conT headTy
     makeBiInstanceTH preds ty <$> biEncodeExpr
                               <*> biDecodeExpr
-                              <*> biEncodedSizeExprExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -450,7 +449,9 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                                 %shown%"', passed type '"%shown%"'")
                         field cName realType passedType
     ty <- conT headTy
-    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr
+    makeBiInstanceWithSizeTH preds ty <$> biEncodeExpr
+                                      <*> biDecodeExpr
+                                      <*> biEncodedSizeExprExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -499,9 +500,9 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                    + Bi.szCases $(fmap ListE (sequence $ imap encodedSizeExprConstr filteredConstrs)) |]
 
     encodedSizeExprConstr :: Int -> Cons -> Q Exp
-    encodedSizeExprConstr idx (Cons cName cFields) = do
+    encodedSizeExprConstr _ (Cons _ cFields) = do
       let fields = mapM encodedSizeExprField cFields
-          count = length cFields + (if length filteredConstrs > 1 then 1 else 0)
+          --count = length cFields + (if length filteredConstrs > 1 then 1 else 0)
           extraBytes = 2 -- error "MN TODO"
       [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |] -- MN TODO: also add length and, when needed, Word8 tag
       
@@ -581,8 +582,17 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                                 recWildUsedVars
         doE $ lenCheck : (map pure bindExprs ++ [pure recordWildCardReturn])
 
-makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> Exp -> [Dec]
-makeBiInstanceTH preds ty encodeE decodeE encodedSizeExprE = one $
+makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> [Dec]
+makeBiInstanceTH preds ty encodeE decodeE = one $
+  plainInstanceD
+        preds -- context
+        (AppT (ConT ''Bi.Bi) ty)
+        [ ValD (VarP 'Bi.encode) (NormalB encodeE) []
+        , ValD (VarP 'Bi.decode) (NormalB decodeE) []
+        ]
+
+makeBiInstanceWithSizeTH :: Cxt -> Type -> Exp -> Exp -> Exp -> [Dec]
+makeBiInstanceWithSizeTH preds ty encodeE decodeE encodedSizeExprE = one $
   plainInstanceD
         preds -- context
         (AppT (ConT ''Bi.Bi) ty)

@@ -74,9 +74,9 @@ instance Bi AddrStakeDistribution where
     encodedSizeExpr size _ = szCases
         [ 1
         , let SingleKeyDistr id = error "unused"
-          in size ((,) <$> pure (w8 0) <*> pure id)
+          in size ((,) <$> pure (0 :: Word8) <*> pure id)
         , let UnsafeMultiKeyDistr distr = error "unused"
-          in size ((,) <$> pure (w8 1) <*> pure distr)
+          in size ((,) <$> pure (1 :: Word8) <*> pure distr)
         ]
 
 data MultiKeyDistrError

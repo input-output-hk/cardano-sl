@@ -1,7 +1,17 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- | This module contains the top level API definition for frontend-related
 -- tasks.  The API endpoints presented here are intended for use with the
 -- Daedalus client, and aren't useful for wallets, exchanges, and other users.
 module Cardano.Wallet.API.V1.Internal where
+
+import           Universum
+
+import           Servant
+
+import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.V1.Types
+import           Pos.Util.Mnemonic
 
 -- migrate everything except for import/export
 
@@ -15,16 +25,17 @@ type API =
             )
         :<|> "redemptions"
             :> "ada"
-            :> QueryParam "paper_vend_passphrase" (Mnemomic 9)
+            :> QueryParam "paper_vend_passphrase" (Mnemonic 9)
             :> ReqBody '[ValidJSON] WalletRedemption
             :> Get '[ValidJSON] (WalletResponse Transaction)
         )
 
 newtype Seed = Seed Text
+    deriving (Eq, Show, Generic)
 
 data WalletRedemption = WalletRedemption
     { walletRedemptionWalletId :: WalletId
-    , walletRedemptionSeed :: Seed
+    , walletRedemptionSeed     :: Seed
     } deriving (Eq, Show, Generic)
 
 -- redeemAda

@@ -39,6 +39,7 @@ library
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
                         Pos.Block.Logic.Integrity
+                        Pos.Block.Logic.Types
 
                         Pos.Block.Worker
 
@@ -71,6 +72,7 @@ library
                       , containers
                       , cryptonite
                       , data-default
+                      , deepseq
                       , directory
                       , ekg-core
                       , ether
@@ -79,6 +81,7 @@ library
                       , formatting
                       , lens
                       , log-warper
+                      , mmorph
                       , mtl
                       , random
                       , reflection

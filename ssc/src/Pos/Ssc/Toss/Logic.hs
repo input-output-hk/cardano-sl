@@ -39,9 +39,16 @@ import           Pos.Util.Util (sortWithMDesc)
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- SscVerifyError is thrown using 'MonadError' type class.
 verifyAndApplySscPayload
-    :: (MonadToss m, MonadTossEnv m,
-        MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants)
-    => ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+    :: ( HasProtocolConstants
+       , MonadError SscVerifyError m
+       , MonadRandom m
+       , MonadToss m
+       , MonadTossEnv m
+       )
+    => ProtocolMagic
+    -> Either EpochIndex (Some IsMainHeader)
+    -> SscPayload
+    -> m ()
 verifyAndApplySscPayload pm eoh payload = do
     -- Check the payload for internal consistency.
     either (throwError . SscInvalidPayload) pure (checkSscPayload pm payload)
@@ -50,6 +57,8 @@ verifyAndApplySscPayload pm eoh payload = do
     whenLeft eoh $ const $ verifySscPayload pm eoh payload
     -- We perform @verifySscPayload@ for block when we construct it
     -- (in the 'recreateGenericBlock').  So this check is just in case.
+    -- NOTE: in block verification `verifySscPayload` on `MainBlock` is run
+    -- by `Pos.Block.BHelper.verifyMainBlock`
     inAssertMode $
         whenRight eoh $ const $ verifySscPayload pm eoh payload
     let blockCerts = spVss payload

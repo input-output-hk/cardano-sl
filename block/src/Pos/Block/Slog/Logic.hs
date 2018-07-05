@@ -33,6 +33,7 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Logic.Integrity (verifyBlocks)
+import           Pos.Block.Logic.Types (VerifyBlocksContext (..))
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
@@ -52,12 +53,11 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
-import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
-import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 
@@ -129,12 +129,11 @@ type MonadSlogVerify ctx m =
 slogVerifyBlocks
     :: MonadSlogVerify ctx m
     => ProtocolMagic
+    -> VerifyBlocksContext
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks pm blocks = runExceptT $ do
-    curSlot <- getCurrentSlot
-    (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
-    let dataMustBeKnown = mustDataBeKnown adoptedBV
+slogVerifyBlocks pm ctx blocks = runExceptT $ do
+    let dataMustBeKnown = mustDataBeKnown (vbcBlockVersion ctx)
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     leaders <- lift $
         lrcActionOnEpochReason
@@ -155,7 +154,12 @@ slogVerifyBlocks pm blocks = runExceptT $ do
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks pm curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks pm
+            (vbcCurrentSlot ctx)
+            dataMustBeKnown
+            (vbcBlockVersionData ctx)
+            leaders
+            blocksList
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.

@@ -31,7 +31,8 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
-                     lcaWithMainChain, verifyAndApplyBlocks)
+                     getVerifyBlocksContext, lcaWithMainChain,
+                     verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag, BlockRetrievalTask (..))
@@ -289,7 +290,8 @@ applyWithoutRollback pm diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        res <- verifyAndApplyBlocks pm False blocks
+        ctx <- getVerifyBlocksContext
+        res <- fmap fst <$> verifyAndApplyBlocks pm ctx False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)

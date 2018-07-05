@@ -33,11 +33,11 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..),
                      verifyHeader, verifyHeaders)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
-import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash,
+import           Pos.Core (BlockCount, HeaderHash, EpochOrSlot (..),
                      SlotId (..), blkSecurityParam, bvdMaxHeaderSize,
-                     difficultyL, epochIndexL, epochOrSlotG,
-                     getChainDifficulty, getEpochOrSlot, headerHash,
-                     headerHashG, headerSlotL, prevBlockL)
+                     difficultyL, epochIndexL, epochOrSlotG, getChainDifficulty,
+                     getEpochOrSlot, headerHash, headerHashG, headerSlotL,
+                     prevBlockL)
 import           Pos.Core.Block (BlockHeader (..))
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)

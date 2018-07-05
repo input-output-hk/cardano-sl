@@ -112,7 +112,7 @@ verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdateP
 
 -- Here we verify all US-related data from header.
 verifyHeader
-    :: (MonadError PollVerFailure m, MonadPoll m, IsMainHeader mainHeader)
+    :: (MonadError PollVerFailure m, MonadPollRead m, IsMainHeader mainHeader)
     => BlockVersion -> mainHeader -> m ()
 verifyHeader lastAdopted header = do
     let versionInHeader = header ^. blockVersionL

@@ -181,7 +181,9 @@ deriveIndexedBiInternal predsMB headTy constrs = do
                                 %shown%"', passed type '"%shown%"'")
                         field name realType passedType
     ty <- conT headTy
-    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr
+    makeBiInstanceTH preds ty <$> biEncodeExpr
+                              <*> biDecodeExpr
+                              <*> biEncodedSizeExprExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -487,6 +489,27 @@ deriveSimpleBiInternal predsMB headTy constrs = do
             else
                 mconcatE (encodeFlat (length cFields) : map (encodeField val) cFields)
 
+    biEncodedSizeExprExpr :: Q Exp
+    biEncodedSizeExprExpr = do
+        size <- newName "_size"
+        pxy  <- newName "_"
+        lam1E (varP size) $
+            lam1E (varP pxy) $ do
+                [| $(return $ LitE $ IntegerL $ if length filteredConstrs > 1 then 1 else 0)
+                   + Bi.szCases $(fmap ListE (sequence $ imap encodedSizeExprConstr filteredConstrs)) |]
+
+    encodedSizeExprConstr :: Int -> Cons -> Q Exp
+    encodedSizeExprConstr idx (Cons cName cFields) = do
+      let fields = mapM encodedSizeExprField cFields
+          count = length cFields + (if length filteredConstrs > 1 then 1 else 0)
+          extraBytes = 2 -- error "MN TODO"
+      [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |] -- MN TODO: also add length and, when needed, Word8 tag
+      
+    encodedSizeExprField :: Field -> Q Exp
+    encodedSizeExprField Field{..} = do
+        (_, fTy) <- expToNameAndType fFieldAndType
+        [| _size (Proxy :: Proxy $(pure fTy)) |]
+
     -- Ensure the encoding of constructors with multiple arguments are encoded as a flat term.
     encodeFlat :: Int -> Q Exp
     encodeFlat listLen = [| Cbor.encodeListLen listLen |]
@@ -558,13 +581,14 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                                 recWildUsedVars
         doE $ lenCheck : (map pure bindExprs ++ [pure recordWildCardReturn])
 
-makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> [Dec]
-makeBiInstanceTH preds ty encodeE decodeE = one $
+makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> Exp -> [Dec]
+makeBiInstanceTH preds ty encodeE decodeE encodedSizeExprE = one $
   plainInstanceD
         preds -- context
         (AppT (ConT ''Bi.Bi) ty)
         [ ValD (VarP 'Bi.encode) (NormalB encodeE) []
         , ValD (VarP 'Bi.decode) (NormalB decodeE) []
+        , ValD (VarP 'Bi.encodedSizeExpr) (NormalB encodedSizeExprE) []
         ]
 
 data MatchConstructors

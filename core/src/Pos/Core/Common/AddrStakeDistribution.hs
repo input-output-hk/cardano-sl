@@ -15,7 +15,7 @@ import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class (Bi(..), szCases)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (shortHashF)
 import           Pos.Util.Util (cborError, toCborError)
@@ -71,6 +71,13 @@ instance Bi AddrStakeDistribution where
                         pretty tag
             len -> cborError $
                 "decode @AddrStakeDistribution: unexpected length " <> pretty len
+    encodedSizeExpr size _ = szCases
+        [ 1
+        , let SingleKeyDistr id = error "unused"
+          in size ((,) <$> pure (w8 0) <*> pure id)
+        , let UnsafeMultiKeyDistr distr = error "unused"
+          in size ((,) <$> pure (w8 1) <*> pure distr)
+        ]
 
 data MultiKeyDistrError
     = MkdMapIsEmpty

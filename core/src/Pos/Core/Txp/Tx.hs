@@ -72,6 +72,11 @@ instance Bi Tx where
         enforceSize "Tx" 3
         UnsafeTx <$> decode <*> decode <*> decode
 
+    encodedSizeExpr size pxy = 1
+        + size (T._txInputs     <$> pxy)
+        + size (T._txOutputs    <$> pxy)
+        + size (T._txAttributes <$> pxy)
+
 instance NFData Tx
 
 -- | Specialized formatter for 'Tx'.
@@ -155,6 +160,9 @@ instance Bi TxIn where
         case tag of
             0 -> uncurry TxInUtxo <$> decodeKnownCborDataItem
             _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
+    encodedSizeExpr size pxy = szCases [ 2 + size ((,) <$> (T.txInHash  <$> pxy)
+                                                       <*> (T.txInIndex <$> pxy))
+                                       ]
 
 instance NFData TxIn
 

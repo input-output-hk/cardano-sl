@@ -89,6 +89,15 @@ instance Bi TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
+    encodedSizeExpr size pxy = 2 +
+        szCases [ let PkWitness key sig     = error "unused"
+                  in knownCborDataItemSizeExpr ((,) <$> key <*> sig)
+                , let ScriptWitness key sig = error "unused"
+                  in knownCborDataItemSizeExpr ((,) <$> key <*> sig)
+                , let RedeemWitness key sig = error "unused"
+                  in knownCborDataItemSizeExpr ((,) <$> key <*> sig)
+                ]
+
 instance NFData TxInWitness
 
 -- | Data that is being signed when creating a TxSig.
@@ -101,6 +110,7 @@ data TxSigData = TxSigData
 instance Bi TxSigData where
     encode (TxSigData {..}) = encode txSigTxHash
     decode = TxSigData <$> decode
+    encodedSizeExpr size pxy = size (T.txSigTxHash <$> pxy)
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData

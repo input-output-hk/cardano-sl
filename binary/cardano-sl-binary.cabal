@@ -41,6 +41,7 @@ library
                      , tagged
                      , template-haskell
                      , text
+                     , text-format
                      , th-utilities
                      , time-units
                      , universum

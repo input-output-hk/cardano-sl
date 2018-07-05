@@ -50,7 +50,8 @@ instance Bounded Coin where
 instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode = Coin <$> decode
-
+    encodedSizeExpr size pxy = size (unsafeGetCoin <$> pxy)
+    
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000

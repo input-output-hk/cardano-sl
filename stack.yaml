@@ -235,7 +235,7 @@ extra-deps:
 # CI hasn't run cabal update yet.
 # - formatting-6.3.6
 
-# Following 9 are not on stackage.
+# Following 10 are not on stackage.
 - pvss-0.2.0
 - systemd-1.1.2
 - base58-bytestring-0.1.0
@@ -245,6 +245,8 @@ extra-deps:
 - json-sop-0.2.0.3
 - lens-sop-0.2.0.2
 - lzma-clib-5.2.2
+- micro-recursion-schemes-5.0.2.2
+
 # The changelog for directory-1.3.1.1 indicate some potentially important
 # bugfixes over directory-1.3.0.2, which is what's on lts-11.
 - directory-1.3.1.1

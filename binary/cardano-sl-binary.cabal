@@ -35,6 +35,8 @@ library
                      , formatting
                      , hashable
                      , lens
+                     , micro-recursion-schemes
+                     , mtl
                      , safecopy
                      , safe-exceptions
                      , serokell-util

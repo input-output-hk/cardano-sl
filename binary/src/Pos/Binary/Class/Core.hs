@@ -38,7 +38,7 @@ module Pos.Binary.Class.Core
     , Range(..)
     , szEval
     , Size
-    , Length(..)
+    , LengthOf(..)
     , isTodo
     , szCases
     , szLazy
@@ -61,8 +61,8 @@ import qualified Data.Binary as Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BS.Lazy
 import qualified Data.Char as Char
-import           Data.Coerce
 import           Data.Fixed (Fixed (..), Nano)
+import           Data.Functor.Foldable
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
@@ -161,14 +161,14 @@ defaultDecodeList = do
     D.decodeListLenIndef
     D.decodeSequenceLenIndef (flip (:)) [] reverse decode
 
-newtype Length xs = Length xs deriving Typeable
-instance Typeable xs => Bi (Length xs) where
-  encode = error "The `Length` type cannot be encoded!"
-  decode = error "The `Length` type cannot be decoded!"
+newtype LengthOf xs = LengthOf xs deriving Typeable
+instance Typeable xs => Bi (LengthOf xs) where
+  encode = error "The `LengthOf` type cannot be encoded!"
+  decode = error "The `LengthOf` type cannot be decoded!"
 
 -- | Default size expression for a value.
 defaultEncodedListSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy [a] -> Size
-defaultEncodedListSizeExpr size _ = 2 + size (Proxy @(Length [a])) * size (Proxy @a)
+defaultEncodedListSizeExpr size _ = 2 + size (Proxy @(LengthOf [a])) * size (Proxy @a)
   
 
 ----------------------------------------------------------------------------
@@ -199,7 +199,7 @@ instance Bi Char where
 
     encodedSizeExpr _ pxy = encodedSizeRange (Char.ord <$> pxy)
     encodedListSizeExpr size _ =
-        let bsLength = size (Proxy @(Length [Char])) * size (Proxy @Char)
+        let bsLength = size (Proxy @(LengthOf [Char])) * size (Proxy @Char)
         in  bsLength + apMono "(withSize _ 1 2 3 4 5)" (\x -> withSize x 1 2 3 4 5) bsLength
 
 ----------------------------------------------------------------------------
@@ -323,7 +323,7 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
 instance Bi BS.ByteString where
     encode = E.encodeBytes
     decode = D.decodeBytesCanonical
-    encodedSizeExpr size _ = let len = size (Proxy @(Length BS.ByteString))
+    encodedSizeExpr size _ = let len = size (Proxy @(LengthOf BS.ByteString))
         in apMono "withWordSize@Int" (withWordSize @Int . fromIntegral) len + len
 
 instance Bi Text.Text where
@@ -334,7 +334,7 @@ instance Bi Text.Text where
 instance Bi BS.Lazy.ByteString where
     encode = encode . BS.Lazy.toStrict
     decode = BS.Lazy.fromStrict <$> decode
-    encodedSizeExpr size _ = let len = size (Proxy @(Length BS.Lazy.ByteString))
+    encodedSizeExpr size _ = let len = size (Proxy @(LengthOf BS.Lazy.ByteString))
         in apMono "withWordSize@Int" (withWordSize @Int . fromIntegral) len + len
 
 instance Bi a => Bi [a] where
@@ -793,17 +793,6 @@ instance Functor SizeF where
     ValueF x  -> ValueF x
     ApF n g x -> ApF n g (f x)
     TodoF g x -> TodoF g x
-
-cata :: Functor f => (f t -> t) -> Fix f -> t
-cata phi x = phi (cata phi <$> unfix x)
-
-ana :: Functor f => (t -> f t) -> t -> Fix f
-ana phi x = Fix (ana phi <$> phi x)
-
-newtype Fix f = Fix (f (Fix f))
-
-unfix :: Fix f -> f (Fix f)
-unfix = coerce
 
 type Size = Fix SizeF
 

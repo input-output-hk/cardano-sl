@@ -16,7 +16,7 @@ import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,
                      ChainDifficulty, Coin, EpochIndex, NumSoftwareVersion,
                      SlotId, SoftwareVersion, StakeholderId)
 import           Pos.Core.Update (UpId)
-import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Sinbin.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState,
                      ConfirmedProposalState, DecidedProposalState,
                      ProposalState, UndecidedProposalState)

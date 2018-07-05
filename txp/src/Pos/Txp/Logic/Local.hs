@@ -36,10 +36,10 @@ import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Infra.Reporting (reportError)
-import           Pos.Infra.Slotting (MonadSlots (..))
 import           Pos.Infra.StateLock (Priority (..), StateLock,
                      StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Sinbin.Slotting (MonadSlots (..))
 import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt,

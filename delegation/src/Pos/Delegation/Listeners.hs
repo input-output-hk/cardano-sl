@@ -24,8 +24,8 @@ import           Pos.Delegation.Logic (PskHeavyVerdict (..),
                      processProxySKHeavy)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Communication.Relay (DataMsg)
-import           Pos.Infra.StateLock (StateLock)
 import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Sinbin.StateLock (StateLock)
 import           Pos.Util (HasLens')
 
 -- Message constraints we need to be defined.

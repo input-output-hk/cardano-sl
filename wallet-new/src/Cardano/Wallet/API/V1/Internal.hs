@@ -13,6 +13,8 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import           Pos.Util.Mnemonic
 
+import qualified Cardano.API.V1.Internal.Redemption as Redemption
+
 -- migrate everything except for import/export
 
 type API =
@@ -23,20 +25,11 @@ type API =
             :<|> "postpone"
                 :> Post '[ValidJSON] NoContent
             )
-        :<|> "redemptions"
-            :> "ada"
-            :> QueryParam "paper_vend_passphrase" (Mnemonic 9)
-            :> ReqBody '[ValidJSON] WalletRedemption
-            :> Get '[ValidJSON] (WalletResponse Transaction)
+        :<|> Redemption.API
         )
 
 newtype Seed = Seed Text
     deriving (Eq, Show, Generic)
-
-data WalletRedemption = WalletRedemption
-    { walletRedemptionWalletId :: WalletId
-    , walletRedemptionSeed     :: Seed
-    } deriving (Eq, Show, Generic)
 
 -- redeemAda
 -- ProtocolMagic -> (TxAux -> m Bool) -> PassPhrase -> CWalletRedeem -> m CTx

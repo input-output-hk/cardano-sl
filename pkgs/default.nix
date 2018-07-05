@@ -16255,6 +16255,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
+, cardano-sl-sinbin
 , cardano-sl-util
 , conduit
 , cpphs
@@ -16303,6 +16304,7 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
+cardano-sl-sinbin
 cardano-sl-util
 conduit
 ether

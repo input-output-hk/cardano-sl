@@ -14,7 +14,6 @@ module Pos.Txp
        , module Pos.Txp.GenesisUtxo
        ) where
 
-import           Pos.Binary.Txp ()
 import           Pos.Core.Txp
 import           Pos.Txp.Base
 import           Pos.Txp.Configuration

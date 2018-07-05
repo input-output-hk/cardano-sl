@@ -24,6 +24,7 @@ import           Formatting (bprint, build, (%))
 import           Pos.Binary.Class (Bi (..))
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
+import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have
@@ -66,6 +67,10 @@ instance Typeable tag => Bi (MempoolMsg tag) where
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Generic, Show, Eq)
+
+instance Bi (DataMsg TxMsgContents) where
+    encode (DataMsg (TxMsgContents txAux)) = encode txAux
+    decode = DataMsg <$> (TxMsgContents <$> decode)
 
 instance Bi (DataMsg U.UpdateVote) where
     encode = encode . dmContents

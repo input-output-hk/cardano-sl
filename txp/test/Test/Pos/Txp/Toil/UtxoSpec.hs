@@ -39,8 +39,8 @@ import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..),
                      evalUtxoM, execUtxoM, utxoGet, utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..),
-                     GoodTx (..))
+import           Test.Pos.Core.Arbitrary.Txp (BadSigsTx (..),
+                     DoubleInputTx (..), GoodTx (..))
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..),
                      nonrepeating, runGen)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)

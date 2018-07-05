@@ -53,7 +53,7 @@ import           CLI (CLI (..))
 import           Rendering (green, renderAccountId, say)
 import           Types (UberMonad)
 
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 
 --
 -- Types

@@ -6,6 +6,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
@@ -72,6 +73,8 @@ module Cardano.Wallet.API.V1.Types (
   , NodeInfo (..)
   , TimeInfo(..)
   , SubscriptionStatus(..)
+  , Redemption(..)
+  , ShieldedRedemptionCode(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -1770,6 +1773,31 @@ instance BuildableSafeGen NodeInfo where
         nfoLocalTimeInformation
         (Map.toList nfoSubscriptionStatus)
 
+-- | A shielded redemption code.
+newtype ShieldedRedemptionCode = ShieldedRedemptionCode
+    { unShieldedRedemptionCode :: Text
+    } deriving (Eq, Show, Generic)
+
+-- | The request body for redeeming some Ada.
+data Redemption = Redemption
+    { redemptionWalletId       :: WalletId
+    -- ^ The 'WalletId' that the redemption will go toward.
+    , redemptionAccountIndex   :: AccountIndex
+    -- ^ The index of the account in the wallet that the redemption applies
+    -- to.
+    , redemptionRedemptionCode :: ShieldedRedemptionCode
+    -- ^ The redemption code associated with the Ada to redeem.
+    , redemptionMnemonic       :: Maybe (Mnemonic 9)
+    -- ^ An optional mnemonic. This mnemonic was included with paper
+    -- certificates, and the presence of this field indicates that we're
+    -- doing a paper vend.
+    , redemptionPassphrase     :: Maybe SpendingPassword
+    -- ^ An optional passphrase. The original API would use the default
+    -- value if this wasn't provided as a query parameter.
+    --
+    -- TODO: Figure out why it is optional and what it means to provide
+    -- better documentation.
+    } deriving (Eq, Show, Generic)
 
 --
 -- POST/PUT requests isomorphisms

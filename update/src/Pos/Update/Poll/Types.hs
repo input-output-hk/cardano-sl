@@ -64,7 +64,7 @@ import           Pos.Core.Update (ApplicationName, BlockVersion,
                      SoftwareVersion, UpId, UpdateProposal (..), UpdateVote)
 import           Pos.Crypto (PublicKey)
 import           Pos.Infra.Binary ()
-import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Sinbin.Slotting.Types (SlottingData)
 import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------

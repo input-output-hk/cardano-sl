@@ -41,7 +41,6 @@ library
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
-                        Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp.Common
                         Pos.Explorer.Txp.Global

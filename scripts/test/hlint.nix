@@ -1,13 +1,16 @@
 { runCommand, hlint, src, lib }:
 
 let
-  cleanSourceFilter = with lib;
+  # just haskell sources and the hlint config file
+  src' = lib.cleanSourceWith {
+   inherit src;
+   filter = with lib;
     name: type: let baseName = baseNameOf (toString name); in (
       (type == "regular" && hasSuffix ".hs" baseName) ||
       (type == "regular" && hasSuffix ".yaml" baseName) ||
       (type == "directory")
     );
-  src' = builtins.filterSource cleanSourceFilter src;
+  };
 in
 runCommand "cardano-hlint-check" { buildInputs = [ hlint ]; } ''
   set +e

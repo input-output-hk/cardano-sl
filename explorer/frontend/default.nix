@@ -11,26 +11,14 @@ in
 with pkgs.lib;
 
 let
-  cleanSourceFilter = with pkgs.stdenv;
-    name: type: let baseName = baseNameOf (toString name); in ! (
-      # Filter out .git repo
-      (type == "directory" && baseName == ".git") ||
-      # Filter out editor backup / swap files.
-      lib.hasSuffix "~" baseName ||
-      builtins.match "^\\.sw[a-z]$" baseName != null ||
-      builtins.match "^\\..*\\.sw[a-z]$" baseName != null ||
-
-      # Filter out locally generated/downloaded things.
-      baseName == "bower_components" ||
-      (type == "directory" && (baseName == "node_modules" || baseName == "dist")) ||
-
-      # Filter out the files which I'm editing often.
-      lib.hasSuffix ".nix" baseName ||
-      # Filter out nix-build result symlinks
-      (type == "symlink" && lib.hasPrefix "result" baseName)
-    );
-
-  src = builtins.filterSource cleanSourceFilter ./.;
+  src = cleanSourceWith {
+    src = localLib.cleanSourceTree ./.;
+    filter = with pkgs.stdenv;
+      name: type: let baseName = baseNameOf (toString name); in ! (
+        # Filter out locally generated/downloaded things.
+        baseName == "bower_components" || baseName == "node_modules"
+      );
+  };
 
   bowerComponents = pkgs.buildBowerComponents {
     name = "cardano-sl-explorer-frontend-deps";
@@ -69,6 +57,7 @@ let
         cardano-sl-explorer
         purescript
       ];
+      passthru = { inherit bowerComponents; };
       postConfigure = ''
         rm -rf .psci_modules .pulp-cache bower_components output result
 

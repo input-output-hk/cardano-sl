@@ -20,7 +20,9 @@ let
   in
     pkgs.runCommand (staticName drvOut) {
       outputs  = drvOutOutputs;
-      passthru = drvOut.drvAttrs // { inherit gitrev; };
+      passthru = drvOut.drvAttrs
+        // (drvOut.passthru or {})
+        // { inherit gitrev; };
     }
     (concatMapStrings (output: ''
       cp -a "${drvOut.${output}}" "${"$"}${output}"

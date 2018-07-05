@@ -67,12 +67,6 @@ let
     "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
     "--configuration-key ${environments.${environment}.confKey}"
   ];
-  utf8LocaleSetting = ''
-    export LC_ALL=en_GB.UTF-8
-    export LANG=en_GB.UTF-8
-  '' + optionalString (pkgs.glibcLocales != null) ''
-    export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
-  '';
 
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   #!${pkgs.stdenv.shell} -e

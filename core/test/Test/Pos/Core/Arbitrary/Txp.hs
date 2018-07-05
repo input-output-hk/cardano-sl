@@ -4,7 +4,7 @@
 
 -- | `Arbitrary` instances for Txp types
 
-module Test.Pos.Txp.Arbitrary
+module Test.Pos.Core.Arbitrary.Txp
        ( BadSigsTx (..)
        , DoubleInputTx (..)
        , GoodTx (..)

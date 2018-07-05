@@ -1,4 +1,4 @@
-{ runCommand, stylish-haskell, src, lib, git }:
+{ runCommand, stylish-haskell, src, lib, localLib, diffutils }:
 
 let
   cleanSourceFilter = with lib;
@@ -9,20 +9,24 @@ let
     );
   src' = builtins.filterSource cleanSourceFilter src;
 in
-runCommand "cardano-stylish-check" { succeedOnFailure = true; buildInputs = [ stylish-haskell git ]; } ''
+runCommand "cardano-stylish-check" {
+  succeedOnFailure = true;
+  buildInputs = [ stylish-haskell diffutils ];
+} ''
   set +e
-  cp -a ${src'} tmp-cardano
-  chmod -R 0755 tmp-cardano
-  cd tmp-cardano
-  git init
-  git add -A
+  ${localLib.utf8LocaleSetting}
+  cp -a ${src'} orig
+  cp -a ${src'} stylish
+  chmod -R +w stylish
+  cd stylish
   find . -type f -name "*hs" -not -path '.git' -not -path '*.stack-work*' -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
-  git diff --exit-code
+  cd ..
+  diff --brief --recursive orig stylish > /dev/null
   EXIT_CODE=$?
   if [[ $EXIT_CODE != 0 ]]
   then
     mkdir -p $out/nix-support
-    git diff > $out/stylish.diff
+    diff -ur orig stylish > $out/stylish.diff
     echo "file none $out/stylish.diff" > $out/nix-support/hydra-build-products
     echo "*** Stylish-haskell found changes that need addressed first"
     echo "*** Please run \`nix-shell -A fixStylishHaskell\` and commit changes"

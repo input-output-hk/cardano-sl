@@ -18,14 +18,12 @@ import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
-import           Pos.Binary.Txp ()
-import           Pos.Core.Txp (TxAux (..), TxId)
+import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.Infra.Communication.Relay as Relay
 import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
-import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 -- Real tx processing
 -- CHECK: @handleTxDo

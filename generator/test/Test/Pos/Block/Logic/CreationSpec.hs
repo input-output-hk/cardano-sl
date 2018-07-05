@@ -36,9 +36,9 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
+import           Test.Pos.Core.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
-import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec

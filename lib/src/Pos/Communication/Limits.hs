@@ -69,13 +69,12 @@ import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..),
                      SignedCommitment)
-import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Txp (TxAux, TxMsgContents (..))
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),
                      SecretProof (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
-import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare,

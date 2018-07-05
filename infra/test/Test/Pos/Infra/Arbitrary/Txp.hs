@@ -1,18 +1,21 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
--- | Arbitrary instances for Explorer types.
+-- | 'Arbitrary' instances for 'Pos.Infra.Communication' types defined in 'src'
 
-module Pos.Arbitrary.Explorer () where
+module Test.Pos.Infra.Arbitrary.Txp () where
+
+import           Universum
 
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Explorer.Core.Types (TxExtra (..))
+import           Pos.Core.Txp (TxMsgContents (..))
 
-import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Arbitrary.Txp ()
 
-instance Arbitrary TxExtra where
+instance Arbitrary TxMsgContents where
     arbitrary = genericArbitrary
     shrink = genericShrink

@@ -28,6 +28,7 @@ import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
 import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Core.Ssc as Ssc
+import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Binary ()
@@ -49,8 +50,8 @@ import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
-import           Test.Pos.Txp.Arbitrary.Network ()
 import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
@@ -148,17 +149,17 @@ spec = withDefConfiguration $ \_ -> do
                     binaryTest @(SmallGenerator T.TxPayload)
                     binaryTest @T.TxpUndo
                 describe "Network" $ do
-                    binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.MempoolMsg T.TxMsgContents)
-                    binaryTest @(R.DataMsg T.TxMsgContents)
+                    binaryTest @(R.InvMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.ReqMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.MempoolMsg TxMsgContents)
+                    binaryTest @(R.DataMsg TxMsgContents)
             describe "Bi extension" $ do
                 prop "TxInWitness" (extensionProperty @T.TxInWitness)
             describe "Message length limit" $ do
-                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) mlReqMsg
-                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) mlMempoolMsg
-                -- No check for (DataMsg T.TxMsgContents) since overal message size
+                msgLenLimitedTest @(R.InvMsg (Tagged TxMsgContents T.TxId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged TxMsgContents T.TxId)) mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg TxMsgContents) mlMempoolMsg
+                -- No check for (DataMsg TxMsgContents) since overal message size
                 -- is forcely limited
         describe "Update system" $ do
             describe "Bi instances" $ do

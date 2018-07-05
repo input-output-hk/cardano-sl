@@ -21,7 +21,7 @@ import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Txp.Arbitrary.Unsafe ()
+import           Test.Pos.Core.Arbitrary.Txp.Unsafe ()
 
 ----------------------------------------------------------------
 -- Mocked functions

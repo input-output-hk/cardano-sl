@@ -31,7 +31,7 @@ import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing (deterministicKeyGen)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
-import qualified Test.Pos.Txp.Arbitrary as Core
+import qualified Test.Pos.Core.Arbitrary.Txp as Core
 
 import           Cardano.Wallet.Kernel.Util (disjoint)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,

@@ -25,7 +25,7 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util (_neHead)
 
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 spec :: Spec

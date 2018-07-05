@@ -157,11 +157,10 @@ let
     tests = {
       shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
       hlint = pkgs.callPackage ./scripts/test/hlint.nix { src = ./.; };
-      stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { src = ./.; stylish-haskell = cardanoPkgs.stylish-haskell; };
+      stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { src = ./.; stylish-haskell = cardanoPkgs.stylish-haskell; inherit localLib; };
       buildWalletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
       swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     };
-    fixStylishHaskell = pkgs.callPackage ./scripts/haskell/stylish.nix { stylish-haskell = cardanoPkgs.stylish-haskell; };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;

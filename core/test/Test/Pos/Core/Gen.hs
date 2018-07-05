@@ -55,6 +55,7 @@ module Test.Pos.Core.Gen
         , genFakeAvvmOptions
         , genGenesisAvvmBalances
         , genGenesisDelegation
+        , genGenesisInitializer
         , genGenesisProtocolConstants
         , genGenesisSpec
         , genTestnetBalanceOptions
@@ -139,6 +140,10 @@ module Test.Pos.Core.Gen
         -- Pos.Merkle Generators
         , genMerkleRoot
         , genMerkleTree
+
+        -- Helpers
+        , genByte
+        , genUTF8Byte
        ) where
 
 import           Universum
@@ -182,7 +187,7 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisAvvmBalances (..), GenesisDelegation (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      GenesisSpec (..), TestnetBalanceOptions (..),
-                     mkGenesisSpec)
+                     mkGenesisDelegation, mkGenesisSpec)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
@@ -425,7 +430,7 @@ genChainDifficulty = ChainDifficulty <$> genBlockCount
 
 genCoeff :: Gen Coeff
 genCoeff = do
-    integer <- Gen.integral (Range.constant 0 10)
+    integer <- Gen.integral (Range.constant 0 1000000000000)
     pure $ Coeff (MkFixed integer)
 
 genCoin :: Gen Coin
@@ -464,7 +469,7 @@ genStakesMap = genCustomHashMap genStakeholderId genCoin
 genTxFeePolicy :: Gen TxFeePolicy
 genTxFeePolicy =
     Gen.choice [ TxFeePolicyTxSizeLinear <$> genTxSizeLinear
-               , TxFeePolicyUnknown <$> genUnknownPolicy <*> gen32Bytes
+               , TxFeePolicyUnknown <$> genUnknownPolicy <*> genUTF8Byte
                ]
   where
     -- 0 is a reserved policy, so we go from 1 to max.
@@ -533,11 +538,12 @@ genFakeAvvmOptions =
         <$> Gen.word Range.constantBounded
         <*> Gen.word64 Range.constantBounded
 
-genGenesisDelegation :: ProtocolMagic -> Gen GenesisDelegation
-genGenesisDelegation pm =
-    UnsafeGenesisDelegation
-        <$> customHashMapGen genStakeholderId
-                             (genProxySKHeavy pm)
+genGenesisDelegation :: ProtocolMagic -> Gen (GenesisDelegation)
+genGenesisDelegation pm = do
+    proxySKHeavyList <- Gen.list (Range.linear 1 10) $ genProxySKHeavy pm
+    case (mkGenesisDelegation proxySKHeavyList) of
+        Left _       -> genGenesisDelegation pm
+        Right genDel -> pure genDel
 
 genGenesisInitializer :: Gen GenesisInitializer
 genGenesisInitializer =
@@ -979,6 +985,9 @@ genBase16Bs = B16.encode <$> genBytes 32
 
 genBytes :: Int -> Gen ByteString
 genBytes n = Gen.bytes (Range.singleton n)
+
+genUTF8Byte :: Gen ByteString
+genUTF8Byte = Gen.utf8 (Range.constant 0 64) Gen.alphaNum
 
 genByte :: Gen Byte
 genByte = Gen.integral (Range.constant 0 10)

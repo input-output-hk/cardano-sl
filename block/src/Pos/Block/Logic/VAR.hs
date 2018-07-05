@@ -20,7 +20,6 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT),
                      MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
-import           Pos.Util.Log (logDebug)
 
 import           Pos.Block.Error (ApplyBlocksException (..),
                      RollbackException (..), VerifyBlocksException (..))
@@ -49,7 +48,7 @@ import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug)
 import           Pos.Util.Util (HasLens (..))
 
 -- -- CHECK: @verifyBlocksLogic
@@ -75,10 +74,13 @@ verifyBlocksPrefix
        ( HasTxpConfiguration
        , MonadBlockVerify ctx m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
-verifyBlocksPrefix pm blocks = runExceptT $ do
+verifyBlocksPrefix logTrace0 pm blocks = do
+  let logTrace = appendName "verifyBlocksPrefix" logTrace0
+  runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
     tip <- lift GS.getTip
@@ -96,13 +98,13 @@ verifyBlocksPrefix pm blocks = runExceptT $ do
     slogUndos <- withExceptT VerifyBlocksError $
         ExceptT $ slogVerifyBlocks pm blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ sscVerifyBlocks noTrace pm (map toSscBlock blocks)
+        ExceptT $ sscVerifyBlocks logTrace pm (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ tgsVerifyBlocks noTrace dataMustBeKnown $ map toTxpBlock blocks
+        ExceptT $ tgsVerifyBlocks logTrace dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks pm blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ usVerifyBlocks noTrace pm dataMustBeKnown (map toUpdateBlock blocks)
+      ExceptT $ usVerifyBlocks logTrace pm dataMustBeKnown (map toUpdateBlock blocks)
 
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
@@ -134,11 +136,12 @@ verifyAndApplyBlocks
        , MonadMempoolNormalization ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> Bool
     -> OldestFirst NE Block
     -> m (Either ApplyBlocksException HeaderHash)
-verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
+verifyAndApplyBlocks logTrace0 pm rollback blocks = runExceptT $ do
     tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
@@ -147,6 +150,9 @@ verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
     lift $ normalizeMempool pm
     pure hh
   where
+    logTrace = appendName "verifyAndApplyBlocks" logTrace0
+    logDebug' :: Text -> m ()
+    logDebug' = logDebug logTrace
     -- Spans input into @(a, b)@ where @a@ is either a single genesis
     -- block or a maximum prefix of main blocks from the same epoch.
     -- Examples (where g is for genesis and m is for main):
@@ -167,7 +173,7 @@ verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
     applyAMAP e (OldestFirst []) True                   = throwError e
     applyAMAP _ (OldestFirst []) False                  = lift GS.getTip
     applyAMAP e (OldestFirst (block:xs)) nothingApplied =
-        lift (verifyBlocksPrefix pm (one block)) >>= \case
+        lift (verifyBlocksPrefix logTrace pm (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
                 applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
@@ -181,7 +187,7 @@ verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
         -> [NewestFirst NE Blund]
         -> ExceptT ApplyBlocksException m HeaderHash
     failWithRollback e toRollback = do
-        logDebug "verifyAndapply failed, rolling back"
+        lift $ logDebug' "verifyAndapply failed, rolling back"
         lift $ mapM_ (rollbackBlocks pm) toRollback
         throwError e
     -- This function tries to apply a new portion of blocks (prefix
@@ -198,27 +204,27 @@ verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
         let prefixHead = prefix ^. _Wrapped . _neHead
         when (isLeft prefixHead) $ do
             let epochIndex = prefixHead ^. epochIndexL
-            logDebug $ "Rolling: Calculating LRC if needed for epoch "
+            lift $ logDebug' $ "Rolling: Calculating LRC if needed for epoch "
                        <> pretty epochIndex
-            lift $ lrcSingleShot pm epochIndex
-        logDebug "Rolling: verifying"
-        lift (verifyBlocksPrefix pm prefix) >>= \case
+            lift $ lrcSingleShot logTrace pm epochIndex
+        lift $ logDebug' "Rolling: verifying"
+        lift (verifyBlocksPrefix logTrace pm prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
-                      logDebug "Rolling: Applying AMAP"
+                      lift $ logDebug' "Rolling: Applying AMAP"
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
-                logDebug "Rolling: Verification done, applying unsafe block"
+                lift $ logDebug' "Rolling: Verification done, applying unsafe block"
                 lift $ applyBlocksUnsafe pm (ShouldCallBListener True) newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     [] -> lift GS.getTip
                     (genesis:xs) -> do
-                        logDebug "Rolling: Applying done, next portion"
+                        lift $ logDebug' "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 
@@ -232,21 +238,22 @@ applyBlocks
      . ( BlockLrcMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> Bool
     -> Maybe PollModifier
     -> OldestFirst NE Blund
     -> m ()
-applyBlocks pm calculateLrc pModifier blunds = do
+applyBlocks logTrace pm calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
         -- Hopefully this lrc check is never triggered -- because
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
-        lrcSingleShot pm (prefixHead ^. epochIndexL)
+        lrcSingleShot logTrace pm (prefixHead ^. epochIndexL)
     applyBlocksUnsafe pm (ShouldCallBListener True) prefix pModifier
     case getOldestFirst suffix of
         []           -> pass
-        (genesis:xs) -> applyBlocks pm calculateLrc pModifier (OldestFirst (genesis:|xs))
+        (genesis:xs) -> applyBlocks logTrace pm calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
     prefixHead = prefix ^. _Wrapped . _neHead . _1
     (prefix, suffix) = spanEpoch blunds
@@ -275,11 +282,12 @@ applyWithRollback
        , MonadMempoolNormalization ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> NewestFirst NE Blund        -- ^ Blocks to rollbck
     -> OldestFirst NE Block        -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
-applyWithRollback pm toRollback toApply = runExceptT $ do
+applyWithRollback logTrace pm toRollback toApply = runExceptT $ do
     tip <- lift GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
@@ -299,7 +307,7 @@ applyWithRollback pm toRollback toApply = runExceptT $ do
   where
     reApply = toOldestFirst toRollback
     applyBack :: m ()
-    applyBack = applyBlocks pm False Nothing reApply
+    applyBack = applyBlocks logTrace pm False Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
 
@@ -307,6 +315,6 @@ applyWithRollback pm toRollback toApply = runExceptT $ do
         applyBack $> Left (ApplyBlocksTipMismatch "applyWithRollback/apply" tip newestToRollback)
 
     onGoodRollback =
-        verifyAndApplyBlocks pm True toApply >>= \case
+        verifyAndApplyBlocks logTrace pm True toApply >>= \case
             Left err      -> applyBack $> Left err
             Right tipHash -> pure (Right tipHash)

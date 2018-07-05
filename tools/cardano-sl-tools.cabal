@@ -60,7 +60,6 @@ executable dbgen
                      , cryptonite
                      , data-default
                      , lens
-                     , log-warper
                      , mtl
                      , network-transport-tcp >= 0.6
                      , optparse-applicative
@@ -172,7 +171,6 @@ executable cardano-keygen
                      , formatting
                      , Glob
                      , lens
-                     , log-warper
                      , optparse-applicative >= 0.12
                      , serokell-util >= 0.1
                      , text
@@ -238,7 +236,6 @@ executable cardano-launcher
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper
                      , neat-interpolation
                      , optparse-applicative
                      , process

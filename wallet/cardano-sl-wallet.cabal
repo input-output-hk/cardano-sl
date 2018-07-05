@@ -145,7 +145,6 @@ library
                       , hashable
                       , hspec
                       , lens
-                      , log-warper
                       , memory
                       , monad-control
                       , mtl
@@ -275,7 +274,6 @@ test-suite cardano-wallet-test
                      , formatting
                      , hspec
                      , lens
-                     , log-warper
                      , memory
                      , mtl
                      , quickcheck-instances

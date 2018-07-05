@@ -26,19 +26,20 @@ import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Trace (Trace, traceWith)
-import           Pos.Util.Trace.Unstructured (LogItem, logInfo)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo)
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => Trace m LogItem
-    -> Trace m JLTxR    -- ^ How to log transactions
+    => TraceNamed m     -- ^ How to log transactions
+    -> Trace m JLTxR    -- ^ JSON log
     -> ProtocolMagic
     -> TxAux            -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo logTrace jsonLogTrace pm txAux = do
+handleTxDo logTrace0 jsonLogTrace pm txAux = do
+    let logTrace = appendName "handleTxDo" logTrace0
     let txId = hash (taTx txAux)
     res <- txpProcessTx pm (txId, txAux)
     let json me = traceWith jsonLogTrace $ JLTxR

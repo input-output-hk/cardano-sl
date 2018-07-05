@@ -23,8 +23,7 @@ import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 type TxpCommonMode m =
     ( MonadDBRead m
@@ -54,12 +53,12 @@ data TxpGlobalSettings = TxpGlobalSettings
       -- all data from transactions is known (script versions,
       -- attributes, addresses, witnesses).
       tgsVerifyBlocks :: forall m. TxpGlobalVerifyMode m =>
-                         Trace m LogItem -> Bool -> OldestFirst NE TxpBlock ->
+                         TraceNamed m -> Bool -> OldestFirst NE TxpBlock ->
                          m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
     , -- | Apply chain of /definitely/ valid blocks to Txp's GState.
       tgsApplyBlocks :: forall ctx m . TxpGlobalApplyMode ctx m =>
-                        Trace m LogItem -> OldestFirst NE TxpBlund -> m SomeBatchOp
+                        TraceNamed m -> OldestFirst NE TxpBlund -> m SomeBatchOp
     , -- | Rollback chain of blocks.
       tgsRollbackBlocks :: forall m . TxpGlobalRollbackMode m =>
-                           Trace m LogItem ->NewestFirst NE TxpBlund -> m SomeBatchOp
+                           TraceNamed m ->NewestFirst NE TxpBlund -> m SomeBatchOp
     }

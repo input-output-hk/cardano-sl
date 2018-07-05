@@ -61,8 +61,7 @@ import           Pos.Ssc.Base (verifyOpening, vssThreshold)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
                      MonadTossRead (..))
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Pos.Util.Util (getKeys)
 
 ----------------------------------------------------------------------------
@@ -116,7 +115,7 @@ matchCommitment op = flip matchCommitmentPure op <$> getCommitments
 
 checkShares
     :: (MonadTossRead m, MonadTossEnv m)
-    => Trace m LogItem
+    => TraceNamed m
     -> EpochIndex
     -> (StakeholderId, InnerSharesMap)
     -> m Bool
@@ -447,7 +446,7 @@ checkOpeningsPayload opens = do
 --     decrypted shares
 checkSharesPayload
     :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m)
-    => Trace m LogItem
+    => TraceNamed m
     -> EpochIndex
     -> SharesMap
     -> m ()
@@ -494,7 +493,7 @@ checkCertificatesPayload epoch certs = do
 checkPayload
     :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m,
         MonadRandom m)
-    => Trace m LogItem
+    => TraceNamed m
     -> EpochIndex
     -> SscPayload
     -> m ()

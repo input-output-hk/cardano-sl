@@ -1,4 +1,5 @@
 -- | Logging implemented with library `katip`
+
 module Pos.Util.Log
        (
        -- * Logging
@@ -41,9 +42,6 @@ import           Universum
 import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
---import           UnliftIO (MonadUnliftIO, unliftIO)
---import           UnliftIO.Exception (bracket)
--- import           Control.Monad.Writer (WriterT (..))
 
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig
@@ -97,7 +95,6 @@ instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
 -- instance HasLoggerName (LogContextT IO)
-
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
@@ -262,7 +259,6 @@ setLogBasePath lh fp = do
     case maycfg of
               Nothing  -> return ()
               Just cfg -> Internal.updateConfig lh cfg{ _lcBasePath = Just fp}
-
 
 {- |
    * interactive tests

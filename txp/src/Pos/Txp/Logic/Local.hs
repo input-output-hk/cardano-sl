@@ -50,8 +50,8 @@ import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
                      processTx, utxoToLookup)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug, logError,
-                     logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logError, logWarning)
 import           Pos.Util.Util (HasLens')
 
 type TxpProcessTransactionMode ctx m =
@@ -65,12 +65,12 @@ type TxpProcessTransactionMode ctx m =
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction :: (TxpProcessTransactionMode ctx m)
-    => Trace m LogItem
+    => TraceNamed m
     -> Trace m Value -- ^ Json log.
     -> ProtocolMagic
     -> (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction logTrace jsonLog pm itw = do
-    withStateLock jsonLog LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock logTrace pm itw
+  withStateLock jsonLog LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock (appendName "txProc" logTrace) pm itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -79,7 +79,7 @@ txProcessTransactionNoLock
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
@@ -100,7 +100,7 @@ txProcessTransactionNoLock logTrace pm =
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
-    => Trace m LogItem
+    => TraceNamed m
     -> (Utxo -> TxAux -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> (TxId, TxAux) -> ExceptT ToilVerFailure (ExtendedLocalToilM extraEnv extraState) a)
     -> (TxId, TxAux)
@@ -250,7 +250,7 @@ txNormalizeAbstract buildEnv normalizeAction =
 -- that either none or both of them will be done.
 txGetPayload
     :: (MonadIO m, MonadTxpMem ext ctx m)
-    => Trace m LogItem
+    => TraceNamed m
     -> HeaderHash
     -> m [TxAux]
 txGetPayload logTrace neededTip = do

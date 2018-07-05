@@ -22,8 +22,7 @@ import           Pos.Exception (traceFatalError)
 import           Pos.Lrc.DB.Common (getEpoch)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
-import           Pos.Util.Log (Severity)
-import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)
 
 data LrcContext = LrcContext
@@ -35,9 +34,11 @@ type HasLrcContext ctx = HasLens' ctx LrcContext
 
 -- | Create a new 'LrcContext' with the same contents as the given
 -- context has.
-cloneLrcContext ::
-       (MonadIO m, MonadThrow m) =>
-       Trace m (Severity, Text) -> LrcContext -> m LrcContext
+cloneLrcContext
+    :: (MonadIO m, MonadThrow m)
+    => TraceNamed m
+    -> LrcContext
+    -> m LrcContext
 cloneLrcContext logTrace LrcContext {..} = do
     readTVarIO lcLrcSync >>= \case
         lsd@LrcSyncData {..}

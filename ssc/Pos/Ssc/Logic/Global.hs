@@ -23,8 +23,7 @@ import           Pos.Ssc.Seed (calculateSeed)
 import           Pos.Ssc.Types (sgsCommitments, sgsOpenings, sgsShares,
                      sgsVssCertificates)
 import qualified Pos.Ssc.VssCertData as VCD
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 ----------------------------------------------------------------------------
 -- Seed
@@ -38,7 +37,7 @@ sscCalculateSeed
        , HasLrcContext ctx
        , MonadIO m
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> EpochIndex
     -> m (Either SscSeedError SharedSeed)
 sscCalculateSeed logTrace epoch = do

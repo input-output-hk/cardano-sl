@@ -21,7 +21,6 @@ import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Data.Default (Default (def))
 import           Formatting (build, fixed, ords, sformat, stext, (%))
 --import           JsonLog (CanJsonLog (..))
-import           Pos.Util.Log (WithLogger, logDebug)
 import           Serokell.Data.Memory.Units (Byte, memory)
 
 import           Pos.Binary.Class (biSize)
@@ -48,7 +47,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
-import           Pos.Exception (assertionFailed0, reportFatalError)
+import           Pos.Exception (assertionFailed, traceFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Infra.StateLock (Priority (..), StateLock,
                      StateLockMetrics, modifyStateLock)
@@ -70,9 +69,8 @@ import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock,
                      usPreparePayload)
 import           Pos.Util (_neHead)
---import           Pos.Util.Log.LogSafe (logInfoS)
-import           Pos.Util.Log (logInfo)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfoS)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
@@ -81,7 +79,6 @@ type MonadCreateBlock ctx m
        , MonadReader ctx m
        , HasPrimaryKey ctx
        , HasSlogGState ctx -- to check chain quality
-       , WithLogger m
        , MonadDBRead m
        , MonadIO m
        , MonadMask m
@@ -123,12 +120,13 @@ createGenesisBlockAndApply ::
        , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> EpochIndex
     -> m (Maybe GenesisBlock)
 -- Genesis block for 0-th epoch is hardcoded.
-createGenesisBlockAndApply _ 0 = pure Nothing
-createGenesisBlockAndApply pm epoch = do
+createGenesisBlockAndApply _ _ 0 = pure Nothing
+createGenesisBlockAndApply logTrace pm epoch = do
     tipHeader <- DB.getTipHeader
     -- preliminary check outside the lock,
     -- must be repeated inside the lock
@@ -137,7 +135,7 @@ createGenesisBlockAndApply pm epoch = do
         then modifyStateLock noTrace
                  HighPriority
                  ApplyBlock
-                 (\_ -> createGenesisBlockDo pm epoch)
+                 (\_ -> createGenesisBlockDo logTrace pm epoch)
         else return Nothing
 
 createGenesisBlockDo
@@ -145,12 +143,13 @@ createGenesisBlockDo
        ( MonadCreateBlock ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
-createGenesisBlockDo pm epoch = do
+createGenesisBlockDo logTrace pm epoch = do
     tipHeader <- DB.getTipHeader
-    logDebug $ sformat msgTryingFmt epoch tipHeader
+    logDebug logTrace $ sformat msgTryingFmt epoch tipHeader
     needCreateGenesisBlock epoch tipHeader >>= \case
         False -> (BC.blockHeaderHash tipHeader, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
@@ -160,20 +159,20 @@ createGenesisBlockDo pm epoch = do
     -- Note that it shouldn't fail, because 'shouldCreate' guarantees that we
     -- have enough blocks for LRC.
     actuallyCreate tipHeader = do
-        lrcSingleShot pm epoch
+        lrcSingleShot logTrace pm epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
             LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock pm (Right tipHeader) epoch leaders
         let newTip = headerHash blk
-        verifyBlocksPrefix pm (one (Left blk)) >>= \case
-            Left err -> reportFatalError $ pretty err
+        verifyBlocksPrefix logTrace pm (one (Left blk)) >>= \case
+            Left err -> traceFatalError logTrace $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe pm (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
                 normalizeMempool pm
                 pure (newTip, Just blk)
     logShouldNot =
-        logDebug
+        logDebug logTrace
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
@@ -223,17 +222,18 @@ createMainBlockAndApply ::
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
-createMainBlockAndApply pm sId pske =
+createMainBlockAndApply logTrace pm sId pske =
     modifyStateLock noTrace HighPriority ApplyBlock createAndApply
   where
     createAndApply tip =
-        createMainBlockInternal pm sId pske >>= \case
+        createMainBlockInternal logTrace pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)
-            Right blk -> convertRes <$> applyCreatedBlock pm pske blk
+            Right blk -> convertRes <$> applyCreatedBlock logTrace pm pske blk
     convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
 
 ----------------------------------------------------------------------------
@@ -249,13 +249,14 @@ createMainBlockInternal ::
        forall ctx m.
        ( MonadCreateBlock ctx m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
-createMainBlockInternal pm sId pske = do
+createMainBlockInternal logTrace pm sId pske = do
     tipHeader <- DB.getTipHeader
-    logInfo $ sformat msgFmt tipHeader     -- TODO was logInfoS
+    logInfoS logTrace $ sformat msgFmt tipHeader
     canCreateBlock sId tipHeader >>= \case
         Left reason -> pure (Left reason)
         Right () -> runExceptT (createMainBlockFinish tipHeader)
@@ -270,7 +271,7 @@ createMainBlockInternal pm sId pske = do
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift UDB.getMaxBlockSize
         block <- createMainBlockPure pm sizeLimit prevHeader pske sId sk rawPay
-        logInfo $     -- TODO was logInfoS
+        logInfoS (natTrace lift logTrace) $
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block
 
@@ -354,16 +355,17 @@ applyCreatedBlock ::
     ( MonadBlockApply ctx m
     , MonadCreateBlock ctx m
     )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> ProxySKBlockInfo
     -> MainBlock
     -> m MainBlock
-applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
+applyCreatedBlock logTrace pm pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
     applyCreatedBlockDo isFallback blockToApply =
-        verifyBlocksPrefix pm (one (Right blockToApply)) >>= \case
+        verifyBlocksPrefix logTrace pm (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
@@ -387,16 +389,16 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
         let message = sformat ("We've created bad main block: "%stext) reason
         -- REPORT:ERROR Created bad main block
         reportError message
-        logDebug $ "Clearing mempools"
+        logDebug logTrace $ "Clearing mempools"
         clearMempools
-        logDebug $ "Creating empty block"
-        createMainBlockInternal pm slotId pske >>= \case
+        logDebug logTrace $ "Creating empty block"
+        createMainBlockInternal logTrace pm slotId pske >>= \case
             Left err ->
-                assertionFailed0 $
+                assertionFailed logTrace $
                 sformat ("Couldn't create a block in fallback: "%stext) err
             Right mainBlock -> applyCreatedBlockDo True mainBlock
     onFailedFallback =
-        assertionFailed0 .
+        assertionFailed logTrace .
         sformat
             ("We've created bad main block even with empty payload: "%stext)
 

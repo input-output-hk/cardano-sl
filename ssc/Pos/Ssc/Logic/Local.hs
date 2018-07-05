@@ -59,8 +59,8 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT,
                      verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch,
                      ldModifier, ldSize, sscGlobal)
-import           Pos.Util.Trace (Trace, natTrace)
-import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)
 
 -- | Get local payload to be put into main block and for given
@@ -69,7 +69,7 @@ import           Pos.Util.Trace.Writer (writerTrace)
 sscGetLocalPayload
     :: forall ctx m.
        (MonadIO m, MonadSscMem ctx m, HasProtocolConstants)
-    => Trace m LogItem -> SlotId -> m SscPayload
+    => TraceNamed m -> SlotId -> m SscPayload
 sscGetLocalPayload logTrace si = sscRunLocalQuery (sscGetLocalPayloadQ si logTrace)
 
 sscGetLocalPayloadQ
@@ -107,7 +107,7 @@ sscNormalize
        , MonadIO m
        , Rand.MonadRandom m
        )
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic -> m ()
 sscNormalize logTrace pm = do
     tipEpoch <- view epochIndexL <$> getTipHeader
@@ -161,7 +161,7 @@ sscIsDataUseful
        , HasGenesisData
        , HasProtocolConstants
        )
-    => Trace m LogItem -> SscTag -> StakeholderId -> m Bool
+    => TraceNamed m -> SscTag -> StakeholderId -> m Bool
 sscIsDataUseful logTrace tag id =
     ifM
         (maybe False (isGoodSlotForTag tag . siSlot) <$> getCurrentSlot)
@@ -197,7 +197,7 @@ type SscDataProcessingMode ctx m =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCommitment
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> SignedCommitment
     -> m (Either SscVerifyError ())
@@ -209,7 +209,7 @@ sscProcessCommitment logTrace pm comm =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> StakeholderId
     -> Opening
@@ -222,7 +222,7 @@ sscProcessOpening logTrace pm id opening =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> StakeholderId
     -> InnerSharesMap
@@ -235,7 +235,7 @@ sscProcessShares logTrace pm id shares =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> VssCertificate
     -> m (Either SscVerifyError ())
@@ -245,7 +245,7 @@ sscProcessCertificate logTrace pm cert =
 
 sscProcessData
     :: SscDataProcessingMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> SscTag
     -> SscPayload
@@ -280,7 +280,7 @@ sscProcessData logTrace pm tag payload =
 sscProcessDataDo
     :: (MonadState SscLocalData m, HasGenesisData
       , Rand.MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData

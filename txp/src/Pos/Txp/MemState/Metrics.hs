@@ -17,12 +17,11 @@ import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
                      MemPoolModifyReason (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
-recordTxpMetrics :: Trace IO LogItem -> Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)
+recordTxpMetrics :: TraceNamed IO -> Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)
 recordTxpMetrics logTrace ekgStore memPoolVar = do
     ekgMemPoolSize <-
         Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore

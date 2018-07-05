@@ -25,7 +25,7 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
-import           Pos.Exception (traceNamedFatalError)
+import           Pos.Exception (traceFatalError)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Slotting (MonadSlotsData, slottingVar)
 import           Pos.Infra.Slotting.Types (SlottingData)
@@ -93,10 +93,10 @@ withUSLogger = appendName "us"
 -- epochs in memory, so adding new one can't make anything worse.
 usApplyBlocks
     :: forall ctx m. ( MonadThrow m
-       , MonadUnliftIO m
+       --, MonadUnliftIO m
        , USGlobalApplyMode ctx m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> ProtocolMagic
     -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
@@ -116,24 +116,23 @@ usApplyBlocks logTrace0 pm blocks modifierMaybe =
               return modifier
   where
     logTrace = withUSLogger logTrace0
-    onFailure :: (MonadIO m', MonadThrow m') => PollVerFailure -> m' a
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
-        traceNamedFatalError (natTrace liftIO logTrace) msg
+        traceFatalError logTrace msg
 
 -- | Revert application of given blocks to US part of GState DB and US local
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
 -- head.
 usRollbackBlocks
     :: (USGlobalApplyMode ctx m)
-    => TraceNamed IO
+    => TraceNamed m
     -> NewestFirst NE (UpdateBlock, USUndo)
     -> m [DB.SomeBatchOp]
 usRollbackBlocks logTrace0 blunds =
     processModifier =<<
-        (runDBPoll . execPollT def $ mapM_ ((rollbackUS logTrace) . snd) blunds)
+      (runDBPoll . execPollT def $ mapM_ ((rollbackUS (natTrace (lift . lift) logTrace)) . snd) blunds)
   where
-    logTrace = natTrace liftIO $ withUSLogger logTrace0
+    logTrace = withUSLogger logTrace0
 
 -- This function takes a 'PollModifier' corresponding to a sequence of
 -- blocks, updates in-memory slotting data and converts this modifier
@@ -166,7 +165,7 @@ usVerifyBlocks ::
        , MonadUnliftIO m
        , MonadReporting m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> ProtocolMagic
     -> Bool
     -> OldestFirst NE UpdateBlock
@@ -178,7 +177,7 @@ usVerifyBlocks logTrace0 pm verifyAllIsKnown blocks =
     logTrace = withUSLogger logTrace0
     action = do
         lastAdopted <- getAdoptedBV
-        mapM (verifyBlock logTrace pm lastAdopted verifyAllIsKnown) blocks
+        mapM (verifyBlock (natTrace (lift . lift . lift) logTrace) pm lastAdopted verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::
@@ -189,13 +188,13 @@ usVerifyBlocks logTrace0 pm verifyAllIsKnown blocks =
 
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolConstants)
-    => TraceNamed IO -> ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
+    => TraceNamed m -> ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
 verifyBlock _ _ _ _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
 verifyBlock logTrace pm lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload
-            logTrace
+            (natTrace lift logTrace)
             pm
             lastAdopted
             verifyAllIsKnown
@@ -220,7 +219,6 @@ usCanCreateBlock ::
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasUpdateConfiguration
-       -- TODO , WithLogger m
        )
     => m Bool
 usCanCreateBlock =

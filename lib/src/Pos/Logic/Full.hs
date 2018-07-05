@@ -60,7 +60,6 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes,
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal,
                      handleVote)
---import           Pos.Util.Log (WithLogger, logDebug)
 import           Pos.Util.Trace (Trace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Util.Util (HasLens (..))
@@ -100,7 +99,8 @@ type LogicWorkMode ctx m =
 -- monadX constraints to do most of its work.
 logicFull
     :: forall ctx m .
-       ( LogicWorkMode ctx m )
+       ( LogicWorkMode ctx m
+       )
     => TraceNamed m
     -> Trace m JLTxR
     -> ProtocolMagic
@@ -148,7 +148,7 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
         getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()
-        postBlockHeader = Block.handleUnsolicitedHeader pm
+        postBlockHeader = Block.handleUnsolicitedHeader logTrace pm
 
         postPskHeavy :: ProxySKHeavy -> m Bool
         postPskHeavy = Delegation.handlePsk logTrace pm

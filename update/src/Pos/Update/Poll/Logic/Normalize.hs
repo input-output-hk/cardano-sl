@@ -26,6 +26,7 @@ import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,
                      verifyAndApplyVoteDo)
 import           Pos.Update.Poll.Types (DecidedProposalState (..), LocalVotes,
                      ProposalState (..), UndecidedProposalState (..))
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Pos.Util.Util (getKeys, sortWithMDesc)
 
@@ -35,7 +36,7 @@ import           Pos.Util.Util (getKeys, sortWithMDesc)
 -- proposal can be put into a block.
 normalizePoll
     :: (MonadIO m, MonadPoll m)
-    => TraceNamed IO
+    => TraceNamed m
     -> SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -49,7 +50,7 @@ normalizePoll logTrace slot proposals votes =
 -- everything else.
 refreshPoll
     :: (MonadIO m, MonadPoll m)
-    => TraceNamed IO
+    => TraceNamed m
     -> SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -102,23 +103,25 @@ refreshPoll logTrace slot proposals votes = do
 -- Apply proposals which can be applied and put them in result.
 -- Disregard other proposals.
 normalizeProposals
-    :: (MonadIO m, MonadPoll m)
-    => TraceNamed IO
-    -> SlotId -> [UpdateProposal] -> m UpdateProposals
+  :: (MonadIO m, MonadPoll m)
+    => TraceNamed m
+    -> SlotId
+    -> [UpdateProposal]
+    -> m UpdateProposals
 normalizeProposals logTrace slotId (toList -> proposals) =
     HM.fromList . map ((\x->(hash x, x)) . fst) . catRights proposals <$>
     -- Here we don't need to verify that attributes are known, because it
     -- must hold for all proposals in mempool anyway.
     forM proposals
-        (runExceptT . verifyAndApplyProposal logTrace False (Left slotId) [])
-        -- cannot call ^^ with logTrace!
+        (runExceptT . verifyAndApplyProposal (natTrace lift logTrace) False (Left slotId) [])
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
-  :: forall m. (MonadIO m, MonadPoll m)
-    => TraceNamed IO
-    -> [(UpId, HashMap PublicKey UpdateVote)] -> m LocalVotes
+    :: forall m. (MonadIO m, MonadPoll m)
+    => TraceNamed m
+    -> [(UpId, HashMap PublicKey UpdateVote)]
+    -> m LocalVotes
 normalizeVotes logTrace votesGroups =
     HM.fromList . catMaybes <$> mapM verifyNApplyVotesGroup votesGroups
   where
@@ -126,9 +129,9 @@ normalizeVotes logTrace votesGroups =
                            -> m (Maybe (UpId, HashMap PublicKey UpdateVote))
     verifyNApplyVotesGroup (upId, votesGroup) = getProposal upId >>= \case
         Nothing -> do
-            liftIO $ logWarning logTrace $
-                       sformat ("Update Proposal with id "%build%
-                                " not found in normalizeVotes") upId
+            logWarning logTrace $
+                sformat ("Update Proposal with id "%build%
+                         " not found in normalizeVotes") upId
             return Nothing
         Just ps
             | PSUndecided ups <- ps -> do

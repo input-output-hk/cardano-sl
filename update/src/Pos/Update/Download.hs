@@ -30,7 +30,7 @@ import           Pos.Binary.Update ()
 import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
                      UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
-import           Pos.Exception (traceNamedFatalError)
+import           Pos.Exception (traceFatalError)
 import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
 import           Pos.Update.Context (UpdateContext (..))
@@ -111,7 +111,7 @@ getUpdateHash logTrace ConfirmedProposalState{..} = do
     logDebug logTrace $ sformat ("Proposal's upData: "%mapJson) data_
 
     -- It must be enforced by the caller.
-    maybe (traceNamedFatalError logTrace $ sformat
+    maybe (traceFatalError logTrace $ sformat
             ("We are trying to download an update not for our "%
             "system, update proposal is: "%build)
             cpsUpdateProposal)
@@ -137,7 +137,7 @@ downloadUpdateDo logTrace0 updHash cps@ConfirmedProposalState {..} = do
         -- explicitly request only new updates. This invariant must be
         -- ensure by the caller of 'downloadUpdate'.
         unless (isVersionAppropriate updateVersion) $
-            traceNamedFatalError logTrace $
+            traceFatalError logTrace $
             sformat ("Update #"%build%" hasn't been downloaded: "%
                     "its version is not newer than current software "%
                     "software version or it's not for our "%

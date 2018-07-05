@@ -16,7 +16,6 @@ import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph (hoist)
 import           Control.Monad.Writer (tell)
 import qualified Crypto.Random as Rand
-import           Data.Functor.Contravariant (contramap)
 import qualified Data.HashMap.Strict as HM
 
 import           Formatting (build, int, sformat, (%))
@@ -49,9 +48,9 @@ import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock,
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
-import           Pos.Util.Trace (Trace, natTrace, traceWith)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug,
-                     publicPrivateLogItem)
+import           Pos.Util.Trace (natTrace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
+
 
 ----------------------------------------------------------------------------
 -- Modes
@@ -84,7 +83,7 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 -- All blocks must be from the same epoch.
 sscVerifyBlocks
     :: SscGlobalVerifyMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
@@ -97,7 +96,7 @@ sscVerifyBlocks logTrace pm blocks = do
                 epoch
                 lastEpoch
     inAssertMode $ unless (epoch == lastEpoch) $
-        assertionFailed (contramap publicPrivateLogItem logTrace) differentEpochsMsg
+        assertionFailed logTrace differentEpochsMsg
     richmenSet <- getSscRichmen "sscVerifyBlocks" epoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
@@ -121,7 +120,7 @@ sscVerifyBlocks logTrace pm blocks = do
 -- argument (it can be calculated in advance using 'sscVerifyBlocks').
 sscApplyBlocks
     :: SscGlobalApplyMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> OldestFirst NE SscBlock
     -> Maybe SscGlobalState
@@ -138,7 +137,7 @@ sscApplyBlocks logTrace pm blocks Nothing =
 
 sscApplyBlocksFinish
     :: (SscGlobalApplyMode ctx m)
-    => Trace m LogItem -> SscGlobalState -> m [SomeBatchOp]
+    => TraceNamed m -> SscGlobalState -> m [SomeBatchOp]
 sscApplyBlocksFinish logTrace gs = do
     sscRunGlobalUpdate logTrace (put gs)
     inAssertMode $
@@ -148,7 +147,7 @@ sscApplyBlocksFinish logTrace gs = do
 
 sscVerifyValidBlocks
     :: SscGlobalApplyMode ctx m
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> OldestFirst NE SscBlock
     -> m SscGlobalState
@@ -162,9 +161,9 @@ sscVerifyValidBlocks logTrace pm blocks =
 onUnexpectedVerify
     :: forall m a.
        (MonadThrow m)
-    => Trace m LogItem -> OldestFirst NE HeaderHash -> m a
+    => TraceNamed m -> OldestFirst NE HeaderHash -> m a
 onUnexpectedVerify logTrace hashes =
-    assertionFailed (contramap publicPrivateLogItem logTrace) msg
+    assertionFailed logTrace msg
   where
     fmt =
         "sscApplyBlocks: verfication of blocks "%listJson%
@@ -174,8 +173,8 @@ onUnexpectedVerify logTrace hashes =
 onVerifyFailedInApply
     :: forall m a.
        (MonadThrow m)
-    => Trace m LogItem -> OldestFirst NE HeaderHash -> SscVerifyError -> m a
-onVerifyFailedInApply logTrace hashes e = assertionFailed (contramap publicPrivateLogItem logTrace) msg
+    => TraceNamed m -> OldestFirst NE HeaderHash -> SscVerifyError -> m a
+onVerifyFailedInApply logTrace hashes e = assertionFailed logTrace msg
   where
     fmt =
         "sscApplyBlocks: verification of blocks "%listJson%" failed: "%build
@@ -189,7 +188,7 @@ onVerifyFailedInApply logTrace hashes e = assertionFailed (contramap publicPriva
 -- and apply them on success. Blocks must be from the same epoch.
 sscVerifyAndApplyBlocks
     :: (SscVerifyMode m, HasProtocolConstants, HasGenesisData)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> RichmenStakes
     -> BlockVersionData
@@ -203,7 +202,7 @@ sscVerifyAndApplyBlocks logTrace pm richmenStake bvd blocks =
 
 verifyAndApplyMultiRichmen
     :: (SscVerifyMode m, HasProtocolConstants, HasGenesisData)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> Bool
     -> (MultiRichmenStakes, BlockVersionData)
@@ -234,7 +233,7 @@ verifyAndApplyMultiRichmen logTrace pm onlyCerts env =
 -- happen if these blocks haven't been applied before.
 sscRollbackBlocks
     :: SscGlobalApplyMode ctx m
-    => Trace m LogItem -> NewestFirst NE SscBlock -> m [SomeBatchOp]
+    => TraceNamed m -> NewestFirst NE SscBlock -> m [SomeBatchOp]
 sscRollbackBlocks logTrace blocks = sscRunGlobalUpdate logTrace $ do
     sscRollbackU blocks
     sscGlobalStateToBatch <$> get
@@ -262,7 +261,7 @@ tossToUpdate action = do
 
 tossToVerifier
     :: SscVerifyMode m
-    => Trace m LogItem
+    => TraceNamed m
     -> ExceptT SscVerifyError PureToss a
     -> m a
 tossToVerifier logTrace action = do

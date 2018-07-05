@@ -8,10 +8,10 @@ module Pos.Launcher.Runner
        ( -- * High level runners
          runRealMode
 
-       , elimRealMode
+       --, elimRealMode  -- only used locally
 
        -- * Exported for custom usage in CLI utils
-       , runServer
+       --, runServer     -- only used locally
        ) where
 
 import           Universum
@@ -57,11 +57,19 @@ import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (natTrace, noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, appendName)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
+
+{-
+runLogger :: Log.LogContextT m a -> m a
+runLogger ctx = do
+    le <- K.initLogEnv "log" "production"
+    KM.runKatipContextT le () [] $ ctx
+-}
 ----------------------------------------------------------------------------
 -- High level runners
 ----------------------------------------------------------------------------
@@ -78,13 +86,13 @@ runRealMode
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => TraceNamed IO
+    => Log.LoggingHandler
     -> ProtocolMagic
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode logTrace pm nr@NodeResources {..} act = runServer
-    (appendName "realMode" logTrace)
+runRealMode lh pm nr@NodeResources {..} act = runServer
+    logTrace
     pm
     ncNodeParams
     (EkgNodeMetrics nrEkgStore)
@@ -97,30 +105,34 @@ runRealMode logTrace pm nr@NodeResources {..} act = runServer
     securityParams = bcSecurityParams npBehaviorConfig
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
+    logTrace = appendName "realMode" $ namedTrace lh
     logTrace' :: TraceNamed (RealMode ext)
     logTrace' = natTrace liftIO logTrace
     logic :: Logic (RealMode ext)
     logic = logicFull logTrace' noTrace pm ourStakeholderId securityParams -- TODO jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode lh logTrace pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace pm nr diffusion) diffusion
-        in elimRealMode logTrace pm nr diffusion (act diffusion')
+        let diffusion' = hoistDiffusion liftIO (elimRealMode lh logTrace pm nr diffusion) diffusion
+        in elimRealMode lh logTrace pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding a Production (IO).
 elimRealMode
     :: forall t ext.
        ( HasCompileInfo)
-    => TraceNamed IO
+    => Log.LoggingHandler
+    -> TraceNamed IO
     -> ProtocolMagic
     -> NodeResources ext
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode logTrace pm NodeResources {..} diffusion action = runProduction $ do
-    Mtl.runReaderT action (rmc nrJsonLogConfig)
+elimRealMode lh logTrace pm NodeResources {..} diffusion action =
+    Log.usingLoggerName lh "realMode" $
+    runProduction $ do
+        Mtl.runReaderT action (rmc nrJsonLogConfig)
   where
     NodeContext {..} = nrContext
     NodeParams {..} = ncNodeParams

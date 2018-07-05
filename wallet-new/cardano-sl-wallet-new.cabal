@@ -150,7 +150,6 @@ library
                      , ixset-typed
                      , json-sop
                      , lens
-                     , log-warper
                      , memory
                      , mtl
                      , neat-interpolation
@@ -230,7 +229,6 @@ executable cardano-node
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , conduit
-                     , log-warper
                      , stm
                      , text
                      , universum
@@ -436,7 +434,6 @@ test-suite wallet-unit-tests
                     , formatting
                     , hspec
                     , lens
-                    , log-warper
                     , mtl
                     , QuickCheck
                     , quickcheck-instances

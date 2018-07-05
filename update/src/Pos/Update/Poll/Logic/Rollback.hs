@@ -21,7 +21,7 @@ import           Pos.Util.Trace.Named (TraceNamed)
 -- itself and undo data.
 rollbackUS
     :: forall m . MonadPoll m
-    => TraceNamed IO
+    => TraceNamed m
     -> USUndo -> m ()
 -- Note: here we use explicit pattern-matching which forces us to
 -- enumerate all fields to avoid situation when we add something new

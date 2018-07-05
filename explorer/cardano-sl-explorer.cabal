@@ -67,7 +67,6 @@ library
                       , free
                       , generic-arbitrary
                       , lens
-                      , log-warper
                       , memory
                       , mmorph
                       , resourcet
@@ -174,7 +173,6 @@ executable cardano-explorer
                      , cardano-sl-networking
                      , cardano-sl-update
                      , cardano-sl-util
-                     , log-warper
                      , optparse-applicative
                      , universum
   default-language:    Haskell2010
@@ -364,7 +362,6 @@ test-suite cardano-explorer-test
                      , engine-io
                      , hspec
                      , lens
-                     , log-warper
                      , universum >= 0.1.11
                      , warp
   hs-source-dirs:      test

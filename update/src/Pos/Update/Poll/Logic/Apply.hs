@@ -40,7 +40,6 @@ import           Pos.Update.Poll.Types (ConfirmedProposalState (..),
                      ProposalState (..), UndecidedProposalState (..),
                      UpsExtra (..), psProposal)
 import           Pos.Util.Some (Some (..))
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logNotice)
 
 type ApplyMode m =
@@ -64,7 +63,7 @@ type ApplyMode m =
 -- checked.
 verifyAndApplyUSPayload ::
        (MonadIO m, ApplyMode m, HasProtocolConstants)
-    => TraceNamed IO
+    => TraceNamed m
     -> ProtocolMagic
     -> BlockVersion
     -> Bool
@@ -161,8 +160,7 @@ resolveVoteStake epoch totalStake vote = do
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
     :: (MonadIO m, MonadError PollVerFailure m, MonadPoll m)
---    :: MonadPoll m
-    => TraceNamed IO
+    => TraceNamed m
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
@@ -215,7 +213,7 @@ verifyAndApplyProposal logTrace verifyAllIsKnown slotOrHeader votes
 -- total stake in all positive votes for it.
 verifyProposalStake
     :: (MonadIO m, MonadPollRead m, MonadError PollVerFailure m)
-    => TraceNamed IO
+    => TraceNamed m
     -> Coin -> [(UpdateVote, Coin)] -> UpId
     -> m ()
 verifyProposalStake logTrace totalStake votesAndStakes upId = do
@@ -224,8 +222,7 @@ verifyProposalStake logTrace totalStake votesAndStakes upId = do
         thresholdInt = coinToInteger threshold
         votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
-        logTrace' = natTrace liftIO logTrace
-    logDebug logTrace' $
+    logDebug logTrace $
         sformat
             ("Verifying stake for proposal "%shortHashF%
              ", threshold is "%int%", voted stake is "%int)
@@ -296,7 +293,7 @@ verifyAndApplyVoteDo cd ups vote = do
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
     :: (MonadIO m, MonadPoll m, HasProtocolConstants)
-    => TraceNamed IO
+    => TraceNamed m
     -> SlotId -> ChainDifficulty -> HeaderHash
     -> m ()
 applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
@@ -313,8 +310,8 @@ applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
         let upId = hash $ upsProposal ups
             status | dpsDecision decided = "approved"
                    | otherwise = "rejected"
-            logTrace' = natTrace liftIO logTrace
-        logInfo logTrace' $ sformat ("Proposal "%build%" is implicitly "%builder)
+        logInfo logTrace $
+            sformat ("Proposal "%build%" is implicitly "%builder)
                                upId status
     makeImplicitlyDecided ups@UndecidedProposalState {..} =
         DecidedProposalState
@@ -330,7 +327,7 @@ applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
 -- discarded).
 applyDepthCheck
     :: forall m . (MonadIO m, ApplyMode m, HasProtocolConstants)
-    => TraceNamed IO
+    => TraceNamed m
     -> EpochIndex -> HeaderHash -> ChainDifficulty
     -> m ()
 applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
@@ -376,7 +373,6 @@ applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
             sv = upSoftwareVersion upsProposal
             bv = upBlockVersion upsProposal
             upId = hash upsProposal
-            logTrace' = natTrace liftIO logTrace
         let status | dpsDecision = "confirmed"
                    | otherwise = "discarded"
         when dpsDecision $ do
@@ -404,9 +400,9 @@ applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
                confirmBlockVersion epoch bv
-               logInfo logTrace' $ sformat (build%" is competing now") bv
+               logInfo logTrace $ sformat (build%" is competing now") bv
            | otherwise -> do
                delBVState bv
-               logInfo logTrace' $ sformat ("State of "%build%" is deleted") bv
+               logInfo logTrace $ sformat ("State of "%build%" is deleted") bv
         deactivateProposal upId
-        logNotice logTrace' $ sformat ("Proposal "%shortHashF%" is "%builder) upId status
+        logNotice logTrace $ sformat ("Proposal "%shortHashF%" is "%builder) upId status

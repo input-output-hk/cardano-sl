@@ -25,7 +25,6 @@ import           Pos.Update.Download (downloadUpdate)
 import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
 import           Pos.Util.Util (lensOf)
 
@@ -34,11 +33,10 @@ usWorkers
     :: forall ctx m.
        ( UpdateMode ctx m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> [Diffusion m -> m ()]
-usWorkers logTrace0 = [processNewSlotWorker, checkForUpdateWorker]
+usWorkers logTrace = [processNewSlotWorker, checkForUpdateWorker]
   where
-    logTrace = natTrace liftIO logTrace0
     -- These are two separate workers. We want them to run in parallel
     -- and not affect each other.
     processNewSlotParams = defaultOnNewSlotParams
@@ -49,18 +47,18 @@ usWorkers logTrace0 = [processNewSlotWorker, checkForUpdateWorker]
         onNewSlot logTrace processNewSlotParams $ \s ->
             recoveryCommGuard logTrace "processNewSlot in US" $ do
                 logDebug logTrace "Updating slot for US..."
-                processNewSlot logTrace0 s
+                processNewSlot logTrace s
     checkForUpdateWorker = \_ ->
         onNewSlot logTrace defaultOnNewSlotParams $ \_ ->
-            recoveryCommGuard logTrace "checkForUpdate" (checkForUpdate @ctx @m logTrace0)
+            recoveryCommGuard logTrace "checkForUpdate" (checkForUpdate @ctx @m logTrace)
 
 checkForUpdate
     :: forall ctx m.
        ( UpdateMode ctx m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> m ()
-checkForUpdate logTrace0 = do
+checkForUpdate logTrace = do
     logDebug logTrace "Checking for update..."
     confirmedProposals <-
         getConfirmedProposals (Just $ svNumber curSoftwareVersion)
@@ -70,7 +68,6 @@ checkForUpdate logTrace0 = do
                 "There are no new confirmed update proposals for our application"
         Just confirmedProposalsNE -> processProposals confirmedProposalsNE
   where
-    logTrace = natTrace liftIO logTrace0
     processProposals :: NonEmpty ConfirmedProposalState -> m ()
     processProposals confirmedProposals = do
         let cpsToNumericVersion =
@@ -92,11 +89,9 @@ checkForUpdate logTrace0 = do
 -- down the system (e. g. in regular node w/o wallet or in explorer).
 updateTriggerWorker
     :: UpdateMode ctx m
-    => TraceNamed IO
+    => TraceNamed m
     -> Diffusion m -> m ()
-updateTriggerWorker logTrace0 = \_ -> do
+updateTriggerWorker logTrace = \_ -> do
     logInfo logTrace "Update trigger worker is locked"
     void $ takeMVar . ucDownloadedUpdate =<< view (lensOf @UpdateContext)
     triggerShutdown logTrace
-  where
-    logTrace = natTrace liftIO logTrace0

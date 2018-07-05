@@ -49,7 +49,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
                      (CommonOp (PutMaxSeenDifficulty, PutTip),
                      getMaxSeenDifficulty)
-import           Pos.Exception (assertionFailed, traceNamedFatalError)
+import           Pos.Exception (assertionFailed, traceFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
@@ -304,7 +304,7 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity)
             -- no rollback further than k blocks
             maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
     unless (bypassSecurity || secure) $
-        traceNamedFatalError noTrace
+        traceFatalError noTrace
                          "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."

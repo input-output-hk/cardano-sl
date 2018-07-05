@@ -19,15 +19,14 @@ import           Pos.Crypto (DecShare, EncShare, VssKeyPair, VssPublicKey,
                      decryptShare, toVssPublicKey)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)
 import           Pos.Ssc.Types (sgsCommitments, sgsOpenings)
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
 getOurShares
     :: (MonadSscMem ctx m, MonadIO m)
-    => VssKeyPair -> Trace m LogItem -> m (HashMap StakeholderId (NonEmpty DecShare))
-getOurShares ourKey logTrace= do
+    => TraceNamed m -> VssKeyPair -> m (HashMap StakeholderId (NonEmpty DecShare))
+getOurShares logTrace ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
     encSharesM <- sscRunGlobalQuery (decryptOurShares ourPK logTrace)
@@ -41,7 +40,7 @@ getOurShares ourKey logTrace= do
     res' <- forM res $ \choice -> case choice of
         Right ok -> pure (Just ok)
         Left bad -> do
-            logWarning logTrace (sformat ("Failed to deserialize share for " %build) bad)
+            logWarning logTrace $ sformat ("Failed to deserialize share for " %build) bad
             pure Nothing
     return $ HM.fromList . catMaybes $ res'
 

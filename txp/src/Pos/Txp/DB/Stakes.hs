@@ -45,8 +45,7 @@ import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey,
                      getRealTotalStake)
 import           Pos.Txp.Toil.Types (GenesisUtxo (..))
 import           Pos.Txp.Toil.Utxo (utxoToStakes)
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logError)
+import           Pos.Util.Trace.Named (TraceNamed, logError)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -110,7 +109,7 @@ getAllPotentiallyHugeStakesMap =
 
 sanityCheckStakes
     :: (MonadDBRead m, MonadUnliftIO m)
-    => Trace m LogItem
+    => TraceNamed m
     -> m ()
 sanityCheckStakes logTrace = do
     calculatedTotalStake <- runConduitRes $

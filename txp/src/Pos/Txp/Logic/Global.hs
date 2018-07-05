@@ -18,7 +18,6 @@ import           Universum
 import           Control.Lens (magnify, zoom)
 import           Control.Monad.Except (throwError)
 import           Data.Default (Default, def)
-import           Data.Functor.Contravariant (contramap)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
@@ -47,14 +46,12 @@ import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..),
                      runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Trace (Trace)
-import           Pos.Util.Trace.Unstructured (LogItem, logDebug,
-                     publicPrivateLogItem)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 
 logCreatedStakeholderIdsAfterToil
     :: Applicative m
-    => Trace m LogItem
+    => TraceNamed m
     -> [StakeholderId]
     -> m ()
 logCreatedStakeholderIdsAfterToil logTrace createdStakes =
@@ -185,7 +182,7 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
@@ -195,7 +192,7 @@ applyBlocksWith logTrace pm settings blunds = do
     inAssertMode $ do
         verdict <- verifyBlocks pm False blocks
         whenLeft verdict $
-              assertionFailed (contramap publicPrivateLogItem logTrace) .
+              assertionFailed logTrace .
               sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     processBlunds settings (getOldestFirst blunds)
 
@@ -217,7 +214,7 @@ processBlundsSettings isRollback pureAction =
 
 rollbackBlocks ::
        forall m. (TxpGlobalRollbackMode m)
-    => Trace m LogItem
+    => TraceNamed m
     -> NewestFirst NE TxpBlund
     -> m SomeBatchOp
 rollbackBlocks logTrace (NewestFirst blunds) =

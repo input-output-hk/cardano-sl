@@ -32,8 +32,8 @@ import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Some (Some)
-import           Pos.Util.Trace (Trace, natTrace)
-import           Pos.Util.Trace.Unstructured (LogItem, logError)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logError)
 import           Pos.Util.Util (sortWithMDesc)
 
 -- | Verify 'SscPayload' with respect to data provided by
@@ -42,7 +42,7 @@ import           Pos.Util.Util (sortWithMDesc)
 verifyAndApplySscPayload
     :: (MonadToss m, MonadTossEnv m,
         MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload  logTrace pm eoh payload = do
     -- Check the payload for internal consistency.
@@ -97,7 +97,7 @@ applyGenesisBlock epoch = do
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
 rollbackSsc :: (MonadToss m, HasProtocolConstants)
-    => Trace m LogItem
+    => TraceNamed m
     -> EpochOrSlot
     -> NewestFirst [] SscPayload
     -> m ()
@@ -120,7 +120,7 @@ rollbackSsc logTrace oldestEOS (NewestFirst payloads)
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
     :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic -> EpochIndex -> TossModifier -> m ()
 normalizeToss logTrace pm epoch TossModifier {..} =
     normalizeTossDo
@@ -136,7 +136,7 @@ normalizeToss logTrace pm epoch TossModifier {..} =
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
     :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic -> EpochIndex -> TossModifier -> m ()
 refreshToss logTrace pm epoch TossModifier {..} = do
     comms <-
@@ -167,7 +167,7 @@ type TossModifierLists
 normalizeTossDo
     :: forall m.
        (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants)
-    => Trace m LogItem
+    => TraceNamed m
     -> ProtocolMagic -> EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo logTrace pm epoch (comms, opens, shares, certs) = do
     putsUseful $

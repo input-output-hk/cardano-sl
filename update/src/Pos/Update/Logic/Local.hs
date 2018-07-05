@@ -55,7 +55,6 @@ import           Pos.Update.Poll (MonadPoll (deactivateProposal),
                      normalizePoll, refreshPoll, reportUnexpectedError,
                      runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Update.Poll.Types (canCombineVotes, psVotes)
---import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Pos.Util.Util (HasLens (..), HasLens')
@@ -126,7 +125,7 @@ processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> ProtocolMagic
     -> UpdatePayload
     -> m (Either PollVerFailure ())
@@ -157,7 +156,7 @@ processSkeleton logTrace pm payload =
         modifierOrFailure <-
             lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
                 lastAdopted <- getAdoptedBV
-                verifyAndApplyUSPayload logTrace pm lastAdopted True (Left msSlot) payload
+                verifyAndApplyUSPayload (natTrace (lift . lift . lift . lift) logTrace) pm lastAdopted True (Left msSlot) payload
         case modifierOrFailure of
             Left failure -> throwError failure
             Right modifier -> do
@@ -173,12 +172,12 @@ refreshMemPool
        , HasLrcContext ctx
        , HasUpdateConfiguration
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> MemState -> m MemState
 refreshMemPool logTrace ms@MemState {..} = do
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
-        runDBPoll . runPollT def $ refreshPoll logTrace msSlot mpProposals mpLocalVotes
+        runDBPoll . runPollT def $ refreshPoll (natTrace (lift . lift) logTrace) msSlot mpProposals mpLocalVotes
     let newPool =
             MemPool
             { mpProposals = newProposals
@@ -220,7 +219,7 @@ processProposal
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> ProtocolMagic -> UpdateProposal -> m (Either PollVerFailure ())
 processProposal logTrace pm proposal = processSkeleton logTrace pm $ UpdatePayload (Just proposal) []
 
@@ -272,7 +271,7 @@ processVote
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => TraceNamed IO
+    => TraceNamed m
     -> ProtocolMagic -> UpdateVote -> m (Either PollVerFailure ())
 processVote logTrace pm vote = processSkeleton logTrace pm $ UpdatePayload Nothing [vote]
 
@@ -286,7 +285,7 @@ processVote logTrace pm vote = processSkeleton logTrace pm $ UpdatePayload Nothi
 -- 'stateLock' is taken.
 usNormalize
     :: USLocalLogicMode ctx m
-    => TraceNamed IO
+    => TraceNamed m
     -> m ()
 usNormalize logTrace = do
     tip <- DB.getTip
@@ -299,14 +298,14 @@ usNormalize logTrace = do
 -- GState.
 usNormalizeDo
     :: USLocalLogicMode ctx m
-    => TraceNamed IO
+    => TraceNamed m
     -> Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo logTrace tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms@MemState {..} <- atomically $ readTVar stateVar
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
-        runDBPoll . runPollT def $ normalizePoll logTrace msSlot mpProposals mpLocalVotes
+      runDBPoll . runPollT def $ normalizePoll (natTrace (lift . lift) logTrace) msSlot mpProposals mpLocalVotes
     let newTip = fromMaybe msTip tip
     let newSlot = fromMaybe msSlot slot
     let newPool =
@@ -327,13 +326,13 @@ usNormalizeDo logTrace tip slot = do
 -- | Update memory state to make it correct for given slot.
 processNewSlot
     :: USLocalLogicModeWithLock ctx m
-    => TraceNamed IO
+    => TraceNamed m
     -> SlotId -> m ()
 processNewSlot logTrace slotId = withUSLock $ processNewSlotNoLock logTrace slotId
 
 processNewSlotNoLock
     :: USLocalLogicMode ctx m
-    => TraceNamed IO
+    => TraceNamed m
     -> SlotId -> m ()
 processNewSlotNoLock logTrace slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
@@ -354,7 +353,7 @@ processNewSlotNoLock logTrace slotId = modifyMemState $ \ms@MemState{..} -> do
 -- maintenance (empty blocks are better than no blocks).
 usPreparePayload
     :: forall m ctx. (MonadIO m, USLocalLogicMode ctx m)
-    => TraceNamed IO
+    => TraceNamed m
     -> HeaderHash
     -> SlotId
     -> m UpdatePayload
@@ -373,15 +372,14 @@ usPreparePayload logTrace neededTip slotId@SlotId{..} = do
     -- and return it if it does.
     preparePayloadDo
   where
-    logTrace' = natTrace liftIO logTrace
     preparePayloadDo = do
         -- Normalization is done just in case, as said before
         MemState {..} <- usNormalizeDo logTrace Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
         if | msSlot /= slotId -> def <$
-               logWarning logTrace' (sformat slotMismatchFmt msSlot slotId)
+               logWarning logTrace (sformat slotMismatchFmt msSlot slotId)
            | msTip /= neededTip -> def <$
-               logWarning logTrace' (sformat tipMismatchFmt msTip neededTip)
+               logWarning logTrace (sformat tipMismatchFmt msTip neededTip)
            | otherwise -> do
                -- Here we remove proposals which don't have enough
                -- positive stake for inclusion into payload.

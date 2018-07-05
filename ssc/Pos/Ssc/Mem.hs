@@ -34,8 +34,8 @@ import qualified Data.DList as DList
 
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState,
                      sscGlobal, sscLocal)
-import           Pos.Util.Trace (Trace, traceWith)
-import           Pos.Util.Trace.Unstructured (LogItem)
+import           Pos.Util.Trace (traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, LogNamed, LogItem)
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
@@ -65,11 +65,14 @@ syncingStateWith var action = do
 ----------------------------------------------------------------------------
 
 type SscLocalQuery a = forall m . Monad m =>
-    Trace m LogItem ->
+    TraceNamed m ->
     ReaderT SscLocalData m a
 
+-- | logging item
+type LoggedItem = LogNamed LogItem
+
 type SscLocalUpdate a =
-    WriterT (DList LogItem) (StateT SscLocalData (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    WriterT (DList LoggedItem) (StateT SscLocalData (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
 
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -86,8 +89,8 @@ sscRunLocalQuery action = do
 sscRunLocalSTM
     :: forall ctx m a.
        (MonadSscMem ctx m, MonadIO m)
-    => Trace m LogItem
-    -> WriterT (DList LogItem) (StateT SscLocalData STM) a
+    => TraceNamed m
+    -> WriterT (DList LoggedItem) (StateT SscLocalData STM) a
     -> m a
 sscRunLocalSTM logTrace action = do
     localVar <- sscLocal <$> askSscMem
@@ -100,11 +103,11 @@ sscRunLocalSTM logTrace action = do
 ----------------------------------------------------------------------------
 
 type SscGlobalQuery a = forall m . Monad m =>
-    Trace m LogItem ->
+    TraceNamed m ->
     ReaderT SscGlobalState m a
 
 type SscGlobalUpdate a =
-    WriterT (DList LogItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    WriterT (DList LoggedItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -118,8 +121,8 @@ sscRunGlobalQuery action = do
 
 sscRunGlobalUpdate
     :: (MonadSscMem ctx m, Rand.MonadRandom m, MonadIO m)
-    => Trace m LogItem
-    -> WriterT (DList LogItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    => TraceNamed m
+    -> WriterT (DList LoggedItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
     -> m a
 sscRunGlobalUpdate logTrace action = do
     globalVar <- sscGlobal <$> askSscMem

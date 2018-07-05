@@ -16,11 +16,23 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                        -- Shutdown
+                        Pos.Sinbin.Shutdown
+                        Pos.Sinbin.Shutdown.Class
+                        Pos.Sinbin.Shutdown.Logic
+                        Pos.Sinbin.Shutdown.Types
+
                         -- Slotting
                         Pos.Sinbin.Slotting
                         Pos.Sinbin.Slotting.Class
                         Pos.Sinbin.Slotting.Types
                         Pos.Sinbin.Slotting.Util
+
+                        -- StateLock
+                        Pos.Sinbin.StateLock
+
+                        -- Util
+                        Pos.Sinbin.Util.TimeWarp
 
   build-depends:        aeson
                       , async

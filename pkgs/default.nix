@@ -16473,7 +16473,6 @@ cardano-sl-binary
 cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
@@ -16484,7 +16483,6 @@ cardano-sl-lrc
 cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-txp
-cardano-sl-txp-test
 cardano-sl-update
 cardano-sl-util
 conduit
@@ -16496,7 +16494,6 @@ ether
 exceptions
 formatting
 free
-generic-arbitrary
 http-types
 lens
 log-warper
@@ -16563,12 +16560,14 @@ cardano-sl-binary-test
 cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-txp
 cardano-sl-util
 containers
 cryptonite
 engine-io
+generic-arbitrary
 hspec
 lens
 log-warper

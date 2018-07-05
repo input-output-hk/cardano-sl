@@ -16,11 +16,21 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                        -- Slotting
+                        Pos.Sinbin.Reporting
+                        Pos.Sinbin.Reporting.Exceptions
+                        Pos.Sinbin.Reporting.Health.Types
+                        Pos.Sinbin.Reporting.Http
+                        Pos.Sinbin.Reporting.MemState
+                        Pos.Sinbin.Reporting.Methods
+                        Pos.Sinbin.Reporting.Metrics
+                        Pos.Sinbin.Reporting.Wlog
                         Pos.Sinbin.Slotting
                         Pos.Sinbin.Slotting.Class
                         Pos.Sinbin.Slotting.Types
                         Pos.Sinbin.Slotting.Util
+
+  other-modules:
+                        Paths_cardano_sl_sinbin
 
   build-depends:        aeson
                       , async

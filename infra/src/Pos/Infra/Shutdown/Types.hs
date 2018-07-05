@@ -1,17 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Infra.Shutdown.Types
-       ( ShutdownContext (..)
-       , shdnIsTriggered
+       ( module X
        ) where
 
-import           Universum
-
-import           Control.Lens (makeLenses)
-
-data ShutdownContext = ShutdownContext
-    { _shdnIsTriggered :: !(TVar Bool)
-    -- ^ If this flag is `True`, then workers should stop.
-    }
-
-makeLenses ''ShutdownContext
+import           Pos.Sinbin.Shutdown.Types as X

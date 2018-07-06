@@ -23,24 +23,28 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Ssc.Worker (sscWorkers)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Worker (usWorkers)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.WorkMode (WorkMode)
+
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: forall ext ctx m .
        (HasTxpConfiguration, WorkMode ctx m)
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> NodeResources ext
     -> [Diffusion m -> m ()]
-allWorkers pm NodeResources {..} = mconcat
-    [ sscWorkers pm
-    , usWorkers
-    , blkWorkers pm
-    , dlgWorkers
+allWorkers logTrace pm NodeResources {..} = mconcat
+    [ sscWorkers logTrace pm
+    , usWorkers logTrace
+    , blkWorkers logTrace pm
+    , dlgWorkers logTrace
     , [properSlottingWorker, staticConfigMonitoringWorker]
     ]
   where
     topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
-    properSlottingWorker = const logNewSlotWorker
+    properSlottingWorker = const $ logNewSlotWorker logTrace
     staticConfigMonitoringWorker = const (launchStaticConfigMonitoring topology)

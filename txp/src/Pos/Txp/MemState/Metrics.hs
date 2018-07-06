@@ -13,7 +13,7 @@ import qualified System.Metrics.Gauge as Metrics.Gauge
 import           System.Wlog (logDebug)
 
 import           Pos.Infra.StateLock (StateLockMetrics (..))
-import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
+import           Pos.Sinbin.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
                      MemPoolModifyReason (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))

@@ -6,6 +6,7 @@ module Pos.Core.Common.Script
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, (%))
 import qualified PlutusCore.Program as PLCore
@@ -32,6 +33,8 @@ Bi.deriveSimpleBi ''Script [
         Bi.Field [| scrVersion :: ScriptVersion |],
         Bi.Field [| scrScript  :: ByteString   |]
     ]]
+
+deriveSafeCopySimple 0 'base ''Script
 
 -- | Deserialized script (i.e. an AST), version 0.
 type Script_v0 = PLCore.Program

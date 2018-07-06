@@ -226,7 +226,7 @@ findHash' :: (DSL.Hash h Addr, Monad m)
 findHash' h = (DSL.findHash' h . icLedger) <$> get
 
 inpSpentOutput' :: (DSL.Hash h Addr, Monad m)
-                => DSL.Input h Addr -> IntT h e m (DSL.Output Addr)
+                => DSL.Input h Addr -> IntT h e m (DSL.Output h Addr)
 inpSpentOutput' inp = (DSL.inpSpentOutput' inp . icLedger) <$> get
 
 {-------------------------------------------------------------------------------
@@ -275,29 +275,23 @@ instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
         then do
           AddrInfo{..} <- int $ DSL.outAddr spentOutput
           -- See explanation at 'bootstrapTransaction'
-          return ((
-                addrInfoAddrKey
-              , TxInUtxo {
-                    txInHash  = unsafeHash addrInfoCardano
-                  , txInIndex = 0
-                  }
-              ), resolvedInput)
+          return (
+                   (addrInfoAddrKey, TxInUtxo (unsafeHash addrInfoCardano) 0)
+                 , resolvedInput
+                 )
         else do
           AddrInfo{..} <- int     $ DSL.outAddr spentOutput
           inpTrans'    <- intHash $ inpTrans
-          return ((
-                addrInfoAddrKey
-              , TxInUtxo {
-                    txInHash  = inpTrans'
-                  , txInIndex = inpIndex
-                  }
-              ), resolvedInput)
+          return (
+                   (addrInfoAddrKey, TxInUtxo inpTrans' inpIndex)
+                 , resolvedInput
+                 )
 
-instance Interpret h (DSL.Output Addr) where
-  type Interpreted (DSL.Output Addr) = TxOutAux
+instance Interpret h (DSL.Output h Addr) where
+  type Interpreted (DSL.Output h Addr) = TxOutAux
 
-  int :: (Monad m)
-      => DSL.Output Addr -> IntT h e m TxOutAux
+  int :: Monad m
+      => DSL.Output h Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
       AddrInfo{..} <- int outAddr
       outVal'      <- int outVal
@@ -315,7 +309,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
       => DSL.Utxo h Addr -> IntT h e m Utxo
   int = fmap Map.fromList . mapM aux . DSL.utxoToList
     where
-      aux :: (DSL.Input h Addr, DSL.Output Addr)
+      aux :: (DSL.Input h Addr, DSL.Output h Addr)
           -> IntT h e m (TxIn, TxOutAux)
       aux (inp, out) = do
           ((_key, inp'), _) <- int inp

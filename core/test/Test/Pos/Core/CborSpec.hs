@@ -14,14 +14,16 @@ import           Universum
 
 import           Test.Hspec (Spec, describe)
 import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, serialize, unsafeDeserialize)
-import           Pos.Binary.Core ()
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, serialize, unsafeDeserialize)
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
 
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
+import           Pos.Data.Attributes (Attributes (..), decodeAttributes,
+                     encodeAttributes)
 import           Pos.Merkle (MerkleTree)
 
 import           Test.Pos.Binary.Helpers (binaryTest)

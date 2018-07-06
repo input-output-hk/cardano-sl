@@ -13,10 +13,10 @@ module Pos.Core.Ssc
        ) where
 
 import           Pos.Core.Ssc.Commitment
+import           Pos.Core.Ssc.CommitmentAndOpening
 import           Pos.Core.Ssc.CommitmentsMap
 import           Pos.Core.Ssc.Opening
 import           Pos.Core.Ssc.OpeningsMap
-import           Pos.Core.Ssc.CommitmentAndOpening
 import           Pos.Core.Ssc.Payload
 import           Pos.Core.Ssc.Proof
 import           Pos.Core.Ssc.SharesDistribution

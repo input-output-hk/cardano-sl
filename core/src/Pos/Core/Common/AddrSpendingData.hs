@@ -7,6 +7,7 @@ module Pos.Core.Common.AddrSpendingData
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 
@@ -123,3 +124,10 @@ addrSpendingDataToType =
         ScriptASD {} -> ATScript
         RedeemASD {} -> ATRedeem
         UnknownASD tag _ -> ATUnknown tag
+
+
+-- Define these at the end of the file to avoid TH staging issues.
+deriveSafeCopySimple 0 'base ''AddrSpendingData
+deriveSafeCopySimple 0 'base ''AddrType -- ☃
+
+

@@ -13,8 +13,9 @@ import           Data.List (elemIndex, (\\))
 import qualified Data.List.NonEmpty as NE
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, forAll,
-                                  resize, shuffle, vectorOf, (.&.), (===))
+import           Test.QuickCheck (NonNegative (..), Positive (..), Property,
+                     arbitrary, forAll, resize, shuffle, vectorOf, (.&.),
+                     (===))
 import           Test.QuickCheck.Gen (Gen)
 
 import           Pos.Core (mkCoin)
@@ -24,7 +25,7 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util (_neHead)
 
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 spec :: Spec

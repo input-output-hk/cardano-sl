@@ -29,11 +29,12 @@ import           Language.Haskell.TH.Syntax (qLocation)
 import           System.Directory (canonicalizePath)
 import           System.FilePath (takeDirectory, (</>))
 
-import           Hedgehog (Gen, Group, MonadTest, Property, PropertyT, TestLimit, discoverPrefix,
-                           eval, forAll, property, success, tripping, withTests, (===))
+import           Hedgehog (Gen, Group, MonadTest, Property, PropertyT,
+                     TestLimit, discoverPrefix, eval, forAll, property,
+                     success, tripping, withTests, (===))
 import           Hedgehog.Internal.Property (Diff (..), failWith)
-import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue, renderLineDiff, showPretty,
-                                         valueDiff)
+import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue,
+                     renderLineDiff, showPretty, valueDiff)
 import           Hedgehog.Internal.TH (TExpQ)
 
 import           Pos.Binary.Class (Bi (..), decodeFull, serialize)

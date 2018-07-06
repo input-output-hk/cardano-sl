@@ -14,21 +14,28 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Core.Bi
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Arbitrary.Txp
+                       Test.Pos.Core.Arbitrary.Txp.Unsafe
 
   build-depends:       QuickCheck
                      , base
+                     , base16-bytestring
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cardano-sl-util-test
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , data-default
@@ -42,6 +49,7 @@ library
                      , random
                      , serokell-util
                      , tagged
+                     , text
                      , time-units
                      , universum
                      , unordered-containers
@@ -77,5 +85,6 @@ library
                        MonadFailDesugaring
                        GADTs
 
-  ghc-options:         -Wall
+  ghc-options:
                        -O2
+                       -Wall

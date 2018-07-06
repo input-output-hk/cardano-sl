@@ -81,6 +81,8 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
+import           Data.Semigroup (Semigroup)
+
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
@@ -89,7 +91,8 @@ import qualified Data.Char as C
 import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
+                     GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
@@ -107,11 +110,12 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 
-import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
+                     UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
+import           Pos.Util.Mnemonic (Mnemonic)
 
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()
@@ -126,9 +130,11 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
-                                   buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Diffusion.Subscription.Status
+                     (SubscriptionStatus (..))
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                     buildSafe, buildSafeList, buildSafeMaybe,
+                     deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()
@@ -250,22 +256,22 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
--- TODO(adinapoli) Rewrite it properly under CSL-2048.
-instance Arbitrary (V1 BackupPhrase) where
-    arbitrary = V1 <$> arbitrary
+instance Arbitrary (V1 (Mnemonic 12)) where
+    arbitrary =
+        V1 <$> arbitrary
 
-instance ToJSON (V1 BackupPhrase) where
-    toJSON (V1 (BackupPhrase wrds)) = toJSON wrds
+instance ToJSON (V1 (Mnemonic 12)) where
+    toJSON =
+        toJSON . unV1
 
-instance FromJSON (V1 BackupPhrase) where
-    parseJSON (Array wrds) = V1 . BackupPhrase . toList <$> traverse parseJSON wrds
-    parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
+instance FromJSON (V1 (Mnemonic 12)) where
+    parseJSON =
+        fmap V1 . parseJSON
 
-instance ToSchema (V1 BackupPhrase) where
+instance ToSchema (V1 (Mnemonic 12)) where
     declareNamedSchema _ = do
-        return $ NamedSchema (Just "V1BackupPhrase") $ mempty
-            & type_ .~ SwaggerArray
-            & items .~ Just (SwaggerItemsObject (toSchemaRef (Proxy @Text)))
+        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
+        return $ NamedSchema (Just "V1BackupPhrase") schm
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
@@ -387,9 +393,12 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Semigroup (V1 Core.PassPhrase) where
+    V1 a <> V1 b = V1 (a <> b)
+
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
-    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+    mappend = (<>)
 
 type WalletName = Text
 
@@ -471,7 +480,7 @@ instance BuildableSafeGen WalletOperation where
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !(V1 BackupPhrase)
+      newwalBackupPhrase     :: !(V1 (Mnemonic 12))
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName

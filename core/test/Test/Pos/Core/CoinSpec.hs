@@ -7,7 +7,8 @@ module Test.Pos.Core.CoinSpec
 import           Universum
 
 
-import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, it, shouldBe, shouldSatisfy)
+import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, it,
+                     shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.||.), (===))
 

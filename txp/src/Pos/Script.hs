@@ -18,10 +18,10 @@ module Pos.Script
 
 import           Universum hiding (lift)
 
-import           Control.Exception (ArithException (..), ArrayException (..), ErrorCall (..),
-                                    PatternMatchFail (..))
-import           Control.Exception.Safe (Handler (..), SomeException (..), catches,
-                                         displayException)
+import           Control.Exception (ArithException (..), ArrayException (..),
+                     ErrorCall (..), PatternMatchFail (..))
+import           Control.Exception.Safe (Handler (..), SomeException (..),
+                     catches, displayException)
 import           Control.Lens (_Left)
 import           Control.Monad.Error.Class (throwError)
 import qualified Data.ByteArray as BA
@@ -38,7 +38,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import qualified Utils.Names as PL
 
 import qualified Pos.Binary.Class as Bi
-import           Pos.Binary.Core ()
+import           Pos.Core.Binary ()
 import           Pos.Core.Common (Script (..), ScriptVersion)
 import           Pos.Core.Script ()
 import           Pos.Core.Txp (TxSigData (..))

@@ -13,7 +13,8 @@ import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 import           System.Wlog (logInfo)
 
-import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
+import           Pos.Block.Logic (BypassSecurityCheck (..),
+                     rollbackBlocksUnsafe)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Core (difficultyL, epochIndexL)

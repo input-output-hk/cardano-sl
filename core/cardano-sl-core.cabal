@@ -24,10 +24,8 @@ library
                        Pos.Aeson.Fee
                        Pos.Aeson.Genesis
 
-                       Pos.Binary.Core
-                       Pos.Binary.Merkle
-
                        Pos.Core
+                       Pos.Core.Binary
                        Pos.Core.Chrono
                        Pos.Core.Limits
 
@@ -60,17 +58,7 @@ library
 
   other-modules:
                        -- Binary
-                       Pos.Binary.Core.Address
-                       Pos.Binary.Core.Block
-                       Pos.Binary.Core.Blockchain
-                       Pos.Binary.Core.Common
-                       Pos.Binary.Core.Delegation
-                       Pos.Binary.Core.Fee
-                       Pos.Binary.Core.Script
-                       Pos.Binary.Core.Slotting
-                       Pos.Binary.Core.Ssc
-                       Pos.Binary.Core.Txp
-                       Pos.Binary.Core.Update
+                       Pos.Core.Binary.Orphans
 
                        -- Block
                        Pos.Core.Block.Genesis.Lens
@@ -156,6 +144,7 @@ library
                        -- Txp
                        Pos.Core.Txp.Tx
                        Pos.Core.Txp.TxAux
+                       Pos.Core.Txp.TxMsg
                        Pos.Core.Txp.TxOutAux
                        Pos.Core.Txp.TxPayload
                        Pos.Core.Txp.TxProof
@@ -181,6 +170,7 @@ library
                      , ansi-terminal
                      , base
                      , base58-bytestring
+                     , bifunctors
                      , bytestring
                      , Cabal
                      , canonical-json
@@ -189,6 +179,7 @@ library
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cborg
+                     , cereal
                      , containers
                      , cryptonite
                      , data-default
@@ -207,6 +198,7 @@ library
                      , plutus-prototype
                      , random
                      , reflection
+                     , safecopy
                      , safe-exceptions
                      , serokell-util
                      , template-haskell
@@ -230,6 +222,7 @@ library
                        MultiParamTypeClasses
                        FunctionalDependencies
                        DefaultSignatures
+                       InstanceSigs
                        NoImplicitPrelude
                        OverloadedStrings
                        RankNTypes
@@ -264,19 +257,24 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.Bi
                        Test.Pos.Core.CborSpec
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.Gen
                        Test.Pos.Core.LimitsSpec
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
+                       Test.Pos.Core.EnumEmpTest
 
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
 
   build-depends:       base
+                     , base16-bytestring
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-core
@@ -285,9 +283,14 @@ test-suite test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cryptonite
+                     , deepseq
                      , formatting
                      , generic-arbitrary
+                     , hedgehog
                      , hspec
+                     , hedgehog
+                     , pvss
                      , QuickCheck
                      , quickcheck-instances
                      , random
@@ -296,10 +299,13 @@ test-suite test
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
 
-  ghc-options:         -threaded
+  ghc-options:
+                       -threaded
                        -rtsopts
                        -Wall
+
 
   -- linker speed up for linux
   if os(linux)

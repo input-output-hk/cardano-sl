@@ -19,8 +19,8 @@ import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
-                           GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
-                           gdFtsSeed, genesisData)
+                     GenesisDelegation (..), GenesisWStakeholders (..),
+                     addressHash, gdFtsSeed, genesisData)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
@@ -31,8 +31,8 @@ import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Txp (bootDustThreshold)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
-                                           lastKnownBlockVersion, ourSystemTag)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                     curSoftwareVersion, lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Worker (allWorkers)

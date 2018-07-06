@@ -6,11 +6,16 @@ import           Universum
 import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
+import           InputSelection.Evaluation (evalUsingGenData, evalUsingReplay)
+import           InputSelection.Evaluation.Options (Command (..), evalCommand,
+                     getEvalOptions)
+import           InputSelection.Evaluation.Replot (replot)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
 import           UTxO.Translate (runTranslateNoErrors, withConfig)
 
+import qualified Test.Spec.CoinSelection
 import qualified Test.Spec.Kernel
 import qualified Test.Spec.Models
 import qualified Test.Spec.Submission
@@ -24,8 +29,21 @@ import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 main :: IO ()
 main = do
---    _showContext
-    runTranslateNoErrors $ withConfig $ return $ hspec tests
+    mEvalOptions <- getEvalOptions
+    case mEvalOptions of
+      Nothing -> do
+        -- _showContext
+        runTranslateNoErrors $ withConfig $ return $ hspec tests
+      Just evalOptions ->
+        -- NOTE: The coin selection must be invoked with @eval@
+        -- Run @wallet-unit-tests eval --help@ for details.
+        case evalCommand evalOptions of
+          RunSimulation simOpts ->
+            evalUsingGenData evalOptions simOpts
+          Replay replayOpts ->
+            evalUsingReplay evalOptions replayOpts
+          Replot replotOpts ->
+            replot evalOptions replotOpts
 
 -- | Debugging: show the translation context
 _showContext :: IO ()
@@ -49,3 +67,4 @@ tests = describe "Wallet unit tests" $ do
     Test.Spec.WalletWorker.spec
     Test.Spec.Submission.spec
     txMetaStorageSpecs
+    Test.Spec.CoinSelection.spec

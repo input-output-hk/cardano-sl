@@ -68,7 +68,7 @@ import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, (%), build)
+import           Formatting (bprint, build, (%))
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core

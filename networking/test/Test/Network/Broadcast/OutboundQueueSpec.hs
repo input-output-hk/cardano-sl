@@ -20,8 +20,8 @@ import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
 import           System.Wlog
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, property,
-                                  suchThat, (===))
+import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty,
+                     property, suchThat, (===))
 import qualified Test.QuickCheck as QC
 
 arbitraryNodeType :: Gen NodeType

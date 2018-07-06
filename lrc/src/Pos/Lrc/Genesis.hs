@@ -8,8 +8,8 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (GenesisData (..), SharedSeed (..), SlotCount, SlotLeaders,
-                           genesisData, HasGenesisData)
+import           Pos.Core (GenesisData (..), HasGenesisData, SharedSeed (..),
+                     SlotCount, SlotLeaders, genesisData)
 import           Pos.Lrc.Fts (followTheSatoshi)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..), Utxo, utxoToStakes)

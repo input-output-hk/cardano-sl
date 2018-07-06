@@ -16,26 +16,29 @@ import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
-                           HasProtocolConstants, NumSoftwareVersion, ProtocolMagic,
-                           SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
-                           epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..),
+                     HasCoreConfiguration, HasProtocolConstants,
+                     NumSoftwareVersion, ProtocolMagic, SoftwareVersion (..),
+                     StakeholderId, addressHash, blockVersionL, epochIndexL,
+                     headerHashG, headerLeaderKeyL, headerSlotL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.Exception (reportFatalError)
-import           Pos.Infra.Reporting (MonadReporting)
-import           Pos.Infra.Slotting (MonadSlotsData, slottingVar)
-import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Sinbin.Reporting (MonadReporting)
+import           Pos.Sinbin.Slotting (MonadSlotsData, slottingVar)
+import           Pos.Sinbin.Slotting.Types (SlottingData)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
 import           Pos.Update.DB (UpdateOp (..))
-import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBPoll, MonadPoll,
-                                  PollModifier (..), PollT, PollVerFailure, ProposalState, USUndo,
-                                  canCreateBlockBV, execPollT, execRollT, getAdoptedBV,
-                                  processGenesisBlock, recordBlockIssuance, reportUnexpectedError,
-                                  rollbackUS, runDBPoll, runPollT, verifyAndApplyUSPayload)
+import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState,
+                     DBPoll, MonadPoll, PollModifier (..), PollT,
+                     PollVerFailure, ProposalState, USUndo, canCreateBlockBV,
+                     execPollT, execRollT, getAdoptedBV, processGenesisBlock,
+                     recordBlockIssuance, reportUnexpectedError, rollbackUS,
+                     runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
 

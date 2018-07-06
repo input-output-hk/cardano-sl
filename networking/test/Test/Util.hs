@@ -38,10 +38,12 @@ module Test.Util
 
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (forConcurrently, wait, withAsync)
-import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar, takeMVar)
+import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar,
+                     takeMVar)
 import           Control.Concurrent.STM (STM, atomically, check, registerDelay)
 import           Control.Concurrent.STM.TVar (TVar, readTVar)
-import           Control.Exception (Exception, SomeException (..), catch, finally, throwIO)
+import           Control.Exception (Exception, SomeException (..), catch,
+                     finally, throwIO)
 import           Control.Lens (makeLenses)
 import           Control.Monad (forM_, void)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -62,11 +64,13 @@ import           Test.QuickCheck (Property)
 import           Test.QuickCheck.Arbitrary (Arbitrary (..))
 import           Test.QuickCheck.Gen (choose)
 import           Test.QuickCheck.Modifiers (getLarge)
-import           Test.QuickCheck.Property (Testable (..), failed, reason, succeeded)
+import           Test.QuickCheck.Property (Testable (..), failed, reason,
+                     succeeded)
 
-import           Node (Conversation (..), ConversationActions (..), Listener (..), Message (..),
-                       NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay, node,
-                       nodeId, simpleNodeEndPoint)
+import           Node (Conversation (..), ConversationActions (..),
+                     Listener (..), Message (..), NodeAction (..),
+                     NodeEnvironment, NodeId, converseWith, noReceiveDelay,
+                     node, nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
 import           Pos.Util.Trace (wlogTrace)

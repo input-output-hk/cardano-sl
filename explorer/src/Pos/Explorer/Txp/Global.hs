@@ -8,22 +8,23 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (ComponentBlock (..), HasConfiguration, HeaderHash, SlotId (..),
-                           epochIndexL, headerHash, headerSlotL)
+import           Pos.Core (ComponentBlock (..), HasConfiguration, HeaderHash,
+                     SlotId (..), epochIndexL, headerHash, headerSlotL)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.Infra.Slotting (getSlotStart)
-import           Pos.Txp (ProcessBlundsSettings (..), TxpBlund, TxpGlobalApplyMode,
-                          TxpGlobalRollbackMode, TxpGlobalSettings (..), applyBlocksWith,
-                          blundToAuxNUndo, processBlunds, txpGlobalSettings)
+import           Pos.Txp (ProcessBlundsSettings (..), TxpBlund,
+                     TxpGlobalApplyMode, TxpGlobalRollbackMode,
+                     TxpGlobalSettings (..), applyBlocksWith, blundToAuxNUndo,
+                     processBlunds, txpGlobalSettings)
 import qualified Pos.Util.Modifier as MM
 
 import qualified Pos.Explorer.DB as GS
 import           Pos.Explorer.Txp.Common (buildExplorerExtraLookup)
 import           Pos.Explorer.Txp.Toil (EGlobalToilM, ExplorerExtraLookup (..),
-                                        ExplorerExtraModifier (..), eApplyToil, eRollbackToil)
+                     ExplorerExtraModifier (..), eApplyToil, eRollbackToil)
 
 -- | Settings used for global transactions data processing used by explorer.
 explorerTxpGlobalSettings :: HasConfiguration => ProtocolMagic -> TxpGlobalSettings

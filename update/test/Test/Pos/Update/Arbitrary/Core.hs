@@ -15,17 +15,14 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf,
-                                  listOf1, oneof)
+                     listOf1, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
-                                                    genericShrink)
+                     genericShrink)
 
-import           Pos.Arbitrary.Slotting ()
-import           Pos.Binary.Update ()
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..),
-                                  UpdateData (..), UpdatePayload (..),
-                                  UpdateProposal, UpdateProposalToSign (..),
-                                  UpdateVote (..), mkUpdateProposalWSign,
-                                  mkUpdateVote)
+                     UpdateData (..), UpdatePayload (..), UpdateProposal,
+                     UpdateProposalToSign (..), UpdateVote (..),
+                     mkUpdateProposalWSign, mkUpdateVote)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
@@ -33,6 +30,7 @@ import           Pos.Update.Poll.Types (VoteState (..))
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Infra.Arbitrary.Slotting ()
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

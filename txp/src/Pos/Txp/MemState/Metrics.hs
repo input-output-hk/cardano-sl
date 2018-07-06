@@ -14,7 +14,7 @@ import           System.Wlog (logDebug)
 
 import           Pos.Infra.StateLock (StateLockMetrics (..))
 import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
-                                                MemPoolModifyReason (..))
+                     MemPoolModifyReason (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))
 

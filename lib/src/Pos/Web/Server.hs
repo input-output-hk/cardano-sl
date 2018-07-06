@@ -26,22 +26,26 @@ import           Data.Default (Default, def)
 import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
 import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
 import           Data.X509.CertificateStore (readCertificateStore)
-import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
+import           Data.X509.Validation (ValidationChecks (..),
+                     ValidationHooks (..))
 import qualified Data.X509.Validation as X509
 import           Mockable (Production (runProduction))
-import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
+import           Network.TLS (CertificateRejectReason (..),
+                     CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost, runSettingsSocket,
-                                           setHost, setPort)
-import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket, tlsSettingsChain)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost,
+                     runSettingsSocket, setHost, setPort)
+import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket,
+                     tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
-                                 err503, hoistServer, serve)
+import           Servant.Server (Handler, HasServer, ServantErr (errBody),
+                     Server, ServerT, err404, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)
 import           Pos.Aeson.Txp ()
-import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
+import           Pos.Context (HasNodeContext (..), HasSscContext (..),
+                     NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
@@ -51,7 +55,8 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
-import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs, withTxpLocalData)
+import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs,
+                     withTxpLocalData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)

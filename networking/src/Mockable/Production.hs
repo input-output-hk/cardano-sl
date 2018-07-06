@@ -29,13 +29,14 @@ import           Control.Monad.Base (MonadBase (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Mockable.Channel (Channel (..), ChannelT)
 import           Mockable.Class (Mockable (..))
-import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..),
-                                      LowLevelAsync (..), MyThreadId (..), Promise,
-                                      RunInUnboundThread (..), ThreadId)
+import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..),
+                     Fork (..), LowLevelAsync (..), MyThreadId (..), Promise,
+                     RunInUnboundThread (..), ThreadId)
 import           Mockable.CurrentTime (CurrentTime (..), realTime)
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
-import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
+import           Mockable.SharedExclusive (SharedExclusive (..),
+                     SharedExclusiveT)
 
 newtype Production t = Production
     { runProduction :: IO t

@@ -12,46 +12,51 @@ import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
-import           System.Wlog (CanLog, HasLoggerName, logError, logInfo, logWarning)
+import           System.Wlog (CanLog, HasLoggerName, logError, logInfo,
+                     logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (AddrStakeDistribution (..), Address, HeavyDlgIndex (..),
-                           SoftwareVersion (..), StakeholderId, addressHash, mkMultiKeyDistr,
-                           unsafeGetCoin)
-import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
+import           Pos.Core (AddrStakeDistribution (..), Address,
+                     HeavyDlgIndex (..), SoftwareVersion (..), StakeholderId,
+                     addressHash, mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
+                     makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
-import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF,
-                             hashHexF, noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce,
-                             withSafeSigner)
+import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase,
+                     encToPublic, fullPublicKeyF, hashHexF, noPassEncrypt,
+                     safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update (BlockVersionModifier (..))
-import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
-                                      usWallet, userSecret)
+import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
+                     usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)
 
 import           Command.BlockGen (generateBlocks)
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
-import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
-                                       tyApplicationName, tyBlockVersion, tyBlockVersionModifier,
-                                       tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
-                                       tyEpochIndex, tyFilePath, tyHash, tyInt,
-                                       tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
-                                       tyTxOut, tyValue, tyWord, tyWord32)
+import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr,
+                     tyAddress, tyApplicationName, tyBlockVersion,
+                     tyBlockVersionModifier, tyBool, tyByte, tyCoin,
+                     tyCoinPortion, tyEither, tyEpochIndex, tyFilePath, tyHash,
+                     tyInt, tyProposeUpdateSystem, tyPublicKey,
+                     tyScriptVersion, tySecond, tySoftwareVersion,
+                     tyStakeholderId, tySystemTag, tyTxOut, tyValue, tyWord,
+                     tyWord32)
 import qualified Command.Update as Update
-import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
+import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome,
+                     typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
-import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
-                             ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), Value (..))
-import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx)
+import           Lang.Value (AddKeyParams (..), AddrDistrPart (..),
+                     GenBlocksParams (..), ProposeUpdateParams (..),
+                     ProposeUpdateSystem (..), RollbackParams (..), Value (..))
+import           Mode (MonadAuxxMode, deriveHDAddressAuxx,
+                     makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
 createCommandProcs ::

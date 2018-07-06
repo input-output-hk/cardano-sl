@@ -19,7 +19,8 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Functor.Identity (Identity (..))
 import           Data.Proxy (Proxy (..))
 import qualified Data.Text as T
-import           Node.Message.Class (Packing (..), PackingType (..), Serializable (..))
+import           Node.Message.Class (Packing (..), PackingType (..),
+                     Serializable (..))
 import           Node.Message.Decoder (Decoder (..), DecoderStep (..))
 
 data BinaryP

@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | Propagation of runtime configuration.
 
@@ -18,7 +18,8 @@ module Pos.Update.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON, withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON,
+                     withObject, (.:), (.:?))
 import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import           Distribution.System (buildArch, buildOS)
@@ -27,7 +28,8 @@ import           Serokell.Aeson.Options (defaultOptions)
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Update ()
-import           Pos.Core (ApplicationName, BlockVersion (..), SoftwareVersion (..))
+import           Pos.Core (ApplicationName, BlockVersion (..),
+                     SoftwareVersion (..))
 import           Pos.Core.Update (SystemTag (..), archHelper, osHelper)
 
 ----------------------------------------------------------------------------

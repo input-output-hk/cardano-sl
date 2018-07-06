@@ -7,7 +7,6 @@ module Test.Pos.Update.Identity.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
-import           Pos.SafeCopy ()
 import qualified Pos.Update as U
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)

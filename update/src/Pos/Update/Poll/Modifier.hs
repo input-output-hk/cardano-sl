@@ -18,14 +18,17 @@ module Pos.Update.Poll.Modifier
 import           Universum
 
 import           Control.Lens (makeLensesFor)
+import           Control.DeepSeq (NFData)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
-                                  NumSoftwareVersion, SoftwareVersion, UpId)
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState)
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     BlockVersionData, NumSoftwareVersion, SoftwareVersion,
+                     UpId)
+import           Pos.Sinbin.Slotting.Types (SlottingData)
+import           Pos.Update.Poll.Types (BlockVersionState,
+                     ConfirmedProposalState, ProposalState)
 import           Pos.Util.Modifier (MapModifier)
 
 -- | PollModifier is used in verification. It represents operation which
@@ -77,7 +80,10 @@ modifyPollModifier pmOld pmNew = PollModifier
 
 
 instance Semigroup PollModifier where
+    (<>) = modifyPollModifier
 
 instance Monoid PollModifier where
     mempty = def
-    mappend = modifyPollModifier
+    mappend = (<>)
+
+instance NFData PollModifier

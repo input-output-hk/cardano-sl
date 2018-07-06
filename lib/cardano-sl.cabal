@@ -52,9 +52,6 @@ library
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
-                        -- SafeCopy serialization (required in wallet)
-                        Pos.SafeCopy
-
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message
@@ -223,8 +220,8 @@ library
     build-depends:      unix
 
   if !os(windows) && !os(freebsd)
-    -- See: https://github.com/input-output-hk/stack2nix/issues/56
-    build-depends:      systemd
+     -- See: https://github.com/input-output-hk/stack2nix/issues/56
+     build-depends:      systemd
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -265,9 +262,6 @@ test-suite cardano-test
                        -- Standard module with some magic
                        Spec
 
-                       -- Pos.Block testing
-                       Test.Pos.Block.Identity.SafeCopySpec
-
                        Test.Pos.Slotting.TypesSpec
 
                        -- Ssc
@@ -283,9 +277,9 @@ test-suite cardano-test
                        Test.Pos.ConstantsSpec
                        Test.Pos.Diffusion.BlockSpec
                        Test.Pos.Genesis.CanonicalSpec
+                       Test.Pos.Launcher.ConfigurationSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Infra.Slotting.TypesSpec
-                       Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec
                        Test.Pos.Update.Identity.SafeCopySpec
@@ -310,6 +304,7 @@ test-suite cardano-test
                      , cardano-sl-delegation
                      , cardano-sl-delegation-test
                      , cardano-sl-infra
+                     , cardano-sl-infra-test
                      , cardano-sl-lrc
                      , cardano-sl-lrc-test
                      , cardano-sl-networking
@@ -332,6 +327,7 @@ test-suite cardano-test
                      , generic-arbitrary
                      , hspec
                      , lens
+                     , log-warper
                      , mtl
                      , network-transport
                      , network-transport-inmemory
@@ -345,6 +341,7 @@ test-suite cardano-test
                      , tagged
                      , text
                      , text-format
+                     , time
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

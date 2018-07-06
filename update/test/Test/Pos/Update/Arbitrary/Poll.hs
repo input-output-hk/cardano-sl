@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE NoImplicitPrelude    #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -13,22 +13,21 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Arbitrary.Slotting ()
-import           Pos.Binary.Core ()
-import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
-import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
-                                        DecidedProposalState (..), DpsExtra (..), PrevValue,
-                                        ProposalState (..), USUndo, UndecidedProposalState (..),
-                                        UpsExtra (..))
+import           Pos.Update.Poll.Types (BlockVersionState (..),
+                     ConfirmedProposalState (..), DecidedProposalState (..),
+                     DpsExtra (..), PrevValue, ProposalState (..), USUndo,
+                     UndecidedProposalState (..), UpsExtra (..))
 
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Util.Modifier ()
+import           Test.Pos.Infra.Arbitrary.Slotting ()
 import           Test.Pos.Update.Arbitrary.Core ()
+import           Test.Pos.Util.Modifier ()
 
 instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary

@@ -20,7 +20,8 @@ module Pos.Crypto.HD
        , isHardened
        ) where
 
-import           Cardano.Crypto.Wallet (DerivationScheme (..), deriveXPrv, deriveXPub, unXPub)
+import           Cardano.Crypto.Wallet (DerivationScheme (..), deriveXPrv,
+                     deriveXPub, unXPub)
 import qualified Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash (SHA512 (..))
@@ -29,12 +30,13 @@ import qualified Crypto.MAC.Poly1305 as Poly
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.ByteArray as BA (convert)
 import           Data.ByteString.Char8 as B
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), decodeFull', serialize')
-import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
-                                           checkPassMatches)
+import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase,
+                     PublicKey (..), checkPassMatches)
 
 -- | Passphrase is a hash of root public key.
 data HDPassphrase = HDPassphrase !ByteString
@@ -64,6 +66,8 @@ instance ToJSON HDAddressPayload where
 instance Bi HDAddressPayload where
     encode (HDAddressPayload payload) = encode payload
     decode = HDAddressPayload <$> decode
+
+deriveSafeCopySimple 0 'base ''HDAddressPayload
 
 -- | Compute passphrase as hash of the root public key.
 deriveHDPassphrase :: PublicKey -> HDPassphrase

@@ -7,8 +7,8 @@ module Main
 import           Universum
 
 import           Data.Version (showVersion)
-import           Options.Applicative (execParser, footer, fullDesc, header, help, helper, info,
-                                      infoOption, long, progDesc)
+import           Options.Applicative (execParser, footer, fullDesc, header,
+                     help, helper, info, infoOption, long, progDesc)
 
 import qualified Paths_cardano_sl_explorer as CSLE
 import           Pos.Explorer.Web.TestServer (runMockServer)

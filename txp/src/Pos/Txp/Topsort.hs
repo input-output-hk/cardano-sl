@@ -12,7 +12,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (nub, tail, uncons)
 
-import           Pos.Binary.Core ()
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), txInputs)
 import           Pos.Crypto (Hash, WithHash (..), withHash)
 
@@ -46,8 +45,8 @@ topsortTxs toTx input =
     txHashes :: HashMap (Hash Tx) a
     txHashes = HM.fromList $ map (over _1 (whHash . toTx) . dup) input
     txByInput :: TxIn -> Maybe a
-    txByInput TxInUtxo{..} = HM.lookup txInHash txHashes
-    txByInput _            = Nothing
+    txByInput (TxInUtxo txInHash _) = HM.lookup txInHash txHashes
+    txByInput _                     = Nothing
 
     initState = TopsortState HS.empty input [] False
     -- Searches next unprocessed vertix and calls dfs2 for it. Wipes

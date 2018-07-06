@@ -22,7 +22,7 @@ import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                                         buildSafe, secure, unsecure)
+                     buildSafe, secure, unsecure)
 import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 import           Servant
 import           Servant.Client

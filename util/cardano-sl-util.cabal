@@ -41,6 +41,7 @@ library
                        Pos.Util.Util
 
   other-modules:
+                       Pos.Util.CompileInfoGit
 
   build-depends:       aeson
                      , base
@@ -56,6 +57,7 @@ library
                      , directory
                      , ether
                      , exceptions
+                     , file-embed
                      , filepath
                      , formatting
                      , hashable

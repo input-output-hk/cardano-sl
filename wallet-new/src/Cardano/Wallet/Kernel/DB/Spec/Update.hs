@@ -4,6 +4,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
   NewPendingFailed(..)
     -- * Updates
   , newPending
+  , cancelPending
   , applyBlock
   , switchToFork
   ) where
@@ -12,12 +13,13 @@ import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopy)
 
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 
+import           Control.Lens (each)
 import qualified Pos.Core as Core
-import           Pos.Core.Chrono (OldestFirst(..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (hash)
 import           Pos.Txp (Utxo)
 
@@ -82,6 +84,16 @@ newPending tx = do
         inputUnavailableErr available_ = do
             let unavailableInputs = txAuxInputSet tx' `Set.difference` utxoInputs available_
             throwError $ NewPendingInputsUnavailable (Set.map InDb unavailableInputs)
+
+-- | Cancel the input set of cancelled transactions from @all@ the 'Checkpoints'
+-- of an 'Account'.
+cancelPending :: Set Core.TxId -> Checkpoints -> Checkpoints
+cancelPending txids checkpoints =
+    checkpoints & over each
+                (\ckpoint ->
+                    ckpoint & over checkpointPending
+                            (removePending txids)
+                )
 
 -- | Apply the prefiltered block to the specified wallet
 applyBlock :: (PrefilteredBlock, BlockMeta)

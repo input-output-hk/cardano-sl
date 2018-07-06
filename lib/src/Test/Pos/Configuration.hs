@@ -24,18 +24,23 @@ import           Universum
 
 import qualified Data.Aeson as J
 
-import           Pos.Block.Configuration (HasBlockConfiguration, withBlockConfiguration)
+import           Pos.Block.Configuration (HasBlockConfiguration,
+                     withBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
-import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..))
+import           Pos.Core.Configuration (CoreConfiguration (..),
+                     GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
-import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
+import           Pos.Launcher.Configuration (Configuration (..),
+                     HasConfigurations)
+import           Pos.Ssc.Configuration (HasSscConfiguration,
+                     withSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                     withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)
 
 -- | This configuration is embedded into binary and is used by default

@@ -12,9 +12,9 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex, HeavyDlgIndex (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), createPsk)
 import           Pos.Delegation.Types (DlgPayload (..), DlgUndo (..))

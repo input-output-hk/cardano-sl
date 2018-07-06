@@ -26,8 +26,8 @@ import           Universum
 import           Control.Lens (Getter, makeLenses, to)
 import           Data.Aeson (ToJSON (..))
 
-import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet (..),
-                                              WalletAddress, WalletId (..))
+import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword,
+                     Transaction, Wallet (..), WalletAddress, WalletId (..))
 
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
 -- but it's better to see how the client fits in the end.
@@ -81,17 +81,17 @@ type ActionProbabilities = NonEmpty (Action, Weight)
 -- We require this so we can check for the invariants and
 -- keep track of some interesting information.
 data WalletState = WalletState
-    { _lastAction       :: Action
-    , _wallets          :: [Wallet]
-    , _walletsPass      :: Map WalletId SpendingPassword
-    , _accounts         :: [Account]
-    , _addresses        :: [WalletAddress]
-    , _transactions     :: [(Account, Transaction)]
+    { _lastAction     :: Action
+    , _wallets        :: [Wallet]
+    , _walletsPass    :: Map WalletId SpendingPassword
+    , _accounts       :: [Account]
+    , _addresses      :: [WalletAddress]
+    , _transactions   :: [(Account, Transaction)]
     -- ^ A tuple since for now we can't get @Wallet@ or
     -- @Account@ with a @Transaction@.
-    , _actionsNum       :: Int
+    , _actionsNum     :: Int
     -- ^ The count of actions that have been performed thus far.
-    , _successActions   :: [Action]
+    , _successActions :: [Action]
     -- ^ Successful actions successful tests that have run so far.
     } deriving (Show, Eq, Generic)
 

@@ -6,16 +6,15 @@
 -- Currently only the batched block requests are wired up. The streaming
 -- definition is not yet available.
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE BangPatterns #-}
 
 module Bench.Pos.Diffusion.BlockDownload where
 
 import           Universum
 
-import           Control.Concurrent.STM (readTBQueue)
-import           Control.DeepSeq (NFData, force)
+import           Control.DeepSeq (force)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Criterion
 import qualified Criterion.Main as Criterion
@@ -35,26 +34,27 @@ import qualified Node
 import           Pipes (each)
 
 import           Pos.Binary (serialize, serialize')
-import           Pos.Core (BlockVersion (..), Block, HeaderHash, BlockHeader)
+import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash)
 import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
+import           Pos.DB.Class (Serialized (..), SerializedBlock)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
-                                     FullDiffusionInternals (..),
-                                     RunFullDiffusionInternals (..),
-                                     diffusionLayerFullExposeInternals)
-import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
+                     FullDiffusionInternals (..),
+                     RunFullDiffusionInternals (..),
+                     diffusionLayerFullExposeInternals)
+import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion
+                     (bracketTransportTCP)
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Logic.Types as Logic (Logic (..))
 import           Pos.Logic.Pure (pureLogic)
+import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (wlogTrace, noTrace)
+import           Pos.Util.Trace (noTrace, wlogTrace)
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
@@ -238,17 +238,12 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches =  d
 blockDownloadStream :: NodeId -> (Int -> IO ()) -> Diffusion IO -> (HeaderHash, [HeaderHash]) -> Int -> IO ()
 blockDownloadStream serverAddress setStreamIORef client ~(blockHeader, checkpoints) batches = do
     setStreamIORef numBlocks
-    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (loop (0::Word32) [])
+    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints writeCallback
     return ()
   where
     numBlocks = batches * 2200
 
-    loop n _ (streamWindow, wqgM, blockChan) = do
-        streamEntry <- atomically $ readTBQueue blockChan
-        case streamEntry of
-          StreamEnd         -> return ()
-          StreamBlock !_ -> do
-              loop n [] (streamWindow, wqgM, blockChan)
+    writeCallback !_ = return ()
 
 blockDownloadBenchmarks :: NodeId -> (Int -> IO ()) -> Diffusion IO -> [Criterion.Benchmark]
 blockDownloadBenchmarks serverAddress setStreamIORef client =
@@ -286,14 +281,6 @@ blockDownloadStreamBenchmarks serverAddress setStreamIORef client =
 runBlockDownloadBenchmark :: Criterion.Mode -> NodeId -> (Int -> IO ()) -> Diffusion IO -> IO ()
 runBlockDownloadBenchmark mode serverAddress setStreamIORef client =
     Criterion.runMode mode $ blockDownloadBenchmarks serverAddress setStreamIORef client
-
--- It's surprisingly cumbersome to give a non-orphan 'NFData' instance on
--- 'BlockHeader', since we have that 'Blockchain' typeclass with a bunch of
--- data families. 'BHeaderHash GenesisBlockchain', for instance, must have
--- an 'NFData' instance, but in that module we don't yet know that this is
--- in fact 'HeaderHash' ~ 'Crypto.Digest Blake2b_256'.
--- Anyway, there's a whole saga of pain caused by that silly abstraction.
-instance NFData BlockHeader
 
 runBenchmark :: IO ()
 runBenchmark = do

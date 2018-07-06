@@ -109,7 +109,7 @@ in pkgs.writeScript "demo-cluster" ''
 
   done
   ${ifWallet ''
-    export LC_ALL=C.UTF-8
+    ${utf8LocaleSetting}
     echo Launching wallet node: ${demoWallet}
     ${demoWallet} --runtime-args "--system-start $system_start" &> /dev/null &
     wallet_pid=$!

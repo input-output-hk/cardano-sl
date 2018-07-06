@@ -21,10 +21,10 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
--- Bi BlockHeader
-import           Pos.Binary.Core ()
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
+import           Pos.Core (HasConfiguration, HasDifficulty (..),
+                     HasHeaderHash (..))
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Delegation.Types (DlgUndo)
@@ -71,3 +71,13 @@ data RecoveryHeaderTag
 type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)
 type MonadRecoveryHeader ctx m
      = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx RecoveryHeader)
+
+-- TH derived instances at the end of the file.
+
+deriveSimpleBi ''Undo [
+    Cons 'Undo [
+        Field [| undoTx    :: TxpUndo  |],
+        Field [| undoDlg   :: DlgUndo  |],
+        Field [| undoUS    :: USUndo   |],
+        Field [| undoSlog  :: SlogUndo |]
+    ]]

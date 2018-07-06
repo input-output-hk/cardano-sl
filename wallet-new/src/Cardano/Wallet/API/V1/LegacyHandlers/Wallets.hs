@@ -27,7 +27,8 @@ import           Pos.Update.Configuration ()
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.Error.Types as V0
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic,
+                     MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 
@@ -86,7 +87,7 @@ newWallet NewWallet{..} = do
     initMeta <- V0.CWalletMeta <$> pure newwalName
                               <*> migrate newwalAssuranceLevel
                               <*> pure 0
-    let walletInit = V0.CWalletInit initMeta backupPhrase
+    let walletInit = V0.CWalletInit initMeta (V0.CBackupPhrase backupPhrase)
     single <$> do
         v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
                         `catch` rethrowDuplicateMnemonic

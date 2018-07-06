@@ -52,25 +52,28 @@ import           Universum
 import           Control.Exception.Safe (try)
 import           Control.Lens (from)
 import           Data.Reflection (Reifies (..))
-import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get, JSON, Post, Put,
-                              QueryParam, ReqBody, Summary, Verb)
+import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get,
+                     JSON, Post, Put, QueryParam, ReqBody, Summary, Verb)
 import           Servant.API.ContentTypes (NoContent, OctetStream)
 import           Servant.Generic ((:-), AsApi, ToServant)
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (Coin, SoftwareVersion)
-import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam, CReqBody,
-                                   DCQueryParam, DReqBody, LoggingApi, ModifiesApiRes (..),
-                                   ReportDecodeError (..), VerbMod, serverHandlerL')
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
-                                             CAddress, CCoin, CFilePath, CId, CInitialized,
-                                             CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
-                                             CTxId, CUpdateInfo, CWallet, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, ClientInfo, NewBatchPayment,
-                                             ScrollLimit, ScrollOffset, SyncProgress, Wal)
-import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
-import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
+import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam,
+                     CReqBody, DCQueryParam, DReqBody, LoggingApi,
+                     ModifiesApiRes (..), ReportDecodeError (..), VerbMod,
+                     serverHandlerL')
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId,
+                     CAccountInit, CAccountMeta, CAddress, CCoin, CFilePath,
+                     CId, CInitialized, CPaperVendWalletRedeem, CPassPhrase,
+                     CProfile, CTx, CTxId, CUpdateInfo, CWallet, CWalletInit,
+                     CWalletMeta, CWalletRedeem, ClientInfo, NewBatchPayment,
+                     ScrollLimit, ScrollOffset, SyncProgress, Wal)
+import           Pos.Wallet.Web.Error (WalletError (DecodeError),
+                     catchEndpointErrors)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary,
+                     WalletStateSnapshot)
 
 -- | API result modification mode used here.
 data WalletVerbTag

@@ -40,7 +40,6 @@ library
     Pos.Txp.Logic.Local
 
     Pos.Txp.Network
-    Pos.Txp.Network.Types
     Pos.Txp.Network.Listeners
 
     Pos.Txp.MemState
@@ -61,9 +60,6 @@ library
 
     Pos.Aeson.Txp
 
-    Pos.Binary.Txp
-    Pos.Binary.Txp.Network
-
   build-depends:       aeson
                      , base
                      , bytestring
@@ -75,6 +71,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-networking
+                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , conduit
@@ -147,8 +144,7 @@ test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Test.hs
-  other-modules:       Test.Pos.Txp.Arbitrary
-                       Test.Pos.Txp.CoreSpec
+  other-modules:       Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Toil.UtxoSpec
   build-depends:       base
                      , cardano-sl-binary

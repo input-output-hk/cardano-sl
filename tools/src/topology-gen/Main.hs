@@ -1,6 +1,6 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections       #-}
 module Main where
 
 import           Control.Monad.State.Strict
@@ -10,13 +10,13 @@ import           Data.Graph.Inductive.PatriciaTree
 import           Data.Graph.Inductive.Query.BFS
 import           Data.GraphViz
 import           Data.GraphViz.Attributes.Complete
-import           Data.Monoid
 import           Data.List
+import           Data.Monoid
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
-import qualified Text.PrettyPrint as PP
-import           Text.PrettyPrint (($$), (<+>))
 import           System.FilePath ((<.>))
+import           Text.PrettyPrint (($$), (<+>))
+import qualified Text.PrettyPrint as PP
 
 {- | There are two graph structures used here, one that contains the
    "active" set of nodes/edges (along with the alternatives); the
@@ -69,7 +69,7 @@ layoutA =
       insRoutes a'r1 [[a'c1, a'c3], [a'c2, a'c3], [a'r2, a'r3], [b'r1, b'r2]]
       insRoutes a'r2 [[a'c1, a'c2], [a'c3, a'c2], [a'r3, a'r1], [c'r1, c'r2]]
       insRoutes a'r3 [[a'c2, a'c1], [a'c3, a'c1], [a'r1, a'r2]]
-      
+
       insRoutes b'c1 [[b'c2, b'r2], [b'r1, b'r2], [c'c1, c'c2]]
       insRoutes b'c2 [[b'c1, b'r1], [b'r2, b'r1], [a'c2, a'c2]]
       insRoutes b'r1 [[b'c1, b'c2], [b'r2, a'r2], [a'r1, a'r3]]

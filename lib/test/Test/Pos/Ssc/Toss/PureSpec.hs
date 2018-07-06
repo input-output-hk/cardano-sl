@@ -10,12 +10,15 @@ import qualified Crypto.Random as Rand
 import           Data.Default (def)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf, suchThat, (===))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf,
+                     suchThat, (===))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap, Opening, SignedCommitment,
-                           StakeholderId, VssCertificate (..), addressHash)
+import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap,
+                     Opening, SignedCommitment, StakeholderId,
+                     VssCertificate (..), addressHash)
 import qualified Pos.Ssc.Toss.Class as Toss
 import qualified Pos.Ssc.Toss.Pure as Toss
 import qualified Pos.Ssc.Types as Toss

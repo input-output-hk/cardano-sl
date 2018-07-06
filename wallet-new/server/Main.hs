@@ -17,32 +17,38 @@ import           Pos.Core (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
-import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
-                               bracketNodeResources, loggerBracket, lpDefaultName, runNode,
-                               withConfigurations)
-import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions, HasConfigurations)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration,
+                     ntpClientSettings)
+import           Pos.Launcher (NodeParams (..), NodeResources (..),
+                     bpLoggingParams, bracketNodeResources, loggerBracket,
+                     lpDefaultName, runNode, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..),
+                     ConfigurationOptions, HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                                 runWRealMode)
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
+                     getWalletAddresses, runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot,
+                     flushWalletStorage)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
-import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
+import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage,
+                     usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
-import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
-                                            WalletBackendParams (..), WalletStartupOptions (..),
-                                            getWalletNodeOptions, walletDbPath, walletFlushDb,
-                                            walletRebuildDb)
+import           Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
+                     NewWalletBackendParams (..), WalletBackendParams (..),
+                     WalletStartupOptions (..), getWalletNodeOptions,
+                     walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer,
+                     bracketKernelPassiveWallet)
 
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
@@ -120,25 +126,29 @@ actionWithNewWallet pm sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelPassiveWallet logMessage' $ \wallet -> do
+      bracketKernelPassiveWallet logMessage' $ \walletLayer passiveWallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
-        Kernel.Mode.runWalletMode pm nr wallet (mainAction wallet nr)
+        Kernel.Mode.runWalletMode pm
+                                  nr
+                                  walletLayer
+                                  (mainAction (walletLayer, passiveWallet) nr)
   where
     mainAction
-        :: PassiveWalletLayer Production
+        :: (PassiveWalletLayer Production, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
-        :: PassiveWalletLayer Production
+        :: (PassiveWalletLayer Production, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     runNodeWithInit w nr = runNode pm nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: PassiveWalletLayer Production -> Plugins.Plugin Kernel.Mode.WalletMode
+    plugins :: (PassiveWalletLayer Production, PassiveWallet)
+            -> Plugins.Plugin Kernel.Mode.WalletMode
     plugins w = mconcat [ Plugins.walletBackend params w ]
 
     -- Extract the logger name from node parameters
@@ -189,7 +199,7 @@ startEdgeNode wso =
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     cfg <- getWalletNodeOptions
     putText "Wallet is starting..."
     let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)

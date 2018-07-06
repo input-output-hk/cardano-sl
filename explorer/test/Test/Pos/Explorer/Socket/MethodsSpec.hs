@@ -15,24 +15,26 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
 
-import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
+import           Test.Hspec (Spec, anyException, describe, it, shouldBe,
+                     shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
 import           Test.QuickCheck (Property, arbitrary, forAll)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket(..),
-                                             csAddressSubscribers, csBlocksPageSubscribers,
-                                             csEpochsLastPageSubscribers, csTxsSubscribers,
-                                             csClients, mkClientContext, mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (ConnectionsState,
+                     ExplorerSocket (..), csAddressSubscribers,
+                     csBlocksPageSubscribers, csClients,
+                     csEpochsLastPageSubscribers, csTxsSubscribers,
+                     mkClientContext, mkConnectionsState)
 import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
-                                              blockPageSubParam, fromCAddressOrThrow,
-                                              spSessId, subscribeAddr, subscribeBlocksLastPage,
-                                              subscribeEpochsLastPage, subscribeTxs,
-                                              txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
-                                              unsubscribeEpochsLastPage, unsubscribeFully,
-                                              unsubscribeTxs)
+                     blockPageSubParam, fromCAddressOrThrow, spSessId,
+                     subscribeAddr, subscribeBlocksLastPage,
+                     subscribeEpochsLastPage, subscribeTxs, txsSubParam,
+                     unsubscribeAddr, unsubscribeBlocksLastPage,
+                     unsubscribeEpochsLastPage, unsubscribeFully,
+                     unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 

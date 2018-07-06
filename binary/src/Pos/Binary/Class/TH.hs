@@ -22,63 +22,6 @@ import           TH.Utilities (plainInstanceD)
 
 import qualified Pos.Binary.Class.Core as Bi
 
-{-
-TH helpers for Bi.
-
-Suppose you have the following datatype:
-
-data User
-    = Login {
-      login :: String
-    , age   :: Int
-    }
-    | FullName {
-      firstName  :: String
-    , lastName   :: String
-    , sex        :: Bool
-    }
-
-then the following deriveSimpleBi:
-
-deriveSimpleBi ''User [
-    Cons 'Login [
-        Field [| login :: String |],
-        Field [| age   :: Int    |],
-    ],
-    Cons 'FullName [
-        Field [| firstName :: String |],
-        Field [| lastName  :: String |],
-        Field [| sex       :: Bool   |]
-    ]]
-
-will generate:
-
-instance Bi User where
-    encode = \x -> case x of
-        val@Login{} -> encodeListLen 3 <> encode (0 :: Word8)
-                                       <> encode (login val)
-                                       <> encode (age val)
-        val@FullName{} -> encodeListLen 3 <> encode (1 :: Word8)
-                                          <> encode (firstName val)
-                                          <> encode (sex val)
-    decode = do
-        expectedLen <- decodeListLenCanonical
-        tag <- decode @Word8
-        case tag of
-            0 -> do
-                matchSize 3 "Login" expectedLen
-                login <- decode
-                age <- decode
-                pure $ Login {..}
-            1 -> do
-                matchSize 3 "FullName" expectedLen
-                firstName <- decode
-                lastName  <- decode
-                sex       <- decode
-                pure $ FullName {..}
-            _ -> cborError "Found invalid tag while getting User"
--}
-
 -- HLint complains about duplication between deriveIndexedBiInternal and
 -- deriveSimpleBiInternal. I (Michael Hueschen) am unable to get a function
 -- specific HLint ignore to work, so am ignoring global to the module.
@@ -137,6 +80,63 @@ checkTruncateInteger i =
 --------------------------------------------------------------------------------
 -- Indexed derivations
 --------------------------------------------------------------------------------
+
+-- The `deriveIndexedBi` TH functions are designed for types without named field
+-- accessors. This could be structs (single constructor types) which lack named
+-- fields, but is more useful for sum-types because field accessors there are
+-- often partial functions. We are aiming to reduce or eliminate partial
+-- functions from the codebase, thus, we no longer allow sum-types in
+-- `deriveSimpleBi` and require that they are fed to `deriveIndexedBi` instead.
+
+{-
+The following datatype & derivation:
+
+data User
+    = Login String Int
+    | FullName String String Bool
+
+deriveIndexedBi ''User [
+    Cons 'Login [
+        Field [| 0 :: String |],
+        Field [| 1 :: Int    |]
+    ],
+    Cons 'FullName [
+        Field [| 0 :: String |],
+        Field [| 1 :: String |],
+        Field [| 2 :: Bool   |]
+    ]]
+
+will generate:
+
+instance Bi User where
+    encode = \x -> case x of
+        Login field_0 field_1 ->
+            encodeListLen 3 <> encode (0 :: Word8)
+                            <> encode field_0
+                            <> encode field_1
+        FullName field_0 field_1 field_2 ->
+            encodeListLen 3 <> encode (1 :: Word8)
+                            <> encode field_0
+                            <> encode field_1
+                            <> encode field_2
+    decode = do
+        expectedLen <- decodeListLenCanonical
+        tag <- decode @Word8
+        case tag of
+            0 -> do
+                matchSize 3 "Login" expectedLen
+                field_0 <- decode
+                field_1 <- decode
+                pure $ Login field_0 field_1
+            1 -> do
+                matchSize 4 "FullName" expectedLen
+                field_0 <- decode
+                field_1 <- decode
+                field_2 <- decode
+                pure $ FullName field_0 field_1 field_2
+            _ -> cborError "Found invalid tag while getting User"
+-}
+
 deriveIndexedBi :: Name -> [Cons] -> Q [Dec]
 deriveIndexedBi = deriveIndexedBiInternal Nothing
 
@@ -327,6 +327,61 @@ applyMultiArg f (x:xs) = applyMultiArg (appE f x) xs
 -- End Indexed
 --------------------------------------------------------------------------------
 
+{-
+Suppose you have the following datatype:
+
+data User
+    = Login {
+      login :: String
+    , age   :: Int
+    }
+    | FullName {
+      firstName  :: String
+    , lastName   :: String
+    , sex        :: Bool
+    }
+
+then the following deriveSimpleBi:
+
+deriveSimpleBi ''User [
+    Cons 'Login [
+        Field [| login :: String |],
+        Field [| age   :: Int    |]
+    ],
+    Cons 'FullName [
+        Field [| firstName :: String |],
+        Field [| lastName  :: String |],
+        Field [| sex       :: Bool   |]
+    ]]
+
+will generate:
+
+instance Bi User where
+    encode = \x -> case x of
+        val@Login{} -> encodeListLen 3 <> encode (0 :: Word8)
+                                       <> encode (login val)
+                                       <> encode (age val)
+        val@FullName{} -> encodeListLen 3 <> encode (1 :: Word8)
+                                          <> encode (firstName val)
+                                          <> encode (lastName val)
+                                          <> encode (sex val)
+    decode = do
+        expectedLen <- decodeListLenCanonical
+        tag <- decode @Word8
+        case tag of
+            0 -> do
+                matchSize 3 "Login" expectedLen
+                login <- decode
+                age <- decode
+                pure $ Login {..}
+            1 -> do
+                matchSize 4 "FullName" expectedLen
+                firstName <- decode
+                lastName  <- decode
+                sex       <- decode
+                pure $ FullName {..}
+            _ -> cborError "Found invalid tag while getting User"
+-}
 
 -- Some part of code copied from
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
@@ -368,6 +423,13 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                 when (length realFields /= length dcFields) $ templateHaskellError $
                     sformat ("Some field of "%shown
                     %" constructor doesn't have an explicit name") cName
+                when (length constrs > 1 && not (null realFields)) $
+                    templateHaskellError $
+                        sformat ("`deriveSimpleBi` no longer supports sum types \
+                                 \with named fields.\n\nConstructor "%shown%" \
+                                 \has named fields: "%shown%".\n\nPlease use \
+                                 \`deriveIndexedBi` instead.")
+                        cName (map fst realFields)
                 cResolvedFields <- mapM fieldToPair cFields
                 let fieldCheck = checkAllFields cResolvedFields realFields
                 case fieldCheck of

@@ -20,10 +20,10 @@ import           Servant.Generic ((:-), AsApi, ToServant)
 import           Servant.Server (ServantErr (..))
 
 import           Pos.Core (EpochIndex)
-import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressSummary,
-                                               CAddressesFilter, CBlockEntry, CBlockSummary,
-                                               CGenesisAddressInfo, CGenesisSummary, CHash,
-                                               CTxBrief, CTxEntry, CTxId, CTxSummary)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress,
+                     CAddressSummary, CAddressesFilter, CBlockEntry,
+                     CBlockSummary, CGenesisAddressInfo, CGenesisSummary,
+                     CHash, CTxBrief, CTxEntry, CTxId, CTxSummary)
 import           Pos.Explorer.Web.Error (ExplorerError)
 import           Pos.Util.Servant (DQueryParam, ModifiesApiRes (..), VerbMod)
 

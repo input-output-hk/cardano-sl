@@ -17,11 +17,6 @@ library
   exposed-modules:
                        Pos.Update
 
-                       -- Binary
-                       Pos.Binary.Update
-                       Pos.Binary.Update.Relay
-                       Pos.Binary.Update.Poll
-
                        -- Aeson
                        Pos.Aeson.Update
 
@@ -86,10 +81,12 @@ library
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-networking
+                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , containers
                      , data-default
+                     , deepseq
                      , directory
                      , ether >= 0.5
                      , exceptions

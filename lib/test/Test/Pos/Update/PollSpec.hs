@@ -10,12 +10,14 @@ import           Control.Lens (at)
 import qualified Data.HashSet as HS
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat,
-                                  (===))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin,
+                     forAll, listOf, suchThat, (===))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
-                           HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
+import           Pos.Core (ApplicationName, BlockVersion (..),
+                     BlockVersionData (..), HasConfiguration,
+                     SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Core.Update (UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.Infra.Slotting.Types (SlottingData)

@@ -30,8 +30,9 @@ import           System.Wlog (logError, logNotice, usingLoggerName)
 import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Wallet.Aeson ()
 import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
-import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (ConnectionClosed, ConnectionOpened),
-                                               WSConnection)
+import           Pos.Wallet.Web.Sockets.Types
+                     (NotifyEvent (ConnectionClosed, ConnectionOpened),
+                     WSConnection)
 
 
 initWSConnections :: MonadIO m => m CS.ConnectionsVar

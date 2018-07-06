@@ -47,8 +47,9 @@ import qualified Data.Set as S
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (HeaderHash, HasCoreConfiguration)
-import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType, iterKeyPrefix)
+import           Pos.Core (HasCoreConfiguration, HeaderHash)
+import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType,
+                     iterKeyPrefix)
 import           Pos.DB.Functions (processIterEntry)
 import           Pos.Util.Util (HasLens (..))
 

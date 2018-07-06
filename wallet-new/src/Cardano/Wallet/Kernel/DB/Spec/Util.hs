@@ -18,14 +18,15 @@ module Cardano.Wallet.Kernel.DB.Spec.Util (
 
 import           Universum
 
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import qualified Data.List.NonEmpty as NE
 
 import qualified Pos.Core as Core
 
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                     TxOutAux (..))
 import           Pos.Txp (Utxo)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
 
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.Types (txUtxo)

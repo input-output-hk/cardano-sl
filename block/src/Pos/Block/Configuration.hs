@@ -27,9 +27,11 @@ module Pos.Block.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
 import           Data.Reflection (Given (..), give)
-import           Data.Time.Units (Microsecond, Second, convertUnit, fromMicroseconds)
+import           Data.Time.Units (Microsecond, Second, convertUnit,
+                     fromMicroseconds)
 import           Serokell.Aeson.Options (defaultOptions)
 
 import           Pos.Aeson.Core ()

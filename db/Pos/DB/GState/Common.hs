@@ -32,12 +32,12 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core ()
 import           Pos.Core (ChainDifficulty, HeaderHash)
 import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
-import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete), MonadDBRead (..))
+import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete),
+                     MonadDBRead (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Functions (dbGetBi, dbPutBi, dbSerializeValue)
 import           Pos.Util.Util (maybeThrow)

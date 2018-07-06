@@ -23,7 +23,8 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson)
 
-import           Util
+import           Cardano.Wallet.Kernel.Util (disjoint)
+
 import           Util.Validated
 import           UTxO.DSL
 import           Wallet.Abstract
@@ -237,10 +238,10 @@ changeAvailable l e = invariant (l <> "/changeAvailable") e $ \w ->
 
 balanceChangeAvailable :: WalletInv h a
 balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w ->
-    checkEqual ("balance (change w) + balance (available w)",
-                 balance (change w) + balance (available w))
-               ("balance (total w)",
-                 balance (total w))
+    checkEqual ("utxoBalance (change w) + utxoBalance (available w)",
+                 utxoBalance (change w) + utxoBalance (available w))
+               ("utxoBalance (total w)",
+                 utxoBalance (total w))
 
 pendingInputsDisjoint :: Hash h a => WalletInv h a
 pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->

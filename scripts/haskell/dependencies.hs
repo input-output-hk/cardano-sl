@@ -24,10 +24,10 @@ import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Monad
 import           Data.Functor.Identity
 import           Data.List
-import qualified Data.Map.Strict          as M
+import qualified Data.Map.Strict as M
 import           Data.Monoid
-import qualified Data.Set                 as Set
-import qualified Data.Text                as T
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import           Shelly
 import           System.IO
 import           Text.Printf
@@ -184,7 +184,7 @@ uniqueDependenciesFor directDeps revDeps pkg = go (M.findWithDefault mempty pkg 
       go [] !deps     = deps
       go (d:ds) !deps = case M.findWithDefault mempty d revDeps of
           [x] | x == pkg -> go ds (d : deps)
-          _   -> go ds deps
+          _              -> go ds deps
 
 --------------------------------------------------------------------------------
 main :: IO ()

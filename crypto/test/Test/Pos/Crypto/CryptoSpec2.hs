@@ -5,25 +5,25 @@ module Test.Pos.Crypto.CryptoSpec2
        ) where
 
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
+
 import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat)
 import           Prelude ((!!))
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, property, vector,
-                                  (===), (==>))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty,
+                     property, vector, (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
 import           Pos.Binary.Class (AsBinary, Bi)
 import qualified Pos.Crypto as Crypto
-import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey, mlSecret,
-                                    mlSignature, mlVssPublicKey)
-import           Pos.Crypto.SafeCopy ()
+import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare,
+                     mlPublicKey, mlSecret, mlSignature, mlVssPublicKey)
 
-import           Test.Pos.Binary.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
-                                          serDeserId)
+import           Test.Pos.Binary.Helpers (msgLenLimitedTest,
+                     safeCopyEncodeDecode, safeCopyTest, serDeserId)
 import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
@@ -65,6 +65,11 @@ spec = describe "Crypto" $ do
                 safeCopyTest @(AsBinary Crypto.Secret)
                 safeCopyTest @(AsBinary Crypto.DecShare)
                 safeCopyTest @(AsBinary Crypto.EncShare)
+
+                safeCopyTest @Crypto.ProtocolMagic
+                safeCopyTest @Crypto.HDAddressPayload
+                safeCopyTest @Crypto.SecretProof
+
             describe "msgLenLimitedTest" $ do
                 msgLenLimitedTest mlPublicKey
                 msgLenLimitedTest mlSecret

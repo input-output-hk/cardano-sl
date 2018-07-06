@@ -13,17 +13,24 @@ import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Char (isAscii)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Distribution.System (Arch (..), OS (..))
 import           Distribution.Text (display)
 import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 
+import           Pos.Binary.Class (Bi (..))
+
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
 instance NFData SystemTag
+
+instance Bi SystemTag where
+    encode = encode . getSystemTag
+    decode = SystemTag <$> decode
 
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
@@ -53,3 +60,5 @@ archHelper archt = case archt of
     I386   -> "32"
     X86_64 -> "64"
     _      -> display archt
+
+deriveSafeCopySimple 0 'base ''SystemTag

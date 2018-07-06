@@ -4,9 +4,11 @@ module Pos.Core.Txp.TxOutAux
 
 import           Universum
 
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Txp.Tx (TxOut)
 
 -- | Transaction output and auxilary data corresponding to it.
@@ -20,3 +22,10 @@ instance Buildable TxOutAux where
     build (TxOutAux out) = bprint ("{txout = "%build%"}") out
 
 instance NFData TxOutAux
+
+deriveSimpleBi ''TxOutAux [
+    Cons 'TxOutAux [
+        Field [| toaOut :: TxOut |]
+    ]]
+
+deriveSafeCopySimple 0 'base ''TxOutAux

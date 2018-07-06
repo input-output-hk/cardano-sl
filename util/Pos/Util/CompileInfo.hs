@@ -1,42 +1,39 @@
 {-# LANGUAGE DeriveLift  #-}
+{-# LANGUAGE LambdaCase  #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes  #-}
 
--- | Compile time information manipulations. Was introduced as
--- CSL-1563 to avoid extra library recompilations when git revision
--- changes. See the issue description/comments for more details.
+-- | Provides the git revision which this was compiled from.
+--
+-- Stack builds will have the `git` command available to run during
+-- compilation.
+--
+-- Nix builds will inject the git revision into the executables after
+-- compiling. If the git revision has changed but the sources have
+-- not, then no haskell packages will be rebuilt, but the embedded git
+-- revision will be updated.
 
 module Pos.Util.CompileInfo
        ( CompileTimeInfo (..)
        , HasCompileInfo
        , compileInfo
        , withCompileInfo
-       , retrieveCompileTimeInfo
+       , gitRev
        ) where
 
 import           Universum
 
-import           Data.Default (Default (def))
+import           Data.FileEmbed (dummySpaceWith)
 import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
-import           Instances.TH.Lift ()
-import qualified Language.Haskell.TH as TH
-import qualified Language.Haskell.TH.Syntax as TH
-import           System.Environment (lookupEnv)
-import           System.Exit (ExitCode (..))
-import           System.Process (readProcessWithExitCode)
-
+import           Pos.Util.CompileInfoGit
 
 -- | Data about the system that we want to retrieve in compile time.
 data CompileTimeInfo = CompileTimeInfo
     { ctiGitRevision :: Text
-    } deriving (Show,TH.Lift)
-
-instance Default CompileTimeInfo where
-    def = CompileTimeInfo { ctiGitRevision = "<def instance>"
-                          }
+    } deriving (Show)
 
 instance Buildable CompileTimeInfo where
     build CompileTimeInfo{..} =
@@ -47,23 +44,23 @@ type HasCompileInfo = Given CompileTimeInfo
 compileInfo :: HasCompileInfo => CompileTimeInfo
 compileInfo = given
 
-withCompileInfo :: CompileTimeInfo -> (HasCompileInfo => r) -> r
-withCompileInfo = give
+withCompileInfo :: (HasCompileInfo => r) -> r
+withCompileInfo = give (CompileTimeInfo gitRev)
 
-retrieveCompileTimeInfo :: TH.Q TH.Exp
-retrieveCompileTimeInfo = do
-    cti <- TH.runIO $ do
-      ctiGitRevision <- T.strip . fromString <$> retrieveGit
-      pure $ CompileTimeInfo {..}
-    TH.lift cti
-  where
-    retrieveGit :: IO String
-    retrieveGit =
-        lookupEnv "GITREV" >>= maybe retrieveFromGitExecutable pure
-    retrieveFromGitExecutable :: IO String
-    retrieveFromGitExecutable = do
-        (exitCode, output, _) <-
-            readProcessWithExitCode "git" ["rev-parse", "--verify", "HEAD"] ""
-        pure $ case exitCode of
-            ExitSuccess -> output
-            _           -> "Couldn't fetch git revision"
+gitRev :: Text
+gitRev | gitRevEmbed /= zeroRev = gitRevEmbed
+       | T.null fromGit         = zeroRev
+       | otherwise              = fromGit
+    where
+        -- Git revision embedded after compilation using
+        -- Data.FileEmbed.injectWith. If nothing has been injected,
+        -- this will be filled with 0 characters.
+        gitRevEmbed :: Text
+        gitRevEmbed = decodeUtf8 $(dummySpaceWith "gitrev" 40)
+
+        -- Git revision found during compilation by running git. If
+        -- git could not be run, then this will be empty.
+        fromGit = T.strip (fromString $(gitRevFromGit))
+
+zeroRev :: Text
+zeroRev = "0000000000000000000000000000000000000000"

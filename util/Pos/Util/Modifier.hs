@@ -33,14 +33,16 @@ module Pos.Util.Modifier
        , toHashMap
        ) where
 
-import           Universum hiding (filter, mapMaybe, toList, keys)
+import           Universum hiding (filter, keys, mapMaybe, toList)
 import qualified Universum
 
+import           Control.DeepSeq (NFData)
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import           GHC.Generics (Generic)
 import           Serokell.Util (listJson, pairF)
 
 import           Pos.Util.Util (getKeys)
@@ -49,25 +51,28 @@ import           Pos.Util.Util (getKeys)
 -- and deletions) of something map-like.
 newtype MapModifier k v = MapModifier
     { getMapModifier :: HashMap k (Maybe v)
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 instance Functor (MapModifier k) where
     fmap f (MapModifier m) = MapModifier (f <<$>> m)
 
-instance (Eq k, Hashable k) =>
-         Monoid (MapModifier k v) where
-    mempty = MapModifier mempty
-    mappend m1 (MapModifier m2) = HM.foldlWithKey' step m1 m2
+instance (Eq k, Hashable k) => Semigroup (MapModifier k v) where
+    m1 <> (MapModifier m2) = HM.foldlWithKey' step m1 m2
       where
         step m k Nothing  = delete k m
         step m k (Just v) = insert k v m
 
-instance (Eq k, Hashable k) => Semigroup (MapModifier k v)
+instance (Eq k, Hashable k, Semigroup (MapModifier k v)) =>
+         Monoid (MapModifier k v) where
+    mempty = MapModifier mempty
+    mappend = (<>)
 
 instance (Buildable k, Buildable v) => Buildable (MapModifier k v) where
     build mm =
       bprint ("MapModifier { deletions "%listJson%", insertions: "%listJson%"}")
       (deletions mm) (map (bprint pairF) (insertions mm))
+
+instance (NFData k, NFData v) => NFData (MapModifier k v)
 
 -- | Perform monadic lookup taking 'MapModifier' into account.
 lookupM

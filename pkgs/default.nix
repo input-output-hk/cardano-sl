@@ -15404,6 +15404,7 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , data-default
+, deepseq
 , directory
 , ekg-core
 , ether
@@ -15465,6 +15466,7 @@ conduit
 containers
 cryptonite
 data-default
+deepseq
 directory
 ekg-core
 ether
@@ -17937,6 +17939,7 @@ license = stdenv.lib.licenses.mit;
 , containers
 , cpphs
 , data-default
+, deepseq
 , directory
 , ether
 , exceptions
@@ -17992,6 +17995,7 @@ cardano-sl-util
 conduit
 containers
 data-default
+deepseq
 directory
 ether
 exceptions

@@ -28,6 +28,7 @@ library
                         Pos.Sinbin.Slotting.Class
                         Pos.Sinbin.Slotting.Types
                         Pos.Sinbin.Slotting.Util
+                        Pos.Sinbin.Util.JsonLog.Events
 
   other-modules:
                         Paths_cardano_sl_sinbin

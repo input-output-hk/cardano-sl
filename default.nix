@@ -132,6 +132,12 @@ let
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev;
+      launchGenesis = true;
+      configurationKey = "testnet_full";
+      runWallet = false;
+    };
     tests = let
       src = localLib.cleanSourceTree ./.;
     in {

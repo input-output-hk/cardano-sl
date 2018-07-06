@@ -36,6 +36,7 @@ import           Pos.Core.Block (Block, BlockHeader (..),
                      genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
                      mebAttributes, mehAttributes)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
 
@@ -106,19 +107,21 @@ verifyHeader pm VerifyHeaderParams {..} h =
               ("inconsistent hash (expected "%build%", found "%build%")")
               expectedHash
               actualHash)
+    checkDifficulty :: ChainDifficulty -> ChainDifficulty -> (Bool, Text)
     checkDifficulty expectedDifficulty actualDifficulty =
         ( expectedDifficulty == actualDifficulty
         , sformat
               ("incorrect difficulty (expected "%int%", found "%int%")")
               expectedDifficulty
               actualDifficulty)
-    checkSlot :: EpochOrSlot -> EpochOrSlot -> (Bool, Text)
-    checkSlot oldSlot newSlot =
-        ( oldSlot < newSlot
+    checkEpochOrSlot :: EpochOrSlot -> EpochOrSlot -> (Bool, Text)
+    checkEpochOrSlot oldEOS newEOS =
+        ( oldEOS < newEOS
         , sformat
               ("slots are not monotonic ("%build%" >= "%build%")")
-              oldSlot newSlot
+              oldEOS newEOS
         )
+    sameEpoch :: EpochIndex -> EpochIndex -> (Bool, Text)
     sameEpoch oldEpoch newEpoch =
         ( oldEpoch == newEpoch
         , sformat
@@ -150,6 +153,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
     --   * Difficulty is correct.
     --   * Hash is correct.
     --   * Epoch/slot are consistent.
+    relatedToPrevHeader :: BlockHeader -> [(Bool, Text)]
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficultyIncrement h)
@@ -157,13 +161,14 @@ verifyHeader pm VerifyHeaderParams {..} h =
         , checkHash
               (headerHash prevHeader)
               (h ^. prevBlockL)
-        , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
+        , checkEpochOrSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
         , case h of
               BlockHeaderGenesis _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
               BlockHeaderMain _    -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
         ]
 
     -- CHECK: Verifies that the slot does not lie in the future.
+    relatedToCurrentSlot :: SlotId -> [(Bool, Text)]
     relatedToCurrentSlot curSlotId =
         case h of
             BlockHeaderGenesis _ -> [(True, "block is from slot which hasn't happened yet")]

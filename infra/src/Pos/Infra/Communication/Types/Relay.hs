@@ -22,6 +22,7 @@ import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
 
 import           Pos.Binary.Class (Bi (..))
+
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Txp (TxMsgContents (..))
 import qualified Pos.Core.Update as U

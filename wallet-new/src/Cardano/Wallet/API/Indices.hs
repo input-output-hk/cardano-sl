@@ -51,6 +51,10 @@ instance ToIndex Transaction (V1 Core.Timestamp) where
     toIndex _ = fmap V1 . Core.parseTimestamp
     accessIx Transaction{..} = txCreationTime
 
+instance ToIndex WalletAddress (V1 Core.Address) where
+    toIndex _ = fmap V1 . either (const Nothing) Just . Core.decodeTextAddress
+    accessIx WalletAddress{..} = addrId
+
 -- | A type family mapping a resource 'a' to all its indices.
 type family IndicesOf a :: [*] where
     IndicesOf Wallet        = WalletIxs
@@ -117,7 +121,7 @@ type family IndexToQueryParam resource ix where
     IndexToQueryParam Wallet  WalletId                = "id"
     IndexToQueryParam Wallet  (V1 Core.Timestamp)     = "created_at"
 
-    IndexToQueryParam WalletAddress (V1 Core.Address) = "id"
+    IndexToQueryParam WalletAddress (V1 Core.Address) = "address"
 
     IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
     IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"

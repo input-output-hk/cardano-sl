@@ -117,7 +117,7 @@ mkHttpClient baseUrl manager = WalletClient
     , updateAccount
         = \x y -> run . updateAccountR x y
     , getAccountAddresses
-        = \x -> run . getAccountAddressesR x
+        = \x y p pp filters sorts -> run $ getAccountAddressesR x y p pp filters sorts
     , getAccountBalance
         = \x -> run . getAccountBalanceR x
     -- transactions endpoints

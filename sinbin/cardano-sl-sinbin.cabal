@@ -38,6 +38,8 @@ library
 
                         Pos.Sinbin.StateLock
 
+                        Pos.Sinbin.Util.LogSafe
+                        Pos.Sinbin.Util.TimeLimit
                         Pos.Sinbin.Util.TimeWarp
 
   other-modules:

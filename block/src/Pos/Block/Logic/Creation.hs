@@ -49,7 +49,6 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
-import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
@@ -57,6 +56,7 @@ import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Sinbin.StateLock (Priority (..), StateLock,
                      StateLockMetrics, modifyStateLock)
 import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Sinbin.Util.LogSafe (logInfoS)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)

@@ -173,49 +173,6 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel pk e
           insertWalletESK pw walletId esk
           pure (Right (newRoot, Map.keys utxoByAccount))
 
-{-
-mkWalletHdRnd
-  :: PassiveWallet
-  -> HD.WalletName
-  -> HasSpendingPassword
-  -> AssuranceLevel
-  -> AddressHash PublicKey
-  -> EncryptedSecretKey
-  -> Utxo
-  -> IO (Either HD.CreateHdRootError (HdRoot, [HdAccountId]))
-mkWalletHdRnd pw name spwd al pk esk utxo = do
-    now <- InDb <$> getCurrentTimestamp
-    let rootId = HD.HdRootId (InDb pk)
-    let hdr = HD.initHdRoot rootId name spwd al now
-
-    let utxoByAccount = prefilterUtxo rootId esk utxo
-    res <- update' _wallets $ CreateHdWallet newRoot utxoByAccount
-    case res of
-       Left e -> pure (Left e)
-       Right () ->  do
-          let walletId = WalletIdHdRnd rootId
-          insertWalletESK pw walletId esk
-          pure (Right (newRoot, Map.keys utxoByAccount))
-
-insertWalletHd
-  :: PassiveWallet
-  -> HD.HdRoot
-  -> EncryptedSecretKey
-  -> Utxo
-  -> IO (Either HD.CreateHdRootError
-                (WalletId, Map HdAccountId PrefilteredUtxo))
-insertWalletHd pw hdr esk utxo = do
-  let mAccUtxo :: Map HdAccountId PrefilteredUtxo
-      mAccUtxo = prefilterUtxo (HD._hdRootId hdr) esk utxo
-  res <- update' (_wallets pw) $ CreateHdWallet hdr mAccUtxo
-  case res of
-     Left e -> pure (Left e)
-     Right () -> do
-        let wId = WalletIdHdRnd (HD._hdRootId hdr)
-        insertWalletESK pw wId esk
-        pure (Right (wId, utxoByAccount))
--}
-
 -- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
 getCurrentTimestamp :: MonadIO m => m Timestamp
 getCurrentTimestamp = Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime

@@ -164,3 +164,4 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})
       (\_ -> return ())
+

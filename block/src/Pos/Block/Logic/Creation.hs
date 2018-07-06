@@ -51,12 +51,12 @@ import           Pos.Delegation (DelegationVar, DlgPayload (..),
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.StateLock (Priority (..), StateLock,
                      StateLockMetrics, modifyStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportError)
+import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)

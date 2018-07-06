@@ -19,6 +19,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Servant
 
@@ -27,28 +28,30 @@ import           Servant
 -- with Servant.
 walletServer :: (HasConfigurations, HasCompileInfo)
              => (forall a. WalletWebMode a -> Handler a)
+             -> TraceNamed IO
              -> ProtocolMagic
              -> Diffusion WalletWebMode
              -> TVar NtpStatus
              -> Server WalletAPI
-walletServer natV0 pm diffusion ntpStatus = v0Handler :<|> v1Handler
+walletServer natV0 logTrace pm diffusion ntpStatus = v0Handler :<|> v1Handler
   where
-    v0Handler    = V0.handlers natV0 pm diffusion ntpStatus
-    v1Handler    = V1.handlers natV0 pm diffusion ntpStatus
+    v0Handler    = V0.handlers natV0 logTrace pm diffusion ntpStatus
+    v1Handler    = V1.handlers natV0 logTrace pm diffusion ntpStatus
 
 
 walletDevServer
     :: (HasConfigurations, HasCompileInfo)
     => (forall a. WalletWebMode a -> Handler a)
+    -> TraceNamed IO
     -> ProtocolMagic
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
     -> RunMode
     -> Server WalletDevAPI
-walletDevServer natV0 pm diffusion ntpStatus runMode = devHandler :<|> walletHandler
+walletDevServer natV0 logTrace pm diffusion ntpStatus runMode = devHandler :<|> walletHandler
   where
     devHandler    = Dev.handlers natV0 runMode
-    walletHandler = walletServer natV0 pm diffusion ntpStatus
+    walletHandler = walletServer natV0 logTrace pm diffusion ntpStatus
 
 
 walletDocServer

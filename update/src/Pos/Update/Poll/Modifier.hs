@@ -17,8 +17,8 @@ module Pos.Update.Poll.Modifier
 
 import           Universum
 
-import           Control.Lens (makeLensesFor)
 import           Control.DeepSeq (NFData)
+import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 

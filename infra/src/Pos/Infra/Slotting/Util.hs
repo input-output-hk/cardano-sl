@@ -3,8 +3,7 @@
 module Pos.Infra.Slotting.Util
        (
          -- * Helpers using 'MonadSlots[Data]'
-         getCurrentSlotFlat
-       , getSlotStart
+         getSlotStart
        , getSlotStartPure
        , getSlotStartEmpatically
        , getCurrentEpochSlotDuration
@@ -12,9 +11,6 @@ module Pos.Infra.Slotting.Util
        , slotFromTimestamp
 
          -- * Worker which ticks when slot starts and its parameters
-       , OnNewSlotParams (..)
-       , defaultOnNewSlotParams
-       , ActionTerminationPolicy (..)
        , onNewSlot
 
          -- * Worker which logs beginning of new slot
@@ -22,6 +18,12 @@ module Pos.Infra.Slotting.Util
 
          -- * Waiting for system start
        , waitSystemStart
+
+         -- * Re-exported from the Sinbin
+       , ActionTerminationPolicy (..)
+       , OnNewSlotParams (..)
+       , defaultOnNewSlotParams
+       , getCurrentSlotFlat
        ) where
 
 import           Universum
@@ -32,25 +34,24 @@ import           Mockable (Async, Delay, Mockable, delay, timeout)
 import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
 
-import           Pos.Core (FlatSlotId, HasProtocolConstants, LocalSlotIndex,
-                     SlotId (..), Timestamp (..), flattenSlotId, slotIdF)
+import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId (..),
+                     Timestamp (..), slotIdF)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
-import           Pos.Infra.Reporting.Methods (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData,
-                     getCurrentNextEpochSlottingDataM, getEpochSlottingDataM,
-                     getSystemStartM)
-import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
-                     computeSlotStart, lookupEpochSlottingData)
+import           Pos.Infra.Slotting.MemState (getCurrentNextEpochSlottingDataM,
+                     getEpochSlottingDataM, getSystemStartM)
+import           Pos.Sinbin.Reporting (MonadReporting, reportOrLogE)
+import           Pos.Sinbin.Slotting (EpochSlottingData (..), MonadSlotsData,
+                     SlottingData, computeSlotStart, lookupEpochSlottingData)
+import           Pos.Sinbin.Slotting.Util (ActionTerminationPolicy (..),
+                     OnNewSlotParams (..), defaultOnNewSlotParams,
+                     getCurrentSlotFlat)
 import           Pos.Util.Util (maybeThrow)
 
 
--- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: (MonadSlots ctx m, HasProtocolConstants) => m (Maybe FlatSlotId)
-getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData ctx m => SlotId -> m (Maybe Timestamp)
@@ -109,49 +110,6 @@ type MonadOnNewSlot ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     )
-
--- | Parameters for `onNewSlot`.
-data OnNewSlotParams = OnNewSlotParams
-    { onspStartImmediately  :: !Bool
-    -- ^ Whether first action should be executed ASAP (i. e. basically
-    -- when the program starts), or only when new slot starts.
-    --
-    -- For example, if the program is started in the middle of a slot
-    -- and this parameter in 'False', we will wait for half of slot
-    -- and only then will do something.
-    , onspTerminationPolicy :: !ActionTerminationPolicy
-    -- ^ What should be done if given action doesn't finish before new
-    -- slot starts. See the description of 'ActionTerminationPolicy'.
-    }
-
--- | Default parameters which were used by almost all code before this
--- data type was introduced.
-defaultOnNewSlotParams :: OnNewSlotParams
-defaultOnNewSlotParams =
-    OnNewSlotParams
-    { onspStartImmediately = True
-    , onspTerminationPolicy = NoTerminationPolicy
-    }
-
--- | This policy specifies what should be done if the action passed to
--- `onNewSlot` doesn't finish when current slot finishes.
---
--- We don't want to run given action more than once in parallel for
--- variety of reasons:
--- 1. If action hangs for some reason, there can be infinitely growing pool
--- of hanging actions with probably bad consequences (e. g. leaking memory).
--- 2. Thread management will be quite complicated if we want to fork
--- threads inside `onNewSlot`.
--- 3. If more than one action is launched, they may use same resources
--- concurrently, so the code must account for it.
-data ActionTerminationPolicy
-    = NoTerminationPolicy
-    -- ^ Even if action keeps running after current slot finishes,
-    -- we'll just wait and start action again only after the previous
-    -- one finishes.
-    | NewSlotTerminationPolicy !Text
-    -- ^ If new slot starts, running action will be cancelled. Name of
-    -- the action should be passed for logging.
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses Mockable and assumes consistency between

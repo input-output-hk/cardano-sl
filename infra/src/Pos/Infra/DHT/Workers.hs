@@ -21,10 +21,10 @@ import           Pos.Infra.DHT.Constants (kademliaDumpInterval)
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
-import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Infra.Slotting.Class (MonadSlots)
 import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
+import           Pos.Sinbin.Reporting (MonadReporting)
+import           Pos.Sinbin.Slotting.Class (MonadSlots)
 
 type DhtWorkMode ctx m =
     ( WithLogger m

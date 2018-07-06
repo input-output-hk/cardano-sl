@@ -15,7 +15,6 @@ import           Mockable (CurrentTime, Delay, Mockable)
 import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Binary.Delegation ()
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)

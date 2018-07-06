@@ -22,6 +22,7 @@ import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Txp (TxMsgContents (..))
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
@@ -67,6 +68,10 @@ instance Typeable tag => Bi (MempoolMsg tag) where
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Generic, Show, Eq)
+
+instance Bi (DataMsg ProxySKHeavy) where
+    encode = encode . dmContents
+    decode = DataMsg <$> decode
 
 instance Bi (DataMsg TxMsgContents) where
     encode (DataMsg (TxMsgContents txAux)) = encode txAux

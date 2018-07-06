@@ -43,8 +43,8 @@ import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState.BlockExtra as GS
-import           Pos.Infra.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Sinbin.Slotting (MonadSlots (getCurrentSlot))
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 
 -- | Result of single (new) header classification.

@@ -19,7 +19,7 @@ import           Universum
 import           Control.Concurrent.Async (race)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
-import           JsonLog (jsonLog)
+-- import           JsonLog (jsonLog)
 import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
 

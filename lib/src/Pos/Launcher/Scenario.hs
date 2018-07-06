@@ -111,13 +111,14 @@ runNode
        , HasTxpConfiguration
        , WorkMode ctx m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode pm nr plugins = runNode' nr workers' plugins
+runNode logTrace pm nr plugins = runNode' logTrace nr workers' plugins
   where
-    workers' = allWorkers pm nr
+    workers' = allWorkers logTrace pm nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

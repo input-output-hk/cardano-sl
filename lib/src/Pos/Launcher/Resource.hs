@@ -69,7 +69,7 @@ import           Pos.Util (bracketWithTrace, newInitFuture)
 import qualified Pos.Util.Log as Log
 -- (LogContextT (..), {-loggerBracket,-} parseLoggerConfig, setupLogging)
 import           Pos.Util.Trace (noTrace, natTrace)
-import           Pos.Util.Trace.Named (TraceNamed)
+import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import qualified Pos.Util.Trace.Named as TN --(logDebug, logInfo, logWarning)
 
 #ifdef linux_HOST_OS
@@ -112,8 +112,8 @@ allocateNodeResources
     -> TxpGlobalSettings
     -> InitMode ()
     -> Production (NodeResources ext)
-allocateNodeResources logTrace np@NodeParams {..} sscnp txpSettings initDB = do
-    logInfo_ "Allocating node resources..."
+allocateNodeResources logTrace0 np@NodeParams {..} sscnp txpSettings initDB = do
+    Log.logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
             let dbPath = "node-db" :: FilePath
@@ -182,6 +182,7 @@ allocateNodeResources logTrace np@NodeParams {..} sscnp txpSettings initDB = do
             , ..
             }
     where
+      logTrace = appendName "allocateNodeResources" logTrace0
       logDebug_ msg = TN.logDebug logTrace msg
       logInfo_ msg = TN.logInfo logTrace msg
 
@@ -288,7 +289,7 @@ allocateNodeContext
     -> TxpGlobalSettings
     -> Metrics.Store
     -> InitMode NodeContext
-allocateNodeContext logTrace ancd txpSettings ekgStore = do
+allocateNodeContext logTrace0 ancd txpSettings ekgStore = do
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp
                                 , ancdPutSlotting = putSlotting
@@ -354,6 +355,7 @@ allocateNodeContext logTrace ancd txpSettings ekgStore = do
             }
     return ctx
       where
+        logTrace = appendName "allocateNodeContext" logTrace0
         logInfo_ m = lift $ TN.logInfo logTrace m
         logDebug_ m = lift $ TN.logDebug logTrace m
 

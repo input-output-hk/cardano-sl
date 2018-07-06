@@ -60,7 +60,8 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes,
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal,
                      handleVote)
-import           Pos.Util.Trace (Trace, noTrace)
+--import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Util.Util (HasLens (..))
 
@@ -157,14 +158,14 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo noTrace jsonLogTx pm txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo logTrace jsonLogTx pm txAux
             }
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
             , handleInv = Update.isProposalNeeded . unTagged
             , handleReq = Update.getLocalProposalNVotes . unTagged
-            , handleData = Update.handleProposal noTrace pm
+            , handleData = Update.handleProposal logTrace pm
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
@@ -173,7 +174,7 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
             , handleInv = \(Tagged (id, pk, dec)) -> Update.isVoteNeeded id pk dec
             , handleReq = \(Tagged (id, pk, dec)) -> Update.getLocalVote id pk dec
-            , handleData = Update.handleVote noTrace pm
+            , handleData = Update.handleVote logTrace pm
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)
@@ -182,25 +183,25 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
             CommitmentMsg
             (\(MCCommitment (pk, _, _)) -> addressHash pk)
             (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
-            (\(MCCommitment comm) -> sscProcessCommitment noTrace pm comm)
+            (\(MCCommitment comm) -> sscProcessCommitment logTrace pm comm)
 
         postSscOpening = postSscCommon
             OpeningMsg
             (\(MCOpening key _) -> key)
             (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
-            (\(MCOpening key open) -> sscProcessOpening noTrace pm key open)
+            (\(MCOpening key open) -> sscProcessOpening logTrace pm key open)
 
         postSscShares = postSscCommon
             SharesMsg
             (\(MCShares key _) -> key)
             (\id tm -> MCShares id <$> tm ^. tmShares . at id)
-            (\(MCShares key shares) -> sscProcessShares noTrace pm key shares)
+            (\(MCShares key shares) -> sscProcessShares logTrace pm key shares)
 
         postSscVssCert = postSscCommon
             VssCertificateMsg
             (\(MCVssCertificate vc) -> getCertId vc)
             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
-            (\(MCVssCertificate cert) -> sscProcessCertificate noTrace pm cert)
+            (\(MCVssCertificate cert) -> sscProcessCertificate logTrace pm cert)
 
         postSscCommon
             :: ( Buildable err, Buildable contents )
@@ -211,7 +212,7 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
             -> KeyVal (Tagged contents StakeholderId) contents m
         postSscCommon sscTag contentsToKey toContents processData = KeyVal
             { toKey = pure . tagWith contentsProxy . contentsToKey
-            , handleInv = sscIsDataUseful noTrace sscTag . unTagged
+            , handleInv = sscIsDataUseful logTrace sscTag . unTagged
             , handleReq = \(Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
             , handleData = \dat -> do
                   let addr = contentsToKey dat

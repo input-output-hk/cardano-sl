@@ -37,13 +37,13 @@ import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
 import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId (..),
                      Timestamp (..), slotIdF)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
-import           Pos.Infra.Reporting.Methods (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
 import           Pos.Infra.Slotting.MemState (getCurrentNextEpochSlottingDataM,
                      getEpochSlottingDataM, getSystemStartM)
+import           Pos.Sinbin.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Sinbin.Slotting (EpochSlottingData (..), MonadSlotsData,
                      SlottingData, computeSlotStart, lookupEpochSlottingData)
 import           Pos.Sinbin.Slotting.Util (ActionTerminationPolicy (..),

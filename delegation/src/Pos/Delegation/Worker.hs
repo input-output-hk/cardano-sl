@@ -18,8 +18,8 @@ import           Pos.Delegation.Configuration (HasDlgConfiguration,
 import           Pos.Delegation.Logic (DelegationStateAction,
                      runDelegationStateAction)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
+import           Pos.Sinbin.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Util (microsecondsToUTC)
 import           Pos.Util.LRU (filterLRU)
 

@@ -50,12 +50,12 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                     MisbehaviorMetrics (..))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
                      jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
+                     MisbehaviorMetrics (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (lensOf)

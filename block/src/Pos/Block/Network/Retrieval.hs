@@ -37,7 +37,7 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (getBlocks, streamBlocks))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE,
+import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportOrLogE,
                      reportOrLogW)
 import           Pos.Util.Util (HasLens (..))
 

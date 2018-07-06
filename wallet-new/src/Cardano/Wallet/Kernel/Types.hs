@@ -22,8 +22,8 @@ import           Universum
 
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import           Data.Text.Buildable (Buildable (..))
 import           Data.Word (Word32)
+import           Formatting.Buildable (Buildable (..))
 
 import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut,
                      TxOutAux (..), gbBody, mbTxs, mbWitnesses, txInputs,

@@ -85,7 +85,7 @@ library
                      , split
                      , stm
                      , text
-                     , text-format
+                     , formatting
                      , time-units
                      , transformers
                      , universum >= 0.1.11

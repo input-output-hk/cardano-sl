@@ -21,9 +21,9 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable (..))
-import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
 import qualified Formatting as F
+import           Formatting.Buildable (Buildable (..))
 import           Network.Kademlia (fromBS)
 import           Network.Kademlia.HashNodeId (HashId (..), genNonce,
                      hashAddress)

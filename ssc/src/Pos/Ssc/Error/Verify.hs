@@ -7,8 +7,8 @@ module Pos.Ssc.Error.Verify
        , sscIsCriticalVerifyError
        ) where
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, ords, stext, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 import           Universum
 

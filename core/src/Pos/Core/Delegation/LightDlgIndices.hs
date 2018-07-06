@@ -7,8 +7,8 @@ module Pos.Core.Delegation.LightDlgIndices
 import           Universum
 
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
-import qualified Data.Text.Buildable
 import           Formatting (bprint)
+import qualified Formatting.Buildable
 import           Serokell.Util (pairF)
 
 import           Pos.Binary.Class (Bi (..))

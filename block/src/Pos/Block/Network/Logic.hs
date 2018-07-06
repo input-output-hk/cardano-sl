@@ -21,8 +21,8 @@ import           Control.Exception (IOException)
 import           Control.Exception.Safe (Exception (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, shown, stext, (%))
+import qualified Formatting.Buildable as B
 import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics

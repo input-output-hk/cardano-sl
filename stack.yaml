@@ -167,8 +167,8 @@ packages:
 # Because log-warper mainline depends on a lifted-async which depends upon a
 # buggy async
 - location:
-    git: https://github.com/input-output-hk/log-warper.git
-    commit: fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55
+    git: https://github.com/angerman/log-warper.git
+    commit: 4af8114fbcd5698a4e1fbc653031f0300e29faee
   extra-dep: true
 
 # Exposes a custom discovery function so you can specify the prefix.
@@ -193,6 +193,28 @@ packages:
     commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
   extra-dep: true
 
+# Custom Universum prelude, that brings back some of the
+# formatting logic, as well as `pretty`.
+- location:
+    git: https://github.com/input-output-hk/universum.git
+    commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
+  extra-dep: true
+
+
+# use github source, until we can use the 6.3.6 release from
+# hackage, that is, once `cabal update` ran.
+- location:
+    git: https://github.com/chrisdone/formatting.git
+    commit: 444bc8b1190f9c7f94af41b6f538071545392754
+  extra-dep: true
+
+# Need to adjust version bounds on serokell-util.
+# serokell-util has an upper bound preventing 6.3 for some reason
+- location:
+    git: https://github.com/input-output-hk/serokell-util.git
+    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6    
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -209,10 +231,11 @@ extra-deps:
 - lifted-async-0.10.0.1
 
 # Serokell-specific utilities not on stackage
-- serokell-util-0.8.0
-# serokell-util has an upper bound preventing 6.3 for some reason.
-# TODO: investigate?
-- formatting-6.2.5
+- fmt-0.6
+# We *must* use 6.3.6 at least, otherwise `int` is synonymous with `build` and
+# will result in an infinite loop -> space leak; however we can't yet because
+# CI hasn't run cabal update yet.
+# - formatting-6.3.6
 
 # Following 9 are not on stackage.
 - pvss-0.2.0
@@ -259,6 +282,12 @@ extra-deps:
 
 # Needed for coin selection in the wallet
 - normaldistribution-1.1.0.3
+
+# This used to be Serokell.Aeson.Options
+- aeson-options-0.0.0
+
+# for universum to work with hedgehog-0.6+
+- tasty-hedgehog-0.2.0.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

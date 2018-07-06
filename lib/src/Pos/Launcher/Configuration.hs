@@ -29,7 +29,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as Text
 import           Data.Time.Units (fromMicroseconds)
 
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
 import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
                      usingLoggerName)

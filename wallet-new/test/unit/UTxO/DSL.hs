@@ -85,8 +85,8 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
+import qualified Formatting.Buildable
 import           Pos.Core.Chrono (NewestFirst (NewestFirst),
                      OldestFirst (getOldestFirst))
 import           Prelude (Show (..))

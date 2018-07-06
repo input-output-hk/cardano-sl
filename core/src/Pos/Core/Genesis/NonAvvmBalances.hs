@@ -9,8 +9,8 @@ import           Data.Semigroup ()
 
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 
 import           Pos.Core.Common (Address, Coin, decodeTextAddress,

@@ -61,6 +61,7 @@ library
     Pos.Aeson.Txp
 
   build-depends:       aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -101,7 +102,7 @@ library
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
+                     , formatting
                      , transformers
                      , universum
                      , unliftio
@@ -164,7 +165,7 @@ test-suite test
                      , mtl
                      , QuickCheck
                      , serokell-util
-                     , text-format
+                     , formatting
                      , universum
                      , unordered-containers
                      , vector

@@ -27,7 +27,7 @@ import           Universum
 import           Control.Lens (Getter, lens, to)
 import           Data.Bifunctor (bimap)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
 
 import           Pos.Binary.Class (Bi (..))

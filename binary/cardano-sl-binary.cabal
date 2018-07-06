@@ -133,7 +133,7 @@ test-suite test
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
+                     , formatting
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

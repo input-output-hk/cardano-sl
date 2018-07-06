@@ -45,7 +45,7 @@ library
                      , quickcheck-instances
                      , random
                      , text
-                     , text-format
+                     , formatting
                      , universum
 
   default-language:    Haskell2010

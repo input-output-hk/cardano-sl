@@ -9,9 +9,9 @@ import           Universum hiding (id)
 import           Control.Monad.Except (MonadError)
 import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, int, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (listJson)
 
 import           Pos.Crypto (ProtocolMagic, shortHashF)

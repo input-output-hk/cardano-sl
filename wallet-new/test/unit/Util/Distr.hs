@@ -15,6 +15,7 @@ module Util.Distr (
   , FreqDistr
   ) where
 
+import           Prelude (log)
 import           Universum
 
 import           Data.Random.Normal (normal)

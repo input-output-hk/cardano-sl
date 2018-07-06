@@ -8,10 +8,10 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
                      genericToJSON)
+import           Data.Aeson.Options (defaultOptions)
 import           Data.List.NonEmpty as NE
 import           Data.Time.Units (fromMicroseconds)
 import           Ntp.Client (NtpClientSettings (..))
-import           Serokell.Aeson.Options (defaultOptions)
 
 data NtpConfiguration = NtpConfiguration
     {

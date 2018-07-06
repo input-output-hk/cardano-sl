@@ -128,6 +128,7 @@ library
                       , acid-state-exts
                       , async
                       , aeson >= 0.11.2.1
+                      , aeson-options
                       , async
                       , ansi-terminal
                       , ansi-wl-pprint
@@ -196,7 +197,7 @@ library
                       , tagged
                       , template-haskell
                       , text
-                      , text-format
+                      , formatting
                       , time
                       , time-units
                       , tls
@@ -340,7 +341,7 @@ test-suite cardano-test
                      , stm
                      , tagged
                      , text
-                     , text-format
+                     , formatting
                      , time
                      , time-units
                      , universum >= 0.1.11

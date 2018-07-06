@@ -11,7 +11,7 @@ module Functions
     , printT
     ) where
 
-import           Universum hiding (init, log, uncons)
+import           Universum hiding (init, uncons)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=),
                      (<>=), (?=))

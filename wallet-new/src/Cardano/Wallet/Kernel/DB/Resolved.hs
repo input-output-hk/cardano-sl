@@ -15,8 +15,8 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (listJson, mapJson)
 
 import qualified Pos.Core as Core

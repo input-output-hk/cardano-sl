@@ -218,6 +218,7 @@ executable cardano-launcher
   main-is:             Main.hs
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-wl-pprint
                      , async
                      , base

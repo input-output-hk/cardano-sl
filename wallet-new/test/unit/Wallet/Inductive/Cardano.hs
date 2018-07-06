@@ -17,8 +17,8 @@ import           Universum
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
 import qualified Data.List as List
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono

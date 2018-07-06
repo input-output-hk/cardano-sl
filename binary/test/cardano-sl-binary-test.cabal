@@ -41,7 +41,7 @@ library
                      , safecopy
                      , template-haskell
                      , text
-                     , text-format
+                     , formatting
                      , tagged
                      , universum
 

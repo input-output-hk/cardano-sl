@@ -18,9 +18,9 @@ import           Data.Hashable (Hashable)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable as B
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Formatting (Format, bprint, fitLeft, later, (%), (%.))
+import qualified Formatting.Buildable as B
 import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
 import           Universum

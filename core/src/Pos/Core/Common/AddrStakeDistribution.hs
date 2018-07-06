@@ -11,8 +11,8 @@ import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 
 import           Pos.Binary.Class (Bi, decode, encode)

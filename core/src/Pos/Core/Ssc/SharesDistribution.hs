@@ -6,8 +6,8 @@ module Pos.Core.Ssc.SharesDistribution
 
 import           Universum hiding (id)
 
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Common (StakeholderId)
 

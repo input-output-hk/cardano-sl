@@ -26,6 +26,9 @@ module Pos.Util.Mnemonic
        , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
+
+       -- * Reexports
+       , ValidMnemonicSentence
        ) where
 
 import           Universum
@@ -179,7 +182,6 @@ mnemonicToAesKey
     -> AesKey
 mnemonicToAesKey =
     AesKey. blake2b . entropyToByteString . mnemonicToEntropy
-
 
 -- | Convert an Entropy to a corresponding Mnemonic Sentence
 entropyToMnemonic

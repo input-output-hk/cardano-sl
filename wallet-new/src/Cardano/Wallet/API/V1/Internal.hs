@@ -10,10 +10,8 @@ import           Universum
 import           Servant
 
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Types
-import           Pos.Util.Mnemonic
 
-import qualified Cardano.API.V1.Internal.Redemption as Redemption
+import qualified Cardano.Wallet.API.V1.Internal.Redemption as Redemption
 
 -- migrate everything except for import/export
 

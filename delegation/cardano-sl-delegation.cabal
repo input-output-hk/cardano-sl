@@ -24,9 +24,6 @@ library
                        Pos.Delegation.Types
                        Pos.Delegation.Worker
 
-                       -- Binary serialization
-                       Pos.Binary.Delegation
-
   other-modules:
                        Pos.Delegation.Cede.Class
                        Pos.Delegation.Cede.Logic

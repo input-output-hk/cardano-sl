@@ -130,7 +130,7 @@ createGenesisBlockAndApply logTrace pm epoch = do
     tipHeader <- DB.getTipHeader
     -- preliminary check outside the lock,
     -- must be repeated inside the lock
-    needGen <- needCreateGenesisBlock epoch tipHeader
+    needGen <- needCreateGenesisBlock logTrace epoch tipHeader
     if needGen
         then modifyStateLock noTrace
                  HighPriority
@@ -150,7 +150,7 @@ createGenesisBlockDo
 createGenesisBlockDo logTrace pm epoch = do
     tipHeader <- DB.getTipHeader
     logDebug logTrace $ sformat msgTryingFmt epoch tipHeader
-    needCreateGenesisBlock epoch tipHeader >>= \case
+    needCreateGenesisBlock logTrace epoch tipHeader >>= \case
         False -> (BC.blockHeaderHash tipHeader, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
@@ -181,10 +181,11 @@ createGenesisBlockDo logTrace pm epoch = do
 needCreateGenesisBlock ::
        ( MonadCreateBlock ctx m
        )
-    => EpochIndex
+    => TraceNamed m
+    -> EpochIndex
     -> BlockHeader
     -> m Bool
-needCreateGenesisBlock epoch tipHeader = do
+needCreateGenesisBlock logTrace epoch tipHeader = do
     case tipHeader of
         BlockHeaderGenesis _ -> pure False
         -- This is true iff tip is from 'epoch' - 1 and last
@@ -193,7 +194,7 @@ needCreateGenesisBlock epoch tipHeader = do
         BlockHeaderMain mb ->
             if mb ^. epochIndexL /= epoch - 1
                 then pure False
-                else calcChainQualityM (flattenSlotId $ SlotId epoch minBound) <&> \case
+                else calcChainQualityM logTrace (flattenSlotId $ SlotId epoch minBound) <&> \case
                          Nothing -> False -- if we can't compute chain
                                           -- quality, we probably
                                           -- shouldn't try to create
@@ -257,7 +258,7 @@ createMainBlockInternal ::
 createMainBlockInternal logTrace pm sId pske = do
     tipHeader <- DB.getTipHeader
     logInfoS logTrace $ sformat msgFmt tipHeader
-    canCreateBlock sId tipHeader >>= \case
+    canCreateBlock logTrace sId tipHeader >>= \case
         Left reason -> pure (Left reason)
         Right () -> runExceptT (createMainBlockFinish tipHeader)
   where
@@ -276,10 +277,11 @@ createMainBlockInternal logTrace pm sId pske = do
         block <$ evaluateNF_ block
 
 canCreateBlock :: MonadCreateBlock ctx m
-    => SlotId
+    => TraceNamed m
+    -> SlotId
     -> BlockHeader
     -> m (Either Text ())
-canCreateBlock sId tipHeader =
+canCreateBlock logTrace sId tipHeader =
     runExceptT $ do
         unlessM (lift usCanCreateBlock) $
             throwError "this software is obsolete and can't create block"
@@ -293,7 +295,7 @@ canCreateBlock sId tipHeader =
         -- weird things can happen (we just launched the system) and
         -- usually we monitor it manually anyway.
         unless (flatSId <= fromIntegral (epochSlots `div` 4)) $ do
-            chainQualityMaybe <- calcChainQualityM flatSId
+            chainQualityMaybe <- calcChainQualityM (natTrace lift logTrace) flatSId
             chainQuality <-
                 maybe
                     (throwError "can't compute chain quality")

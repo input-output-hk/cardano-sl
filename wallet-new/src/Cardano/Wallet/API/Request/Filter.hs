@@ -13,9 +13,9 @@ import           Universum
 
 import qualified Data.List as List
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, formatToString, sformat, (%))
+import qualified Formatting.Buildable
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           Pos.Infra.Util.LogSafe (BuildableSafe, BuildableSafeGen (..),

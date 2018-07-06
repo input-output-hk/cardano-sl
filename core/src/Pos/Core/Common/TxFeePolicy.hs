@@ -7,8 +7,8 @@ import           Universum
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Hashable (Hashable)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, shown, (%))
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
                      decodeUnknownCborDataItem, encodeKnownCborDataItem,

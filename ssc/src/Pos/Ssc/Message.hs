@@ -20,8 +20,8 @@ import           Universum
 
 import           Control.Lens (makePrisms)
 import           Data.Tagged (Tagged)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import           Node.Message.Class (Message)
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)

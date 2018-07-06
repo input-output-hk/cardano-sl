@@ -39,9 +39,9 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
-import           Data.Text.Buildable (build)
 import           Formatting (bprint, shown, (%))
 import qualified Formatting as F
+import           Formatting.Buildable (build)
 import           Pos.Crypto (shortHashF)
 import           Serokell.Util.Text (listJsonIndent, mapBuilder)
 import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)

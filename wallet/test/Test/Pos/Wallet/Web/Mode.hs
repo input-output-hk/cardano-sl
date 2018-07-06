@@ -32,8 +32,8 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import           Data.Default (def)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, formatToString, (%))
+import qualified Formatting.Buildable
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Hspec (Spec)

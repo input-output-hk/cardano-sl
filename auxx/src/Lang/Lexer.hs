@@ -37,8 +37,8 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Loc (Loc, Span, loc, spanFromTo)
 import           Data.Scientific (Scientific)
 import qualified Data.Text as Text
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (sformat)
+import qualified Formatting.Buildable as Buildable
 import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..),
                      genericArbitrary, genericShrink)
 import qualified Test.QuickCheck.Gen as QC

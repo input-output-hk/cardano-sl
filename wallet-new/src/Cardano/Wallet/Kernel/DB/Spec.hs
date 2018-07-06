@@ -33,8 +33,8 @@ import           Control.Lens (to)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as M
 import           Data.SafeCopy (base, deriveSafeCopy)
-import           Data.Text.Buildable (build)
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (build)
 import           Serokell.Util.Text (listJsonIndent)
 
 import qualified Pos.Core as Core

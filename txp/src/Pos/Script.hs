@@ -27,8 +27,8 @@ import           Control.Monad.Error.Class (throwError)
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Set as S
-import qualified Data.Text.Buildable as Buildable
 import qualified Elaboration.Contexts as PL
+import qualified Formatting.Buildable as Buildable
 import qualified Interface.Integration as PL
 import qualified Interface.Prelude as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)

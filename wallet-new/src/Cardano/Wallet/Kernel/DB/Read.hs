@@ -6,8 +6,8 @@ module Cardano.Wallet.Kernel.DB.Read (
 
 import           Universum
 
-import           Data.Text.Buildable (Buildable)
 import           Formatting (build, sformat)
+import           Formatting.Buildable (Buildable)
 
 import           Pos.Core (Coin)
 import           Pos.Txp (Utxo)

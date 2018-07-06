@@ -14,7 +14,7 @@ module Pos.Core.Block.Union.Instances
 import           Universum
 
 import           Control.Lens (Getter, choosing, lens, to)
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()

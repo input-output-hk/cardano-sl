@@ -8,10 +8,10 @@ import           Universum
 import           Control.Monad.Except (MonadError)
 import           Data.Default (Default (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Units (Millisecond)
 import           Formatting (Format, bprint, build, int, later, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)

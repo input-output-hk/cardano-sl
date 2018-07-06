@@ -7,8 +7,8 @@ module Pos.Core.Ssc.Proof
 import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi, Cons (..), Field (..), deriveIndexedBi)
 import           Pos.Core.Common (StakeholderId)

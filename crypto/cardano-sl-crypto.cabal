@@ -65,7 +65,7 @@ library
                      , scrypt
                      , serokell-util
                      , text
-                     , text-format
+                     , formatting
                      , universum
                      , unordered-containers
 

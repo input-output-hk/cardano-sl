@@ -39,7 +39,7 @@ import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
-import           Serokell.Util.OptParse (fromParsec)
+import           Pos.Util.OptParse (fromParsec)
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      logError, logNotice, usingLoggerName)
 

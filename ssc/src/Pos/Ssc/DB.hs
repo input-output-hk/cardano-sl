@@ -9,9 +9,9 @@ module Pos.Ssc.DB
 import           Universum
 
 import           Data.Default (def)
-import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 
 import           Pos.Core (HasCoreConfiguration, genesisVssCerts)
 import           Pos.DB (MonadDB, MonadDBRead, RocksBatchOp (..))

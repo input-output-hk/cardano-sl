@@ -14,13 +14,13 @@ module Pos.Core.Slotting.Timestamp
 import           Universum
 
 import           Control.Lens (Iso', from, iso, makePrisms)
-import qualified Data.Text.Buildable as Buildable
 import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat,
                      parseTimeM)
 import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
                      utcTimeToPOSIXSeconds)
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
+import qualified Formatting.Buildable as Buildable
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           Numeric.Lens (dividing)
 import qualified Prelude

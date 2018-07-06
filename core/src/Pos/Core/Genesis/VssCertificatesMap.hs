@@ -6,8 +6,8 @@ module Pos.Core.Genesis.VssCertificatesMap
 import           Universum
 
 import           Data.Semigroup (Semigroup)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 
 import           Pos.Core.Ssc (VssCertificatesMap, getVssCertificatesMap)

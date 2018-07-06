@@ -30,7 +30,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.Foldable as Foldable
 import           Data.SafeCopy (SafeCopy (..))
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
 import           Pos.Binary.Class (Bi (..), Raw, serializeBuilder)

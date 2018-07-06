@@ -54,8 +54,8 @@ import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
+import qualified Formatting.Buildable
 import qualified Prelude
 import           Serokell.Util (listJson)
 

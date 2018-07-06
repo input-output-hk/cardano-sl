@@ -5,39 +5,21 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans  #-}
 
-module Mockable.Instances
-       ( liftMockableWrappedM
-       ) where
+module Mockable.Instances where
 
-import           Control.Lens (view)
 import           Control.Monad.Trans.Reader (ReaderT (..))
-import           Serokell.Util.Lens (WrappedM (..), _UnwrappedM)
-import           System.Wlog (LoggerName, LoggerNameBox)
-
 import           Mockable.Channel (ChannelT)
 import           Mockable.Class (MFunctor' (..), Mockable (..))
 import           Mockable.Concurrent (Promise, ThreadId)
 import           Mockable.Metrics
 import           Mockable.SharedAtomic (SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusiveT)
+import           System.Wlog (LoggerNameBox)
 
 instance (Mockable d m, MFunctor' d (ReaderT r m) m) => Mockable d (ReaderT r m) where
     liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt
-
-liftMockableWrappedM
-    :: ( Mockable d (UnwrappedM m)
-       , MFunctor' d m (UnwrappedM m)
-       , WrappedM m
-       ) => d m t -> m t
-liftMockableWrappedM dmt = view _UnwrappedM $ liftMockable $ hoist' (view _WrappedM) dmt
-
-instance ( Mockable d m
-         , MFunctor' d (LoggerNameBox m) (ReaderT LoggerName m)
-         , MFunctor' d (ReaderT LoggerName m) m
-         ) => Mockable d (LoggerNameBox m) where
-    liftMockable = liftMockableWrappedM
 
 type instance ThreadId (LoggerNameBox m) = ThreadId m
 type instance Promise (LoggerNameBox m) = Promise m

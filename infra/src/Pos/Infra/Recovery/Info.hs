@@ -12,8 +12,8 @@ module Pos.Infra.Recovery.Info
 
 import           Universum
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
+import qualified Formatting.Buildable
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core (HasProtocolConstants, SlotCount, SlotId, slotIdF,

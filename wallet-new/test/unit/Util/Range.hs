@@ -30,8 +30,8 @@ import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import qualified Data.List
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
+import qualified Formatting.Buildable
 
 {-------------------------------------------------------------------------------
   Ranges

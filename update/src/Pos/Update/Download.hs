@@ -31,7 +31,7 @@ import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
                      UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.Exception (reportFatalError)
-import           Pos.Infra.Reporting (reportOrLogW)
+import           Pos.Sinbin.Reporting (reportOrLogW)
 import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB.Misc (isUpdateInstalled)

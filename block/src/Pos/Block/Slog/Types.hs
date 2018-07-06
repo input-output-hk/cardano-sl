@@ -25,7 +25,7 @@ import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
                      HasProtocolConstants, LocalSlotIndex, slotIdF,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Infra.Reporting.Metrics (MetricMonitorState)
+import           Pos.Sinbin.Reporting (MetricMonitorState)
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of

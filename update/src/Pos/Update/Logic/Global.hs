@@ -26,10 +26,10 @@ import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.Exception (reportFatalError)
-import           Pos.Infra.Reporting (MonadReporting)
-import           Pos.Infra.Slotting (MonadSlotsData, slottingVar)
-import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Sinbin.Reporting (MonadReporting)
+import           Pos.Sinbin.Slotting (MonadSlotsData, slottingVar)
+import           Pos.Sinbin.Slotting.Types (SlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Update.DB (UpdateOp (..))

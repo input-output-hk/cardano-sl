@@ -24,6 +24,7 @@ packages:
 - db
 - lrc
 - lrc/test
+- sinbin
 - infra
 - infra/test
 - ssc

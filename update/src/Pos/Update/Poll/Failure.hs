@@ -16,7 +16,7 @@ import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,
                      ScriptVersion, StakeholderId, coinF)
 import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
 import           Pos.Crypto (shortHashF)
-import           Pos.Infra.Reporting (MonadReporting, reportError)
+import           Pos.Sinbin.Reporting (MonadReporting, reportError)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.

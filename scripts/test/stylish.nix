@@ -1,13 +1,16 @@
 { runCommand, stylish-haskell, src, lib, localLib, diffutils }:
 
 let
-  cleanSourceFilter = with lib;
+  # just haskell sources and the stylish-haskell config file
+  src' = lib.cleanSourceWith {
+   inherit src;
+   filter = with lib;
     name: type: let baseName = baseNameOf (toString name); in (
       (type == "regular" && hasSuffix ".hs" baseName) ||
       (type == "regular" && hasSuffix ".yaml" baseName) ||
       (type == "directory")
     );
-  src' = builtins.filterSource cleanSourceFilter src;
+  };
 in
 runCommand "cardano-stylish-check" {
   succeedOnFailure = true;
@@ -19,7 +22,7 @@ runCommand "cardano-stylish-check" {
   cp -a ${src'} stylish
   chmod -R +w stylish
   cd stylish
-  find . -type f -name "*hs" -not -path '.git' -not -path '*.stack-work*' -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
+  find . -type f -name "*hs" -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
   cd ..
   diff --brief --recursive orig stylish > /dev/null
   EXIT_CODE=$?

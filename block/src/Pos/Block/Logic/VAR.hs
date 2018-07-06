@@ -40,7 +40,7 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics)
+import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Settings

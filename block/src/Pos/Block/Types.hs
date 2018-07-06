@@ -22,7 +22,6 @@ import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Delegation ()
 import           Pos.Block.Slog.Types (SlogUndo (..))
 import           Pos.Core (HasConfiguration, HasDifficulty (..),
                      HasHeaderHash (..))

@@ -119,7 +119,7 @@ mkHttpClient baseUrl manager = WalletClient
     , redeemAda
         = run ... redeemAdaR
     , getAccountAddresses
-        = \x -> run . getAccountAddressesR x
+        = \x y p pp filters sorts -> run $ getAccountAddressesR x y p pp filters sorts
     , getAccountBalance
         = \x -> run . getAccountBalanceR x
     -- transactions endpoints

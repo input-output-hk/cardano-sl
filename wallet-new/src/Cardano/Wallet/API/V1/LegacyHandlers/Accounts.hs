@@ -26,6 +26,8 @@ handlers =
     :<|> listAccounts
     :<|> newAccount
     :<|> updateAccount
+    :<|> getAccountAddresses
+    :<|> getAccountBalance
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -68,3 +70,20 @@ updateAccount wId accIdx accUpdate = do
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)
+
+getAccountAddresses
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountIndex -> m (WalletResponse AccountAddresses)
+getAccountAddresses wId accIdx  =
+    partialResponse (AccountAddresses . accAddresses) <$> getAccount wId accIdx
+
+getAccountBalance
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountIndex -> m (WalletResponse AccountBalance)
+getAccountBalance wId accIdx =
+    partialResponse (AccountBalance . accAmount) <$> getAccount wId accIdx
+
+partialResponse :: (Account -> a) -> WalletResponse Account -> WalletResponse a
+partialResponse extract res = res
+    { wrData = extract (wrData res)
+    }

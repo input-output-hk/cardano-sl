@@ -31,4 +31,13 @@ type API
           :> Summary "Update an Account for the given Wallet."
           :> ReqBody '[ValidJSON] (Update Account)
           :> Put '[ValidJSON] (WalletResponse Account)
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
+          :> CaptureAccountId :> "addresses"
+          :> Summary "Retrieve only account's addressees."
+          :> Get '[ValidJSON] (WalletResponse AccountAddresses)
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
+          :> CaptureAccountId :> "balance"
+          :> Summary "Retrieve only account's balance."
+          :> Get '[ValidJSON] (WalletResponse AccountBalance)
+
     )

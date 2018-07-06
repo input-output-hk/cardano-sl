@@ -54,9 +54,6 @@ import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
                      needTriggerRecovery, recoveryCommGuard)
 import           Pos.Infra.Slotting (getSlotStartEmpatically, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
-import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics,
                      MetricMonitor (..), MetricMonitorState, noReportMonitor,
@@ -66,6 +63,9 @@ import           Pos.Sinbin.Slotting (ActionTerminationPolicy (..),
                      OnNewSlotParams (..), currentTimeSlotting,
                      defaultOnNewSlotParams)
 import           Pos.Sinbin.Util.JsonLog.Events (jlCreatedBlock)
+import           Pos.Sinbin.Util.LogSafe (logDebugS, logInfoS, logWarningS)
+import           Pos.Sinbin.Util.TimeLimit (logWarningSWaitLinear)
+import           Pos.Sinbin.Util.TimeWarp (CanJsonLog (..))
 
 import           Pos.Update.DB (getAdoptedBVData)
 

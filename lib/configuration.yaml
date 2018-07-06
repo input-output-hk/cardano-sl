@@ -14820,7 +14820,7 @@ testnet_full: &testnet_full
     genesis:
       src:
         file: testnet-genesis.json
-        hash: f0204568043f6cb8068a81ddc1e9ca575615aed12a3a815678afc5ca12a94eb8
+        hash: 5d30b2fac276907d36ed2ae9b6fe847f18c7457bce6ccb68535aa8b01bc67726
 
   update: &testnet_full_update
     applicationName: cardano-sl

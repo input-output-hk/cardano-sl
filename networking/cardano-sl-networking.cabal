@@ -62,6 +62,7 @@ Library
                       , async
                       , attoparsec
                       , base
+                      , bytestring
                       , cardano-sl-util
                       , containers
                       , cryptonite

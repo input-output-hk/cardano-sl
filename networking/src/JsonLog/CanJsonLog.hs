@@ -29,11 +29,19 @@ import           Control.Monad.Trans.Class (MonadTrans (..))
 import           Control.Monad.Trans.Identity (IdentityT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
+import           Data.Aeson (encode)
 import           Data.Aeson.Types (ToJSON)
 --import           Pos.Util.Log (LoggerNameBox)
 --import           Pos.Util.Trace (natTrace)
 --import           Pos.Util.Trace.Named (TraceNamed)
 import           Serokell.Util.Lens (WrappedM (..))
+
+import           Mockable (Production (..))
+import qualified Pos.Util.Log as Log
+
+import qualified Data.ByteString.Lazy as B
+import           Data.Text.Encoding (decodeUtf8)
+-- import qualified Katip as K
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.
@@ -57,6 +65,10 @@ instance CanJsonLog m => CanJsonLog (StateT s m)
 instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
 --instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
+
+deriving instance CanJsonLog Production
+instance CanJsonLog (Log.LogContextT IO) where
+    jsonLog a = Log.logMessage Log.Info $ decodeUtf8 $ B.toStrict $ encode a
 
 -- | @'jsonLogWrappedM'@ is a convenience default implementation
 -- of @'jsonLog'@ to facilitate providing instances of class @'CanJsonLog'@

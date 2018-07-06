@@ -57,6 +57,8 @@ deriving instance MonadCatch Production
 deriving instance K.Katip Production
 deriving instance K.KatipContext Production
 
+deriving instance Log.CanLog Production
+
 instance Rand.MonadRandom Production where
     getRandomBytes = Production . KM.KatipContextT . ReaderT . const . getEntropy
 

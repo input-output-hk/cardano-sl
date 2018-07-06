@@ -24,7 +24,7 @@ Flag for-installer
                installer)
 
 Flag postmortem
-  default:     False
+  default:     True
   manual:      True
   description: Build the post-mortem analysis tool (ignored if for-installer is
                true)

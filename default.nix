@@ -89,6 +89,9 @@ let
       cardano-sl-wallet-new = addGitRev super.cardano-sl-wallet-new;
       cardano-sl-wallet-new-static = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
+        configureFlags = (drv.configureFlags or []) ++ [
+          "-f+postmortem"
+        ];
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
       })));

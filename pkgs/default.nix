@@ -17388,6 +17388,7 @@ license = stdenv.lib.licenses.mit;
 , asn1-encoding
 , asn1-types
 , async
+, attoparsec
 , base
 , base58-bytestring
 , base64-bytestring
@@ -17408,21 +17409,28 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-update
 , cardano-sl-util
 , cardano-sl-wallet
+, cassava
+, Chart
+, Chart-diagrams
 , containers
 , cpphs
 , cryptonite
 , data-default
 , data-default-class
 , directory
+, fgl
 , filepath
+, foldl
 , formatting
 , Glob
+, graphviz
 , hourglass
 , hspec
 , ip
 , lens
 , lifted-async
 , log-warper
+, MonadRandom
 , mtl
 , neat-interpolation
 , network-transport
@@ -17430,8 +17438,13 @@ license = stdenv.lib.licenses.mit;
 , optparse-applicative
 , optparse-generic
 , parsers
+, pipes
+, pipes-bytestring
+, pipes-interleave
+, pipes-safe
 , process
 , QuickCheck
+, random
 , safe-exceptions
 , serokell-util
 , silently
@@ -17483,6 +17496,7 @@ ansi-wl-pprint
 asn1-encoding
 asn1-types
 async
+attoparsec
 base
 base58-bytestring
 base64-bytestring
@@ -17503,27 +17517,39 @@ cardano-sl-txp-test
 cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
+cassava
+Chart
+Chart-diagrams
 containers
 cryptonite
 data-default
 data-default-class
 directory
+fgl
 filepath
+foldl
 formatting
 Glob
+graphviz
 hourglass
 ip
 lens
 lifted-async
 log-warper
+MonadRandom
 mtl
 neat-interpolation
 network-transport
 network-transport-tcp
 optparse-applicative
 optparse-generic
+pipes
+pipes-bytestring
+pipes-interleave
+pipes-safe
 process
 QuickCheck
+random
 safe-exceptions
 serokell-util
 silently

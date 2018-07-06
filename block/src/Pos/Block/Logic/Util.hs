@@ -21,7 +21,6 @@ import           Data.List (findIndex)
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
-import           Pos.Util.Log (WithLogger)
 
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
@@ -34,11 +33,12 @@ import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
-import           Pos.Exception (reportFatalError)
+import           Pos.Exception (traceFatalError)
 import           Pos.GState.BlockExtra (isBlockInMainChain)
 import           Pos.Infra.Slotting (MonadSlots (..), getCurrentSlotFlat,
                      slotFromTimestamp)
 import           Pos.Util (_neHead)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- | Find LCA of headers list and main chain, including oldest
 -- header's parent hash. Acts as it would iterate from newest to
@@ -99,22 +99,22 @@ calcChainQuality blockCount deepSlot newSlot
 calcChainQualityM ::
        ( MonadReader ctx m
        , HasSlogGState ctx
-       --, MonadIO m
+       , MonadIO m
        , MonadThrow m
-       , WithLogger m
        , Fractional res
        , HasProtocolConstants
        )
-    => FlatSlotId
+    => TraceNamed m
+    -> FlatSlotId
     -> m (Maybe res)
-calcChainQualityM newSlot = do
+calcChainQualityM logTrace newSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
     let len = length lastSlots
     case nonEmpty lastSlots of
         Nothing -> return Nothing
         Just slotsNE
             | len > fromIntegral blkSecurityParam ->
-                reportFatalError $
+                traceFatalError logTrace $
                 sformat ("number of last slots is greater than 'k': "%int) len
 
             | otherwise ->

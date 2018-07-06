@@ -395,7 +395,7 @@ chainQualityChecker logTrace curSlot kThSlot = do
     let monitorK = cqkMetricMonitor monitorStateK isBootstrapEra
     monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
     monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
-    whenJustM (calcChainQualityM curFlatSlot) (recordValue logTrace monitorK)
+    whenJustM (calcChainQualityM logTrace curFlatSlot) (recordValue logTrace monitorK)
     whenJustM calcOverallChainQuality $ recordValue logTrace monitorOverall
     whenJustM calcChainQualityFixedTime $ recordValue logTrace monitorFixed
 

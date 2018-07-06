@@ -20,9 +20,9 @@ import qualified Data.List as List
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
-import           Pos.Core (AddressHash, HasConfiguration)
+import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
-import           Pos.Crypto (EncryptedSecretKey, PublicKey)
+import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -144,11 +144,11 @@ interpretT mkWallet EventCallbacks{..} Inductive{..} =
 
 equivalentT :: forall h m. (Hash h Addr, MonadIO m)
             => Kernel.ActiveWallet
-            -> (AddressHash PublicKey, EncryptedSecretKey)
+            -> EncryptedSecretKey
             -> (DSL.Transaction h Addr -> Wallet h Addr)
             -> Inductive h Addr
             -> TranslateT IntException m (Validated (EquivalenceViolation h) ())
-equivalentT activeWallet (pk,esk) = \mkWallet w ->
+equivalentT activeWallet esk = \mkWallet w ->
       fmap (void . validatedFromEither)
           $ catchSomeTranslateErrors
           $ interpretT mkWallet EventCallbacks{..} w
@@ -161,7 +161,7 @@ equivalentT activeWallet (pk,esk) = \mkWallet w ->
     walletBootT ctxt utxo = do
         res <- liftIO $ Kernel.createWalletHdRnd passiveWallet walletName
                                                  spendingPassword assuranceLevel
-                                                 (pk,esk) utxo
+                                                 esk utxo
 
         either createWalletErr (checkWalletAccountState ctxt) res
 

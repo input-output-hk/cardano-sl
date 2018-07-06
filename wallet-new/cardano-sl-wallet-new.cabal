@@ -89,6 +89,7 @@ library
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
+                       Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
@@ -151,6 +152,7 @@ library
                      , cryptonite
                      , data-default
                      , data-default-class
+                     , directory
                      , exceptions
                      , formatting
                      , generics-sop
@@ -382,6 +384,7 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.Kernel
+                      Test.Spec.Keystore
                       Test.Spec.Models
                       Test.Spec.Submission
                       Test.Spec.Translation

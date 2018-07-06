@@ -18639,6 +18639,7 @@ containers
 cryptonite
 data-default
 data-default-class
+directory
 exceptions
 formatting
 generics-sop

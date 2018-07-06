@@ -24,12 +24,12 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Ssc (SscParams (..))
 import           Pos.Update.Params (UpdateParams (..))
-import qualified Pos.Util.Log as Log
+import           Pos.Util.Log (LoggerName)
 import           Pos.Util.Trace (noTrace)
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
 
-loggingParams :: Log.LoggerName -> CommonNodeArgs -> LoggingParams
+loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams defaultName CommonNodeArgs{..} =
     LoggingParams
     { lpHandlerPrefix = logPrefix commonArgs
@@ -38,7 +38,7 @@ loggingParams defaultName CommonNodeArgs{..} =
     , lpConsoleLog    = Nothing -- no override by default
     }
 
-getBaseParams :: Log.LoggerName -> CommonNodeArgs -> BaseParams
+getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
 getBaseParams defaultLoggerName args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams defaultLoggerName args }
 
@@ -58,17 +58,16 @@ getKeyfilePath CommonNodeArgs {..}
 
 getNodeParams ::
        ( MonadIO m
-       , Log.WithLogger m
        , MonadCatch m
        , HasConfiguration
        )
-    => Log.LoggerName
+    => LoggerName
     -> CommonNodeArgs
     -> NodeArgs
     -> m NodeParams
 getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
-        prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
+        prepareUserSecret noTrace cArgs =<< peekUserSecret noTrace (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts noTrace networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def

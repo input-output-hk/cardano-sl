@@ -84,12 +84,13 @@ prepareRedemptionTx pm rsk output = do
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: MinWorkMode m
-    => Diffusion m -> TxAux -> m Bool
-submitTxRaw diffusion txAux@TxAux {..} = do
+    => TraceNamed m
+    -> Diffusion m -> TxAux -> m Bool
+submitTxRaw logTrace diffusion txAux@TxAux {..} = do
     let txId = hash taTx
-    logInfo $ sformat ("Submitting transaction: "%txaF) txAux
-    logInfo $ sformat ("Transaction id: "%build) txId
-    sendTx diffusion txAux
+    logInfo logTrace $ sformat ("Submitting transaction: "%txaF) txAux
+    logInfo logTrace $ sformat ("Transaction id: "%build) txId
+    sendTx {-logTrace-} diffusion txAux
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

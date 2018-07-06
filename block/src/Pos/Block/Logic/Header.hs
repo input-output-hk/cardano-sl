@@ -25,7 +25,6 @@ import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE (toList)
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
-import           Pos.Util.Log (WithLogger, logDebug)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           UnliftIO (MonadUnliftIO)
@@ -52,6 +51,7 @@ import           Pos.Infra.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Lrc.DB as LrcDB
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (buildListBounds, _neHead, _neLast)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -168,13 +168,13 @@ classifyHeaders ::
        forall ctx m.
        ( MonadDBRead m
        , MonadSlots ctx m
-       , WithLogger m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> Bool -- recovery in progress?
     -> NewestFirst NE BlockHeader
     -> m ClassifyHeadersRes
-classifyHeaders pm inRecovery headers = do
+classifyHeaders logTrace0 pm inRecovery headers = do
     tipHeader <- DB.getTipHeader
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.getHeader oldestParentHash
@@ -216,6 +216,7 @@ classifyHeaders pm inRecovery headers = do
                  \of oldest element in chain (should be one of checkpoints)"
        | otherwise -> fromMaybe uselessGeneral <$> processClassify tipHeader
   where
+    logTrace = appendName "classifyHeaders" logTrace0
     newestHeader = headers ^. _NewestFirst . _neHead
     newestHash = headerHash newestHeader
     oldestHeader = headers ^. _NewestFirst . _neLast
@@ -224,7 +225,7 @@ classifyHeaders pm inRecovery headers = do
     uselessGeneral =
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
     processClassify tipHeader = runMaybeT $ do
-        lift $ logDebug $
+        lift $ logDebug logTrace $
             sformat ("Classifying headers (newest first): "%buildListBounds) $
                 getNewestFirst $ map (view headerHashG) headers
         lca <-
@@ -256,16 +257,16 @@ data GetHeadersFromManyToError = GHFBadInput Text deriving (Show,Generic)
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo ::
        ( MonadDBRead m
-       , WithLogger m
        )
-    => Maybe Word          -- ^ Optional limit on how many to bring in.
+    => TraceNamed m
+    -> Maybe Word          -- ^ Optional limit on how many to bring in.
     -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
     -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
-    logDebug $
-        sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
+getHeadersFromManyTo logTrace0 mLimit checkpoints startM = runExceptT $ do
+    lift $ logDebug logTrace $
+        sformat (listJson%", start: "%build)
                 checkpoints startM
     tip <- lift DB.getTipHeader
     let tipHash = headerHash tip
@@ -278,7 +279,7 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
     let inMainCheckpointsHashes = map headerHash inMainCheckpoints
     when (tipHash `elem` inMainCheckpointsHashes) $
         throwLocal "found checkpoint that is equal to our tip"
-    logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
+    lift $ logDebug logTrace $ "got checkpoints in main chain"
 
     if (tip ^. prevBlockL . headerHashG) `elem` inMainCheckpointsHashes
         -- Optimization for the popular case "just get me the newest
@@ -297,9 +298,10 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
                 maybe (throwLocal "loadHeadersUpWhile returned empty list") pure $
                 _NewestFirst nonEmpty $
                 toNewestFirst $ over _OldestFirst (drop 1) up
-            logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+            lift $ logDebug logTrace $ "loaded non-empty list of headers, returning"
             pure res
   where
+    logTrace = appendName "getHeadersFromManyTo" logTrace0
     mLimitInt :: Maybe Int
     mLimitInt = fromIntegral <$> mLimit
 

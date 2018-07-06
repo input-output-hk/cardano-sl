@@ -143,7 +143,7 @@ logicFull logTrace jsonLogTx pm ourStakeholderId securityParams =
             -> NonEmpty HeaderHash
             -> Maybe HeaderHash
             -> m (Either Block.GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-        getBlockHeaders = Block.getHeadersFromManyTo
+        getBlockHeaders = Block.getHeadersFromManyTo logTrace
 
         getLcaMainChain :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
         getLcaMainChain = Block.lcaWithMainChainSuffix

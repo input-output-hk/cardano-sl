@@ -9,17 +9,17 @@ module Pos.Client.KeyStorage
        , modifySecretPureDefault
        , modifySecretDefault
 
-       , getPrimaryKey
+       --, getPrimaryKey
        , getSecretKeys
        , getSecretKeysPlain
        , addSecretKey
        , deleteAllSecretKeys
        , deleteSecretKeyBy
-       , newSecretKey
+       --, newSecretKey
        , KeyData
        , KeyError (..)
        , AllUserSecrets (..)
-       , keyDataFromFile
+       --, keyDataFromFile
        ) where
 
 import           Universum
@@ -32,8 +32,6 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash,
                      runSecureRandom, safeKeyGen)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret,
                      peekUserSecret, usKeys, usPrimKey, writeUserSecret)
-
-import qualified Pos.Util.Log as Log
 
 
 type KeyData = TVar UserSecret
@@ -71,9 +69,10 @@ modifySecretDefault f = do
 ----------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------
-
+{-
 getPrimaryKey :: MonadKeysRead m => m (Maybe SecretKey)
 getPrimaryKey = view usPrimKey <$> getSecret
+-}
 
 newtype AllUserSecrets = AllUserSecrets
     { getAllUserSecrets :: [EncryptedSecretKey]
@@ -98,12 +97,13 @@ deleteSecretKeyBy :: MonadKeys m => (EncryptedSecretKey -> Bool) -> m ()
 deleteSecretKeyBy predicate = modifySecret (usKeys %~ filter (not . predicate))
 
 -- | Helper for generating a new secret key
+{-
 newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
 newSecretKey pp = do
     (_, sk) <- liftIO $ runSecureRandom $ safeKeyGen pp
     addSecretKey sk
     pure sk
-
+-}
 ------------------------------------------------------------------------
 -- Common functions
 ------------------------------------------------------------------------
@@ -111,8 +111,10 @@ newSecretKey pp = do
 containsKey :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
 containsKey ls k = hash k `elem` map hash ls
 
-keyDataFromFile :: (MonadIO m, Log.WithLogger m) => FilePath -> m KeyData
-keyDataFromFile fp = peekUserSecret fp >>= liftIO . STM.newTVarIO
+{-
+keyDataFromFile :: (MonadIO m) => TraceNamed m -> FilePath -> m KeyData
+keyDataFromFile logTrace fp = peekUserSecret logTrace fp >>= liftIO . STM.newTVarIO
+-}
 
 data KeyError =
     PrimaryKey !Text -- ^ Failed attempt to delete primary key

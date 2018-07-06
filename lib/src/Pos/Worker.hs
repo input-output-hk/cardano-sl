@@ -23,7 +23,6 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Ssc.Worker (sscWorkers)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Worker (usWorkers)
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.WorkMode (WorkMode)
 

@@ -18,6 +18,7 @@ module Pos.Util.UserSecret
        , mkGenesisWalletUserSecret
 
        , UserSecret
+       , isEmptyUserSecret
        , usKeys
        , usVss
        , usWallet
@@ -135,6 +136,9 @@ data UserSecret = UserSecret
     } deriving (Generic)
 
 deriving instance Eq EncryptedSecretKey => Eq UserSecret
+
+isEmptyUserSecret :: UserSecret -> Bool
+isEmptyUserSecret us = null (_usKeys us)
 
 instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
     arbitrary = genericArbitrary

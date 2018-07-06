@@ -17,7 +17,7 @@ import           Test.QuickCheck.Monadic (forAllM, monadicIO, pick, run)
 import           Pos.Crypto (EncryptedSecretKey, hash, safeKeyGen)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
-import           Cardano.Wallet.Kernel.Keystore (Keystore)
+import           Cardano.Wallet.Kernel.Keystore (DeletePolicy (..), Keystore)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
@@ -25,11 +25,12 @@ import           Util.Buildable (ShowThroughBuild (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
--- | Creates, operate on a keystore and finally destroys it.
+-- | Creates and operate on a keystore. The 'Keystore' is created in a temporary
+-- directory and garbage-collected from the Operating System.
 withKeystore :: (Keystore -> IO a) -> IO a
 withKeystore action =
-    bracket Keystore.newTemporaryKeystore
-            Keystore.releaseAndDestroyKeystore
+    bracket Keystore.newTestKeystore
+            (\_ -> return ())
             action
 
 genKeypair :: Gen ( ShowThroughBuild WalletId
@@ -48,13 +49,14 @@ spec =
     describe "Keystore to store UserSecret(s)" $ do
         it "creating a brand new one works" $ do
             nukeKeystore "test_keystore.key"
-            Keystore.bracketKeystore "test_keystore.key" $ \_keystore ->
-                doesFileExist "test_keystore.key" `shouldReturn` True
+            Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \_ks ->
+                return ()
+            doesFileExist "test_keystore.key" `shouldReturn` True
 
         it "destroying a keystore (completely) works" $ do
             nukeKeystore "test_keystore.key"
-            keystore <- Keystore.newKeystore "test_keystore.key"
-            Keystore.releaseAndDestroyKeystore keystore
+            Keystore.bracketKeystore RemoveKeystoreIfEmpty "test_keystore.key" $ \_ks ->
+                return ()
             doesFileExist "test_keystore.key" `shouldReturn` False
 
         prop "lookup of keys works" $ monadicIO $ do
@@ -68,9 +70,9 @@ spec =
             (STB wid, STB esk) <- pick genKeypair
             run $ do
                 nukeKeystore "test_keystore.key"
-                Keystore.bracketKeystore "test_keystore.key" $ \keystore1 ->
+                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 ->
                     Keystore.insert wid esk keystore1
-                Keystore.bracketKeystore "test_keystore.key" $ \keystore2 -> do
+                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
                     mbKey <- Keystore.lookup wid keystore2
                     (fmap hash mbKey) `shouldBe` (Just (hash esk))
 
@@ -86,9 +88,9 @@ spec =
             (STB wid, STB esk) <- pick genKeypair
             run $ do
                 nukeKeystore "test_keystore.key"
-                Keystore.bracketKeystore "test_keystore.key" $ \keystore1 -> do
+                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 -> do
                     Keystore.insert wid esk keystore1
                     Keystore.delete wid keystore1
-                Keystore.bracketKeystore "test_keystore.key" $ \keystore2 -> do
+                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
                     mbKey <- Keystore.lookup wid keystore2
                     (fmap hash mbKey) `shouldBe` Nothing

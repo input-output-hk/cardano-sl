@@ -69,7 +69,7 @@ spec =
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWallet postHook = do
-      keystore <- Keystore.newTemporaryKeystore
+      keystore <- Keystore.newTestKeystore
       Kernel.bracketPassiveWallet logMessage keystore postHook
   where
    -- TODO: Decide what to do with logging.

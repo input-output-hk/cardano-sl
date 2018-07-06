@@ -127,7 +127,7 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
 
 -- | HD wallet root ID. Conceptually, this is just an 'Address' in the form
 -- of 'Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxxJgxdAYHrDeSCSbCxrvx', but is,
--- in a sense, a special breed as its derived from the 'PublicKey' (derived
+-- in a sense, a special breed as it's derived from the 'PublicKey' (derived
 -- from some BIP-39 mnemonics, typically) and which does not depend from any
 -- delegation scheme, as you cannot really pay into this 'Address'. This
 -- ensures that, given an 'EncryptedSecretKey' we can derive its 'PublicKey'
@@ -307,28 +307,24 @@ instance HasPrimKey HdAddress where
     type PrimKey HdAddress = HdAddressId
     primKey = _hdAddressId
 
--- | An 'HdRoot' can be accessed via its 'Core.Address', which is the
--- Cardano 'Address' derived by the PublicKey associated with it.
-type HdRootIxs    = '[Core.Address]
-type HdAccountIxs = '[HdRootId]
-type HdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
+type SecondaryHdRootIxs    = '[]
+type SecondaryHdAccountIxs = '[HdRootId]
+type SecondaryHdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
 
-type instance IndicesOf HdRoot    = HdRootIxs
-type instance IndicesOf HdAccount = HdAccountIxs
-type instance IndicesOf HdAddress = HdAddressIxs
+type instance IndicesOf HdRoot    = SecondaryHdRootIxs
+type instance IndicesOf HdAccount = SecondaryHdAccountIxs
+type instance IndicesOf HdAddress = SecondaryHdAddressIxs
 
-instance IxSet.Indexable (HdRootId ': HdRootIxs)
+instance IxSet.Indexable (HdRootId ': SecondaryHdRootIxs)
                          (OrdByPrimKey HdRoot) where
     indices = ixList
-                (ixFun (\hdRoot -> case view hdRootId hdRoot of
-                                        HdRootId (InDb addr) -> [addr]))
 
-instance IxSet.Indexable (HdAccountId ': HdAccountIxs)
+instance IxSet.Indexable (HdAccountId ': SecondaryHdAccountIxs)
                          (OrdByPrimKey HdAccount) where
     indices = ixList
                 (ixFun ((:[]) . view hdAccountRootId))
 
-instance IxSet.Indexable (HdAddressId ': HdAddressIxs)
+instance IxSet.Indexable (HdAddressId ': SecondaryHdAddressIxs)
                          (OrdByPrimKey HdAddress) where
     indices = ixList
                 (ixFun ((:[]) . view hdAddressRootId))
@@ -451,7 +447,9 @@ assumeHdAccountExists _id = return ()
   General-utility functions
 -------------------------------------------------------------------------------}
 
--- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'.
+-- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'. See the
+-- comment in the definition of 'makePubKeyAddressBoot' on why this is
+-- acceptable.
 eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
 eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 

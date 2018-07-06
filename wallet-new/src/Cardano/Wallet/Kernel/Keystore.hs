@@ -5,20 +5,17 @@
     implementation concealed by the user of this module. The internal operations
     are currently quite inefficient, as they have to work around the legacy
     'UserSecret' storage.
+
 --}
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
 
 module Cardano.Wallet.Kernel.Keystore (
       Keystore -- opaque
+    , DeletePolicy(..)
       -- * Constructing a keystore
     , bracketKeystore
     , bracketLegacyKeystore
-    -- * Destroying a keystore (something you rarely should do)
-    , releaseAndDestroyKeystore
-    -- * Releasing a keystore and its associated resources
-    , releaseKeystore
     -- * Inserting values
     , insert
     -- * Deleting values
@@ -28,9 +25,7 @@ module Cardano.Wallet.Kernel.Keystore (
     -- * Conversions
     , toList
     -- * Tests handy functions
-    , newTemporaryKeystore
-    -- * Internal and test-only exports.
-    , newKeystore
+    , newTestKeystore
     ) where
 
 import           Universum hiding (toList)
@@ -42,8 +37,8 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
 
 import           Pos.Crypto (EncryptedSecretKey, hash)
-import           Pos.Util.UserSecret (UserSecret, getUSPath, takeUserSecret,
-                     usKeys, writeUserSecretRelease)
+import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
+                     takeUserSecret, usKeys, writeUserSecretRelease)
 import           System.Wlog (CanLog (..), HasLoggerName (..), LoggerName (..),
                      logMessage)
 
@@ -51,27 +46,10 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 -- Internal storage necessary to smooth out the legacy 'UserSecret' API.
-data InternalStorage =
-      StorageInitialised !UserSecret
-    | StorageReleased
+data InternalStorage = InternalStorage !UserSecret
 
+-- A 'Keystore'.
 data Keystore = Keystore (MVar InternalStorage)
-
-data KeystoreOperation =
-      KeystoreLookup
-    | KeystoreDelete
-    | KeystoreInsert
-    | KeystoreToList
-    | KeystoreRelease
-    deriving Show
-
-data KeystoreError =
-    KeystoreErrorAlreadyReleased KeystoreOperation
-    -- ^ The keystore was already released by the time the requested
-    -- operation was attempted.
-    deriving Show
-
-instance Exception KeystoreError
 
 -- | Internal monad used to smooth out the 'WithLogger' dependency imposed
 -- by 'Pos.Util.UserSecret', to not commit to any way of logging things just yet.
@@ -85,29 +63,54 @@ instance HasLoggerName KeystoreM where
 instance CanLog KeystoreM where
     dispatchMessage _ln sev txt = logMessage sev txt
 
+-- | A 'DeletePolicy' is a preference the user can express on how to release
+-- the 'Keystore' during its teardown.
+data DeletePolicy =
+      RemoveKeystoreIfEmpty
+      -- ^ Completely obliterate the 'Keystore' if is empty, including the
+      -- file on disk.
+    | KeepKeystoreIfEmpty
+      -- ^ Release the 'Keystore' without touching its file on disk, even
+      -- if the latter is empty.
+
 {-------------------------------------------------------------------------------
   Creating a keystore
 -------------------------------------------------------------------------------}
 
+-- FIXME [CBR-316] Due to the current, legacy 'InternalStorage' being
+-- used, the 'Keystore' does not persist the in-memory content on disk after
+-- every destructive operations, which means that in case of a node crash or
+-- another catastrophic behaviour (e.g. power loss, etc) the in-memory content
+-- not yet written in memory will be forever lost.
+
 -- | Creates a 'Keystore' using a 'bracket' pattern, where the
 -- initalisation and teardown of the resource are wrapped in 'bracket'.
-bracketKeystore :: FilePath -> (Keystore -> IO a) -> IO a
-bracketKeystore fp withKeystore =
-    bracket (newKeystore fp) releaseKeystore withKeystore
+bracketKeystore :: DeletePolicy
+                -- ^ What to do if the keystore is empty
+                -> FilePath
+                -- ^ The path to the file which will be used for the 'Keystore'
+                -> (Keystore -> IO a)
+                -- ^ An action on the 'Keystore'.
+                -> IO a
+bracketKeystore deletePolicy fp withKeystore =
+    bracket (newKeystore fp) (releaseKeystore deletePolicy) withKeystore
 
 -- | Creates a new keystore.
 newKeystore :: FilePath -> IO Keystore
 newKeystore fp = runIdentityT $ fromKeystore $ do
     us <- takeUserSecret fp
-    Keystore <$> newMVar (StorageInitialised us)
+    Keystore <$> newMVar (InternalStorage us)
 
 -- | Creates a legacy 'Keystore' by reading the 'UserSecret' from a 'NodeContext'.
 -- Hopefully this function will go in the near future.
 newLegacyKeystore :: UserSecret -> IO Keystore
-newLegacyKeystore us = Keystore <$> newMVar (StorageInitialised us)
+newLegacyKeystore us = Keystore <$> newMVar (InternalStorage us)
 
 -- | Creates a legacy 'Keystore' using a 'bracket' pattern, where the
 -- initalisation and teardown of the resource are wrapped in 'bracket'.
+-- For a legacy 'Keystore' users do not get to specify a 'DeletePolicy', as
+-- the release of the keystore is left for the node and the legacy code
+-- themselves.
 bracketLegacyKeystore :: UserSecret -> (Keystore -> IO a) -> IO a
 bracketLegacyKeystore us withKeystore =
     bracket (newLegacyKeystore us)
@@ -115,55 +118,42 @@ bracketLegacyKeystore us withKeystore =
             withKeystore
 
 -- | Creates a 'Keystore' out of a randomly generated temporary file (i.e.
--- inside your $TMPDIR of choice). Suitable for testing.
+-- inside your $TMPDIR of choice).
 -- We don't offer a 'bracket' style here as the teardown is irrelevant, as
 -- the file is disposed automatically from being created into the
 -- OS' temporary directory.
-newTemporaryKeystore :: IO Keystore
-newTemporaryKeystore = liftIO $ runIdentityT $ fromKeystore $ do
+-- NOTE: This 'Keystore', as its name implies, shouldn't be using in
+-- production, but only for testing, as it can even possibly contain data
+-- races due to the fact its underlying file is stored in the OS' temporary
+-- directory.
+newTestKeystore :: IO Keystore
+newTestKeystore = liftIO $ runIdentityT $ fromKeystore $ do
     tempDir         <- liftIO getTemporaryDirectory
     (tempFile, hdl) <- liftIO $ openTempFile tempDir "keystore.key"
     liftIO $ hClose hdl
     us <- takeUserSecret tempFile
-    Keystore <$> newMVar (StorageInitialised us)
-
+    Keystore <$> newMVar (InternalStorage us)
 
 -- | Release the resources associated with this 'Keystore'.
--- This function is idempotent and can be called multiple times.
-releaseKeystore :: Keystore -> IO ()
-releaseKeystore (Keystore ks) = modifyMVar_ ks (fmap fst . release)
-
+releaseKeystore :: DeletePolicy -> Keystore -> IO ()
+releaseKeystore dp (Keystore ks) =
+    -- We are not modifying the 'MVar' content, because this function is
+    -- not exported and called exactly once from the bracket de-allocation.
+    withMVar ks $ \internalStorage@(InternalStorage us) -> do
+        fp <- release internalStorage
+        case dp of
+             KeepKeystoreIfEmpty   -> return ()
+             RemoveKeystoreIfEmpty ->
+                 when (isEmptyUserSecret us) $ removeFile fp
 
 -- | Releases the underlying 'InternalStorage' and returns the updated
 -- 'InternalStorage' and the file on disk this storage lives in.
 -- 'FilePath'.
-release :: InternalStorage -> IO (InternalStorage, FilePath)
-release internalStorage =
-    case internalStorage of
-         StorageReleased -> throwM (KeystoreErrorAlreadyReleased KeystoreRelease)
-         StorageInitialised us -> do
-             let fp = getUSPath us
-             writeUserSecretRelease us
-             return (StorageReleased, fp)
-
-
-{-------------------------------------------------------------------------------
-  Destroying a keystore
--------------------------------------------------------------------------------}
-
--- | Destroys a 'Keystore'.
--- Completely obliterate the keystore from disk, with all its secrets.
--- This operation cannot be reverted.
--- This is a very destructive option that most of the time you
--- probably don't want.
--- This has still its use in some teardowns or tests.
--- Note that this operation will always succeed. Use with care.
-releaseAndDestroyKeystore :: Keystore -> IO ()
-releaseAndDestroyKeystore (Keystore ks) =
-    modifyMVar_ ks $ \internalStorage -> do
-        (newStorage, fp) <- release internalStorage
-        removeFile fp
-        return newStorage
+release :: InternalStorage -> IO FilePath
+release (InternalStorage us) = do
+    let fp = getUSPath us
+    writeUserSecretRelease us
+    return fp
 
 {-------------------------------------------------------------------------------
   Inserting things inside a keystore
@@ -175,14 +165,11 @@ insert :: WalletId
        -> Keystore
        -> IO ()
 insert _walletId esk (Keystore ks) =
-    modifyMVar_ ks $ \case
-        StorageInitialised us -> do
-           return . StorageInitialised $
-               if view usKeys us `contains` esk
-                        then us
-                        else us & over usKeys (esk :)
-        StorageReleased ->
-            throwM (KeystoreErrorAlreadyReleased KeystoreInsert)
+    modifyMVar_ ks $ \(InternalStorage us) -> do
+        return . InternalStorage $
+            if view usKeys us `contains` esk
+                     then us
+                     else us & over usKeys (esk :)
     where
       -- Comparator taken from the old code which needs to hash
       -- all the 'EncryptedSecretKey' in order to compare them.
@@ -198,12 +185,9 @@ lookup :: WalletId
        -> Keystore
        -> IO (Maybe EncryptedSecretKey)
 lookup wId (Keystore ks) =
-    withMVar ks $ \case
-        StorageInitialised us -> return $ lookupKey us wId
-        StorageReleased ->
-            throwM (KeystoreErrorAlreadyReleased KeystoreLookup)
+    withMVar ks $ \(InternalStorage us) -> return $ lookupKey us wId
 
-
+-- | Lookup a key directly inside the 'UserSecret'.
 lookupKey :: UserSecret -> WalletId -> Maybe EncryptedSecretKey
 lookupKey us (WalletIdHdRnd walletId) =
     Data.List.find (\k -> eskToHdRootId k == walletId) (us ^. usKeys)
@@ -211,18 +195,16 @@ lookupKey us (WalletIdHdRnd walletId) =
 {-------------------------------------------------------------------------------
   Deleting things from the keystore
 -------------------------------------------------------------------------------}
-delete :: WalletId
-       -> Keystore
-       -> IO ()
+
+-- | Deletes an element from the 'Keystore'. This is an idempotent operation
+-- as in case a key was not present, no error would be thrown.
+delete :: WalletId -> Keystore -> IO ()
 delete walletId (Keystore ks) = do
-    modifyMVar_ ks $ \case
-        StorageReleased ->
-            throwM (KeystoreErrorAlreadyReleased KeystoreDelete)
-        StorageInitialised us -> do
-           let mbEsk = lookupKey us walletId
-           let erase = Data.List.deleteBy (\a b -> hash a == hash b)
-           let us' = maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
-           return (StorageInitialised us')
+    modifyMVar_ ks $ \(InternalStorage us) -> do
+        let mbEsk = lookupKey us walletId
+        let erase = Data.List.deleteBy (\a b -> hash a == hash b)
+        let us' = maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
+        return (InternalStorage us')
 
 {-------------------------------------------------------------------------------
   Converting a Keystore into container types
@@ -231,9 +213,6 @@ delete walletId (Keystore ks) = do
 -- | Returns all the 'EncryptedSecretKey' known to this 'Keystore'.
 toList :: Keystore -> IO [(WalletId, EncryptedSecretKey)]
 toList (Keystore ks) =
-    withMVar ks $ \case
-        StorageReleased ->
-            throwM (KeystoreErrorAlreadyReleased KeystoreToList)
-        StorageInitialised us -> do
-           let kss = us ^. usKeys
-           return $ map (\k -> (WalletIdHdRnd (eskToHdRootId k), k)) kss
+    withMVar ks $ \(InternalStorage us) -> do
+        let kss = us ^. usKeys
+        return $ map (\k -> (WalletIdHdRnd (eskToHdRootId k), k)) kss

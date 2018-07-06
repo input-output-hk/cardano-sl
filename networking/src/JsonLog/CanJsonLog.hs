@@ -31,9 +31,6 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson (encode)
 import           Data.Aeson.Types (ToJSON)
---import           Pos.Util.Log (LoggerNameBox)
---import           Pos.Util.Trace (natTrace)
---import           Pos.Util.Trace.Named (TraceNamed)
 import           Serokell.Util.Lens (WrappedM (..))
 
 import           Mockable (Production (..))
@@ -41,7 +38,6 @@ import qualified Pos.Util.Log as Log
 
 import qualified Data.ByteString.Lazy as B
 import           Data.Text.Encoding (decodeUtf8)
--- import qualified Katip as K
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.

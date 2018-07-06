@@ -118,6 +118,10 @@ mkHttpClient baseUrl manager = WalletClient
         = \x y -> run . updateAccountR x y
     , redeemAda
         = run ... redeemAdaR
+    , getAccountAddresses
+        = \x -> run . getAccountAddressesR x
+    , getAccountBalance
+        = \x -> run . getAccountBalanceR x
     -- transactions endpoints
     , postTransaction
         = run . postTransactionR
@@ -169,17 +173,11 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> postAccountR
         :<|> updateAccountR
         :<|> redeemAdaR
+        :<|> getAccountAddressesR
+        :<|> getAccountBalanceR
         = accountsAPI
 
     postTransactionR
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
         = transactionsAPI
-
-    addressesAPI
-        :<|> walletsAPI
-        :<|> accountsAPI
-        :<|> transactionsAPI
-        :<|> getNodeSettingsR
-        :<|> getNodeInfoR
-        = client (Proxy @("api" :> "v1" :> V1.API))

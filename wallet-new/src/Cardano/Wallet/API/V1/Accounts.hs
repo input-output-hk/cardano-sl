@@ -37,4 +37,12 @@ type API
           :> "certificates"
           :> ReqBody '[ValidJSON] Redemption
           :> Post '[ValidJSON] (WalletResponse Transaction)
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
+          :> CaptureAccountId :> "addresses"
+          :> Summary "Retrieve only account's addressees."
+          :> Get '[ValidJSON] (WalletResponse AccountAddresses)
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
+          :> CaptureAccountId :> "balance"
+          :> Summary "Retrieve only account's balance."
+          :> Get '[ValidJSON] (WalletResponse AccountBalance)
     )

@@ -36,6 +36,8 @@ handlers pm txpConfig submitTx =
     :<|> newAccount
     :<|> updateAccount
     :<|> redeemAda pm txpConfig submitTx
+    :<|> getAccountAddresses
+    :<|> getAccountBalance
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -108,3 +110,20 @@ redeemAda pm txpConfig submitTx walletId accountIndex r = do
                     , V0.crSeed = seed
                     }
             V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem
+
+getAccountAddresses
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountIndex -> m (WalletResponse AccountAddresses)
+getAccountAddresses wId accIdx  =
+    partialResponse (AccountAddresses . accAddresses) <$> getAccount wId accIdx
+
+getAccountBalance
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountIndex -> m (WalletResponse AccountBalance)
+getAccountBalance wId accIdx =
+    partialResponse (AccountBalance . accAmount) <$> getAccount wId accIdx
+
+partialResponse :: (Account -> a) -> WalletResponse Account -> WalletResponse a
+partialResponse extract res = res
+    { wrData = extract (wrData res)
+    }

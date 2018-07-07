@@ -1,3 +1,5 @@
+-- `MonadMask Production` is missing `generalBracket`.
+{-# OPTIONS_GHC -Wno-missing-methods    #-}
 {-# OPTIONS_GHC -O2 #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}

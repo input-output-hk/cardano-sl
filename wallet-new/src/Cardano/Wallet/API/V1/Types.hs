@@ -1491,11 +1491,11 @@ data NodeSettings = NodeSettings {
    , setGitRevision    :: !Text
    } deriving (Show, Eq, Generic)
 
--- See note [Version Orphan]
-instance ToSchema Version where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "Version") $ mempty
-            & type_ .~ SwaggerString
+-- -- See note [Version Orphan]
+-- instance ToSchema Version where
+--     declareNamedSchema _ =
+--         pure $ NamedSchema (Just "Version") $ mempty
+--             & type_ .~ SwaggerString
 
 -- Note [Version Orphan]
 -- I have opened a PR to add an instance of 'Version' to the swagger2

@@ -35,6 +35,7 @@
 \usetikzlibrary{arrows}
 
 \newcommand{\njd}[1]{\textcolor{purple}{\emph{#1}}}
+\newcommand{\avieth}[1]{\textcolor{blue}{\emph{#1}}}
 \addtolength{\marginparwidth}{-0.1\marginparwidth}
 
 \newcommand{\powerset}[1]{\mathbb{P}(#1)}
@@ -336,11 +337,18 @@ Additionally the Ouroboros algorithm imposes a number of useful constraints:
       invalid. The signed block header contains the slot number so we can
       exclude such chains just by looking at the block header of the head block
       in the chain (which is the one we broadcast).
+      \avieth{If a slot leader can mint a new block and deliver the header to
+      a peer within the clock skew of that peer then it may be incorrectly
+      rejected. We may want to set some tolerance threshold.}
 \item Ouroboros specifies that when a node adopts a new chain it only ever
       picks one strictly longer than its current one. The signed block header
       contains the block number so by comparing the block number of the
       broadcast header against the current length of the node's chain, we can
       exclude chains that are shorter and so could never be picked.
+      \avieth{Further, it is never necessary for a node to relay a chain when it
+      knows of a better one. This may be very useful in practice: at most one
+      chain must be tracked per peer. An adversary cannot make an honest node
+      retain multiple chains of its own broadcast.}
 \item Ouroboros classic (but not BG\marginpar{\njd{first use - expand}}) specifies that a node will only ever pick
       a chain that diverges from its current chain within the last K blocks,
       implying that forks can be at most K long. This places a bound (of K) on
@@ -361,6 +369,10 @@ Additionally the Ouroboros algorithm imposes a number of useful constraints:
 \item In both Ouroboros classic and BG it is possible for adversarial players
       to sign multiple blocks for the same slot, but this is visible (so-called
       `open adversarial behaviour').
+\item \avieth{Theorem 4.13 from the original Ouroboros paper describes the
+      probability of the existence of a flat fork of length $n$: 2 tines of
+      equal block count intersecting $n$ slots prior. This is applicable to
+      what we're doing here, both for resource bounds and for correctness.}
 \end{itemize}
 
 The combination of these constraints does place a limit on the number and
@@ -378,6 +390,8 @@ back up to K blocks (max 2K slots). The victim is able to assume that other
 honest nodes do not sign more than one block per slot, this imposes the
 constraint that the adversary can only send one header per slot within the
 range just described.
+\avieth{Why? I don't see it. Plausibly valid chains can extend more than
+  K blocks, no? Maybe the language is unclear.}
 
 It is worth noting that just because honest nodes do not sign more than one
 block per slot, it does not mean that different honest nodes will not have
@@ -388,6 +402,8 @@ have sent different headers to different nodes.
   with the implied generality. Honest generator nodes will only generate one
   block per slot - so only one of those can exist per slot. Dishonest nodes can
   generate many such blocks, agreed - maybe that needs to be brought out.}
+
+\avieth{What's the disagreement here?}
 
 \paragraph{An overall bound} Suppose the victim node has a chain with
 at least $K$ blocks covering the last $K \leq s \leq 2K$ slots, and $n$ slots
@@ -406,6 +422,71 @@ current chain are valid.
 \njd{This would seem to be the right spot for the simple MC analysis on
   distribution of burst lengths\\
 \includegraphics[totalheight=2cm]{burst-length-mc.png}}
+
+\avieth{Proposal for a data structure for forks over $k$ slots.}
+
+\avieth{For each peer to which the node is connected, at most one chain (their
+  claimed best chain) is retained. An honest node only broadcasts or relays
+  a tip-of-chain if it has judged it to be the best chain it knows. There is
+  no reason to broadcast or relay any other chain: by broadcasting or relaying
+  the better chain, the honest receiving party will always prefer it to the
+  weaker one, so broadcasting or relaying the weaker one would be wasteful.}
+
+\avieth{When a tip-of-chain announcment is received from a peer, and it's valid
+  (signed by the appropriate slot leader) and better (higher block count) than
+  the peer's previously announced best tip-of-chain (if any), the receiver
+  either:}
+
+  \begin{itemize}
+    \item \avieth{If the parent of the header is known, and it is also the tip of the
+          local node's best chain, then the new header can be relayed
+          immediately. The peer will send the body as well which can also be
+          relayed immediately upon reception.}
+    \item \avieth{If the parent of the header is not known, some protocol to find
+          the intersection is engaged. It could be a naive request for headers
+          of ancestors, or something more complicated such as the one described
+          in the ``A protocol proposal" section of this document. In any case,
+          eventually either the intersection is found and the complete peer's
+          chain downloaded (up to at most $k$ blocks), or the peer fails to
+          provide enough information and the chain is eventually discarded.}
+  \end{itemize}
+
+  \avieth{A loose upper bound on space use is the number of peers multiplied by $k$.
+  As for network I/O and CPU resource use: an adversary can only induce an
+  honest node to work on one chain, namely the adversary's claimed best chain.
+  By judiciously queueing network input we can ensure that adversaries cannot
+  cut out honests.}
+
+  \avieth{The probabilty that a node has multiple chains which disagree on the
+  slot $n$ behind the current slot is marginal for sufficiently large $n$
+  (theorem 4.13). This gives a local correctness property: by increasing the
+  number of slots retained by this forking data struture ($k$) we can
+  decrease the probability that the oldest slot will include more than one
+  candidate (mutiple blocks, or no block, because some maximal chain is known
+  with no block at this slot). Multiple candidates for the oldest slot means
+  there is a flat fork of size $k$: 2 tines of equal block count intersecting
+  at the slot $k$ behind the current slot. This is highly unlikely for high
+  $k$ (negative exponential in $k$).}
+
+  \avieth{As for consistency between peers: if 2 nodes disagree on the slot $k$ behind
+  the current slot, it's not necessarily a flat fork: one of the chains could
+  have a lower block count than the other, which means the disagreement is due
+  to communication failure. In particular, the peer with the better chain
+  failed to broadcast its chain to the peer with the weaker chain. In order to
+  get some guarantee on inter-node consistency, we might use properties of
+  the network, perhaps some $\Delta Q$ analysis.}
+
+  \avieth{Call the better tine $T_b$ and the worse $T_w$. $T_b$ has a higher
+  block count $bc(T_b)$ than $T_w$, so there is some subchain of $T_b$ which is
+  a flat fork of $T_w$, obtained by removing the $bc(T_b) - bc(T_w)$ newest
+  blocks from $T_b$. The size of this flat fork is probably very small
+  (theorem 4.13). If the disagreement is for a block $k$ behind the current
+  slot then, since this flat fork is probably small, the difference
+  $bc(T_b) - bc(T_w)$ must be comparatively large, and so the node with the
+  better chain must have had a comparatively high number of slots in which
+  it could have informed the node with the weaker chain of its better chain.
+  This is informal but I think it captures the idea and we may be able to
+  work it into some explict probabilistic guarantee.}
 
 \subsubsection{Raising the difficulty for attackers}
 
@@ -549,6 +630,10 @@ TODO: need better name than attacker here, since the immediate peer may be
 honest and just be proxying for the real attacker. This is due to us wanting
 to broadcast headers before waiting for the full chain to be validated.\\
 \njd{fuzzy logic here we come? or some Bayesian reasoning approach?}
+\avieth{How's this: only relay the header immediately if its parent chain is
+  already known and valid? Then we get a speedup for the typical case: relaying
+  a block freshly minted by an honest slot leader. In other cases, it won't be
+  relayed until it has been downloaded and verified.}
 
 TODO: during this whole process, the chain state may have updated already and
 the chain we're chasing may be redundant.

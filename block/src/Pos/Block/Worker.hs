@@ -51,10 +51,10 @@ import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader))
-import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
-                     needTriggerRecovery, recoveryCommGuard)
 import           Pos.Infra.Slotting (getSlotStartEmpatically, onNewSlot)
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
+import           Pos.Sinbin.Recovery.Info (getSyncStatus, getSyncStatusK,
+                     needTriggerRecovery, recoveryCommGuard)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics,
                      MetricMonitor (..), MetricMonitorState, noReportMonitor,
                      recordValue, reportOrLogE)

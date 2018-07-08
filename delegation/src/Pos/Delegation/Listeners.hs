@@ -22,9 +22,9 @@ import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Configuration (HasDlgConfiguration)
 import           Pos.Delegation.Logic (PskHeavyVerdict (..),
                      processProxySKHeavy)
-import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Communication.Relay (DataMsg)
 import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Sinbin.Communication.Protocol (Message)
 import           Pos.Sinbin.StateLock (StateLock)
 import           Pos.Util (HasLens')
 

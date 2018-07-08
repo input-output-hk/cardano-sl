@@ -20,14 +20,14 @@ import           Formatting (int, sformat, shown, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS as DNS
 
-import           Pos.Infra.Communication.Protocol (SendActions)
 import           Pos.Infra.Diffusion.Subscription.Common
                      (SubscriptionMessageConstraints, networkSubscribeTo')
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
 import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscribeTo,
                      SubscriptionTarget (..), subscriber)
-import           Pos.Infra.Network.DnsDomains (NodeAddr)
-import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..),
+import           Pos.Sinbin.Communication.Protocol (SendActions)
+import           Pos.Sinbin.Network.DnsDomains (NodeAddr)
+import           Pos.Sinbin.Network.Types (Bucket (..), DnsDomains (..),
                      NodeId (..), NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)

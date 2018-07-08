@@ -16,6 +16,16 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                        Pos.Sinbin.Communication.BiP
+                        Pos.Sinbin.Communication.Protocol
+                        Pos.Sinbin.Communication.Types.Protocol
+
+                        Pos.Sinbin.Network.DnsDomains
+                        Pos.Sinbin.Network.Policy
+                        Pos.Sinbin.Network.Types
+
+                        Pos.Sinbin.Recovery.Info
+
                         Pos.Sinbin.Reporting
                         Pos.Sinbin.Reporting.Exceptions
                         Pos.Sinbin.Reporting.Health.Types

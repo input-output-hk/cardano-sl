@@ -33,12 +33,11 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
                      randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
-import           Pos.Infra.Binary ()
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Infra.Recovery.Info (recoveryCommGuard)
 import           Pos.Infra.Slotting (getSlotStartEmpatically, onNewSlot)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
+import           Pos.Sinbin.Recovery.Info (recoveryCommGuard)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Sinbin.Slotting (defaultOnNewSlotParams, getCurrentSlot)

@@ -62,7 +62,6 @@ import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB,
                      encodeWithKeyPrefix)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Infra.Binary ()
 import           Pos.Sinbin.Slotting.Types (EpochSlottingData (..),
                      SlottingData, createInitSlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, ourAppName,

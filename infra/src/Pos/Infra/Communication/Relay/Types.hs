@@ -13,9 +13,9 @@ import           Formatting (bprint, build, (%))
 import           Node (Message)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Infra.Communication.Types.Protocol (Msg)
 import           Pos.Infra.Communication.Types.Relay (DataMsg, InvOrData,
                      ReqOrRes)
+import           Pos.Sinbin.Communication.Types.Protocol (Msg)
 
 data RelayError = UnexpectedInv
                 | UnexpectedData

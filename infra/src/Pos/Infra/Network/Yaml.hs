@@ -41,8 +41,8 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS as DNS
 
-import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
-import           Pos.Infra.Network.Types (Fallbacks, NodeName (..), Valency)
+import           Pos.Sinbin.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Sinbin.Network.Types (Fallbacks, NodeName (..), Valency)
 import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Description of the network topology in a Yaml file

@@ -45,12 +45,12 @@ import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
 
 import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),
                      MalformedDHTKey (..), fromYamlConfig)
-import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
-import           Pos.Infra.Network.Types (NodeId, NodeName (..))
-import qualified Pos.Infra.Network.Types as T
 import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
+import           Pos.Sinbin.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Sinbin.Network.Types (NodeId, NodeName (..))
+import qualified Pos.Sinbin.Network.Types as T
+import           Pos.Sinbin.Util.TimeWarp (NetworkAddress, addrParser,
                      addrParserNoWildcard, addressToNodeId)
 
 #ifdef POSIX

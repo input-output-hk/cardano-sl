@@ -28,7 +28,7 @@ import           Pos.Core (HasConfiguration, HasDifficulty (..),
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Delegation.Types (DlgUndo)
-import           Pos.Infra.Communication.Protocol (NodeId)
+import           Pos.Sinbin.Communication.Protocol (NodeId)
 import           Pos.Update.Poll.Types (USUndo)
 import           Pos.Util.Util (HasLens (..))
 

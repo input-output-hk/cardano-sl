@@ -6,8 +6,8 @@ module Pos.Infra.Communication.Specs
 import           Node.Message.Class (Message (..))
 import           Universum
 
-import           Pos.Infra.Communication.Protocol (OutSpecs, convH, toOutSpecs)
 import           Pos.Infra.Communication.Types.Relay (InvOrData, ReqOrRes)
+import           Pos.Sinbin.Communication.Protocol (OutSpecs, convH, toOutSpecs)
 
 -- FIXME (avieth)
 -- This looks to be misplaced and misnamed.

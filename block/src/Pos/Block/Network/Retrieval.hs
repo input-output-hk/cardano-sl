@@ -33,10 +33,10 @@ import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (getBlocks, streamBlocks))
+import           Pos.Sinbin.Communication.Protocol (NodeId)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportOrLogE,
                      reportOrLogW)
 import           Pos.Util.Util (HasLens (..))

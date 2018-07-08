@@ -45,11 +45,11 @@ import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
-import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader, requestTip))
-import           Pos.Infra.Recovery.Info (recoveryInProgress)
+import           Pos.Sinbin.Communication.Protocol (NodeId)
+import           Pos.Sinbin.Recovery.Info (recoveryInProgress)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Sinbin.StateLock (Priority (..), modifyStateLock)

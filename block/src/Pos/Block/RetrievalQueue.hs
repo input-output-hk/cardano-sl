@@ -10,7 +10,7 @@ import           Universum
 import           Control.Concurrent.STM (TBQueue)
 
 import           Pos.Core.Block (BlockHeader)
-import           Pos.Infra.Network.Types (NodeId)
+import           Pos.Sinbin.Network.Types (NodeId)
 
 -- | Task that is put in the block retrieval queue for the retrieval
 -- worker to perform.

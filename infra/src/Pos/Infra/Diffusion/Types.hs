@@ -22,9 +22,9 @@ import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
-import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
+import           Pos.Sinbin.Communication.Types.Protocol (NodeId)
 import           Pos.Sinbin.Reporting (HealthStatus (..))
 
 

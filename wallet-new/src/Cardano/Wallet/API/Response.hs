@@ -16,13 +16,15 @@ import           Prelude
 import           Universum (Buildable, decodeUtf8, toText, (<>))
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
 import qualified Data.Char as Char
-import           Data.Swagger as S
+import           Data.Swagger as S hiding (Example, example)
+import qualified Data.Text.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
@@ -159,28 +161,14 @@ paginate PaginationParams{..} rawResultSet =
         slice                  = take pp . drop ((cp - 1) * pp)
     in (slice rawResultSet, metadata)
 
+instance Example Metadata
+instance Example a => Example (WalletResponse a) where
+    example = WalletResponse <$> example
+                             <*> pure SuccessStatus
+                             <*> example
+
 
 -- | Creates a 'WalletResponse' with just a single record into it.
 single :: a -> WalletResponse a
 single theData = WalletResponse {
       wrData   = theData
-    , wrStatus = SuccessStatus
-    , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
-    }
-
---
--- Creating a better user experience when it comes to errors.
---
-
-data ValidJSON deriving Typeable
-
-instance FromJSON a => MimeUnrender ValidJSON a where
-    mimeUnrender _ bs = case eitherDecode bs of
-        Left err -> Left $ decodeUtf8 $ encodePretty (JSONValidationFailed $ toText err)
-        Right v  -> return v
-
-instance Accept ValidJSON where
-    contentType _ = contentType (Proxy @ JSON)
-
-instance ToJSON a => MimeRender ValidJSON a where
-    mimeRender _ = mimeRender (Proxy @ JSON)

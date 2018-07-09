@@ -31,15 +31,12 @@ library
                        Pos.Delegation.Logic.Mempool
                        Pos.Delegation.Logic.VAR
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , aeson-options
                      , base
                      , cardano-sl-binary
                      , cardano-sl-core
-                     , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-lrc
                      , cardano-sl-networking
@@ -48,7 +45,6 @@ library
                      , conduit
                      , ether
                      , formatting
-                     , generic-arbitrary
                      , lens
                      , log-warper
                      , lrucache

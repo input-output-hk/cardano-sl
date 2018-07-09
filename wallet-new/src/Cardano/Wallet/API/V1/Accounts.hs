@@ -42,7 +42,7 @@ type API
           :> SortBy '[V1 Core.Address] WalletAddress
           :> Get '[ValidJSON] (WalletResponse AccountAddresses)
     :<|> "wallets" :> CaptureWalletId :> "accounts"
-          :> CaptureAccountId :> "balance"
+          :> CaptureAccountId :> "amount"
           :> Summary "Retrieve only account's balance."
           :> Get '[ValidJSON] (WalletResponse AccountBalance)
 

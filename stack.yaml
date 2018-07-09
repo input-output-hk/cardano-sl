@@ -37,7 +37,6 @@ packages:
 - delegation/test
 - block
 - block/test
-- block/bench
 - lib
 - generator
 - client
@@ -303,7 +302,6 @@ ghc-options:
   cardano-sl-binary:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary-test: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-block:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-block-bench: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-block-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-client:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core:        -Werror -Wcompat -fwarn-redundant-constraints
@@ -319,6 +317,7 @@ ghc-options:
   cardano-sl-lrc-test:    -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-sinbin:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-ssc:         -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-txp:         -Werror -Wcompat -fwarn-redundant-constraints

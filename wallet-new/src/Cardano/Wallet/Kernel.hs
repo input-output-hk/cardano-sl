@@ -53,7 +53,6 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), CreateHdWallet (..), DB,
                      NewPending (..), NewPendingError, Snapshot (..), defDB)
-import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD

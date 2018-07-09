@@ -151,12 +151,12 @@ applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
                            modify $ Spec.applyBlock prefBlock)
         blocksByAccount
   where
-    -- Accounts are discovered during wallet creation (if the account was given
-    -- a balance in the genesis block) or otherwise during ApplyBlock. For
-    -- accounts discovered during ApplyBlock, we can assume that there was no
-    -- genesis utxo for this Account (since if there was, the account would have
-    -- been created with the wallet). Hence we use empty initial utxo for accounts
-    -- discovered during applyBlock.
+    -- NOTE: When we create the new wallet, we look at the genesis UTxO and create
+    -- an initial balance for all accounts that we recognize as ours. This means that
+    -- when we later discover a new account that is also ours, it cannot appear
+    -- in the genesis UTxO, because if it did, we would already have seen it
+    -- (the genesis UTxO is static, after all). Hence we use empty initial utxo
+    -- for accounts discovered during applyBlock.
     -- The Addrs need to be created during account initialisation and so we pass them here.
     initUtxoAndAddrs :: PrefilteredBlock -> (Utxo,[AddrWithId])
     initUtxoAndAddrs pb = (Map.empty, pfbAddrs pb)

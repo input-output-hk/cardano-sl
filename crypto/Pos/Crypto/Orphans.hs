@@ -45,14 +45,17 @@ instance ToJSON Ed25519.Signature where
 instance Bi Ed25519.PublicKey where
     encode (Ed25519.PublicKey k) = encode k
     decode = Ed25519.PublicKey <$> decode
+    encodedSizeExpr _ _ = 2 + 32
 
 instance Bi Ed25519.SecretKey where
     encode (Ed25519.SecretKey k) = encode k
     decode = Ed25519.SecretKey <$> decode
+    encodedSizeExpr _ _ = 2 + 32
 
 instance Bi Ed25519.Signature where
     encode (Ed25519.Signature s) = encode s
     decode = Ed25519.Signature <$> decode
+    encodedSizeExpr _ _ = 2 + 64
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape

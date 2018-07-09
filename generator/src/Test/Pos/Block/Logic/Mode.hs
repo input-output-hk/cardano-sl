@@ -51,7 +51,7 @@ import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
-import           System.Wlog (HasLoggerName (..), LoggerName)
+--import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll,
                      ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
@@ -105,8 +105,8 @@ import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
+--import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
+--                     modifyLoggerNameDefault)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode (EmptyMempoolExt)
 
@@ -212,7 +212,7 @@ newtype PureDBSnapshotsVar = PureDBSnapshotsVar
 data BlockTestContext = BlockTestContext
     { btcGState            :: !GS.GStateContext
     , btcSystemStart       :: !Timestamp
-    , btcLoggerName        :: !LoggerName
+    --, btcLoggerName        :: !Log.LoggerName
     , btcSSlottingStateVar :: !SimpleSlottingStateVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !SscState
@@ -265,7 +265,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             initNodeDBs dummyProtocolMagic epochSlots
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
-            let btcLoggerName = "testing"
+            --let btcLoggerName = "testing"
             lcLrcSync <- mkLrcSyncData >>= newTVarIO
             let _gscLrcContext = LrcContext {..}
             putLrcCtx _gscLrcContext
@@ -406,8 +406,8 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
 instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
     lensOf = btcPureDBSnapshotsL
 
-instance HasLens LoggerName BlockTestContext LoggerName where
-      lensOf = btcLoggerNameL
+--instance HasLens LoggerName BlockTestContext LoggerName where
+--      lensOf = btcLoggerNameL
 
 instance HasLens LrcContext BlockTestContext LrcContext where
     lensOf = GS.gStateContext . GS.gscLrcContext

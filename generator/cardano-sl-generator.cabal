@@ -21,10 +21,10 @@ library
                        Pos.Generator.BlockEvent.DSL
 
                        -- Common code for tests
-                       Test.Pos.Block.Logic.Mode
-                       Test.Pos.Block.Logic.Emulation
-                       Test.Pos.Block.Logic.Util
-                       Test.Pos.Block.Logic.Event
+                       --Test.Pos.Block.Logic.Mode
+                       --Test.Pos.Block.Logic.Emulation
+                       --Test.Pos.Block.Logic.Util
+                       --Test.Pos.Block.Logic.Event
 
   other-modules:
                        Pos.Generator.Block.Error
@@ -59,7 +59,6 @@ library
                      , exceptions
                      , formatting
                      , lens
-                     , log-warper
                      , monad-control
                      , random
                      , safe-exceptions
@@ -111,6 +110,12 @@ test-suite cardano-generator-test
   main-is:             Test.hs
   other-modules:
                        Spec
+
+                       -- Common code for tests
+                       Test.Pos.Block.Logic.Mode
+                       Test.Pos.Block.Logic.Emulation
+                       Test.Pos.Block.Logic.Util
+                       Test.Pos.Block.Logic.Event
 
                        Test.Pos.Binary.CommunicationSpec
                        Test.Pos.Block.Logic.CreationSpec

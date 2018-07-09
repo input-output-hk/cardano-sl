@@ -15,7 +15,6 @@ import           Control.Monad.Random.Strict (RandT, mapRandT)
 import           Data.Default (Default)
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
-import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal,
@@ -44,6 +43,8 @@ import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 
 ----------------------------------------------------------------------------
 -- Block generation
@@ -66,11 +67,12 @@ type BlockTxpGenMode g ctx m =
 -- injector, for example.
 genBlocks ::
        forall g ctx m t . (HasTxpConfiguration, BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> BlockGenParams
     -> (Maybe Blund -> t)
     -> RandT g m t
-genBlocks pm params inj = do
+genBlocks logTrace pm params inj = do
     ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
   where
@@ -81,7 +83,7 @@ genBlocks pm params inj = do
         let finishEOS = toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
         foldM' genOneBlock mempty [startEOS .. finishEOS]
 
-    genOneBlock t eos = ((t <>) . inj) <$> genBlock pm eos
+    genOneBlock t eos = ((t <>) . inj) <$> genBlock logTrace pm eos
 
     foldM' combine = go
       where
@@ -93,17 +95,19 @@ genBlocks pm params inj = do
 genBlock
     :: forall g ctx m
      . ( RandomGen g
+       , MonadIO m
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasTxpConfiguration
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock pm eos = do
+genBlock logTrace0 pm eos = do
     let epoch = eos ^. epochIndexL
-    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot pm epoch)
+    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot logTrace pm epoch)
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
@@ -126,7 +130,7 @@ genBlock pm eos = do
             canSkip <- view bgpSkipNoKey
             case (maybeLeader, canSkip) of
                 (Nothing,True)     -> do
-                    lift $ logWarning $
+                    lift $ logWarning logTrace $
                         sformat ("Skipping block creation for leader "%build%
                                  " as no related key was found")
                                 leader
@@ -138,17 +142,18 @@ genBlock pm eos = do
                     Just <$> usingPrimaryKey leaderSK
                              (lift $ genMainBlock slot (swap <$> transCert))
   where
+    logTrace = natTrace lift logTrace0
     genMainBlock ::
         SlotId ->
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal pm slot proxySkInfo >>= \case
+        createMainBlockInternal logTrace pm slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply :: Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
-        verifyBlocksPrefix pm (one block) >>= \case
+        verifyBlocksPrefix logTrace pm (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead

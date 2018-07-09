@@ -26,7 +26,6 @@ import           Mockable (Async, Channel, ChannelT, Concurrently,
                      SharedAtomic (..), SharedAtomicT, SharedExclusive (..),
                      SharedExclusiveT, ThreadId)
 import qualified Mockable.Metrics as Metrics
-import           System.Wlog (CanLog (..))
 import           UnliftIO (MonadUnliftIO)
 
 newtype ClockVar = ClockVar (IORef Microsecond)
@@ -86,8 +85,8 @@ instance MC.MonadBaseControl IO Emulation where
         (a -> Emulation a))
       MC.restoreM
 
-instance CanLog Emulation where
-    dispatchMessage ln s t = Emulation $ dispatchMessage ln s t
+--instance CanLog Emulation where
+--    dispatchMessage ln s t = Emulation $ dispatchMessage ln s t
 
 ----------------------------------------------------------------------------
 -- Time emulation

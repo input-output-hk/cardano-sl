@@ -6,7 +6,7 @@ if [ -z "$1" ]; then
 fi
 
 testSED=$(sed --version &> /dev/null && echo YES || echo NO)
-if [ $testSED != "YES" ]; then
+if [ "x${testSED}" != "xYES" ]; then
   echo "don't know if your version of 'sed' works."
   echo "  on a mac:  install 'gnu-sed' from homebrew/.."
   exit 1

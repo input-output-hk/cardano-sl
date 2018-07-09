@@ -27,7 +27,12 @@ import           Pos.Launcher.Scenario (runNode)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace (noTrace)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+
+import qualified Katip.Monadic as KM
+
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -38,13 +43,16 @@ runNodeReal
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => Log.LoggingHandler
+    -> ProtocolMagic
     -> NodeParams
     -> SscParams
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> IO ()
-runNodeReal pm np sscnp plugins = runProduction $
-    bracketNodeResources np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots) (Production . action)
+runNodeReal lh pm np sscnp plugins = Log.usingLoggerName lh "runNodeReal" $ runProduction $
+    bracketNodeResources noTrace np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots)
+        action
   where
-    action :: NodeResources EmptyMempoolExt -> IO ()
-    action nr@NodeResources {..} = runRealMode pm nr (runNode pm nr plugins)
+    action :: NodeResources EmptyMempoolExt -> Production ()
+    action nr@NodeResources {..} =
+      Production $ runRealMode lh pm nr (runNode noTrace pm nr plugins)

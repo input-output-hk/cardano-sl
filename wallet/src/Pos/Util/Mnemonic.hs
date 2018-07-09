@@ -29,6 +29,8 @@ module Pos.Util.Mnemonic
 
        -- * Reexports
        , ValidMnemonicSentence
+       , ValidChecksumSize
+       , ValidEntropySize
        ) where
 
 import           Universum
@@ -275,7 +277,6 @@ instance
     ) => Arbitrary (Mnemonic mw) where
     arbitrary =
         entropyToMnemonic <$> arbitrary @(Entropy n)
-
 
 instance Exception MnemonicException
 

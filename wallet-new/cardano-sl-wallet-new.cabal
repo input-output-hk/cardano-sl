@@ -47,7 +47,6 @@ library
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Info
                        Cardano.Wallet.API.V1.Internal
-                       Cardano.Wallet.API.V1.Internal.Redemption
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
                        Cardano.Wallet.API.V1.LegacyHandlers.Addresses

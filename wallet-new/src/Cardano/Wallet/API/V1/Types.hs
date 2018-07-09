@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE ExplicitNamespaces         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
@@ -118,7 +119,8 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic,
+                     MnemonicWords, ValidChecksumSize, ValidMnemonicSentence, ValidEntropySize)
 
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()
@@ -262,19 +264,44 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
-instance Arbitrary (V1 (Mnemonic 12)) where
+instance
+    ( n ~ EntropySize mw
+    , mw ~ MnemonicWords n
+    , ValidChecksumSize n csz
+    , ValidEntropySize n
+    , ValidMnemonicSentence mw
+    , Arbitrary (Entropy n)
+    ) => Arbitrary (V1 (Mnemonic mw)) where
     arbitrary =
         V1 <$> arbitrary
 
-instance ToJSON (V1 (Mnemonic 12)) where
+instance
+    ( n ~ EntropySize mw
+    , mw ~ MnemonicWords n
+    , ValidChecksumSize n csz
+    , ValidEntropySize n
+    , ValidMnemonicSentence mw
+    ) => ToJSON (V1 (Mnemonic mw)) where
     toJSON =
         toJSON . unV1
 
-instance FromJSON (V1 (Mnemonic 12)) where
+instance
+    ( n ~ EntropySize mw
+    , mw ~ MnemonicWords n
+    , ValidChecksumSize n csz
+    , ValidEntropySize n
+    , ValidMnemonicSentence mw
+    ) => FromJSON (V1 (Mnemonic mw)) where
     parseJSON =
         fmap V1 . parseJSON
 
-instance ToSchema (V1 (Mnemonic 12)) where
+instance
+    ( mw ~ MnemonicWords n
+    , n ~ EntropySize mw
+    , ValidChecksumSize n csz
+    , ValidEntropySize n
+    , ValidMnemonicSentence mw
+    ) => ToSchema (V1 (Mnemonic mw)) where
     declareNamedSchema _ = do
         NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
         return $ NamedSchema (Just "V1BackupPhrase") schm
@@ -407,7 +434,6 @@ instance Monoid (V1 Core.PassPhrase) where
     mappend = (<>)
 
 type WalletName = Text
-
 
 -- | Wallet's Assurance Level
 data AssuranceLevel =
@@ -1777,27 +1803,72 @@ instance BuildableSafeGen NodeInfo where
 newtype ShieldedRedemptionCode = ShieldedRedemptionCode
     { unShieldedRedemptionCode :: Text
     } deriving (Eq, Show, Generic)
+      deriving newtype (ToJSON, FromJSON)
+
+-- | TODO: This instance is probably wrong. What does a shielded redemption
+-- code look like?
+instance Arbitrary ShieldedRedemptionCode where
+    arbitrary = ShieldedRedemptionCode <$> arbitrary
+
+-- | TODO: Given "what does a code look like" can we impose extra
+-- requirements here?
+instance ToSchema ShieldedRedemptionCode where
+    declareNamedSchema _ =
+        pure
+            $ NamedSchema (Just "ShieldedRedemptionCode") $ mempty
+            & type_ .~ SwaggerString
+
+deriveSafeBuildable ''ShieldedRedemptionCode
+instance BuildableSafeGen ShieldedRedemptionCode where
+    buildSafeGen _ _ =
+        bprint "<shielded redemption code>"
+
 
 -- | The request body for redeeming some Ada.
 data Redemption = Redemption
-    { redemptionWalletId       :: WalletId
-    -- ^ The 'WalletId' that the redemption will go toward.
-    , redemptionAccountIndex   :: AccountIndex
-    -- ^ The index of the account in the wallet that the redemption applies
-    -- to.
-    , redemptionRedemptionCode :: ShieldedRedemptionCode
+    { redemptionRedemptionCode   :: ShieldedRedemptionCode
     -- ^ The redemption code associated with the Ada to redeem.
-    , redemptionMnemonic       :: Maybe (Mnemonic 9)
+    , redemptionMnemonic         :: Maybe (V1 (Mnemonic 9))
     -- ^ An optional mnemonic. This mnemonic was included with paper
     -- certificates, and the presence of this field indicates that we're
     -- doing a paper vend.
-    , redemptionPassphrase     :: Maybe SpendingPassword
-    -- ^ An optional passphrase. The original API would use the default
-    -- value if this wasn't provided as a query parameter.
+    , redemptionSpendingPassword :: Maybe SpendingPassword
+    -- ^ An optional spending password. The original API would use the
+    -- default value if this wasn't provided as a query parameter.
     --
     -- TODO: Figure out why it is optional and what it means to provide
     -- better documentation.
     } deriving (Eq, Show, Generic)
+
+deriveSafeBuildable ''Redemption
+instance BuildableSafeGen Redemption where
+    buildSafeGen sl r = bprint ("{"
+        %" redemptionCode="%buildSafe sl
+        %" mnemonic=<mnemonic>"
+        %" spendingPassword="%(buildSafeMaybe mempty sl)
+        %" }")
+        (redemptionRedemptionCode r)
+        (redemptionSpendingPassword r)
+
+deriveJSON Serokell.defaultOptions  ''Redemption
+
+instance ToSchema Redemption where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "redemption" (\(--^) props -> props
+            & "redemptionCode"
+            --^ "The redemption code associated with the Ada to redeem."
+            & "mnemonic"
+            --^ ( "An optional mnemonic. This must be provided for a paper"
+                <> " certificate redemption."
+                )
+            & "spendingPassword"
+            --^ ( "An optional spending password. If provided, TODO: ???"
+                <> " what does it do? if not provided, what happens?"
+                )
+        )
+
+instance Arbitrary Redemption where
+    arbitrary = Redemption <$> arbitrary <*> arbitrary <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

@@ -11,8 +11,6 @@ import           Servant
 
 import           Cardano.Wallet.API.Response
 
-import qualified Cardano.Wallet.API.V1.Internal.Redemption as Redemption
-
 -- migrate everything except for import/export
 
 type API =
@@ -23,7 +21,6 @@ type API =
             :<|> "postpone"
                 :> Post '[ValidJSON] NoContent
             )
-        :<|> Redemption.API
         )
 
 newtype Seed = Seed Text

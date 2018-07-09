@@ -85,12 +85,15 @@ import           Universum
 
 import           Data.Semigroup (Semigroup)
 
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
-import           Data.Swagger as S
+import           Data.Default (Default (def))
+import           Data.Swagger hiding (Example, example)
+import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
@@ -167,7 +170,7 @@ type IsPropertiesMap m =
 
 genericSchemaDroppingPrefix
     :: forall a m proxy.
-    ( Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m
+    ( Generic a, ToJSON a, Example a, GToSchema (Rep a), IsPropertiesMap m
     , GenericHasSimpleShape
         a
         "genericDeclareNamedSchemaUnrestricted"
@@ -184,10 +187,10 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
     defs <- look
     pure $ s
       & over schema (over properties (extraDoc (addFieldDescription defs)))
-      & schema . example ?~ toJSON (genExample :: a)
+      & schema . S.example ?~ toJSON (genExample :: a)
   where
     genExample =
-      (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+      (unGen (resize 3 example)) (mkQCGen 42) 42
 
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
@@ -700,6 +703,7 @@ deriveSafeBuildable ''SyncProgress
 instance BuildableSafeGen SyncProgress where
     buildSafeGen _ sp = bprint build sp
 
+instance Example SyncProgress where
 instance Arbitrary SyncProgress where
   arbitrary = SyncProgress <$> arbitrary
                            <*> arbitrary
@@ -1828,3 +1832,103 @@ type family New (original :: *) :: * where
 type CaptureWalletId = Capture "walletId" WalletId
 
 type CaptureAccountId = Capture "accountId" AccountIndex
+
+
+--
+-- Example typeclass instances
+--
+
+instance Example (Mnemonic 12) where
+     example = pure def
+
+instance Example (V1 (Mnemonic 12)) where
+    example = V1 <$> example
+
+instance Example Core.Address
+instance Example AccountIndex
+instance Example AccountBalance
+instance Example AccountAddresses
+instance Example WalletId
+instance Example AssuranceLevel
+instance Example SyncPercentage
+instance Example BlockchainHeight
+instance Example LocalTimeDifference
+instance Example PaymentDistribution
+instance Example AccountUpdate
+instance Example Wallet
+instance Example WalletUpdate
+instance Example WalletOperation
+instance Example PasswordUpdate
+instance Example EstimatedFees
+instance Example Transaction
+instance Example WalletSoftwareUpdate
+instance Example NodeSettings
+instance Example SlotDuration
+instance Example WalletAddress
+instance Example NewAccount
+instance Example TimeInfo
+instance Example AddressValidity
+instance Example NewAddress
+instance Example SubscriptionStatus
+instance Example NodeId
+
+
+
+-- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
+-- to control the length of the examples. It is possible for the encoded length
+-- to become huge, up to 1000+ bytes, if the 'UnsafeMultiKeyDistr' constructor
+-- is used. We do not use this constructor, which keeps the address between
+-- ~80-150 bytes long.
+instance Example (V1 Core.Address) where
+    example = fmap V1 . Core.makeAddress
+        <$> arbitrary
+        <*> arbitraryAttributes
+      where
+        arbitraryAttributes =
+            Core.AddrAttributes
+                <$> arbitrary
+                <*> oneof
+                    [ pure Core.BootstrapEraDistr
+                    , Core.SingleKeyDistr <$> arbitrary
+                    ]
+
+instance Example Core.InputSelectionPolicy where
+    example = pure Core.OptimizeForHighThroughput
+
+instance Example (V1 Core.InputSelectionPolicy) where
+    example = pure (V1 Core.OptimizeForHighThroughput)
+
+
+instance Example Account where
+    example = Account <$> example
+                      <*> example -- NOTE: this will produce non empty list
+                      <*> example
+                      <*> pure "My account"
+                      <*> example
+
+instance Example NewWallet where
+    example = NewWallet <$> example
+                        <*> example -- Note: will produce `Just a`
+                        <*> example
+                        <*> pure "My Wallet"
+                        <*> example
+
+instance Example NodeInfo where
+    example = NodeInfo <$> example
+                       <*> example  -- NOTE: will produce `Just a`
+                       <*> example
+                       <*> example
+                       <*> example
+
+instance Example PaymentSource where
+    example = PaymentSource <$> example
+                            <*> example
+
+instance Example Payment where
+    example = Payment <$> example
+                      <*> example
+                      <*> example -- TODO: will produce `Just groupingPolicy`
+                      <*> example
+
+instance Example (V1 Core.PassPhrase)
+instance Example (V1 Core.Coin)

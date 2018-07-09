@@ -33,7 +33,6 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
                      randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
-import           Pos.Infra.Binary ()
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (recoveryCommGuard)
 import           Pos.Infra.Slotting (getSlotStartEmpatically, onNewSlot)

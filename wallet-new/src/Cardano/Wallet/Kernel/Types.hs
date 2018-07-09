@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.Types (
   , mkRawResolvedBlock
   -- ** Abstract Wallet/AccountIds
   , WalletId (..)
+  , AccountId (..)
   , accountToWalletId
     -- ** From raw to derived types
   , fromRawResolvedTx
@@ -68,6 +69,14 @@ instance Buildable WalletId where
 accountToWalletId :: HD.HdAccountId -> WalletId
 accountToWalletId accountId
     = WalletIdHdRnd $ accountId ^. HD.hdAccountIdParent
+
+-- | Account Id
+--
+-- An Account Id can take several forms, the simplest of which is a
+-- random-indexed, hardeded HD Account.
+data AccountId =
+    -- | HD wallet with randomly generated (hardened) index.
+  AccountIdHdRnd HD.HdAccountId
 
 {-------------------------------------------------------------------------------
   Input resolution: raw types

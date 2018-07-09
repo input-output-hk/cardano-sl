@@ -7,6 +7,7 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
+import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Maybe (fromJust)
 import           System.Wlog (Severity (Debug))
@@ -14,19 +15,23 @@ import           System.Wlog (Severity (Debug))
 import           Pos.Block.Types (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
-                     fromRawResolvedBlock)
+import           Cardano.Wallet.Kernel.Types (AccountId (..),
+                     RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     PassiveWalletLayer (..))
+                     CreateAddressError (..), PassiveWalletLayer (..))
 
+import           Pos.Core (decodeTextAddress)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (safeDeterministicKeyGen)
 import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
 import           Pos.Crypto.Signing
@@ -64,7 +69,7 @@ bracketPassiveWallet logFunction keystore f =
     assuranceLevel   = HD.AssuranceLevelNormal
 
     -- | TODO(ks): Currently not implemented!
-    passiveWalletLayer _wallet invoke =
+    passiveWalletLayer wallet invoke =
         PassiveWalletLayer
             { _pwlCreateWallet   = error "Not implemented!"
             , _pwlGetWalletIds   = error "Not implemented!"
@@ -78,6 +83,21 @@ bracketPassiveWallet logFunction keystore f =
             , _pwlUpdateAccount  = error "Not implemented!"
             , _pwlDeleteAccount  = error "Not implemented!"
 
+            , _pwlCreateAddress  =
+                \(V1.NewAddress mbSpendingPassword accIdx (V1.WalletId wId)) -> do
+                    case decodeTextAddress wId of
+                         Left _ ->
+                             return $ Left (CreateAddressAddressDecodingFailed wId)
+                         Right rootAddr -> do
+                            let hdRootId = HD.HdRootId . InDb $ rootAddr
+                            let hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accIdx)
+                            let passPhrase = maybe mempty coerce mbSpendingPassword
+                            res <- liftIO $ Kernel.createAddress passPhrase
+                                                                 (AccountIdHdRnd hdAccountId)
+                                                                 wallet
+                            case res of
+                                 Right newAddr -> return (Right newAddr)
+                                 Left  err     -> return (Left $ CreateAddressError err)
             , _pwlGetAddresses   = error "Not implemented!"
 
             , _pwlApplyBlocks    = invoke . Actions.ApplyBlocks

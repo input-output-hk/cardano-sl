@@ -62,6 +62,7 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.Addresses
                        Cardano.Wallet.Kernel.CoinSelection
                        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                        Cardano.Wallet.Kernel.CoinSelection.Generic
@@ -74,6 +75,7 @@ library
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create
                        Cardano.Wallet.Kernel.DB.HdWallet.Delete
+                       Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                        Cardano.Wallet.Kernel.DB.HdWallet.Read
                        Cardano.Wallet.Kernel.DB.HdWallet.Update
                        Cardano.Wallet.Kernel.DB.InDb
@@ -132,6 +134,7 @@ library
                      , beam-migrate
                      , beam-sqlite
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-block
                      , cardano-sl-client
@@ -171,6 +174,7 @@ library
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
+                     , random
                      , reflection
                      , safe-exceptions
                      , safecopy

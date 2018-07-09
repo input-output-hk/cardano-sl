@@ -14,9 +14,12 @@ module Cardano.Wallet.WalletLayer.Types
     , updateAccount
     , deleteAccount
 
+    , createAddress
     , getAddresses
     , applyBlocks
     , rollbackBlocks
+    -- * Errors
+    , CreateAddressError(..)
     ) where
 
 import           Universum
@@ -24,11 +27,28 @@ import           Universum
 import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, Address, NewAccount, NewWallet, Wallet,
-                     WalletId, WalletUpdate)
+                     AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
+                     Wallet, WalletId, WalletUpdate)
+
+import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Test.QuickCheck (Arbitrary (..), oneof)
+
+------------------------------------------------------------
+-- Common errors
+------------------------------------------------------------
+
+data CreateAddressError =
+      CreateAddressError Kernel.CreateAddressError
+    | CreateAddressAddressDecodingFailed Text
+    -- ^ Decoding the input 'Text' as an 'Address' failed.
+
+instance Arbitrary CreateAddressError where
+    arbitrary = oneof [ CreateAddressError <$> arbitrary
+                      , pure (CreateAddressAddressDecodingFailed "Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxx")
+                      ]
 
 ------------------------------------------------------------
 -- Passive wallet layer
@@ -50,6 +70,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> m Account
     , _pwlDeleteAccount  :: WalletId -> AccountIndex -> m Bool
     -- * addresses
+    , _pwlCreateAddress  :: NewAddress -> m (Either CreateAddressError Address)
     , _pwlGetAddresses   :: WalletId -> m [Address]
     -- * core API
     , _pwlApplyBlocks    :: OldestFirst NE Blund -> m ()
@@ -93,6 +114,8 @@ updateAccount pwl = pwl ^. pwlUpdateAccount
 deleteAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> m Bool
 deleteAccount pwl = pwl ^. pwlDeleteAccount
 
+createAddress :: forall m. PassiveWalletLayer m -> NewAddress -> m (Either CreateAddressError Address)
+createAddress pwl = pwl ^. pwlCreateAddress
 
 getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
 getAddresses pwl = pwl ^. pwlGetAddresses

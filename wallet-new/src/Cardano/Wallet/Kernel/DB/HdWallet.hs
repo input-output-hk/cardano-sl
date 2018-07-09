@@ -91,11 +91,11 @@ newtype WalletName = WalletName Text
 newtype AccountName = AccountName Text
 
 -- | Account index
-newtype HdAccountIx = HdAccountIx Word32
+newtype HdAccountIx = HdAccountIx { getHdAccountIx :: Word32 }
   deriving (Eq, Ord)
 
 -- | Address index
-newtype HdAddressIx = HdAddressIx Word32
+newtype HdAddressIx = HdAddressIx { getHdAddressIx :: Word32 }
   deriving (Eq, Ord)
 
 -- | Wallet assurance level

@@ -15,10 +15,10 @@ import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
+import           Mockable
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Mockable
 
 -- | Serve the REST interface to the wallet
 --

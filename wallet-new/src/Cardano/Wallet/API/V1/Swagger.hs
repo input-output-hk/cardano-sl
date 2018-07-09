@@ -652,6 +652,27 @@ curl -X GET \
 $readAccounts
 ```
 
+Partial Representations
+-----------------------
+
+The previous endpoint gives you a list of full representations. However, in some cases, it might be interesting to retrieve only a partial representation of an account (e.g. only the balance). There are two extra endpoints one could use to either fetch a given account's balance, and another to retrieve the list of addresses associated to a specific account.
+
+[`GET /api/v1/wallets/{{walletId}}/accounts/{{accountId}}/addresses`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1%7BwalletId%7D~1accounts~1%7BaccountId%7D~1addresses%2Fget)
+
+```json
+$readAccountAddresses
+```
+
+Note that this endpoint is paginated and allow basic filtering and sorting on
+addresses. Similarly, you can retrieve only the account balance with:
+
+[`GET /api/v1/wallets/{{walletId}}/accounts/{{accountId}}/amount`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1%7BwalletId%7D~1accounts~1%7BaccountId%7D~1amount%2Fget)
+
+
+```json
+$readAccountBalance
+```
+
 
 Managing Addresses
 ------------------
@@ -769,14 +790,16 @@ Make sure to carefully read the section about [Pagination](#section/Pagination) 
 leverage the API capabilities.
 |]
   where
-    createAccount    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Account)
-    createAddress    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse WalletAddress)
-    createWallet     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Wallet)
-    readAccounts     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Account])
-    readAddresses    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Address])
-    readFees         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
-    readNodeInfo     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
-    readTransactions = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
+    createAccount        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Account)
+    createAddress        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse WalletAddress)
+    createWallet         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Wallet)
+    readAccounts         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Account])
+    readAccountBalance   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse AccountBalance)
+    readAccountAddresses = decodeUtf8 $ encodePretty $ genExample @(WalletResponse AccountAddresses)
+    readAddresses        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Address])
+    readFees             = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
+    readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
+    readTransactions     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
 
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.

@@ -61,7 +61,6 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo,
                      utxoGet, utxoToLookup, withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
---import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------
@@ -202,7 +201,6 @@ type TxHistoryEnv ctx m =
     , MonadGState m
     , MonadTxpLocal m
     , MonadMask m
-    --, WithLogger m
     , MonadSlots ctx m
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m

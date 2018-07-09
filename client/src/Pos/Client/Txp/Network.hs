@@ -34,7 +34,7 @@ import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
-import           Pos.Util.Log (logInfo)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.WorkMode.Class (MinWorkMode)
 
@@ -85,7 +85,8 @@ prepareRedemptionTx pm rsk output = do
 submitTxRaw
     :: MinWorkMode m
     => TraceNamed m
-    -> Diffusion m -> TxAux -> m Bool
+    -> Diffusion m -> TxAux
+    -> m Bool
 submitTxRaw logTrace diffusion txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo logTrace $ sformat ("Submitting transaction: "%txaF) txAux

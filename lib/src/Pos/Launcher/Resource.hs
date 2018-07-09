@@ -16,6 +16,8 @@ module Pos.Launcher.Resource
 
          -- * Smaller resources
        , loggerBracket
+
+       , getRealLoggerConfig
        ) where
 
 import           Universum
@@ -68,9 +70,9 @@ import           Pos.Util (bracketWithTrace, newInitFuture)
 --import           Pos.Util.Log (WithLogger, LoggerConfig (..), LoggerName, LoggingHandler, logDebug, logInfo)
 import qualified Pos.Util.Log as Log
 -- (LogContextT (..), {-loggerBracket,-} parseLoggerConfig, setupLogging)
-import           Pos.Util.Trace (noTrace, natTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName)
-import qualified Pos.Util.Trace.Named as TN --(logDebug, logInfo, logWarning)
+import qualified Pos.Util.Trace.Named as TN
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd
@@ -247,11 +249,19 @@ getRealLoggerConfig LoggingParams{..} =
         Just False -> (<>) (consoleActionB (\_ _ -> pass))
 -}
 
+-- setupLoggers :: MonadIO m => LoggingParams -> m Log.LoggingHandler
+-- setupLoggers params = liftIO $ Log.setupLogging =<< (liftIO getRealLoggerConfig) params
+
+-- setupLoggersTrace :: MonadIO m => LoggingParams -> m Log.LoggingHandler
+-- setupLoggersTrace params = liftIO $ Log.setupLogging =<< (liftIO getRealLoggerConfig) params
+
 -- | RAII for Logging.   TODO  make use of Trace!!
 loggerBracket :: LoggingParams -> Log.LogContextT Production () -> Production ()
---loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+--loggerBracket lp = bracket (setupLoggers lp) removeAllHandlers
 loggerBracket params action = do
     lh <- liftIO $ Log.setupLogging =<< getRealLoggerConfig params
+    --TODO logTrace <- (flip . setupLogging) loggerName =<< getRealLoggerConfig params
+    -- ^^take the loggerName from the LoggingParams{..}
     Log.loggerBracket lh (lpDefaultName params) action
 
     --loggerBracket' lh (lpDefaultName params) action

@@ -99,6 +99,8 @@ data WalletClient m
         :: WalletId -> New Account -> Resp m Account
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
+    , redeemAda
+        :: WalletId -> AccountIndex -> Redemption -> Resp m Transaction
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -183,44 +185,46 @@ getWallets = paginateAll . getWalletIndexPaged
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
 hoistClient phi wc = WalletClient
     { getAddressIndexPaginated =
-         \x -> phi . getAddressIndexPaginated wc x
+        \x -> phi . getAddressIndexPaginated wc x
     , postAddress =
-         phi . postAddress wc
+        phi . postAddress wc
     , getAddress =
-         phi . getAddress wc
+        phi . getAddress wc
     , postWallet =
-         phi . postWallet wc
+        phi . postWallet wc
     , getWalletIndexFilterSorts =
-         \x y p -> phi . getWalletIndexFilterSorts wc x y p
+        \x y p -> phi . getWalletIndexFilterSorts wc x y p
     , updateWalletPassword =
-         \x -> phi . updateWalletPassword wc x
+        \x -> phi . updateWalletPassword wc x
     , deleteWallet =
-         phi . deleteWallet wc
+        phi . deleteWallet wc
     , getWallet =
-         phi . getWallet wc
+        phi . getWallet wc
     , updateWallet =
-         \x -> phi . updateWallet wc x
+        \x -> phi . updateWallet wc x
     , deleteAccount =
-         \x -> phi . deleteAccount wc x
+        \x -> phi . deleteAccount wc x
     , getAccount =
-         \x -> phi . getAccount wc x
+        \x -> phi . getAccount wc x
     , getAccountIndexPaged =
-         \x mp -> phi . getAccountIndexPaged wc x mp
+        \x mp -> phi . getAccountIndexPaged wc x mp
     , postAccount =
-         \x -> phi . postAccount wc x
+        \x -> phi . postAccount wc x
     , updateAccount =
-         \x y -> phi . updateAccount wc x y
+        \x y -> phi . updateAccount wc x y
+    , redeemAda =
+        \x y -> phi . redeemAda wc x y
     , postTransaction =
-         phi . postTransaction wc
+        phi . postTransaction wc
     , getTransactionIndexFilterSorts =
-         \wid maid maddr mp mpp f ->
-             phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
+        \wid maid maddr mp mpp f ->
+            phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
     , getTransactionFee =
-         phi . getTransactionFee wc
+        phi . getTransactionFee wc
     , getNodeSettings =
-         phi (getNodeSettings wc)
+        phi (getNodeSettings wc)
     , getNodeInfo =
-         phi (getNodeInfo wc)
+        phi (getNodeInfo wc)
     }
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>

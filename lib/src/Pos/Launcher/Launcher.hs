@@ -55,4 +55,4 @@ runNodeReal lh pm np sscnp plugins = Log.usingLoggerName lh "runNodeReal" $ runP
   where
     action :: NodeResources EmptyMempoolExt -> Production ()
     action nr@NodeResources {..} =
-      Production $ runRealMode lh pm nr (runNode noTrace pm nr plugins)
+      Production $ KM.KatipContextT $ ReaderT $ const $ runRealMode lh pm nr (runNode noTrace pm nr plugins)

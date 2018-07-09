@@ -30,7 +30,7 @@ import           Pos.Update.Poll.Types (VoteState (..))
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Infra.Arbitrary.Slotting ()
+import           Test.Pos.Sinbin.Arbitrary.Slotting ()
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

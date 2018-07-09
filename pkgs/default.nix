@@ -16903,6 +16903,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-infra
+, cardano-sl-sinbin-test
 , cardano-sl-util-test
 , containers
 , generic-arbitrary
@@ -16925,6 +16926,7 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-infra
+cardano-sl-sinbin-test
 cardano-sl-util-test
 containers
 generic-arbitrary
@@ -17425,6 +17427,35 @@ cpphs
 ];
 doHaddock = false;
 description = "Cardano SL - sinbin";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-sinbin-test" = callPackage
+({
+  mkDerivation
+, base
+, cardano-sl-core-test
+, cardano-sl-sinbin
+, generic-arbitrary
+, QuickCheck
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-sinbin-test";
+version = "1.3.0";
+src = ./../sinbin/test;
+libraryHaskellDepends = [
+base
+cardano-sl-core-test
+cardano-sl-sinbin
+generic-arbitrary
+QuickCheck
+universum
+];
+doHaddock = false;
+description = "Cardano SL - generators for cardano-sl-sinbin";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -18041,7 +18072,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
-, cardano-sl-infra-test
+, cardano-sl-sinbin-test
 , cardano-sl-update
 , cardano-sl-util-test
 , containers
@@ -18064,7 +18095,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
-cardano-sl-infra-test
+cardano-sl-sinbin-test
 cardano-sl-update
 cardano-sl-util-test
 containers

@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-txp";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -22,19 +22,21 @@ let
       components = {
         cardano-sl-txp = {
           depends  = [
-            hsPkgs.QuickCheck
             hsPkgs.aeson
             hsPkgs.aeson-options
             hsPkgs.base
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
+            hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-networking
+            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
+            hsPkgs.cardano-sl-util-test
             hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.data-default
@@ -62,16 +64,42 @@ let
             hsPkgs.tagged
             hsPkgs.template-haskell
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unliftio
             hsPkgs.unordered-containers
             hsPkgs.vector
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-            hsPkgs.buildPackages.autoexporter
-          ];
+          build-tools = [ hsPkgs.cpphs ];
+        };
+        tests = {
+          test = {
+            depends  = [
+              hsPkgs.base
+              hsPkgs.cardano-sl-binary
+              hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
+              hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-crypto-test
+              hsPkgs.cardano-sl-txp
+              hsPkgs.cardano-sl-util
+              hsPkgs.cardano-sl-util-test
+              hsPkgs.containers
+              hsPkgs.data-default
+              hsPkgs.fmt
+              hsPkgs.generic-arbitrary
+              hsPkgs.hspec
+              hsPkgs.lens
+              hsPkgs.mtl
+              hsPkgs.QuickCheck
+              hsPkgs.serokell-util
+              hsPkgs.formatting
+              hsPkgs.universum
+              hsPkgs.unordered-containers
+              hsPkgs.vector
+            ];
+          };
         };
       };
     } // rec { src = ../txp; }

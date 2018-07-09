@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-util";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -22,12 +22,9 @@ let
       components = {
         cardano-sl-util = {
           depends  = [
-            hsPkgs.QuickCheck
             hsPkgs.aeson
             hsPkgs.base
             hsPkgs.binary
-            hsPkgs.bytestring
-            hsPkgs.cardano-sl-binary
             hsPkgs.cborg
             hsPkgs.cereal
             hsPkgs.containers
@@ -39,10 +36,10 @@ let
             hsPkgs.directory
             hsPkgs.ether
             hsPkgs.exceptions
+            hsPkgs.file-embed
             hsPkgs.filepath
             hsPkgs.formatting
             hsPkgs.hashable
-            hsPkgs.hspec
             hsPkgs.lens
             hsPkgs.log-warper
             hsPkgs.lrucache
@@ -51,7 +48,6 @@ let
             hsPkgs.optparse-applicative
             hsPkgs.parsec
             hsPkgs.process
-            hsPkgs.quickcheck-instances
             hsPkgs.reflection
             hsPkgs.resourcet
             hsPkgs.safe-exceptions
@@ -60,6 +56,7 @@ let
             hsPkgs.tagged
             hsPkgs.template-haskell
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.th-lift-instances
             hsPkgs.time
             hsPkgs.time-units
@@ -70,19 +67,17 @@ let
             hsPkgs.unliftio-core
             hsPkgs.unordered-containers
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
         tests = {
           test = {
             depends  = [
               hsPkgs.base
               hsPkgs.async
-              hsPkgs.cardano-sl-binary
               hsPkgs.cardano-sl-util
               hsPkgs.hspec
               hsPkgs.QuickCheck
+              hsPkgs.quickcheck-instances
               hsPkgs.serokell-util
               hsPkgs.stm
               hsPkgs.text
@@ -91,9 +86,7 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

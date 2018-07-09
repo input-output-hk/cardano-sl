@@ -6,7 +6,7 @@ let
       package = {
         specVersion = "1.10";
         identifier = {
-          name = "cardano-sl-db";
+          name = "cardano-sl-binary-test";
           version = "1.3.0";
         };
         license = "MIT";
@@ -15,38 +15,43 @@ let
         author = "Serokell";
         homepage = "";
         url = "";
-        synopsis = "Cardano SL - basic DB interfaces";
-        description = "Cardano SL - basic DB interfaces";
+        synopsis = "Cardano SL - binary serializarion (tests)";
+        description = "This package contains test helpers for cardano-sl-binary.";
         buildType = "Simple";
       };
       components = {
-        cardano-sl-db = {
+        cardano-sl-binary-test = {
           depends  = [
+            hsPkgs.QuickCheck
+            hsPkgs.aeson
             hsPkgs.base
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
-            hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-util
-            hsPkgs.concurrent-extra
-            hsPkgs.conduit
-            hsPkgs.containers
-            hsPkgs.data-default
+            hsPkgs.cardano-sl-util-test
+            hsPkgs.cborg
+            hsPkgs.cereal
+            hsPkgs.cryptonite
             hsPkgs.directory
-            hsPkgs.ether
             hsPkgs.filepath
+            hsPkgs.file-embed
             hsPkgs.formatting
-            hsPkgs.lens
-            hsPkgs.memory
+            hsPkgs.half
+            hsPkgs.hedgehog
+            hsPkgs.hspec
             hsPkgs.mtl
-            hsPkgs.resourcet
-            hsPkgs.rocksdb-haskell-ng
-            hsPkgs.serokell-util
+            hsPkgs.pretty-show
+            hsPkgs.quickcheck-instances
+            hsPkgs.safecopy
+            hsPkgs.template-haskell
+            hsPkgs.text
             hsPkgs.formatting
-            hsPkgs.transformers
+            hsPkgs.tagged
             hsPkgs.universum
           ];
           build-tools = [ hsPkgs.cpphs ];
         };
       };
-    } // rec { src = ../db; }
+    } // rec {
+      src = ../binary/test;
+    }

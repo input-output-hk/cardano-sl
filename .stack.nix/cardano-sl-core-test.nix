@@ -6,68 +6,55 @@ let
       package = {
         specVersion = "1.10";
         identifier = {
-          name = "cardano-sl-ssc";
+          name = "cardano-sl-core-test";
           version = "1.3.0";
         };
         license = "MIT";
-        copyright = "2016 IOHK";
-        maintainer = "hi@serokell.io";
-        author = "Serokell";
+        copyright = "2018 IOHK";
+        maintainer = "IOHK <support@iohk.io>";
+        author = "IOHK";
         homepage = "";
         url = "";
-        synopsis = "Cardano SL - shared seed computation";
-        description = "Cardano SL - shared seed computation";
+        synopsis = "Cardano SL - core functionality (tests)";
+        description = "QuickCheck Arbitrary instances for the Cardano SL core\nfunctionality.";
         buildType = "Simple";
       };
       components = {
-        cardano-sl-ssc = {
+        cardano-sl-core-test = {
           depends  = [
             hsPkgs.QuickCheck
-            hsPkgs.aeson
-            hsPkgs.aeson-options
-            hsPkgs.array
             hsPkgs.base
+            hsPkgs.base16-bytestring
             hsPkgs.bytestring
+            hsPkgs.cardano-crypto
             hsPkgs.cardano-sl-binary
+            hsPkgs.cardano-sl-binary-test
             hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-crypto-test
-            hsPkgs.cardano-sl-db
-            hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-lrc
-            hsPkgs.cardano-sl-networking
-            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
             hsPkgs.cardano-sl-util-test
             hsPkgs.containers
+            hsPkgs.cardano-sl-util-test
             hsPkgs.cryptonite
+            hsPkgs.cryptonite-openssl
             hsPkgs.data-default
-            hsPkgs.ether
-            hsPkgs.ekg-core
-            hsPkgs.exceptions
             hsPkgs.formatting
             hsPkgs.generic-arbitrary
-            hsPkgs.lens
-            hsPkgs.log-warper
-            hsPkgs.memory
-            hsPkgs.mmorph
-            hsPkgs.mono-traversable
+            hsPkgs.hedgehog
+            hsPkgs.hspec
             hsPkgs.mtl
-            hsPkgs.parsec
-            hsPkgs.reflection
-            hsPkgs.rocksdb-haskell-ng
+            hsPkgs.pvss
+            hsPkgs.quickcheck-instances
+            hsPkgs.random
             hsPkgs.serokell-util
-            hsPkgs.stm
             hsPkgs.tagged
             hsPkgs.text
-            hsPkgs.formatting
             hsPkgs.time-units
-            hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unordered-containers
+            hsPkgs.vector
           ];
-          build-tools = [ hsPkgs.cpphs ];
         };
       };
-    } // rec { src = ../ssc; }
+    } // rec { src = ../core/test; }

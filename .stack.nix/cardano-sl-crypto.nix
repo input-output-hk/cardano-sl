@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-crypto";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -30,6 +30,7 @@ let
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-util
             hsPkgs.cborg
+            hsPkgs.cereal
             hsPkgs.cryptonite
             hsPkgs.cryptonite-openssl
             hsPkgs.data-default
@@ -41,59 +42,41 @@ let
             hsPkgs.mtl
             hsPkgs.pvss
             hsPkgs.reflection
+            hsPkgs.safecopy
             hsPkgs.safe-exceptions
             hsPkgs.scrypt
             hsPkgs.serokell-util
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.universum
             hsPkgs.unordered-containers
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
         tests = {
           test = {
             depends  = [
-              hsPkgs.MonadRandom
               hsPkgs.QuickCheck
               hsPkgs.base
+              hsPkgs.aeson
               hsPkgs.bytestring
-              hsPkgs.canonical-json
+              hsPkgs.cardano-crypto
               hsPkgs.cardano-sl-binary
+              hsPkgs.cardano-sl-binary-test
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-util
-              hsPkgs.cborg
-              hsPkgs.cereal
-              hsPkgs.containers
+              hsPkgs.cardano-sl-util-test
               hsPkgs.cryptonite
-              hsPkgs.data-default
-              hsPkgs.extra
-              hsPkgs.filelock
-              hsPkgs.fmt
               hsPkgs.formatting
               hsPkgs.generic-arbitrary
-              hsPkgs.half
+              hsPkgs.hedgehog
               hsPkgs.hspec
-              hsPkgs.lens
               hsPkgs.memory
-              hsPkgs.mtl
-              hsPkgs.pvss
               hsPkgs.quickcheck-instances
-              hsPkgs.random
-              hsPkgs.reflection
-              hsPkgs.safecopy
-              hsPkgs.serokell-util
-              hsPkgs.tagged
+              hsPkgs.template-haskell
               hsPkgs.text
-              hsPkgs.text-format
-              hsPkgs.time-units
               hsPkgs.universum
               hsPkgs.unordered-containers
-              hsPkgs.vector
-            ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
             ];
           };
         };

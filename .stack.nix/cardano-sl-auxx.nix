@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-auxx";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -35,6 +35,7 @@ let
             hsPkgs.cardano-sl-block
             hsPkgs.cardano-sl-client
             hsPkgs.cardano-sl-core
+            hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-generator
@@ -68,15 +69,14 @@ let
             hsPkgs.split
             hsPkgs.stm
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.time-units
             hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unordered-containers
             hsPkgs.validation
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
         exes = {
           cardano-auxx = {
@@ -86,6 +86,7 @@ let
               hsPkgs.cardano-sl-auxx
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
@@ -98,9 +99,7 @@ let
               hsPkgs.universum
               hsPkgs.formatting
             ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
         tests = {
@@ -113,9 +112,7 @@ let
               hsPkgs.hspec
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

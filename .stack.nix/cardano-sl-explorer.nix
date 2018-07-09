@@ -7,11 +7,11 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-explorer";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2017 IOHK";
-        maintainer = "IOHK <hi@serokell.io>";
+        maintainer = "IOHK <support@iohk.io>";
         author = "IOHK";
         homepage = "";
         url = "";
@@ -33,7 +33,6 @@ let
             hsPkgs.exceptions
             hsPkgs.formatting
             hsPkgs.free
-            hsPkgs.generic-arbitrary
             hsPkgs.lens
             hsPkgs.log-warper
             hsPkgs.memory
@@ -45,6 +44,7 @@ let
             hsPkgs.servant-generic
             hsPkgs.stm
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
@@ -55,13 +55,15 @@ let
             hsPkgs.cardano-sl
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-block
-            hsPkgs.cardano-sl-client
+            hsPkgs.cardano-sl-block-test
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-delegation
             hsPkgs.cardano-sl-generator
             hsPkgs.cardano-sl-infra
+            hsPkgs.cardano-sl-lrc
             hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-ssc
             hsPkgs.cardano-sl-txp
@@ -79,9 +81,7 @@ let
             hsPkgs.wai-cors
             hsPkgs.warp
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
         exes = {
           cardano-explorer = {
@@ -89,19 +89,17 @@ let
               hsPkgs.base
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-explorer
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
-              hsPkgs.formatting
               hsPkgs.log-warper
               hsPkgs.optparse-applicative
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
           cardano-explorer-hs2purs = {
             depends  = [
@@ -111,9 +109,7 @@ let
               hsPkgs.universum
               hsPkgs.optparse-simple
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
           cardano-explorer-swagger = {
             depends  = [
@@ -127,12 +123,9 @@ let
               hsPkgs.servant-server
               hsPkgs.servant-swagger
               hsPkgs.swagger2
-              hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
           cardano-explorer-mock = {
             depends  = [
@@ -141,9 +134,7 @@ let
               hsPkgs.optparse-applicative
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
         tests = {
@@ -153,27 +144,26 @@ let
               hsPkgs.base
               hsPkgs.bytestring
               hsPkgs.cardano-sl
+              hsPkgs.cardano-sl-binary-test
               hsPkgs.cardano-sl-block
+              hsPkgs.cardano-sl-block-test
               hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-explorer
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.containers
               hsPkgs.cryptonite
-              hsPkgs.data-default
               hsPkgs.engine-io
+              hsPkgs.generic-arbitrary
               hsPkgs.hspec
               hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.MonadRandom
-              hsPkgs.mtl
               hsPkgs.universum
               hsPkgs.warp
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
         benchmarks = {
@@ -182,18 +172,15 @@ let
               hsPkgs.QuickCheck
               hsPkgs.base
               hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
               hsPkgs.cardano-sl-explorer
               hsPkgs.cardano-sl-txp
+              hsPkgs.cardano-sl-txp-test
               hsPkgs.criterion
-              hsPkgs.data-default
-              hsPkgs.lens
               hsPkgs.universum
               hsPkgs.weigh
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-update";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -23,7 +23,6 @@ let
         cardano-sl-update = {
           depends  = [
             hsPkgs.Cabal
-            hsPkgs.QuickCheck
             hsPkgs.aeson
             hsPkgs.aeson-options
             hsPkgs.base
@@ -31,20 +30,20 @@ let
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
-            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-lrc
             hsPkgs.cardano-sl-networking
+            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
             hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.data-default
+            hsPkgs.deepseq
             hsPkgs.directory
             hsPkgs.ether
             hsPkgs.exceptions
             hsPkgs.formatting
-            hsPkgs.generic-arbitrary
             hsPkgs.hashable
             hsPkgs.http-client
             hsPkgs.http-client-tls
@@ -61,17 +60,14 @@ let
             hsPkgs.stm
             hsPkgs.tagged
             hsPkgs.template-haskell
-            hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.time-units
             hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unliftio
             hsPkgs.unordered-containers
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-            hsPkgs.buildPackages.autoexporter
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
       };
     } // rec { src = ../update; }

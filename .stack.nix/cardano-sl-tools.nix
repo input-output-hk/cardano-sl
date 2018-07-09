@@ -2,6 +2,7 @@
 let
     _flags = {
       for-installer = false;
+      postmortem = false;
     } // flags;
     in {
       flags = _flags;
@@ -9,7 +10,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-tools";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -39,6 +40,7 @@ let
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
               hsPkgs.base
               hsPkgs.acid-state
+              hsPkgs.acid-state-exts
               hsPkgs.aeson
               hsPkgs.ansi-terminal
               hsPkgs.bytestring
@@ -46,10 +48,12 @@ let
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
               hsPkgs.cardano-sl-db
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
+              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
               hsPkgs.containers
@@ -73,25 +77,7 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
-          };
-          cardano-dht-keygen = {
-            depends  = pkgs.lib.optionals (!_flags.for-installer) [
-              hsPkgs.base
-              hsPkgs.base
-              hsPkgs.bytestring
-              hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-crypto
-              hsPkgs.kademlia
-              hsPkgs.optparse-applicative
-              hsPkgs.serokell-util
-              hsPkgs.universum
-            ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
           cardano-genupdate = {
             depends  = [
@@ -196,12 +182,10 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
           cardano-post-mortem = {
-            depends  = pkgs.lib.optionals (!_flags.for-installer) [
+            depends  = pkgs.lib.optionals (_flags.postmortem && !_flags.for-installer) [
               hsPkgs.Chart
               hsPkgs.Chart-diagrams
               hsPkgs.MonadRandom
@@ -257,8 +241,36 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
+            build-tools = [ hsPkgs.cpphs ];
+          };
+          cardano-x509-certificates = {
+            depends  = [
+              hsPkgs.base
+              hsPkgs.aeson
+              hsPkgs.asn1-encoding
+              hsPkgs.asn1-types
+              hsPkgs.bytestring
+              hsPkgs.base64-bytestring
+              hsPkgs.cryptonite
+              hsPkgs.filepath
+              hsPkgs.hourglass
+              hsPkgs.optparse-applicative
+              hsPkgs.universum
+              hsPkgs.unordered-containers
+              hsPkgs.x509
+              hsPkgs.x509-validation
+              hsPkgs.x509-store
+              hsPkgs.data-default-class
+              hsPkgs.yaml
+            ];
+          };
+          genesis-hash = {
+            depends  = pkgs.lib.optionals (!_flags.for-installer) [
+              hsPkgs.base
+              hsPkgs.universum
+              hsPkgs.bytestring
+              hsPkgs.cryptonite
+              hsPkgs.canonical-json
             ];
           };
         };
@@ -271,11 +283,8 @@ let
               hsPkgs.directory
               hsPkgs.hspec
               hsPkgs.temporary
-              hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

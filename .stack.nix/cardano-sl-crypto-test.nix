@@ -6,7 +6,7 @@ let
       package = {
         specVersion = "1.10";
         identifier = {
-          name = "cardano-sl-db";
+          name = "cardano-sl-crypto-test";
           version = "1.3.0";
         };
         license = "MIT";
@@ -15,38 +15,31 @@ let
         author = "Serokell";
         homepage = "";
         url = "";
-        synopsis = "Cardano SL - basic DB interfaces";
-        description = "Cardano SL - basic DB interfaces";
+        synopsis = "Cardano SL - arbitrary instances for cardano-sl-crypto";
+        description = "This package contains arbitrary instances for the cryptography primitives used in Cardano SL.";
         buildType = "Simple";
       };
       components = {
-        cardano-sl-db = {
+        cardano-sl-crypto-test = {
           depends  = [
+            hsPkgs.QuickCheck
             hsPkgs.base
             hsPkgs.bytestring
+            hsPkgs.cardano-crypto
             hsPkgs.cardano-sl-binary
-            hsPkgs.cardano-sl-core
+            hsPkgs.cardano-sl-binary-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-util
-            hsPkgs.concurrent-extra
-            hsPkgs.conduit
-            hsPkgs.containers
-            hsPkgs.data-default
-            hsPkgs.directory
-            hsPkgs.ether
-            hsPkgs.filepath
-            hsPkgs.formatting
-            hsPkgs.lens
+            hsPkgs.cardano-sl-util-test
+            hsPkgs.cryptonite
+            hsPkgs.generic-arbitrary
+            hsPkgs.hedgehog
             hsPkgs.memory
-            hsPkgs.mtl
-            hsPkgs.resourcet
-            hsPkgs.rocksdb-haskell-ng
-            hsPkgs.serokell-util
-            hsPkgs.formatting
-            hsPkgs.transformers
+            hsPkgs.quickcheck-instances
             hsPkgs.universum
           ];
-          build-tools = [ hsPkgs.cpphs ];
         };
       };
-    } // rec { src = ../db; }
+    } // rec {
+      src = ../crypto/test;
+    }

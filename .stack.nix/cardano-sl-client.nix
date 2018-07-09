@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-client";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -29,6 +29,7 @@ let
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-infra
+            hsPkgs.cardano-sl-lrc
             hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-txp
             hsPkgs.cardano-sl-update
@@ -42,15 +43,14 @@ let
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
             hsPkgs.stm
+            hsPkgs.formatting
             hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unordered-containers
             hsPkgs.vector
             hsPkgs.QuickCheck
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
         tests = {
           cardano-client-test = {
@@ -61,12 +61,13 @@ let
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-crypto-test
               hsPkgs.cardano-sl-db
-              hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
+              hsPkgs.cardano-sl-util-test
               hsPkgs.containers
               hsPkgs.formatting
               hsPkgs.hspec
@@ -74,9 +75,7 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

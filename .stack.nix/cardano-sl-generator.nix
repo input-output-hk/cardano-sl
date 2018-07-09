@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-generator";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -31,6 +31,7 @@ let
             hsPkgs.cardano-sl-client
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-delegation
             hsPkgs.cardano-sl-infra
@@ -53,6 +54,7 @@ let
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.time-units
             hsPkgs.transformers-base
             hsPkgs.universum
@@ -60,9 +62,7 @@ let
             hsPkgs.unordered-containers
             hsPkgs.vector
           ];
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
         };
         tests = {
           cardano-generator-test = {
@@ -70,18 +70,26 @@ let
               hsPkgs.MonadRandom
               hsPkgs.QuickCheck
               hsPkgs.base
+              hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-binary
               hsPkgs.cardano-sl-block
+              hsPkgs.cardano-sl-block-test
               hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
               hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-crypto-test
               hsPkgs.cardano-sl-db
               hsPkgs.cardano-sl-delegation
+              hsPkgs.cardano-sl-delegation-test
               hsPkgs.cardano-sl-generator
+              hsPkgs.cardano-sl-lrc
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-txp
+              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
+              hsPkgs.cardano-sl-util-test
               hsPkgs.data-default
               hsPkgs.formatting
               hsPkgs.hspec
@@ -91,9 +99,7 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

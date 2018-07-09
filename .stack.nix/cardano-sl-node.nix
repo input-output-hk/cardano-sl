@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-node";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -24,7 +24,7 @@ let
           cardano-node-simple = {
             depends  = [
               hsPkgs.base
-              hsPkgs.cardano-sl-update
+              hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
@@ -34,9 +34,7 @@ let
               hsPkgs.log-warper
               hsPkgs.universum
             ];
-            build-tools = [
-              hsPkgs.buildPackages.cpphs
-            ];
+            build-tools = [ hsPkgs.cpphs ];
           };
         };
       };

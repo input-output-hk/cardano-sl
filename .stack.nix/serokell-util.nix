@@ -67,16 +67,13 @@ let
               hsPkgs.unordered-containers
               hsPkgs.vector
             ];
-            build-tools = [
-              hsPkgs.buildPackages.hspec-discover
-            ];
           };
         };
       };
     } // {
       src = pkgs.fetchgit {
-        url = "https://github.com/angerman/serokell-util.git";
-        rev = "573a6f7f04d1d3a448b1eb509836ff890c270258";
+        url = "https://github.com/input-output-hk/serokell-util.git";
+        rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
         sha256 = null;
       };
     }

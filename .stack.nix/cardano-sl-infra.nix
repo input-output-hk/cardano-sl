@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-infra";
-          version = "1.1.1";
+          version = "1.3.0";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -34,6 +34,7 @@ let
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-networking
+            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
             hsPkgs.cardano-report-server
             hsPkgs.conduit
@@ -47,7 +48,6 @@ let
             hsPkgs.exceptions
             hsPkgs.filepath
             hsPkgs.formatting
-            hsPkgs.generic-arbitrary
             hsPkgs.lzma-conduit
             hsPkgs.hashable
             hsPkgs.http-client
@@ -61,7 +61,6 @@ let
             hsPkgs.network-transport
             hsPkgs.network-transport-tcp
             hsPkgs.optparse-applicative
-            hsPkgs.QuickCheck
             hsPkgs.reflection
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
@@ -71,6 +70,7 @@ let
             hsPkgs.template-haskell
             hsPkgs.tar
             hsPkgs.text
+            hsPkgs.formatting
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
@@ -79,9 +79,19 @@ let
             hsPkgs.unordered-containers
             hsPkgs.yaml
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-          build-tools = [
-            hsPkgs.buildPackages.cpphs
-          ];
+          build-tools = [ hsPkgs.cpphs ];
+        };
+        tests = {
+          test = {
+            depends  = [
+              hsPkgs.async
+              hsPkgs.base
+              hsPkgs.cardano-sl-infra
+              hsPkgs.containers
+              hsPkgs.QuickCheck
+              hsPkgs.hspec
+            ];
+          };
         };
       };
     } // rec { src = ../infra; }

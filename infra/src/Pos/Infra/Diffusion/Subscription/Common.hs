@@ -1,6 +1,6 @@
--- | Common definitions for peer discovery and subscription workers.
-
 {-# LANGUAGE ScopedTypeVariables #-}
+
+-- | Common definitions for peer discovery and subscription workers.
 
 module Pos.Infra.Diffusion.Subscription.Common
     ( SubscriptionMessageConstraints
@@ -36,7 +36,6 @@ import           Node.Message.Class (Message)
 import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
 import           System.Wlog (Severity (..))
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
                      ConversationActions (..), ListenerSpec, MkListeners,
@@ -211,8 +210,6 @@ networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive subStates sen
 type SubscriptionMessageConstraints =
     ( Message MsgSubscribe
     , Message MsgSubscribe1
-    , Bi MsgSubscribe
-    , Bi MsgSubscribe1
     , Message Void
     )
 

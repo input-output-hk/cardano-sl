@@ -13,7 +13,7 @@
       "json-sop" = hsPkgs.json-sop."0.2.0.3";
       "lens-sop" = hsPkgs.lens-sop."0.2.0.2";
       "lzma-clib" = hsPkgs.lzma-clib."5.2.2";
-      "directory" = hsPkgs.directory."1.3.3.0";
+      "directory" = hsPkgs.directory."1.3.1.5";
       "happy" = hsPkgs.happy."1.19.9";
       "criterion" = hsPkgs.criterion."1.4.0.0";
       "servant-multipart" = hsPkgs.servant-multipart."0.11.2";

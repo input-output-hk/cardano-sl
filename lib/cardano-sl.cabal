@@ -52,6 +52,11 @@ library
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
+                        -- Listener
+                        Pos.Listener.Delegation
+                        Pos.Listener.Txp
+                        Pos.Listener.Update
+
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message

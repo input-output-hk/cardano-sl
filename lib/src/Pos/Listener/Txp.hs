@@ -7,7 +7,7 @@
 -- TODO rename this module. It doesn't define any listeners and doesn't deal
 -- with a network.
 
-module Pos.Txp.Network.Listeners
+module Pos.Listener.Txp
        ( handleTxDo
        , TxpMode
        ) where
@@ -21,7 +21,7 @@ import           Universum
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.Infra.Communication.Relay as Relay
-import           Pos.Sinbin.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
+import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 

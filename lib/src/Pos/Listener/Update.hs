@@ -4,7 +4,7 @@
 -- TODO rename the module / move defintions / whatever.
 -- It's not about the network at all.
 
-module Pos.Update.Network.Listeners
+module Pos.Listener.Update
        ( handleProposal
        , handleVote
        ) where

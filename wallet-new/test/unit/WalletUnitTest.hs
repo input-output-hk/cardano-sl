@@ -16,6 +16,7 @@ import           UTxO.DSL (GivenHash, Transaction)
 import           UTxO.Translate (runTranslateNoErrors, withConfig)
 
 import qualified Test.Spec.CoinSelection
+import qualified Test.Spec.CreateAddress
 import qualified Test.Spec.Kernel
 import qualified Test.Spec.Keystore
 import qualified Test.Spec.Models
@@ -70,3 +71,4 @@ tests = describe "Wallet unit tests" $ do
     txMetaStorageSpecs
     Test.Spec.CoinSelection.spec
     Test.Spec.Keystore.spec
+    Test.Spec.CreateAddress.spec

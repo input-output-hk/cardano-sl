@@ -47,20 +47,21 @@ bracketPassiveWallet logFunction keystore f =
     Kernel.bracketPassiveWallet logFunction keystore $ \w -> do
 
       -- Create the wallet worker and its communication endpoint `invoke`.
-      invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
-               { Actions.applyBlocks  =  \blunds ->
-                   Kernel.applyBlocks w $
-                       OldestFirst (mapMaybe blundToResolvedBlock (toList (getOldestFirst blunds)))
-               , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
-               , Actions.emit         = logFunction Debug
-               }
+      bracket (liftIO $ Actions.forkWalletWorker $ Actions.WalletActionInterp
+                 { Actions.applyBlocks  =  \blunds ->
+                     Kernel.applyBlocks w $
+                         OldestFirst (mapMaybe blundToResolvedBlock (toList (getOldestFirst blunds)))
+                 , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
+                 , Actions.emit         = logFunction Debug
+                 }
+              ) (\invoke -> liftIO (invoke Actions.Shutdown))
+              $ \invoke -> do
+                  -- TODO (temporary): build a sample wallet from a backup phrase
+                  _ <- liftIO $ do
+                    let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
+                    Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel esk Map.empty
 
-      -- TODO (temporary): build a sample wallet from a backup phrase
-      _ <- liftIO $ do
-        let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
-        Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel esk Map.empty
-
-      f (passiveWalletLayer w invoke) w
+                  f (passiveWalletLayer w invoke) w
 
   where
     -- TODO consider defaults
@@ -69,6 +70,9 @@ bracketPassiveWallet logFunction keystore f =
     assuranceLevel   = HD.AssuranceLevelNormal
 
     -- | TODO(ks): Currently not implemented!
+    passiveWalletLayer :: Kernel.PassiveWallet
+                       -> (Actions.WalletAction Blund -> IO ())
+                       -> PassiveWalletLayer n
     passiveWalletLayer wallet invoke =
         PassiveWalletLayer
             { _pwlCreateWallet   = error "Not implemented!"
@@ -100,8 +104,8 @@ bracketPassiveWallet logFunction keystore f =
                                  Left  err     -> return (Left $ CreateAddressError err)
             , _pwlGetAddresses   = error "Not implemented!"
 
-            , _pwlApplyBlocks    = invoke . Actions.ApplyBlocks
-            , _pwlRollbackBlocks = invoke . Actions.RollbackBlocks
+            , _pwlApplyBlocks    = liftIO . invoke . Actions.ApplyBlocks
+            , _pwlRollbackBlocks = liftIO . invoke . Actions.RollbackBlocks
             }
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified

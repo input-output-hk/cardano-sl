@@ -388,6 +388,7 @@ test-suite wallet-unit-tests
                       Test.Infrastructure.Genesis
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
+                      Test.Spec.CreateAddress
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models

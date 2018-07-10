@@ -78,6 +78,10 @@ data AccountId =
     -- | HD wallet with randomly generated (hardened) index.
   AccountIdHdRnd HD.HdAccountId
 
+instance Buildable AccountId where
+    build (AccountIdHdRnd accountId) =
+        bprint ("AccountIdHdRnd " % F.build) accountId
+
 {-------------------------------------------------------------------------------
   Input resolution: raw types
 -------------------------------------------------------------------------------}

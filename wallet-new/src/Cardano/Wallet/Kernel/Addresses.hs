@@ -7,6 +7,9 @@ module Cardano.Wallet.Kernel.Addresses (
 import           Universum
 
 import           Control.Lens (to)
+import           Data.Text.Buildable (Buildable (..))
+import           Formatting (bprint, (%))
+import qualified Formatting as F
 import           System.Random (randomRIO)
 
 import           Data.Acid (update)
@@ -41,6 +44,15 @@ data CreateAddressError =
 instance Arbitrary CreateAddressError where
     arbitrary = oneof []
 
+instance Buildable CreateAddressError where
+    build (CreateAddressErrorUnknownHdAccount uAccount) =
+        bprint ("CreateAddressErrorUnknownHdAccount" % F.build) uAccount
+    build (CreateAddressErrorNotFound accId) =
+        bprint ("CreateAddressErrorNotFound" % F.build) accId
+    build (CreateAddressErrorCreationFailed hdErr) =
+        bprint ("CreateAddressErrorCreationFailed" % F.build) hdErr
+    build (CreateAddressErrorHdRndGenerationFailed hdAcc) =
+        bprint ("CreateAddressErrorHdRndGenerationFailed" % F.build) hdAcc
 
 -- | Creates a new 'Address' for the input account.
 createAddress :: PassPhrase

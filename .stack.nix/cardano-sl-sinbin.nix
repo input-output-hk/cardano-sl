@@ -78,7 +78,9 @@ let
             hsPkgs.unordered-containers
             hsPkgs.yaml
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec { src = ../sinbin; }

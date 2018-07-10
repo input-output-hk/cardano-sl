@@ -71,6 +71,9 @@ let
               hsPkgs.QuickCheck
               hsPkgs.quickcheck-io
             ];
+            build-tools = [
+              hsPkgs.buildPackages.hspec-discover
+            ];
           };
           example = {
             depends  = [

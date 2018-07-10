@@ -49,7 +49,9 @@ let
             hsPkgs.tagged
             hsPkgs.universum
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec {

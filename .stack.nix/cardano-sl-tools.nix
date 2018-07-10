@@ -77,7 +77,9 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-genupdate = {
             depends  = [
@@ -182,7 +184,9 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-post-mortem = {
             depends  = pkgs.lib.optionals (_flags.postmortem && !_flags.for-installer) [
@@ -241,7 +245,9 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-x509-certificates = {
             depends  = [
@@ -284,7 +290,9 @@ let
               hsPkgs.hspec
               hsPkgs.temporary
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

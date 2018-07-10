@@ -76,7 +76,9 @@ let
             hsPkgs.unordered-containers
             hsPkgs.validation
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         exes = {
           cardano-auxx = {
@@ -99,7 +101,9 @@ let
               hsPkgs.universum
               hsPkgs.formatting
             ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
         tests = {
@@ -112,7 +116,9 @@ let
               hsPkgs.hspec
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

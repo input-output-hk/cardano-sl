@@ -50,7 +50,9 @@ let
             hsPkgs.vector
             hsPkgs.QuickCheck
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           cardano-client-test = {
@@ -75,7 +77,9 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

@@ -115,7 +115,9 @@ let
             hsPkgs.cpphs
             hsPkgs.cborg
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix) ++ pkgs.lib.optional (!system.isWindows && !system.isFreebsd) hsPkgs.systemd;
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           cardano-test = {
@@ -180,7 +182,9 @@ let
               hsPkgs.unordered-containers
               hsPkgs.vector
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
         benchmarks = {
@@ -221,7 +225,9 @@ let
               hsPkgs.universum
               hsPkgs.vector
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

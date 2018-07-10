@@ -38,7 +38,9 @@ let
             hsPkgs.time-units
             hsPkgs.universum
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec { src = ../util/test; }

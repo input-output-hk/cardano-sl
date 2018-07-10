@@ -76,7 +76,8 @@ accountToWalletId accountId
 -- random-indexed, hardeded HD Account.
 data AccountId =
     -- | HD wallet with randomly generated (hardened) index.
-  AccountIdHdRnd HD.HdAccountId
+    AccountIdHdRnd HD.HdAccountId
+    deriving (Eq, Ord)
 
 instance Buildable AccountId where
     build (AccountIdHdRnd accountId) =

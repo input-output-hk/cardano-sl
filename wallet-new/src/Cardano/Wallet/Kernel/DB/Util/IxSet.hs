@@ -19,16 +19,18 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , size
     -- * Construction
   , fromList
+  , toList
   , omap
   , otraverse
   , emptyIxSet
   ) where
 
-import           Universum hiding (Foldable)
+import           Universum hiding (Foldable, toList)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
-import           Data.Foldable (Foldable (..))
+import           Data.Foldable (Foldable)
+import qualified Data.Foldable
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Set as Set
@@ -153,6 +155,10 @@ size = IxSet.size . unwrapIxSet
 -- | Construct 'IxSet' from a list
 fromList :: Indexable a => [a] -> IxSet a
 fromList = WrapIxSet . IxSet.fromList . coerce
+
+-- | Destructs an 'IxSet' into a list
+toList :: IxSet a -> [a]
+toList (WrapIxSet wrapped) = map coerce (IxSet.toList wrapped)
 
 -- | Monomorphic map over an 'IxSet'
 --

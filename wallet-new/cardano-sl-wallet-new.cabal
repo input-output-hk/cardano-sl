@@ -473,6 +473,7 @@ test-suite wallet-unit-tests
                     , data-default
                     , formatting
                     , hspec
+                    , ixset-typed
                     , lens
                     , log-warper
                     , mtl

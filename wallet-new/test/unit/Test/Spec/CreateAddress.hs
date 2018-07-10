@@ -4,31 +4,39 @@ module Test.Spec.CreateAddress (spec) where
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, shouldSatisfy)
+import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary)
+import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run)
 
+import qualified Data.ByteString as B
 import qualified Data.Map.Strict as M
 
+import           Control.Lens (to)
 import           Data.Acid (update)
-import           System.Random (randomRIO)
+import           Formatting (build, sformat)
 import           System.Wlog (Severity)
 
+import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
 
 import           Cardano.Wallet.Kernel (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HasSpendingPassword (..), HdAccountId (..),
-                     HdAccountIx (..), HdRootId (..), WalletName (..))
+                     HdAccountIx (..), HdRootId (..), WalletName (..),
+                     eskToHdRootId, hdAccountIdIx)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.Types (AccountId (..))
+import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
+
+import qualified Cardano.Wallet.API.V1.Types as V1
 
 import           Util.Buildable (ShowThroughBuild (..))
 
@@ -38,49 +46,108 @@ import           Util.Buildable (ShowThroughBuild (..))
 devNull :: Severity -> Text -> IO ()
 devNull _ _ = return ()
 
+data Fixture = Fixture {
+      fixtureHdRootId  :: HdRootId
+    , fixtureESK       :: EncryptedSecretKey
+    , fixtureAccountId :: AccountId
+    , fixturePw        :: PassiveWallet
+    }
+
 -- | Prepare some fixtures using the 'PropertyM' context to prepare the data,
 -- and execute the 'acid-state' update once the 'PassiveWallet' gets into
 -- scope (after the bracket initialisation).
-prepareFixtures :: PropertyM IO (PassiveWallet -> IO AccountId)
+prepareFixtures :: PropertyM IO (PassiveWallet -> IO Fixture)
 prepareFixtures = do
-    newRootId   <- HdRootId . InDb <$> pick arbitrary
+    let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
+    let newRootId = eskToHdRootId esk
     newRoot <- initHdRoot <$> pure newRootId
                           <*> pure (WalletName "A wallet")
                           <*> pure NoSpendingPassword
                           <*> pure AssuranceLevelNormal
                           <*> (InDb <$> pick arbitrary)
-    newAccountId <- HdAccountId newRootId <$> lift (deriveIndex randomRIO HdAccountIx HardDerivation)
+    newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
     let accounts = M.singleton newAccountId mempty
     return $ \pw -> do
         void $ update (pw ^. wallets) (CreateHdWallet newRoot accounts)
-        return (AccountIdHdRnd newAccountId)
+        return $ Fixture {
+                           fixtureHdRootId = newRootId
+                         , fixtureAccountId = AccountIdHdRnd newAccountId
+                         , fixtureESK = esk
+                         , fixturePw  = pw
+                         }
+
+withFixture :: (Keystore.Keystore -> PassiveWalletLayer IO -> Fixture -> IO a) -> PropertyM IO a
+withFixture cc = do
+    keystore <- run (Keystore.newTestKeystore)
+    generateFixtures <- prepareFixtures
+    liftIO $ WalletLayer.bracketKernelPassiveWallet devNull keystore $ \layer wallet -> do
+        fixtures <- generateFixtures wallet
+        cc keystore layer fixtures
 
 spec :: Spec
-spec =
-{--
+spec = describe "CreateAddress" $ do
     describe "Address creation (wallet layer)" $ do
 
-        it "destroying a keystore (completely) works" $ do
-            nukeKeystore "test_keystore.key"
-            Keystore.bracketKeystore RemoveKeystoreIfEmpty "test_keystore.key" $ \_ks ->
-                return ()
-            doesFileExist "test_keystore.key" `shouldReturn` False
+        prop "works as expected in the happy path scenario" $ withMaxSuccess 500 $
+            monadicIO $ do
+                withFixture $ \keystore layer Fixture{..} -> do
+                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+                    let (HdRootId hdRoot) = fixtureHdRootId
+                        (AccountIdHdRnd myAccountId) = fixtureAccountId
+                        wId = sformat build (view fromDb hdRoot)
+                        accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                    res <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
+                    liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
-        prop "lookup of keys works" $ monadicIO $ do
-            forAllM genKeypair $ \(STB wid, STB esk) -> run $ do
-                withKeystore $ \ks -> do
-                    Keystore.insert wid esk ks
-                    mbKey <- Keystore.lookup wid ks
-                    (fmap hash mbKey) `shouldBe` (Just (hash esk))
---}
     describe "Address creation (kernel)" $ do
+        prop "works as expected in the happy path scenario" $ withMaxSuccess 500 $
+            monadicIO $ do
+                withFixture $ \keystore _ Fixture{..} -> do
+                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+                    res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
+                    liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
-        prop "works as expected in the happy path scenario" $ monadicIO $ do
-          keystore <- run (Keystore.newTestKeystore)
-          genAccId <- prepareFixtures
-          liftIO $ WalletLayer.bracketKernelPassiveWallet @IO devNull keystore $ \_ wallet -> do
-              myAccountId <- genAccId wallet
-              res <- liftIO (Kernel.createAddress mempty myAccountId wallet)
-              liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
+        prop "fails if the account has no associated key in the keystore" $ do
+            monadicIO $ do
+                withFixture $ \_ _ Fixture{..} -> do
+                    res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
+                    case res of
+                        (Left (Kernel.CreateAddressKeystoreNotFound acc)) | acc == fixtureAccountId -> return ()
+                        x -> fail (show (bimap STB STB x))
 
+        prop "fails if the parent account doesn't exist" $ do
+            monadicIO $ do
+                withFixture $ \keystore _ Fixture{..} -> do
+                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+                    let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+                    void $ liftIO $ update (fixturePw ^. wallets) (DeleteHdAccount hdAccountId)
+                    res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
+                    case res of
+                        Left (Kernel.CreateAddressHdCreationFailed _) -> return ()
+                        x -> fail (show (bimap STB STB x))
+
+    describe "Address creation (wallet layer & kernel consistency)" $ do
+        prop "layer & kernel agrees on the result" $ do
+            monadicIO $ do
+                res1 <- withFixture $ \keystore _ Fixture{..} -> do
+                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+                    liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
+                res2 <- withFixture $ \keystore layer Fixture{..} -> do
+                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+                    let (HdRootId hdRoot) = fixtureHdRootId
+                        (AccountIdHdRnd myAccountId) = fixtureAccountId
+                        wId = sformat build (view fromDb hdRoot)
+                        accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                    liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
+                case res2 of
+                     Left (WalletLayer.CreateAddressError err) ->
+                         return $ (bimap STB STB res1) `shouldBe` (bimap STB STB (Left err))
+                     Left (WalletLayer.CreateAddressAddressDecodingFailed _) ->
+                         fail "Layer & Kernel mismatch: impossible error, CreateAddressAddressDecodingFailed"
+                     Right _ -> do
+                         -- If we get and 'Address', let's check that this is the case also for
+                         -- the kernel run. Unfortunately we cannot compare the two addresses for equality
+                         -- because the random index will be generated with a seed which changes every time
+                         -- as we uses random, IO-based generation deep down the guts.
+                         return $ (bimap STB STB res1) `shouldSatisfy` isRight
 

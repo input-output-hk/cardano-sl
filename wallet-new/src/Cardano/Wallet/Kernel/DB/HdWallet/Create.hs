@@ -56,6 +56,7 @@ data CreateHdAddressError =
 
     -- | Address already used
   | CreateHdAddressExists HdAddressId
+  deriving Eq
 
 deriveSafeCopy 1 'base ''CreateHdRootError
 deriveSafeCopy 1 'base ''CreateHdAccountError

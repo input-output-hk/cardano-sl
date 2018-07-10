@@ -26,6 +26,9 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
+
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
                      Wallet, WalletId, WalletUpdate)
@@ -44,11 +47,18 @@ data CreateAddressError =
       CreateAddressError Kernel.CreateAddressError
     | CreateAddressAddressDecodingFailed Text
     -- ^ Decoding the input 'Text' as an 'Address' failed.
+    deriving Eq
 
 instance Arbitrary CreateAddressError where
     arbitrary = oneof [ CreateAddressError <$> arbitrary
                       , pure (CreateAddressAddressDecodingFailed "Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxx")
                       ]
+
+instance Buildable CreateAddressError where
+    build (CreateAddressError kernelError) =
+        bprint ("CreateAddressError " % build) kernelError
+    build (CreateAddressAddressDecodingFailed txt) =
+        bprint ("CreateAddressAddressDecodingFailed " % build) txt
 
 ------------------------------------------------------------
 -- Passive wallet layer

@@ -90,6 +90,9 @@ newtype WalletName = WalletName Text
 -- | Account name
 newtype AccountName = AccountName Text
 
+instance Buildable AccountName where
+    build (AccountName txt) = bprint build txt
+
 -- | Account index
 newtype HdAccountIx = HdAccountIx { getHdAccountIx :: Word32 }
   deriving (Eq, Ord)
@@ -196,6 +199,14 @@ data HdAccount = HdAccount {
     , _hdAccountCheckpoints :: NonEmpty Checkpoint
     }
 
+instance Buildable HdAccount where
+    build HdAccount{..} =
+        bprint ("HdAccount { id = "   % build
+                         % " name = " % build
+                         % " checkpoints = <checkpoints> "
+                         % " }"
+               ) _hdAccountId _hdAccountName
+
 -- | Address in an account of a HD wallet
 data HdAddress = HdAddress {
       -- | Address ID
@@ -264,6 +275,7 @@ data UnknownHdAccount =
 
     -- | Unknown account (implies the root is known)
   | UnknownHdAccount HdAccountId
+  deriving Eq
 
 -- | Unknown address
 data UnknownHdAddress =

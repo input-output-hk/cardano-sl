@@ -35,24 +35,32 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 data CreateAddressError =
-      CreateAddressErrorUnknownHdAccount UnknownHdAccount
-    | CreateAddressErrorNotFound AccountId
-    | CreateAddressErrorCreationFailed CreateHdAddressError
-    | CreateAddressErrorHdRndGenerationFailed HdAccountId
+      CreateAddressUnknownHdAccount UnknownHdAccount
+      -- ^ When trying to create the 'Address', the parent 'Account' was not
+      -- there.
+    | CreateAddressKeystoreNotFound AccountId
+      -- ^ When trying to create the 'Address', the 'Keystore' didn't have
+      -- any secret associated with this 'Account'.
+      -- there.
+    | CreateAddressHdCreationFailed CreateHdAddressError
+      -- ^ The creation of the new HD 'Address' failed with a database error.
+    | CreateAddressHdRndGenerationFailed HdAccountId
+      -- ^ The overall generation process failed.
+    deriving Eq
 
 -- TODO(adn)
 instance Arbitrary CreateAddressError where
     arbitrary = oneof []
 
 instance Buildable CreateAddressError where
-    build (CreateAddressErrorUnknownHdAccount uAccount) =
-        bprint ("CreateAddressErrorUnknownHdAccount" % F.build) uAccount
-    build (CreateAddressErrorNotFound accId) =
-        bprint ("CreateAddressErrorNotFound" % F.build) accId
-    build (CreateAddressErrorCreationFailed hdErr) =
-        bprint ("CreateAddressErrorCreationFailed" % F.build) hdErr
-    build (CreateAddressErrorHdRndGenerationFailed hdAcc) =
-        bprint ("CreateAddressErrorHdRndGenerationFailed" % F.build) hdAcc
+    build (CreateAddressUnknownHdAccount uAccount) =
+        bprint ("CreateAddressUnknownHdAccount " % F.build) uAccount
+    build (CreateAddressKeystoreNotFound accId) =
+        bprint ("CreateAddressKeystoreNotFound " % F.build) accId
+    build (CreateAddressHdCreationFailed hdErr) =
+        bprint ("CreateAddressHdCreationFailed " % F.build) hdErr
+    build (CreateAddressHdRndGenerationFailed hdAcc) =
+        bprint ("CreateAddressHdRndGenerationFailed " % F.build) hdAcc
 
 -- | Creates a new 'Address' for the input account.
 createAddress :: PassPhrase
@@ -81,7 +89,7 @@ createAddress spendingPassword accId pw = do
              mbEsk <- Keystore.lookup (WalletIdHdRnd (hdAccId ^. hdAccountIdParent))
                                       keystore
              case mbEsk of
-                  Nothing  -> return (Left $ CreateAddressErrorNotFound accId)
+                  Nothing  -> return (Left $ CreateAddressKeystoreNotFound accId)
                   Just esk -> createHdRndAddress spendingPassword esk hdAccId pw
 
 
@@ -100,7 +108,7 @@ createHdRndAddress spendingPassword esk accId pw = do
                                    (accId ^. hdAccountIdIx . to getHdAccountIx)
                                    (hdAddressId ^. hdAddressIdIx . to getHdAddressIx)
     case mbAddr of
-         Nothing -> return (Left $ CreateAddressErrorHdRndGenerationFailed accId)
+         Nothing -> return (Left $ CreateAddressHdRndGenerationFailed accId)
          Just (newAddress, _) -> do
             let hdAddress  = initHdAddress hdAddressId (InDb newAddress)
             let db = pw ^. wallets
@@ -109,5 +117,5 @@ createHdRndAddress spendingPassword esk accId pw = do
                  (Left (CreateHdAddressExists _)) ->
                      createHdRndAddress spendingPassword esk accId pw
                  (Left err) ->
-                     return (Left $ CreateAddressErrorCreationFailed err)
+                     return (Left $ CreateAddressHdCreationFailed err)
                  Right () -> return (Right newAddress)

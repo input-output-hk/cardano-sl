@@ -7,7 +7,7 @@ module Pos.Launcher.Launcher
          runNodeReal
        ) where
 
-import           Universum
+-- import           Universum
 
 -- FIXME we use Production in here only because it gives a 'HasLoggerName'
 -- instance so that 'bracketNodeResources' can log.
@@ -31,8 +31,6 @@ import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (noTrace)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
-import qualified Katip.Monadic as KM
-
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -48,11 +46,12 @@ runNodeReal
     -> NodeParams
     -> SscParams
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
-    -> IO ()
-runNodeReal lh pm np sscnp plugins = Log.usingLoggerName lh "runNodeReal" $ runProduction $
+    -> Production ()
+runNodeReal lh pm np sscnp plugins = --Log.usingLoggerName lh "runNodeReal" $ runProduction $
+    --TODO appendName "runNodeReal" to Trace
     bracketNodeResources noTrace np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots)
         action
   where
     action :: NodeResources EmptyMempoolExt -> Production ()
     action nr@NodeResources {..} =
-      Production $ KM.KatipContextT $ ReaderT $ const $ runRealMode lh pm nr (runNode noTrace pm nr plugins)
+      runRealMode lh noTrace pm nr (runNode noTrace pm nr plugins)

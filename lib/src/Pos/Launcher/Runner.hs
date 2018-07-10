@@ -59,10 +59,12 @@ import           Pos.Update.Configuration (HasUpdateConfiguration,
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (natTrace, noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
+-- import qualified Katip as K
+import qualified Katip.Monadic as KM
 
 {-
 runLogger :: Log.LogContextT m a -> m a
@@ -87,11 +89,12 @@ runRealMode
        -- though they should use only @RealModeContext@
        )
     => Log.LoggingHandler
+    -> TraceNamed IO
     -> ProtocolMagic
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
-    -> IO a
-runRealMode lh pm nr@NodeResources {..} act = runServer
+    -> Production a
+runRealMode lh logTrace0 pm nr@NodeResources {..} act = Production $ KM.KatipContextT $ ReaderT $ const $ runServer
     logTrace
     pm
     ncNodeParams
@@ -105,7 +108,7 @@ runRealMode lh pm nr@NodeResources {..} act = runServer
     securityParams = bcSecurityParams npBehaviorConfig
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
-    logTrace = appendName "realMode" $ namedTrace lh
+    logTrace = appendName "realMode" logTrace0
     logTrace' :: TraceNamed (RealMode ext)
     logTrace' = natTrace liftIO logTrace
     logic :: Logic (RealMode ext)
@@ -130,6 +133,7 @@ elimRealMode
     -> RealMode ext t
     -> IO t
 elimRealMode lh logTrace pm NodeResources {..} diffusion action =
+    -- K.runKatipContextT mempty () mempty $
     Log.usingLoggerName lh "realMode" $
     runProduction $ do
         Mtl.runReaderT action (rmc nrJsonLogConfig)

@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
-import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
@@ -23,43 +22,54 @@ import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
                      loggerBracket, runNodeReal, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
+import           Pos.Launcher.Resource (getRealLoggerConfig)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo,
+                     namedTrace)
 import           Pos.Util.UserSecret (usVss)
 
-loggerName :: LoggerName
+import qualified Pos.Util.Log as Log
+
+loggerName :: Log.LoggerName
 loggerName = "node"
 
 actionWithoutWallet
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => Log.LoggingHandler
+    -> TraceNamed Production
+    -> ProtocolMagic
     -> SscParams
     -> NodeParams
     -> Production ()
-actionWithoutWallet pm sscParams nodeParams =
-    Production $ runNodeReal pm nodeParams sscParams [updateTriggerWorker]
+actionWithoutWallet lh logTrace pm sscParams nodeParams =
+    runNodeReal lh pm nodeParams sscParams [updateTriggerWorker (natTrace lift logTrace)]
 
 action
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => SimpleNodeArgs
+    => Log.LoggingHandler
+    -> TraceNamed IO
+    -> SimpleNodeArgs
     -> NtpConfiguration
     -> ProtocolMagic
     -> Production ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
+action lh logTrace (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
     CLI.printInfoOnStart cArgs ntpConfig
-    logInfo "Wallet is disabled, because software is built w/o it"
+    let logTrace' = natTrace liftIO logTrace
+    logInfo logTrace' "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet pm sscParams currentParams
+    actionWithoutWallet lh logTrace' pm sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do
@@ -67,5 +77,13 @@ main = withCompileInfo $ do
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
-    loggerBracket loggingParams . logException "node" . runProduction $
-        withConfigurations blPath conf $ action args
+    lh <- Log.setupLogging =<< getRealLoggerConfig loggingParams
+    --logTrace <- (flip setupLogging) "node" =<< getRealLoggerConfig loggingParams
+    --loggerBracket loggingParams . (liftIO (logException lh "node")) . runProduction $
+    --    withConfigurations blPath conf $ action lh logTrace args
+    Log.usingLoggerName lh loggerName $
+      runProduction $
+        loggerBracket loggingParams (body lh args)
+    where
+        logTrace lh_ = appendName "node" $ namedTrace lh_
+        body lh_ args_ = action lh_ logTrace args_

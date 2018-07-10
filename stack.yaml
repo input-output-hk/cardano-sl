@@ -6,11 +6,10 @@ flags:
 
 extra-package-dbs: []
 
-# util -> networking → binary →  crypto → core → db → [lrc, infra]
-#              → [ssc, txp, update, delegation] → block → lib → ...
-# Then we have two branches:
-# ... → client → generator → [auxx, explorer, wallet] → wallet-new
-# ... → [node, tools]
+# The dependency graph which was previously here has been dropped in favor of
+# PNG output from the script `scripts/package-dep-graph.sh`, which uses
+# `stack dot` to construct a graph which represents the current state exactly.
+
 packages:
 - util
 - util/test

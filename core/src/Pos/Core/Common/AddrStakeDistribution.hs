@@ -72,11 +72,11 @@ instance Bi AddrStakeDistribution where
             len -> cborError $
                 "decode @AddrStakeDistribution: unexpected length " <> pretty len
     encodedSizeExpr size _ = szCases
-        [ 1
+        [ Bi.Case "BoostrapEraDistr" 1
         , let SingleKeyDistr id = error "unused"
-          in size ((,) <$> pure (0 :: Word8) <*> pure id)
+          in  Bi.Case "SingleKeyDistr" $ size ((,) <$> pure (0 :: Word8) <*> pure id)
         , let UnsafeMultiKeyDistr distr = error "unused"
-          in size ((,) <$> pure (1 :: Word8) <*> pure distr)
+          in  Bi.Case "UnsafeMultiKeyDistr" $ size ((,) <$> pure (1 :: Word8) <*> pure distr)
         ]
 
 data MultiKeyDistrError

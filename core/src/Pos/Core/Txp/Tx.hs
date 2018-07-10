@@ -32,7 +32,7 @@ import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      decodeKnownCborDataItem, decodeUnknownCborDataItem,
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, enforceSize, szCases)
+                     encodeUnknownCborDataItem, enforceSize, szCases, Case(..))
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF)
 import           Pos.Crypto (Hash, hash, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -162,7 +162,7 @@ instance Bi TxIn where
             _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
     encodedSizeExpr size _ = 2 +
         szCases [ let TxInUtxo txInHash txInIndex = error "unused"
-                  in 2 + size ((,) <$> pure txInHash <*> pure txInIndex)
+                  in  Case "TxInUtxo" (2 + size ((,) <$> pure txInHash <*> pure txInIndex))
                 ]
 
 instance NFData TxIn

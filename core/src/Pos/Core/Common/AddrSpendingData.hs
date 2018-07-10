@@ -11,7 +11,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi(..), szCases)
+import           Pos.Binary.Class (Bi(..), szCases, Case(..))
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 
@@ -92,11 +92,11 @@ instance Bi AddrSpendingData where
 
     encodedSizeExpr size _ = szCases
         [ let PubKeyASD pk = error "unused"
-          in size ((,) <$> pure (w8 0) <*> pure pk)
+          in  Case "PubKeyASD" $ size ((,) <$> pure (w8 0) <*> pure pk)
         , let ScriptASD script = error "unused"
-          in size ((,) <$> pure (w8 1) <*> pure script)
+          in  Case "ScriptASD" $ size ((,) <$> pure (w8 1) <*> pure script)
         , let RedeemASD redeemPK = error "unused"
-          in size ((,) <$> pure (w8 2) <*> pure redeemPK)
+          in  Case "RedeemASD" $ size ((,) <$> pure (w8 2) <*> pure redeemPK)
         ]
 
 -- | Type of an address. It corresponds to constructors of

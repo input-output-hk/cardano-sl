@@ -17,7 +17,7 @@ import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
                      decodeListLenCanonical, decodeUnknownCborDataItem,
                      encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, matchSize,
-                     knownCborDataItemSizeExpr, szCases)
+                     knownCborDataItemSizeExpr, szCases, Case(..))
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                      Signature, hash, shortHashF)
@@ -91,13 +91,13 @@ instance Bi TxInWitness where
                 UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
     encodedSizeExpr size _ = 2 +
-        (szCases $ map knownCborDataItemSizeExpr $
+        (szCases $ map (fmap knownCborDataItemSizeExpr) $
             [ let PkWitness key sig     = error "unused"
-              in size ((,) <$> pure key <*> pure sig)
+              in  Case "PkWitness" $ size ((,) <$> pure key <*> pure sig)
             , let ScriptWitness key sig = error "unused"
-              in size ((,) <$> pure key <*> pure sig)
+              in  Case "ScriptWitness" $ size ((,) <$> pure key <*> pure sig)
             , let RedeemWitness key sig = error "unused"
-              in size ((,) <$> pure key <*> pure sig)
+              in  Case "RedeemWitness" $ size ((,) <$> pure key <*> pure sig)
             ])
 
 instance NFData TxInWitness

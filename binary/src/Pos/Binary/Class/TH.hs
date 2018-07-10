@@ -497,7 +497,10 @@ deriveSimpleBiInternal predsMB headTy constrs = do
         lam1E (varP size) $
             lam1E (varP pxy) $ do
                 [| $(return $ LitE $ IntegerL $ if length filteredConstrs > 1 then 1 else 0)
-                   + Bi.szCases $(fmap ListE (sequence $ imap encodedSizeExprConstr filteredConstrs)) |]
+                   + Bi.szCases $(
+                    fmap ListE (sequence $
+                                imap (\idx ctor -> [| Bi.Case "ok" $(encodedSizeExprConstr idx ctor) |])
+                                filteredConstrs)) |]
 
     encodedSizeExprConstr :: Int -> Cons -> Q Exp
     encodedSizeExprConstr _ (Cons _ cFields) = do

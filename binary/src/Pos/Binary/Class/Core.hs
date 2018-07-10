@@ -38,14 +38,16 @@ module Pos.Binary.Class.Core
     , Range(..)
     , szEval
     , Size
+    , Case(..)
+    , caseValue
     , LengthOf(..)
     , isTodo
     , szCases
     , szLazy
     , szGreedy
-    , force1
+    , szForce
     , szWithCtx
-    , simplify
+    , szSimplify
     , pp
     , apMono
     ) where
@@ -161,12 +163,14 @@ defaultDecodeList = do
     D.decodeListLenIndef
     D.decodeSequenceLenIndef (flip (:)) [] reverse decode
 
+-- | A type used to represent the length of a value in 'Size' computations.
 newtype LengthOf xs = LengthOf xs deriving Typeable
+
 instance Typeable xs => Bi (LengthOf xs) where
   encode = error "The `LengthOf` type cannot be encoded!"
   decode = error "The `LengthOf` type cannot be decoded!"
 
--- | Default size expression for a value.
+-- | Default size expression for a list type.
 defaultEncodedListSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy [a] -> Size
 defaultEncodedListSizeExpr size _ = 2 + size (Proxy @(LengthOf [a])) * size (Proxy @a)
   
@@ -211,8 +215,9 @@ instance Bi Integer where
     decode = D.decodeIntegerCanonical
 
 encodedSizeRange :: forall a. (Integral a, Bounded a) => Proxy a -> Size
-encodedSizeRange _ = szCases $
-  map (fromIntegral . (withWordSize :: a -> Integer)) [ minBound, maxBound ]
+encodedSizeRange _ = szCases [ mkCase "minBound" minBound
+                             , mkCase "maxBound" maxBound ]
+  where mkCase n x = Case n (fromIntegral $ (withWordSize :: a -> Integer) x)
 
 instance Bi Word where
     encode = E.encodeWord
@@ -355,7 +360,8 @@ instance (Bi a, Bi b) => Bi (Either a b) where
                           return (Right x)
                   _ -> cborError $ "decode@Either: unknown tag " <> show t
 
-    encodedSizeExpr size _ = 2 + szCases [size (Proxy @a), size (Proxy @b)]
+    encodedSizeExpr size _ = 2 + szCases [ Case "Left"  (size (Proxy @a))
+                                         , Case "Right" (size (Proxy @b))]
 
 instance Bi a => Bi (NonEmpty a) where
     encode = defaultEncodeList . toList
@@ -376,7 +382,8 @@ instance Bi a => Bi (Maybe a) where
                           return (Just x)
                   _ -> cborError $ "decode@Maybe: unknown tag " <> show n
 
-    encodedSizeExpr size _ = 1 + szCases [0, size (Proxy @a)]
+    encodedSizeExpr size _ = 1 + szCases [ Case "Nothing" 0
+                                         , Case "Just" (size (Proxy @a))]
 
 encodeContainerSkel :: (Word -> E.Encoding)
                     -> (container -> Int)
@@ -768,17 +775,24 @@ instance (i ~ G.C, GSerialiseProd f) => GSerialiseSum (G.M1 i c f) where
 (.:) :: (c -> d) -> (a -> b -> c) -> (a -> b -> d)
 f .: g = \x y -> f (g x y)
 
+-- | Expressions describing the statically-computed size bounds on
+--   a type's possible values.
+type Size = Fix SizeF
+
+-- | The base functor for @Size@ expressions.
 data SizeF t
-  = AddF t t
-  | MulF t t
-  | SubF t t
-  | AbsF t
-  | NegF t
-  | SgnF t
-  | CasesF [t]
-  | ValueF Byte
+  = AddF t t -- ^ Sum of two sizes.
+  | MulF t t -- ^ Product of two sizes.
+  | SubF t t -- ^ Difference of two sizes.
+  | AbsF t   -- ^ Absolute value of a size.
+  | NegF t   -- ^ Negation of a size.
+  | SgnF t   -- ^ Signum of a size.
+  | CasesF [Case t] -- ^ Case-selection for sizes. Used for sum types.
+  | ValueF Byte     -- ^ A constant value.
   | ApF String (Byte -> Byte) t
+    -- ^ Application of a monotonic function to a size.
   | forall a. Bi a => TodoF (forall x. Bi x => Proxy x -> Size) (Proxy a)
+    -- ^ A suspended size calculation ("thunk").
   deriving Typeable
 
 instance Functor SizeF where
@@ -789,12 +803,10 @@ instance Functor SizeF where
     AbsF x    -> AbsF (f x)
     NegF x    -> NegF (f x)
     SgnF x    -> SgnF (f x)
-    CasesF xs -> CasesF (map f xs)
+    CasesF xs -> CasesF (map (fmap f) xs)
     ValueF x  -> ValueF x
     ApF n g x -> ApF n g (f x)
     TodoF g x -> TodoF g x
-
-type Size = Fix SizeF
 
 instance Num (Fix SizeF) where
   (+) = Fix .: AddF
@@ -823,9 +835,21 @@ instance Buildable t => Buildable (SizeF t) where
 instance Buildable (Fix SizeF) where
   build x = bprint build (unfix x)
 
-szCases :: [Size] -> Size
+-- | Create a case expression from individual cases.
+szCases :: [Case Size] -> Size
 szCases = Fix . CasesF
 
+-- | An individual labeled case.
+data Case t = Case String t deriving (Typeable, Functor)
+
+-- | Discard the label on a case.
+caseValue :: Case t -> t
+caseValue (Case _ x) = x
+
+instance Buildable t => Buildable (Case t) where
+  build (Case n x) = bprint (string % "=" % build) n x
+
+-- | A range of values. Should satisfy the invariant @forall x. lo x <= hi x@.
 data Range b = Range { lo :: b, hi :: b }
 
 instance Num b => Num (Range b) where
@@ -849,6 +873,9 @@ instance Buildable (Either Size (Range Byte)) where
   build (Right x) = bprint build x
   build (Left x)  = bprint build x
 
+-- | Fully evaluate a size expression by applying the given function to any
+--   suspended computations. @szEval g@ effectively turns each "thunk"
+--   of the form @TodoF f x@ into @g x@, then evaluates the result. 
 szEval :: (forall t. Bi t => (Proxy t -> Size) -> Proxy t -> Range Byte) -> Size -> Range Byte
 szEval doit = cata $ \case
   AddF x y -> x + y
@@ -857,57 +884,85 @@ szEval doit = cata $ \case
   NegF x   -> negate x
   AbsF x   -> abs x
   SgnF x   -> signum x
-  CasesF xs -> Range { lo = minimum (map lo xs)
-                    , hi = maximum (map hi xs) }
+  CasesF xs -> Range { lo = minimum (map (lo . caseValue) xs)
+                     , hi = maximum (map (hi . caseValue) xs) }
   ValueF x -> Range { lo = x, hi = x }
   ApF _ f x -> Range { lo = f (lo x), hi = f (hi x) }
   TodoF f x -> doit f x
 
+{-| Evaluate the expression lazily, by immediately creating a thunk
+    that will evaluate its contents lazily.
+
+> ghci> pp $ szLazy (Proxy @TxAux)
+> (_ :: TxAux)
+-}
 szLazy :: Bi a => (Proxy a -> Size)
 szLazy = todo (encodedSizeExpr szLazy)
 
+{-| Evaluate an expression greedily. There may still be thunks in the
+    result, for types that did not provide a custom 'encodedSizeExpr' method
+    in their 'Bi' instance.
+
+> ghci> pp $ szGreedy (Proxy @TxAux)
+> (0 + { ok=(2 + ((0 + (((1 + (2 + ((_ :: LengthOf [TxIn]) * (2 + { TxInUtxo=(2 + ((1 + 34) + { minBound=1 maxBound=5 })) })))) + (2 + ((_ :: LengthOf [TxOut]) * (0 + { ok=(2 + ((0 + ((2 + ((2 + withWordSize((((1 + 30) + (_ :: Attributes AddrAttributes)) + 1))) + (((1 + 30) + (_ :: Attributes AddrAttributes)) + 1))) + { minBound=1 maxBound=5 })) + { minBound=1 maxBound=9 })) })))) + (_ :: Attributes ()))) + (_ :: Vector TxInWitness))) })
+
+-}
 szGreedy :: Bi a => (Proxy a -> Size)
 szGreedy = encodedSizeExpr szGreedy
 
+-- | Is this expression a thunk?
 isTodo :: Size -> Bool
 isTodo (Fix (TodoF _ _)) = True
 isTodo _ = False
 
+-- | Create a "thunk" that will apply @f@ to @pxy@ when forced.
 todo :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
 todo f pxy = Fix (TodoF f pxy)
 
 pp :: Buildable a => a -> IO ()
 pp = putStrLn . pretty
 
+-- | Apply a monotonically increasing function to the expression.
+--   There are three cases when applying @f@ to a @Size@ expression:
+--      * When applied to a value @x@, compute @f x@.
+--      * When applied to cases, apply to each case individually.
+--      * In all other cases, create a deferred application of @f@.
 apMono :: String -> (Byte -> Byte) -> Size -> Size
 apMono n f = \case
   Fix (ValueF x)  -> Fix (ValueF (f x))
-  Fix (CasesF cs) -> Fix (CasesF (map (apMono n f) cs))
+  Fix (CasesF cs) -> Fix (CasesF (map (fmap (apMono n f)) cs))
   x               -> Fix (ApF n f x)
 
+-- | Greedily compute the size bounds for a type, using the given context to
+--   override sizes for specific types.
 szWithCtx :: Bi a => Map TypeRep Size -> Proxy a -> Size
 szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
   Just ans -> ans
   Nothing  ->  encodedSizeExpr (szWithCtx ctx) pxy
 
-simplify :: Size -> Either Size (Range Byte)
-simplify = cata $ \case
-    TodoF f pxy -> Left (todo f pxy)
-    ValueF x    -> Right (Range { lo = x, hi = x })
-    CasesF xs   -> case sequence xs of
-                    Right xs' -> Right (Range { lo = minimum (map lo xs')
-                                              , hi = maximum (map hi xs') })
-                    Left _  -> Left (szCases $ map toSize xs)
-    AddF x y  -> binOp (+) x y
-    MulF x y  -> binOp (*) x y
-    SubF x y  -> binOp (-) x y
-    NegF x    -> unOp negate x
-    AbsF x    -> unOp abs x
-    SgnF x    -> unOp signum x
-    ApF _ f (Right x) -> Right (Range { lo = f (lo x), hi = f (hi x) })
-    ApF n f (Left x)  -> Left  (apMono n f x)
-
+-- | Simplify the given @Size@, resulting in either the simplified @Size@ or,
+--   if it was fully simplified, an explicit upper and lower bound.
+szSimplify :: Size -> Either Size (Range Byte)
+szSimplify = cata (simplify . normalize)
   where
+    simplify = \case
+      TodoF f pxy -> Left (todo f pxy)
+      ValueF x    -> Right (Range { lo = x, hi = x })
+      CasesF xs   -> case sequence (map caseValue xs) of
+                      Right xs' -> Right (Range { lo = minimum (map lo xs')
+                                                , hi = maximum (map hi xs') })
+                      Left _  -> Left (szCases $ map (fmap toSize) xs)
+      AddF x y  -> binOp (+) x y
+      MulF x y  -> binOp (*) x y
+      SubF x y  -> binOp (-) x y
+      NegF x    -> unOp negate x
+      AbsF x    -> unOp abs x
+      SgnF x    -> unOp signum x
+      ApF _ f (Right x) -> Right (Range { lo = f (lo x), hi = f (hi x) })
+      ApF n f (Left x)  -> Left  (apMono n f x)
+
+    normalize = id -- TODO
+
     binOp :: (forall a. Num a => a -> a -> a) -> Either Size (Range Byte) -> Either Size (Range Byte) -> Either Size (Range Byte)
     binOp (#) (Right x) (Right y) = Right (x # y)
     binOp (#) x y = Left (toSize x # toSize y)
@@ -922,10 +977,15 @@ simplify = cata $ \case
       Left x  -> x
       Right r -> if lo r == hi r
                  then fromIntegral (lo r)
-                 else szCases [fromIntegral (lo r), fromIntegral (hi r)]
+                 else szCases [ Case "lo" (fromIntegral $ lo r)
+                              , Case "hi" (fromIntegral $ hi r)]
 
-force1 :: Size -> Size
-force1 = cata $ \case
+-- | Force any thunks in the given @Size@ expression.
+--
+-- > ghci> pp $ szForce $ szLazy (Proxy @TxAux)
+-- > (0 + { ok=(2 + ((0 + (_ :: Tx)) + (_ :: Vector TxInWitness))) })
+szForce :: Size -> Size
+szForce = cata $ \case
   AddF x y -> x + y
   MulF x y -> x * y
   SubF x y -> x - y

@@ -7,8 +7,6 @@
 
 module Test.Pos.Infra.Arbitrary.Communication () where
 
-import           Universum
-
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 

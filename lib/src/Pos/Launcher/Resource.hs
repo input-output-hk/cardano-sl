@@ -35,7 +35,6 @@ import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (mkSlogContext)
---import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
@@ -67,9 +66,7 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithTrace, newInitFuture)
---import           Pos.Util.Log (WithLogger, LoggerConfig (..), LoggerName, LoggingHandler, logDebug, logInfo)
 import qualified Pos.Util.Log as Log
--- (LogContextT (..), {-loggerBracket,-} parseLoggerConfig, setupLogging)
 import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import qualified Pos.Util.Trace.Named as TN
@@ -235,7 +232,7 @@ bracketNodeResources logTrace np sp txp initDB action = do
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m Log.LoggerConfig
 getRealLoggerConfig LoggingParams{..} =
     Log.parseLoggerConfig $ fromMaybe "--unk--" lpConfigPath
-{-
+{- TODO logging params may override logging configuration (from YAML)
     let cfgBuilder = productionB
                    <> showTidB
                    <> maybeLogsDirB lpHandlerPrefix
@@ -249,31 +246,11 @@ getRealLoggerConfig LoggingParams{..} =
         Just False -> (<>) (consoleActionB (\_ _ -> pass))
 -}
 
--- setupLoggers :: MonadIO m => LoggingParams -> m Log.LoggingHandler
--- setupLoggers params = liftIO $ Log.setupLogging =<< (liftIO getRealLoggerConfig) params
+-- | RAII for Logging.
+loggerBracket :: Log.LoggingHandler -> Log.LoggerName -> Log.LogContextT Production () -> Production ()
+loggerBracket lh name action = --do
+    Log.loggerBracket lh name action
 
--- setupLoggersTrace :: MonadIO m => LoggingParams -> m Log.LoggingHandler
--- setupLoggersTrace params = liftIO $ Log.setupLogging =<< (liftIO getRealLoggerConfig) params
-
--- | RAII for Logging.   TODO  make use of Trace!!
-loggerBracket :: LoggingParams -> Log.LogContextT Production () -> Production ()
---loggerBracket lp = bracket (setupLoggers lp) removeAllHandlers
-loggerBracket params action = do
-    lh <- liftIO $ Log.setupLogging =<< getRealLoggerConfig params
-    --TODO logTrace <- (flip . setupLogging) loggerName =<< getRealLoggerConfig params
-    -- ^^take the loggerName from the LoggingParams{..}
-    Log.loggerBracket lh (lpDefaultName params) action
-
-    --loggerBracket' lh (lpDefaultName params) action
-{-
-loggerBracket' :: Log.LoggingHandler -> Log.LoggerName -> Log.LogContextT Production () -> Production ()
-loggerBracket' lh name f = do
-    mayle <- liftIO $ Internal.getLogEnv lh
-    case mayle of
-            Nothing -> error "logging not yet initialized. Abort."
-            Just le -> liftIO $ bracket (return le) K.closeScribes $
-              \le_ -> runProduction ( K.runKatipContextT le_ () (Internal.s2kname name) $ f )
--}
 
 ----------------------------------------------------------------------------
 -- NodeContext

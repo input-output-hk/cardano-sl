@@ -46,7 +46,5 @@ in lib // (rec {
   utf8LocaleSetting = ''
     export LC_ALL=en_GB.UTF-8
     export LANG=en_GB.UTF-8
-  '' + lib.optionalString (pkgs.glibcLocales != null) ''
-    export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
   '';
 })

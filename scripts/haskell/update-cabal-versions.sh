@@ -11,9 +11,9 @@ function updateVersion() {
   sed -E -i -e "s/^(version\\:\\s+)(.+)/\\1$newVersion/" "$1"
 }
 
-for CB in `git ls-files '*/cardano-*.cabal'`; do
+for CB in $(git ls-files '*/cardano-*.cabal'); do
   echo "   ${CB}"
-  updateVersion ${CB}
+  updateVersion "${CB}"
 done
 
 echo "Updated to version $newVersion"

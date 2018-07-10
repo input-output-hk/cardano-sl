@@ -120,7 +120,8 @@ import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic,
-                     MnemonicWords, ValidChecksumSize, ValidMnemonicSentence, ValidEntropySize)
+                     MnemonicWords, ValidChecksumSize, ValidEntropySize,
+                     ValidMnemonicSentence)
 
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()

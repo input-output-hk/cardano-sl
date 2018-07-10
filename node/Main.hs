@@ -32,7 +32,9 @@ import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo,
                      namedTrace)
 import           Pos.Util.UserSecret (usVss)
 
+import qualified Katip as K
 import qualified Pos.Util.Log as Log
+import           Pos.Util.Log.Internal (getLogEnv)
 
 loggerName :: Log.LoggerName
 loggerName = "node"
@@ -78,12 +80,8 @@ main = withCompileInfo $ do
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
     lh <- Log.setupLogging =<< getRealLoggerConfig loggingParams
-    --logTrace <- (flip setupLogging) "node" =<< getRealLoggerConfig loggingParams
-    --loggerBracket loggingParams . (liftIO (logException lh "node")) . runProduction $
-    --    withConfigurations blPath conf $ action lh logTrace args
-    Log.usingLoggerName lh loggerName $
-      runProduction $
-        loggerBracket loggingParams (body lh args)
-    where
-        logTrace lh_ = appendName "node" $ namedTrace lh_
-        body lh_ args_ = action lh_ logTrace args_
+    logTrace <- (flip setupLogging) "node" =<< getRealLoggerConfig loggingParams
+    mayle <- getLogEnv lh
+    case mayle of
+        Just le -> K.runKatipContextT le () "node0" $ runProduction $ loggerBracket loggingParams . (\a -> liftIO (logException lh "nodeEx" a)) . (K.runKatipContextT le () "node1") . runProduction $ withConfigurations blPath conf $ action lh logTrace args
+        Nothing -> return ()

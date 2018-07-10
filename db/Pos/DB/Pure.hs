@@ -47,7 +47,7 @@ import qualified Data.Set as S
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (HasCoreConfiguration, HeaderHash)
+import           Pos.Core (CoreConfiguration, HeaderHash)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType,
                      iterKeyPrefix)
 import           Pos.DB.Functions (processIterEntry)
@@ -117,17 +117,17 @@ dbIterSourcePureDefault ::
        ( MonadPureDB ctx m
        , DBIteratorClass i
        , Bi (IterKey i)
-       , Bi (IterValue i)
-       , HasCoreConfiguration)
-    => DBTag
+       , Bi (IterValue i) )
+    => CoreConfiguration
+    -> DBTag
     -> Proxy i
     -> ConduitT () (IterType i) m ()
-dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
+dbIterSourcePureDefault cc (tagToLens -> l) (_ :: Proxy i) = do
     let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
     (dbPureVar :: DBPureVar) <- lift $ view (lensOf @DBPureVar)
     (filtered :: [(ByteString, ByteString)]) <-
         M.toList . filterPrefix . (view l) <$> lift (readIORef dbPureVar)
-    deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
+    deserialized <- catMaybes <$> mapM (processIterEntry @i cc) filtered
     CL.sourceList deserialized
 
 dbPutPureDefault :: MonadPureDB ctx m => DBTag -> ByteString -> ByteString -> m ()

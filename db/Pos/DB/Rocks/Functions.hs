@@ -41,7 +41,7 @@ import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
 import           System.FilePath ((</>))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasCoreConfiguration)
+import           Pos.Core.Configuration (CoreConfiguration)
 import           Pos.DB.BatchOp (rocksWriteBatch)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions (dbSerializeValue, processIterEntry)
@@ -140,8 +140,8 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 -- garbage, should be abstracted and hidden
 
 -- | Write serializable value to RocksDb for given key.
-rocksPutBi :: (HasCoreConfiguration, Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (dbSerializeValue v)
+rocksPutBi :: (Bi v, MonadIO m) => CoreConfiguration -> ByteString -> v -> DB -> m ()
+rocksPutBi cc k v = rocksPutBytes k (dbSerializeValue cc v)
 
 ----------------------------------------------------------------------------
 -- Snapshot
@@ -175,13 +175,12 @@ rocksIterSource ::
        , MonadRealDB ctx m
        , DBIteratorClass i
        , Bi (IterKey i)
-       , Bi (IterValue i)
-       , HasCoreConfiguration
-       )
-    => DBTag
+       , Bi (IterValue i))
+    => CoreConfiguration
+    -> DBTag
     -> Proxy i
     -> ConduitT () (IterType i) m ()
-rocksIterSource tag _ = do
+rocksIterSource cc tag _ = do
     DB{..} <- lift $ getDBByTag tag
     let createIter = Rocks.createIter rocksDB rocksReadOpts
     let releaseIter i = Rocks.releaseIter i
@@ -203,7 +202,7 @@ rocksIterSource tag _ = do
            Maybe (ByteString, ByteString)
         -> ConduitT () (IterType i) m (Maybe (IterType i))
     processRes Nothing   = pure Nothing
-    processRes (Just kv) = processIterEntry @i kv
+    processRes (Just kv) = processIterEntry @i cc kv
 
 ----------------------------------------------------------------------------
 -- Implementation/default methods
@@ -215,8 +214,8 @@ dbGetDefault tag key = getDBByTag tag >>= rocksGetBytes key
 dbPutDefault :: MonadRealDB ctx m => DBTag -> ByteString -> ByteString -> m ()
 dbPutDefault tag key val = getDBByTag tag >>= rocksPutBytes key val
 
-dbWriteBatchDefault :: MonadRealDB ctx m => DBTag -> [Rocks.BatchOp] -> m ()
-dbWriteBatchDefault tag batch = getDBByTag tag >>= rocksWriteBatch batch
+dbWriteBatchDefault :: MonadRealDB ctx m => CoreConfiguration -> DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchDefault cc tag batch = getDBByTag tag >>= rocksWriteBatch cc batch
 
 dbDeleteDefault :: MonadRealDB ctx m => DBTag -> ByteString -> m ()
 dbDeleteDefault tag key = getDBByTag tag >>= rocksDelete key
@@ -227,10 +226,9 @@ dbIterSourceDefault ::
        , MonadResource m
        , DBIteratorClass i
        , Bi (IterKey i)
-       , Bi (IterValue i)
-       , HasCoreConfiguration
-       )
-    => DBTag
+       , Bi (IterValue i))
+    => CoreConfiguration
+    -> DBTag
     -> Proxy i
     -> ConduitT () (IterType i) m ()
 dbIterSourceDefault = rocksIterSource

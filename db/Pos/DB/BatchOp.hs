@@ -17,19 +17,20 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint)
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Core.Configuration (CoreConfiguration)
 import           Pos.DB.Class (DBTag, MonadDB (dbWriteBatch))
 import           Pos.DB.Rocks.Types (DB (..))
 
 class RocksBatchOp a where
-    toBatchOp :: a -> [Rocks.BatchOp]
+    toBatchOp :: CoreConfiguration -> a -> [Rocks.BatchOp]
 
 instance RocksBatchOp Rocks.BatchOp where
-    toBatchOp = one
+    toBatchOp _ = one
 
 data EmptyBatchOp
 
 instance RocksBatchOp EmptyBatchOp where
-    toBatchOp _ = []
+    toBatchOp _ _ = []
 
 instance Buildable EmptyBatchOp where
     build _ = ""
@@ -46,7 +47,7 @@ instance Monoid SomeBatchOp where
     mappend = (<>)
 
 instance RocksBatchOp SomeBatchOp where
-    toBatchOp (SomeBatchOp a) = toBatchOp a
+    toBatchOp cc (SomeBatchOp a) = toBatchOp cc a
 
 data SomePrettyBatchOp =
     forall a. (RocksBatchOp a, Buildable a) =>
@@ -60,7 +61,7 @@ instance Monoid SomePrettyBatchOp where
     mappend = (<>)
 
 instance RocksBatchOp SomePrettyBatchOp where
-    toBatchOp (SomePrettyBatchOp a) = toBatchOp a
+    toBatchOp cc (SomePrettyBatchOp a) = toBatchOp cc a
 
 instance Buildable SomePrettyBatchOp where
     build (SomePrettyBatchOp x) = Data.Text.Buildable.build x
@@ -69,10 +70,10 @@ instance Buildable SomePrettyBatchOp where
 --     toBatchOp = concatMap toBatchOp -- overlapping instances, wtf ?????
 
 instance RocksBatchOp a => RocksBatchOp [a] where
-    toBatchOp = concatMap toBatchOp
+    toBatchOp cc = concatMap (toBatchOp cc)
 
 instance RocksBatchOp a => RocksBatchOp (NonEmpty a) where
-    toBatchOp = concatMap toBatchOp
+    toBatchOp cc = concatMap (toBatchOp cc)
 
 instance Buildable [SomePrettyBatchOp] where
     build = bprint listJson
@@ -80,10 +81,10 @@ instance Buildable [SomePrettyBatchOp] where
 -- | Write a batch of some operations using 'MonadDB' interface.
 -- The only difference from 'dbWriteBatch' is that this function
 -- works with whatever types which are instances of 'RocksBatchOp'.
-dbWriteBatch' :: (RocksBatchOp a, MonadDB m) => DBTag -> [a] -> m ()
-dbWriteBatch' tag batch = dbWriteBatch tag (concatMap toBatchOp batch)
+dbWriteBatch' :: (RocksBatchOp a, MonadDB m) => CoreConfiguration -> DBTag -> [a] -> m ()
+dbWriteBatch' cc tag batch = dbWriteBatch tag (concatMap (toBatchOp cc) batch)
 
 -- | Write a batch of some operations to RocksDB.
-rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB -> m ()
-rocksWriteBatch batch DB {..} =
-    Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)
+rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => CoreConfiguration -> [a] -> DB -> m ()
+rocksWriteBatch cc batch DB {..} =
+    Rocks.write rocksDB rocksWriteOpts (concatMap (toBatchOp cc) batch)

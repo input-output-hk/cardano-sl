@@ -10,15 +10,12 @@ module Pos.DB.Misc.Common
 import           Universum
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Core.Configuration (CoreConfiguration)
 import           Pos.DB.Class (DBTag (..), MonadDB, MonadDBRead)
 import           Pos.DB.Functions (dbGetBi, dbPutBi)
 
-miscGetBi
-    :: forall v m . (MonadDBRead m, Bi v)
-    => ByteString -> m (Maybe v)
-miscGetBi = dbGetBi MiscDB
+miscGetBi :: (MonadDBRead m, Bi v) => CoreConfiguration -> ByteString -> m (Maybe v)
+miscGetBi cc = dbGetBi cc MiscDB
 
-miscPutBi
-    :: forall v m . (MonadDB m, Bi v)
-    => ByteString -> v -> m ()
-miscPutBi = dbPutBi MiscDB
+miscPutBi :: (MonadDB m, Bi v) => CoreConfiguration -> ByteString -> v -> m ()
+miscPutBi cc = dbPutBi cc MiscDB

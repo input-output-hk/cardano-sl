@@ -21,7 +21,7 @@ import           Data.Conduit (ConduitT, transPipe)
 
 import qualified Database.RocksDB as Rocks
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasCoreConfiguration)
+import           Pos.Core.Configuration (CoreConfiguration)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType)
 import           Pos.DB.Pure (DBPureVar)
 import qualified Pos.DB.Pure as DB
@@ -56,13 +56,11 @@ dbIterSourceSumDefault
        , MonadResource m
        , DBIteratorClass i
        , Bi (IterKey i)
-       , Bi (IterValue i)
-       , HasCoreConfiguration
-       )
-    => DBTag -> Proxy i -> ConduitT () (IterType i) m ()
-dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case
-    RealDB dbs -> transPipe (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
-    PureDB pdb -> transPipe (flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
+       , Bi (IterValue i) )
+    => CoreConfiguration -> DBTag -> Proxy i -> ConduitT () (IterType i) m ()
+dbIterSourceSumDefault cc tag proxy = view (lensOf @DBSum) >>= \case
+    RealDB dbs -> transPipe (flip runReaderT dbs) (DB.dbIterSourceDefault cc tag proxy)
+    PureDB pdb -> transPipe (flip runReaderT pdb) (DB.dbIterSourcePureDefault cc tag proxy)
 
 dbPutSumDefault
     :: (MonadDBSum ctx m)
@@ -71,9 +69,9 @@ dbPutSumDefault tag k v = eitherDB (DB.dbPutDefault tag k v) (DB.dbPutPureDefaul
 
 dbWriteBatchSumDefault
     :: MonadDBSum ctx m
-    => DBTag -> [Rocks.BatchOp] -> m ()
-dbWriteBatchSumDefault tag b =
-    eitherDB (DB.dbWriteBatchDefault tag b) (DB.dbWriteBatchPureDefault tag b)
+    => CoreConfiguration -> DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchSumDefault cc tag b =
+    eitherDB (DB.dbWriteBatchDefault cc tag b) (DB.dbWriteBatchPureDefault tag b)
 
 dbDeleteSumDefault
     :: MonadDBSum ctx m

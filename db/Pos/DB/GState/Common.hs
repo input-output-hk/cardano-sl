@@ -33,7 +33,7 @@ import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (ChainDifficulty, HeaderHash)
-import           Pos.Core.Configuration (HasCoreConfiguration)
+import           Pos.Core.Configuration (CoreConfiguration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
 import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete),
@@ -48,43 +48,43 @@ import           Pos.Util.Util (maybeThrow)
 
 gsGetBi
     :: (MonadDBRead m, Bi v)
-    => ByteString -> m (Maybe v)
-gsGetBi k = dbGetBi GStateDB k
+    => CoreConfiguration -> ByteString -> m (Maybe v)
+gsGetBi cc = dbGetBi cc GStateDB
 
 gsPutBi
     :: (MonadDB m, Bi v)
-    => ByteString -> v -> m ()
-gsPutBi = dbPutBi GStateDB
+    => CoreConfiguration -> ByteString -> v -> m ()
+gsPutBi cc = dbPutBi cc GStateDB
 
 gsDelete :: (MonadDB m) => ByteString -> m ()
 gsDelete = dbDelete GStateDB
 
-writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
-writeBatchGState = dbWriteBatch' GStateDB
+writeBatchGState :: (RocksBatchOp a, MonadDB m) => CoreConfiguration -> [a] -> m ()
+writeBatchGState cc = dbWriteBatch' cc GStateDB
 
 ----------------------------------------------------------------------------
 -- Common getters
 ----------------------------------------------------------------------------
 
 -- | Get current tip from GState DB.
-getTip :: MonadDBRead m => m HeaderHash
-getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
+getTip :: MonadDBRead m => CoreConfiguration -> m HeaderHash
+getTip cc = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe cc
 
 getTipSomething
     :: forall m smth.
        MonadDBRead m
-    => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
-getTipSomething smthDescription smthGetter =
-    maybe onFailure pure =<< smthGetter =<< getTip
+    => CoreConfiguration -> Text -> (HeaderHash -> m (Maybe smth)) -> m smth
+getTipSomething cc smthDescription smthGetter =
+    maybe onFailure pure =<< smthGetter =<< getTip cc
   where
     fmt = "there is no "%stext%" corresponding to tip"
     onFailure = throwM $ DBMalformed $ sformat fmt smthDescription
 
 -- | Get maximum seen chain difficulty (used to prevent improper rollbacks).
-getMaxSeenDifficulty :: MonadDBRead m => m ChainDifficulty
-getMaxSeenDifficulty =
-    maybeThrow (DBMalformed "no max chain difficulty in GState DB") =<<
-    getMaxSeenDifficultyMaybe
+getMaxSeenDifficulty :: MonadDBRead m => CoreConfiguration -> m ChainDifficulty
+getMaxSeenDifficulty cc =
+    getMaxSeenDifficultyMaybe cc
+       >>= maybeThrow (DBMalformed "no max chain difficulty in GState DB")
 
 ----------------------------------------------------------------------------
 -- Common operations
@@ -98,31 +98,31 @@ instance Buildable CommonOp where
     build (PutMaxSeenDifficulty d) =
         bprint ("PutMaxSeenDifficulty ("%int%")") d
 
-instance HasCoreConfiguration => RocksBatchOp CommonOp where
-    toBatchOp (PutTip h) =
-        [Rocks.Put tipKey (dbSerializeValue h)]
-    toBatchOp (PutMaxSeenDifficulty h) =
-        [Rocks.Put maxSeenDifficultyKey (dbSerializeValue h)]
+instance RocksBatchOp CommonOp where
+    toBatchOp cc (PutTip h) =
+        [Rocks.Put tipKey (dbSerializeValue cc h)]
+    toBatchOp cc (PutMaxSeenDifficulty h) =
+        [Rocks.Put maxSeenDifficultyKey (dbSerializeValue cc h)]
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into GState DB.
-initGStateCommon :: (MonadDB m) => HeaderHash -> m ()
-initGStateCommon initialTip = do
-    putTip initialTip
-    putMaxSeenDifficulty 0
+initGStateCommon :: (MonadDB m) => CoreConfiguration -> HeaderHash -> m ()
+initGStateCommon cc initialTip = do
+    putTip cc initialTip
+    putMaxSeenDifficulty cc 0
 
 -- | Checks if gstate is initialized.
-isInitialized :: MonadDBRead m => m Bool
-isInitialized = do
-    (x :: Maybe ()) <- gsGetBi initKey
+isInitialized :: MonadDBRead m => CoreConfiguration -> m Bool
+isInitialized cc = do
+    (x :: Maybe ()) <- gsGetBi cc initKey
     pure $ isJust x
 
 -- | Marks gstate as initialized
-setInitialized :: MonadDB m => m ()
-setInitialized = gsPutBi initKey ()
+setInitialized :: MonadDB m => CoreConfiguration -> m ()
+setInitialized cc = gsPutBi cc initKey ()
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -141,14 +141,14 @@ maxSeenDifficultyKey = "c/maxsd"
 -- Details
 ----------------------------------------------------------------------------
 
-getTipMaybe :: MonadDBRead m => m (Maybe HeaderHash)
-getTipMaybe = gsGetBi tipKey
+getTipMaybe :: MonadDBRead m => CoreConfiguration -> m (Maybe HeaderHash)
+getTipMaybe cc = gsGetBi cc tipKey
 
-getMaxSeenDifficultyMaybe :: MonadDBRead m => m (Maybe ChainDifficulty)
-getMaxSeenDifficultyMaybe = gsGetBi maxSeenDifficultyKey
+getMaxSeenDifficultyMaybe :: MonadDBRead m => CoreConfiguration -> m (Maybe ChainDifficulty)
+getMaxSeenDifficultyMaybe cc = gsGetBi cc maxSeenDifficultyKey
 
-putTip :: MonadDB m => HeaderHash -> m ()
-putTip = gsPutBi tipKey
+putTip :: MonadDB m => CoreConfiguration -> HeaderHash -> m ()
+putTip cc = gsPutBi cc tipKey
 
-putMaxSeenDifficulty :: MonadDB m => ChainDifficulty -> m ()
-putMaxSeenDifficulty = gsPutBi maxSeenDifficultyKey
+putMaxSeenDifficulty :: MonadDB m => CoreConfiguration -> ChainDifficulty -> m ()
+putMaxSeenDifficulty cc = gsPutBi cc maxSeenDifficultyKey

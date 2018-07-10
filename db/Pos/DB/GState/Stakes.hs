@@ -16,6 +16,7 @@ module Pos.DB.GState.Stakes
 import           Universum
 
 import           Pos.Core.Common (Coin, StakeholderId)
+import           Pos.Core.Configuration (CoreConfiguration)
 import           Pos.DB.Class (DBIteratorClass (..), MonadDBRead)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Functions (encodeWithKeyPrefix)
@@ -49,18 +50,19 @@ ftsSumKey = "b/ftssum"
 
 -- | Get real total amount of stake to be used for follow-the-satoshi
 -- and other procedures which use stake of some stakeholder.
-getRealTotalStake :: MonadDBRead m => m Coin
-getRealTotalStake =
-    maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getRealStakeSumMaybe
+getRealTotalStake :: MonadDBRead m => CoreConfiguration -> m Coin
+getRealTotalStake cc =
+    getRealStakeSumMaybe cc
+       >>= maybeThrow (DBMalformed "no total FTS stake in GState DB")
 
 -- | Get real stake owned by given stakeholder (according to rules
 -- used for FTS and similar procedures).
-getRealStake :: MonadDBRead m => StakeholderId -> m (Maybe Coin)
-getRealStake = gsGetBi . ftsStakeKey
+getRealStake :: MonadDBRead m => CoreConfiguration -> StakeholderId -> m (Maybe Coin)
+getRealStake cc sId = gsGetBi cc (ftsStakeKey sId)
 
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-getRealStakeSumMaybe :: MonadDBRead m => m (Maybe Coin)
-getRealStakeSumMaybe = gsGetBi ftsSumKey
+getRealStakeSumMaybe :: MonadDBRead m => CoreConfiguration -> m (Maybe Coin)
+getRealStakeSumMaybe cc = gsGetBi cc ftsSumKey

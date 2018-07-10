@@ -120,7 +120,8 @@ import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic,
-                     MnemonicWords, ValidChecksumSize, ValidMnemonicSentence, ValidEntropySize)
+                     MnemonicWords, ValidChecksumSize, ValidEntropySize,
+                     ValidMnemonicSentence)
 
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()
@@ -303,7 +304,7 @@ instance
     , ValidMnemonicSentence mw
     ) => ToSchema (V1 (Mnemonic mw)) where
     declareNamedSchema _ = do
-        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
+        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic mw))
         return $ NamedSchema (Just "V1BackupPhrase") schm
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
@@ -1822,7 +1823,6 @@ deriveSafeBuildable ''ShieldedRedemptionCode
 instance BuildableSafeGen ShieldedRedemptionCode where
     buildSafeGen _ _ =
         bprint "<shielded redemption code>"
-
 
 -- | The request body for redeeming some Ada.
 data Redemption = Redemption

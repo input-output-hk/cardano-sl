@@ -4,7 +4,7 @@ let
   #haskell = import <haskell>;
 
   overlay = self: super: {
-    haskellPackages = (import <stackage> { pkgs = super; }).lts-2018-05-02
+    haskellPackages = (import <stackage> { pkgs = super; }).lts-2018-06-29
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                           // stack-pkgs.packages hsPkgs); };
   };

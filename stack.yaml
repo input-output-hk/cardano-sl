@@ -172,8 +172,8 @@ packages:
 - location:
     git: https://github.com/input-output-hk/haskell-hedgehog.git
     commit: 2c9e51804e8217dff89f5c32cbe0d79ce20bc508
-    subdirs:
-      - hedgehog
+  subdirs:
+    - hedgehog
   extra-dep: true
 
 # servant-quickcheck has a doc/doc.cabal file that is poorly specified and this

@@ -96,6 +96,7 @@
       engine-io-wai = ./.stack.nix/engine-io-wai.nix;
       rocksdb-haskell-ng = ./.stack.nix/rocksdb-haskell-ng.nix;
       log-warper = ./.stack.nix/log-warper.nix;
+      hedgehog = ./.stack.nix/hedgehog.nix;
       servant-quickcheck = ./.stack.nix/servant-quickcheck.nix;
       stylish-haskell = ./.stack.nix/stylish-haskell.nix;
       universum = ./.stack.nix/universum.nix;
@@ -105,7 +106,6 @@
       # hack libiserv in...
       libiserv = ./libiserv-8.5;
       remote-iserv = ./remote-iserv-8.5;
-      iserv-proxy = ./iserv-proxy-8.5;
       clock = ./.stack.nix/clock.nix;
     };
 }

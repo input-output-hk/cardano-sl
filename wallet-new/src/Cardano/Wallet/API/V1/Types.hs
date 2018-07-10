@@ -300,7 +300,7 @@ instance
     , ValidMnemonicSentence mw
     ) => ToSchema (V1 (Mnemonic mw)) where
     declareNamedSchema _ = do
-        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
+        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic mw))
         return $ NamedSchema (Just "V1BackupPhrase") schm
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
@@ -1819,7 +1819,6 @@ deriveSafeBuildable ''ShieldedRedemptionCode
 instance BuildableSafeGen ShieldedRedemptionCode where
     buildSafeGen _ _ =
         bprint "<shielded redemption code>"
-
 
 -- | The request body for redeeming some Ada.
 data Redemption = Redemption

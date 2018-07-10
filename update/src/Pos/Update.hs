@@ -8,7 +8,6 @@ module Pos.Update
        , module Pos.Update.Constants
        , module Pos.Update.Logic
        , module Pos.Update.MemState
-       , module Pos.Update.Mode
        , module Pos.Update.Params
        , module Pos.Update.Poll
        ) where
@@ -20,6 +19,5 @@ import           Pos.Update.Constants
 import           Pos.Update.Context
 import           Pos.Update.Logic
 import           Pos.Update.MemState
-import           Pos.Update.Mode
 import           Pos.Update.Params
 import           Pos.Update.Poll

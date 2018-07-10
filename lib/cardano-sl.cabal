@@ -57,6 +57,9 @@ library
                         Pos.Listener.Txp
                         Pos.Listener.Update
 
+                        -- Network
+                        Pos.Network.Update.Download
+
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message
@@ -128,7 +131,6 @@ library
 
                         -- Network
                         Pos.Communication.Server
-                        Pos.Network.Update.Download
 
                         Pos.Recovery.Instance
 

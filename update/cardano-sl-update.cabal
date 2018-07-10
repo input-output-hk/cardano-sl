@@ -27,7 +27,6 @@ library
                        Pos.Update.Constants
                        Pos.Update.DB
                        Pos.Update.DB.Misc
-                       Pos.Update.Mode
 
                        -- Logic
                        Pos.Update.Logic

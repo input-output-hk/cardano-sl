@@ -18,7 +18,6 @@ module Pos.Ssc
        , module Pos.Ssc.Functions
        , module Pos.Ssc.Mem
        , module Pos.Ssc.Message
-       , module Pos.Ssc.Mode
        , module Pos.Ssc.SecretStorage
        , module Pos.Ssc.Seed
        , module Pos.Ssc.State
@@ -35,7 +34,6 @@ import           Pos.Ssc.Functions
 import           Pos.Ssc.Logic
 import           Pos.Ssc.Mem
 import           Pos.Ssc.Message
-import           Pos.Ssc.Mode
 import           Pos.Ssc.SecretStorage
 import           Pos.Ssc.Seed
 import           Pos.Ssc.State

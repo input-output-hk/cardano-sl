@@ -43,7 +43,6 @@ library
     Pos.Ssc.Behavior
     Pos.Ssc.Shares
     Pos.Ssc.DB
-    Pos.Ssc.Mode
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic

@@ -13,16 +13,19 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit)
 import           Formatting (build, ords, sformat, shown, (%))
-import           Mockable (currentTime, delay)
+import           Mockable (MonadMockable, currentTime, delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import qualified Test.QuickCheck as QC
 
+import qualified Crypto.Random as Rand
+import           System.Wlog (WithLogger)
+
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
-import           Pos.Core (EpochIndex, SlotId (..), StakeholderId,
-                     Timestamp (..), VssCertificate (..),
+import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
+                     StakeholderId, Timestamp (..), VssCertificate (..),
                      VssCertificatesMap (..), blkSecurityParam, bvdMpcThd,
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
                      lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
@@ -33,29 +36,33 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
                      randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
+import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Infra.Recovery.Info (recoveryCommGuard)
-
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (defaultOnNewSlotParams, getCurrentSlot,
-                     getSlotStartEmpatically, onNewSlot)
+                     MisbehaviorMetrics (..), MonadReporting)
+import           Pos.Infra.Shutdown (HasShutdownContext)
+import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
+                     getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
+import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
+import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
                      mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..),
                      SscSharesParams (..))
-import           Pos.Ssc.Configuration (mpcSendInterval)
+import           Pos.Ssc.Configuration (HasSscConfiguration, mpcSendInterval)
 import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares,
                      vssThreshold)
 import           Pos.Ssc.Logic (sscGarbageCollectLocalData,
                      sscProcessCertificate, sscProcessCommitment,
                      sscProcessOpening, sscProcessShares)
+import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Message (SscTag (..))
-import           Pos.Ssc.Mode (SscMode)
 import qualified Pos.Ssc.SecretStorage as SS
 import           Pos.Ssc.Shares (getOurShares)
 import           Pos.Ssc.State (getGlobalCerts, getStableCerts,
@@ -64,7 +71,30 @@ import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
 import           Pos.Ssc.Types (HasSscContext (..), scBehavior,
                      scParticipateSsc, scVssKeyPair, sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Util (getKeys, leftToPanic)
+import           Pos.Util.Util (HasLens (..), getKeys, leftToPanic)
+
+
+type SscMode ctx m
+    = ( WithLogger m
+      , CanJsonLog m
+      , MonadIO m
+      , Rand.MonadRandom m
+      , MonadMask m
+      , MonadMockable m
+      , MonadSlots ctx m
+      , MonadGState m
+      , MonadDB m
+      , MonadSscMem ctx m
+      , MonadRecoveryInfo m
+      , HasShutdownContext ctx
+      , MonadReader ctx m
+      , HasSscContext ctx
+      , MonadReporting m
+      , HasPrimaryKey ctx
+      , HasLens SecurityParams ctx SecurityParams
+      , HasLrcContext ctx
+      , HasSscConfiguration
+      )
 
 sscWorkers
   :: ( SscMode ctx m

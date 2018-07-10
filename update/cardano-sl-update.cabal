@@ -67,9 +67,6 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
-                       -- Worker
-                       Pos.Update.Worker
-
   build-depends:       Cabal
                      , aeson
                      , base

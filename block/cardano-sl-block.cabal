@@ -40,8 +40,6 @@ library
                         Pos.Block.Logic.VAR
                         Pos.Block.Logic.Integrity
 
-                        Pos.Block.Worker
-
   other-modules:
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header

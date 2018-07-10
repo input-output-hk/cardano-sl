@@ -3,9 +3,10 @@
 
 -- | Block processing related workers.
 
-module Pos.Block.Worker
+module Pos.Worker.Block
        ( blkWorkers
        ) where
+
 
 import           Universum
 
@@ -21,10 +22,9 @@ import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ,
-                     criticalCQBootstrap, fixedTimeCQSec, nonCriticalCQ,
-                     nonCriticalCQBootstrap)
+                     criticalCQBootstrap, fixedTimeCQSec, networkDiameter,
+                     nonCriticalCQ, nonCriticalCQBootstrap)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                      calcOverallChainQuality, createGenesisBlockAndApply,
                      createMainBlockAndApply)
@@ -53,19 +53,18 @@ import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader))
 import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
                      needTriggerRecovery, recoveryCommGuard)
-import           Pos.Infra.Slotting (getSlotStartEmpatically, onNewSlot)
-import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
-import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics,
-                     MetricMonitor (..), MetricMonitorState, noReportMonitor,
-                     recordValue, reportOrLogE)
-import           Pos.Sinbin.Slotting ()
-import           Pos.Sinbin.Slotting (ActionTerminationPolicy (..),
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
+                     MetricMonitorState, noReportMonitor, recordValue,
+                     reportOrLogE)
+import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
                      OnNewSlotParams (..), currentTimeSlotting,
-                     defaultOnNewSlotParams)
-import           Pos.Sinbin.Util.JsonLog.Events (jlCreatedBlock)
-import           Pos.Sinbin.Util.LogSafe (logDebugS, logInfoS, logWarningS)
-import           Pos.Sinbin.Util.TimeLimit (logWarningSWaitLinear)
-import           Pos.Sinbin.Util.TimeWarp (CanJsonLog (..))
+                     defaultOnNewSlotParams, getSlotStartEmpatically,
+                     onNewSlot)
+import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
+import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
+import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 
 import           Pos.Update.DB (getAdoptedBVData)
 

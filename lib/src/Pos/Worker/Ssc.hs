@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
-module Pos.Ssc.Worker
+module Pos.Worker.Ssc
        ( sscWorkers
        ) where
 
@@ -35,14 +35,15 @@ import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (recoveryCommGuard)
-import           Pos.Infra.Slotting (getSlotStartEmpatically, onNewSlot)
+
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
+                     MisbehaviorMetrics (..))
+import           Pos.Infra.Slotting (defaultOnNewSlotParams, getCurrentSlot,
+                     getSlotStartEmpatically, onNewSlot)
+import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
+                     logWarningS)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
-                     MisbehaviorMetrics (..))
-import           Pos.Sinbin.Slotting (defaultOnNewSlotParams, getCurrentSlot)
-import           Pos.Sinbin.Util.LogSafe (logDebugS, logErrorS, logInfoS,
-                     logWarningS)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
                      mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..),

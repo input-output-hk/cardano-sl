@@ -1,6 +1,6 @@
 -- | Update System related workers.
 
-module Pos.Update.Worker
+module Pos.Worker.Update
        ( usWorkers
 
        , updateTriggerWorker
@@ -16,10 +16,9 @@ import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Recovery.Info (recoveryCommGuard)
-import           Pos.Infra.Slotting.Util (onNewSlot)
-import           Pos.Sinbin.Shutdown (triggerShutdown)
-import           Pos.Sinbin.Slotting.Util (ActionTerminationPolicy (..),
-                     OnNewSlotParams (..), defaultOnNewSlotParams)
+import           Pos.Infra.Shutdown (triggerShutdown)
+import           Pos.Infra.Slotting.Util (ActionTerminationPolicy (..),
+                     OnNewSlotParams (..), defaultOnNewSlotParams, onNewSlot)
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB (getConfirmedProposals)

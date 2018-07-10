@@ -14,7 +14,8 @@ import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as Map
-import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy, safeGet, safePut)
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
+                     safeGet, safePut)
 
 import qualified Pos.Core as Core
 

@@ -30,11 +30,12 @@ import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
                      eskToWalletDecrCredentials, selectOwnAddresses)
 
+import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedInput, ResolvedTx,
-                                                    rbSlot, rbTxs, rtxInputs, rtxOutputs)
-import           Cardano.Wallet.Kernel.DB.BlockMeta
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
+                     ResolvedInput, ResolvedTx, rbSlot, rbTxs, rtxInputs,
+                     rtxOutputs)
 
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
@@ -72,11 +73,11 @@ type WalletKey = (WalletId, WalletDecrCredentials)
 --   NOTE: Since an address can occur in multiple transactions, there could be
 --   multiple valid summaries for an address.
 data AddressSummary = AddressSummary {
-      addrSummaryAddr :: Address
+      addrSummaryAddr        :: Address
     ,
-      addrSummaryId   :: HdAddressId
+      addrSummaryId          :: HdAddressId
     ,
-      addrSummaryTxId :: TxId
+      addrSummaryTxId        :: TxId
     ,
       -- | indicates whether _all_ the inputs of the transaction are "ours"
       addrSummaryOnlyOurInps :: Bool

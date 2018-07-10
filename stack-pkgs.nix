@@ -106,5 +106,6 @@
       libiserv = ./libiserv-8.5;
       remote-iserv = ./remote-iserv-8.5;
       iserv-proxy = ./iserv-proxy-8.5;
-   };
+      clock = ./.stack.nix/clock.nix;
+    };
 }

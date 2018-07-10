@@ -36,10 +36,10 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
                      NodeParams (..), NodeResources (..), bracketNodeResources,
                      loggerBracket, runNode, runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
-import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Worker.Update (updateTriggerWorker)
 
 loggerName :: LoggerName
 loggerName = "node"

@@ -32,6 +32,8 @@ import           Util.Buildable ()
 import           Cardano.Wallet.Kernel.CoinSelection ()
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance)
 
+import           Test.Pos.Core.Arbitrary ()
+
 {-------------------------------------------------------------------------------
   Useful types
 -------------------------------------------------------------------------------}

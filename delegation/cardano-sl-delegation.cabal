@@ -22,7 +22,6 @@ library
                        Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Types
-                       Pos.Delegation.Worker
 
   other-modules:
                        Pos.Delegation.Cede.Class

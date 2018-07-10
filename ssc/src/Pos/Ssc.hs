@@ -24,7 +24,6 @@ module Pos.Ssc
        , module Pos.Ssc.State
        , module Pos.Ssc.Types
        , module Pos.Ssc.VssCertData
-       , module Pos.Ssc.Worker
        ) where
 
 import           Pos.Ssc.Base
@@ -43,4 +42,3 @@ import           Pos.Ssc.State
 import           Pos.Ssc.Toss
 import           Pos.Ssc.Types
 import           Pos.Ssc.VssCertData
-import           Pos.Ssc.Worker

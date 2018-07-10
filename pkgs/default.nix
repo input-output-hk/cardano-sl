@@ -16672,6 +16672,7 @@ cardano-sl
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
@@ -18407,6 +18408,7 @@ cardano-sl
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-delegation

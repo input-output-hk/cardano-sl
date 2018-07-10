@@ -1,6 +1,6 @@
 -- | Workers for delegation logic.
 
-module Pos.Delegation.Worker
+module Pos.Worker.Delegation
        ( dlgWorkers
        ) where
 
@@ -18,8 +18,8 @@ import           Pos.Delegation.Configuration (HasDlgConfiguration,
 import           Pos.Delegation.Logic (DelegationStateAction,
                      runDelegationStateAction)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Sinbin.Reporting (MonadReporting, reportOrLogE)
-import           Pos.Sinbin.Shutdown (HasShutdownContext)
+import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
+import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Util (microsecondsToUTC)
 import           Pos.Util.LRU (filterLRU)
 

@@ -13,6 +13,7 @@ import           Pos.Wallet.Web.ClientTypes.Types (CHash (..), CId (..),
                      CWAddressMeta (..))
 import           Pos.Wallet.Web.State (WAddressMeta (..))
 import qualified Serokell.Util.Base64 as B64
+import           Test.Pos.Core.Arbitrary ()
 import           Test.QuickCheck (Arbitrary (..), vectorOf)
 
 instance Arbitrary CHash where

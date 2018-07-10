@@ -83,6 +83,10 @@ library
 
                         -- Worker, work mode
                         Pos.Worker
+                        Pos.Worker.Block
+                        Pos.Worker.Delegation
+                        Pos.Worker.Ssc
+                        Pos.Worker.Update
                         Pos.WorkMode
                         Pos.WorkMode.Class
 

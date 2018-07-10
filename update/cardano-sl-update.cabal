@@ -27,7 +27,6 @@ library
                        Pos.Update.Constants
                        Pos.Update.DB
                        Pos.Update.DB.Misc
-                       Pos.Update.Download
                        Pos.Update.Mode
 
                        -- Logic
@@ -86,12 +85,8 @@ library
                      , exceptions
                      , formatting
                      , hashable
-                     , http-client
-                     , http-client-tls
-                     , http-conduit
                      , lens
                      , log-warper
-                     , memory
                      , mtl
                      , reflection
                      , resourcet

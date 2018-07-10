@@ -22,7 +22,7 @@ import           Pos.Infra.Slotting.Util (ActionTerminationPolicy (..),
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB (getConfirmedProposals)
-import           Pos.Update.Download (downloadUpdate)
+import           Pos.Network.Update.Download (downloadUpdate)
 import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))

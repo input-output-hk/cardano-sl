@@ -128,6 +128,7 @@ library
 
                         -- Network
                         Pos.Communication.Server
+                        Pos.Network.Update.Download
 
                         Pos.Recovery.Instance
 
@@ -177,8 +178,12 @@ library
                       , generic-arbitrary
                       , hashable
                       , hspec
+                      , http-client
+                      , http-client-tls
+                      , http-conduit
                       , lens
                       , log-warper >= 1.1.1
+                      , memory
                       , mmorph
                       , monad-control
                       , mtl

@@ -254,8 +254,11 @@ pkgs.haskellPackages.override rec {
 
     cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
     cardano-sl-crypto     = doTemplateHaskell super.cardano-sl-crypto;
+    cardano-sl-crypto-test= doTemplateHaskell super.cardano-sl-crypto-test;
     cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;
     cardano-sl-core       = doTemplateHaskellVerbose super.cardano-sl-core;
+    cardano-sl-core-test  = doTemplateHaskell super.cardano-sl-core-test;
+    
     cardano-sl-db         = doTemplateHaskellVerbose super.cardano-sl-db;
 #    cardano-sl-db         = doTemplateHaskellWindows "10.0.1.24" "8080" super.cardano-sl-db;
     cardano-sl-lrc        = doTemplateHaskell super.cardano-sl-lrc;
@@ -271,13 +274,17 @@ pkgs.haskellPackages.override rec {
     servant-docs          = doTemplateHaskell super.servant-docs;
     wai-websockets        = doTemplateHaskell super.wai-websockets;
     servant-swagger-ui    = doTemplateHaskell super.servant-swagger-ui;
+    servant-swagger-ui-redoc = doTemplateHaskell super.servant-swagger-ui-redoc;
     cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
     cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
     cardano-sl-wallet-new = doTemplateHaskell (addGitRev super.cardano-sl-wallet-new);
 
+    cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
+
     trifecta              = doTemplateHaskell super.trifecta;
     cardano-sl-tools      = doTemplateHaskell (addGitRev super.cardano-sl-tools);
+    hedgehog              = doTemplateHaskell super.hedgehog;
     
 #     QuickCheck            = enableLibraryProfiling super.QuickCheck;
 #     quickcheck-io         = enableLibraryProfiling super.quickcheck-io;

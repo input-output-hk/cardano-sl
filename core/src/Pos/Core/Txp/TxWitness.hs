@@ -90,14 +90,14 @@ instance Bi TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
-    encodedSizeExpr size _ = 2 +
+    encodedSizeExpr size _ =
         (szCases $ map (fmap knownCborDataItemSizeExpr) $
             [ let PkWitness key sig     = error "unused"
-              in  Case "PkWitness" $ size ((,) <$> pure key <*> pure sig)
+              in  Case "PkWitness" $ 2 + size ((,) <$> pure key <*> pure sig)
             , let ScriptWitness key sig = error "unused"
-              in  Case "ScriptWitness" $ size ((,) <$> pure key <*> pure sig)
+              in  Case "ScriptWitness" $ 2 + size ((,) <$> pure key <*> pure sig)
             , let RedeemWitness key sig = error "unused"
-              in  Case "RedeemWitness" $ size ((,) <$> pure key <*> pure sig)
+              in  Case "RedeemWitness" $ 2 + size ((,) <$> pure key <*> pure sig)
             ])
 
 instance NFData TxInWitness

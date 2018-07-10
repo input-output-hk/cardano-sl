@@ -160,9 +160,9 @@ instance Bi TxIn where
         case tag of
             0 -> uncurry TxInUtxo <$> decodeKnownCborDataItem
             _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
-    encodedSizeExpr size _ = 2 +
+    encodedSizeExpr size _ =
         szCases [ let TxInUtxo txInHash txInIndex = error "unused"
-                  in  Case "TxInUtxo" (2 + size ((,) <$> pure txInHash <*> pure txInIndex))
+                  in  Case "TxInUtxo" (4 + size ((,) <$> pure txInHash <*> pure txInIndex))
                 ]
 
 instance NFData TxIn

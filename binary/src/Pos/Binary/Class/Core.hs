@@ -41,6 +41,7 @@ module Pos.Binary.Class.Core
     , Case(..)
     , caseValue
     , LengthOf(..)
+    , SizeOverride(..)
     , isTodo
     , szCases
     , szLazy
@@ -360,8 +361,8 @@ instance (Bi a, Bi b) => Bi (Either a b) where
                           return (Right x)
                   _ -> cborError $ "decode@Either: unknown tag " <> show t
 
-    encodedSizeExpr size _ = 2 + szCases [ Case "Left"  (size (Proxy @a))
-                                         , Case "Right" (size (Proxy @b))]
+    encodedSizeExpr size _ = szCases [ Case "Left"  (2 + size (Proxy @a))
+                                     , Case "Right" (2 + size (Proxy @b))]
 
 instance Bi a => Bi (NonEmpty a) where
     encode = defaultEncodeList . toList
@@ -382,8 +383,8 @@ instance Bi a => Bi (Maybe a) where
                           return (Just x)
                   _ -> cborError $ "decode@Maybe: unknown tag " <> show n
 
-    encodedSizeExpr size _ = 1 + szCases [ Case "Nothing" 0
-                                         , Case "Just" (size (Proxy @a))]
+    encodedSizeExpr size _ = szCases [ Case "Nothing" 1
+                                     , Case "Just" (1 + size (Proxy @a))]
 
 encodeContainerSkel :: (Word -> E.Encoding)
                     -> (container -> Int)
@@ -935,10 +936,27 @@ apMono n f = \case
 
 -- | Greedily compute the size bounds for a type, using the given context to
 --   override sizes for specific types.
-szWithCtx :: Bi a => Map TypeRep Size -> Proxy a -> Size
+szWithCtx :: Bi a => Map TypeRep SizeOverride -> Proxy a -> Size
 szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
-  Just ans -> ans
-  Nothing  ->  encodedSizeExpr (szWithCtx ctx) pxy
+    Nothing       -> normal
+    Just override -> case override of
+        SizeConstant sz -> sz
+        SelectCase name -> case normal of
+            Fix (CasesF cs) -> matchCase name cs
+            _               -> normal
+  where
+    -- The non-override case
+    normal = encodedSizeExpr (szWithCtx ctx) pxy
+
+    matchCase name cs =
+        case find (\(Case name' _) -> name == name') cs of
+          Just (Case _ x) -> x
+          Nothing         -> normal
+
+-- | Override mechanisms to be used with 'szWithCtx'.
+data SizeOverride
+    = SizeConstant Size    -- ^ Replace with a fixed @Size@.
+    | SelectCase   String  -- ^ Select only a specific case from a @CasesF@.
 
 -- | Simplify the given @Size@, resulting in either the simplified @Size@ or,
 --   if it was fully simplified, an explicit upper and lower bound.

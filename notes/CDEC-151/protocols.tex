@@ -423,7 +423,7 @@ current chain are valid.
   distribution of burst lengths\\
 \includegraphics[totalheight=2cm]{burst-length-mc.png}}
 
-\avieth{Proposal for a data structure for forks over $k$ slots.}
+\avieth{\subsection{Proposal for a data structure for forks over $k$ slots.}}
 
 \avieth{For each peer to which the node is connected, at most one chain (their
   claimed best chain) is retained. An honest node only broadcasts or relays
@@ -435,7 +435,7 @@ current chain are valid.
 \avieth{When a tip-of-chain announcment is received from a peer, and it's valid
   (signed by the appropriate slot leader) and better (higher block count) than
   the peer's previously announced best tip-of-chain (if any), the receiver
-  either:}
+  either:\\}
 
   \begin{itemize}
     \item \avieth{If the parent of the header is known, and it is also the tip of the
@@ -487,6 +487,38 @@ current chain are valid.
   it could have informed the node with the weaker chain of its better chain.
   This is informal but I think it captures the idea and we may be able to
   work it into some explict probabilistic guarantee.}
+
+\avieth{\subsection{Broadcasting the best chain}}
+
+  \avieth{Take some associative, commutative, idempotent function
+    $merge :: Chain \rightarrow Chain \rightarrow Chain$.
+    Ouroboros chain selection is suitable,
+    modulo chains of equal length equivalence relation.}
+
+  \avieth{Any expression of $merge$s is equivalent to the set of unique $Chain$s
+    which appear in it: order doesn't matter, association doesn't matter, and
+    duplicates are irrelevant.}
+
+  \avieth{In ideal broadcast, every node learns of every other node's $Chain$
+    and computes the $merge$ of all of these with its $Chain$. This is
+    identified by the set of unique $Chain$s (modulo equal length) over all
+    nodes.}
+
+  \avieth{In broadcast via store-and-forward of the $merge$ of the forwarded
+    thing with the local state, every node learns of every other node's state
+    via one or more paths, over which it is $merge$d with the states of other
+    nodes (the forwarding nodes). These $merge$ expressions are then $merge$d
+    by the terminal node to give another $merge$ expression, which is, just as
+    for ideal broadcast, identified by the set of unique $Chain$s over all
+    nodes, and so it agrees with ideal broadcast.}
+
+  \avieth{If a forwarding node finds that the $merge$ of the $Chain$ to forward
+    with its own $Chain$ is equal to its own $Chain$, it can safely not forward
+    anything, because the receiving nodes are already aware of the better
+    $Chain$ (this node already forwarded it). Commutativity and associativity
+    means that, for any $merge$ expression involving both of these chains, the
+    weaker can always be eliminated.\\}
+
 
 \subsubsection{Raising the difficulty for attackers}
 

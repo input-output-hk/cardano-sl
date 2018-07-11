@@ -60,7 +60,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe,
                      mlTriple, mlTuple, vectorOf, vectorOfNE, (<+>))
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..),
                      MsgGetHeaders (..), MsgHeaders (..), MsgStream (..),
                      MsgStreamBlock (..))
 import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex,

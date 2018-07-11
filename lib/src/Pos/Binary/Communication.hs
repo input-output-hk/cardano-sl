@@ -14,7 +14,7 @@ import qualified Data.ByteString.Lazy as LBS
 
 import           Pos.Binary.Class (serialize, serialize')
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..),
+import           Pos.Block.Network.Types(MsgBlock (..), MsgSerializedBlock (..),
                      MsgStreamBlock (..))
 import           Pos.DB.Class (Serialized (..))
 

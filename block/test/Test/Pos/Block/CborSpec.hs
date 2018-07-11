@@ -9,7 +9,7 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
-import qualified Pos.Block.Network as Core
+import qualified Pos.Block.Network.Types as Block
 import qualified Pos.Block.Types as Block
 import qualified Pos.Core.Block as Core
 import           Pos.Core.Configuration (defaultCoreConfiguration,
@@ -17,7 +17,6 @@ import           Pos.Core.Configuration (defaultCoreConfiguration,
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Block.Arbitrary.Message ()
-import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 
@@ -68,9 +67,9 @@ spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
                     modifyMaxSuccess (min 50) $ do
                         binaryTest @Block.Undo
                 describe "Block network types" $ modifyMaxSuccess (min 10) $ do
-                    binaryTest @Core.MsgGetHeaders
-                    binaryTest @Core.MsgGetBlocks
-                    binaryTest @Core.MsgHeaders
-                    binaryTest @Core.MsgBlock
-                    binaryTest @Core.MsgStream
-                    binaryTest @Core.MsgStreamBlock
+                    binaryTest @Block.MsgGetHeaders
+                    binaryTest @Block.MsgGetBlocks
+                    binaryTest @Block.MsgHeaders
+                    binaryTest @Block.MsgBlock
+                    binaryTest @Block.MsgStream
+                    binaryTest @Block.MsgStreamBlock

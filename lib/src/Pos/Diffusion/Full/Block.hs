@@ -33,7 +33,7 @@ import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
+import           Pos.Block.Network.Types(MsgBlock (..), MsgGetBlocks (..),
                      MsgGetHeaders (..), MsgHeaders (..),
                      MsgSerializedBlock (..), MsgStream (..),
                      MsgStreamBlock (..), MsgStreamStart (..),

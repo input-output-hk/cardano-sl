@@ -25,7 +25,6 @@ library
                         Pos.Block.Slog
                         Pos.Block.Types
 
-                        Pos.Block.Network
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
                         Pos.Block.Network.Types

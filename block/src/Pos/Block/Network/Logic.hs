@@ -48,7 +48,6 @@ import           Pos.Exception (cardanoExceptionFromException,
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
-                     (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))

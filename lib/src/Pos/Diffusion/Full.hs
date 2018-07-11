@@ -32,7 +32,7 @@ import qualified System.Metrics as Monitoring
 
 import           System.Random (newStdGen)
 
-import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+import           Pos.Block.Network.Types(MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      InvOrDataTK, Listener, MkListeners (..), Msg,
@@ -265,7 +265,7 @@ diffusionLayerFullExposeInternals fdconf
             ]
 
         -- A single worker checkForReceivedBlocksWorker with
-        -- requestTipOuts from Pos.Block.Network.
+        -- requestTipOuts from Pos.Block.Network.Types
         securityWorkerOutSpecs = toOutSpecs
             [ convH (Proxy :: Proxy MsgGetHeaders)
                     (Proxy :: Proxy MsgHeaders)

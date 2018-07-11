@@ -9,7 +9,7 @@ import           Universum
 import           Data.Tagged (Tagged)
 import           Node.Message.Class (Message (..))
 
-import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+import           Pos.Block.Network.Types(MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Txp (TxMsgContents)

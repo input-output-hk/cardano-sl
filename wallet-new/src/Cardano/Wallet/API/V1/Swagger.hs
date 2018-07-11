@@ -280,6 +280,7 @@ You can create your first wallet using the [`POST /api/v1/wallets`](#tag/Wallets
 curl -X POST https://localhost:8090/api/v1/wallets \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
+  --cert ./scripts/tls-files/client.pem \
   --cacert ./scripts/tls-files/ca.crt \
   -d '{
   "operation": "create",
@@ -325,7 +326,8 @@ endpoint as follows:
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
      -H "Accept: application/json; charset=utf-8" \
-     --cacert ./scripts/tls-files/ca.crt
+     --cacert ./scripts/tls-files/ca.crt \
+     --cert ./scripts/tls-files/client.pem
 ```
 
 Receiving ADA
@@ -339,7 +341,8 @@ endpoint:
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&per_page=10 \
   -H "Accept: application/json; charset=utf-8" \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 Since you have, for now, only a single wallet, you'll see something like this:
@@ -364,6 +367,7 @@ curl -X POST https://localhost:8090/api/v1/transactions \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "destinations": [{
     "amount": 14,
@@ -390,6 +394,7 @@ endpoint as follows:
 curl -X GET https://localhost:8090/api/v1/transactions?wallet_id=Ae2tdPwUPE...8V3AVTnqGZ\
      -H "Accept: application/json; charset=utf-8" \
      --cacert ./scripts/tls-files/ca.crt \
+     --cert ./scripts/tls-files/client.pem
 ```
 
 Here we constrained the request to a specific account. After our previous transaction the output
@@ -544,6 +549,7 @@ curl -X POST https://localhost:8090/api/v1/transactions \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "destinations": [
     {
@@ -580,6 +586,7 @@ curl -X POST https://localhost:8090/api/v1/transactions/fees \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "destinations": [{
       "amount": 14,
@@ -615,6 +622,7 @@ curl -X POST \
   -H 'Content-Type: application/json;charset=utf-8' \
   -H 'Accept: application/json;charset=utf-8' \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "name": "MyOtherAccount",
   "spendingPassword": "5416b2988745725998907addf4613c9b0764f04959030e1b81c603b920a115d0"
@@ -637,7 +645,8 @@ For example:
 curl -X GET \
   https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/accounts/2902829384 \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 For a broader view, the full list of accounts of a given wallet can be retrieved using [`GET /api/v1/wallets/{{walletId}}/accounts`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts%2Fget)
@@ -645,7 +654,8 @@ For a broader view, the full list of accounts of a given wallet can be retrieved
 curl -X GET \
   https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/accounts \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 ```json
@@ -673,6 +683,7 @@ curl -X POST \
   -H 'Content-Type: application/json;charset=utf-8' \
   -H 'Accept: application/json;charset=utf-8' \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
 	"walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
 	"accountIndex": 2147483648
@@ -697,7 +708,8 @@ You can always view all your available addresses across all your wallets by usin
 ```
 curl -X GET https://localhost:8090/api/v1/addresses \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 ```json
@@ -714,7 +726,8 @@ rather verbose and gives real-time progress updates about the current node.
 ```
 curl -X GET https://localhost:8090/api/v1/node-info \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 ```json
@@ -746,14 +759,16 @@ ordered by descending date:
 ```
 curl -X GET https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ&account_index=2902829384&sort_by=DES\[created_at\]&per_page=50' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 For example, in order to retrieve the last 50 transactions, ordered by descending date:
 
 ```
 curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ &sort_by=DES\[created_at\]&per_page=50' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 
@@ -762,7 +777,8 @@ Another example, if you were to look for all transactions made since the 1st of 
 ```
 curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ&created_at=GT\[2018-01-01T00:00:00.00000\]' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully

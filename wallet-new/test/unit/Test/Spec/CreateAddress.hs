@@ -81,17 +81,17 @@ prepareFixtures = do
 withFixture :: MonadIO m
             => (Keystore.Keystore -> PassiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
 withFixture cc = do
-    keystore <- run (Keystore.newTestKeystore)
     generateFixtures <- prepareFixtures
-    liftIO $ WalletLayer.bracketKernelPassiveWallet devNull keystore $ \layer wallet -> do
-        fixtures <- generateFixtures wallet
-        cc keystore layer fixtures
+    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+        WalletLayer.bracketKernelPassiveWallet devNull keystore $ \layer wallet -> do
+            fixtures <- generateFixtures wallet
+            cc keystore layer fixtures
 
 spec :: Spec
 spec = describe "CreateAddress" $ do
     describe "Address creation (wallet layer)" $ do
 
-        prop "works as expected in the happy path scenario" $ withMaxSuccess 500 $
+        prop "works as expected in the happy path scenario" $ withMaxSuccess 200 $
             monadicIO $ do
                 withFixture $ \keystore layer Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
@@ -103,7 +103,7 @@ spec = describe "CreateAddress" $ do
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
     describe "Address creation (kernel)" $ do
-        prop "works as expected in the happy path scenario" $ withMaxSuccess 500 $
+        prop "works as expected in the happy path scenario" $ withMaxSuccess 200 $
             monadicIO $ do
                 withFixture @IO $ \keystore _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore

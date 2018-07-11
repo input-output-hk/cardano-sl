@@ -67,7 +67,7 @@ import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithTrace, newInitFuture)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (natTrace, noTrace)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import qualified Pos.Util.Trace.Named as TN
 
@@ -105,7 +105,7 @@ allocateNodeResources
        , HasDlgConfiguration
        , HasBlockConfiguration
        )
-    => TraceNamed Production
+    => TraceNamed IO
     -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
@@ -155,7 +155,7 @@ allocateNodeResources logTrace0 np@NodeParams {..} sscnp txpSettings initDB = do
         lift $ logDebug_ "Filled LRC Context future"
         dlgVar <- mkDelegationVar
         lift $ logDebug_ "Created DLG var"
-        sscState <- mkSscState (natTrace (lift . ask) logTrace)  -- TODO  we need the real 'logTrace' here!
+        sscState <- mkSscState (natTrace (lift . ask) logTraceP)  -- TODO  we need the real 'logTrace' here!
         lift $ logDebug_ "Created SSC var"
         jsonLogHandle <-
             case npJLFile of
@@ -182,8 +182,9 @@ allocateNodeResources logTrace0 np@NodeParams {..} sscnp txpSettings initDB = do
             }
     where
       logTrace = appendName "allocateNodeResources" logTrace0
-      logDebug_ msg = TN.logDebug logTrace msg
-      logInfo_ msg = TN.logInfo logTrace msg
+      logTraceP = natTrace liftIO logTrace
+      logDebug_ msg = TN.logDebug logTraceP msg
+      logInfo_ msg = TN.logInfo logTraceP msg
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
@@ -207,7 +208,7 @@ bracketNodeResources :: forall ext a.
       , HasDlgConfiguration
       , HasBlockConfiguration
       )
-    => TraceNamed Production
+    => TraceNamed IO
     -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
@@ -216,13 +217,14 @@ bracketNodeResources :: forall ext a.
     -> Production a
 bracketNodeResources logTrace np sp txp initDB action = do
     let msg = "`NodeResources'"
-    bracketWithTrace logTrace msg
+    let logTraceP = natTrace liftIO logTrace
+    bracketWithTrace logTraceP msg
             (allocateNodeResources logTrace np sp txp initDB)
-            releaseNodeResources $ \nodeRes ->do
+            releaseNodeResources $ \nodeRes -> do
         -- Notify systemd we are fully operative
         -- FIXME this is not the place to notify.
         -- The network transport is not up yet.
-        notifyReady logTrace
+        notifyReady logTraceP
         action nodeRes
 
 ----------------------------------------------------------------------------
@@ -271,7 +273,7 @@ allocateNodeContext
       , HasNodeConfiguration
       , HasBlockConfiguration
       )
-    => TraceNamed Production
+    => TraceNamed IO
     -> AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> Metrics.Store
@@ -289,7 +291,7 @@ allocateNodeContext logTrace0 ancd txpSettings ekgStore = do
     logDebug_ "Got logger config"
     ncStateLock <- newStateLock =<< GS.getTip
     logDebug_ "Created a StateLock"
-    ncStateLockMetrics <- liftIO $ recordTxpMetrics noTrace store txpMemPool
+    ncStateLockMetrics <- liftIO $ recordTxpMetrics logTrace store txpMemPool
     logDebug_ "Created StateLock metrics"
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     logDebug_ "Created LRC sync"
@@ -343,8 +345,9 @@ allocateNodeContext logTrace0 ancd txpSettings ekgStore = do
     return ctx
       where
         logTrace = appendName "allocateNodeContext" logTrace0
-        logInfo_ m = lift $ TN.logInfo logTrace m
-        logDebug_ m = lift $ TN.logDebug logTrace m
+        logTraceP = natTrace liftIO logTrace
+        logInfo_ m = lift $ TN.logInfo logTraceP m
+        logDebug_ m = lift $ TN.logDebug logTraceP m
 
 releaseNodeContext :: forall m . MonadIO m => NodeContext -> m ()
 releaseNodeContext _ = return ()

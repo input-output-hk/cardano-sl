@@ -42,13 +42,14 @@ actionWithoutWallet
        , HasCompileInfo
        )
     => Log.LoggingHandler
-    -> TraceNamed Production
+    -> TraceNamed IO
     -> ProtocolMagic
     -> SscParams
     -> NodeParams
     -> Production ()
 actionWithoutWallet lh logTrace pm sscParams nodeParams =
-    runNodeReal lh pm nodeParams sscParams [updateTriggerWorker (natTrace lift logTrace)]
+    runNodeReal lh logTrace pm nodeParams sscParams
+        [updateTriggerWorker (natTrace (lift . liftIO) logTrace)]
 
 action
     :: ( HasConfigurations
@@ -62,14 +63,13 @@ action
     -> Production ()
 action lh logTrace (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
     CLI.printInfoOnStart cArgs ntpConfig
-    let logTrace' = natTrace liftIO logTrace
-    logInfo logTrace' "Wallet is disabled, because software is built w/o it"
+    liftIO $ logInfo logTrace "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet lh logTrace' pm sscParams currentParams
+    actionWithoutWallet lh logTrace pm sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do

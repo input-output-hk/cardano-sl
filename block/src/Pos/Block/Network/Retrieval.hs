@@ -38,7 +38,6 @@ import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (getBlocks, streamBlocks))
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportOrLogE,
                      reportOrLogW)
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logInfo,
                      logWarning)
 import           Pos.Util.Util (HasLens (..))
@@ -140,7 +139,7 @@ retrievalWorker logTrace pm diffusion = do
     -- Squelch the exception and continue. Used with 'handleAny' from
     -- safe-exceptions so it will let async exceptions pass.
     handleRetrievalE nodeId cHeader e = do
-        reportOrLogW noTrace (sformat
+        reportOrLogW logTrace (sformat
             ("handleRetrievalE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash cHeader)) e
 
@@ -154,7 +153,7 @@ retrievalWorker logTrace pm diffusion = do
     -- again.
     handleRecoveryE nodeId rHeader e = do
         -- REPORT:ERROR 'reportOrLogW' in block retrieval worker/recovery.
-        reportOrLogW noTrace (sformat
+        reportOrLogW logTrace (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash rHeader)) e
         dropRecoveryHeaderAndRepeat logTrace pm diffusion nodeId

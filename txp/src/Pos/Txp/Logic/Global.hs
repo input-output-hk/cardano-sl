@@ -22,7 +22,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic,
+import           Pos.Core (CoreConfiguration, GenesisData, ProtocolMagic,
                      epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -52,25 +52,29 @@ import qualified Pos.Util.Modifier as MM
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
-txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpGlobalSettings
-txpGlobalSettings pm =
+txpGlobalSettings
+  :: CoreConfiguration -> GenesisData -> ProtocolMagic -> TxpGlobalSettings
+txpGlobalSettings cc gd pm =
     TxpGlobalSettings
-    { tgsVerifyBlocks = verifyBlocks pm
-    , tgsApplyBlocks = applyBlocksWith pm (processBlundsSettings False applyToil)
-    , tgsRollbackBlocks = rollbackBlocks
+    { tgsVerifyBlocks = verifyBlocks cc pm
+    , tgsApplyBlocks =
+        applyBlocksWith cc pm (processBlundsSettings False (applyToil gd))
+    , tgsRollbackBlocks = rollbackBlocks cc gd
     }
 
 ----------------------------------------------------------------------------
 -- Verify
 ----------------------------------------------------------------------------
 
-verifyBlocks ::
-       forall m. (TxpGlobalVerifyMode m)
-    => ProtocolMagic
+verifyBlocks
+    :: forall m
+    .  TxpGlobalVerifyMode m
+    => CoreConfiguration
+    -> ProtocolMagic
     -> Bool
     -> OldestFirst NE TxpBlock
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
-verifyBlocks pm verifyAllIsKnown newChain = runExceptT $ do
+verifyBlocks cc pm verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
     let verifyPure :: [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
         verifyPure = runExceptT
@@ -80,7 +84,7 @@ verifyBlocks pm verifyAllIsKnown newChain = runExceptT $ do
             -> TxpBlock
             -> ExceptT ToilVerFailure m (UtxoModifier, [TxpUndo])
         foldStep (modifier, undos) (convertPayload -> txAuxes) = do
-            baseUtxo <- utxoToLookup <$> buildUtxo modifier txAuxes
+            baseUtxo <- utxoToLookup <$> buildUtxo cc modifier txAuxes
             case runUtxoM modifier baseUtxo (verifyPure txAuxes) of
                 (Left err, _) -> throwError err
                 (Right txpUndo, newModifier) ->
@@ -114,15 +118,15 @@ data ProcessBlundsSettings extraEnv extraState m = ProcessBlundsSettings
     -- should turn known outputs of transactions into 'Utxo'.
     }
 
-processBlunds ::
-       forall extraEnv extraState m. (TxpCommonMode m, Default extraState)
-    => ProcessBlundsSettings extraEnv extraState m
+processBlunds
+    :: forall extraEnv extraState m
+    .  (TxpCommonMode m, Default extraState)
+    => CoreConfiguration
+    -> ProcessBlundsSettings extraEnv extraState m
     -> NE TxpBlund
     -> m SomeBatchOp
-processBlunds ProcessBlundsSettings {..} blunds = do
-    let toBatchOp (gts, extra) =
-            globalToilStateToBatch gts <> pbsExtraOperations extra
-    totalStake <- DB.getRealTotalStake -- doesn't change
+processBlunds cc pbs blunds = do
+    totalStake <- DB.getRealTotalStake cc -- doesn't change
     -- Note: base utxo also doesn't change, but we build it on each
     -- step (for different sets of transactions), because
     -- 'UtxoModifier' may accumulate some data and it may be more
@@ -133,29 +137,29 @@ processBlunds ProcessBlundsSettings {..} blunds = do
     -- us to construct base utxo here.
     let buildBaseUtxo :: UtxoModifier -> [TxAux] -> m Utxo
         buildBaseUtxo
-            | pbsIsRollback = buildUtxoForRollback
-            | otherwise = buildUtxo
+            | pbsIsRollback pbs = buildUtxoForRollback cc
+            | otherwise = buildUtxo cc
 
-    let step ::
-               (GlobalToilState, extraState)
-            -> TxpBlund
-            -> m (GlobalToilState, extraState)
+    let step :: (GlobalToilState, extraState)
+             -> TxpBlund
+             -> m (GlobalToilState, extraState)
         step st txpBlund = do
-            processSingle <- pbsProcessSingle txpBlund
+            processSingle <- pbsProcessSingle pbs txpBlund
             let txAuxesAndUndos = blundToAuxNUndo txpBlund
                 txAuxes = fst <$> txAuxesAndUndos
             baseUtxo <- buildBaseUtxo (st ^. _1 . gtsUtxoModifier) txAuxes
-            extraEnv <- pbsCreateEnv baseUtxo txAuxes
+            extraEnv <- pbsCreateEnv pbs baseUtxo txAuxes
             let gte =
                     GlobalToilEnv
                         { _gteUtxo = utxoToLookup baseUtxo
                         , _gteTotalStake = totalStake
                         }
             let env = (gte, extraEnv)
-            runGlobalToilMBase DB.getRealStake . flip execStateT st .
-                usingReaderT env $
-                processSingle
-    toBatchOp <$> foldM step (defGlobalToilState, def) blunds
+            runGlobalToilMBase (DB.getRealStake cc)
+                               (execStateT (usingReaderT env processSingle) st)
+    fmap (\(gts, extra) ->
+              globalToilStateToBatch gts <> pbsExtraOperations pbs extra)
+         (foldM step (defGlobalToilState, def) blunds)
 
 ----------------------------------------------------------------------------
 -- Apply and rollback
@@ -164,18 +168,19 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
-    => ProtocolMagic
+    => CoreConfiguration
+    -> ProtocolMagic
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith pm settings blunds = do
+applyBlocksWith cc pm settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- verifyBlocks pm False blocks
+        verdict <- verifyBlocks cc pm False blocks
         whenLeft verdict $
             assertionFailed .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
-    processBlunds settings (getOldestFirst blunds)
+    processBlunds cc settings (getOldestFirst blunds)
 
 processBlundsSettings ::
        forall m. Monad m
@@ -193,26 +198,29 @@ processBlundsSettings isRollback pureAction =
     processSingle :: TxpBlund -> ExtendedGlobalToilM () () ()
     processSingle = zoom _1 . magnify _1 . pureAction . blundToAuxNUndo
 
-rollbackBlocks ::
-       forall m. (TxpGlobalRollbackMode m)
-    => NewestFirst NE TxpBlund
+rollbackBlocks
+    ::  forall m
+    .  TxpGlobalRollbackMode m
+    => CoreConfiguration
+    -> GenesisData
+    -> NewestFirst NE TxpBlund
     -> m SomeBatchOp
-rollbackBlocks (NewestFirst blunds) =
-    processBlunds (processBlundsSettings True rollbackToil) blunds
+rollbackBlocks cc gd (NewestFirst blunds) =
+    processBlunds cc (processBlundsSettings True (rollbackToil gd)) blunds
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 -- | Convert 'GlobalToilState' to batch of database operations.
-globalToilStateToBatch :: HasCoreConfiguration => GlobalToilState -> SomeBatchOp
-globalToilStateToBatch GlobalToilState {..} =
+globalToilStateToBatch :: GlobalToilState -> SomeBatchOp
+globalToilStateToBatch gts =
     SomeBatchOp [SomeBatchOp utxoOps, SomeBatchOp stakesOps]
   where
-    StakesView (HM.toList -> stakes) total = _gtsStakesView
+    StakesView (HM.toList -> stakes) total = _gtsStakesView gts
     utxoOps =
-        map DB.DelTxIn (MM.deletions _gtsUtxoModifier) ++
-        map (uncurry DB.AddTxOut) (MM.insertions _gtsUtxoModifier)
+        map DB.DelTxIn (MM.deletions (_gtsUtxoModifier gts)) ++
+        map (uncurry DB.AddTxOut) (MM.insertions (_gtsUtxoModifier gts))
     stakesOps = addTotalStakeOp $ map (uncurry DB.PutFtsStake) stakes
     addTotalStakeOp =
         case total of

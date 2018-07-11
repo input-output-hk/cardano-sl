@@ -16,7 +16,7 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug)
 
-import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin,
+import           Pos.Core (GenesisData, StakesList, coinToInteger, mkCoin,
                      sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Txp.Base (txOutStake)
@@ -24,15 +24,15 @@ import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
                      setStake, setTotalStake)
 
 -- | Apply transactions to stakes.
-applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
-applyTxsToStakes txun = do
-    let (txOutPlus, txInMinus) = concatStakes txun
+applyTxsToStakes :: GenesisData -> [(TxAux, TxUndo)] -> GlobalToilM ()
+applyTxsToStakes gd txun = do
+    let (txOutPlus, txInMinus) = concatStakes gd txun
     recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to stakes.
-rollbackTxsStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
-rollbackTxsStakes txun = do
-    let (txOutMinus, txInPlus) = concatStakes txun
+rollbackTxsStakes :: GenesisData -> [(TxAux, TxUndo)] -> GlobalToilM ()
+rollbackTxsStakes gd txun = do
+    let (txOutMinus, txInPlus) = concatStakes gd txun
     recomputeStakes txInPlus txOutMinus
 
 ----------------------------------------------------------------------------
@@ -85,11 +85,11 @@ recomputeStakes plusDistr minusDistr = do
         err = error ("recomputeStakes: no stake for " <> show key)
 
 -- Concatenate stakes of the all passed transactions and undos.
-concatStakes :: HasGenesisData => [(TxAux, TxUndo)] -> (StakesList, StakesList)
-concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
+concatStakes :: GenesisData -> [(TxAux, TxUndo)] -> (StakesList, StakesList)
+concatStakes gd (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     onlyKnownUndos = catMaybes . toList
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap (txOutStake . toaOut) (foldMap onlyKnownUndos undo)
+    undoTxInDistr = concatMap (txOutStake gd . toaOut) (foldMap onlyKnownUndos undo)
     concatDistr (TxAux UnsafeTx {..} _) =
-        concatMap (txOutStake . toaOut) $ toList (map TxOutAux _txOutputs)
+        concatMap (txOutStake gd . toaOut) $ toList (map TxOutAux _txOutputs)

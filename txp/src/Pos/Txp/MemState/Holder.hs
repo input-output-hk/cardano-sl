@@ -11,6 +11,7 @@ import           Universum
 
 import           Data.Default (Default (def))
 
+import           Pos.Core (CoreConfiguration)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
@@ -21,9 +22,10 @@ import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
 
 mkTxpLocalData
     :: (Default e, MonadIO m, MonadDBRead m)
-    => m (GenericTxpLocalData e)
-mkTxpLocalData = do
-    initTip <- getTip
-    TxpLocalData <$> newTVarIO mempty <*> newTVarIO def <*> newTVarIO mempty <*>
-        newTVarIO initTip <*>
-        newTVarIO def
+    => CoreConfiguration
+    -> m (GenericTxpLocalData e)
+mkTxpLocalData cc = do
+    initTip <- getTip cc
+    TxpLocalData
+        <$> newTVarIO mempty <*> newTVarIO def <*> newTVarIO mempty
+        <*> newTVarIO initTip <*> newTVarIO def

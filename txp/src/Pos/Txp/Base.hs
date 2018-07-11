@@ -18,10 +18,10 @@ import           Data.List (zipWith)
 import qualified Data.Map.Strict as M
 
 import           Pos.Core (AddrStakeDistribution (..), Address (..), Coin,
-                     CoinPortion, GenesisData (..), HasGenesisData,
+                     CoinPortion, GenesisData (..),
                      StakeholderId, StakesList, aaStakeDistribution,
                      addrAttributesUnwrapped, applyCoinPortionDown,
-                     coinToInteger, genesisData, mkCoin, sumCoins,
+                     coinToInteger, mkCoin, sumCoins,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Core.Txp (TxAux (..), TxOut (..), TxOutAux (..),
@@ -41,10 +41,10 @@ TxOutAux {..} `addrBelongsToSet` addrs = txOutAddress toaOut `HS.member` addrs
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: HasGenesisData => TxOut -> StakesList
-txOutStake TxOut {..} =
+txOutStake :: GenesisData -> TxOut -> StakesList
+txOutStake gd TxOut {..} =
     case aaStakeDistribution (addrAttributesUnwrapped txOutAddress) of
-        BootstrapEraDistr            -> bootstrapEraDistr txOutValue
+        BootstrapEraDistr            -> bootstrapEraDistr gd txOutValue
         SingleKeyDistr sId           -> [(sId, txOutValue)]
         UnsafeMultiKeyDistr distrMap -> computeMultiKeyDistr (M.toList distrMap)
   where
@@ -80,14 +80,14 @@ emptyTxPayload = mkTxPayload []
 
 -- | If output has less coins than this value, 'BootstrapEraDistr'
 -- will use custom algorithm.
-bootDustThreshold :: HasGenesisData => Coin
-bootDustThreshold =
+bootDustThreshold :: GenesisData -> Coin
+bootDustThreshold gd =
     -- it's safe to use it here because weights are word16 and should
     -- be really low in production, so this sum is not going to be
     -- even more than 10-15 coins.
     unsafeIntegerToCoin . sum $ map fromIntegral $ toList bootHolders
   where
-    GenesisWStakeholders bootHolders = gdBootStakeholders genesisData
+    GenesisWStakeholders bootHolders = gdBootStakeholders gd
 
 -- Compute bootstrap era distribution.
 --
@@ -99,14 +99,14 @@ bootDustThreshold =
 -- If coin is lower than 'bootDustThreshold' then this function
 -- distributes coins among first stakeholders in the list according to
 -- their weights. The list is ordered by 'StakeholderId's.
-bootstrapEraDistr :: HasGenesisData => Coin -> [(StakeholderId, Coin)]
-bootstrapEraDistr c
-    | c < bootDustThreshold =
+bootstrapEraDistr :: GenesisData -> Coin -> [(StakeholderId, Coin)]
+bootstrapEraDistr gd c
+    | c < bootDustThreshold gd =
           snd $ foldr foldrFunc (0::Word64,[]) (M.toList bootWHolders)
     | otherwise =
           bootHolders `zip` stakeCoins
   where
-    GenesisWStakeholders bootWHolders = gdBootStakeholders genesisData
+    GenesisWStakeholders bootWHolders = gdBootStakeholders gd
     foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
         EQ -> r
         GT -> error "bootstrapEraDistr: totalSum > cval can't happen"

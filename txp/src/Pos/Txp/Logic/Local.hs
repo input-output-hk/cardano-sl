@@ -30,7 +30,7 @@ import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
                      logDebug, logError, logWarning)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash,
-                     ProtocolMagic, siEpoch)
+                     ProtocolMagic, CoreConfiguration, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
@@ -65,43 +65,47 @@ type TxpProcessTransactionMode ctx m =
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: ( TxpProcessTransactionMode ctx m)
-    => ProtocolMagic -> (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction pm itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock pm itw
+    :: TxpProcessTransactionMode ctx m
+    => CoreConfiguration
+    -> ProtocolMagic
+    -> (TxId, TxAux)
+    -> m (Either ToilVerFailure ())
+txProcessTransaction cc pm itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip ->
+       txProcessTransactionNoLock cc pm itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
 txProcessTransactionNoLock
-    :: forall ctx m.
-       ( TxpLocalWorkMode ctx m
-       , MempoolExt m ~ ()
-       )
-    => ProtocolMagic
+    :: forall ctx m
+    .  (TxpLocalWorkMode ctx m, MempoolExt m ~ ())
+    => CoreConfiguration
+    -> ProtocolMagic
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock pm =
-    txProcessTransactionAbstract buildContext processTxHoisted
+txProcessTransactionNoLock cc pm =
+    txProcessTransactionAbstract cc buildContext processTxHoisted
   where
     buildContext :: Utxo -> TxAux -> m ()
     buildContext _ _ = pure ()
 
-    processTxHoisted ::
-           BlockVersionData
+    processTxHoisted
+        :: BlockVersionData
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
     processTxHoisted bvd =
         mapExceptT extendLocalToilM ... (processTx pm bvd (tcAssetLockedSrcAddrs given))
 
-txProcessTransactionAbstract ::
-       forall extraEnv extraState ctx m a.
-       (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
-    => (Utxo -> TxAux -> m extraEnv)
+txProcessTransactionAbstract
+    ::  forall extraEnv extraState ctx m a
+    .  (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
+    => CoreConfiguration
+    -> (Utxo -> TxAux -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> (TxId, TxAux) -> ExceptT ToilVerFailure (ExtendedLocalToilM extraEnv extraState) a)
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+txProcessTransactionAbstract cc buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
     -- valid only with respect to the tip stored there. Normally tips
@@ -116,10 +120,10 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
     -- Also note that we don't need to use a snapshot here and can be
     -- sure that GState won't change, because changing it requires
     -- 'StateLock' which we own inside this function.
-    tipDB <- lift GS.getTip
+    tipDB <- lift (GS.getTip cc)
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     utxoModifier <- withTxpLocalData getUtxoModifier
-    utxo <- buildUtxo utxoModifier [txAux]
+    utxo <- buildUtxo cc utxoModifier [txAux]
     extraEnv <- lift $ buildEnv utxo txAux
     bvd <- gsAdoptedBVData
     let env = (utxoToLookup utxo, extraEnv)
@@ -176,43 +180,43 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: forall ctx m.
-       ( TxpLocalWorkMode ctx m
-       , MempoolExt m ~ ()
-       )
-    => ProtocolMagic -> m ()
-txNormalize =
-    txNormalizeAbstract buildContext . normalizeToilHoisted
+    :: forall ctx m
+    .  (TxpLocalWorkMode ctx m, MempoolExt m ~ ())
+    => CoreConfiguration
+    -> ProtocolMagic
+    -> m ()
+txNormalize cc pm =
+    txNormalizeAbstract cc buildContext normalizeToilHoisted
   where
     buildContext :: Utxo -> [TxAux] -> m ()
     buildContext _ _ = pure ()
 
-    normalizeToilHoisted ::
-           ProtocolMagic
-        -> BlockVersionData
+    normalizeToilHoisted
+        :: BlockVersionData
         -> EpochIndex
         -> HashMap TxId TxAux
         -> ExtendedLocalToilM () () ()
-    normalizeToilHoisted pm bvd epoch txs =
+    normalizeToilHoisted bvd epoch txs =
         extendLocalToilM $
             normalizeToil pm bvd (tcAssetLockedSrcAddrs txpConfiguration) epoch $ HM.toList txs
 
-txNormalizeAbstract ::
-       (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
-    => (Utxo -> [TxAux] -> m extraEnv)
+txNormalizeAbstract
+    :: (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
+    => CoreConfiguration
+    -> (Utxo -> [TxAux] -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> HashMap TxId TxAux -> ExtendedLocalToilM extraEnv extraState ())
     -> m ()
-txNormalizeAbstract buildEnv normalizeAction =
+txNormalizeAbstract cc buildEnv normalizeAction =
     getCurrentSlot >>= \case
         Nothing -> do
-            tip <- GS.getTip
+            tip <- GS.getTip cc
             -- Clear and update tip
             withTxpLocalData $ flip setTxpLocalData (mempty, def, mempty, tip, def)
         Just (siEpoch -> epoch) -> do
-            globalTip <- GS.getTip
+            globalTip <- GS.getTip cc
             localTxs <- withTxpLocalData getLocalTxsMap
             let txAuxes = toList localTxs
-            utxo <- buildUtxo mempty txAuxes
+            utxo <- buildUtxo cc mempty txAuxes
             extraEnv <- buildEnv utxo txAuxes
             bvd <- gsAdoptedBVData
             let initialState =

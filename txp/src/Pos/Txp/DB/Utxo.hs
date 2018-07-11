@@ -42,8 +42,8 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF, mkCoin,
-                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core (Address, Coin, CoreConfiguration, GenesisData, coinF,
+                     mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      IterType, MonadDB, MonadDBRead, RocksBatchOp (..),
@@ -56,8 +56,8 @@ import           Pos.Txp.Toil.Types (GenesisUtxo (..), Utxo)
 -- Getters
 ----------------------------------------------------------------------------
 
-getTxOut :: MonadDBRead m => TxIn -> m (Maybe TxOutAux)
-getTxOut = gsGetBi . txInKey
+getTxOut :: MonadDBRead m => CoreConfiguration -> TxIn -> m (Maybe TxOutAux)
+getTxOut cc = gsGetBi cc . txInKey
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -74,19 +74,19 @@ instance Buildable UtxoOp where
         bprint ("AddTxOut ("%build%", "%build%")")
         txIn txOutAux
 
-instance HasCoreConfiguration => RocksBatchOp UtxoOp where
-    toBatchOp (AddTxOut txIn txOut) =
-        [Rocks.Put (txInKey txIn) (dbSerializeValue txOut)]
-    toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
+instance RocksBatchOp UtxoOp where
+    toBatchOp cc (AddTxOut txIn txOut) =
+        [Rocks.Put (txInKey txIn) (dbSerializeValue cc txOut)]
+    toBatchOp _ (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
 -- | Initializes utxo db.
-initGStateUtxo :: (MonadDB m) => GenesisUtxo -> m ()
-initGStateUtxo (GenesisUtxo genesisUtxo) =
-    writeBatchGState $ concatMap createBatchOp utxoList
+initGStateUtxo :: MonadDB m => CoreConfiguration -> GenesisUtxo -> m ()
+initGStateUtxo cc (GenesisUtxo genesisUtxo) =
+    writeBatchGState cc $ concatMap createBatchOp utxoList
   where
     utxoList = M.toList genesisUtxo
     createBatchOp (txin, txout) = [AddTxOut txin txout]
@@ -134,10 +134,10 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 
 sanityCheckUtxo
     :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
-    => Coin -> m ()
-sanityCheckUtxo expectedTotalStake = do
+    => GenesisData -> Coin -> m ()
+sanityCheckUtxo gd expectedTotalStake = do
     let stakesSource =
-            mapOutput (map snd . txOutStake . toaOut . snd) utxoSource
+            mapOutput (map snd . txOutStake gd . toaOut . snd) utxoSource
     calculatedTotalStake <-
         runConduitRes $ stakesSource .| CL.fold foldAdd (mkCoin 0)
     let fmt =

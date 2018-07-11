@@ -15,7 +15,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as M
 
-import           Pos.Core (Address, Coin, HasGenesisData, StakesMap, sumCoins,
+import           Pos.Core (Address, Coin, GenesisData, StakesMap, sumCoins,
                      unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Txp (TxOut (txOutValue), TxOutAux (..), _TxOut)
 import           Pos.Txp.Base (addrBelongsTo, addrBelongsToSet, txOutStake)
@@ -38,11 +38,11 @@ getTotalCoinsInUtxo =
     map (txOutValue . toaOut) . toList
 
 -- | Convert 'Utxo' to 'StakesMap'.
-utxoToStakes :: HasGenesisData => Utxo -> StakesMap
-utxoToStakes = foldl' putDistr mempty . M.toList
+utxoToStakes :: GenesisData -> Utxo -> StakesMap
+utxoToStakes gd = foldl' putDistr mempty . M.toList
   where
     plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake txOut)
+    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake gd txOut)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
 utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts

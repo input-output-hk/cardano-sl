@@ -20,14 +20,12 @@ import           Pos.Crypto (unsafeHash)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoToStakes)
 
 
-genesisStakes :: HasGenesisData => StakesMap
-genesisStakes = utxoToStakes . unGenesisUtxo $ genesisUtxo
+genesisStakes :: GenesisData -> StakesMap
+genesisStakes gd = utxoToStakes gd (unGenesisUtxo (genesisUtxo gd))
 
-genesisUtxo :: HasGenesisData => GenesisUtxo
-genesisUtxo =
-    let GenesisData{ gdNonAvvmBalances
-                   , gdAvvmDistr
-                   } = genesisData
+genesisUtxo :: GenesisData -> GenesisUtxo
+genesisUtxo gd =
+    let GenesisData{ gdNonAvvmBalances , gdAvvmDistr } = gd
 
         preUtxo :: [(Address, Coin)]
         preUtxo = (first makeRedeemAddress <$> HM.toList (getGenesisAvvmBalances gdAvvmDistr))
@@ -38,5 +36,4 @@ genesisUtxo =
                  ( TxInUtxo (unsafeHash addr) 0
                  , TxOutAux (TxOut addr coin)
                  )
-
-     in GenesisUtxo . Map.fromList $ utxoEntry <$> preUtxo
+     in GenesisUtxo (Map.fromList (utxoEntry <$> preUtxo))

@@ -9,6 +9,7 @@ import           Universum
 
 import qualified Data.Map as M (fromList)
 
+import           Pos.Core (CoreConfiguration)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOutAux)
 import           Pos.Crypto (hash)
 import           Pos.DB.Class (MonadDBRead)
@@ -20,12 +21,14 @@ import qualified Pos.Util.Modifier as MM
 -- 'UtxoModifier' (can be 'mempty'). 'Utxo' is built by resolving
 -- inputs of all transactions to corresponding 'TxOutAux'es using data
 -- from the DB.
-buildUtxo ::
-       forall m. (MonadDBRead m)
-    => UtxoModifier
+buildUtxo
+    :: forall m
+    .  MonadDBRead m
+    => CoreConfiguration
+    -> UtxoModifier
     -> [TxAux]
     -> m Utxo
-buildUtxo = buildUtxoGeneric (toList . _txInputs)
+buildUtxo cc = buildUtxoGeneric cc (toList . _txInputs)
 
 -- | Build base 'Utxo' to rollback given transactions considering
 -- given 'UtxoModifier'. 'Utxo' is built by resolving inputs build
@@ -45,10 +48,11 @@ buildUtxo = buildUtxoGeneric (toList . _txInputs)
 -- rare).
 buildUtxoForRollback ::
        forall m. (MonadDBRead m)
-    => UtxoModifier
+    => CoreConfiguration
+    -> UtxoModifier
     -> [TxAux]
     -> m Utxo
-buildUtxoForRollback = buildUtxoGeneric toTxIns
+buildUtxoForRollback cc = buildUtxoGeneric cc toTxIns
   where
     toTxIns :: Tx -> [TxIn]
     toTxIns tx =
@@ -56,19 +60,21 @@ buildUtxoForRollback = buildUtxoGeneric toTxIns
         in map (\i -> TxInUtxo txId i)
            [0 .. fromIntegral (length (_txOutputs tx)) - 1]
 
-buildUtxoGeneric ::
-       forall m. (MonadDBRead m)
-    => (Tx -> [TxIn])
+buildUtxoGeneric
+    :: forall m
+    .  MonadDBRead m
+    => CoreConfiguration
+    -> (Tx -> [TxIn])
     -> UtxoModifier
     -> [TxAux]
     -> m Utxo
-buildUtxoGeneric toInputs utxoModifier txs = concatMapM buildForOne txs
+buildUtxoGeneric cc toInputs utxoModifier txs = concatMapM buildForOne txs
   where
     buildForOne :: TxAux -> m Utxo
     buildForOne txAux = do
         let tx = taTx txAux
         let utxoLookupM :: TxIn -> m (Maybe (TxIn, TxOutAux))
             utxoLookupM txIn =
-                fmap (txIn, ) <$> MM.lookupM DB.getTxOut txIn utxoModifier
+                fmap (txIn, ) <$> MM.lookupM (DB.getTxOut cc) txIn utxoModifier
         resolvedPairs <- mapM utxoLookupM (toInputs tx)
         return $ M.fromList $ catMaybes $ toList resolvedPairs

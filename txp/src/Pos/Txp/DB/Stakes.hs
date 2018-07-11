@@ -34,8 +34,8 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Coin, HasCoreConfiguration, StakeholderId, StakesMap,
-                     coinF, mkCoin, sumCoins, unsafeAddCoin,
+import           Pos.Core (Coin, CoreConfiguration, StakeholderId, StakesMap,
+                     coinF, mkCoin, sumCoins, unsafeAddCoin, GenesisData,
                      unsafeIntegerToCoin)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB,
@@ -61,28 +61,29 @@ instance Buildable StakesOp where
     build (PutFtsStake ad c) =
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
-instance HasCoreConfiguration => RocksBatchOp StakesOp where
-    toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (dbSerializeValue c)]
-    toBatchOp (PutFtsStake ad c) =
+instance RocksBatchOp StakesOp where
+    toBatchOp cc (PutTotalStake c) =
+        [Rocks.Put ftsSumKey (dbSerializeValue cc c)]
+    toBatchOp cc (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (dbSerializeValue c)]
+        else [Rocks.Put (ftsStakeKey ad) (dbSerializeValue cc c)]
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateStakes :: MonadDB m => GenesisUtxo -> m ()
-initGStateStakes (GenesisUtxo genesisUtxo) = do
+initGStateStakes :: MonadDB m => CoreConfiguration -> GenesisData -> GenesisUtxo -> m ()
+initGStateStakes cc gd (GenesisUtxo genesisUtxo_) = do
     putFtsStakes
     putGenesisTotalStake
   where
-    putTotalFtsStake = gsPutBi ftsSumKey
-    genesisStakes = utxoToStakes genesisUtxo
-    totalCoins = sumCoins genesisStakes
+    putTotalFtsStake = gsPutBi cc ftsSumKey
+    genesisStakes_ = utxoToStakes gd genesisUtxo_
+    totalCoins = sumCoins genesisStakes_
     -- Will 'error' if the result doesn't fit into 'Coin' (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
-    putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ genesisStakes
+    putFtsStakes = mapM_ (uncurry (putFtsStake cc)) (HM.toList genesisStakes_)
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -109,13 +110,13 @@ getAllPotentiallyHugeStakesMap =
 
 sanityCheckStakes
     :: (MonadDBRead m, MonadUnliftIO m, WithLogger m)
-    => m ()
-sanityCheckStakes = do
+    => CoreConfiguration -> m ()
+sanityCheckStakes cc = do
     calculatedTotalStake <- runConduitRes $
         mapOutput snd stakeSource .|
         CL.fold unsafeAddCoin (mkCoin 0)
 
-    totalStake <- getRealTotalStake
+    totalStake <- getRealTotalStake cc
     let fmt = ("Wrong real total stake: \
               \sum of real stakes: "%coinF%
               ", but getRealTotalStake returned: "%coinF)
@@ -128,5 +129,5 @@ sanityCheckStakes = do
 -- Details
 ----------------------------------------------------------------------------
 
-putFtsStake :: MonadDB m => StakeholderId -> Coin -> m ()
-putFtsStake = gsPutBi . ftsStakeKey
+putFtsStake :: MonadDB m => CoreConfiguration -> StakeholderId -> Coin -> m ()
+putFtsStake cc = gsPutBi cc . ftsStakeKey

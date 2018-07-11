@@ -1,15 +1,15 @@
 steps:
   - label: 'stack2nix'
-    command: 'scripts/ci/nix-shell.sh -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run scripts/check-stack2nix.sh'
+    command: 'nix-shell -Q -j 4 --run scripts/check-stack2nix.sh'
     agents:
       system: x86_64-linux
 
   - label: 'release.nix'
-    command: 'scripts/ci/nix-shell.sh --run scripts/ci/check-hydra.sh'
+    command: 'nix-shell --run scripts/ci/check-hydra.sh'
     agents:
       system: x86_64-linux
 
   - label: 'explorer frontend: checking generated dependencies'
-    command: 'scripts/ci/nix-shell.sh --run "cd explorer/frontend && ./nix/generate-frontend-deps.hs --test"'
+    command: "cd explorer/frontend && ./nix/generate-frontend-deps.hs --test"
     agents:
       system: x86_64-linux

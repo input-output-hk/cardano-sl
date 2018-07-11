@@ -21,19 +21,13 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..))
 
-import           Pos.Arbitrary.Infra ()
-import           Pos.Arbitrary.Slotting ()
-import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Ssc ()
-import qualified Pos.Block.Network as BT
-import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
 import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
-import qualified Pos.Core.Block as BT
 import qualified Pos.Core.Ssc as Ssc
+import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Binary ()
@@ -50,13 +44,14 @@ import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
-import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Block.Arbitrary.Message ()
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary ()
-import           Test.Pos.Txp.Arbitrary.Network ()
+import           Test.Pos.Infra.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Communication ()
+import           Test.Pos.Infra.Arbitrary.Slotting ()
+import           Test.Pos.Ssc.Arbitrary ()
 import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
@@ -80,48 +75,6 @@ spec = withDefConfiguration $ \_ -> do
         describe "Types" $ do
           describe "Message length limit" $ do
               msgLenLimitedTest @VssCertificate mlVssCertificate
-        describe "Block types" $ do
-            describe "Bi instances" $ do
-                describe "Undo" $ do
-                    binaryTest @BT.SlogUndo
-                    modifyMaxSuccess (min 50) $ do
-                        binaryTest @BT.Undo
-                describe "Block network types" $ modifyMaxSuccess (min 10) $ do
-                    binaryTest @BT.MsgGetHeaders
-                    binaryTest @BT.MsgGetBlocks
-                    binaryTest @BT.MsgHeaders
-                    binaryTest @BT.MsgBlock
-                    binaryTest @BT.MsgStream
-                    binaryTest @BT.MsgStreamBlock
-                describe "Blockchains and blockheaders" $ do
-                    modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
-                        describe "GenesisBlockHeader" $ do
-                            binaryTest @BT.GenesisBlockHeader
-                        describe "MainBlockHeader" $ do
-                            binaryTest @BT.MainBlockHeader
-                    describe "GenesisBlockchain" $ do
-                        describe "BodyProof" $ do
-                            binaryTest @BT.GenesisExtraHeaderData
-                            binaryTest @BT.GenesisExtraBodyData
-                            binaryTest @(BT.BodyProof BT.GenesisBlockchain)
-                        describe "ConsensusData" $ do
-                            binaryTest @(BT.ConsensusData BT.GenesisBlockchain)
-                        describe "Body" $ do
-                            binaryTest @(BT.Body BT.GenesisBlockchain)
-                    describe "MainBlockchain" $ do
-                        describe "BodyProof" $ do
-                            binaryTest @(BT.BodyProof BT.MainBlockchain)
-                        describe "BlockSignature" $ do
-                            binaryTest @BT.BlockSignature
-                        describe "ConsensusData" $ do
-                            binaryTest @(BT.ConsensusData BT.MainBlockchain)
-                        modifyMaxSuccess (min 10) $ describe "Body" $ do
-                            binaryTest @(BT.Body BT.MainBlockchain)
-                        describe "MainToSign" $ do
-                            binaryTest @BT.MainToSign
-                        describe "Extra data" $ do
-                            binaryTest @BT.MainExtraHeaderData
-                            binaryTest @BT.MainExtraBodyData
         describe "Communication" $ do
             describe "Bi instances" $ do
                 binaryTest @C.HandlerSpec
@@ -196,17 +149,17 @@ spec = withDefConfiguration $ \_ -> do
                     binaryTest @(SmallGenerator T.TxPayload)
                     binaryTest @T.TxpUndo
                 describe "Network" $ do
-                    binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.MempoolMsg T.TxMsgContents)
-                    binaryTest @(R.DataMsg T.TxMsgContents)
+                    binaryTest @(R.InvMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.ReqMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.MempoolMsg TxMsgContents)
+                    binaryTest @(R.DataMsg TxMsgContents)
             describe "Bi extension" $ do
                 prop "TxInWitness" (extensionProperty @T.TxInWitness)
             describe "Message length limit" $ do
-                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) mlReqMsg
-                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) mlMempoolMsg
-                -- No check for (DataMsg T.TxMsgContents) since overal message size
+                msgLenLimitedTest @(R.InvMsg (Tagged TxMsgContents T.TxId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged TxMsgContents T.TxId)) mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg TxMsgContents) mlMempoolMsg
+                -- No check for (DataMsg TxMsgContents) since overal message size
                 -- is forcely limited
         describe "Update system" $ do
             describe "Bi instances" $ do

@@ -13,7 +13,6 @@ import           Universum hiding (id)
 
 import           Test.QuickCheck (Arbitrary (..), listOf)
 
-import           Pos.Binary.Update ()
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..),
                      mkUpdateVote)
 import           Pos.Crypto (hash)

@@ -27,7 +27,6 @@ import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 
-import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
@@ -50,12 +49,12 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
+import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
-import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
+import           Pos.Sinbin.StateLock (Priority (..), modifyStateLock)
+import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..),
                      jlAdoptedBlock)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Sinbin.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Trace (noTrace)
@@ -296,7 +295,7 @@ applyWithoutRollback logTrace pm diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo logTrace "Verifying and applying blocks..."
-        res <- verifyAndApplyBlocks logTrace pm False blocks
+        res <- fmap fst <$> verifyAndApplyBlocks logTrace pm False blocks
         logInfo logTrace "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)

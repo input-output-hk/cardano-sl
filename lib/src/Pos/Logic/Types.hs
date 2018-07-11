@@ -19,11 +19,11 @@ import           Pipes.Internal (unsafeHoist)
 
 import           Pos.Block.Logic (GetHashesRangeError,
                      GetHeadersFromManyToError)
-import           Pos.Communication (NodeId, TxMsgContents)
+import           Pos.Communication (NodeId)
 import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
-import           Pos.Core.Txp (TxId)
+import           Pos.Core.Txp (TxId, TxMsgContents)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
                      UpdateVote, VoteId)
 import           Pos.DB.Class (SerializedBlock)

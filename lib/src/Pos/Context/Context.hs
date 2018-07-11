@@ -66,7 +66,7 @@ data SscContextTag
 -- | NodeContext contains runtime context of node.
 data NodeContext = NodeContext
     { ncSscContext          :: !SscContext
-    -- @georgeee please add documentation when you see this comment
+    -- ^ Context needed for Shared Seed Computation (SSC).
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system
     , ncLrcContext          :: !LrcContext

@@ -222,23 +222,23 @@ verifyKnownInputs protocolMagic VTxContext {..} resolvedInputs TxAux {..} = do
             throwError $ ToilInvalidWitness i witness err
 
     checkSpendingData addr wit = case wit of
-        PkWitness{..}            -> checkPubKeyAddress twKey addr
-        ScriptWitness{..}        -> checkScriptAddress twValidator addr
-        RedeemWitness{..}        -> checkRedeemAddress twRedeemKey addr
-        UnknownWitnessType witTag _ -> case addrType addr of
+        PkWitness twKey _            -> checkPubKeyAddress twKey addr
+        ScriptWitness twValidator _  -> checkScriptAddress twValidator addr
+        RedeemWitness twRedeemKey _  -> checkRedeemAddress twRedeemKey addr
+        UnknownWitnessType witTag _  -> case addrType addr of
             ATUnknown addrTag -> addrTag == witTag
             _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
     checkWitness :: TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
     checkWitness _txOutAux witness = case witness of
-        PkWitness{..} ->
+        PkWitness twKey twSig ->
             unless (checkSig protocolMagic SignTx twKey txSigData twSig) $
                 throwError WitnessWrongSignature
-        RedeemWitness{..} ->
+        RedeemWitness twRedeemKey twRedeemSig ->
             unless (redeemCheckSig protocolMagic SignRedeemTx twRedeemKey txSigData twRedeemSig) $
                 throwError WitnessWrongSignature
-        ScriptWitness{..} -> do
+        ScriptWitness twValidator twRedeemer -> do
             let valVer = scrVersion twValidator
                 redVer = scrVersion twRedeemer
             when (valVer /= redVer) $

@@ -24,13 +24,13 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..),
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Launcher.Resource (getRealLoggerConfig)
 import           Pos.Ssc.Types (SscParams)
-import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo,
                      namedTrace)
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Worker.Update (updateTriggerWorker)
 
 import qualified Pos.Util.Log as Log
 
@@ -83,5 +83,5 @@ main = withCompileInfo $ do
         loggerBracket lh "node1" $ (\a -> liftIO $ logException lh "nodeEx" a) .
                                    Log.usingLoggerName lh loggerName .
                                    runProduction $
-                                       withConfigurations blPath conf $
+                                       withConfigurations (natTrace liftIO logTrace) blPath conf $
                                            action lh logTrace args

@@ -62,6 +62,13 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.CoinSelection
+                       Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                       Cardano.Wallet.Kernel.CoinSelection.Generic
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Random
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
@@ -70,6 +77,7 @@ library
                        Cardano.Wallet.Kernel.DB.HdWallet.Read
                        Cardano.Wallet.Kernel.DB.HdWallet.Update
                        Cardano.Wallet.Kernel.DB.InDb
+                       Cardano.Wallet.Kernel.DB.Read
                        Cardano.Wallet.Kernel.DB.Resolved
                        Cardano.Wallet.Kernel.DB.Spec
                        Cardano.Wallet.Kernel.DB.Spec.Read
@@ -81,11 +89,14 @@ library
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
+                       Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Types
+                       Cardano.Wallet.Kernel.Util
+                       Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
@@ -138,8 +149,10 @@ library
                      , conduit
                      , connection
                      , containers
+                     , cryptonite
                      , data-default
                      , data-default-class
+                     , directory
                      , exceptions
                      , formatting
                      , generics-sop
@@ -355,18 +368,35 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Test.Infrastructure.Generator
+  other-modules:      InputSelection.Evaluation
+                      InputSelection.Evaluation.Events
+                      InputSelection.Evaluation.Generic
+                      InputSelection.Evaluation.Options
+                      InputSelection.Evaluation.Replot
+                      InputSelection.Evaluation.TimeSeries
+                      InputSelection.FromGeneric
+                      InputSelection.SortedUtxo
+                      InputSelection.TxStats
+                      Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
+                      Test.Spec.CoinSelection
+                      Test.Spec.CoinSelection.Generators
                       Test.Spec.Kernel
+                      Test.Spec.Keystore
                       Test.Spec.Models
                       Test.Spec.Submission
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
                       TxMetaStorageSpecs
-                      Util
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
+                      Util.Distr
+                      Util.GenHash
+                      Util.Histogram
+                      Util.MultiSet
+                      Util.QuickCheck
+                      Util.Range
                       Util.Validated
                       UTxO.Bootstrap
                       UTxO.Context
@@ -418,6 +448,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-block
                     , cardano-sl-client
                     , cardano-sl-core
+                    , cardano-sl-core-test
                     , cardano-sl-crypto
                     , cardano-sl-db
                     , cardano-sl-delegation
@@ -430,6 +461,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-wallet-new
                     , constraints
                     , containers
+                    , cryptonite
                     , data-default
                     , formatting
                     , hspec
@@ -439,11 +471,21 @@ test-suite wallet-unit-tests
                     , quickcheck-instances
                     , safe-exceptions
                     , serokell-util
+                    , tabl
                     , text
                     , text-format
                     , universum
                     , unordered-containers
                     , vector
+                      -- needed only for input selection evaluation
+                    , bytestring
+                    , conduit
+                    , directory
+                    , filepath
+                    , normaldistribution
+                    , optparse-applicative
+                    , random
+                    , time
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

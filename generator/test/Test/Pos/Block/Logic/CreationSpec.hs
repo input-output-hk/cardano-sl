@@ -15,15 +15,14 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
                      counterexample, elements, forAll, generate, listOf,
                      listOf1, oneof, property)
 
-import           Pos.Arbitrary.Ssc (commitmentMapEpochGen,
-                     vssCertificateEpochGen)
+
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration,
                      SlotId (..), blkSecurityParam, genesisBlockVersionData,
-                     mkVssCertificatesMapLossy, protocolConstants,
-                     unsafeMkLocalSlotIndex)
+                     mkVssCertificatesMapLossy, pcEpochSlots,
+                     protocolConstants, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Txp (TxAux)
@@ -36,9 +35,11 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
+import           Test.Pos.Core.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
-import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)
+import           Test.Pos.Ssc.Arbitrary (commitmentMapEpochGen,
+                     vssCertificateEpochGen)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec
@@ -137,7 +138,8 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
         -> SecretKey
         -> Either Text MainBlock
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
-        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ fromIntegral $ blkSecurityParam * 2)
+        let neutralSId = SlotId 0
+                (unsafeMkLocalSlotIndexExplicit (pcEpochSlots protocolConstants) $ fromIntegral $ blkSecurityParam * 2)
         in producePureBlock
              limit prevHeader txs Nothing neutralSId proxyCerts (defSscPld neutralSId) updatePayload sk
 
@@ -161,7 +163,7 @@ validSscPayloadGen :: HasConfiguration => Gen (SscPayload, SlotId)
 validSscPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $
         vssCertificateEpochGen dummyProtocolMagic protocolConstants 0
-    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
+    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndexExplicit (pcEpochSlots protocolConstants) (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen dummyProtocolMagic 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)
           , do openingsMap <- makeSmall arbitrary

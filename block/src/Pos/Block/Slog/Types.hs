@@ -20,11 +20,12 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           System.Metrics.Label (Label)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
                      HasProtocolConstants, LocalSlotIndex, slotIdF,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Infra.Reporting.Metrics (MetricMonitorState)
+import           Pos.Sinbin.Reporting (MetricMonitorState)
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
@@ -95,3 +96,11 @@ instance HasProtocolConstants => Buildable SlogUndo where
     build (SlogUndo oldSlot) =
         "SlogUndo: " <>
         maybe "<nothing>" (bprint slotIdF . unflattenSlotId) oldSlot
+
+-- TH derived instances at the end of the file.
+
+deriveSimpleBi ''SlogUndo [
+    Cons 'SlogUndo [
+        Field [| getSlogUndo  :: Maybe FlatSlotId |]
+    ]]
+

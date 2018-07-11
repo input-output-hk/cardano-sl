@@ -52,6 +52,14 @@ library
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
+                        -- Listener
+                        Pos.Listener.Delegation
+                        Pos.Listener.Txp
+                        Pos.Listener.Update
+
+                        -- Network
+                        Pos.Network.Update.Download
+
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message
@@ -83,6 +91,10 @@ library
 
                         -- Worker, work mode
                         Pos.Worker
+                        Pos.Worker.Block
+                        Pos.Worker.Delegation
+                        Pos.Worker.Ssc
+                        Pos.Worker.Update
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
@@ -145,6 +157,7 @@ library
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-networking
+                      , cardano-sl-sinbin
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-update
@@ -168,8 +181,12 @@ library
                       , generic-arbitrary
                       , hashable
                       , hspec
+                      , http-client
+                      , http-client-tls
+                      , http-conduit
                       , katip
                       , lens
+                      , memory
                       , mmorph
                       , monad-control
                       , mtl
@@ -262,9 +279,6 @@ test-suite cardano-test
                        -- Standard module with some magic
                        Spec
 
-                       -- Pos.Block testing
-                       Test.Pos.Block.Identity.SafeCopySpec
-
                        Test.Pos.Slotting.TypesSpec
 
                        -- Ssc
@@ -280,9 +294,9 @@ test-suite cardano-test
                        Test.Pos.ConstantsSpec
                        Test.Pos.Diffusion.BlockSpec
                        Test.Pos.Genesis.CanonicalSpec
+                       Test.Pos.Launcher.ConfigurationSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Infra.Slotting.TypesSpec
-                       Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec
                        Test.Pos.Update.Identity.SafeCopySpec
@@ -307,10 +321,12 @@ test-suite cardano-test
                      , cardano-sl-delegation
                      , cardano-sl-delegation-test
                      , cardano-sl-infra
+                     , cardano-sl-infra-test
                      , cardano-sl-lrc
                      , cardano-sl-lrc-test
                      , cardano-sl-networking
                      , cardano-sl-ssc
+                     , cardano-sl-ssc-test
                      , cardano-sl-txp
                      , cardano-sl-txp-test
                      , cardano-sl-update
@@ -329,6 +345,7 @@ test-suite cardano-test
                      , generic-arbitrary
                      , hspec
                      , lens
+                     , log-warper
                      , mtl
                      , network-transport
                      , network-transport-inmemory
@@ -342,6 +359,7 @@ test-suite cardano-test
                      , tagged
                      , text
                      , text-format
+                     , time
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

@@ -19,8 +19,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Arbitrary.Slotting ()
-import           Pos.Binary.Update ()
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..),
                      UpdateData (..), UpdatePayload (..), UpdateProposal,
                      UpdateProposalToSign (..), UpdateVote (..),
@@ -32,6 +30,7 @@ import           Pos.Update.Poll.Types (VoteState (..))
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Sinbin.Arbitrary.Slotting ()
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

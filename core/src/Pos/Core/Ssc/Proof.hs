@@ -10,7 +10,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 
-import           Pos.Binary.Class (Bi, Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Class (Bi, Cons (..), Field (..), deriveIndexedBi)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (Hash, hash)
 
@@ -35,16 +35,16 @@ type VssCertificatesHash = Hash (HashMap StakeholderId VssCertificate)
 -- | Proof that SSC payload is correct (it's included into block header)
 data SscProof
     = CommitmentsProof
-        { sprComms :: !(Hash CommitmentsMap)
-        , sprVss   :: !VssCertificatesHash }
+        !(Hash CommitmentsMap)
+        !VssCertificatesHash
     | OpeningsProof
-        { sprOpenings :: !(Hash OpeningsMap)
-        , sprVss      :: !VssCertificatesHash }
+        !(Hash OpeningsMap)
+        !VssCertificatesHash
     | SharesProof
-        { sprShares :: !(Hash SharesMap)
-        , sprVss    :: !VssCertificatesHash }
+        !(Hash SharesMap)
+        !VssCertificatesHash
     | CertificatesProof
-        { sprVss    :: !VssCertificatesHash }
+        !VssCertificatesHash
     deriving (Eq, Show, Generic)
 
 instance Buildable SscProof where
@@ -73,18 +73,18 @@ mkSscProof payload =
 
 -- TH-generated instances go to the end of the file
 
-deriveSimpleBi ''SscProof [
+deriveIndexedBi ''SscProof [
     Cons 'CommitmentsProof [
-        Field [| sprComms    :: Hash CommitmentsMap |],
-        Field [| sprVss      :: VssCertificatesHash |] ],
+        Field [| 0 :: Hash CommitmentsMap |],
+        Field [| 1 :: VssCertificatesHash |] ],
     Cons 'OpeningsProof [
-        Field [| sprOpenings :: Hash OpeningsMap    |],
-        Field [| sprVss      :: VssCertificatesHash |] ],
+        Field [| 0 :: Hash OpeningsMap    |],
+        Field [| 1 :: VssCertificatesHash |] ],
     Cons 'SharesProof [
-        Field [| sprShares   :: Hash SharesMap      |],
-        Field [| sprVss      :: VssCertificatesHash |] ],
+        Field [| 0 :: Hash SharesMap      |],
+        Field [| 1 :: VssCertificatesHash |] ],
     Cons 'CertificatesProof [
-        Field [| sprVss      :: VssCertificatesHash |] ]
+        Field [| 0 :: VssCertificatesHash |] ]
     ]
 
 deriveSafeCopySimple 0 'base ''SscProof

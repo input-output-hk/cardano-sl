@@ -17,6 +17,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core (ComponentBlock (..), ProxySKHeavy, StakeholderId)
 import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo,
                      checkDlgPayload)
@@ -32,6 +33,12 @@ data DlgUndo = DlgUndo
       -- ^ Set of stakeholders that posted in epoch i. This field
       -- should be present only for genesis block of epoch i+1.
     } deriving (Eq, Show, Generic)
+
+deriveSimpleBi ''DlgUndo [
+    Cons 'DlgUndo [
+        Field [| duPsks            :: [ProxySKHeavy]        |],
+        Field [| duPrevEpochPosted :: HashSet StakeholderId |]
+    ]]
 
 instance NFData DlgUndo
 

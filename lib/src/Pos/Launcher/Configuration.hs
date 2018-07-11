@@ -16,6 +16,7 @@ module Pos.Launcher.Configuration
 
        -- Exposed mostly for testing.
        , readAssetLockedSrcAddrs
+       , withConfigurationsM
        ) where
 
 import           Universum
@@ -46,7 +47,7 @@ import           Pos.Ssc.Configuration
 import           Pos.Txp.Configuration
 import           Pos.Update.Configuration
 import           Pos.Util.Config (parseYamlConfig)
-import           Pos.Util.Log (WithLogger, logInfo)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
@@ -111,14 +112,15 @@ instance Default ConfigurationOptions where
 
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
-withConfigurations
-    :: (WithLogger m, MonadThrow m)
-    => Maybe AssetLockPath
+withConfigurationsM
+    :: forall m r. (MonadThrow m, MonadIO m)
+    => TraceNamed m
+    -> Maybe AssetLockPath
     -> ConfigurationOptions
     -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
     -> m r
-withConfigurations mAssetLockPath cfo act = do
-    logInfo ("using configurations: " <> show cfo)
+withConfigurationsM logTrace mAssetLockPath cfo act = do
+    logInfo' ("using configurations: " <> show cfo)
     cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
     assetLock <- case mAssetLockPath of
         Nothing -> pure mempty
@@ -131,6 +133,22 @@ withConfigurations mAssetLockPath cfo act = do
         withTxpConfiguration (addAssetLock assetLock $ ccTxp cfg) $
         withBlockConfiguration (ccBlock cfg) $
         withNodeConfiguration (ccNode cfg) $ act (ccNtp cfg)
+
+    where
+    logInfo' :: Text -> m ()
+    --logInfo' = liftIO . usingLoggerName logName . logInfo
+    logInfo' = logInfo logTrace
+
+withConfigurations
+    :: (MonadThrow m, MonadIO m)
+    => TraceNamed m
+    -> Maybe AssetLockPath
+    -> ConfigurationOptions
+    -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
+    -> m r
+withConfigurations logTrace mAssetLockPath cfo act = do
+    --loggerName <- askLoggerName
+    withConfigurationsM logTrace mAssetLockPath cfo act
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
 addAssetLock bset tcfg =

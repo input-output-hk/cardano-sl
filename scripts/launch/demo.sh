@@ -180,6 +180,10 @@ while [[ $i -lt $panesCnt ]]; do
 
         # shellcheck disable=SC2154
         full_node_args="$node_args $reb $no_ntp $keys_args $rts_opts"
+        if [[ $WALLET_CLIENT_AUTH_DISABLE != "" ]]; then
+            # shellcheck disable=SC2154
+            full_node_args="$full_node_args --no-client-auth"
+        fi
 
         CONFIG_PATH="$run_dir/launcher-config-$i.yaml"
 

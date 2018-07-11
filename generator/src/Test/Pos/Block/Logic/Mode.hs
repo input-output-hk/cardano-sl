@@ -114,6 +114,7 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation,
                      sudoLiftIO)
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
                      defaultTestConf, defaultTestGenesisSpec)
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 ----------------------------------------------------------------------------

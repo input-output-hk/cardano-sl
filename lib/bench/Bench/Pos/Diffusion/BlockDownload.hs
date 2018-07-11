@@ -132,7 +132,7 @@ serializedBlock = Serialized . serialize'
 -- always ask for the entire chain (and not throw an exception).
 clientLogic :: Logic IO
 clientLogic = pureLogic
-    { getLcaMainChain = \headers -> pure headers
+    { getLcaMainChain = \headers -> pure (NewestFirst [], headers)
     }
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t

@@ -26,14 +26,16 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
                      Wallet, WalletId, WalletUpdate)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
+import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+                     (TimeExecutionLimit)
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -47,6 +49,7 @@ data CreateAddressError =
       CreateAddressError Kernel.CreateAddressError
     | CreateAddressAddressDecodingFailed Text
     -- ^ Decoding the input 'Text' as an 'Address' failed.
+    | CreateAddressTimeLimitReached TimeExecutionLimit
     deriving Eq
 
 instance Arbitrary CreateAddressError where
@@ -59,6 +62,8 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressError " % build) kernelError
     build (CreateAddressAddressDecodingFailed txt) =
         bprint ("CreateAddressAddressDecodingFailed " % build) txt
+    build (CreateAddressTimeLimitReached timeLimit) =
+        bprint ("CreateAddressTimeLimitReached " % build) timeLimit
 
 ------------------------------------------------------------
 -- Passive wallet layer

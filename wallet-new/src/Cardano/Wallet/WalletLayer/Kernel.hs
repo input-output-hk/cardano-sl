@@ -10,6 +10,7 @@ import           Universum
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Maybe (fromJust)
+import           Data.Time.Units (Second)
 import           System.Wlog (Severity (Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
@@ -23,6 +24,8 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedBlock (..), fromRawResolvedBlock)
+import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+                     (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAddressError (..), PassiveWalletLayer (..))
 
@@ -89,19 +92,20 @@ bracketPassiveWallet logFunction keystore f =
 
             , _pwlCreateAddress  =
                 \(V1.NewAddress mbSpendingPassword accIdx (V1.WalletId wId)) -> do
-                    case decodeTextAddress wId of
-                         Left _ ->
-                             return $ Left (CreateAddressAddressDecodingFailed wId)
-                         Right rootAddr -> do
-                            let hdRootId = HD.HdRootId . InDb $ rootAddr
-                            let hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accIdx)
-                            let passPhrase = maybe mempty coerce mbSpendingPassword
-                            res <- liftIO $ Kernel.createAddress passPhrase
-                                                                 (AccountIdHdRnd hdAccountId)
-                                                                 wallet
-                            case res of
-                                 Right newAddr -> return (Right newAddr)
-                                 Left  err     -> return (Left $ CreateAddressError err)
+                    liftIO $ limitExecutionTimeTo (30 :: Second) CreateAddressTimeLimitReached $ do
+                        case decodeTextAddress wId of
+                             Left _ ->
+                                 return $ Left (CreateAddressAddressDecodingFailed wId)
+                             Right rootAddr -> do
+                                let hdRootId = HD.HdRootId . InDb $ rootAddr
+                                let hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accIdx)
+                                let passPhrase = maybe mempty coerce mbSpendingPassword
+                                res <- liftIO $ Kernel.createAddress passPhrase
+                                                                     (AccountIdHdRnd hdAccountId)
+                                                                     wallet
+                                case res of
+                                     Right newAddr -> return (Right newAddr)
+                                     Left  err     -> return (Left $ CreateAddressError err)
             , _pwlGetAddresses   = error "Not implemented!"
 
             , _pwlApplyBlocks    = liftIO . invoke . Actions.ApplyBlocks

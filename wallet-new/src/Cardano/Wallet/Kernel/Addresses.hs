@@ -7,10 +7,10 @@ module Cardano.Wallet.Kernel.Addresses (
 import           Universum
 
 import           Control.Lens (to)
-import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
 import qualified Formatting as F
-import           System.Random (randomRIO)
+import qualified Formatting.Buildable
+import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 
 import           Data.Acid (update)
 
@@ -45,7 +45,10 @@ data CreateAddressError =
     | CreateAddressHdCreationFailed CreateHdAddressError
       -- ^ The creation of the new HD 'Address' failed with a database error.
     | CreateAddressHdRndGenerationFailed HdAccountId
-      -- ^ The overall generation process failed.
+      -- ^ The crypto-related part of address generation failed.
+    | CreateAddressHdRndAddressSpaceSaturated HdAccountId
+      -- ^ The available number of HD addresses in use in such that trying
+      -- to find another random index would be too expensive
     deriving Eq
 
 -- TODO(adn)
@@ -61,6 +64,8 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressHdCreationFailed " % F.build) hdErr
     build (CreateAddressHdRndGenerationFailed hdAcc) =
         bprint ("CreateAddressHdRndGenerationFailed " % F.build) hdAcc
+    build (CreateAddressHdRndAddressSpaceSaturated hdAcc) =
+        bprint ("CreateAddressHdRndAddressSpaceSaturated " % F.build) hdAcc
 
 -- | Creates a new 'Address' for the input account.
 createAddress :: PassPhrase
@@ -92,30 +97,62 @@ createAddress spendingPassword accId pw = do
                   Nothing  -> return (Left $ CreateAddressKeystoreNotFound accId)
                   Just esk -> createHdRndAddress spendingPassword esk hdAccId pw
 
-
+-- | Creates a new 'Address' using the random HD derivation under the hood.
+-- Being this an operation bound not only by the number of available derivation
+-- indexes \"left\" in the account, some form of short-circuiting is necessary.
+-- Currently, the algorithm is as follows:
+--
+-- 1. Try to generate an 'Address' by picking a random index;
+-- 2. If the operation succeeds, return the 'Address';
+-- 3. If the DB operation fails due to a collision, try again, up to a max of
+--    2147483647 attempts (which is half of the address space).
+-- 4. If after 2147483647 attempts there is still no result, flag this upstream.
 createHdRndAddress :: PassPhrase
                    -> EncryptedSecretKey
                    -> HdAccountId
                    -> PassiveWallet
                    -> IO (Either CreateAddressError Address)
 createHdRndAddress spendingPassword esk accId pw = do
-    hdAddressId <- HdAddressId <$> pure accId
-                               <*> (deriveIndex randomRIO HdAddressIx HardDerivation)
-    let mbAddr = deriveLvl2KeyPair (IsBootstrapEraAddr True)
-                                   (ShouldCheckPassphrase True)
-                                   spendingPassword
-                                   esk
-                                   (accId ^. hdAccountIdIx . to getHdAccountIx)
-                                   (hdAddressId ^. hdAddressIdIx . to getHdAddressIx)
-    case mbAddr of
-         Nothing -> return (Left $ CreateAddressHdRndGenerationFailed accId)
-         Just (newAddress, _) -> do
-            let hdAddress  = initHdAddress hdAddressId (InDb newAddress)
-            let db = pw ^. wallets
-            res <- update db (CreateHdAddress hdAddress)
-            case res of
-                 (Left (CreateHdAddressExists _)) ->
-                     createHdRndAddress spendingPassword esk accId pw
-                 (Left err) ->
-                     return (Left $ CreateAddressHdCreationFailed err)
-                 Right () -> return (Right newAddress)
+    gen <- createSystemRandom
+    go gen 0
+    where
+        go :: GenIO -> Word32 -> IO (Either CreateAddressError Address)
+        go gen collisions =
+            case collisions >= maxAllowedCollisions of
+                 True  -> return $ Left (CreateAddressHdRndAddressSpaceSaturated accId)
+                 False -> tryGenerateAddress gen collisions
+
+        tryGenerateAddress :: GenIO
+                           -> Word32
+                           -- ^ The current number of collisions
+                           -> IO (Either CreateAddressError Address)
+        tryGenerateAddress gen collisions = do
+            newIndex <- deriveIndex (flip uniformR gen) HdAddressIx HardDerivation
+            let hdAddressId = HdAddressId accId newIndex
+                mbAddr = deriveLvl2KeyPair (IsBootstrapEraAddr True)
+                                           (ShouldCheckPassphrase True)
+                                           spendingPassword
+                                           esk
+                                           (accId ^. hdAccountIdIx . to getHdAccountIx)
+                                           (hdAddressId ^. hdAddressIdIx . to getHdAddressIx)
+            case mbAddr of
+                 Nothing -> return (Left $ CreateAddressHdRndGenerationFailed accId)
+                 Just (newAddress, _) -> do
+                    let hdAddress  = initHdAddress hdAddressId (InDb newAddress)
+                    let db = pw ^. wallets
+                    res <- update db (CreateHdAddress hdAddress)
+                    case res of
+                         (Left (CreateHdAddressExists _)) ->
+                             go gen (succ collisions)
+                         (Left err) ->
+                             return (Left $ CreateAddressHdCreationFailed err)
+                         Right () -> return (Right newAddress)
+
+        -- The maximum number of allowed collisions. This number was empirically
+        -- chosen as half of the total available address space. A possible line
+        -- of reasoning is that if we hit that many collision it meas the
+        -- probability to find a new, unused address is ~ <= 50%, and therefore
+        -- it's better to switch to a new account.
+        maxAllowedCollisions :: Word32
+        maxAllowedCollisions = 2147483647
+

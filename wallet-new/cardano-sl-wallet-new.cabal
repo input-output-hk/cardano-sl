@@ -114,6 +114,7 @@ library
                        Cardano.Wallet.Util
 
                        Cardano.Wallet.WalletLayer
+                       Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
   other-modules:       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.Kernel
@@ -174,7 +175,7 @@ library
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
-                     , random
+                     , mwc-random
                      , reflection
                      , safe-exceptions
                      , safecopy

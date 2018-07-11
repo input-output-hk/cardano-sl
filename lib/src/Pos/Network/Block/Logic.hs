@@ -4,7 +4,7 @@
 -- | Network-related logic that's mostly methods and dialogs between
 -- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
 -- loop logic.
-module Pos.Block.Network.Logic
+module Pos.Network.Block.Logic
        (
          BlockNetLogicException (..)
        , triggerRecovery
@@ -28,13 +28,10 @@ import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
-                     BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
                      headerHashG, isMoreDifficult, prevBlockL)
@@ -49,12 +46,15 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
-import           Pos.Sinbin.StateLock (Priority (..), modifyStateLock)
-import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..),
+import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
                      jlAdoptedBlock)
-import           Pos.Sinbin.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
+                     BlockRetrievalQueueTag, BlockRetrievalTask (..))
+import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (lensOf)

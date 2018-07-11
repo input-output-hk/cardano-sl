@@ -15,11 +15,8 @@ import           Formatting (build, sformat, (%))
 import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import qualified Pos.Block.Logic as Block
-import qualified Pos.Block.Network.Logic as Block
-import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData,
                      HasConfiguration, HeaderHash, ProxySKHeavy, StakeholderId,
@@ -44,8 +41,11 @@ import qualified Pos.Listener.Txp as Txp (handleTxDo)
 import           Pos.Listener.Update (UpdateMode)
 import qualified Pos.Listener.Update as Update (handleProposal, handleVote)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
+import qualified Pos.Network.Block.Logic as Block
+import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
+import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Security.Util (shouldIgnorePkAddress)
 import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate,

@@ -16,17 +16,13 @@ library
   exposed-modules:
                         Pos.Block.BHelpers
                         Pos.Block.BListener
-                        Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Lrc
-                        Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
 
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
                         Pos.Block.Network.Types
 
                         Pos.DB.Block
@@ -212,6 +208,7 @@ benchmark bench-block
                      , cardano-sl-crypto-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc
+                     , cardano-sl-ssc-test
                      , cardano-sl-txp-test
                      , cardano-sl-update-test
                      , deepseq

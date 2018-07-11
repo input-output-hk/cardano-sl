@@ -2,7 +2,7 @@
 
 -- | Various constraints needed for block processing.
 
-module Pos.Block.BlockWorkMode
+module Pos.Network.Block.WorkMode
     ( BlockInstancesConstraint
     , BlockWorkMode
     ) where
@@ -18,19 +18,19 @@ import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Lrc (LrcModeFull)
 import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders)
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
-                     BlockRetrievalQueueTag)
 import           Pos.Block.Slog (HasSlogContext)
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
-                     RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog)
+import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
+                     BlockRetrievalQueueTag)
+import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
-import           Pos.Sinbin.Shutdown.Class (HasShutdownContext)
-import           Pos.Sinbin.StateLock (StateLock, StateLockMetrics)
-import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason)
-import           Pos.Sinbin.Util.TimeWarp (CanJsonLog)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
                      TxpHolderTag)
 import           Pos.Update.Context (UpdateContext)

@@ -59,6 +59,10 @@ library
 
                         -- Network
                         Pos.Network.Update.Download
+                        Pos.Network.Block.Logic
+                        Pos.Network.Block.Retrieval
+                        Pos.Network.Block.RetrievalQueue
+                        Pos.Network.Block.WorkMode
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
@@ -133,6 +137,7 @@ library
                         Pos.Communication.Server
 
                         Pos.Recovery.Instance
+                        Pos.Recovery.Types
 
   build-depends:        base
                       , QuickCheck

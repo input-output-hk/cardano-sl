@@ -2,7 +2,7 @@
 
 -- | Server which deals with blocks processing.
 
-module Pos.Block.Network.Retrieval
+module Pos.Network.Block.Retrieval
        ( retrievalWorker
        ) where
 
@@ -19,14 +19,8 @@ import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
                      getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..),
-                     handleBlocks, triggerRecovery)
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag,
-                     BlockRetrievalTask (..))
-import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
                      isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
@@ -36,8 +30,14 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
-import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportOrLogE,
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE,
                      reportOrLogW)
+import           Pos.Network.Block.Logic (BlockNetLogicException (..),
+                     handleBlocks, triggerRecovery)
+import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,
+                     BlockRetrievalTask (..))
+import           Pos.Network.Block.WorkMode (BlockWorkMode)
+import           Pos.Recovery.Types (RecoveryHeaderTag)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join

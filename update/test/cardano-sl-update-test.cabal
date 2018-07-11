@@ -30,7 +30,6 @@ library
                      , cardano-sl-sinbin-test
                      , cardano-sl-update
                      , cardano-sl-util-test
-                     , containers
                      , generic-arbitrary
                      , universum
                      , unordered-containers

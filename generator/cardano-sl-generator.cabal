@@ -142,7 +142,6 @@ test-suite cardano-generator-test
                      , cardano-sl-ssc
                      , cardano-sl-ssc-test
                      , cardano-sl-txp
-                     , cardano-sl-txp-test
                      , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test

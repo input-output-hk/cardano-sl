@@ -171,7 +171,6 @@ library
                      , ansi-terminal
                      , base
                      , base58-bytestring
-                     , bifunctors
                      , bytestring
                      , Cabal
                      , canonical-json
@@ -284,7 +283,6 @@ test-suite test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
-                     , cryptonite
                      , deepseq
                      , formatting
                      , generic-arbitrary

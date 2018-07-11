@@ -94,8 +94,6 @@ library
                      , serokell-util
                      , stm
                      , tagged
-                     , template-haskell
-                     , formatting
                      , time-units
                      , transformers
                      , universum

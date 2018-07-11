@@ -34,7 +34,6 @@ library
                      , hspec
                      , mtl
                      , quickcheck-instances
-                     , tagged
                      , time-units
                      , universum
 

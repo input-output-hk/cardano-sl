@@ -24,8 +24,7 @@ library
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.TH
 
-  build-depends:       QuickCheck
-                     , base
+  build-depends:       base
                      , binary
                      , bytestring
                      , cardano-sl-util
@@ -34,10 +33,8 @@ library
                      , containers
                      , digest
                      , formatting
-                     , half
                      , hashable
                      , lens
-                     , mtl
                      , safecopy
                      , safe-exceptions
                      , serokell-util
@@ -46,7 +43,6 @@ library
                      , text
                      , th-utilities
                      , time-units
-                     , transformers
                      , universum
                      , unordered-containers
                      , vector
@@ -101,43 +97,30 @@ test-suite test
                      , aeson
                      , base
                      , bytestring
-                     , canonical-json
                      , cardano-sl-binary
-                     , cardano-sl-util
                      , cardano-sl-util-test
                      , cborg
                      , cereal
                      , containers
-                     , cryptonite
-                     , data-default
                      , directory
-                     , extra
                      , filepath
-                     , filelock
                      , file-embed
-                     , fmt
                      , formatting
                      , generic-arbitrary
                      , half
                      , hedgehog
                      , hspec
-                     , lens
                      , mtl
                      , pretty-show
-                     , pvss
                      , quickcheck-instances
-                     , random
-                     , reflection
                      , safecopy
                      , serokell-util >= 0.1.3.4
-                     , tagged
                      , template-haskell
                      , text
                      , formatting
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
-                     , vector
 
   hs-source-dirs:      test
   default-language:    Haskell2010

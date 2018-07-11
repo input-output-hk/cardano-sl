@@ -31,8 +31,9 @@ import qualified Data.Text.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
-                     epochSlots)
+                     epochSlots, protocolConstants)
 import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Slotting.EpochIndex
@@ -87,7 +88,8 @@ instance HasProtocolConstants => Enum EpochOrSlot where
         | siSlot == minBound = EpochOrSlot (Left siEpoch)
         | otherwise = EpochOrSlot $ Right si {siSlot = pred siSlot}
     fromEnum (EpochOrSlot (Left e)) =
-        let res = toInteger e * toInteger (epochSlots + 1)
+        let pc = protocolConstants
+            res = toInteger e * toInteger (epochSlots pc + 1)
             maxIntAsInteger = toInteger (maxBound :: Int)
         in if | res > maxIntAsInteger ->
                   error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
@@ -101,10 +103,11 @@ instance HasProtocolConstants => Enum EpochOrSlot where
                   error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
     toEnum x =
-        let (fromIntegral -> epoch, fromIntegral -> slot) =
-                x `divMod` (fromIntegral epochSlots + 1)
+        let pc = protocolConstants
+            (fromIntegral -> epoch, fromIntegral -> slot) =
+                x `divMod` (fromIntegral (epochSlots pc) + 1)
             slotIdx =
-                leftToPanic "toEnum @EpochOrSlot:" $ mkLocalSlotIndex (slot - 1)
+                leftToPanic "toEnum @EpochOrSlot:" $ mkLocalSlotIndex pc (slot - 1)
         in if | x < 0 -> error "toEnum @EpochOrSlot: Negative argument"
               | slot == 0 -> EpochOrSlot (Left epoch)
               | otherwise ->
@@ -137,22 +140,22 @@ instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
     getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 -- | Transforms some 'HasEpochOrSlot' to a single number.
-flattenEpochOrSlot :: (HasProtocolConstants, HasEpochOrSlot a) => a -> FlatSlotId
-flattenEpochOrSlot =
-    epochOrSlot flattenEpochIndex flattenSlotId . getEpochOrSlot
+flattenEpochOrSlot :: HasEpochOrSlot a => ProtocolConstants -> a -> FlatSlotId
+flattenEpochOrSlot pc a =
+    epochOrSlot (flattenEpochIndex pc) (flattenSlotId pc) (getEpochOrSlot a)
 
 -- | Distance (in slots) between two slots. The first slot is newer, the
 -- second slot is older. An epoch is considered the same as the 0th slot of
 -- that epoch.
 --
 -- If the difference is negative, the result will be 'Nothing'.
-diffEpochOrSlot :: HasProtocolConstants => EpochOrSlot -> EpochOrSlot -> Maybe SlotCount
-diffEpochOrSlot a b
+diffEpochOrSlot :: ProtocolConstants -> EpochOrSlot -> EpochOrSlot -> Maybe SlotCount
+diffEpochOrSlot pc a b
     | a' < b'   = Nothing
     | otherwise = Just (fromInteger (a' - b'))
   where
-    a' = toInteger (flattenEpochOrSlot a)
-    b' = toInteger (flattenEpochOrSlot b)
+    a' = toInteger (flattenEpochOrSlot pc a)
+    b' = toInteger (flattenEpochOrSlot pc b)
 
 -- | Apply one of the function depending on content of 'EpochOrSlot'.
 epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a

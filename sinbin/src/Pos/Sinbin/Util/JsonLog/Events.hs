@@ -48,9 +48,9 @@ import           Mockable (realTime)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
-                     SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
-                     headerHash, headerHashF, mkLocalSlotIndex)
+import           Pos.Core (EpochIndex (..), HeaderHash,
+                     ProtocolConstants, SlotId (..), gbHeader, gbhPrevBlock,
+                     getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)
@@ -156,18 +156,18 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotId :: (HasConfiguration, MonadError Text m) => JLSlotId -> m SlotId
-fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
+fromJLSlotId :: MonadError Text m => ProtocolConstants -> JLSlotId -> m SlotId
+fromJLSlotId pc (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex pc sl
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
-fromJLSlotIdUnsafe x = case fromJLSlotId x of
+fromJLSlotIdUnsafe :: ProtocolConstants -> JLSlotId -> SlotId
+fromJLSlotIdUnsafe pc x = case fromJLSlotId pc x of
     Right y -> y
     Left  _ -> error "illegal slot id"
 
 -- | Return event of created block.
-jlCreatedBlock :: HasConfiguration => Block -> JLEvent
-jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
+jlCreatedBlock :: ProtocolConstants -> Block -> JLEvent
+jlCreatedBlock pc block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHeaderHash $ headerHash block
     jlPrevBlock = showHeaderHash $ case block of
@@ -179,7 +179,7 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
               Right mB -> map fromTx . toList $ mB ^. mainBlockTxPayload . txpTxs
     slot :: SlotId
     slot = case block of
-        Left  gB -> let slotZero = case mkLocalSlotIndex 0 of
+        Left  gB -> let slotZero = case mkLocalSlotIndex pc 0 of
                                         Right sz -> sz
                                         Left _   -> error "impossible branch"
                     in SlotId (gB ^. genBlockEpoch) slotZero

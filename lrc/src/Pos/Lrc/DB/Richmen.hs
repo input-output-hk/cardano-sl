@@ -28,9 +28,9 @@ import qualified Data.HashSet as HS
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (Coin, CoinPortion, ProxySKHeavy, StakeholderId,
+                     GenesisData, CoreConfiguration, HasGenesisBlockVersionData,
                      addressHash, applyCoinPortionUp, gdHeavyDelegation,
-                     genesisData, sumCoins, unGenesisDelegation,
-                     unsafeIntegerToCoin)
+                     sumCoins, unGenesisDelegation, unsafeIntegerToCoin)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.Lrc.Consumer.Delegation (tryGetDlgRichmen)
@@ -49,22 +49,23 @@ import           Pos.Txp.GenesisUtxo (genesisStakes)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen :: MonadDB m => m ()
-prepareLrcRichmen = do
-    prepareLrcRichmenDo Ssc.richmenComponent
-    prepareLrcRichmenDo Update.richmenComponent
-    prepareLrcRichmenDo Dlg.richmenComponent
+prepareLrcRichmen
+  :: (HasGenesisBlockVersionData, MonadDB m)
+  => CoreConfiguration -> GenesisData -> m ()
+prepareLrcRichmen cc gd = do
+    prepareLrcRichmenDo cc gd Ssc.richmenComponent
+    prepareLrcRichmenDo cc gd Update.richmenComponent
+    prepareLrcRichmenDo cc gd Dlg.richmenComponent
 
 prepareLrcRichmenDo
-    :: (Bi richmenData, MonadDB m) => RichmenComponent richmenData -> m ()
-prepareLrcRichmenDo rc =
-    whenNothingM_ (getRichmen rc 0) . putRichmen rc 0 $ computeInitial
-        genesisDistribution
-        genesisDelegation
-        rc
+    :: (Bi richmenData, MonadDB m) => CoreConfiguration -> GenesisData -> RichmenComponent richmenData -> m ()
+prepareLrcRichmenDo cc gd rc = do
+    whenNothingM_ (getRichmen cc rc 0) $ do
+       putRichmen cc rc 0
+         (computeInitial genesisDistribution genesisDelegation rc)
   where
-    genesisDistribution = HM.toList genesisStakes
-    genesisDelegation   = unGenesisDelegation $ gdHeavyDelegation genesisData
+    genesisDistribution = HM.toList (genesisStakes gd)
+    genesisDelegation   = unGenesisDelegation $ gdHeavyDelegation gd
 
 computeInitial
     :: [(StakeholderId, Coin)]              -- ^ Genesis distribution

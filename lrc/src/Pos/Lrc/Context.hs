@@ -17,7 +17,7 @@ import           Universum
 import           Control.Lens (views)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (EpochIndex)
+import           Pos.Core (EpochIndex, CoreConfiguration)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Exception (reportFatalError)
 import           Pos.Lrc.DB.Common (getEpoch)
@@ -53,8 +53,8 @@ data LrcSyncData = LrcSyncData
     }
 
 -- | Make new 'LrcSyncData' using read-only access to DB.
-mkLrcSyncData :: MonadDBRead m => m LrcSyncData
-mkLrcSyncData = LrcSyncData True <$> getEpoch
+mkLrcSyncData :: MonadDBRead m => CoreConfiguration -> m LrcSyncData
+mkLrcSyncData cc = LrcSyncData True <$> getEpoch cc
 
 ----------------------------------------------------------------------------
 -- LRC synchronization

@@ -15,6 +15,7 @@ module Pos.Lrc.DB.Issuers
 import           Universum
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Core (CoreConfiguration)
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.DB.Class (MonadDB, MonadDBRead)
@@ -28,20 +29,21 @@ import           Pos.Util.Util (maybeThrow)
 -- per epoch from the first value.
 type IssuersStakes = HashMap StakeholderId Coin
 
-getIssuersStakes :: MonadDBRead m => EpochIndex -> m IssuersStakes
-getIssuersStakes epoch =
+getIssuersStakes :: MonadDBRead m => CoreConfiguration -> EpochIndex -> m IssuersStakes
+getIssuersStakes cc epoch =
     maybeThrow (DBMalformed "Issuers part of LRC DB is not initialized") =<<
-    getBi (issuersKey epoch)
+    getBi cc (issuersKey epoch)
 
-putIssuersStakes :: MonadDB m => EpochIndex -> IssuersStakes -> m ()
-putIssuersStakes epoch = putBi (issuersKey epoch)
+putIssuersStakes :: MonadDB m => CoreConfiguration -> EpochIndex -> IssuersStakes -> m ()
+putIssuersStakes cc epoch = putBi cc (issuersKey epoch)
 
-prepareLrcIssuers :: MonadDB m => Coin -> m ()
-prepareLrcIssuers _ =
-    unlessM isInitialized $ putIssuersStakes (EpochIndex 0) mempty
+prepareLrcIssuers :: MonadDB m => CoreConfiguration -> Coin -> m ()
+prepareLrcIssuers cc _ =
+    unlessM (isInitialized cc)
+            (putIssuersStakes cc (EpochIndex 0) mempty)
 
-isInitialized :: MonadDB m => m Bool
-isInitialized = (isJust @IssuersStakes) <$> getBi (issuersKey $ EpochIndex 0)
+isInitialized :: MonadDB m => CoreConfiguration -> m Bool
+isInitialized cc = (isJust @IssuersStakes) <$> getBi cc (issuersKey $ EpochIndex 0)
 
 ----------------------------------------------------------------------------
 -- Keys

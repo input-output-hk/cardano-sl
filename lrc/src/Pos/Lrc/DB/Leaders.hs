@@ -19,9 +19,10 @@ module Pos.Lrc.DB.Leaders
 import           Universum
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount,
+import           Pos.Core (EpochIndex, ProtocolConstants, SlotCount,
                      SlotId (SlotId), SlotLeaders, StakeholderId,
-                     flattenSlotId, pcEpochSlots, protocolConstants,
+                     CoreConfiguration, GenesisData,
+                     flattenSlotId, pcEpochSlots,
                      unsafeMkLocalSlotIndexExplicit)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi,
@@ -32,11 +33,11 @@ import           Pos.Lrc.Genesis (genesisLeaders)
 -- Getters
 ----------------------------------------------------------------------------
 
-getLeadersForEpoch :: MonadDBRead m => EpochIndex -> m (Maybe SlotLeaders)
-getLeadersForEpoch = getBi . leadersForEpochKey
+getLeadersForEpoch :: MonadDBRead m => CoreConfiguration -> EpochIndex -> m (Maybe SlotLeaders)
+getLeadersForEpoch cc = getBi cc . leadersForEpochKey
 
-getLeader :: MonadDBRead m => SlotId -> m (Maybe StakeholderId)
-getLeader = getBi . leaderKey
+getLeader :: MonadDBRead m => CoreConfiguration -> ProtocolConstants -> SlotId -> m (Maybe StakeholderId)
+getLeader cc pc = getBi cc . leaderKey pc
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -46,45 +47,48 @@ getLeader = getBi . leaderKey
 -- The DB contains two mappings:
 -- * EpochIndex -> SlotLeaders
 -- * SlotId -> StakeholderId (added in CSE-240)
-putLeadersForEpoch :: MonadDB m => EpochIndex -> SlotLeaders -> m ()
-putLeadersForEpoch epoch leaders = do
-    let opsAllAtOnce  = toRocksOps $ putLeadersForEpochAllAtOnceOps epoch leaders
-        opsSeparately = toRocksOps $ putLeadersForEpochSeparatelyOps epoch leaders
+putLeadersForEpoch
+  :: MonadDB m
+  => CoreConfiguration -> ProtocolConstants -> EpochIndex -> SlotLeaders -> m ()
+putLeadersForEpoch cc pc epoch leaders = do
+    let opsAllAtOnce  = toRocksOps cc $ putLeadersForEpochAllAtOnceOps epoch leaders
+        opsSeparately = toRocksOps cc $ putLeadersForEpochSeparatelyOps pc epoch leaders
     putBatch $ opsAllAtOnce <> opsSeparately
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders :: MonadDB m => SlotCount -> m ()
-prepareLrcLeaders epochSlots =
+prepareLrcLeaders
+  :: MonadDB m => CoreConfiguration -> GenesisData -> ProtocolConstants -> SlotCount -> m ()
+prepareLrcLeaders cc gd pc epochSlots_ =
     -- Initialization flag was added with CSE-240.
     unlessM isLrcDbInitialized $ do
         hasLeadersForEpoch0 <- hasLeaders 0
         if not hasLeadersForEpoch0 then
             -- The node is not initialized at all. Only need to put leaders
             -- for the first epoch.
-            putLeadersForEpoch 0 (genesisLeaders epochSlots)
+            putLeadersForEpoch cc pc 0 (genesisLeaders gd epochSlots_)
         else
             -- The node was initialized before CSE-240.
             -- Need to migrate data for all epochs.
             initLeaders 0
-        putInitFlag
+        putInitFlag cc
   where
     initLeaders :: MonadDB m => EpochIndex -> m ()
     initLeaders i = do
-        maybeLeaders <- getLeadersForEpoch i
+        maybeLeaders <- getLeadersForEpoch cc i
         case maybeLeaders of
             Just leaders -> do
-                putBatchBi $ putLeadersForEpochSeparatelyOps i leaders
+                putBatchBi cc $ putLeadersForEpochSeparatelyOps pc i leaders
                 initLeaders (i + 1)
             Nothing -> pure ()
 
 isLrcDbInitialized :: MonadDB m => m Bool
 isLrcDbInitialized = dbHasKey lrcDbLeadersInitFlag
 
-putInitFlag :: MonadDB m => m ()
-putInitFlag = putBi lrcDbLeadersInitFlag ()
+putInitFlag :: MonadDB m => CoreConfiguration -> m ()
+putInitFlag cc = putBi cc lrcDbLeadersInitFlag ()
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -93,8 +97,8 @@ putInitFlag = putBi lrcDbLeadersInitFlag ()
 leadersForEpochKey :: EpochIndex -> ByteString
 leadersForEpochKey = mappend "l/" . serialize'
 
-leaderKey :: HasProtocolConstants => SlotId -> ByteString
-leaderKey = mappend "ls/" . serialize' . flattenSlotId
+leaderKey :: ProtocolConstants -> SlotId -> ByteString
+leaderKey pc = mappend "ls/" . serialize' . flattenSlotId pc
 
 lrcDbLeadersInitFlag :: ByteString
 lrcDbLeadersInitFlag = "linit/"
@@ -114,15 +118,15 @@ putLeadersForEpochAllAtOnceOps epoch leaders =
     [(leadersForEpochKey epoch, leaders)]
 
 putLeadersForEpochSeparatelyOps
-    :: HasProtocolConstants
-    => EpochIndex
+    :: ProtocolConstants
+    -> EpochIndex
     -> SlotLeaders
     -> [(ByteString, StakeholderId)]
-putLeadersForEpochSeparatelyOps epoch leaders =
-    [(leaderKey $ mkSlotId epoch i, leader)
+putLeadersForEpochSeparatelyOps pc epoch leaders =
+    [ (leaderKey pc $ mkSlotId epoch i, leader)
     | (i, leader) <- zip [0..] $ toList leaders]
   where
     mkSlotId :: EpochIndex -> Word16 -> SlotId
     mkSlotId epoch' slot =
         -- Using @unsafeMkLocalSlotIndexExplicit@ because we trust the callers.
-        SlotId epoch' (unsafeMkLocalSlotIndexExplicit (pcEpochSlots protocolConstants) slot)
+        SlotId epoch' (unsafeMkLocalSlotIndexExplicit (pcEpochSlots pc) slot)

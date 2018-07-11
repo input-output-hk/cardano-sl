@@ -21,6 +21,7 @@ import           Universum
 
 import           Mockable (CurrentTime, Mockable, currentTime)
 
+import           Pos.Core (ProtocolConstants)
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Slotting (SlotId (..), Timestamp (..),
                      unflattenSlotId)
@@ -56,8 +57,9 @@ data SimpleSlottingState = SimpleSlottingState
 
 type SimpleSlottingStateVar = TVar SimpleSlottingState
 
-mkSimpleSlottingStateVar :: (MonadIO m, HasProtocolConstants) => m SimpleSlottingStateVar
-mkSimpleSlottingStateVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId 0
+mkSimpleSlottingStateVar :: MonadIO m => ProtocolConstants -> m SimpleSlottingStateVar
+mkSimpleSlottingStateVar pc =
+  atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId pc 0
 
 ----------------------------------------------------------------------------
 -- Implementation

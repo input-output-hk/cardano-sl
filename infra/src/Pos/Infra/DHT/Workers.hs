@@ -14,7 +14,7 @@ import           Network.Kademlia (takeSnapshot)
 import           System.Wlog (WithLogger, logNotice)
 
 import           Pos.Binary.Class (serialize)
-import           Pos.Core (HasProtocolConstants)
+import           Pos.Core (HasProtocolConstants, protocolConstants)
 import           Pos.Core.Slotting (flattenSlotId, slotIdF)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (kademliaDumpInterval)
@@ -64,5 +64,6 @@ dumpKademliaStateWorker kademliaInst = \_ -> onNewSlot onsp $ \slotId ->
             Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
             Nothing -> return ()
   where
+    pc = protocolConstants
     onsp = defaultOnNewSlotParams
-    isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0
+    isTimeToDump slotId = flattenSlotId pc slotId `mod` kademliaDumpInterval == 0

@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (BlockVersionData, Coin, CoinPortion, EpochIndex,
-                     applyCoinPortionUp)
+                     CoreConfiguration, applyCoinPortionUp)
 import           Pos.DB.Class (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
@@ -53,14 +53,15 @@ lrcConsumerFromComponent rc thd ifNeedCompute callback =
 -- which uses only LRC DB.
 lrcConsumerFromComponentSimple
     :: (Bi richmenData, MonadGState m, MonadDB m)
-    => RichmenComponent richmenData
+    => CoreConfiguration
+    -> RichmenComponent richmenData
     -> (BlockVersionData -> CoinPortion)
     -> LrcConsumer m
-lrcConsumerFromComponentSimple rc thresholdGetter =
+lrcConsumerFromComponentSimple cc rc thresholdGetter =
     lrcConsumerFromComponent rc toThreshold ifNeedCompute onComputed
   where
     toThreshold total =
         flip applyCoinPortionUp total . thresholdGetter <$> gsAdoptedBVData
-    ifNeedCompute epoch = isNothing <$> getRichmen rc epoch
+    ifNeedCompute epoch = isNothing <$> getRichmen cc rc epoch
     onComputed epoch totalStake stakes =
-        putRichmen rc epoch (totalStake, stakes)
+        putRichmen cc rc epoch (totalStake, stakes)

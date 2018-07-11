@@ -17,7 +17,7 @@ import           Formatting (bprint, build, sformat, stext, (%))
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core (HasProtocolConstants, SlotCount, SlotId, slotIdF,
-                     slotSecurityParam)
+                     protocolConstants, slotSecurityParam)
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.
@@ -87,7 +87,7 @@ getSyncStatusK = getSyncStatus lagBehindParam
     -- work. 'slotSecurityParam' is reasonable, but maybe we should use
     -- something smaller.
     lagBehindParam :: SlotCount
-    lagBehindParam = slotSecurityParam
+    lagBehindParam = slotSecurityParam protocolConstants
 
 -- | This is a helper function which runs given action only if we are
 -- kinda synchronized with the network.  It is useful for workers

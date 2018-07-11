@@ -17,6 +17,7 @@ module Pos.Lrc.DB.RichmenBase
 
 import           Universum
 
+import           Pos.Core (CoreConfiguration)
 import           Pos.Binary.Class (Bi, serialize')
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
@@ -30,10 +31,11 @@ import           Pos.Lrc.Types (FullRichmenData)
 
 getRichmen
     :: (Bi richmenData, MonadDBRead m)
-    => RichmenComponent richmenData
+    => CoreConfiguration
+    -> RichmenComponent richmenData
     -> EpochIndex
     -> m (Maybe richmenData)
-getRichmen = getBi ... richmenKey
+getRichmen cc = getBi cc ... richmenKey
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -41,11 +43,12 @@ getRichmen = getBi ... richmenKey
 
 putRichmen
     :: (Bi richmenData, MonadDB m)
-    => RichmenComponent richmenData
+    => CoreConfiguration
+    -> RichmenComponent richmenData
     -> EpochIndex
     -> FullRichmenData
     -> m ()
-putRichmen rc e = putBi (richmenKey rc e) . rcToData rc
+putRichmen cc rc e = putBi cc (richmenKey rc e) . rcToData rc
 
 richmenKey :: RichmenComponent richmenData -> EpochIndex -> ByteString
 richmenKey rc e = mconcat ["r/", rcTag rc, "/", serialize' e]

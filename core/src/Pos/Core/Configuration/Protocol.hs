@@ -44,13 +44,13 @@ vssMinTTL = fromIntegral . getVssMinTTL . pcVssMinTTL $ protocolConstants
 
 -- | Security parameter which is maximum number of blocks which can be
 -- rolled back.
-blkSecurityParam :: HasProtocolConstants => BlockCount
-blkSecurityParam = fromIntegral . pcK $ protocolConstants
+blkSecurityParam :: ProtocolConstants -> BlockCount
+blkSecurityParam pc = fromIntegral (pcK pc)
 
 -- | Security parameter expressed in number of slots. It uses chain
 -- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
-slotSecurityParam :: HasProtocolConstants => SlotCount
-slotSecurityParam = fromIntegral $ 2 * getBlockCount blkSecurityParam
+slotSecurityParam :: ProtocolConstants -> SlotCount
+slotSecurityParam pc = fromIntegral (2 * getBlockCount (blkSecurityParam pc))
 
 -- We don't have a special newtype for it, so it can be any
 -- 'Fractional'. I think adding newtype here would be overkill
@@ -61,10 +61,10 @@ slotSecurityParam = fromIntegral $ 2 * getBlockCount blkSecurityParam
 --
 -- | Minimal chain quality (number of blocks divided by number of
 -- slots) necessary for security of the system.
-chainQualityThreshold :: (HasProtocolConstants, Fractional fractional) => fractional
-chainQualityThreshold =
-    realToFrac blkSecurityParam / realToFrac slotSecurityParam
+chainQualityThreshold :: Fractional a => ProtocolConstants -> a
+chainQualityThreshold pc =
+    realToFrac (blkSecurityParam pc) / realToFrac (slotSecurityParam pc)
 
 -- | Number of slots inside one epoch.
-epochSlots :: (HasProtocolConstants) => SlotCount
-epochSlots = fromIntegral $ 10 * getBlockCount blkSecurityParam
+epochSlots :: ProtocolConstants -> SlotCount
+epochSlots pc = fromIntegral (10 * getBlockCount (blkSecurityParam pc))

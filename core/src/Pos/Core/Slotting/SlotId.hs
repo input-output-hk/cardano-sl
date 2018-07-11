@@ -29,8 +29,10 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, ords, (%))
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core.ProtocolConstants (ProtocolConstants)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
-                     epochSlots, slotSecurityParam)
+                     epochSlots, slotSecurityParam, withProtocolConstants,
+                     protocolConstants)
 import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Slotting.EpochIndex
@@ -58,8 +60,8 @@ flip makeLensesFor ''SlotId [
     ("siSlot" , "siSlotL") ]
 
 instance HasProtocolConstants => Enum SlotId where
-    toEnum = unflattenSlotId . fromIntegral
-    fromEnum = fromIntegral . flattenSlotId
+    toEnum = unflattenSlotId protocolConstants . fromIntegral
+    fromEnum = fromIntegral . flattenSlotId protocolConstants
 
 slotIdToEnum :: SlotCount -> Int -> SlotId
 slotIdToEnum es = unflattenSlotIdExplicit es . fromIntegral
@@ -86,8 +88,8 @@ slotIdF = build
 type FlatSlotId = Word64
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
-flattenSlotId :: HasProtocolConstants => SlotId -> FlatSlotId
-flattenSlotId = flattenSlotIdExplicit epochSlots
+flattenSlotId :: ProtocolConstants -> SlotId -> FlatSlotId
+flattenSlotId pc = flattenSlotIdExplicit (epochSlots pc)
 
 flattenSlotIdExplicit :: SlotCount -> SlotId -> FlatSlotId
 flattenSlotIdExplicit es SlotId {..} = fromIntegral $
@@ -95,13 +97,13 @@ flattenSlotIdExplicit es SlotId {..} = fromIntegral $
     fromIntegral (getSlotIndex siSlot)
 
 -- | Flattens 'EpochIndex' into a single number.
-flattenEpochIndex :: HasProtocolConstants => EpochIndex -> FlatSlotId
-flattenEpochIndex (EpochIndex i) =
-    fromIntegral (fromIntegral i * epochSlots)
+flattenEpochIndex :: ProtocolConstants -> EpochIndex -> FlatSlotId
+flattenEpochIndex pc (EpochIndex i) =
+    fromIntegral (fromIntegral i * epochSlots pc)
 
 -- | Construct 'SlotId' from a flattened variant.
-unflattenSlotId :: HasProtocolConstants => FlatSlotId -> SlotId
-unflattenSlotId = unflattenSlotIdExplicit epochSlots
+unflattenSlotId :: ProtocolConstants -> FlatSlotId -> SlotId
+unflattenSlotId pc = unflattenSlotIdExplicit (epochSlots pc)
 
 -- | Construct a 'SlotId' from a flattened variant, using a given 'SlotCount'
 -- modulus.
@@ -112,18 +114,18 @@ unflattenSlotIdExplicit es n =
         siSlot = leftToPanic "unflattenSlotIdExplicit: " $ mkLocalSlotIndexThrow_ es slot
     in  SlotId {..}
 
-flatSlotId :: HasProtocolConstants => Iso' SlotId FlatSlotId
-flatSlotId = iso flattenSlotId unflattenSlotId
+flatSlotId :: ProtocolConstants -> Iso' SlotId FlatSlotId
+flatSlotId pc = iso (flattenSlotId pc) (unflattenSlotId pc)
 
 -- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
 -- are stable.
-crucialSlot :: HasProtocolConstants => EpochIndex -> SlotId
-crucialSlot 0        = SlotId {siEpoch = 0, siSlot = minBound}
-crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
+crucialSlot :: ProtocolConstants -> EpochIndex -> SlotId
+crucialSlot pc 0         = SlotId {siEpoch = 0, siSlot = withProtocolConstants pc minBound}
+crucialSlot pc epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
   where
     siSlot =
         leftToPanic "crucialSlot: " $
-        mkLocalSlotIndex (fromIntegral (fromIntegral epochSlots - slotSecurityParam - 1))
+        mkLocalSlotIndex pc (fromIntegral (fromIntegral (epochSlots pc) - slotSecurityParam pc - 1))
 
 -- TH instances
 

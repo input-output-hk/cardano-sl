@@ -18,6 +18,7 @@ module Pos.Lrc.Consumer.Update
 import           Universum
 
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
+                     CoreConfiguration,
                      bvdUpdateVoteThd, genesisBlockVersionData)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.Lrc.Consumer (LrcConsumer, lrcConsumerFromComponentSimple)
@@ -44,8 +45,8 @@ richmenComponent = RichmenComponent
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-usLrcConsumer :: (MonadGState m, MonadDB m) => LrcConsumer m
-usLrcConsumer = lrcConsumerFromComponentSimple richmenComponent bvdUpdateVoteThd
+usLrcConsumer :: (MonadGState m, MonadDB m, HasGenesisBlockVersionData) => CoreConfiguration -> LrcConsumer m
+usLrcConsumer cc = lrcConsumerFromComponentSimple cc richmenComponent bvdUpdateVoteThd
 
 ----------------------------------------------------------------------------
 -- Getting richmen
@@ -54,17 +55,20 @@ usLrcConsumer = lrcConsumerFromComponentSimple richmenComponent bvdUpdateVoteThd
 -- | Wait for LRC results to become available and then get update system
 -- ricmen data for the given epoch.
 getUSRichmen
-    :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLrcContext ctx)
-    => Text               -- ^ Function name (to include into error message)
+    :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLrcContext ctx, HasGenesisBlockVersionData)
+    => CoreConfiguration
+    -> Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m FullRichmenData
-getUSRichmen fname epoch = lrcActionOnEpochReason
+getUSRichmen cc fname epoch = lrcActionOnEpochReason
     epoch
     (fname <> ": couldn't get US richmen")
-    tryGetUSRichmen
+    (tryGetUSRichmen cc)
 
 -- | Like 'getUSRichmen', but doesn't wait and doesn't fail.
 --
 -- Returns a 'Maybe'.
-tryGetUSRichmen :: MonadDBRead m => EpochIndex -> m (Maybe FullRichmenData)
-tryGetUSRichmen = getRichmen richmenComponent
+tryGetUSRichmen
+  :: (MonadDBRead m, HasGenesisBlockVersionData)
+  => CoreConfiguration -> EpochIndex -> m (Maybe FullRichmenData)
+tryGetUSRichmen cc = getRichmen cc richmenComponent

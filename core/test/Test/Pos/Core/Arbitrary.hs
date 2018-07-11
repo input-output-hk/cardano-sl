@@ -155,13 +155,13 @@ instance HasProtocolConstants => Arbitrary EoSToIntOverflow where
     arbitrary = EoSToIntOverflow <$> do
         let maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
-            (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ epochSlots)
-            maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
+            (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ (epochSlots protocolConstants))
+            maxDiv = maxW64 `div` (1 + fromIntegral (epochSlots protocolConstants))
         leftEpoch <- EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
         localSlot <-
             leftToPanic "arbitrary@EoSToIntOverflow" .
-            mkLocalSlotIndex .
-            fromIntegral <$> choose (minMod, toInteger epochSlots)
+            mkLocalSlotIndex protocolConstants .
+            fromIntegral <$> choose (minMod, toInteger (epochSlots protocolConstants))
         let rightEpoch = EpochIndex . fromIntegral $ minDiv
         EpochOrSlot <$>
             oneof [ pure $ Left leftEpoch
@@ -180,12 +180,12 @@ newtype UnreasonableEoS = Unreasonable
 
 instance HasProtocolConstants => Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . EpochOrSlot <$> do
-        let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
+        let maxI = (maxBound :: Int) `div` (1 + fromIntegral (epochSlots protocolConstants))
         localSlot <- arbitrary
         let lsIntegral = fromIntegral . getSlotIndex $ localSlot
         let epoch n = EpochIndex <$>
                 choose (succ maxReasonableEpoch
-                       , fromIntegral maxI - (n * fromIntegral (succ epochSlots)))
+                       , fromIntegral maxI - (n * fromIntegral (succ (epochSlots protocolConstants))))
         leftEpoch <- Left <$> epoch 0
         rightSlot <- Right . (flip SlotId localSlot) <$> epoch lsIntegral
         oneof [ pure leftEpoch

@@ -28,7 +28,7 @@ import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
-                     epochSlots)
+                     epochSlots, protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Util.Util (leftToPanic)
 
@@ -40,7 +40,8 @@ newtype LocalSlotIndex = UnsafeLocalSlotIndex
     } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
 
 instance HasProtocolConstants => Enum LocalSlotIndex where
-    toEnum i | i >= fromIntegral epochSlots = error "toEnum @LocalSlotIndex: greater than maxBound"
+    toEnum i | i >= fromIntegral (epochSlots protocolConstants)
+                     = error "toEnum @LocalSlotIndex: greater than maxBound"
              | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
              | otherwise = UnsafeLocalSlotIndex (fromIntegral i)
     fromEnum = fromIntegral . getSlotIndex
@@ -53,7 +54,7 @@ instance HasProtocolConstants => Random LocalSlotIndex where
 
 instance HasProtocolConstants => Bounded LocalSlotIndex where
     minBound = UnsafeLocalSlotIndex 0
-    maxBound = UnsafeLocalSlotIndex (fromIntegral epochSlots - 1)
+    maxBound = UnsafeLocalSlotIndex (fromIntegral (epochSlots protocolConstants) - 1)
 
 instance Bi LocalSlotIndex where
     encode = encode . getSlotIndex
@@ -87,17 +88,17 @@ mkLocalSlotIndexThrow_ es idx = case mkLocalSlotIndex_ es idx of
         "local slot is greater than or equal to the number of slots in epoch: " <>
         show idx
 
-mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
-mkLocalSlotIndex = mkLocalSlotIndexThrow_ epochSlots
+mkLocalSlotIndex :: MonadError Text m => ProtocolConstants -> Word16 -> m LocalSlotIndex
+mkLocalSlotIndex pc = mkLocalSlotIndexThrow_ (epochSlots pc)
 
 mkLocalSlotIndexExplicit :: MonadError Text m => SlotCount -> Word16 -> m LocalSlotIndex
 mkLocalSlotIndexExplicit es = mkLocalSlotIndexThrow_ es
 
 -- | Shift slot index by given amount, and return 'Nothing' if it has
 -- overflowed past 'epochSlots'.
-addLocalSlotIndex :: HasProtocolConstants => SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
-addLocalSlotIndex x (UnsafeLocalSlotIndex i)
-    | s < fromIntegral epochSlots = Just (UnsafeLocalSlotIndex (fromIntegral s))
+addLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
+addLocalSlotIndex pc x (UnsafeLocalSlotIndex i)
+    | s < fromIntegral (epochSlots pc) = Just (UnsafeLocalSlotIndex (fromIntegral s))
     | otherwise      = Nothing
   where
     s :: Word64

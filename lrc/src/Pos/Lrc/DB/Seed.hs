@@ -13,22 +13,23 @@ module Pos.Lrc.DB.Seed
 import           Universum
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (EpochIndex (..), SharedSeed, gdFtsSeed, genesisData)
+import           Pos.Core (GenesisData, CoreConfiguration, EpochIndex (..),
+                     SharedSeed, gdFtsSeed)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (getBi, putBi)
 
-getSeed :: MonadDBRead m => EpochIndex -> m (Maybe SharedSeed)
-getSeed epoch = getBi (seedKey epoch)
+getSeed :: MonadDBRead m => CoreConfiguration -> EpochIndex -> m (Maybe SharedSeed)
+getSeed cc epoch = getBi cc (seedKey epoch)
 
-putSeed :: MonadDB m => EpochIndex -> SharedSeed -> m ()
-putSeed epoch = putBi (seedKey epoch)
+putSeed :: MonadDB m => CoreConfiguration -> EpochIndex -> SharedSeed -> m ()
+putSeed cc epoch = putBi cc (seedKey epoch)
 
-prepareLrcSeed :: MonadDB m => m ()
-prepareLrcSeed =
-    unlessM isInitialized $ putSeed (EpochIndex 0) $ gdFtsSeed genesisData
+prepareLrcSeed :: MonadDB m => CoreConfiguration -> GenesisData -> m ()
+prepareLrcSeed cc gd =
+    unlessM (isInitialized cc) $ putSeed cc (EpochIndex 0) (gdFtsSeed gd)
 
-isInitialized :: MonadDBRead m => m Bool
-isInitialized = isJust <$> getSeed (EpochIndex 0)
+isInitialized :: MonadDBRead m => CoreConfiguration -> m Bool
+isInitialized cc = isJust <$> getSeed cc (EpochIndex 0)
 
 ----------------------------------------------------------------------------
 -- Keys

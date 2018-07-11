@@ -18,7 +18,7 @@ module Pos.Lrc.Consumer.Ssc
 import           Universum
 
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData, bvdMpcThd,
-                     genesisBlockVersionData)
+                     CoreConfiguration, genesisBlockVersionData)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.Lrc.Consumer (LrcConsumer, lrcConsumerFromComponentSimple)
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
@@ -43,8 +43,10 @@ richmenComponent = RichmenComponent
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-sscLrcConsumer :: (MonadGState m, MonadDB m) => LrcConsumer m
-sscLrcConsumer = lrcConsumerFromComponentSimple richmenComponent bvdMpcThd
+sscLrcConsumer
+  :: (MonadGState m, MonadDB m, HasGenesisBlockVersionData)
+  => CoreConfiguration -> LrcConsumer m
+sscLrcConsumer cc = lrcConsumerFromComponentSimple cc richmenComponent bvdMpcThd
 
 ----------------------------------------------------------------------------
 -- Getting richmen
@@ -53,15 +55,19 @@ sscLrcConsumer = lrcConsumerFromComponentSimple richmenComponent bvdMpcThd
 -- | Wait for LRC results to become available and then get the list of SSC
 -- ricmen for the given epoch.
 getSscRichmen
-    :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLrcContext ctx)
-    => Text               -- ^ Function name (to include into error message)
+    :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLrcContext ctx,
+        HasGenesisBlockVersionData)
+    => CoreConfiguration
+    -> Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m RichmenStakes
-getSscRichmen fname epoch = lrcActionOnEpochReason
+getSscRichmen cc fname epoch = lrcActionOnEpochReason
     epoch
     (fname <> ": couldn't get SSC richmen")
-    tryGetSscRichmen
+    (tryGetSscRichmen cc)
 
 -- | Like 'getSscRichmen', but doesn't wait and doesn't fail.
-tryGetSscRichmen :: MonadDBRead m => EpochIndex -> m (Maybe RichmenStakes)
-tryGetSscRichmen = getRichmen richmenComponent
+tryGetSscRichmen
+  :: (HasGenesisBlockVersionData, MonadDBRead m)
+  => CoreConfiguration -> EpochIndex -> m (Maybe RichmenStakes)
+tryGetSscRichmen cc = getRichmen cc richmenComponent

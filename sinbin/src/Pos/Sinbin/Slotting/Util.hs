@@ -18,13 +18,13 @@ module Pos.Sinbin.Slotting.Util
 
 import           Universum
 
-import           Pos.Core (FlatSlotId, HasProtocolConstants, flattenSlotId)
+import           Pos.Core (FlatSlotId, ProtocolConstants, flattenSlotId)
 import           Pos.Sinbin.Slotting.Class (MonadSlots (..))
 
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: (MonadSlots ctx m, HasProtocolConstants) => m (Maybe FlatSlotId)
-getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
+getCurrentSlotFlat :: MonadSlots ctx m => ProtocolConstants -> m (Maybe FlatSlotId)
+getCurrentSlotFlat pc = fmap (flattenSlotId pc) <$> getCurrentSlot
 
 
 -- | Parameters for `onNewSlot`.

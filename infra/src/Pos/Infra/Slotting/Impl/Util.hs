@@ -9,7 +9,8 @@ import           Universum
 
 import           Data.Time.Units (Microsecond, convertUnit)
 
-import           Pos.Core.Configuration (HasProtocolConstants, epochSlots)
+import           Pos.Core.Configuration (HasProtocolConstants, epochSlots,
+                     protocolConstants)
 import           Pos.Core.Slotting (EpochIndex, LocalSlotIndex, SlotId (..),
                      Timestamp (..), addTimeDiffToTimestamp, flattenEpochIndex,
                      mkLocalSlotIndex, unflattenSlotId)
@@ -39,12 +40,13 @@ approxSlotUsingOutdated t = do
         if | t < epochStart -> SlotId (currentEpochIndex + 1) minBound
            | otherwise      -> outdatedEpoch systemStart t (currentEpochIndex + 1) nextSlottingData
   where
+    pc = protocolConstants
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration
             start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart)
         in
-        unflattenSlotId $
-        flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
+        unflattenSlotId pc $
+        flattenEpochIndex pc epoch + fromIntegral ((curTime - start) `div` duration)
 
     -- | Get both values we need in a single fetch, so we don't end up with
     -- invalid data.
@@ -136,10 +138,10 @@ slotFromTimestamp approxCurTime = do
         localSlot :: LocalSlotIndex
         localSlot =
             leftToPanic "computeSlotUsingEpoch: " $
-            mkLocalSlotIndex localSlotNumeric
+            mkLocalSlotIndex protocolConstants localSlotNumeric
 
         slotDuration :: Microsecond
         slotDuration = convertUnit esdSlotDuration
 
         epochDuration :: Microsecond
-        epochDuration = slotDuration * fromIntegral epochSlots
+        epochDuration = slotDuration * fromIntegral (epochSlots protocolConstants)

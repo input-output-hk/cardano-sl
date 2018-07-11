@@ -30,12 +30,12 @@ type TxWitness = Vector TxInWitness
 
 -- | A witness for a single input.
 data TxInWitness
-    = PkWitness { twKey :: !PublicKey
-                , twSig :: !TxSig }
-    | ScriptWitness { twValidator :: !Script
-                    , twRedeemer  :: !Script }
-    | RedeemWitness { twRedeemKey :: !RedeemPublicKey
-                    , twRedeemSig :: !(RedeemSignature TxSigData) }
+    -- PkWitness twKey twSig
+    = PkWitness !PublicKey !TxSig
+    -- ScriptWitness twValidator twRedeemer
+    | ScriptWitness !Script !Script
+    -- RedeemWitness twRedeemKey twRedeemSig
+    | RedeemWitness !RedeemPublicKey !(RedeemSignature TxSigData)
     | UnknownWitnessType !Word8 !ByteString
     deriving (Eq, Show, Generic, Typeable)
 

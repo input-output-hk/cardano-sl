@@ -20,6 +20,7 @@ import           System.Wlog (Severity)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
@@ -32,6 +33,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
 bracketKernelPassiveWallet
     :: forall m n a. (MonadIO m, MonadIO n, MonadMask n)
     => (Severity -> Text -> IO ())
+    -> Keystore
     -> (PassiveWalletLayer m -> PassiveWallet -> n a) -> n a
 bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
 

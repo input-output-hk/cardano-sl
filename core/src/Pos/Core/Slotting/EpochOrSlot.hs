@@ -4,6 +4,15 @@ module Pos.Core.Slotting.EpochOrSlot
        ( EpochOrSlot (..)
        , HasEpochOrSlot (..)
 
+       , epochOrSlotToEnum
+       , epochOrSlotFromEnum
+       , epochOrSlotSucc
+       , epochOrSlotPred
+       , epochOrSlotEnumFromTo
+
+       , epochOrSlotMinBound
+       , epochOrSlotMaxBound
+
        , flattenEpochOrSlot
 
        , diffEpochOrSlot
@@ -16,6 +25,7 @@ module Pos.Core.Slotting.EpochOrSlot
 import           Universum
 
 import           Control.Lens (Getter, lens, to)
+import           Data.Bifunctor (bimap)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
@@ -94,7 +104,7 @@ instance HasProtocolConstants => Enum EpochOrSlot where
         let (fromIntegral -> epoch, fromIntegral -> slot) =
                 x `divMod` (fromIntegral epochSlots + 1)
             slotIdx =
-                leftToPanic "toEnum @EpochOrSlot" $ mkLocalSlotIndex (slot - 1)
+                leftToPanic "toEnum @EpochOrSlot:" $ mkLocalSlotIndex (slot - 1)
         in if | x < 0 -> error "toEnum @EpochOrSlot: Negative argument"
               | slot == 0 -> EpochOrSlot (Left epoch)
               | otherwise ->
@@ -144,7 +154,6 @@ diffEpochOrSlot a b
     a' = toInteger (flattenEpochOrSlot a)
     b' = toInteger (flattenEpochOrSlot b)
 
-
 -- | Apply one of the function depending on content of 'EpochOrSlot'.
 epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
 epochOrSlot f g = either f g . unEpochOrSlot
@@ -154,5 +163,79 @@ epochOrSlot f g = either f g . unEpochOrSlot
 -- returned.
 epochOrSlotToSlot :: HasProtocolConstants => EpochOrSlot -> SlotId
 epochOrSlotToSlot = epochOrSlot (flip SlotId minBound) identity
+
+-- -----------------------------------------------------------------------------
+-- EpochOrSLot used to have an 'Enum' instance, but the pending removal of
+-- 'HasProtocolConstants' means that is no longer possible.
+
+epochOrSlotToEnum :: SlotCount -> Int -> EpochOrSlot
+epochOrSlotToEnum es x =
+    let (epoch, slot) =
+            bimap fromIntegral fromIntegral $ x `divMod` (fromIntegral es + 1)
+        slotIdx =
+            leftToPanic "epochOrSlotToEnum:" $ mkLocalSlotIndexExplicit es (slot - 1)
+    in
+        if | x < 0 -> error "epochOrSlotToEnum: Negative argument"
+           | slot == 0 -> EpochOrSlot (Left epoch)
+           | otherwise ->
+                EpochOrSlot $ Right (SlotId epoch slotIdx)
+
+epochOrSlotFromEnum :: SlotCount -> EpochOrSlot -> Int
+epochOrSlotFromEnum es (EpochOrSlot eos) = case eos of
+    Left e ->
+        let res = toInteger e * toInteger (es + 1)
+            maxIntAsInteger = toInteger (maxBound :: Int)
+        in if | res > maxIntAsInteger ->
+                  error "epochOrSlotFromEnum: Argument larger than 'maxBound :: Int'"
+              | otherwise -> fromIntegral res
+    Right SlotId {..} ->
+        let res = toInteger (epochOrSlotFromEnum es (EpochOrSlot (Left siEpoch))) +
+                  toInteger (getSlotIndex siSlot) +
+                  1
+            maxIntAsInteger = toInteger (maxBound :: Int)
+        in if | res > maxIntAsInteger ->
+                  error "epochOrSlotFromEnum: Argument larger than 'maxBound :: Int'"
+              | otherwise -> fromIntegral res
+
+epochOrSlotSucc :: SlotCount -> EpochOrSlot -> EpochOrSlot
+epochOrSlotSucc es e@(EpochOrSlot eos) = case eos of
+    Left ep -> EpochOrSlot
+        (Right SlotId {siEpoch = ep, siSlot = localSlotIndexMinBound})
+    Right si@SlotId {..}
+        | e == epochOrSlotMaxBound es ->
+            error "succ@EpochOrSlot: maxBound"
+        | siSlot == localSlotIndexMaxBoundExplicit es ->
+            EpochOrSlot $ Left (siEpoch + 1)
+        | otherwise ->
+            EpochOrSlot $ Right si { siSlot = localSlotIndexSucc es siSlot }
+
+epochOrSlotPred :: SlotCount -> EpochOrSlot -> EpochOrSlot
+epochOrSlotPred es e@(EpochOrSlot eos) = case eos of
+    Left ep
+        | e == epochOrSlotMinBound ->
+            error "epochOrSlotPred: minBound"
+        | otherwise ->
+            EpochOrSlot $ Right (SlotId (ep - 1) (localSlotIndexMaxBoundExplicit es))
+    Right si@SlotId {..}
+        | siSlot == localSlotIndexMinBound -> EpochOrSlot (Left siEpoch)
+        | otherwise -> EpochOrSlot $ Right si { siSlot = localSlotIndexPred es siSlot }
+
+epochOrSlotEnumFromTo
+    :: SlotCount -> EpochOrSlot -> EpochOrSlot -> [EpochOrSlot]
+epochOrSlotEnumFromTo es x y = fmap
+    (epochOrSlotToEnum es)
+    [epochOrSlotFromEnum es x .. epochOrSlotFromEnum es y]
+
+epochOrSlotMinBound :: EpochOrSlot
+epochOrSlotMinBound = EpochOrSlot (Left (EpochIndex 0))
+
+epochOrSlotMaxBound :: SlotCount -> EpochOrSlot
+epochOrSlotMaxBound es = EpochOrSlot $ Right SlotId
+    { siSlot  = localSlotIndexMaxBoundExplicit es
+    , siEpoch = maxBound
+    }
+
+-- -----------------------------------------------------------------------------
+-- TH derived instances at the end of the file.
 
 deriveSafeCopySimple 0 'base ''EpochOrSlot

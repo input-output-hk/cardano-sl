@@ -323,7 +323,7 @@ data WalletStorage = WalletStorage
       -- | Non-wallet-specific client metadata.
     , _wsProfile         :: !WebTypes.CProfile
       -- | List of descriptions of approved and downloaded updates, waiting
-      -- for user action. See "Pos.Update.Download" and @updateNotifier@ in
+      -- for user action. See "Pos.Network.Update.Download" and @updateNotifier@ in
       -- "Pos.Wallet.Web.Sockets.Notifier" for more info of how updates work.
     , _wsReadyUpdates    :: [WebTypes.CUpdateInfo]
       -- | For every wallet ID (@CId Wal@) stores metadata for transactions in

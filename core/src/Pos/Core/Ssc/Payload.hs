@@ -1,6 +1,7 @@
 module Pos.Core.Ssc.Payload
        ( SscPayload (..)
        , checkSscPayload
+       , spVss
        ) where
 
 import           Universum hiding (id)
@@ -15,7 +16,7 @@ import           Serokell.Util (listJson)
 
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 
-import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Class (Cons (..), Field (..), deriveIndexedBi)
 import           Pos.Core.Ssc.CommitmentsMap
 import           Pos.Core.Ssc.OpeningsMap
 import           Pos.Core.Ssc.SharesMap
@@ -26,16 +27,16 @@ import           Pos.Util.Util (cborError)
 -- | Payload included into blocks.
 data SscPayload
     = CommitmentsPayload
-        { spComms :: !CommitmentsMap
-        , spVss   :: !VssCertificatesMap }
+        !CommitmentsMap
+        !VssCertificatesMap
     | OpeningsPayload
-        { spOpenings :: !OpeningsMap
-        , spVss      :: !VssCertificatesMap }
+        !OpeningsMap
+        !VssCertificatesMap
     | SharesPayload
-        { spShares :: !SharesMap
-        , spVss    :: !VssCertificatesMap }
+        !SharesMap
+        !VssCertificatesMap
     | CertificatesPayload
-        { spVss    :: !VssCertificatesMap }
+        !VssCertificatesMap
     deriving (Eq, Show, Generic)
 
 instance NFData SscPayload
@@ -86,6 +87,12 @@ isEmptySscPayload (OpeningsPayload opens certs)    = null opens && null certs
 isEmptySscPayload (SharesPayload shares certs)     = null shares && null certs
 isEmptySscPayload (CertificatesPayload certs)      = null certs
 
+spVss :: SscPayload -> VssCertificatesMap
+spVss (CommitmentsPayload _ vss) = vss
+spVss (OpeningsPayload    _ vss) = vss
+spVss (SharesPayload      _ vss) = vss
+spVss (CertificatesPayload  vss) = vss
+
 checkSscPayload
     :: MonadError Text m
     => ProtocolMagic
@@ -96,18 +103,18 @@ checkSscPayload pm payload = checkVssCertificatesMap pm (spVss payload)
 
 -- TH-generated instances go to the end of the file
 
-deriveSimpleBi ''SscPayload [
+deriveIndexedBi ''SscPayload [
     Cons 'CommitmentsPayload [
-        Field [| spComms    :: CommitmentsMap     |],
-        Field [| spVss      :: VssCertificatesMap |] ],
+        Field [| 0 :: CommitmentsMap     |],
+        Field [| 1 :: VssCertificatesMap |] ],
     Cons 'OpeningsPayload [
-        Field [| spOpenings :: OpeningsMap        |],
-        Field [| spVss      :: VssCertificatesMap |] ],
+        Field [| 0 :: OpeningsMap        |],
+        Field [| 1 :: VssCertificatesMap |] ],
     Cons 'SharesPayload [
-        Field [| spShares   :: SharesMap          |],
-        Field [| spVss      :: VssCertificatesMap |] ],
+        Field [| 0 :: SharesMap          |],
+        Field [| 1 :: VssCertificatesMap |] ],
     Cons 'CertificatesPayload [
-        Field [| spVss      :: VssCertificatesMap |] ]
+        Field [| 0 :: VssCertificatesMap |] ]
     ]
 
 deriveSafeCopySimple 0 'base ''SscPayload

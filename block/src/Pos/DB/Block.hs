@@ -44,7 +44,6 @@ import           System.FilePath ((</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
-import           Pos.Binary.Block.Types ()
 import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))

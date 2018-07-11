@@ -43,7 +43,6 @@ library
     Pos.Ssc.Behavior
     Pos.Ssc.Shares
     Pos.Ssc.DB
-    Pos.Ssc.Mode
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -52,15 +51,6 @@ library
     Pos.Ssc.Toss.Class
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
-
-    Pos.Ssc.Worker
-
-    Pos.Arbitrary.Ssc
-
-    Pos.Binary.Ssc
-    Pos.Binary.Ssc.Types
-    Pos.Binary.Ssc.Toss
-    Pos.Binary.Ssc.Relay
 
     Pos.Security.Params
     Pos.Security.Util
@@ -72,15 +62,13 @@ library
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
-                     , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-networking
+                     , cardano-sl-sinbin
                      , cardano-sl-util
-                     , cardano-sl-util-test
                      , containers
                      , contravariant
                      , cryptonite
@@ -109,6 +97,7 @@ library
                      , universum
                      , unordered-containers
 
+  hs-source-dirs:      src
   default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable

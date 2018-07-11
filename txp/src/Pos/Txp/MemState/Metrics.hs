@@ -12,8 +12,8 @@ import qualified System.Metrics as Metrics
 import qualified System.Metrics.Gauge as Metrics.Gauge
 --import           Pos.Util.Log (logDebug)
 
-import           Pos.Infra.StateLock (StateLockMetrics (..))
-import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
+import           Pos.Sinbin.StateLock (StateLockMetrics (..))
+import           Pos.Sinbin.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
                      MemPoolModifyReason (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))

@@ -4,6 +4,11 @@ module Pos.Core.Slotting.SlotId
        , siSlotL
        , slotIdF
 
+       , slotIdToEnum
+       , slotIdFromEnum
+       , slotIdSucc
+       , slotIdPred
+
        , FlatSlotId
        , flatSlotId
 
@@ -56,6 +61,20 @@ instance HasProtocolConstants => Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
     fromEnum = fromIntegral . flattenSlotId
 
+slotIdToEnum :: SlotCount -> Int -> SlotId
+slotIdToEnum es = unflattenSlotIdExplicit es . fromIntegral
+
+slotIdFromEnum :: SlotCount -> SlotId -> Int
+slotIdFromEnum es = fromIntegral . flattenSlotIdExplicit es
+
+slotIdSucc :: SlotCount -> SlotId -> SlotId
+slotIdSucc es =
+    slotIdToEnum es . (+ 1) . slotIdFromEnum es
+
+slotIdPred :: SlotCount -> SlotId -> SlotId
+slotIdPred es =
+    slotIdToEnum es . subtract 1 . slotIdFromEnum es
+
 instance HasEpochIndex SlotId where
     epochIndexL = lens siEpoch (\s a -> s {siEpoch = a})
 
@@ -90,7 +109,7 @@ unflattenSlotIdExplicit :: SlotCount -> FlatSlotId -> SlotId
 unflattenSlotIdExplicit es n =
     let (fromIntegral -> siEpoch, fromIntegral -> slot) =
             n `divMod` fromIntegral es
-        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndexThrow_ es slot
+        siSlot = leftToPanic "unflattenSlotIdExplicit: " $ mkLocalSlotIndexThrow_ es slot
     in  SlotId {..}
 
 flatSlotId :: HasProtocolConstants => Iso' SlotId FlatSlotId

@@ -50,16 +50,17 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
                      (CommonOp (PutMaxSeenDifficulty, PutTip),
                      getMaxSeenDifficulty)
-import           Pos.Exception (assertionFailed, reportFatalError)
+import           Pos.Exception (assertionFailed, traceFatalError)
 import qualified Pos.GState.BlockExtra as GS
-import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Sinbin.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace (noTrace)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -289,7 +290,7 @@ slogRollbackBlocks ::
     -> m SomeBatchOp
 slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
-        assertionFailed $
+        assertionFailed noTrace $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     -- We should never allow a situation when we summarily roll back by more
     -- than 'k' blocks
@@ -304,9 +305,9 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
             -- no rollback further than k blocks
             maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
     unless (bypassSecurity || secure) $
-        reportFatalError "slogRollbackBlocks: the attempted rollback would \
-                         \lead to a more than 'k' distance between tip and \
-                         \last seen block, which is a security risk. Aborting."
+        traceFatalError noTrace "slogRollbackBlocks: the attempted rollback would \
+                                \lead to a more than 'k' distance between tip and \
+                                \last seen block, which is a security risk. Aborting."
     bListenerBatch <- if callBListener then onRollbackBlocks blunds
                       else pure mempty
     let putTip =

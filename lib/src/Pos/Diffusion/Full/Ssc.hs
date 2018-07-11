@@ -15,7 +15,6 @@ import           Node.Message.Class (Message)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Limit (Limit)
-import           Pos.Binary.Ssc ()
 -- Message instances for various types.
 -- TODO should move these into the Diffusion module subtree.
 import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening,

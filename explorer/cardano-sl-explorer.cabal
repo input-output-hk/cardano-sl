@@ -5,7 +5,7 @@ description:         Please see README.md
 license:             MIT
 license-file:        LICENSE
 author:              IOHK
-maintainer:          IOHK <hi@serokell.io>
+maintainer:          IOHK <support@iohk.io>
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
@@ -36,12 +36,8 @@ library
 
                         Pos.Explorer.TestUtil
 
-                        -- Needed for testing
-                        Pos.Arbitrary.Explorer
-
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
-                        Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp.Common
                         Pos.Explorer.Txp.Global
@@ -65,7 +61,6 @@ library
                       , exceptions
                       , formatting
                       , free
-                      , generic-arbitrary
                       , lens
                       , log-warper
                       , memory
@@ -92,7 +87,6 @@ library
                       , cardano-sl-block
                       , cardano-sl-block-test
                       , cardano-sl-core
-                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
                       , cardano-sl-db
@@ -103,7 +97,6 @@ library
                       , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp
-                      , cardano-sl-txp-test
                       , cardano-sl-update
                       , cardano-sl-util
 
@@ -334,6 +327,8 @@ test-suite cardano-explorer-test
   other-modules:
                        -- Standard module with some magic
                        Spec
+                       -- Arbitrary instances
+                       Test.Pos.Explorer.Arbitrary
                        -- Utils
                        Test.Pos.Explorer.MockFactory
                        -- Tests
@@ -355,6 +350,7 @@ test-suite cardano-explorer-test
                      , cardano-sl-block
                      , cardano-sl-block-test
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-explorer
                      , cardano-sl-txp
@@ -362,6 +358,7 @@ test-suite cardano-explorer-test
                      , containers
                      , cryptonite
                      , engine-io
+                     , generic-arbitrary
                      , hspec
                      , lens
                      , log-warper
@@ -413,6 +410,7 @@ benchmark cardano-explorer-bench
   build-depends:       QuickCheck
                      , base
                      , cardano-sl
+                     , cardano-sl-core-test
                      , cardano-sl-explorer
                      , cardano-sl-txp
                      , cardano-sl-txp-test

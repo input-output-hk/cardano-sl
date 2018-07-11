@@ -30,8 +30,10 @@ txInFromText t = case T.splitOn "_" t of
     _                        -> Left $ "Invalid TxIn " <> t
 
 txInToText :: TxIn -> Text
-txInToText TxInUtxo {..}        = sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
-txInToText (TxInUnknown tag bs) = sformat ("TxInUnknown_"%int%"_"%B16.base16F) tag bs
+txInToText (TxInUtxo txInHash txInIndex) =
+    sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
+txInToText (TxInUnknown tag bs) =
+    sformat ("TxInUnknown_"%int%"_"%B16.base16F) tag bs
 
 instance FromJSON TxIn where
     parseJSON v = toAesonError =<< txInFromText <$> parseJSON v
@@ -58,17 +60,17 @@ instance ToJSON TxOut where
 
 instance ToJSON TxInWitness where
     toJSON = \case
-        PkWitness{..} -> object
+        PkWitness twKey twSig -> object
             [ "tag" .= ("PkWitness" :: Text)
             , "key" .= twKey
             , "sig" .= twSig
             ]
-        ScriptWitness{..} -> object
+        ScriptWitness twValidator twRedeemer -> object
             [ "tag" .= ("ScriptWitness" :: Text)
             , "validator" .= twValidator
             , "redeemer" .= twRedeemer
             ]
-        RedeemWitness{..} -> object
+        RedeemWitness twRedeemKey twRedeemSig -> object
             [ "tag" .= ("RedeemWitness" :: Text)
             , "redeemKey" .= twRedeemKey
             , "redeemSig" .= twRedeemSig

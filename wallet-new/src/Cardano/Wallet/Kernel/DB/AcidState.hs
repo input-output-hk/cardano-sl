@@ -286,6 +286,9 @@ deleteHdAccount accId = runUpdate' . zoom dbHdWallets $
   Acid-state magic
 -------------------------------------------------------------------------------}
 
+-- | Reads the full DB. This is and @must@ be the only 'Query' ever exported
+-- by this module. All the getters exposed for the kernel @must@ take a 'DB'
+-- as input and be completely pure.
 snapshot :: Query DB DB
 snapshot = ask
 

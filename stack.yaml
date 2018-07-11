@@ -24,9 +24,12 @@ packages:
 - db
 - lrc
 - lrc/test
+- sinbin
+- sinbin/test
 - infra
 - infra/test
 - ssc
+- ssc/test
 - txp
 - txp/test
 - update
@@ -255,6 +258,9 @@ extra-deps:
 
 # Working around a stack issue with rebuilding dependencies
 - pretty-show-1.6.16
+
+# Needed for coin selection in the wallet
+- normaldistribution-1.1.0.3
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

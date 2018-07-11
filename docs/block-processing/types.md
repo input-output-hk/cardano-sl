@@ -384,16 +384,16 @@ purpose they serve.
 ```haskell
 data SscPayload
     = CommitmentsPayload
-        { spComms    :: CommitmentsMap
-        , spVss      :: VssCertificatesMap }
+        !CommitmentsMap
+        !VssCertificatesMap
     | OpeningsPayload
-        { spOpenings :: OpeningsMap
-        , spVss      :: VssCertificatesMap }
+        !OpeningsMap
+        !VssCertificatesMap
     | SharesPayload
-        { spShares   :: SharesMap
-        , spVss      :: VssCertificatesMap }
+        !SharesMap
+        !VssCertificatesMap
     | CertificatesPayload
-        { spVss      :: VssCertificatesMap }
+        !VssCertificatesMap
 ```
 
 This type has no invariants.
@@ -405,16 +405,16 @@ The proof of `SscPayload` simply consists of hashes of its fields:
 ```haskell
 data SscProof
     = CommitmentsProof
-        { sprComms    :: Hash CommitmentsMap
-        , sprVss      :: VssCertificatesHash }
+        !(Hash CommitmentsMap)
+        !VssCertificatesHash
     | OpeningsProof
-        { sprOpenings :: Hash OpeningsMap
-        , sprVss      :: VssCertificatesHash }
+        !(Hash OpeningsMap)
+        !VssCertificatesHash
     | SharesProof
-        { sprShares   :: Hash SharesMap
-        , sprVss      :: VssCertificatesHash }
+        !(Hash SharesMap)
+        !VssCertificatesHash
     | CertificatesProof
-        { sprVss      :: VssCertificatesHash }
+        !VssCertificatesHash
 ```
 
 Instead of `Hash VssCertificatesMap` we use a `VssCertificatesHash`, which

@@ -10,8 +10,8 @@ module Test.Spec.Submission (
 import           Universum hiding (elems)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId (..),
-                     HdAccountIx (..), HdRootId (..))
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+                     HdAccountIx (..), HdRootId (..), eskToHdRootId)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
                      pendingTransactions, removePending)
 import           Cardano.Wallet.Kernel.Submission
@@ -28,15 +28,15 @@ import           Formatting (bprint, (%))
 import qualified Formatting as F
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
-import           Pos.Crypto.Signing (deterministicKeyGen)
+import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
-import qualified Test.Pos.Txp.Arbitrary as Core
+import qualified Test.Pos.Core.Arbitrary.Txp as Core
 
+import           Cardano.Wallet.Kernel.Util (disjoint)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
                      forAll, listOf, shuffle, vectorOf, (===))
 import           Test.QuickCheck.Property (counterexample)
-import           Util (disjoint)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
@@ -65,10 +65,9 @@ myAccountId = HdAccountId {
     }
     where
         myHdRootId :: HdRootId
-        myHdRootId = HdRootId $ InDb (Core.unsafeAddressHash .
-                                      fst .
-                                      deterministicKeyGen $
-                                      BS.pack (replicate 32 0))
+        myHdRootId = eskToHdRootId .
+                               snd .
+                               safeDeterministicKeyGen (BS.pack (replicate 32 0)) $ mempty
 
 -- Generates a random schedule by picking a slot >= of the input one but
 -- within a 'slot + 10' range, as really generating schedulers which generates

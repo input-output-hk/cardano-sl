@@ -17,6 +17,7 @@ module Pos.Update.Poll.Modifier
 
 import           Universum
 
+import           Control.DeepSeq (NFData)
 import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
@@ -25,7 +26,7 @@ import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionData, NumSoftwareVersion, SoftwareVersion,
                      UpId)
-import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Sinbin.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState,
                      ConfirmedProposalState, ProposalState)
 import           Pos.Util.Modifier (MapModifier)
@@ -84,3 +85,5 @@ instance Semigroup PollModifier where
 instance Monoid PollModifier where
     mempty = def
     mappend = (<>)
+
+instance NFData PollModifier

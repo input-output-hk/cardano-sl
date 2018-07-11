@@ -254,10 +254,7 @@ makeMPubKeyTx
 makeMPubKeyTx pm getSs = makeAbstractTx mkWit
   where mkWit addr sigData =
           getSs addr <&> \ss ->
-              PkWitness
-              { twKey = safeToPublic ss
-              , twSig = safeSign pm SignTx ss sigData
-              }
+              PkWitness (safeToPublic ss) (safeSign pm SignTx ss sigData)
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
@@ -290,10 +287,8 @@ makeMOfNTx
 makeMOfNTx pm validator sks txInputs txOutputs = either absurd identity $
     makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
   where
-    mkWit _ sigData = Right $ ScriptWitness
-            { twValidator = validator
-            , twRedeemer = multisigRedeemer pm sigData sks
-            }
+    mkWit _ sigData =
+        Right $ ScriptWitness validator (multisigRedeemer pm sigData sks)
 
 makeRedemptionTx
     :: ProtocolMagic
@@ -304,10 +299,8 @@ makeRedemptionTx
 makeRedemptionTx pm rsk txInputs txOutputs = either absurd identity $
     makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
   where rpk = redeemToPublic rsk
-        mkWit _ sigData = Right $ RedeemWitness
-            { twRedeemKey = rpk
-            , twRedeemSig = redeemSign pm SignRedeemTx rsk sigData
-            }
+        mkWit _ sigData =
+            Right $ RedeemWitness rpk (redeemSign pm SignRedeemTx rsk sigData)
 
 -- | Helper for summing values of `TxOutAux`s
 sumTxOutCoins :: NonEmpty TxOutAux -> Integer

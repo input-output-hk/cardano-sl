@@ -64,7 +64,7 @@ import           Pos.Infra.Util.JsonLog.Events
                      (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
                      genBlockGenParams)
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.Util.QuickCheck.Property (assertProperty,
                      maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)

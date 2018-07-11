@@ -19,13 +19,8 @@ library
                        Pos.Delegation.Class
                        Pos.Delegation.Configuration
                        Pos.Delegation.DB
-                       Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Types
-                       Pos.Delegation.Worker
-
-                       -- Binary serialization
-                       Pos.Binary.Delegation
 
   other-modules:
                        Pos.Delegation.Cede.Class
@@ -48,6 +43,7 @@ library
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-networking
+                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , ether

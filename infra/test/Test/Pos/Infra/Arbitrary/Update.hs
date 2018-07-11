@@ -5,7 +5,7 @@
 
 -- | Arbitrary instances for Update System networking types.
 
-module Test.Pos.Update.Arbitrary.Network
+module Test.Pos.Infra.Arbitrary.Update
        (
        ) where
 

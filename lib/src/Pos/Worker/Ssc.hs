@@ -17,12 +17,10 @@ import           Mockable (MonadMockable, currentTime, delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
-import qualified Test.QuickCheck as QC
 
 import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
 
-import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), VssCertificate (..),
@@ -33,7 +31,8 @@ import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      getCommitmentsMap, randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
-                     randomNumber, runSecureRandom)
+                     randomNumber, randomNumberInRange, runSecureRandom,
+                     vssKeyGen)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.DB.Class (MonadDB, MonadGState)
@@ -232,12 +231,24 @@ onNewSlotCommitment pm slotId@SlotId {..} sendCommitment
         sscProcessOurMessage (sscProcessCommitment pm comm)
         sendOurData sendCommitment CommitmentMsg comm siEpoch 0
 
+-- | Generate a random Opening.
+randomOpening :: IO Opening
+randomOpening = snd <$> secureRandCommitmentAndOpening
+  where
+    secureRandCommitmentAndOpening = runSecureRandom $ do
+        t       <- randomNumberInRange 3 10
+        n       <- randomNumberInRange (t*2-1) (t*2) -- This seems strange.
+        vssKeys <- replicateM (fromInteger n) $ toVssPublicKey <$> vssKeyGen
+        randCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
+
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: ( SscMode ctx m
        )
     => ProtocolMagic
-    -> SscOpeningParams
+    -> SscOpeningParams     -- ^ This parameter is part of the node's
+                            -- BehaviorConfig which defines how the node should
+                            -- behave when it's sending openings to other nodes
     -> SlotId
     -> (Opening -> m ())
     -> m ()
@@ -260,9 +271,13 @@ onNewSlotOpening pm params SlotId {..} sendOpening
         "We don't know our opening, maybe we started recently"
     sendOpeningDo ourId open = do
         mbOpen' <- case params of
+            -- The node doesn't send an 'Opening'.
             SscOpeningNone   -> pure Nothing
+            -- The node acts as normal and sends an 'Opening'.
             SscOpeningNormal -> pure (Just open)
-            SscOpeningWrong  -> Just <$> liftIO (QC.generate QC.arbitrary)
+            -- The node sends rubbish (a random 'Opening'). This setting is
+            -- typically only specified for testing purposes.
+            SscOpeningWrong  -> Just <$> liftIO randomOpening
         whenJust mbOpen' $ \open' -> do
             sscProcessOurMessage (sscProcessOpening pm ourId open')
             sendOurData sendOpening OpeningMsg open' siEpoch 2

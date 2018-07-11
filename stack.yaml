@@ -29,6 +29,7 @@ packages:
 - infra
 - infra/test
 - ssc
+- ssc/test
 - txp
 - txp/test
 - update

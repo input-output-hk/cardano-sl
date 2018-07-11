@@ -18,8 +18,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
                      Property, elements, listOf, property, sublistOf, suchThat,
                      vector, (.&&.), (===), (==>))
 
-import           Pos.Arbitrary.Ssc (BadCommAndOpening (..),
-                     BadSignedCommitment (..), CommitmentOpening (..))
 import           Pos.Binary (AsBinary)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
                      StakeholderId, VssCertificate (..),
@@ -45,6 +43,8 @@ import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Ssc.Arbitrary (BadCommAndOpening (..),
+                     BadSignedCommitment (..), CommitmentOpening (..))
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Ssc.Base" $ do

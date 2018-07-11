@@ -57,7 +57,7 @@ dev: &dev
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
         heavyDelegation: {}
         avvmDistr: {}
-
+    requiresNetworkMagic: NMMustBeNothing
     dbSerializeVersion: 0
 
   ntp: &dev_ntp
@@ -14833,6 +14833,7 @@ mainnet_full: &mainnet_full
       src:
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
@@ -14871,11 +14872,47 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
 ##                                                                          ##
 ##############################################################################
 
-testnet_full: &testnet_full
+# Should be used to generate genesis
+testnet_launch: &testnet_launch
   <<: *mainnet_base
-  core: &testnet_full_core
+  core: &testnet_gen_core
     <<: *mainnet_base_core
+    genesis: &testnet_gen_genesis
+      <<: *mainnet_base_genesis
+      spec: &testnet_gen_spec
+        <<: *mainnet_base_spec
+        protocolConstants:
+          k: 2160
+          protocolMagic: 1097911063
+          vssMinTTL: 2
+          vssMaxTTL: 6
+        avvmDistr: {}
+        initializer:
+          testBalance:
+            poors:        100
+            richmen:      7
+            richmenShare: 0.95
+            totalBalance: 42000000000000000 # 42e9 ADA
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 20000000000000 # 2e7 ADA
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0 # should be overridden using --configuration-seed
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
+    requiresNetworkMagic: NMMustBeJust
+
+testnet_full: &testnet_full
+  <<: *testnet_launch
+  core: &testnet_full_core
+    <<: *testnet_gen_core
     genesis:
+      <<: *testnet_gen_genesis
       src:
         file: testnet-genesis.json
         hash: 6300910ff7d8ca51a61df661a09dfd1486be756f32eff7f348e1f4e3b6166c54
@@ -14916,38 +14953,6 @@ testnet_wallet_linux64: &testnet_wallet_linux64
     <<: *testnet_wallet_update
     systemTag: linux
 
-# Should be used to generate genesis
-testnet_launch: &testnet_launch
-  <<: *testnet_full
-  core: &testnet_gen_core
-    <<: *testnet_full_core
-    genesis:
-      <<: *mainnet_base_genesis
-      spec:
-        <<: *mainnet_base_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 1097911063
-        avvmDistr: {}
-        initializer:
-          testBalance:
-            poors:        100
-            richmen:      7
-            richmenShare: 0.95
-            totalBalance: 42000000000000000 # 42e9 ADA
-            useHDAddresses: True
-          fakeAvvmBalance:
-            count: 100
-            oneBalance: 20000000000000 # 2e7 ADA
-          avvmBalanceFactor: 1
-          useHeavyDlg: True
-          seed: 0 # should be overridden using --configuration-seed
-        blockVersionData:
-          <<: *mainnet_base_blockVersionData
-          maxHeaderSize:      2000
-          maxProposalSize:   70000 # 70KB
-          maxTxSize:         65536 # 64KiB
-
 ##############################################################################
 ##                                                                          ##
 ##   Mainnet dryrun config sample                                           ##
@@ -14962,6 +14967,7 @@ mainnet_dryrun_full: &mainnet_dryrun_full
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
         hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
@@ -15088,6 +15094,7 @@ devnet: &devnet
           avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0
+    requiresNetworkMagic: NMMustBeNothing
 
   update: &devnet_update
     applicationName: cardano-sl

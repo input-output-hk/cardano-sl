@@ -74,7 +74,7 @@
 \begin{document}
 
 \title{Formal specification for a Cardano wallet \\
-       {\small (Version 1.1)} \\
+       {\small (Version 1.2)} \\
        {\large \sc An IOHK technical report}}
 \author{Duncan Coutts \\ {\small \texttt{duncan@well-typed.com}} \\
                          {\small \texttt{duncan.coutts@iohk.io}}
@@ -218,6 +218,9 @@ device or special hardware and may require user confirmation.
 $\mathsf{updateExpected}$ (Figure~\ref{fig:model_with_expected_UTxO}), added
 missing value of $\mathit{txInfo}$ in $\mathsf{rollback}$
 (Figure~\ref{fig:tracking_metadata}), minor corrections to the text.
+
+\item[Version 1.2, July 12, 2018] Included conclusions from our study of
+input selection. Minor grammatical and stylistic corrections to the text.
 \end{description}
 
 \pagebreak
@@ -2880,27 +2883,160 @@ and moreover once a transaction \emph{is} expired it cannot be resubmitted again
 
 \section{Input selection}
 
+In this wallet specification we assume that new transactions to be submitted are
+provided to $\mathsf{newPending}$ fully formed. In reality this is preceded by a
+process known as \emph{input selection} or \emph{coin selection} which, given a
+set of desired outputs (that is, a \emph{payment} that the user wishes to make),
+selects one or more inputs from the wallet's UTxO to cover that payment and the
+transaction fee, returning any change back to the wallet. The result of input
+selection is a fully formed transaction which can then be passed to
+$\mathsf{newPending}$. This is summarised more formally in
+\cref{fig:input_selection_sig}.
+
+\begin{figure}[tb]
+\begin{align*}
+& \mathsf{selectInputs} \in \mathsf{UTxO} \to \mathbb{P}(\mathsf{TxOut}) \to \mathsf{Maybe} ~ \mathsf{Tx} \\
+\\
+& \mathsf{Just} ~ (\mathit{inputs}, \mathit{outputs}') = \mathsf{selectInputs} ~ \mathit{utxo} ~ \mathit{outputs} \\
+& \qquad \mathbf{ensures~}
+\begin{array}[t]{l@{\;}l@{\;}l}
+\mathit{inputs}          & \subseteq & \dom \mathit{utxo} \\
+\range ~ \mathit{outputs}' & \supseteq & \mathit{outputs}   \\
+\multicolumn{3}{l}{\range ~ \mathit{outputs}' \setminus \mathit{outputs} \subseteq \mathsf{TxOut_{ours}}} \\
+\end{array}
+\end{align*}
+\caption{\label{fig:input_selection_sig}Specification of input selection}
+\end{figure}
+
+Input selection is a large topic which merits a detailed study in its own right.
+Moreover, since input selection has multiple mutually incompatible goals, there
+is no single one-size-fits-all input selection algorithm. We will start with
+listing some goals that an input selection algorithm may have in
+Section~\ref{sec:inputselection_goals}, and some different use cases in
+Section~\ref{sec:input_selection_use_cases}. The remainder of this section will
+then continue by describing the algorithm we propose to use in the wallet, along
+with a detailed analysis (by means of simulation) of how the algorithm performs
+under various circumstances.
+
+\subsection{Goals}
+\label{sec:inputselection_goals}
+
+In this section we list some goals that a particular input selection algorithm
+may have. As is well-known \citep{lopp:challenges}, many of these goals compete
+with each other. We may therefore wish to give wallet users some influence over
+this process, enabling them to prioritise some goals over others.
+
+\paragraph{Low transaction fees.}
+Transactions must include a transaction fee, which is based on the size of the
+transaction (\cref{app:transaction_fees}). A good input selection
+algorithm will attempt to keep these transaction fees low. One complication here
+is that the fee depends on the size of the transaction, but the size of
+the transaction may depend on the fee since we may need to add more inputs to
+the transaction in order to cover the fee. Thus fee calculation and input
+selection are interdependent. There are situations where it is not immediately
+obvious that there is a terminating algorithm for selecting inputs and fees
+optimally. Note that minimising transaction fees \emph{over time} does not
+necessarily mean that \emph{every individual} transaction will be as small as
+possible.
+
+\paragraph{Cryptographic security.}
+Once an input at an address has been spent, its public key is publicly
+known and is arguably no longer suitable for very long term storage of funds due
+to the evolution of cryptography. The standard solution with input selection is
+to add a constraint that if we pick one input then we must pick all other inputs
+that were output to the same address. This results in no more funds remaining at
+the address (assuming an address non-reuse strategy such that there are no later
+payments to that address).
+
+\paragraph{Privacy.}
+The privacy goal is to make it impractical for other people observing the
+transactions in the ledger to tie an identity to all the funds belonging to that
+identity. For instance, it is preferable to have a transactions with single
+inputs only, since otherwise attackers can reasonably assume\footnote{In systems
+such as Bitcoin there are services known as ``laundry services'', ``mixers'' or
+``tumblers'' \citep{10.1007/978-3-319-70290-2_18}, which are trusted
+third-parties that combine payments from various users into a single transaction, to
+break this assumption.}  that of all the transactions inputs belong to the same
+identity \citep{fergal}. On the output side, we may wish to take steps to ensure
+that attackers cannot easily identify which output is the change output
+\citep{8260674}. For instance, for single payment transactions, we could try to
+ensure that the change output is roughly as large as the payment itself. Some
+systems give users the ability to override input selection on a per-transaction
+bases (sometimes known as ``coin control''), since some transactions are more
+sensitive than others.
+
+\paragraph{UTxO size.}
+A transaction with a single input and two outputs will increase the size of the
+global UTxO by one entry, and (provided one of those is a change address), leave
+the size of the wallet's own UTxO unchanged; since incoming transactions will
+always grow the size of the wallet's UTxO, this means with such transactions the
+size of the wallet's UTxO will also grow without bound over time. Since the UTxO
+is kept in memory, this is undesirable. Instead input selection should attempt
+to keep the size of the UTxO steady. More specifically, if incoming transactions
+grow the wallet's UTxO by $n$ entries on average, and the ratio of incoming
+transactions to outgoing transactions is $r : 1$, then ideally outgoing
+transactions should shrink the wallet's UTxO by $r \times n$ entries on average.
+
+\paragraph{Distribution of magnitude of unspent outputs.}
+Input selection can try to keep the distribution of the magnitude of unspent
+outputs close some ideal distribution. An obvious example is to avoid ``dust'':
+many tiny unspent outputs that result from change outputs. More generally,
+input selection can be given an ideal distribution a priori, or keep one
+dynamically based on the payment requests that come in. An example of an
+a-priori known requirement would be the ability to make payments of a certain
+size; if the UTxO only contains small unspent outputs, then for very large
+payments the resulting transaction might exceed the maximum transaction size.
+Conversely, if the UTxO only contains large outputs, the wallet may be forced to
+rely on unconfirmed transactions to maintain throughput, something we've
+expressly disallowed in this specification (\cref{sec:updatePending})
+because it has negative consequences on networking performance.
+The privacy consequences of this kind of UTxO maintenance are far from obvious,
+but we note that some authors claim it may actually \emph{help}
+\citep[Section 2]{10.1007/978-3-642-39884-1_2}.
+
+\subsection{Use cases}
+\label{sec:input_selection_use_cases}
+
+As an example of how different users might prioritise different goals,
+we will consider two use cases, at opposite ends of the spectrum: small end
+users and exchange nodes.
+
+\emph{Exchange nodes.}
+Exchanges have high rates of incoming and outgoing transactions, large overall
+balances and will tend to have large UTxOs. For this use case we are concerned
+with asymptotic complexity (due to the large UTxO) and have a goal of high
+throughput, but we are not overly concerned with the goals of achieving privacy
+or minimising fees. Exchanges tend to follow deposit policies which are
+incompatible with the cryptographic security goal as described above, so this is
+not a goal of the policy. Exchanges may occasionally need to make very large
+payments.
+
+\emph{Individual users.}
+For individual users we assume a low rate of incoming and outgoing transactions
+and a comparatively small UTxO. For this use case we are not too concerned with
+asymptotic complexity as the UTxO is assumed to be small, nor with a goal of
+high throughput. We are concerned with the privacy goal, as individual users
+are able to use their wallets in a way that preserves a degree of privacy. We
+are somewhat concerned with keeping fees reasonably low. Users may want the
+ability to `empty their wallet' (i.e., create a single transaction that
+spends all of the wallet's UTxO, sending it to a single output address.)
+
+\subsection{Self organisation}
+\label{sec:selforganisation}
+
 The term `self organization' refers to the emergence of complex behaviour
 (typically in biological systems) from simple rules and random fluctuations.
 In this section we will see how we can take advantage of self organization
 to design a simple yet effective coin selection algorithm.
-
-\emph{Coin selection} is the process of selecting unspent outputs in a user's
-wallet to satisfy a particular payment request. As Jameson Lopp points out in
-his blog post ``The Challenges of Optimizing Unspent Output Selection''
-\citep{lopp:challenges}, coin selection is thorny problem. Moreover, there is a
-surprising lack of academic publications on the topic; indeed, the only
-scientific study of coin selection appears to be Mark Erhardt's masters thesis
-``An Evaluation of Coin Selection Strategies'' \citep{Erhardt:thesis}.
 
 In this section we present the conclusions of an in-depth study of coin
 selection that we have done as part of the the redesign of the Cardano wallet.
 We will describe some of the problems and trade-offs that need to be made. We
 then propose a novel coin selection algorithm. The algorithm is efficient and
 straight-forward to implement, and through studing simulations of the algorithm
-under various conditions we will see that it is very effective. Erhardt's random
-algorithm provides our jumping off point, from which we will make various
-improvements.
+under various conditions we will see that it is very effective.
+As our starting point, we will use the random algorithm described by Mark
+Erhardt in his masters thesis \citep{Erhardt:thesis}.
 
 \subsection{Dust}
 
@@ -2936,7 +3072,7 @@ algorithm.
 }
 \end{figure}
 
-There are various things to see in this animation, but for now we want to focus
+There are various things to see in this graph, but for now we want to focus
 on the UTxO histogram and its size. Note that as time passes, the size of the
 UTxO increases and increases, up to about 60k entries after about 1M
 cycles (with 3 deposits and 1 payment per cycle). A wallet with 60k entries
@@ -3412,192 +3548,6 @@ change:payment ratio down, which would improve the evolution of the UTxO over
 time and is beneficial also for other, more technical reasons (it reduces the
 need for dependent transactions). Such reorganization is largely orthogonal to
 this algorithm, however, and can be implemented independently.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-\cleardoublepage
-
-\section{Input selection OLD}
-\label{sec:input_selection}
-
-In this wallet specification we assume that new transactions to be submitted are
-provided to $\mathsf{newPending}$ fully formed. In reality this is preceded by a
-process known as \emph{input selection} which, given a set of desired outputs
-(that is, a \emph{payment} that the user wishes to make), selects one or more
-inputs from the wallet's UTxO to cover that payment and the transaction fee,
-returning any change back to the wallet. The result of input selection is a
-fully formed transaction which can then be passed to $\mathsf{newPending}$. This
-is summarised more formally in \cref{fig:input_selection_sig}.
-
-\begin{figure}[b]
-\begin{align*}
-& \mathsf{selectInputs} \in \mathsf{UTxO} \to \mathbb{P}(\mathsf{TxOut}) \to \mathsf{Maybe} ~ \mathsf{Tx} \\
-\\
-& \mathsf{Just} ~ (\mathit{inputs}, \mathit{outputs}') = \mathsf{selectInputs} ~ \mathit{utxo} ~ \mathit{outputs} \\
-& \qquad \mathbf{ensures~}
-\begin{array}[t]{l@{\;}l@{\;}l}
-\mathit{inputs}          & \subseteq & \dom \mathit{utxo} \\
-\range ~ \mathit{outputs}' & \supseteq & \mathit{outputs}   \\
-\multicolumn{3}{l}{\range ~ \mathit{outputs}' \setminus \mathit{outputs} \subseteq \mathsf{TxOut_{ours}}} \\
-\end{array}
-\end{align*}
-\caption{\label{fig:input_selection_sig}Specification of input selection}
-\end{figure}
-
-Input selection is a large topic which merits a detailed study in its own right.
-Moreover, since input selection has multiple mutually incompatible goals, there
-is no single one-size-fits-all input selection algorithm.  We will therefore
-defer a detailed and formal discussion of input selection to a separate study.
-Here we will merely list the goals of input selection, and list some
-properties that a good input selection algorithm will have. We will also
-briefly consider what kind of data structure can be used to make sure that
-the asymptotic complexity of input selection is acceptable.
-
-\subsection{Goals}
-
-In this section we list some goals that a particular input selection algorithm
-may have. As is well-known \citep{lopp:challenges}, many of these goals compete
-with each other; it will therefore be important that wallet users can influence
-this process, prioritising some goals over others.
-
-\emph{Low transaction fees.}
-Transactions must include a transaction fee, which is based on the size of the
-transaction (\cref{app:transaction_fees}). A good input selection
-algorithm will attempt to keep these transaction fees low. One complication here
-is that the fee depends on the size of the transaction, but the size of
-the transaction may depend on the fee since we may need to add more inputs to
-the transaction in order to cover the fee. Thus fee calculation and input
-selection are interdependent. There are situations where it is not immediately
-obvious that there is a terminating algorithm for selecting inputs and fees
-optimally. Note that minimising transaction fees over time does not necessarily
-mean that every individual transaction will be as small as possible.
-
-\emph{Cryptographic security.}
-Once an input at an address has been spent, its public key is publicly
-known and is arguably no longer suitable for very long term storage of funds due
-to the evolution of cryptography. The standard solution with input selection is
-to add a constraint that if we pick one input then we must pick all other inputs
-that were output to the same address. This results in no more funds remaining at
-the address (assuming an address non-reuse strategy such that there are no later
-payments to that address).
-
-\emph{Privacy.}
-The privacy goal is to make it impractical for other people observing the
-transactions in the ledger to tie an identity to all the funds belonging to that
-identity. For instance, it is preferable to have a transactions with single
-inputs only, since otherwise attackers can reasonably assume\footnote{In systems
-such as Bitcoin there are services known as ``laundry services'', ``mixers'' or
-``tumblers'' \citep{10.1007/978-3-319-70290-2_18}, which are trusted
-third-parties that combine payments from various users into a single transaction, to
-break this assumption.}  that of all the transactions inputs belong to the same
-identity \citep{fergal}. On the output side, we may wish to take steps to ensure
-that attackers cannot easily identify which output is the change output
-\citep{8260674}. For instance, for single payment transactions, we could try to
-ensure that the change output is roughly as large as the payment itself. Some
-systems give users the ability to override input selection on a per-transaction
-bases (sometimes known as ``coin control''), since some transactions are more
-sensitive than others.
-
-\emph{UTxO size.}
-A transaction with a single input and two outputs will increase the size of the
-global UTxO by one entry, and (provided one of those is a change address), leave
-the size of the wallet's own UTxO unchanged; since incoming transactions will
-always grow the size of the wallet's UTxO, this means with such transactions the
-size of the wallet's UTxO will also grow without bound over time. Since the UTxO
-is kept in memory, this is undesirable. Instead input selection should attempt
-to keep the size of the UTxO steady. More specifically, if incoming transactions
-grow the wallet's UTxO by $n$ entries on average, and the ratio of incoming
-transactions to outgoing transactions is $r : 1$, then ideally outgoing
-transactions should shrink the wallet's UTxO by $r \times n$ entries on average.
-
-\emph{Distribution of magnitude of unspent outputs.}
-Input selection can try to keep the distribution of the magnitude of unspent
-outputs close some ideal distribution. An obvious example is to avoid ``dust'':
-many tiny unspent outputs that result from change outputs. More generally,
-input selection can be given an ideal distribution a priori, or keep one
-dynamically based on the payment requests that come in. An example of an
-a-priori known requirement would be the ability to make payments of a certain
-size; if the UTxO only contains small unspent outputs, then for very large
-payments the resulting transaction might exceed the maximum transaction size.
-Conversely, if the UTxO only contains large outputs, the wallet may be forced to
-rely on unconfirmed transactions to maintain throughput, something we've
-expressly disallowed in this specification (\cref{sec:updatePending})
-because it has negative consequences on networking performance.
-The privacy consequences of this kind of UTxO maintenance are far from obvious,
-but we note that some authors claim it may actually \emph{help}
-\citep[Section 2]{10.1007/978-3-642-39884-1_2}.
-
-\subsection{Use cases}
-\label{sec:input_selection_use_cases}
-
-As an example of how different users might prioritise different goals,
-we will consider two use cases, at opposite ends of the spectrum: small end
-users and exchange nodes.
-
-\emph{Exchange nodes.}
-Exchanges have high rates of incoming and outgoing transactions, large overall
-balances and will tend to have large UTxOs. For this use case we are concerned
-with asymptotic complexity (due to the large UTxO) and have a goal of high
-throughput, but we are not overly concerned with the goals of achieving privacy
-or minimising fees. Exchanges tend to follow deposit policies which are
-incompatible with the cryptographic security goal as described above, so this is
-not a goal of the policy. Exchanges may occasionally need to make very large
-payments.
-
-\emph{Individual users.}
-For individual users we assume a low rate of incoming and outgoing transactions
-and a comparatively small UTxO. For this use case we are not too concerned with
-asymptotic complexity as the UTxO is assumed to be small, nor with a goal of
-high throughput. We are concerned with the privacy goal, as individual users
-are able to use their wallets in a way that preserves a degree of privacy. We
-are somewhat concerned with keeping fees reasonably low. Users may want the
-ability to `empty their wallet' (i.e., create a single transaction that
-spends all of the wallet's UTxO, sending it to a single output address.)
-
-\subsection{Implementation notes}
-
-A key operation required by input selection, independent of the specific policy,
-will be to choose inputs from the UTxO of (roughly) a certain size. The easiest
-way to do this is to keep the UTxO sorted by size, so that we can do binary
-search for outputs within a certain range in $\order{n \log n}$ time. When an
-unspent of a certain size is not available, there are two choices:
-%
-\begin{itemize}
-\item Use a larger unspent output. The larger the unspent output we choose,
-the larger the change value, endangering privacy concerns.
-\item Use multiple smaller unspent outputs. This allows us to be more
-accurate, but will lead to larger transactions and hence larger transaction
-fees. In the extreme case the entire UTxO contains only small unspent outputs,
-and we need to do a linear sweep over the UTxO to construct the transaction.
-\end{itemize}
-%
-This is thus a tradeoff between privacy on the one hand and transaction size
-and performance on the other.
-
-Transaction fees can be (closely) approximated based on only the number of
-inputs and outputs. Assuming that the UTxO has sufficiently many outputs
-available that we do not need any of the fallback strategies, the number of
-inputs and outputs is determined by the number of payments that the transactions
-need to make, the privacy policy, and the UTxO maintenance policy. We can
-therefore guess the transaction fee up-front, make sure to include it when we
-select input amounts, and once we construct the final transaction shift any
-excess into the change address(es).  If we do end up having to use the fallback
-strategies, we will need to iterate this process (indeed, the added fee itself
-might \emph{trigger} the need for a fallback).
-
-\appendix
 
 \section{Appendix: Transaction fees}
 \label{app:transaction_fees}

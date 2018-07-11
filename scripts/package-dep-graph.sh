@@ -55,29 +55,32 @@ done
 # Generate graph
 ################################################################################
 
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp/}$(basename \"$0\").XXXXXXXXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp/}$(basename "$0").XXXXXXXXXXXX")
 outfile="cardano-sl-pkg-deps.png"
 
 # 'tred' and 'dot' are in the 'graphviz' of most Linux distributions.
 
 if [ "${include_test_bench}" = "0" ]; then
     prunefiles=$(find . -name \*.cabal -exec basename {} \; \
-        | grep -v stack-work | grep "test.cabal\|bench.cabal" \
+        | grep -v stack-work | grep "test.cabal\\|bench.cabal" \
         | sed 's/\.cabal//' | tr '\n' ',')
     stack_dot_flags="${stack_dot_flags} --prune ${prunefiles}"
 fi
 
-stack dot ${stack_dot_flags} > "${tmpdir}/full-dependencies.dot"
+# This is a weird hack to satisfy shellcheck. While strange, it works, and is
+# technically safer.
+output="yes"
+stack dot ${output:+${stack_dot_flags}} > "${tmpdir}/full-dependencies.dot"
 
 final_dotfile=""
 if [ "${use_tred}" = "1" ]; then
     final_dotfile="${tmpdir}/direct-dependencies.dot"
-    tred "${tmpdir}/full-dependencies.dot" > ${final_dotfile}
+    tred "${tmpdir}/full-dependencies.dot" > "${final_dotfile}"
 else
     final_dotfile="${tmpdir}/full-dependencies.dot"
 fi
 
-dot -Tpng ${final_dotfile} -o ${outfile}
+dot -Tpng "${final_dotfile}" -o ${outfile}
 
 rm -rf "${tmpdir:?}/"
 

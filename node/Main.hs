@@ -41,27 +41,27 @@ actionWithoutWallet
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Log.LoggingHandler
-    -> TraceNamed IO
+    => TraceNamed IO
+    -> Log.LoggingHandler
     -> ProtocolMagic
     -> SscParams
     -> NodeParams
     -> Production ()
-actionWithoutWallet lh logTrace pm sscParams nodeParams =
-    runNodeReal lh logTrace pm nodeParams sscParams
+actionWithoutWallet logTrace lh pm sscParams nodeParams =
+    runNodeReal logTrace lh pm nodeParams sscParams
         [updateTriggerWorker (natTrace (lift . liftIO) logTrace)]
 
 action
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Log.LoggingHandler
-    -> TraceNamed IO
+    => TraceNamed IO
+    -> Log.LoggingHandler
     -> SimpleNodeArgs
     -> NtpConfiguration
     -> ProtocolMagic
     -> Production ()
-action lh logTrace (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
+action logTrace lh (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
     CLI.printInfoOnStart cArgs ntpConfig
     liftIO $ logInfo logTrace "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs
@@ -69,7 +69,7 @@ action lh logTrace (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet lh logTrace pm sscParams currentParams
+    actionWithoutWallet logTrace lh pm sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do
@@ -84,4 +84,4 @@ main = withCompileInfo $ do
                                    Log.usingLoggerName lh loggerName .
                                    runProduction $
                                        withConfigurations (natTrace liftIO logTrace) blPath conf $
-                                           action lh logTrace args
+                                           action logTrace lh args

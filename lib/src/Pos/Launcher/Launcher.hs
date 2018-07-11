@@ -42,18 +42,18 @@ runNodeReal
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Log.LoggingHandler
-    -> TraceNamed IO
+    => TraceNamed IO
+    -> Log.LoggingHandler
     -> ProtocolMagic
     -> NodeParams
     -> SscParams
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> Production ()
-runNodeReal lh logTrace pm np sscnp plugins = --Log.usingLoggerName lh "runNodeReal" $ runProduction $
+runNodeReal logTrace lh pm np sscnp plugins = --Log.usingLoggerName lh "runNodeReal" $ runProduction $
     --TODO appendName "runNodeReal" to Trace
     bracketNodeResources (natTrace liftIO logTrace) np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots)
         action
   where
     action :: NodeResources EmptyMempoolExt -> Production ()
     action nr@NodeResources {..} =
-      runRealMode lh logTrace pm nr (runNode (natTrace liftIO logTrace) pm nr plugins)
+      runRealMode logTrace lh pm nr (runNode (natTrace liftIO logTrace) pm nr plugins)

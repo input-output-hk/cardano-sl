@@ -88,13 +88,13 @@ runRealMode
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => Log.LoggingHandler
-    -> TraceNamed IO
+    => TraceNamed IO
+    -> Log.LoggingHandler
     -> ProtocolMagic
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> Production a
-runRealMode lh logTrace0 pm nr@NodeResources {..} act = Production $ KM.KatipContextT $ ReaderT $ const $ runServer
+runRealMode logTrace0 lh pm nr@NodeResources {..} act = Production $ KM.KatipContextT $ ReaderT $ const $ runServer
     logTrace
     pm
     ncNodeParams
@@ -114,25 +114,25 @@ runRealMode lh logTrace0 pm nr@NodeResources {..} act = Production $ KM.KatipCon
     logic :: Logic (RealMode ext)
     logic = logicFull logTrace' noTrace pm ourStakeholderId securityParams -- TODO jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode lh logTrace pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace lh pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO (elimRealMode lh logTrace pm nr diffusion) diffusion
-        in elimRealMode lh logTrace pm nr diffusion (act diffusion')
+        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace lh pm nr diffusion) diffusion
+        in elimRealMode logTrace lh pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding a Production (IO).
 elimRealMode
     :: forall t ext.
        ( HasCompileInfo)
-    => Log.LoggingHandler
-    -> TraceNamed IO
+    => TraceNamed IO
+    -> Log.LoggingHandler
     -> ProtocolMagic
     -> NodeResources ext
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode lh logTrace pm NodeResources {..} diffusion action =
+elimRealMode logTrace lh pm NodeResources {..} diffusion action =
     -- K.runKatipContextT mempty () mempty $
     Log.usingLoggerName lh "realMode" $
     runProduction $ do

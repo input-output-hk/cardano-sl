@@ -14725,8 +14725,12 @@ license = stdenv.lib.licenses.bsd3;
 , generic-arbitrary
 , hashable
 , hspec
+, http-client
+, http-client-tls
+, http-conduit
 , lens
 , log-warper
+, memory
 , mmorph
 , monad-control
 , mtl
@@ -14833,8 +14837,12 @@ formatting
 generic-arbitrary
 hashable
 hspec
+http-client
+http-client-tls
+http-conduit
 lens
 log-warper
+memory
 mmorph
 monad-control
 mtl
@@ -17977,12 +17985,8 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , formatting
 , hashable
-, http-client
-, http-client-tls
-, http-conduit
 , lens
 , log-warper
-, memory
 , mtl
 , reflection
 , resourcet
@@ -18033,12 +18037,8 @@ ether
 exceptions
 formatting
 hashable
-http-client
-http-client-tls
-http-conduit
 lens
 log-warper
-memory
 mtl
 reflection
 resourcet

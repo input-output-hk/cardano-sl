@@ -2,7 +2,7 @@
 
 -- | Logic related to downloading update.
 
-module Pos.Update.Download
+module Pos.Network.Update.Download
        ( installerHash
        , downloadUpdate
        ) where
@@ -31,11 +31,11 @@ import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
                      UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.Exception (reportFatalError)
-import           Pos.Sinbin.Reporting (reportOrLogW)
+import           Pos.Infra.Reporting (reportOrLogW)
+import           Pos.Listener.Update (UpdateMode)
 import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB.Misc (isUpdateInstalled)
-import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Concurrent (withMVar)

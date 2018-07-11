@@ -25,7 +25,8 @@ import           Pos.Crypto (Hash, ProtocolMagic, emptyPassphrase, hash,
                      hashHexF, unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Exception (reportFatalError)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash,
+import           Pos.Network.Update.Download (installerHash)
+import           Pos.Update (SystemTag, UpId, UpdateData (..),
                      mkUpdateProposalWSign, mkUpdateVoteSafe)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))

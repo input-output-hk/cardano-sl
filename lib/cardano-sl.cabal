@@ -52,6 +52,14 @@ library
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
+                        -- Listener
+                        Pos.Listener.Delegation
+                        Pos.Listener.Txp
+                        Pos.Listener.Update
+
+                        -- Network
+                        Pos.Network.Update.Download
+
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Message
@@ -172,8 +180,12 @@ library
                       , generic-arbitrary
                       , hashable
                       , hspec
+                      , http-client
+                      , http-client-tls
+                      , http-conduit
                       , lens
                       , log-warper >= 1.1.1
+                      , memory
                       , mmorph
                       , monad-control
                       , mtl

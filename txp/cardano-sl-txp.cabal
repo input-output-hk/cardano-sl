@@ -39,9 +39,6 @@ library
     Pos.Txp.Logic.Global
     Pos.Txp.Logic.Local
 
-    Pos.Txp.Network
-    Pos.Txp.Network.Listeners
-
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
     Pos.Txp.MemState.Holder

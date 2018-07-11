@@ -22,11 +22,12 @@ module Cardano.Wallet.WalletLayer.Types
     , CreateAddressError(..)
     ) where
 
+import qualified Prelude
 import           Universum
 
 import           Control.Lens (makeLenses)
 
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
@@ -51,6 +52,12 @@ data CreateAddressError =
     -- ^ Decoding the input 'Text' as an 'Address' failed.
     | CreateAddressTimeLimitReached TimeExecutionLimit
     deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show CreateAddressError where
+    show = formatToString build
+
+instance Exception CreateAddressError
 
 instance Arbitrary CreateAddressError where
     arbitrary = oneof [ CreateAddressError <$> arbitrary

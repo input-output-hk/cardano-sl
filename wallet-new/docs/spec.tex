@@ -606,7 +606,7 @@ and atomic updates; we emphasise that the latter should be `atomic' because
 although in a purely mathematical specification this is not particularly
 meaningful, in a real implementation if such updates consist of multiple
 smaller updates, the intermediate states should not be observable. For many
-instantiations will will specify state invariants that are expected to be
+instantiations we will specify state invariants that are expected to be
 preserved by all state updates.
 
 \begin{figure}
@@ -779,7 +779,7 @@ set of the pending includes change addresses that are not yet in the wallet
 UTxO. Additionally, as we will see in \cref{sec:rollback}, once we add
 rollback then this invariant no longer holds.
 
-\begin{invariant}[The wallet UTxO only covers addresses that belongs to the wallet]
+\begin{invariant}[The wallet UTxO only covers addresses that belong to the wallet]
 %
 \begin{equation*}
 \range \mathit{utxo} \subseteq \mathsf{TxOut_{ours}}
@@ -915,7 +915,7 @@ given in \cref{fig:basic_model_complexity}.
 \caption{\label{fig:basic_model_complexity}Algorithmic complexity of the operations in the basic model}
 \end{figure}
 
-It is worth knowing that the expected
+It is worth knowing the expected
 order of magnitudes of the sizes of the UTxO and pending sets. The UTxO can be
 quite large, for example $|\mathit{utxo}| \leq 10^6$, while the pending set will
 typically be small, usually around $|\mathit{pending}| \leq 3$, while $|\mathit{pending}| = 100$
@@ -1812,7 +1812,7 @@ back, in order to be able to resubmit expected transactions the wallet would
 have to keep track of the entire blockchain. Even if we take into account the
 security parameter $k$, it would mean that in the worst case the wallet would
 have to keep track of the last $k$ blocks \emph{in their entirety} (as opposed
-to just the inputs from and outputs to addressed owned by the wallet).
+to just the inputs from and outputs to addresses owned by the wallet).
 
 \section{Efficiency of $\mathsf{minimumBalance}$}
 \label{sec:computing_minimum_balance}
@@ -2133,7 +2133,7 @@ So, let's consider the smallest more interesting example: let's suppose
 we find a set $\{e_1, e_2\}$ of two expected transactions such that these
 two expected transactions, together with the pending transactions that
 depend \emph{only} on those two transactions, decrease our balance. Furthermore,
-let's assume that there is at least one other expected transactions that we
+let's assume that there is at least one other expected transaction that we
 may wish to include. Let's denote this visually as
 %
 \begin{equation}
@@ -2712,7 +2712,7 @@ each transaction.
 \begin{itemize}
 \item When the submission layer is notified of new pending transactions,
 it adds those to its $\mathit{pending}$ set and schedules them to be submitted
-in the next slot, recording a initial submission count of 0.
+in the next slot, recording an initial submission count of 0.
 \item When the wallet tells the submission layer that some transactions are
 no longer pending (because they have been confirmed, because they have become
 invalid, or for other reasons), the submission layer simply removes them
@@ -2951,7 +2951,7 @@ payments to that address).
 \paragraph{Privacy.}
 The privacy goal is to make it impractical for other people observing the
 transactions in the ledger to tie an identity to all the funds belonging to that
-identity. For instance, it is preferable to have a transactions with single
+identity. For instance, it is preferable to have transactions with single
 inputs only, since otherwise attackers can reasonably assume\footnote{In systems
 such as Bitcoin there are services known as ``laundry services'', ``mixers'' or
 ``tumblers'' \citep{10.1007/978-3-319-70290-2_18}, which are trusted

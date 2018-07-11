@@ -97,7 +97,7 @@ someOtherHash = unsafeMkAbstractHash (LBS.pack [0x00])
 -- which are also used in production (fair QDisc etc.).
 withTransport :: (Transport -> IO t) -> IO t
 withTransport k =
-    Diffusion.bracketTransportTCP noTrace connectionTimeout tcpAddr k
+    Diffusion.bracketTransportTCP (wlogTrace "bench transport") connectionTimeout tcpAddr k
   where
     connectionTimeout :: Microsecond
     connectionTimeout = 15000000

@@ -80,7 +80,6 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -128,7 +127,7 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
     oq :: OQ.OutboundQ EnqueuedConversation NodeId Bucket <-
         -- NB: <> it's not Text semigroup append, it's LoggerName append, which
         -- puts a "." in the middle.
-        initQueue networkConfig noTrace ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
+        initQueue networkConfig (fdcTrace fdconf) ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
     let topology = ncTopology networkConfig
         mSubscriptionWorker = topologySubscriptionWorker topology
         mSubscribers = topologySubscribers topology

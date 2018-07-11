@@ -51,10 +51,10 @@ import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
+import           Test.Pos.Infra.Arbitrary.Update ()
 import           Test.Pos.Ssc.Arbitrary ()
 import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
-
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId

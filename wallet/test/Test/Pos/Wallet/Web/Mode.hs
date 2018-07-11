@@ -46,8 +46,7 @@ import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
-                     RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getSecretDefault, modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -82,6 +81,7 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
+import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),

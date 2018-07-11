@@ -20,7 +20,7 @@ import           Pos.Infra.Communication.Relay (DataMsg (..))
 
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Update.Arbitrary.Core ()
+import           Test.Pos.Update.Arbitrary ()
 
 instance Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary

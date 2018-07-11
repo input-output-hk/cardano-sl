@@ -71,6 +71,7 @@ library
 
                         -- Recovery
                         Pos.Recovery
+                        Pos.Recovery.Types
 
                         -- Client CLI
                         Pos.Client.CLI
@@ -137,7 +138,6 @@ library
                         Pos.Communication.Server
 
                         Pos.Recovery.Instance
-                        Pos.Recovery.Types
 
   build-depends:        base
                       , QuickCheck

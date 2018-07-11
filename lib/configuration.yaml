@@ -14870,20 +14870,25 @@ testnet_launch: &testnet_launch
         protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 1097911063
-        avvmDistr: *mainnet_avvmDistr
+        avvmDistr: {}
         initializer:
           testBalance:
             poors:        100
             richmen:      7
-            richmenShare: 0.93
-            totalBalance: 13887504355000000
+            richmenShare: 0.95
+            totalBalance: 42000000000000000 # 42e9 ADA
             useHDAddresses: True
           fakeAvvmBalance:
             count: 100
-            oneBalance: 1000000000000 # 1e6 ADA
-          avvmBalanceFactor: 0.1
+            oneBalance: 20000000000000 # 2e7 ADA
+          avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0 # should be overridden using --configuration-seed
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
 
 ##############################################################################
 ##                                                                          ##

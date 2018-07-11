@@ -573,6 +573,7 @@ instance (Bi a) => Bi (Vector.Vector a) where
   {-# INLINE encode #-}
   decode = decodeVector
   {-# INLINE decode #-}
+  encodedSizeExpr size _ = 2 + size (Proxy @(LengthOf (Vector.Vector a))) * size (Proxy @a)
 
 ----------------------------------------------------------------------------
 -- Other types

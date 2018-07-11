@@ -45,18 +45,25 @@ transactionSpecs wRef wc = do
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
+                tenthOf (V1 c) =
+                    V1 (Core.mkCoin (max 1 (Core.getCoin c `div` 10)))
 
             etxn <- postTransaction wc payment
 
             txn <- fmap wrData etxn `shouldPrism` _Right
 
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
+            eresp <- getTransactionIndex
+                wc
+                (Just (walId wallet))
+                (Just (accIndex toAcct))
+                Nothing
             resp <- fmap wrData eresp `shouldPrism` _Right
 
             map txId resp `shouldContain` [txId txn]
 
-        it "asset-locked wallets can receive funds and transaction are confirmed in index" $ do
+        it ( "asset-locked wallets can receive funds and transactions are "
+           <> "confirmed in index"
+           ) $ do
             genesis <- genesisWallet wc
             (fromAcct, _) <- firstAccountAndId wc genesis
 

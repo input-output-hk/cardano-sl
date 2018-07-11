@@ -18,8 +18,8 @@ import           Universum hiding (id)
 import           Control.Lens (Wrapped (..), iso)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Tagged (Tagged)
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as B
 
 import           Pos.Binary.Class (Bi (..))
 

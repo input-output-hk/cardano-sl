@@ -9,8 +9,8 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 
 import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,

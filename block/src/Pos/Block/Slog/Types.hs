@@ -16,8 +16,8 @@ module Pos.Block.Slog.Types
 import           Universum
 
 import           Control.Lens (makeClassy)
-import qualified Data.Text.Buildable
 import           Formatting (bprint)
+import qualified Formatting.Buildable
 import           System.Metrics.Label (Label)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)

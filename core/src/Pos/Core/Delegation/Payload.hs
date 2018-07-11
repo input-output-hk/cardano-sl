@@ -8,8 +8,8 @@ import           Universum
 import           Control.Monad.Except (MonadError, throwError)
 import           Data.Default (Default (def))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, int, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (allDistinct, listJson)
 
 import           Pos.Binary.Class (Bi (..))

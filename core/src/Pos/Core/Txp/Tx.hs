@@ -22,8 +22,8 @@ import           Control.Lens (makeLenses, makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,

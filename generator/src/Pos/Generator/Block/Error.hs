@@ -7,8 +7,8 @@ module Pos.Generator.Block.Error
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, stext, (%))
+import qualified Formatting.Buildable
 
 import           Pos.Block.Error (VerifyBlocksException)
 import           Pos.Core (Address, StakeholderId, addressF)

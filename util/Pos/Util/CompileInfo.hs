@@ -26,8 +26,8 @@ import           Universum
 import           Data.FileEmbed (dummySpaceWith)
 import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
+import qualified Formatting.Buildable
 import           Pos.Util.CompileInfoGit
 
 -- | Data about the system that we want to retrieve in compile time.

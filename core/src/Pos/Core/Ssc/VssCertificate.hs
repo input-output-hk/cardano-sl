@@ -19,8 +19,8 @@ import           Control.Lens (makeLensesFor)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
+import qualified Formatting.Buildable as Buildable
 import           Pos.Core.Common (StakeholderId, addressHash)
 
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,

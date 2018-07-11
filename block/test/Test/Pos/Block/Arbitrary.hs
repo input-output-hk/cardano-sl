@@ -20,8 +20,8 @@ module Test.Pos.Block.Arbitrary
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,

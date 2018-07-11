@@ -14,8 +14,8 @@ module Cardano.Wallet.Kernel.Actions
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, shown, (%))
+import qualified Formatting.Buildable
 import           Universum
 
 import           Pos.Core.Chrono

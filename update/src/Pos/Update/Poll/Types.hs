@@ -49,8 +49,8 @@ import           Universum
 
 import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
-import qualified Data.Text.Buildable
 import           Data.Time.Units (Millisecond)
+import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),

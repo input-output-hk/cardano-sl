@@ -22,10 +22,10 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           Data.Text.Buildable (build)
 import qualified Data.Vector as V
 import           Formatting (bprint, (%))
 import qualified Formatting as F
+import           Formatting.Buildable (build)
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)

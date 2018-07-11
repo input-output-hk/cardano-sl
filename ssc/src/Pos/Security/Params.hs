@@ -9,9 +9,9 @@ import           Universum
 
 import           Control.Lens (_Left)
 import qualified Data.Aeson as A
+import           Data.Aeson.Options (defaultOptions)
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
-import           Serokell.Aeson.Options (defaultOptions)
 import qualified Text.Parsec as Parsec
 
 import           Pos.Core.Common (StakeholderId)

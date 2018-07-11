@@ -10,8 +10,8 @@ module Cardano.Wallet.WalletLayer.Error
 
 import           Universum
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
+import qualified Formatting.Buildable
 
 import           Cardano.Wallet.API.V1.Types (AccountIndex, WalletId)
 

@@ -20,10 +20,10 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON,
                      withObject, (.:), (.:?))
+import           Data.Aeson.Options (defaultOptions)
 import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import           Distribution.System (buildArch, buildOS)
-import           Serokell.Aeson.Options (defaultOptions)
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()

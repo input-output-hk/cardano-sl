@@ -20,9 +20,9 @@ module Pos.GState.BlockExtra
 
 import           Universum hiding (init)
 
-import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 import           Pipes (Producer, yield)
 import           Serokell.Util.Text (listJson)
 

@@ -167,6 +167,7 @@ library
                        Pos.Core.Update.VoteId
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-terminal
                      , base
                      , base58-bytestring
@@ -203,7 +204,7 @@ library
                      , serokell-util
                      , template-haskell
                      , text
-                     , text-format
+                     , formatting
                      , th-lift-instances
                      , time
                      , time-units

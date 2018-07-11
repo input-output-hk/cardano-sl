@@ -23,8 +23,8 @@ import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Set as S
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
+import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Conversation (sendRaw)
 import           Pipes (await, runEffect, (>->))

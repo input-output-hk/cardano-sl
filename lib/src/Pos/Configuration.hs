@@ -23,9 +23,9 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
                      genericToJSON)
+import           Data.Aeson.Options (defaultOptions)
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
-import           Serokell.Aeson.Options (defaultOptions)
 
 type HasNodeConfiguration = Given NodeConfiguration
 

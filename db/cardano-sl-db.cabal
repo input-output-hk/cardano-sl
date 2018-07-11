@@ -48,7 +48,7 @@ library
                      , resourcet
                      , rocksdb-haskell-ng
                      , serokell-util
-                     , text-format
+                     , formatting
                      , transformers
                      , universum
 

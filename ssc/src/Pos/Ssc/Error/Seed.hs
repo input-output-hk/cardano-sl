@@ -6,7 +6,7 @@ module Pos.Ssc.Error.Seed
 
 import           Universum
 
-import           Data.Text.Buildable (Buildable (..))
+import           Formatting.Buildable (Buildable (..))
 import           Serokell.Util (listBuilderJSON)
 
 import           Pos.Core.Common (Coin, StakeholderId)

@@ -7,8 +7,8 @@ module Pos.Update.Poll.Failure
 
 import           Universum hiding (id, last)
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))
+import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 
 import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,

@@ -27,8 +27,8 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
+import qualified Formatting.Buildable as B
 import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N

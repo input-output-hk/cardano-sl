@@ -36,6 +36,7 @@ import           Universum
 import           Control.Monad.Except (MonadError)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Aeson (encode)
+import           Data.Aeson.Options (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (ToJSON)
 import qualified Data.ByteString.Lazy as LBS
@@ -45,7 +46,6 @@ import           JsonLog.CanJsonLog (CanJsonLog)
 import           JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
 import           Mockable (realTime)
-import           Serokell.Aeson.Options (defaultOptions)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,

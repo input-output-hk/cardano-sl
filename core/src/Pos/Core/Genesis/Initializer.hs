@@ -6,9 +6,9 @@ module Pos.Core.Genesis.Initializer
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 import           Formatting (bprint, build, fixed, int, (%))
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Common (CoinPortion)
 

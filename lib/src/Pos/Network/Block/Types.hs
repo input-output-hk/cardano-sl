@@ -124,7 +124,7 @@ data MsgSerializedBlock
     deriving (Generic)
 
 data MsgStreamStart = MsgStreamStart
-    { mssFrom   :: ![HeaderHash]
+    { mssFrom   :: ![HeaderHash] -- Oldest first checkpoints.
     , mssTo     :: !HeaderHash
     , mssWindow :: !Word32
     } deriving (Generic, Show, Eq)

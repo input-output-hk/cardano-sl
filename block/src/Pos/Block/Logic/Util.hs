@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE BangPatterns        #-}
 
 -- | Utilities for finding LCA and calculating chain quality.
 
@@ -30,7 +31,7 @@ import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
                      HeaderHash, Timestamp (..), difficultyL, flattenSlotId,
                      headerHash, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
-import           Pos.Core.Chrono (NE, OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
@@ -63,23 +64,26 @@ lcaWithMainChain headers =
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
 
--- | Basically drop the head of the list until a block not in the main chain
--- is found. Uses the 'MonadBlockDBRead' constraint and there seems to be no
--- consistency/locking control in view so I guess you don't get any
--- consistency. FIXME.
+-- | Split the input list into those which are in the main chain (given by the
+-- 'MonadBlockDBRead' constraint), and those which are not. Those in the
+-- chain are given NewestFirst.
 lcaWithMainChainSuffix
     :: forall m .
        (MonadBlockDBRead m)
-    => OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
-lcaWithMainChainSuffix headers = OldestFirst <$> go (getOldestFirst headers)
+    => OldestFirst [] HeaderHash
+    -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
+lcaWithMainChainSuffix headers = go [] (getOldestFirst headers)
   where
-    go :: [BlockHeader] -> m [BlockHeader]
-    go [] = pure []
-    go (bh:rest) = do
-        inMain <- isBlockInMainChain (headerHash bh)
+    go :: [HeaderHash]
+       -> [HeaderHash]
+       -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
+    -- Everything is in the chain.
+    go !acc [] = pure (NewestFirst acc, OldestFirst [])
+    go !acc (hh:rest) = do
+        inMain <- isBlockInMainChain hh
         case inMain of
-          False -> pure (bh : rest)
-          True  -> go rest
+            False -> pure (NewestFirst acc, OldestFirst (hh : rest))
+            True  -> go (hh:acc) rest
 
 -- | Calculate chain quality using slot of the block which has depth =
 -- 'blocksCount' and another slot after that one for which we

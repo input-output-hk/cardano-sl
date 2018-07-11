@@ -26,20 +26,24 @@ import           Pos.Util.Util (toAesonError)
 --     sendShares: Normal | None | Wrong
 -- @
 data SscBehavior = SscBehavior
-    { -- | Opening settings (e.g. whether to send the opening at all)
+    { -- | Opening settings (e.g. whether to send rubbish instead of openings)
       sbSendOpening :: !SscOpeningParams
       -- | Shares settings (e.g. whether to send rubbish instead of shares)
     , sbSendShares  :: !SscSharesParams
     }
     deriving (Eq, Show, Generic)
 
+-- | An SSC setting to define how the node should behave when sending openings.
 data SscOpeningParams
     = SscOpeningNormal    -- ^ Normal mode of operation
     | SscOpeningNone      -- ^ An opening is not sent to other nodes
     | SscOpeningWrong     -- ^ An opening is generated at random and doesn't
-                          --    correspond to the commitment
+                          --    correspond to the commitment. This setting is
+                          --    typically only specified for testing purposes
+                          --    as the node will only send rubbish openings.
     deriving (Eq, Show)
 
+-- | An SSC setting to define how the node should behave when sending shares.
 data SscSharesParams
     = SscSharesNormal     -- ^ Normal mode of operation
     | SscSharesNone       -- ^ Decrypted shares are not sent to other nodes

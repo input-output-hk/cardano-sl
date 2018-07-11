@@ -246,7 +246,9 @@ onNewSlotOpening
     :: ( SscMode ctx m
        )
     => ProtocolMagic
-    -> SscOpeningParams
+    -> SscOpeningParams     -- ^ This parameter is part of the node's
+                            -- BehaviorConfig which defines how the node should
+                            -- behave when it's sending openings to other nodes
     -> SlotId
     -> (Opening -> m ())
     -> m ()
@@ -269,8 +271,12 @@ onNewSlotOpening pm params SlotId {..} sendOpening
         "We don't know our opening, maybe we started recently"
     sendOpeningDo ourId open = do
         mbOpen' <- case params of
+            -- The node doesn't send an 'Opening'.
             SscOpeningNone   -> pure Nothing
+            -- The node acts as normal and sends an 'Opening'.
             SscOpeningNormal -> pure (Just open)
+            -- The node sends rubbish (a random 'Opening'). This setting is
+            -- typically only specified for testing purposes.
             SscOpeningWrong  -> Just <$> liftIO randomOpening
         whenJust mbOpen' $ \open' -> do
             sscProcessOurMessage (sscProcessOpening pm ourId open')

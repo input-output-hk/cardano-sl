@@ -744,7 +744,8 @@ to run a stakepool registration server, and announce its existence off
 band.
 
 In order for stakeholders to be able to delegate their stake to a
-pool, the wallet will provide a listing of stake pools. This listing
+pool, the wallet will provide a listing of stake pools, in a section
+of the UI called the _delegation centre_. This listing
 will be ordered by the rewards that a user should expect if they were
 to delegate to that pool. Since those expected rewards depend not only
 on the costs and margin set by the stake pool operator, but also on
@@ -1231,6 +1232,45 @@ provided that
 
 - all the leaves are at the same depth
 - at each depth, we can require a certain maximal gap
+
+#### Retrieving Staking Information
+
+After the wallet software has determined the set of addresses that
+belong to it via the spending keys, it needs to set its delegation
+preference. In order to do so, it compares the staking objects $\beta$
+of its addresses.
+
+If the wallet consists of pointer addresses to exactly one active staking pool
+
+: the wallet should set its delegation preference to delegate to that
+    pool via pointer addresses, and show a message to the user to
+    inform them of this.
+
+If the wallet consists of base addresses using the same staking key
+
+: the wallet should look up this staking key in the list of heavyweight
+    delegation certificates. If there is a certificate for this key,
+    and it points to am active staking pool, the wallet should set its
+    delegation preference to use base addresses with the same staking
+    key, and inform the user of this choice. If there is none, it
+    should inform the user that the stake is currently undelegated,
+    and that they should consider delegating, or running their own
+    node.
+
+If the wallet consists of addresses with different staking objects
+
+: the wallet should present the list of stake pools that are delegated
+    to by the wallet, and ask the user to pick one for future addresses,
+    as well as provide an option to re-delegate all funds to that pool.
+
+If there are addresses delegating to an inactive or retired pool
+
+: the wallet should alert the user and ask them to pick another
+    staking pool to delegate to.
+
+After setting the delegation preferences of the newly restored wallet,
+the wallet software should encourage the user to visit the delegation
+centre to make sure that this choice is still competitive.
 
 ### Transition from Bootstrap Phase
 

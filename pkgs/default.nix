@@ -18577,6 +18577,7 @@ license = stdenv.lib.licenses.mit;
 , beam-migrate
 , beam-sqlite
 , bytestring
+, cardano-crypto
 , cardano-sl
 , cardano-sl-block
 , cardano-sl-client
@@ -18621,6 +18622,7 @@ license = stdenv.lib.licenses.mit;
 , log-warper
 , memory
 , mtl
+, mwc-random
 , neat-interpolation
 , network-transport
 , normaldistribution
@@ -18688,6 +18690,7 @@ beam-core
 beam-migrate
 beam-sqlite
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-block
 cardano-sl-client
@@ -18723,6 +18726,7 @@ lens
 log-warper
 memory
 mtl
+mwc-random
 neat-interpolation
 network-transport
 optparse-applicative
@@ -18831,6 +18835,7 @@ directory
 filepath
 formatting
 hspec
+ixset-typed
 lens
 log-warper
 mtl

@@ -483,6 +483,7 @@ test-suite wallet-unit-tests
                     , quickcheck-instances
                     , safe-exceptions
                     , serokell-util
+                    , servant-server
                     , tabl
                     , text
                     , formatting

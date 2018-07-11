@@ -29,14 +29,16 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
+import           Cardano.Wallet.API.V1.Handlers.Addresses as Handlers
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Control.Monad.Except (runExceptT)
+import           Servant.Server
 
 import           Util.Buildable (ShowThroughBuild (..))
 
@@ -68,7 +70,7 @@ prepareFixtures = do
     newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
     let accounts = M.singleton newAccountId mempty
     return $ \pw -> do
-        void $ update (pw ^. wallets) (CreateHdWallet newRoot accounts)
+        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot accounts)
         return $ Fixture {
                            fixtureHdRootId = newRootId
                          , fixtureAccountId = AccountIdHdRnd newAccountId
@@ -76,7 +78,8 @@ prepareFixtures = do
                          , fixturePw  = pw
                          }
 
-withFixture :: (Keystore.Keystore -> PassiveWalletLayer IO -> Fixture -> IO a) -> PropertyM IO a
+withFixture :: MonadIO m
+            => (Keystore.Keystore -> PassiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
 withFixture cc = do
     keystore <- run (Keystore.newTestKeystore)
     generateFixtures <- prepareFixtures
@@ -102,14 +105,14 @@ spec = describe "CreateAddress" $ do
     describe "Address creation (kernel)" $ do
         prop "works as expected in the happy path scenario" $ withMaxSuccess 500 $
             monadicIO $ do
-                withFixture $ \keystore _ Fixture{..} -> do
+                withFixture @IO $ \keystore _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
         prop "fails if the account has no associated key in the keystore" $ do
             monadicIO $ do
-                withFixture $ \_ _ Fixture{..} -> do
+                withFixture @IO $ \_ _ Fixture{..} -> do
                     res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
                     case res of
                         (Left (Kernel.CreateAddressKeystoreNotFound acc)) | acc == fixtureAccountId -> return ()
@@ -117,7 +120,7 @@ spec = describe "CreateAddress" $ do
 
         prop "fails if the parent account doesn't exist" $ do
             monadicIO $ do
-                withFixture $ \keystore _ Fixture{..} -> do
+                withFixture @IO $ \keystore _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
                     void $ liftIO $ update (fixturePw ^. wallets) (DeleteHdAccount hdAccountId)
@@ -126,13 +129,26 @@ spec = describe "CreateAddress" $ do
                         Left (Kernel.CreateAddressHdCreationFailed _) -> return ()
                         x -> fail (show (bimap STB STB x))
 
+    describe "Address creation (Servant)" $ do
+        prop "works as expected in the happy path scenario" $ do
+            monadicIO $
+                withFixture $ \keystore layer Fixture{..} -> do
+                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+                    let (HdRootId hdRoot) = fixtureHdRootId
+                        (AccountIdHdRnd myAccountId) = fixtureAccountId
+                        wId = sformat build (view fromDb hdRoot)
+                        accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                        req = V1.NewAddress Nothing accIdx (V1.WalletId wId)
+                    res <- liftIO (runExceptT . runHandler' $ Handlers.newAddress layer req)
+                    liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
+
     describe "Address creation (wallet layer & kernel consistency)" $ do
         prop "layer & kernel agrees on the result" $ do
             monadicIO $ do
-                res1 <- withFixture $ \keystore _ Fixture{..} -> do
+                res1 <- withFixture @IO $ \keystore _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
-                res2 <- withFixture $ \keystore layer Fixture{..} -> do
+                res2 <- withFixture @IO $ \keystore layer Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (HdRootId hdRoot) = fixtureHdRootId
                         (AccountIdHdRnd myAccountId) = fixtureAccountId
@@ -144,6 +160,8 @@ spec = describe "CreateAddress" $ do
                          return $ (bimap STB STB res1) `shouldBe` (bimap STB STB (Left err))
                      Left (WalletLayer.CreateAddressAddressDecodingFailed _) ->
                          fail "Layer & Kernel mismatch: impossible error, CreateAddressAddressDecodingFailed"
+                     Left (WalletLayer.CreateAddressTimeLimitReached _) ->
+                         fail "The layer request exceeded the allocated time quota."
                      Right _ -> do
                          -- If we get and 'Address', let's check that this is the case also for
                          -- the kernel run. Unfortunately we cannot compare the two addresses for equality

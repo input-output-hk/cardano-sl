@@ -147,7 +147,7 @@ verifyAndApplyBlocks logTrace0 pm rollback blocks = runExceptT $ do
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
     hh <- rollingVerifyAndApply [] (spanEpoch blocks)
-    lift $ normalizeMempool pm
+    lift $ normalizeMempool logTrace pm
     pure hh
   where
     logTrace = appendName "verifyAndApplyBlocks" logTrace0

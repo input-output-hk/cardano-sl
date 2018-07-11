@@ -68,6 +68,7 @@ import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
@@ -129,14 +130,14 @@ type MonadMempoolNormalization ctx m
       )
 
 -- | Normalize mempool.
-normalizeMempool :: MonadMempoolNormalization ctx m => ProtocolMagic -> m ()
-normalizeMempool pm = do
+normalizeMempool :: MonadMempoolNormalization ctx m => TraceNamed m -> ProtocolMagic -> m ()
+normalizeMempool logTrace pm = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize noTrace pm
+    sscNormalize logTrace pm
     txpNormalize pm
-    usNormalize noTrace
+    usNormalize logTrace
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break

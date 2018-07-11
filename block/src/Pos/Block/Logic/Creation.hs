@@ -169,7 +169,7 @@ createGenesisBlockDo logTrace pm epoch = do
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe pm (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
-                normalizeMempool pm
+                normalizeMempool logTrace pm
                 pure (newTip, Just blk)
     logShouldNot =
         logDebug logTrace
@@ -378,7 +378,7 @@ applyCreatedBlock logTrace pm pske createdBlock = applyCreatedBlockDo False crea
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
-                normalizeMempool pm
+                normalizeMempool logTrace pm
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do

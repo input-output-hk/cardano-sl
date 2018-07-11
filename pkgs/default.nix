@@ -15414,7 +15414,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-delegation-test
-, cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
 , cardano-sl-sinbin
@@ -15430,6 +15429,7 @@ license = stdenv.lib.licenses.mit;
 , conduit
 , containers
 , cpphs
+, criterion
 , cryptonite
 , data-default
 , deepseq
@@ -15455,6 +15455,7 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , text
+, text-format
 , time-units
 , transformers
 , universum
@@ -15481,7 +15482,6 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-delegation
-cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
 cardano-sl-sinbin
@@ -15554,54 +15554,31 @@ unordered-containers
 testToolDepends = [
 cpphs
 ];
-doHaddock = false;
-description = "Cardano SL - block processing";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-block-bench" = callPackage
-({
-  mkDerivation
-, base
-, bytestring
-, cardano-sl-binary
-, cardano-sl-block
-, cardano-sl-block-test
-, cardano-sl-core
-, cardano-sl-crypto
-, criterion
-, deepseq
-, formatting
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-block-bench";
-version = "1.3.0";
-src = ./../block/bench;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Wcompat"
-"--ghc-option=-Werror"
-];
-isLibrary = false;
-isExecutable = false;
 benchmarkHaskellDepends = [
 base
 bytestring
 cardano-sl-binary
-cardano-sl-block
-cardano-sl-block-test
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-delegation-test
+cardano-sl-ssc
+cardano-sl-ssc-test
+cardano-sl-txp-test
+cardano-sl-update-test
 criterion
 deepseq
 formatting
+generic-arbitrary
+QuickCheck
+random
+text
+text-format
 universum
 ];
 doHaddock = false;
-description = "Cardano SL - block benchmark";
+description = "Cardano SL - block processing";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -15619,7 +15596,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-delegation-test
-, cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-lrc-test
 , cardano-sl-networking
@@ -15660,7 +15636,6 @@ cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-delegation-test
-cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-lrc-test
 cardano-sl-networking
@@ -16781,6 +16756,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-networking
 , cardano-sl-sinbin
@@ -16904,6 +16880,7 @@ cpphs
 testHaskellDepends = [
 async
 base
+cardano-sl-crypto-test
 containers
 hspec
 QuickCheck
@@ -16921,8 +16898,10 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-infra
 , cardano-sl-sinbin-test
+, cardano-sl-update-test
 , cardano-sl-util-test
 , containers
 , generic-arbitrary
@@ -16944,8 +16923,10 @@ bytestring
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-infra
 cardano-sl-sinbin-test
+cardano-sl-update-test
 cardano-sl-util-test
 containers
 generic-arbitrary
@@ -17382,6 +17363,11 @@ mkDerivation {
 pname = "cardano-sl-sinbin";
 version = "1.3.0";
 src = ./../sinbin;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 aeson
 aeson-options
@@ -18012,7 +17998,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-db
-, cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
 , cardano-sl-sinbin
@@ -18065,7 +18050,6 @@ cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
-cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
 cardano-sl-sinbin
@@ -18113,7 +18097,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-infra
 , cardano-sl-sinbin-test
 , cardano-sl-update
 , cardano-sl-util-test
@@ -18136,7 +18119,6 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-infra
 cardano-sl-sinbin-test
 cardano-sl-update
 cardano-sl-util-test

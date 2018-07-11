@@ -325,6 +325,7 @@ test-suite cardano-test
                      , cardano-sl-lrc-test
                      , cardano-sl-networking
                      , cardano-sl-ssc
+                     , cardano-sl-ssc-test
                      , cardano-sl-txp
                      , cardano-sl-txp-test
                      , cardano-sl-update

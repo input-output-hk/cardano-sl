@@ -1,8 +1,17 @@
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE NoImplicitPrelude    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances and generators for SSC types.
 
-module Pos.Arbitrary.Ssc
+module Test.Pos.Ssc.Arbitrary
        ( SscPayloadDependsOnSlot (..)
        , BadCommAndOpening (..)
        , BadSignedCommitment (..)

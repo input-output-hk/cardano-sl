@@ -154,6 +154,7 @@ test-suite test
                      , cardano-sl-crypto-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc
+                     , cardano-sl-ssc-test
                      , cardano-sl-txp-test
                      , cardano-sl-update
                      , cardano-sl-update-test

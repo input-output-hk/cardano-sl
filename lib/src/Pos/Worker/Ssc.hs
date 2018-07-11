@@ -21,7 +21,6 @@ import qualified System.Metrics.Gauge as Metrics
 import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
 
-import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), VssCertificate (..),
@@ -238,7 +237,7 @@ randomOpening = snd <$> secureRandCommitmentAndOpening
   where
     secureRandCommitmentAndOpening = runSecureRandom $ do
         t       <- randomNumberInRange 3 10
-        n       <- randomNumberInRange (t*2-1) (t*2)
+        n       <- randomNumberInRange (t*2-1) (t*2) -- This seems strange.
         vssKeys <- replicateM (fromInteger n) $ toVssPublicKey <$> vssKeyGen
         randCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
 

@@ -11,8 +11,8 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasGenesisHash, HasProtocolConstants)
+import qualified Pos.Network.Block.Types as T
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()

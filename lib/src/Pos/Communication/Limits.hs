@@ -60,9 +60,6 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe,
                      mlTriple, mlTuple, vectorOf, vectorOfNE, (<+>))
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..),
-                     MsgGetHeaders (..), MsgHeaders (..), MsgStream (..),
-                     MsgStreamBlock (..))
 import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex,
                      StakeholderId, UpId, VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
@@ -74,6 +71,9 @@ import           Pos.Core.Txp (TxAux, TxMsgContents (..))
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),
                      SecretProof (..))
+import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..), MsgStream (..),
+                     MsgStreamBlock (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 

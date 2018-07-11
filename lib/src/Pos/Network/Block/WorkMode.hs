@@ -16,8 +16,6 @@ import           System.Wlog (WithLogger)
 import           Pos.Binary.Class (Bi)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Lrc (LrcModeFull)
-import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
-                     MsgHeaders)
 import           Pos.Block.Slog (HasSlogContext)
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Core.Context (HasPrimaryKey)
@@ -29,6 +27,8 @@ import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
+import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                     MsgHeaders)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,

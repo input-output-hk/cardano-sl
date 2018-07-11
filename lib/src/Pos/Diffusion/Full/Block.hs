@@ -33,11 +33,6 @@ import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
-import           Pos.Block.Network.Types(MsgBlock (..), MsgGetBlocks (..),
-                     MsgGetHeaders (..), MsgHeaders (..),
-                     MsgSerializedBlock (..), MsgStream (..),
-                     MsgStreamBlock (..), MsgStreamStart (..),
-                     MsgStreamUpdate (..))
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
@@ -46,6 +41,8 @@ import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
                      bvdSlotDuration, difficultyL, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
                      blockHeader)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Exception (cardanoExceptionFromException,
@@ -61,9 +58,12 @@ import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
+import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
 -- Dubious having this security stuff in here.
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
-                     toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..),
                      NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)

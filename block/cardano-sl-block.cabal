@@ -23,8 +23,6 @@ library
                         Pos.Block.Slog
                         Pos.Block.Types
 
-                        Pos.Block.Network.Types
-
                         Pos.DB.Block
                         Pos.DB.Block.Load
 
@@ -53,7 +51,6 @@ library
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-delegation
-                      , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
@@ -134,7 +131,6 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Block.Arbitrary
-                       Test.Pos.Block.Arbitrary.Message
                        Test.Pos.Block.BlockSpec
                        Test.Pos.Block.CborSpec
                        Test.Pos.Block.SafeCopySpec

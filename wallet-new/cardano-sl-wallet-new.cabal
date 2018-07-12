@@ -117,10 +117,10 @@ library
                        Cardano.Wallet.Util
 
                        Cardano.Wallet.WalletLayer
+                       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
-  other-modules:       Cardano.Wallet.WalletLayer.Types
-                       Cardano.Wallet.WalletLayer.Kernel
+  other-modules:       Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new
@@ -384,6 +384,7 @@ test-suite wallet-unit-tests
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models
+                      Test.Spec.NewPayment
                       Test.Spec.Submission
                       Test.Spec.Translation
                       Test.Spec.WalletWorker

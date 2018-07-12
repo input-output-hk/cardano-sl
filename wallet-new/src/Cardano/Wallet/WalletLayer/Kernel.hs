@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Cardano.Wallet.WalletLayer.Kernel
     ( bracketPassiveWallet
@@ -7,7 +8,6 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
-import           Control.Lens (to)
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Maybe (fromJust)
@@ -21,8 +21,6 @@ import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read
-                     (readHdAddressByCardanoAddress)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -41,7 +39,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
-                     InputGrouping, estimateCardanoFee, newOptions)
+                     InputGrouping, newOptions)
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
 import           Pos.Core (decodeTextAddress)
@@ -49,8 +47,7 @@ import           Pos.Core (decodeTextAddress)
 import           Pos.Core (Address, Coin)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (ShouldCheckPassphrase (..),
-                     safeDeterministicKeyGen)
+import           Pos.Crypto (safeDeterministicKeyGen)
 import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -155,13 +152,13 @@ bracketActiveWallet
     -> PassiveWalletLayer n
     -> Kernel.PassiveWallet
     -> WalletDiffusion
-    -> (ActiveWalletLayer n -> m a) -> m a
+    -> (ActiveWalletLayer n -> Kernel.ActiveWallet -> m a) -> m a
 bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiveLayer =
     Kernel.bracketActiveWallet pm passiveWallet walletDiffusion $ \activeWallet -> do
         bracket
           (return (activeWalletLayer activeWallet))
           (\_ -> return ())
-          runActiveLayer
+          (flip runActiveLayer activeWallet)
   where
 
     activeWalletLayer :: Kernel.ActiveWallet -> ActiveWalletLayer n
@@ -236,7 +233,7 @@ setupPayment pw wallets keystore spendingPassword grouping regulation payment = 
     hdRootId  <- case Core.decodeTextAddress wId of
                      Left e  -> throwM (InvalidAddressConversionFailed e)
                      Right a -> return (HD.HdRootId . InDb $ a)
-    let opts = (newOptions cardanoFee) {
+    let opts = (newOptions Kernel.cardanoFee) {
                csoExpenseRegulation = regulation
              , csoInputGrouping     = grouping
              }
@@ -258,49 +255,9 @@ setupPayment pw wallets keystore spendingPassword grouping regulation payment = 
     -- than an HD random ID, but this won't be true in the future anymore, but
     -- that's currently the only schema supported by the keystore.
     mbEsk <- Keystore.lookup (WalletIdHdRnd hdRootId) keystore
-    return (genChangeAddr, mkSigner mbEsk wallets, opts, accountId, payees)
-
-  where
-
-    -- NOTE(adn) At the moment we are passing
-    -- the full set of Hd wallets as input, which means our lookup function
-    -- for an 'HdAddress' can span across the whole wallets and can be very
-    -- costly. However, in the way the 'DB' is modelled at the moment, we
-    -- store the addresses in a \"flat\" representation (i.e. in an 'IxSet'),
-    -- so indexing directly by 'Core.Address' might not be any less efficient
-    -- than performing two lookups, one on 'HdAccountId' followed by one on
-    -- 'Core.Address'.
-    mkSigner :: Maybe EncryptedSecretKey
-             -> HD.HdWallets
-             -> Address
-             -> Either CoinSelHardErr SafeSigner
-    mkSigner Nothing _ addr = Left (CoinSelHardErrAddressNotOwned addr)
-    mkSigner (Just esk) hdWallets addr =
-        case readHdAddressByCardanoAddress addr hdWallets of
-            Left _ -> Left (CoinSelHardErrAddressNotOwned addr)
-            Right hdAddr ->
-                let addressIndex = hdAddr ^. HD.hdAddressId
-                                           . HD.hdAddressIdIx
-                                           . to HD.getHdAddressIx
-                    accountIndex = hdAddr ^. HD.hdAddressId
-                                           . HD.hdAddressIdParent
-                                           . HD.hdAccountIdIx
-                                           . to HD.getHdAccountIx
-                    res = Core.deriveLvl2KeyPair (Core.IsBootstrapEraAddr True)
-                                                 (ShouldCheckPassphrase False)
-                                                 spendingPassword
-                                                 esk
-                                                 accountIndex
-                                                 addressIndex
-                in case res of
-                     Just (a, _) | a == addr ->
-                         Right (SafeSigner esk spendingPassword)
-                     _                   ->
-                         Left (CoinSelHardErrAddressNotOwned addr)
-
-    -- | An hopefully-accurate estimate of the Tx fees in Cardano.
-    cardanoFee :: Int -> NonEmpty Coin -> Coin
-    cardanoFee inputs outputs = Core.mkCoin $
-        estimateCardanoFee linearFeePolicy inputs (toList $ fmap Core.getCoin outputs)
-        where
-          linearFeePolicy = Core.TxSizeLinear (Core.Coeff 155381) (Core.Coeff 43.946)
+    return ( genChangeAddr
+           , Kernel.mkSigner spendingPassword mbEsk wallets
+           , opts
+           , accountId
+           , payees
+           )

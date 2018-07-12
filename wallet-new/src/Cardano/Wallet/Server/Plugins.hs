@@ -212,7 +212,7 @@ walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (pa
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-        bracketKernelActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active -> do
+        bracketKernelActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
           ctx <- view shutdownContext
           let
             portCallback :: Word16 -> IO ()

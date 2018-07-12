@@ -53,7 +53,7 @@ liftedGen = liftIO . generate $ arbitrary
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall m n a. (MonadMask m, MonadIO n)
+    :: forall m n a. (MonadMask m)
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
@@ -65,6 +65,6 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
     activeWalletLayer :: ActiveWalletLayer n
     activeWalletLayer = ActiveWalletLayer {
           walletPassiveLayer = walletPassiveLayer
-        , newTransaction = \_ _ _ -> liftedGen
-        , estimateFees   = \_ _ _ -> liftedGen
+        , pay          = \_ _ _ -> error "unimplemented"
+        , estimateFees = \_ _ _ -> error "unimplemented"
         }

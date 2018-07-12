@@ -16,7 +16,7 @@ import           System.Wlog (Severity)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
-import           Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Kernel (ActiveWallet, PassiveWallet)
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
@@ -38,7 +38,8 @@ bracketKernelActiveWallet
     => ProtocolMagic
     -> PassiveWalletLayer m
     -> PassiveWallet
-    -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+    -> WalletDiffusion
+    -> (ActiveWalletLayer m -> ActiveWallet -> n a) -> n a
 bracketKernelActiveWallet  = Kernel.bracketActiveWallet
 
 ------------------------------------------------------------

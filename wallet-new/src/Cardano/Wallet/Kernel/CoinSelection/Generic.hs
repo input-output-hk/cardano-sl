@@ -183,8 +183,11 @@ unsafeValueAdjust r x y = fromMaybe (error "unsafeValueAdjust: out of range") $
   Describing domains which have addresses
 -------------------------------------------------------------------------------}
 
-class (CoinSelDom dom, Ord (Address dom)) => HasAddress dom where
-  type Address dom = a | a -> dom
+class ( CoinSelDom dom
+      , Buildable (Address dom)
+      , Ord (Address dom)
+      ) => HasAddress dom where
+  type Address dom :: *
 
   outAddr :: Output dom -> Address dom
 
@@ -307,7 +310,9 @@ data CoinSelHardErr =
 
     -- | This wallet does not \"own\" the input address
   | forall dom. HasAddress dom =>
-      CoinSelHardErrAddressNotOwned (Address dom)
+      CoinSelHardErrAddressNotOwned (Proxy dom) (Address dom)
+      -- ^ We need a proxy here due to the fact that 'Address' is not
+      -- injective.
 
 
 instance Arbitrary CoinSelHardErr where
@@ -645,9 +650,8 @@ instance Buildable CoinSelHardErr where
     val
   build (CoinSelHardErrUtxoDepleted) = bprint
     ( "CoinSelHardErrUtxoDepleted" )
-  build (CoinSelHardErrAddressNotOwned _) = bprint
-    ( "CoinSelHardErrAddressNotOwned"
-    )
+  build (CoinSelHardErrAddressNotOwned _ addr) = bprint
+    ( "CoinSelHardErrAddressNotOwned { address: " % build % " } ") addr
 
 instance CoinSelDom dom => Buildable (Fee dom) where
   build = bprint build . getFee

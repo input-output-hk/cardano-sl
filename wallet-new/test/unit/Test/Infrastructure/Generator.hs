@@ -16,15 +16,14 @@ import qualified Data.Set as Set
 import           Test.QuickCheck
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (estimateCardanoFee, estimateSize)
+                     (estimateCardanoFee)
 import           UTxO.Context
 import           UTxO.DSL
 import           UTxO.Generator
 import           Wallet.Inductive
 import           Wallet.Inductive.Generator
 
-import           Pos.Core (TxSizeLinear, calculateTxSizeLinear)
-import           Serokell.Data.Memory.Units (Byte, fromBytes)
+import           Pos.Core (TxSizeLinear)
 
 {-------------------------------------------------------------------------------
   Generator model

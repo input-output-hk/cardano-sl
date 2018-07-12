@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
+-- Ignore the Semigroup + Monoid constraints, that ghc8.4 complains about.
+{-# OPTIONS_GHC -Wno-redundant-constraints    #-}
 
 -- | Blockchain generation logic.
 

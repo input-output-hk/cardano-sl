@@ -14477,12 +14477,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "canonical-json";
-version = "0.5.0.0";
+version = "0.5.0.1";
 src = fetchgit {
 
-url = "https://github.com/well-typed/canonical-json.git";
-sha256 = "19lc5pr85jz3f8ifmjxnkxgib0lz3vgagdny50gb04midc7y37pr";
-rev = "2d261bb971bada1893753b503452d9e6e217bc4a";
+url = "https://github.com/input-output-hk/canonical-json.git";
+sha256 = "0cqa4vnrj3wqqgzzg9v7p3ddrfsf5fx63dv2jnwnlfaczs007dkq";
+rev = "f66762e4c4fe484ed109d28ad541fc55cc841c2c";
 
 };
 libraryHaskellDepends = [
@@ -15168,7 +15168,6 @@ license = stdenv.lib.licenses.mit;
 , tagged
 , template-haskell
 , text
-, text-format
 , th-utilities
 , time-units
 , universum
@@ -15206,7 +15205,6 @@ serokell-util
 tagged
 template-haskell
 text
-text-format
 th-utilities
 time-units
 universum
@@ -17782,6 +17780,8 @@ license = stdenv.lib.licenses.mit;
 , servant-server
 , servant-swagger
 , servant-swagger-ui
+, servant-swagger-ui-core
+, servant-swagger-ui-redoc
 , sqlite-simple
 , sqlite-simple-errors
 , stdenv
@@ -17880,6 +17880,8 @@ servant-client-core
 servant-server
 servant-swagger
 servant-swagger-ui
+servant-swagger-ui-core
+servant-swagger-ui-redoc
 sqlite-simple
 sqlite-simple-errors
 swagger2
@@ -19567,13 +19569,20 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, fetchgit
 , stdenv
 }:
 mkDerivation {
 
 pname = "clock";
 version = "0.7.2";
-sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f";
+src = fetchgit {
+
+url = "https://github.com/corsis/clock.git";
+sha256 = "1r4n9imls483f7wd61fi1jk16z2k7w36gpx798sqidvwbnc831q1";
+rev = "ef60bd51a3587a173adf565c33bf2886df6e3842";
+
+};
 libraryHaskellDepends = [
 base
 ];
@@ -30002,6 +30011,47 @@ doHaddock = false;
 doCheck = false;
 homepage = "https://github.com/snoyberg/file-embed";
 description = "Use Template Haskell to embed file contents directly";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"file-embed-lzma" = callPackage
+({
+  mkDerivation
+, base
+, base-compat
+, bytestring
+, directory
+, filepath
+, lzma
+, stdenv
+, template-haskell
+, text
+, th-lift-instances
+, transformers
+}:
+mkDerivation {
+
+pname = "file-embed-lzma";
+version = "0";
+sha256 = "e86cf44f747cf403898158e9fdf9342871e293097a29679fcf587aed497f0c77";
+revision = "1";
+editedCabalFile = "18q9dgfdsr7r5mlqzhhgbx0bp4bv2xkpcsrihl655pwaj1lz1v2s";
+libraryHaskellDepends = [
+base
+base-compat
+bytestring
+directory
+filepath
+lzma
+template-haskell
+text
+th-lift-instances
+transformers
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/phadej/file-embed-lzma";
+description = "Use Template Haskell to embed (LZMA compressed) data";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
@@ -63057,12 +63107,13 @@ license = stdenv.lib.licenses.bsd3;
 , haskell-lexer
 , pretty
 , stdenv
+, text
 }:
 mkDerivation {
 
 pname = "pretty-show";
-version = "1.6.16";
-sha256 = "dbee8476bf12ce5bd991d0a52c1340802e07bb706c68c1a7911a38db16ac0350";
+version = "1.7";
+sha256 = "382b6ef4a78e4059611b5c86674ad72a6bfce821e8852da4f00b628cfbbc272f";
 isLibrary = true;
 isExecutable = true;
 enableSeparateDataOutput = true;
@@ -63073,6 +63124,7 @@ filepath
 ghc-prim
 haskell-lexer
 pretty
+text
 ];
 libraryToolDepends = [
 happy
@@ -70829,19 +70881,51 @@ license = stdenv.lib.licenses.bsd3;
 ({
   mkDerivation
 , base
+, bytestring
+, file-embed-lzma
+, servant
+, servant-server
+, servant-swagger-ui-core
+, stdenv
+, swagger2
+, text
+}:
+mkDerivation {
+
+pname = "servant-swagger-ui";
+version = "0.3.0.3.13.2";
+sha256 = "b6dcb349d845e5a4fa357cb358f44814f30ba23129abd64cb41bda959e629352";
+revision = "1";
+editedCabalFile = "1ka19i4r7s85qlpk5sm90gm5yf82nd03clgyqzm8w8jn7y3fji19";
+libraryHaskellDepends = [
+base
+bytestring
+file-embed-lzma
+servant
+servant-server
+servant-swagger-ui-core
+swagger2
+text
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/haskell-servant/servant-swagger-ui";
+description = "Servant swagger ui";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"servant-swagger-ui-core" = callPackage
+({
+  mkDerivation
+, base
 , blaze-markup
 , bytestring
-, directory
-, file-embed
-, filepath
 , http-media
 , servant
 , servant-blaze
 , servant-server
-, servant-swagger
 , stdenv
 , swagger2
-, template-haskell
 , text
 , transformers
 , transformers-compat
@@ -70849,25 +70933,18 @@ license = stdenv.lib.licenses.bsd3;
 }:
 mkDerivation {
 
-pname = "servant-swagger-ui";
-version = "0.2.5.3.9.1";
-sha256 = "35017aa0efaa90240fac68d147c35069905eb821567da53bb4b627f829b47fb9";
-revision = "1";
-editedCabalFile = "16lixcz9vkkgvcfwdfj3p6pmf458hymyywklzwnbhk7z16wjjhnv";
+pname = "servant-swagger-ui-core";
+version = "0.3.1";
+sha256 = "ab379f8dec934c573c62c72ad49cc04c7e3c77a93fb8f375cfa965836eaa9616";
 libraryHaskellDepends = [
 base
 blaze-markup
 bytestring
-directory
-file-embed
-filepath
 http-media
 servant
 servant-blaze
 servant-server
-servant-swagger
 swagger2
-template-haskell
 text
 transformers
 transformers-compat
@@ -70875,8 +70952,45 @@ wai-app-static
 ];
 doHaddock = false;
 doCheck = false;
-homepage = "https://github.com/phadej/servant-swagger-ui#readme";
-description = "Servant swagger ui";
+homepage = "https://github.com/haskell-servant/servant-swagger-ui";
+description = "Servant swagger ui core components";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"servant-swagger-ui-redoc" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, file-embed-lzma
+, servant
+, servant-server
+, servant-swagger-ui-core
+, stdenv
+, swagger2
+, text
+}:
+mkDerivation {
+
+pname = "servant-swagger-ui-redoc";
+version = "0.3.0.1.21.2";
+sha256 = "9463401a098b6dd10b9ef119982fe5229421d297c25d2ecf3b2d6e58eac175dc";
+revision = "1";
+editedCabalFile = "11lldvcppw71a7i963lymsqy74dkl46zhqnp30g33mfmbvgbwh23";
+libraryHaskellDepends = [
+base
+bytestring
+file-embed-lzma
+servant
+servant-server
+servant-swagger-ui-core
+swagger2
+text
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/haskell-servant/servant-swagger-ui";
+description = "Servant swagger ui: ReDoc theme";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};

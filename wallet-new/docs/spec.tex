@@ -284,7 +284,7 @@ basis that we use cryptographically strong hash functions so that computing
 clashes is computationally impractical.} so that a transaction ID uniquely
 identifies a transaction. Transaction indexes, used to index transaction
 outputs, will typically be natural numbers, but this is not necessary. Currency
-values are numeric values supporting 0 and addition.
+values are essentially just natural numbers.
 
 Addresses stand for cryptographic public keys. In this presentation we can keep
 them quite abstract, it is merely a large set of distinct values. The predicate
@@ -673,6 +673,7 @@ understand the abstract model: it is not useful to consider implementation
 details until we have a good understanding of the requirements.
 
 \subsection{Updating the UTxO}
+\label{sec:UpdatingUtxo}
 
 In order to update the UTxO, $\mathsf{updateUTxO}$ first adds the new outputs
 from the block, and then removes the inputs spent in the block. It would be
@@ -726,13 +727,14 @@ blocks and not the pending transactions.
 \subsection{Update the pending set}
 \label{sec:updatePending}
 
-The definition of $\mathsf{updatePending}$ is pleasantly simple; the fact that
-it could be made so simple was an ``ah hah'' moment in the early development of
-this specification. Note that this definition covers the case of one of our own
-transactions being committed, as well as transactions submitted by other
-instances of our wallet invalidating our pending transactions. Both are covered
-because all we are doing is removing pending transactions that have had any (or
-indeed all) of their inputs spent.
+The definition of $\mathsf{updatePending}$ is pleasantly simple: the definition
+covers the case of one of our own transactions being committed, as well as
+transactions submitted by other instances of our wallet invalidating our pending
+transactions. Both are covered because all we are doing is removing pending
+transactions that have had any (or indeed all) of their inputs spent. The fact
+that it could be made so simple (without making special provisions for these
+specific cases) was an ``ah hah'' moment in the early development of this
+specification.
 
 The precondition to $\mathsf{newPending}$ states that new pending transactions
 can only spend outputs in the wallet's current UTxO. Alternatively, we could
@@ -920,7 +922,7 @@ order of magnitudes of the sizes of the UTxO and pending sets. The UTxO can be
 quite large, for example $|\mathit{utxo}| \leq 10^6$, while the pending set will
 typically be small, usually around $|\mathit{pending}| \leq 3$, while $|\mathit{pending}| = 100$
 would be extreme. Similarly, the number of inputs and outputs in any individual
-transaction is not large. The current bound on the total size of a transaction
+transaction is not large (at most a few hundred, and typically much less than that). The current bound on the total size of a transaction
 is 64kB.
 
 \todo[inline]{Justify some of these bounds (see comments in the \TeX{} file).}
@@ -1315,7 +1317,7 @@ the pending set but never decrease it.
 \end{figure}
 
 The basic model with support for rollback is shown in
-\cref{fig:basic_rollback_model}. In this model the wallet state is a list
+\cref{fig:basic_rollback_model}. In this model the wallet state is a non-empty list
 of \emph{checkpoints}, the value of the wallet at various times throughout its
 lifetime; each call to $\mathsf{applyBlock}$ introduces a new checkpoint. The
 initial wallet is the singleton list; We cannot roll back a wallet that contains
@@ -1592,8 +1594,10 @@ A trivial fact we need later is that
 \end{math}
 \end{lemma}
 
-When we roll back a block but remember the UTxO we used to have, we
-can, in a sense, `anticipate' what we think the future might look like:
+When we roll back a block but remember the UTxO we used to have, we can, in a
+sense, `anticipate' what we think the future might look like; in other words, we
+add the new outputs in that block to our expected UTxO ($\mathtt{new}$ was
+defined in Section~\ref{sec:UpdatingUtxo}):
 
 \begin{definition}[Anticipate a block]
 \begin{equation*}
@@ -2069,7 +2073,7 @@ expected transactions separately.
 \begin{lemma}
 The complexity of $\mathsf{minimumBalance}$ is given by
 \begin{math}
-\order{e + 2^g + p}
+\order{e \cdot (2^g + p)}
 \end{math}
 with $e$ the number of groups of expected transactions
 (\cref{lem:group_expected}), $g$ the size of the largest such group,

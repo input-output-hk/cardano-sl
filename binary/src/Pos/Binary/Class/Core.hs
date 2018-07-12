@@ -147,6 +147,11 @@ class Typeable a => Bi a where
     decodeList :: D.Decoder s [a]
     decodeList = defaultDecodeList
 
+    -- | Generate a symbolic expression representing the size bounds for
+    --   encoded values of this type. If the size depends on sizes of other types,
+    --   the first argument should be used to compute those sizes. This allows
+    --   the user to select between different evaluation strategies and to override
+    --   the size of specific types.
     encodedSizeExpr :: (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
     encodedSizeExpr = todo
 

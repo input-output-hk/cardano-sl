@@ -52,7 +52,7 @@ payloadSize :: Integral a => a
 payloadSize = 2^24
 
 payload :: ByteString
-payload = fromString (take payloadSize (repeat '0'))
+payload = fromString (replicate payloadSize '0')
 
 main :: IO ()
 main = do

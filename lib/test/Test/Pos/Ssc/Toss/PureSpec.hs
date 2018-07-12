@@ -24,7 +24,7 @@ import qualified Pos.Ssc.Types as Toss
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Ssc.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Toss" $ do

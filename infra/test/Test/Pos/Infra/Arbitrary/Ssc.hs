@@ -11,7 +11,7 @@
 
 -- | Arbitrary instances and generators for SSC types.
 
-module Test.Pos.Ssc.Arbitrary
+module Test.Pos.Infra.Arbitrary.Ssc
        ( SscPayloadDependsOnSlot (..)
        , BadCommAndOpening (..)
        , BadSignedCommitment (..)
@@ -46,13 +46,16 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
                      mkCommitmentsMap, randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic,
                      randomNumberInRange, toVssPublicKey, vssKeyGen)
-import           Pos.Ssc.Base (isCommitmentIdExplicit, isOpeningIdExplicit,
-                     isSharesIdExplicit, mkSignedCommitment)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
+import           Pos.Sinbin.Ssc.Base (isCommitmentIdExplicit,
+                     isOpeningIdExplicit, isSharesIdExplicit,
+                     mkSignedCommitment)
+import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..))
-import           Pos.Ssc.Toss.Types (TossModifier (..))
-import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
-import           Pos.Ssc.VssCertData (VssCertData (..))
+import           Pos.Sinbin.Ssc.Toss.Types (TossModifier (..))
+import           Pos.Sinbin.Ssc.Types (SscGlobalState (..),
+                     SscSecretStorage (..))
+import           Pos.Sinbin.Ssc.VssCertData (VssCertData (..))
 
 import           Test.Pos.Core.Arbitrary (genVssCertificate)
 import           Test.Pos.Core.Arbitrary.Unsafe ()
@@ -259,5 +262,21 @@ instance Arbitrary MCShares where
     shrink = genericShrink
 
 instance Arbitrary MCVssCertificate where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg MCCommitment) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg MCOpening) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg MCShares) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink

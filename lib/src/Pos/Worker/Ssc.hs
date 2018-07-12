@@ -50,6 +50,7 @@ import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Security.Params (SecurityParams)
+import           Pos.Sinbin.Ssc.Message (SscTag (..))
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
                      mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..),
@@ -61,7 +62,6 @@ import           Pos.Ssc.Logic (sscGarbageCollectLocalData,
                      sscProcessCertificate, sscProcessCommitment,
                      sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Ssc.Message (SscTag (..))
 import qualified Pos.Ssc.SecretStorage as SS
 import           Pos.Ssc.Shares (getOurShares)
 import           Pos.Ssc.State (getGlobalCerts, getStableCerts,

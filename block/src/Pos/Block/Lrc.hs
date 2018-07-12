@@ -55,7 +55,6 @@ import           Pos.Sinbin.Slotting (MonadSlots)
 import           Pos.Sinbin.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1,
                      sscCalculateSeed)
-import           Pos.Ssc.Message (SscMessageConstraints)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
@@ -76,7 +75,6 @@ type LrcModeFull ctx m =
     , MonadSlots ctx m
     , MonadBlockApply ctx m
     , MonadReader ctx m
-    , SscMessageConstraints
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable

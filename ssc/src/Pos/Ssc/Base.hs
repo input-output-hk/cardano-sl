@@ -5,19 +5,9 @@
 module Pos.Ssc.Base
        (
          -- * Helpers
-         isCommitmentIdExplicit
-       , isCommitmentId
-       , isCommitmentIdxExplicit
-       , isCommitmentIdx
-       , isOpeningIdExplicit
-       , isOpeningId
+         isCommitmentIdxExplicit
        , isOpeningIdxExplicit
-       , isOpeningIdx
-       , isSharesIdExplicit
-       , isSharesId
        , isSharesIdxExplicit
-       , isSharesIdx
-       , mkSignedCommitment
        , secretToSharedSeed
        , vssThreshold
 
@@ -38,6 +28,9 @@ module Pos.Ssc.Base
        -- * Payload and proof
        , stripSscPayload
        , defaultSscPayload
+
+       -- Re-export sin binned stuff
+       , module Sinbin
        ) where
 
 import           Universum hiding (id)
@@ -49,10 +42,10 @@ import           Serokell.Util (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class (biSize, fromBinary)
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..),
-                     SlotCount, SlotId (..), StakeholderId, addressHash,
-                     pcEpochSlots, unsafeMkLocalSlotIndexExplicit)
-import           Pos.Core.Configuration (HasProtocolConstants,
-                     protocolConstants, vssMaxTTL, vssMinTTL)
+                     SlotCount, StakeholderId, addressHash, pcEpochSlots,
+                     unsafeMkLocalSlotIndexExplicit)
+import           Pos.Core.Configuration (HasProtocolConstants, vssMaxTTL,
+                     vssMinTTL)
 import           Pos.Core.Limits (stripHashMap)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      pcSlotSecurityParam)
@@ -61,10 +54,11 @@ import           Pos.Core.Ssc (Commitment (..),
                      SignedCommitment, SscPayload (..),
                      VssCertificate (vcExpiryEpoch), VssCertificatesMap (..),
                      mkCommitmentsMapUnsafe)
-import           Pos.Crypto (ProtocolMagic, Secret, SecretKey,
-                     SignTag (SignCommitment), Threshold, checkSig,
-                     getDhSecret, secretToDhSecret, sign, toPublic,
+import           Pos.Crypto (ProtocolMagic, Secret, SignTag (SignCommitment),
+                     Threshold, checkSig, getDhSecret, secretToDhSecret,
                      verifySecret)
+
+import           Pos.Sinbin.Ssc.Base as Sinbin
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -78,11 +72,6 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
--- | Make signed commitment from commitment and epoch index using secret key.
-mkSignedCommitment
-    :: ProtocolMagic -> SecretKey -> EpochIndex -> Commitment -> SignedCommitment
-mkSignedCommitment pm sk i c = (toPublic sk, c, sign pm SignCommitment sk (i, c))
-
 toLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex
 toLocalSlotIndex pc = unsafeMkLocalSlotIndexExplicit (pcEpochSlots pc) . fromIntegral
 
@@ -91,42 +80,15 @@ isCommitmentIdxExplicit pc =
     inRange (toLocalSlotIndex pc 0,
              toLocalSlotIndex pc (pcSlotSecurityParam pc - 1))
 
-isCommitmentIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isCommitmentIdx = isCommitmentIdxExplicit protocolConstants
-
 isOpeningIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
 isOpeningIdxExplicit pc =
     inRange (toLocalSlotIndex pc (2 * pcSlotSecurityParam pc),
              toLocalSlotIndex pc (3 * pcSlotSecurityParam pc - 1))
 
-isOpeningIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isOpeningIdx = isOpeningIdxExplicit protocolConstants
-
 isSharesIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
 isSharesIdxExplicit pc =
     inRange (toLocalSlotIndex pc (4 * pcSlotSecurityParam pc),
              toLocalSlotIndex pc (5 * pcSlotSecurityParam pc - 1))
-
-isSharesIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isSharesIdx = isSharesIdxExplicit protocolConstants
-
-isCommitmentIdExplicit :: ProtocolConstants -> SlotId -> Bool
-isCommitmentIdExplicit pc = isCommitmentIdxExplicit pc . siSlot
-
-isCommitmentId :: HasProtocolConstants => SlotId -> Bool
-isCommitmentId = isCommitmentIdExplicit protocolConstants
-
-isOpeningIdExplicit :: ProtocolConstants -> SlotId -> Bool
-isOpeningIdExplicit pc = isOpeningIdxExplicit pc . siSlot
-
-isOpeningId :: HasProtocolConstants => SlotId -> Bool
-isOpeningId = isOpeningIdExplicit protocolConstants
-
-isSharesIdExplicit :: ProtocolConstants -> SlotId -> Bool
-isSharesIdExplicit pc = isSharesIdxExplicit pc . siSlot
-
-isSharesId :: HasProtocolConstants => SlotId -> Bool
-isSharesId = isSharesIdExplicit protocolConstants
 
 ----------------------------------------------------------------------------
 -- CommitmentsMap

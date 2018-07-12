@@ -22,8 +22,7 @@ import           Cardano.Wallet.Kernel (PassiveWallet, walletKeystore, wallets)
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAddress (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId,
                      HdAccountIx (..), HdAddressId (..), HdAddressIx (..),
-                     UnknownHdAccount (..), hdAccountIdIx, hdAccountIdParent,
-                     hdAddressIdIx)
+                     hdAccountIdIx, hdAccountIdParent, hdAddressIdIx)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAddressError (..), initHdAddress)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
@@ -35,23 +34,24 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 data CreateAddressError =
-      CreateAddressUnknownHdAccount UnknownHdAccount
+      CreateAddressUnknownHdAccount HdAccountId
       -- ^ When trying to create the 'Address', the parent 'Account' was not
       -- there.
     | CreateAddressKeystoreNotFound AccountId
       -- ^ When trying to create the 'Address', the 'Keystore' didn't have
       -- any secret associated with this 'Account'.
       -- there.
-    | CreateAddressHdCreationFailed CreateHdAddressError
-      -- ^ The creation of the new HD 'Address' failed with a database error.
     | CreateAddressHdRndGenerationFailed HdAccountId
-      -- ^ The crypto-related part of address generation failed.
+      -- ^ The crypto-related part of address generation failed. This is
+      -- likely to happen if the 'PassPhrase' does not match the one used
+      -- to encrypt the 'EncryptedSecretKey'.
     | CreateAddressHdRndAddressSpaceSaturated HdAccountId
       -- ^ The available number of HD addresses in use in such that trying
       -- to find another random index would be too expensive
     deriving Eq
 
--- TODO(adn)
+-- TODO(adn): This will be done as part of my work on the 'newTransaction'
+-- endpoint, see [CBR-313].
 instance Arbitrary CreateAddressError where
     arbitrary = oneof []
 
@@ -60,8 +60,6 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressUnknownHdAccount " % F.build) uAccount
     build (CreateAddressKeystoreNotFound accId) =
         bprint ("CreateAddressKeystoreNotFound " % F.build) accId
-    build (CreateAddressHdCreationFailed hdErr) =
-        bprint ("CreateAddressHdCreationFailed " % F.build) hdErr
     build (CreateAddressHdRndGenerationFailed hdAcc) =
         bprint ("CreateAddressHdRndGenerationFailed " % F.build) hdAcc
     build (CreateAddressHdRndAddressSpaceSaturated hdAcc) =
@@ -86,10 +84,13 @@ createAddress spendingPassword accId pw = do
          -- 2. Perform the actual creation of the 'HdAddress' as an atomic
          --    transaction in acid-state.
          --
-         -- The reason why we do this is because in order to create an
-         -- 'HdAddress' we need a proper 'Address', but this cannot be derived
-         -- with having access to the 'EncryptedSecretKey' and the 'PassPhrase',
-         -- and we do not want these exposed in the acid-state transaction log.
+         -- The reason why we do this is because:
+         -- 1. We cannot do IO (thus index derivation) in an acid-state
+         --    transaction
+         -- 2. In order to create an 'HdAddress' we need a proper 'Address',
+         -- but this cannot be derived with having access to the
+         -- 'EncryptedSecretKey' and the 'PassPhrase', and we do not want
+         -- these exposed in the acid-state transaction log.
          (AccountIdHdRnd hdAccId) -> do
              mbEsk <- Keystore.lookup (WalletIdHdRnd (hdAccId ^. hdAccountIdParent))
                                       keystore
@@ -105,8 +106,8 @@ createAddress spendingPassword accId pw = do
 -- 1. Try to generate an 'Address' by picking a random index;
 -- 2. If the operation succeeds, return the 'Address';
 -- 3. If the DB operation fails due to a collision, try again, up to a max of
---    2147483647 attempts (which is half of the address space).
--- 4. If after 2147483647 attempts there is still no result, flag this upstream.
+--    1024 attempts.
+-- 4. If after 1024 attempts there is still no result, flag this upstream.
 createHdRndAddress :: PassPhrase
                    -> EncryptedSecretKey
                    -> HdAccountId
@@ -144,15 +145,11 @@ createHdRndAddress spendingPassword esk accId pw = do
                     case res of
                          (Left (CreateHdAddressExists _)) ->
                              go gen (succ collisions)
-                         (Left err) ->
-                             return (Left $ CreateAddressHdCreationFailed err)
+                         (Left (CreateHdAddressUnknown _)) ->
+                             return (Left $ CreateAddressUnknownHdAccount accId)
                          Right () -> return (Right newAddress)
 
-        -- The maximum number of allowed collisions. This number was empirically
-        -- chosen as half of the total available address space. A possible line
-        -- of reasoning is that if we hit that many collision it meas the
-        -- probability to find a new, unused address is ~ <= 50%, and therefore
-        -- it's better to switch to a new account.
+        -- The maximum number of allowed collisions.
         maxAllowedCollisions :: Word32
-        maxAllowedCollisions = 2147483647
+        maxAllowedCollisions = 1024
 

@@ -118,7 +118,7 @@ interp walletInterp action = do
 
       LogMessage txt -> emit txt
 
-      Shutdown -> return ()
+      Shutdown -> error "walletWorker: unreacheable dead code, reached!"
 
   where
     WalletActionInterp{..} = lifted walletInterp

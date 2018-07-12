@@ -11,6 +11,7 @@ import qualified Formatting.Buildable
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (AsyncCancelled (..))
 import qualified Control.Concurrent.Async as Async
+import           Control.Exception (evaluate)
 import           Data.Time.Units (Second)
 
 data TimeExecutionLimit =
@@ -28,7 +29,9 @@ limitExecutionTimeTo :: Second
                      -> IO (Either b a)
                      -> IO (Either b a)
 limitExecutionTimeTo secs onTimeLimit action = do
-    let limited = action `catch` (\AsyncCancelled -> return $ Left (onTimeLimit (TimeExecutionLimitReached secs)))
+    let onCancellation = \AsyncCancelled ->
+            return $ Left (onTimeLimit (TimeExecutionLimitReached secs))
+    let limited = (action >>= evaluate) `catch` onCancellation
     result <- Async.race limited (threadDelay (1000000 * fromIntegral secs))
     case result of
          Left actionResult -> return actionResult

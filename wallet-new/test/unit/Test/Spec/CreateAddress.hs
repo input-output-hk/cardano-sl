@@ -7,7 +7,7 @@ import           Universum
 import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
-import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run)
+import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as M
@@ -126,7 +126,7 @@ spec = describe "CreateAddress" $ do
                     void $ liftIO $ update (fixturePw ^. wallets) (DeleteHdAccount hdAccountId)
                     res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
                     case res of
-                        Left (Kernel.CreateAddressHdCreationFailed _) -> return ()
+                        Left (Kernel.CreateAddressUnknownHdAccount _) -> return ()
                         x -> fail (show (bimap STB STB x))
 
     describe "Address creation (Servant)" $ do

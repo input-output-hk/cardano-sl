@@ -6,6 +6,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Derivation (
 import           Universum
 
 import           Cardano.Crypto.Wallet.Types (DerivationIndex)
+import           Pos.Crypto.HD (firstHardened)
 
 data HardeningMode = SoftDerivation
                    -- ^ Generates indexes in the range (0, maxBound @Word32)
@@ -24,8 +25,8 @@ deriveIndex :: Monad m
             -> m a
 deriveIndex pickRange mkA hardeningMode =
     let range = case hardeningMode of
-                     SoftDerivation -> (0, maxBound)
-                     HardDerivation -> (0x8000000, maxBound)
+                     SoftDerivation -> (0, firstHardened - 1)
+                     HardDerivation -> (firstHardened, maxBound)
     in mkA <$> pickRange range
 
 

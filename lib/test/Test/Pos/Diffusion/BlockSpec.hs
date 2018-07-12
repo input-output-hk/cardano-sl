@@ -93,6 +93,12 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
+      -- 'pureLogic' always gives an empty first component list, meaning all
+      -- of the input is *not* in the main chain. This would cause streaming
+      -- to fail, as it must have an intersection with the main chain from
+      -- which to start.
+    , getLcaMainChain = \(OldestFirst headers) ->
+          pure (NewestFirst (reverse headers), OldestFirst [])
     , getTip = pure arbitraryBlock
     , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do

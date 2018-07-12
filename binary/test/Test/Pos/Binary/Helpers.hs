@@ -58,17 +58,16 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, choose,
-                                  conjoin, counterexample, forAll, property,
-                                  resize, suchThat, vectorOf, (.&&.), (===))
+                     conjoin, counterexample, forAll, property, resize,
+                     suchThat, vectorOf, (.&&.), (===))
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), Range (..),
-                                   Size, SizeOverride (..), decodeFull,
-                                   decodeListLenCanonicalOf,
-                                   decodeUnknownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, serialize,
-                                   serialize', szSimplify, szWithCtx,
-                                   toLazyByteString, unsafeDeserialize)
+                     Size, SizeOverride (..), decodeFull,
+                     decodeListLenCanonicalOf, decodeUnknownCborDataItem,
+                     encodeListLen, encodeUnknownCborDataItem, serialize,
+                     serialize', szSimplify, szWithCtx, toLazyByteString,
+                     unsafeDeserialize)
 import           Pos.Binary.Limit (Limit (..))
 
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
@@ -383,4 +382,3 @@ szVerify ctx x = case szSimplify (szWithCtx ctx (pure x)) of
     Right range -> OutOfBounds sz range
   where
     sz = fromIntegral $ LBS.length $ toLazyByteString $ encode x
-

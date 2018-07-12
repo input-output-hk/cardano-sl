@@ -508,7 +508,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
           --count = length cFields + (if length filteredConstrs > 1 then 1 else 0)
           extraBytes = 2 -- error "MN TODO"
       [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |] -- MN TODO: also add length and, when needed, Word8 tag
-      
+
     encodedSizeExprField :: Field -> Q Exp
     encodedSizeExprField Field{..} = do
         (_, fTy) <- expToNameAndType fFieldAndType

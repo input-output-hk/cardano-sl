@@ -51,7 +51,7 @@ instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode = Coin <$> decode
     encodedSizeExpr size pxy = size (unsafeGetCoin <$> pxy)
-    
+
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
@@ -73,7 +73,7 @@ checkCoin (Coin c)
 coinF :: Format r (Coin -> r)
 coinF = build
 
--- | Unwraps 'Coin'. It's called “unsafe” so that people wouldn't use it
+-- | Unwraps 'Coin'. It's called  unsafe  so that people wouldn't use it
 -- willy-nilly if they want to sum coins or something. It's actually safe.
 unsafeGetCoin :: Coin -> Word64
 unsafeGetCoin = getCoin

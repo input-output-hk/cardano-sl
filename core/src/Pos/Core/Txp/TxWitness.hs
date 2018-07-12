@@ -14,15 +14,13 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 
 import           Pos.Binary.Class (Bi (..), Case (..), decodeKnownCborDataItem,
-                                   decodeListLenCanonical,
-                                   decodeUnknownCborDataItem,
-                                   encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem,
-                                   knownCborDataItemSizeExpr, matchSize,
-                                   szCases)
+                     decodeListLenCanonical, decodeUnknownCborDataItem,
+                     encodeKnownCborDataItem, encodeListLen,
+                     encodeUnknownCborDataItem, knownCborDataItemSizeExpr,
+                     matchSize, szCases)
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
-                             Signature, hash, shortHashF)
+                     Signature, hash, shortHashF)
 
 import           Pos.Core.Txp.Tx (Tx)
 

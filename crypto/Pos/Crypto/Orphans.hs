@@ -16,7 +16,8 @@ import           Data.Hashable (Hashable)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary, withWordSize, Size)
+import           Pos.Binary.Class (Bi (..), Size, decodeBinary, encodeBinary,
+                     withWordSize)
 
 instance Hashable Ed25519.PublicKey
 instance Hashable Ed25519.SecretKey

@@ -59,7 +59,7 @@ import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
-                                        enforceSize, toCborError, withWordSize)
+                     enforceSize, toCborError, withWordSize)
 
 -- | Serialize a Haskell value to an external binary representation.
 --

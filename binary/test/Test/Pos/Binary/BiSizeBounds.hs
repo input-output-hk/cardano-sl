@@ -8,6 +8,7 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Map as M
 import           Data.Tagged (Tagged (..))
 import           Data.Typeable (typeRep)
 import           Hedgehog (Group (..), checkParallel)
@@ -30,6 +31,18 @@ tests =
          , ("String 2" , sizeTest $ cfg { gen = listOf Gen.latin1
                                               , lengthOf = Just length
                                               , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
+         , ("String 3" , sizeTest $ cfg { gen = listOf Gen.alpha
+                                              , lengthOf = Just length
+                                              , lengthTy = typeRep (Proxy @(LengthOf [Char]))
+                                              , addlCtx = M.fromList
+                                                  [ (typeRep (Proxy @Char), SizeConstant 1) ]
+                                              , precise = True
+                                              })
+         , ("Char 3", sizeTest $ cfg { gen = Gen.alpha
+                                     , addlCtx = M.fromList
+                                         [ (typeRep (Proxy @Char), SizeConstant 2) ]
+                                     , precise = True
+                                     })
          , ("Word"   , sizeTest $ cfg { gen = Gen.word   Range.exponentialBounded })
          , ("Word8"  , sizeTest $ cfg { gen = Gen.word8  Range.exponentialBounded })
          , ("Word16" , sizeTest $ cfg { gen = Gen.word16 Range.exponentialBounded })

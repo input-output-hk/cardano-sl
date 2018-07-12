@@ -14718,6 +14718,7 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-sl-lrc
 , cardano-sl-lrc-test
 , cardano-sl-networking
+, cardano-sl-sinbin
 , cardano-sl-ssc
 , cardano-sl-ssc-test
 , cardano-sl-txp
@@ -14837,6 +14838,7 @@ cardano-sl-delegation
 cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
+cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -14932,6 +14934,7 @@ cardano-sl-infra-test
 cardano-sl-lrc
 cardano-sl-lrc-test
 cardano-sl-networking
+cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-ssc-test
 cardano-sl-txp
@@ -16249,7 +16252,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
 , cardano-sl-sinbin
@@ -16298,7 +16300,6 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
 cardano-sl-sinbin
@@ -16900,7 +16901,9 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
+, cardano-sl-sinbin
 , cardano-sl-sinbin-test
+, cardano-sl-ssc-test
 , cardano-sl-update-test
 , cardano-sl-util-test
 , containers
@@ -16925,7 +16928,9 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
+cardano-sl-sinbin
 cardano-sl-sinbin-test
+cardano-sl-ssc-test
 cardano-sl-update-test
 cardano-sl-util-test
 containers
@@ -17319,6 +17324,7 @@ license = stdenv.lib.licenses.mit;
 , conduit
 , containers
 , cpphs
+, data-default
 , directory
 , dns
 , ekg-core
@@ -17385,6 +17391,7 @@ cardano-sl-util
 clock
 conduit
 containers
+data-default
 directory
 dns
 ekg-core
@@ -17472,7 +17479,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-db
-, cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
 , cardano-sl-sinbin
@@ -17526,7 +17532,6 @@ cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
-cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
 cardano-sl-sinbin
@@ -17574,7 +17579,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-infra
 , cardano-sl-ssc
 , cardano-sl-util-test
 , generic-arbitrary
@@ -17593,7 +17597,6 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-infra
 cardano-sl-ssc
 cardano-sl-util-test
 generic-arbitrary
@@ -17804,7 +17807,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-sinbin
 , cardano-sl-util
@@ -17867,7 +17869,6 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-infra
 cardano-sl-networking
 cardano-sl-sinbin
 cardano-sl-util
@@ -17945,7 +17946,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-infra
 , cardano-sl-txp
 , cardano-sl-util-test
 , data-default
@@ -17972,7 +17972,6 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-infra
 cardano-sl-txp
 cardano-sl-util-test
 data-default

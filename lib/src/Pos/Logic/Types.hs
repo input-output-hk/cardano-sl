@@ -22,7 +22,7 @@ import           Pos.Block.Logic (GetHashesRangeError,
 import           Pos.Communication (NodeId)
 import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxId, TxMsgContents)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
                      UpdateVote, VoteId)
@@ -54,12 +54,12 @@ data Logic m = Logic
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
                          -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-      -- | Compute LCA with the main chain.
-      -- FIXME rename.
-      -- In fact, it computes the suffix of the input list such that all of them
-      -- are not in the current main chain (hazards w.r.t. DB consistency
-      -- obviously in play depending on the implementation...).
-    , getLcaMainChain    :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+      -- | Compute LCA with the main chain: the first component are those hashes
+      -- which are in the main chain, second is those which are not.
+      -- Input is assumed to be a valid chain: if some element is not in the
+      -- chain, then none of the later elements are.
+    , getLcaMainChain    :: OldestFirst [] HeaderHash
+                         -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
       -- | Cheaper version of 'headerHash <$> getTip'.
@@ -187,7 +187,7 @@ dummyLogic = Logic
     , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
-    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+    , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])
     , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
     , getTip             = pure (error "dummy: can't get tip")
     , getTipHeader       = pure (error "dummy: can't get tip header")

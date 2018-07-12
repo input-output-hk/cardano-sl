@@ -135,17 +135,17 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
     bvd <- Logic.getAdoptedBVData logic
     blocks <- if singleBlockHeader
               then requestBlocks bvd (OldestFirst (one tipHeaderHash))
-              else requestAndClassifyHeaders bvd >>= requestBlocks bvd . fmap headerHash
+              else requestAndClassifyHeaders bvd >>= requestBlocks bvd
     pure (OldestFirst (reverse (toList blocks)))
   where
 
-    requestAndClassifyHeaders :: BlockVersionData -> IO (OldestFirst [] BlockHeader)
+    requestAndClassifyHeaders :: BlockVersionData -> IO (OldestFirst [] HeaderHash)
     requestAndClassifyHeaders bvd = do
         OldestFirst headers <- toOldestFirst <$> requestHeaders bvd
         -- Logic layer gives us the suffix of the chain that we don't have.
         -- Possibly empty.
         -- 'requestHeaders' gives a NonEmpty; we drop it to a [].
-        Logic.getLcaMainChain logic (OldestFirst (toList headers))
+        fmap snd (Logic.getLcaMainChain logic (OldestFirst (toList (fmap headerHash headers))))
 
     singleBlockHeader :: Bool
     singleBlockHeader = case checkpoints of
@@ -673,18 +673,17 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
         traceWith logTrace (Debug, sformat ("MsgStreamStart with empty from chain from node "%build) nodeId)
         return ()
     stream nodeId conv (cl:cxs) _ window = do
-        -- Ideally we want a function that only returns the oldest blockheader derived from the
-        -- list of checkpoints, not a list of blockheaders.
-        headersE <- Logic.getBlockHeaders logic Nothing (cl:|cxs) Nothing
-        case headersE of
-             Left e        -> do
+        -- Find the newest checkpoint which is in our chain (checkpoints are
+        -- oldest first).
+        (prefix, _) <- Logic.getLcaMainChain logic (OldestFirst (fmap headerHash (cl:cxs)))
+        case getNewestFirst prefix of
+             [] -> do
                 send conv $ MsgStreamNoBlock "handleStreamStart:strean Failed to find lca"
-                traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed with "%shown%" for "%listJson) nodeId e (cl:cxs))
+                traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed for "%listJson) nodeId (cl:cxs))
                 return ()
-             Right headers -> do
-                let lca = headers ^. _NewestFirst . _neLast
-                    producer = do
-                        Logic.streamBlocks logic $ headerHash lca
+             lca : _ -> do
+                let producer = do
+                        Logic.streamBlocks logic lca
                         lift $ send conv MsgStreamEnd
                     consumer = loop nodeId conv window
                 runEffect $ producer >-> consumer

@@ -1,23 +1,21 @@
 let
   fixedNixpkgs = (import ./lib.nix).fetchNixPkgs;
 in
-  { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
+  { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" "win64" ]
+  , targetSystemsNoCross ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , nixpkgsArgs ? {
-      config = { allowUnfree = false; inHydra = true; };
+      config = spaces: (import ./config.nix spaces)
+             // { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
     }
   }:
 
-with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
-  inherit supportedSystems scrubJobs nixpkgsArgs;
-  packageSet = import ./.;
-});
-
 let
   iohkPkgs = import ./. { gitrev = cardano.rev; };
-  pkgs = import fixedNixpkgs { config = {}; };
+  pkgs = import fixedNixpkgs { config = _: {}; };
+  lib = pkgs.lib;
   wrapDockerImage = cluster: let
     images = {
       mainnet = iohkPkgs.dockerImages.mainnet.wallet;
@@ -41,8 +39,8 @@ let
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-sl-explorer-frontend = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
-    stack2nix = supportedSystems;
-    purescript = supportedSystems;
+    stack2nix = targetSystemsNoCross;
+    purescript = targetSystemsNoCross;
     daedalus-bridge = supportedSystems;
   };
   platforms' = {
@@ -53,8 +51,19 @@ let
     connectScripts.testnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
   };
-  mapped = mapTestOn platforms;
-  mapped' = mapTestOn platforms';
+  mapTestOn' = let
+    func = import ./.;
+    pkgs_linux = func (nixpkgsArgs // { system = "x86_64-linux"; });
+    pkgs_mac = func (nixpkgsArgs // { system = "x86_64-darwin"; });
+    pkgs_win = func (nixpkgsArgs // { target = "win64"; });
+    f = path: value: let
+        maybeLinux = lib.optionalAttrs (builtins.elem "x86_64-linux" value) ({ "x86_64-linux" = lib.getAttrFromPath path pkgs_linux; });
+        maybeMac = lib.optionalAttrs (builtins.elem "x86_64-darwin" value) ({ "x86_64-darwin" = lib.getAttrFromPath path pkgs_mac; });
+        maybeWin = lib.optionalAttrs (builtins.elem "win64" value) ({ win64 = lib.getAttrFromPath path pkgs_win; });
+      in maybeLinux // maybeMac // maybeWin;
+  in set: lib.mapAttrsRecursive f set;
+  mapped = mapTestOn' platforms;
+  mapped' = mapTestOn' platforms';
   makeConnectScripts = cluster: let
   in {
     inherit (mapped'.connectScripts."${cluster}") wallet explorer;

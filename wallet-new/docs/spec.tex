@@ -2592,7 +2592,7 @@ that the current wallet does not have).
 
   \node[main node,style={circle}] (LStart) {};
   \node[main node] (LApplying)      [below=1cm of LStart] {\texttt{Applying}};
-  \node[main node] (LInNewestBlock) [below left=1cm and 0.5cm of LApplying] {\texttt{InNewestBlock}};
+  \node[main node] (LInNewestBlock) [below left=1cm and 0.5cm of LApplying] {\texttt{InNewestBlocks}};
   \node[main node] (LWontApply)     [below right=1cm and 0.5cm of LApplying] {\texttt{WontApply}};
   \node[main node] (LPersisted)     [below =1cm of LInNewestBlock] {\texttt{Persisted}};
 
@@ -2604,17 +2604,17 @@ that the current wallet does not have).
       edge node {$\mathsf{newPending}$} (LApplying)
     (LApplying)
       edge [bend right=30] node[left=1mm] {$\mathsf{applyBlock}$} (LInNewestBlock)
-      edge [bend left=30]  node[right=1mm] {$\mathsf{applyBlock}^*$} (LWontApply)
+      edge [bend left=30]  node[right=1mm] {$\mathsf{applyBlock}^\dagger$} (LWontApply)
     (LInNewestBlock)
       edge [loop left]     node {$\mathsf{applyBlock}$} (LInNewestBlock)
       edge [bend right=30] node[left=1mm] {$\mathsf{rollback}$} (LApplying)
       edge node {$\mathsf{applyBlock}$} (LPersisted)
     (LWontApply)
-      edge [bend left=30] node[right=1mm] {$\mathsf{rollback}^*$} (LApplying)
+      edge [bend left=30] node[right=1mm] {$\mathsf{rollback}^\dagger$} (LApplying)
     ;
 
   \node[main node,style={circle}] (RStart) [right=5.5cm of LStart] {};
-  \node[main node] (RInNewestBlock) [below=1cm of RStart] {\texttt{InNewestBlock}};
+  \node[main node] (RInNewestBlock) [below=1cm of RStart] {\texttt{InNewestBlocks}};
   \node[main node] (RPersisted)     [below=1cm of RInNewestBlock] {\texttt{Persisted}};
 
   \path[every node/.style={font=\sffamily\scriptsize,
@@ -2629,7 +2629,7 @@ that the current wallet does not have).
       edge node {$\mathsf{applyBlock}$} (RPersisted)
     ;
 \end{tikzpicture}
-\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right})}
+\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right}). We will come back to the marked transistions ($\dagger$) in Section~\ref{sec:submission_interface}.}
 \end{figure}
 
 \section{Transaction Submission}
@@ -2695,9 +2695,9 @@ wallet's state.}, however, a rollback won't reintroduce it into
 $\mathit{pending}$; if the user wants to explicitly tell the wallet to try this
 transaction again they will need to call $\mathsf{newPending}$. Effectively,
 $\mathsf{cancel}$ becomes a secondary way in which a transaction may go from
-$\texttt{Applying}$ to $\texttt{WontApply}$ (arrow $\mathsf{applyBlock}^*$), and
+$\texttt{Applying}$ to $\texttt{WontApply}$ (arrow marked $\mathsf{applyBlock}^\dagger$), and
 $\mathsf{newPending}$ a secondary way to get back from $\texttt{WontApply}$ to
-$\texttt{Applying}$ (arrow $\mathsf{rollback}^*$).
+$\texttt{Applying}$ (arrow marked $\mathsf{rollback}^\dagger$).
 
 \subsection{Implementation}
 \label{sec:submission_implementation}

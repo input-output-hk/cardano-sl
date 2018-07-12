@@ -5,8 +5,13 @@
 # that need modification in place. Hlinf warnings are reported as that and
 # the commit is aborted, so you can fix it.
 # Obviously you need stylish-haskell and hlint on your path. The easiest
-# way to do this is to "stack install" them and then copy them from wherever
-# stack installs them to say ~/.local/bin/ .
+# way to do this is to run:
+#
+#    > stack install hlint stylish-haskell
+#
+# in the cardano-sl tree (to ensure the correct version of stylish-haskell is
+# retrieved). The install command will copy them to  ~/.local/bin/ which should
+# be on your $PATH variable.
 
 # To install this, copy it to '.git/hooks/pre-commit' in the cardano checkout
 # amd make it executatble.
@@ -53,6 +58,11 @@ for f in $files ; do
 
 if test -n "$hsfiles" ; then
 	stylish-haskell -i ${hsfiles}
+	if test $? -ne 0 ; then
+		echo
+		echo "Commit aborted. Stylish Haskell failed."
+		exit 1
+		fi
 	hlint ${hsfiles}
 	if test $? -ne 0 ; then
 		echo

@@ -26,24 +26,34 @@ tests =
          , ("Char"   , sizeTest $ cfg { gen = Gen.unicode })
          , ("Char 2" , sizeTest $ cfg { gen = Gen.latin1 })
          , ("String"   , sizeTest $ cfg { gen = listOf Gen.unicode
-                                        , lengthOf = Just length
-                                        , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
+                                        , computedCtx = \str -> M.fromList
+                                            [ (typeRep (Proxy @(LengthOf [Char])),
+                                               SizeConstant $ fromIntegral $ length str)
+                                            ]
+                                        })
          , ("String 2" , sizeTest $ cfg { gen = listOf Gen.latin1
-                                        , lengthOf = Just length
-                                        , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
+                                        , computedCtx = \str -> M.fromList
+                                            [ (typeRep (Proxy @(LengthOf [Char])),
+                                               SizeConstant $ fromIntegral $ length str)
+                                            ]
+                                        })
          , ("String 3" , sizeTest $ cfg { gen = listOf Gen.alpha
-                                        , lengthOf = Just length
-                                        , lengthTy = typeRep (Proxy @(LengthOf [Char]))
                                         , addlCtx = M.fromList
-                                                    [ (typeRep (Proxy @[Char]), SelectCase "minChar") ]
+                                            [ (typeRep (Proxy @[Char]), SelectCases ["minChar"]) ]
+                                        , computedCtx = \str -> M.fromList
+                                            [ (typeRep (Proxy @(LengthOf [Char])),
+                                               SizeConstant $ fromIntegral $ length str)
+                                            ]
                                         , precise = True
                                         })
          , ("String 4" , withTests 20 $ sizeTest $
                cfg { gen = longListOf Gen.alpha
-                   , lengthOf = Just length
-                   , lengthTy = typeRep (Proxy @(LengthOf [Char]))
                    , addlCtx = M.fromList
-                               [ (typeRep (Proxy @[Char]), SelectCase "minChar") ]
+                               [ (typeRep (Proxy @[Char]), SelectCases ["minChar"]) ]
+                   , computedCtx = \str -> M.fromList
+                                          [ (typeRep (Proxy @(LengthOf [Char])),
+                                                SizeConstant $ fromIntegral $ length str)
+                                          ]
                    , precise = True
                    })
          , ("Char 3", sizeTest $ cfg { gen = Gen.alpha
@@ -73,29 +83,47 @@ tests =
                                , precise = True})
          , ("ByteString"     , sizeTest $ (scfg @BS.ByteString)
                { debug = show . (BS.unpack :: BS.ByteString -> [Word8])
-               , lengthOf = Just (fromIntegral . BS.length)
                , gen = Gen.bytes (Range.linear 0 1000)
+               , computedCtx = \bs -> M.fromList
+                                      [ (typeRep (Proxy @(LengthOf ByteString)),
+                                            SizeConstant $ fromIntegral $ BS.length bs)
+                                      ]
                , precise = True })
          , ("Lazy.ByteString", sizeTest $ (scfg @LBS.ByteString)
                { debug = show . (LBS.unpack :: LBS.ByteString -> [Word8])
-               , lengthOf = Just (fromIntegral . LBS.length)
+               , computedCtx = \bs -> M.fromList
+                                      [ (typeRep (Proxy @(LengthOf LBS.ByteString)),
+                                            SizeConstant $ fromIntegral $ LBS.length bs)
+                                      ]
                , gen = LBS.fromStrict <$> Gen.bytes (Range.linear 0 1000)
                , precise = True })
          , ("Text", sizeTest $ cfg
-               { lengthOf = Just length
-               , lengthTy = typeRep (Proxy @(LengthOf [Char]))
-               , gen = Gen.text (Range.linear 0 1000) Gen.latin1 })
+               { gen = Gen.text (Range.linear 0 1000) Gen.latin1
+               , computedCtx = \bs -> M.fromList
+                                      [ (typeRep (Proxy @(LengthOf [Char])),
+                                            SizeConstant $ fromIntegral $ length bs)
+                                      ]
+               })
          , ("Text 2", sizeTest $ cfg
-               { lengthOf = Just length
-               , lengthTy = typeRep (Proxy @(LengthOf [Char]))
-               , gen = Gen.text (Range.linear 0 1000) Gen.unicode })
+               { gen = Gen.text (Range.linear 0 1000) Gen.unicode
+               , computedCtx = \bs -> M.fromList
+                                      [ (typeRep (Proxy @(LengthOf [Char])),
+                                            SizeConstant $ fromIntegral $ length bs)
+                                      ]
+               })
          , ("[Bool]"       , sizeTest $ scfg
                { gen = listOf Gen.bool
-               , lengthOf = Just length
+               , computedCtx = \bs -> M.fromList
+                                      [ (typeRep (Proxy @(LengthOf [Bool])),
+                                            SizeConstant $ fromIntegral $ length bs)
+                                      ]
                , precise = True})
          , ("NonEmpty Bool", sizeTest $ scfg
                { gen = listOf Gen.bool
-               , lengthOf = Just length
+               , computedCtx = \bs -> M.fromList
+                                      [ (typeRep (Proxy @(LengthOf [Bool])),
+                                            SizeConstant $ fromIntegral $ length bs)
+                                      ]
                , precise = True })
          , ("Either Bool Bool", sizeTest $ (scfg @(Either Bool Bool))
                { gen = Left  <$> Gen.bool

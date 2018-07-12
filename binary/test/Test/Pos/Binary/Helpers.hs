@@ -62,9 +62,9 @@ import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, choose,
                                   resize, suchThat, vectorOf, (.&&.), (===))
 import           Test.QuickCheck.Instances ()
 
-import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), LengthOf,
-                                   Range (..), Size, SizeOverride (..),
-                                   decodeFull, decodeListLenCanonicalOf,
+import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), Range (..),
+                                   Size, SizeOverride (..), decodeFull,
+                                   decodeListLenCanonicalOf,
                                    decodeUnknownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, serialize,
                                    serialize', szSimplify, szWithCtx,
@@ -308,34 +308,32 @@ bshow = unpack . toLazyText . bprint build
 
 -- | Configuration for a single test case.
 data SizeTestConfig a = SizeTestConfig
-    { debug    :: a -> String      -- ^ Pretty-print values
-    , lengthOf :: Maybe (a -> Int) -- ^ Compute the length of a value
-    , lengthTy :: TypeRep         -- ^ TypeRep used to represent the length
-    , gen      :: HH.Gen a        -- ^ Generator
-    , precise  :: Bool            -- ^ Must estimates be exact?
-    , addlCtx  :: Map TypeRep SizeOverride -- ^ Additional size overrides
+    { debug       :: a -> String      -- ^ Pretty-print values
+    , gen         :: HH.Gen a        -- ^ Generator
+    , precise     :: Bool            -- ^ Must estimates be exact?
+    , addlCtx     :: Map TypeRep SizeOverride -- ^ Additional size overrides
+    , computedCtx :: a -> Map TypeRep SizeOverride
+      -- ^ Size overrides computed from a concrete instance.
     }
 
 -- | Default configuration, for @Buildable@ types.
 cfg :: forall a. (Typeable a, Buildable a) => SizeTestConfig a
 cfg = SizeTestConfig
     { debug    = bshow
-    , lengthOf = Nothing
-    , lengthTy = typeRep (Proxy @(LengthOf a))
     , gen      = HH.Gen.discard
     , precise  = False
     , addlCtx  = M.fromList []
+    , computedCtx = const (M.fromList [])
     }
 
 -- | Default configuration, for @Show@able types.
 scfg :: forall a. (Typeable a, Show a) => SizeTestConfig a
 scfg = SizeTestConfig
     { debug    = show
-    , lengthOf = Nothing
-    , lengthTy = typeRep (Proxy @(LengthOf a))
     , gen      = HH.Gen.discard
     , precise  = False
     , addlCtx  = M.fromList []
+    , computedCtx = const (M.fromList [])
     }
 
 -- | Create a test case from the given test configuration.
@@ -343,9 +341,7 @@ sizeTest :: forall a. Bi a => SizeTestConfig a -> HH.Property
 sizeTest SizeTestConfig{..} = HH.property $ do
     x <- forAllWith debug gen
 
-    let ctx = M.union addlCtx $ M.fromList $ case lengthOf of
-            Nothing  -> []
-            Just len -> [ (lengthTy, SizeConstant $ fromIntegral (len x)) ]
+    let ctx = M.union (computedCtx x) addlCtx
 
         badBounds sz bounds = do
             annotate ("Computed bounds: " <> bshow bounds)

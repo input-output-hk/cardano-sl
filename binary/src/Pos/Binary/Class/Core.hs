@@ -930,28 +930,29 @@ szWithCtx :: Bi a => Map TypeRep SizeOverride -> Proxy a -> Size
 szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
     Nothing       -> normal
     Just override -> case override of
-        SizeConstant sz  -> sz
-        SizeExpression f -> f (szWithCtx ctx)
-        SelectCase name  -> cata (selectCase name) normal
+        SizeConstant sz   -> sz
+        SizeExpression f  -> f (szWithCtx ctx)
+        SelectCases names -> cata (selectCase names) normal
   where
     -- The non-override case
     normal = encodedSizeExpr (szWithCtx ctx) pxy
 
-    selectCase name orig = case orig of
-        CasesF cs -> matchCase name cs (Fix orig)
+    selectCase names orig = case orig of
+        CasesF cs -> matchCase names cs (Fix orig)
         _         -> Fix orig
 
-    matchCase name cs orig =
-        case find (\(Case name' _) -> name == name') cs of
-          Just (Case _ x) -> x
-          Nothing         -> orig
+    matchCase names cs orig =
+        case filter (\(Case name _) -> name `elem` names) cs of
+          []         -> orig
+          [Case _ x] -> x
+          cs'        -> Fix (CasesF cs')
 
 -- | Override mechanisms to be used with 'szWithCtx'.
 data SizeOverride
-    = SizeConstant Size    -- ^ Replace with a fixed @Size@.
+    = SizeConstant Size     -- ^ Replace with a fixed @Size@.
     | SizeExpression ((forall a. Bi a => Proxy a -> Size) -> Size)
-                           -- ^ Recursively compute the size.
-    | SelectCase   String  -- ^ Select only a specific case from a @CasesF@.
+                            -- ^ Recursively compute the size.
+    | SelectCases [String]  -- ^ Select only a specific case from a @CasesF@.
 
 -- | Simplify the given @Size@, resulting in either the simplified @Size@ or,
 --   if it was fully simplified, an explicit upper and lower bound.

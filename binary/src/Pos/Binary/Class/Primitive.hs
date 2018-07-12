@@ -58,8 +58,8 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize,
-                     toCborError, Size, apMono, withWordSize)
+import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
+                                        enforceSize, toCborError, withWordSize)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -271,7 +271,7 @@ encodeCrcProtected x =
 encodedCrcProtectedSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
 encodedCrcProtectedSizeExpr size pxy =
     2 + unknownCborDataItemSizeExpr (size pxy)
-      + size (pure $ crc32 (serialize (error "unused" :: a)))  
+      + size (pure $ crc32 (serialize (error "unused" :: a)))
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a

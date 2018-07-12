@@ -27,12 +27,14 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
-                     verifyGeneric)
+                                       verifyGeneric)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
-                     decodeKnownCborDataItem, decodeUnknownCborDataItem,
-                     deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, enforceSize, szCases, Case(..))
+import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
+                                   decodeKnownCborDataItem,
+                                   decodeUnknownCborDataItem, deriveSimpleBi,
+                                   encodeKnownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem, enforceSize,
+                                   knownCborDataItemSizeExpr, szCases)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF)
 import           Pos.Crypto (Hash, hash, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -160,10 +162,10 @@ instance Bi TxIn where
         case tag of
             0 -> uncurry TxInUtxo <$> decodeKnownCborDataItem
             _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
-    encodedSizeExpr size _ =
+    encodedSizeExpr size _ = 2 + (knownCborDataItemSizeExpr $
         szCases [ let TxInUtxo txInHash txInIndex = error "unused"
-                  in  Case "TxInUtxo" (4 + size ((,) <$> pure txInHash <*> pure txInIndex))
-                ]
+                  in  Case "TxInUtxo" (size ((,) <$> pure txInHash <*> pure txInIndex))
+                ])
 
 instance NFData TxIn
 

@@ -13,14 +13,16 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 
-import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
-                     decodeListLenCanonical, decodeUnknownCborDataItem,
-                     encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, matchSize,
-                     knownCborDataItemSizeExpr, szCases, Case(..))
+import           Pos.Binary.Class (Bi (..), Case (..), decodeKnownCborDataItem,
+                                   decodeListLenCanonical,
+                                   decodeUnknownCborDataItem,
+                                   encodeKnownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem,
+                                   knownCborDataItemSizeExpr, matchSize,
+                                   szCases)
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
-                     Signature, hash, shortHashF)
+                             Signature, hash, shortHashF)
 
 import           Pos.Core.Txp.Tx (Tx)
 
@@ -90,14 +92,14 @@ instance Bi TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
-    encodedSizeExpr size _ =
+    encodedSizeExpr size _ = 2 +
         (szCases $ map (fmap knownCborDataItemSizeExpr) $
             [ let PkWitness key sig     = error "unused"
-              in  Case "PkWitness" $ 2 + size ((,) <$> pure key <*> pure sig)
+              in  Case "PkWitness" $ size ((,) <$> pure key <*> pure sig)
             , let ScriptWitness key sig = error "unused"
-              in  Case "ScriptWitness" $ 2 + size ((,) <$> pure key <*> pure sig)
+              in  Case "ScriptWitness" $ size ((,) <$> pure key <*> pure sig)
             , let RedeemWitness key sig = error "unused"
-              in  Case "RedeemWitness" $ 2 + size ((,) <$> pure key <*> pure sig)
+              in  Case "RedeemWitness" $ size ((,) <$> pure key <*> pure sig)
             ])
 
 instance NFData TxInWitness

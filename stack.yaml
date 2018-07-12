@@ -1,10 +1,12 @@
-resolver: lts-11.13
+resolver: lts-12.2
 
 flags:
   ether:
     disable-tup-instances: true
 
 extra-package-dbs: []
+
+allow-newer: true
 
 # The dependency graph which was previously here has been dropped in favor of
 # PNG output from the script `scripts/package-dep-graph.sh`, which uses
@@ -152,12 +154,6 @@ packages:
 
 # Library has never been released on Hackage yet
 - location:
-    git: https://github.com/well-typed/canonical-json.git
-    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
-  extra-dep: true
-
-# Library has never been released on Hackage yet
-- location:
     git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
     commit: 49f501a082d745f3b880677220a29cafaa181452
   extra-dep: true
@@ -174,8 +170,8 @@ packages:
 - location:
     git: https://github.com/input-output-hk/haskell-hedgehog.git
     commit: 2c9e51804e8217dff89f5c32cbe0d79ce20bc508
-    subdirs:
-      - hedgehog
+  subdirs:
+    - hedgehog
   extra-dep: true
 
 # servant-quickcheck has a doc/doc.cabal file that is poorly specified and this
@@ -198,7 +194,6 @@ packages:
     commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
   extra-dep: true
 
-
 # Need to adjust version bounds on serokell-util.
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
@@ -206,27 +201,28 @@ packages:
     commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
   extra-dep: true
 
+# Library has never been released on Hackage yet
+- location:
+    git: https://github.com/angerman/canonical-json.git
+    commit: f66762e4c4fe484ed109d28ad541fc55cc841c2c
+  extra-dep: true
+
+# The latest release of clock on hackage is *way* too old (0.7.2)
+# and can not be cross compiled.  As
+# https://github.com/corsis/clock/commit/f7fe4fb5691d56c342e6fbf5a99c121ab24a6b41
+# hasn't made it into any release yet.
+- location:
+    git: https://github.com/corsis/clock.git
+    commit: ef60bd51a3587a173adf565c33bf2886df6e3842
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
 extra-deps:
-# Needed to fix an issue with CTX_INIT failing to build on newer openssl
-# versions.
-- cryptonite-openssl-0.7
-# Very important! First release with a fix of 'race' and 'cancel'.
-#   https://github.com/simonmar/async/issues/59
-#   https://github.com/simonmar/async/issues/81
-# It has yet to appear in an LTS.
-- async-2.2.1
-# There are 2 asyncs -_-
-- lifted-async-0.10.0.1
 
 # Serokell-specific utilities not on stackage
 - fmt-0.6
-# We *must* use 6.3.6 at least, otherwise `int` is synonymous with `build` and
-# will result in an infinite loop -> space leak; however we can't yet because
-# CI hasn't run cabal update yet.
-# - formatting-6.3.6
 
 # Following 10 are not on stackage.
 - pvss-0.2.0
@@ -239,42 +235,14 @@ extra-deps:
 - lens-sop-0.2.0.2
 - lzma-clib-5.2.2
 - micro-recursion-schemes-5.0.2.2
-
-# The changelog for directory-1.3.1.1 indicate some potentially important
-# bugfixes over directory-1.3.0.2, which is what's on lts-11.
-- directory-1.3.1.1
-# https://github.com/commercialhaskell/stack/issues/3151
-- happy-1.19.5
-# Good bug fixes in here.
-- criterion-1.4.0.0
-
-# Fix for a space leak: https://github.com/chrisdone/formatting/pull/44
-- formatting-6.3.6
-
 # Servant stuff not found on stackage
 - servant-multipart-0.11.2
-# Because of servant-quickcheck
-# It defines serverSatisfiesMgr, but requires a newer hspec.
-- hspec-2.5.1
-- hspec-core-2.5.1
-- hspec-discover-2.5.1
 
 # Graphics stuff not found on stackage.
 - Chart-diagrams-1.8.2
-- graphviz-2999.19.0.0
-- diagrams-core-1.4.1.1
-- diagrams-lib-1.4.2
-- diagrams-postscript-1.4
-- diagrams-svg-1.4.1.1
-- diagrams-solve-0.1.1
-- SVGFonts-1.6.0.3
-- dual-tree-0.2.1
-
-# Support for wallet's Txmeta tracking
-- sqlite-simple-errors-0.6.1.0
 
 # Working around a stack issue with rebuilding dependencies
-- pretty-show-1.6.16
+- pretty-show-1.7
 
 # Needed for coin selection in the wallet
 - normaldistribution-1.1.0.3
@@ -288,6 +256,24 @@ extra-deps:
 # thus to use our hedgehog-0.6+ from source,
 # we need to explicilty bump tasty-hedgehog to 0.2.0.0.
 - tasty-hedgehog-0.2.0.0
+
+- ether-0.5.1.0
+- beam-sqlite-0.3.2.2
+
+# LTS-12 has o-clock-1.0
+- o-clock-0.1.1
+
+
+# - base-compat-0.9.3
+- unexceptionalio-0.3.0
+- servant-swagger-ui-redoc-0.3.0.1.21.2
+
+# LTS-12 comes with 0.14 against which we can't compile (yet)
+- servant-0.13.0.1
+- servant-client-0.13.0.1
+- servant-client-core-0.13.0.1
+- servant-generic-0.1.0.2
+- servant-server-0.13.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

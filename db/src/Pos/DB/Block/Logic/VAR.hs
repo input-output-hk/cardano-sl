@@ -219,7 +219,8 @@ verifyAndApplyBlocks pm ctx rollback blocks = runExceptT $ do
             Left (ApplyBlocksVerifyFailure -> failure)
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
-                      logDebug $ sformat ("Rolling: Applying AMAP: "%shown) failure
+                      logDebug $ sformat ("Rolling: run applyAMAP: apply as much as possible\
+                                         \ after `verifyBlocksPrefix` failure: "%shown) failure
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (NewestFirst [])

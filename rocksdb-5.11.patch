@@ -1,0 +1,18 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c4b4116b..2cc60c09 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -650,10 +650,10 @@ else()
+ endif()
+ 
+-set(ROCKSDB_STATIC_LIB rocksdb${ARTIFACT_SUFFIX})
++set(ROCKSDB_STATIC_LIB rocksdb-static${ARTIFACT_SUFFIX})
+-set(ROCKSDB_SHARED_LIB rocksdb-shared${ARTIFACT_SUFFIX})
++set(ROCKSDB_SHARED_LIB rocksdb${ARTIFACT_SUFFIX})
+ set(ROCKSDB_IMPORT_LIB ${ROCKSDB_SHARED_LIB})
+ if(WIN32)
+-  set(SYSTEM_LIBS ${SYSTEM_LIBS} Shlwapi.lib Rpcrt4.lib)
++  set(SYSTEM_LIBS ${SYSTEM_LIBS} shlwapi.lib rpcrt4.lib)
+   set(LIBS ${ROCKSDB_STATIC_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
+ else()
+   set(SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT})

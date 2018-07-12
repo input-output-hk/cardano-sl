@@ -34,10 +34,8 @@ spec :: Spec
 spec =
     it "Compare wallet kernel to pure model" $
       forAll (genInductiveUsingModel model) $ \ind -> do
-        -- TODO: remove once we have support for rollback in the kernel
-        let indDontRoll = uptoFirstRollback ind
         bracketActiveWallet $ \activeWallet -> do
-          checkEquivalent activeWallet indDontRoll
+          checkEquivalent activeWallet ind
   where
     transCtxt = runTranslateNoErrors ask
     boot      = bootstrapTransaction transCtxt

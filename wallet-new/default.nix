@@ -3,7 +3,8 @@
 #
 # Running `nix-build` builds the `wallet-new` code.
 let
-  drv = (import ../. {}).cardano-sl-wallet-new;
+  top = import ../. { forceDontCheck = true; enableBenchmarks = false; };
+  drv = top.cardano-sl-wallet-new;
 in
   if ((import <nixpkgs> {}).stdenv.lib.inNixShell)
     then drv.env

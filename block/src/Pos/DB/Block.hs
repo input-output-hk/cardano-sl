@@ -24,6 +24,8 @@ module Pos.DB.Block
        , dbGetSerBlockRealDefault
        , dbGetSerUndoRealDefault
        , dbPutSerBlundsRealDefault
+       , getSerializedBlock
+       , getSerializedUndo
 
        -- * DBSum implementation
        , dbGetSerBlockSumDefault

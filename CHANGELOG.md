@@ -72,7 +72,7 @@
 
 - Add integration deterministic tests for the Transaction endpoints (CBR-184).
 
-#### Chores
+### Chores
 
 - Back port Timer to Pos.Diffusion.Subscription.Common (CDEC-243).
 

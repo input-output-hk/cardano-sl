@@ -13,10 +13,11 @@ import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (Tx, TxAux, TxSigData)
+import           Pos.Core (Tx, TxAux, TxSigData (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic, Signature (..), decodeBase58PublicKey)
+import           Pos.Crypto (ProtocolMagic, Signature (..), PublicKey,
+                     decodeBase58PublicKey, hash)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -146,7 +147,7 @@ newUnsignedTransaction
 newUnsignedTransaction pm paymentWithChangeAddress = do
     -- We're creating new transaction as usually, but we mustn't sign/publish it.
     -- This transaction will be signed on the client-side (mobile client or
-    -- hardware wallet), and after that transaction (with its signature) will be
+    -- hardware wallet), and after that transaction (with its signatures) will be
     -- sent to backend.
     let (PaymentWithChangeAddress pmt@Payment{..} changeAddressAsBase58) = paymentWithChangeAddress
     changeAddress <- either (throwM . InvalidAddressFormat)
@@ -154,16 +155,25 @@ newUnsignedTransaction pm paymentWithChangeAddress = do
                             (Core.decodeTextAddress changeAddressAsBase58)
 
     batchPayment <- createBatchPayment pmt
-    tx <- V0.newUnsignedTransaction pm batchPayment changeAddress
+    (tx, srcAddressesInfo) <- V0.newUnsignedTransaction pm batchPayment changeAddress
     let txAsBytes = serialize' tx
-    -- Transaction length cannot be greater than 4096 bytes.
-    -- This requirement is mandatory for hardware wallets like Ledger Nano S.
-    if BS.length txAsBytes > 4096
+    if BS.length txAsBytes > txMaxLengthInBytes
         then throwM TooBigTransaction
         else do
-            let txInHexFormat = B16.encode txAsBytes
+            let txHash = hash tx
+                txSigDataAsBytes = serialize' $ TxSigData txHash
+                txSigDataInHexFormat = B16.encode txSigDataAsBytes
+                txInHexFormat = B16.encode txAsBytes
+                srcAddressesWithPaths =
+                    map (\(addr, derPath) -> AddressAndPath (Core.addrToBase58Text addr) derPath)
+                        $ NE.toList srcAddressesInfo
                 rawTx = RawTransaction txInHexFormat
+                                       txSigDataInHexFormat
+                                       srcAddressesWithPaths
             pure $ single rawTx
+  where
+    -- Max size of transaction is a mandatory limit for hardware wallets like Ledger Nano S.
+    txMaxLengthInBytes = 4096
 
 -- | It is assumed that we received a transaction which was signed
 -- on the client side (mobile client or hardware wallet).
@@ -174,12 +184,12 @@ newSignedTransaction
     -> (TxAux -> m Bool)
     -> SignedTransaction
     -> m (WalletResponse Transaction)
-newSignedTransaction pm submitTx (SignedTransaction encodedExtPubKey txAsHex signatureAsHex) = do
-    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+newSignedTransaction pm submitTx (SignedTransaction encodedRootPK txAsHex addrsWithProofsAsText) = do
+    rootPK <- case decodeBase58PublicKey encodedRootPK of
         Left problem -> throwM (InvalidPublicKey $ sformat build problem)
-        Right publicKey -> return publicKey
+        Right rootPK -> return rootPK
 
-    let walletId = V0.encodeCType . Core.makePubKeyAddressBoot $ publicKey
+    let walletId = V0.encodeCType . Core.makePubKeyAddressBoot $ rootPK
 
     txRaw <- case B16.decode txAsHex of
         Left _ -> throwM . convertTxError $ V0.SignedTxNotBase16Format
@@ -189,19 +199,35 @@ newSignedTransaction pm submitTx (SignedTransaction encodedExtPubKey txAsHex sig
         Left problem -> throwM . convertTxError $ (V0.SignedTxUnableToDecode $ toText problem)
         Right (tx :: Tx) -> return tx
 
-    signature <- case B16.decode signatureAsHex of
-        Left _ -> throwM . convertTxError $ V0.SignedTxSignatureNotBase16Format
-        Right signatureItself ->
-            case xsignature signatureItself of
-                Left problem -> throwM . convertTxError $ (V0.SignedTxInvalidSignature $ toText problem)
-                Right realSignature -> do
-                    let signature :: Signature TxSigData
-                        signature = Signature realSignature
-                    return signature
+    addrsWithProofs <- mapM checkAddressProof addrsWithProofsAsText
 
     -- Submit signed transaction as pending one.
-    cTx <- V0.submitSignedTransaction pm submitTx publicKey walletId tx signature
+    cTx <- V0.submitSignedTransaction pm submitTx walletId tx addrsWithProofs
     single <$> migrate cTx
+  where
+    checkAddressProof
+        :: AddressWithProof
+        -> m (Address, Signature TxSigData, PublicKey)
+    checkAddressProof (AddressWithProof addrAsBase58 txSigAsHex encodedDerivedPK) = do
+        srcAddress <- either (throwM . InvalidAddressFormat)
+                             pure
+                             (Core.decodeTextAddress addrAsBase58)
+
+        txSignature <- case B16.decode txSigAsHex of
+            Left _ -> throwM . convertTxError $ V0.SignedTxSignatureNotBase16Format
+            Right txSigItself ->
+                case xsignature txSigItself of
+                    Left problem -> throwM . convertTxError $ (V0.SignedTxInvalidSignature $ toText problem)
+                    Right realTxSig -> do
+                        let txSig :: Signature TxSigData
+                            txSig = Signature realTxSig
+                        return txSig
+
+        derivedPK <- case decodeBase58PublicKey encodedDerivedPK of
+            Left problem -> throwM (InvalidPublicKey $ sformat build problem)
+            Right derivedPK -> return derivedPK
+
+        return (srcAddress, txSignature, derivedPK)
 
 -- | helper function to reduce code duplication
 createBatchPayment

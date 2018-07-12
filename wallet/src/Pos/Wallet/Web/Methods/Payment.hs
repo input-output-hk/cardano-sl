@@ -19,6 +19,7 @@ import           Universum
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
 import qualified Data.Vector as V
+import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
@@ -114,7 +115,7 @@ newUnsignedTransaction
     => ProtocolMagic
     -> NewBatchPayment
     -> Address
-    -> m Tx
+    -> m (Tx, NonEmpty (Address, [Word32]))
 newUnsignedTransaction pm NewBatchPayment {..} changeAddress = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
@@ -278,7 +279,7 @@ createNewUnsignedTransaction
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> Address
-    -> m Tx
+    -> m (Tx, NonEmpty (Address, [Word32]))
 createNewUnsignedTransaction pm moneySource dstDistr policy changeAddress = do
     when walletTxCreationDisabled $
         throwM err405
@@ -293,6 +294,8 @@ createNewUnsignedTransaction pm moneySource dstDistr policy changeAddress = do
         throwM (RequestError "Unsigned transaction: Given money source has no addresses!")
 
     let srcAddrs = map (view wamAddress) addrMetas
+        srcAddrsDerivationPaths = map (\meta -> [_wamAccountIndex meta, _wamAddressIndex meta]) addrMetas
+        srcAddrsInfo = NE.zip srcAddrs srcAddrsDerivationPaths
 
     logDebug "createNewUnsignedTransaction: processed addrs"
 
@@ -304,19 +307,18 @@ createNewUnsignedTransaction pm moneySource dstDistr policy changeAddress = do
             Left txError ->
                 throwM (RequestError $ show txError)
             Right (tx, _) ->
-                return tx
+                return (tx, srcAddrsInfo)
 
 -- | Submit externally-signed transaction to the blockchain.
 submitSignedTransaction
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
     -> (TxAux -> m Bool)
-    -> PublicKey
     -> CId Wal
     -> Tx
-    -> Signature TxSigData
+    -> [(Address, Signature TxSigData, PublicKey)]
     -> m CTx
-submitSignedTransaction pm submitTx publicKey srcWalletId tx signature = do
+submitSignedTransaction pm submitTx srcWalletId tx srcAddrsWithProofs = do
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation (including externally-signed one) is disabled by configuration!"
@@ -335,16 +337,20 @@ submitSignedTransaction pm submitTx publicKey srcWalletId tx signature = do
     _ <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
+    let srcAddrs = map (\(addr, _, _) -> addr) srcAddrsWithProofs
+    utxoForSrcAddrs <- getOwnUtxos srcAddrs
+
     th <- rewrapTxError "Cannot send externally-signed transaction" $ do
         let outputs = toList $ _txOutputs tx
             inputs  = toList $ _txInputs tx
-            witness = V.fromList $ map (\_ -> PkWitness publicKey signature) inputs
-            txAux   = TxAux tx witness
+
+        witnesses <- mapM (makeWitness utxoForSrcAddrs) inputs
+        let txAux = TxAux tx $ V.fromList witnesses
 
         ts <- Just <$> getCurrentTimestamp
         let dstAddrs = map txOutAddress outputs
             -- Technically, we don't need a hash because we already have
-            -- a signature (from external wallet), but 'THEntry' requires a hash.
+            -- a tx signature (from external wallet), but 'THEntry' requires a hash.
             txHash   = hash tx
             th       = THEntry txHash tx Nothing outputs dstAddrs ts
 
@@ -360,6 +366,30 @@ submitSignedTransaction pm submitTx publicKey srcWalletId tx signature = do
 
     diff <- getCurChainDifficulty
     fst <$> constructCTx ws' srcWalletId srcWalletAddrsDetector diff th
+  where
+    -- 'PkWitness' contains:
+    -- 1. a signature of entire transaction,
+    -- 2. derived PK.
+    -- Since this 'TxIn' corresponds to some output (which contains address `A`),
+    -- derived PK is a key address `A` was generated from. This is our proof that
+    -- we have a right to spend money from the `A`.
+    makeWitness
+        :: MonadWalletTxFull ctx m
+        => Utxo
+        -> TxIn
+        -> m TxInWitness
+    makeWitness _ (TxInUnknown w bs) =
+        return $ UnknownWitnessType w bs
+    makeWitness ownUtxo txIn =
+        case M.lookup txIn ownUtxo of
+            Nothing -> throwM $ RequestError "makeWitness: cannot find input in ownUtxo"
+            Just (TxOutAux txOut) -> do
+                let srcAddrWithProof = find (\(srcAddress, _, _) -> srcAddress == txOutAddress txOut)
+                                            srcAddrsWithProofs
+                case srcAddrWithProof of
+                    Nothing -> throwM $ RequestError "makeWitness: cannot find src address in proofs"
+                    Just (_, txSignature, derivedPK) ->
+                        return $ PkWitness derivedPK txSignature
 
 ----------------------------------------------------------------------------
 -- Utilities

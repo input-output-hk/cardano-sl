@@ -69,7 +69,9 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionDirection (..)
   , TransactionStatus(..)
   , EstimatedFees (..)
+  , AddressAndPath (..)
   , RawTransaction (..)
+  , AddressWithProof (..)
   , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
@@ -1718,10 +1720,45 @@ instance BuildableSafeGen Transaction where
 instance Buildable [Transaction] where
     build = bprint listJson
 
--- | A 'Wallet''s 'RawTransaction'. It contains a raw transaction
--- in hex (Base16) format.
+instance Buildable [Word32] where
+    build = bprint listJson
+
+-- | Source address and corresponding derivation path.
+data AddressAndPath = AddressAndPath
+    { aapAddress :: !Text     -- ^ Source address in Base58-format.
+    , aapDerPath :: ![Word32] -- ^ Derivation path used during generation of this address.
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressAndPath
+
+instance ToSchema AddressAndPath where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "aap" (\(--^) props -> props
+      & ("address" --^ "Source address that corresponds to transaction input.")
+      & ("derPath" --^ "Derivation path corresponding to this address.")
+    )
+
+instance Arbitrary AddressAndPath where
+    arbitrary = AddressAndPath <$> arbitrary
+                               <*> arbitrary
+
+deriveSafeBuildable ''AddressAndPath
+instance BuildableSafeGen AddressAndPath where
+    buildSafeGen sl AddressAndPath{..} = bprint ("{"
+        %" address="%buildSafe sl
+        %" derPath="%buildSafe sl
+        %" }")
+        aapAddress
+        aapDerPath
+
+instance Buildable [AddressAndPath] where
+    build = bprint listJson
+
+-- | A 'Wallet''s 'RawTransaction'.
 data RawTransaction = RawTransaction
-  { rtxHex :: !Text  -- ^ Encoded transaction CBOR binary blob.
+  { rtxHex          :: !Text             -- ^ Base16-encoded transaction CBOR binary blob.
+  , rtxSigDataHex   :: !Text             -- ^ Base16-encoded transaction data that will be signed externally.
+  , rtxSrcAddresses :: ![AddressAndPath] -- ^ Addresses (with derivation paths) which will be used as a sources of money.
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''RawTransaction
@@ -1729,26 +1766,72 @@ deriveJSON Serokell.defaultOptions ''RawTransaction
 instance ToSchema RawTransaction where
   declareNamedSchema =
     genericSchemaDroppingPrefix "rtx" (\(--^) props -> props
-      & ("hex" --^ "New raw transaction in hex (Base16) format.")
+      & ("hex"          --^ "New raw transaction in hex (Base16) format.")
+      & ("sigDataHex"   --^ "Transaction data that will be signed externally, in hex (Base16) format.")
+      & ("srcAddresses" --^ "Source addresses (with derivation paths), correspond to transaction inputs.")
     )
 
 instance Arbitrary RawTransaction where
     arbitrary = RawTransaction <$> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
 
 deriveSafeBuildable ''RawTransaction
 instance BuildableSafeGen RawTransaction where
     buildSafeGen sl RawTransaction{..} = bprint ("{"
         %" hex="%buildSafe sl
+        %" sigDataHex="%buildSafe sl
+        %" srcAddresses="%buildSafe sl
         %" }")
         rtxHex
+        rtxSigDataHex
+        rtxSrcAddresses
+
+-- | After external wallet signed raw transaction, it returns to us
+-- source address, a signature and derived PK for each input of transaction.
+-- This is a proof that external wallet has a right to spend this money.
+data AddressWithProof = AddressWithProof
+    { awsAddress     :: !Text  -- ^ Base58-encoded source address.
+    , awsTxSignature :: !Text  -- ^ Hex-encoded signature of transaction (made by derived SK).
+    , awsDerivedPK   :: !Text  -- ^ Hex-encoded derived PK (corresponding to derived SK).
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressWithProof
+
+instance ToSchema AddressWithProof where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "aws" (\(--^) props -> props
+      & ("address"     --^ "Source address in Base58 format.")
+      & ("txSignature" --^ "Transaction signature by derived SK.")
+      & ("derivedPK"   --^ "Derived PK.")
+    )
+
+instance Arbitrary AddressWithProof where
+    arbitrary = AddressWithProof <$> arbitrary
+                                 <*> arbitrary
+                                 <*> arbitrary
+
+deriveSafeBuildable ''AddressWithProof
+instance BuildableSafeGen AddressWithProof where
+    buildSafeGen sl AddressWithProof{..} = bprint ("{"
+        %" address="%buildSafe sl
+        %" txSignature="%buildSafe sl
+        %" derivedPK="%buildSafe sl
+        %" }")
+        awsAddress
+        awsTxSignature
+        awsDerivedPK
+
+instance Buildable [AddressWithProof] where
+    build = bprint listJson
 
 -- | A 'Wallet''s 'SignedTransaction'. It is assumed
 -- that this transaction was signed on the client-side
 -- (mobile client or hardware wallet).
 data SignedTransaction = SignedTransaction
-    { stxExtPubKey   :: !Text  -- ^ Base58-encoded extended public key of the source wallet.
-    , stxTransaction :: !Text  -- ^ Hex-encoded transaction CBOR binary blob.
-    , stxSignature   :: !Text  -- ^ Hex-encoded signature of this transaction (XSignature).
+    { stxRootPK          :: !Text                -- ^ Base58-encoded rootPK of the source wallet.
+    , stxTransaction     :: !Text                -- ^ Hex-encoded transaction CBOR binary blob.
+    , stxAddrsWithProofs :: ![AddressWithProof]  -- ^ Addresses with proofs for inputs.
     } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''SignedTransaction
@@ -1756,9 +1839,9 @@ deriveJSON Serokell.defaultOptions ''SignedTransaction
 instance ToSchema SignedTransaction where
     declareNamedSchema =
         genericSchemaDroppingPrefix "stx" (\(--^) props -> props
-            & ("extPubKey"   --^ "Extended public key of the wallet we'll send money from.")
-            & ("transaction" --^ "New transaction that wasn't published yet.")
-            & ("signature"   --^ "Signature of this transaction.")
+            & ("rootPK"          --^ "Root PK of the wallet we'll send money from.")
+            & ("transaction"     --^ "New transaction that wasn't submitted yet.")
+            & ("addrsWithProofs" --^ "Source addresses with proofs for inputs.")
         )
 
 instance Arbitrary SignedTransaction where
@@ -1769,13 +1852,13 @@ instance Arbitrary SignedTransaction where
 deriveSafeBuildable ''SignedTransaction
 instance BuildableSafeGen SignedTransaction where
     buildSafeGen sl SignedTransaction{..} = bprint ("{"
-        %" extPubKey="%buildSafe sl
+        %" rootPK="%buildSafe sl
         %" transaction="%buildSafe sl
-        %" signature="%buildSafe sl
+        %" addrsWithProofs="%buildSafe sl
         %" }")
-        stxExtPubKey
+        stxRootPK
         stxTransaction
-        stxSignature
+        stxAddrsWithProofs
 
 -- | We use it for external wallets: if it's already presented in wallet db,
 -- we return a wallet info and complete transactions history as well.

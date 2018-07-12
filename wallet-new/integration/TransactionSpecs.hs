@@ -9,12 +9,11 @@ import qualified Serokell.Util.Base16 as B16
 import qualified Cardano.Crypto.Wallet as CC
 import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
-import           Pos.Binary.Class (decodeFull')
 import qualified Pos.Core as Core
 import           Pos.Crypto (SecretKey, SignTag (..), Signature (..), emptyPassphrase,
-                             encToPublic, encodeBase58PublicKey, hash, noPassEncrypt, sign)
-import           Pos.Crypto.HD (ShouldCheckPassphrase (..),
-                                deriveHDPassphrase, deriveHDSecretKey)
+                             encToPublic, encToSecret, encodeBase58PublicKey,
+                             noPassEncrypt, signEncoded, checkSigRaw)
+import           Pos.Crypto.HD (ShouldCheckPassphrase (..))
 
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
@@ -34,7 +33,7 @@ ppShowT = fromString . ppShow
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
 transactionSpecs wRef wc = do
     describe "Transactions" $ do
-        it "posted transactions appear in the index" $ do
+        it "Posted transactions appear in the index" $ do
             genesis <- makeGenesisWallet wc
             (fromAcct, _) <- getFirstAccountAndAddress wc genesis
 
@@ -137,7 +136,7 @@ transactionSpecs wRef wc = do
             log $ "Resp   : " <> ppShowT txnEntry
             txConfirmations txnEntry `shouldBe` 0
 
-        it "estimate fees of a well-formed transaction" $ do
+        it "Estimate fees of a well-formed transaction" $ do
             ws <- (,)
                 <$> (randomCreateWallet >>= createWalletCheck wc)
                 <*> (randomCreateWallet >>= createWalletCheck wc)
@@ -175,7 +174,7 @@ transactionSpecs wRef wc = do
                         <> " error, got: "
                         <> show err
 
-        it "fails if you spend too much money" $ do
+        it "Fails if you spend too much money" $ do
             wallet <- sampleWallet wRef wc
             (toAcct, toAddr) <- getFirstAccountAndAddress wc wallet
 
@@ -196,24 +195,31 @@ transactionSpecs wRef wc = do
 
             void $ etxn `mustBe` _Failed
 
-        it "create unsigned transaction and submit it to the blockchain" $ do
-            -- create genesis wallet, it is initial source of money,
-            -- we will use it to send money to the source wallet before test payment
+        it "Create unsigned transaction and submit it to the blockchain" $ do
+            -- Create genesis wallet, it is initial source of money,
+            -- we will use it to send money to the source wallet before test payment.
             genesisWallet <- makeGenesisWallet wc
             (genesisAccount, _) <- getFirstAccountAndAddress wc genesisWallet
 
-            -- create a keys for the source wallet
-            (srcWalletSecretKey, srcWalletEncSecretKey, srcWalletPublicKey) <- makeWalletKeys
-            -- create external wallet, the source of test payment
-            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn srcWalletPublicKey
+            -- Create a keys for the source wallet.
+            (srcWalletEncRootSK, srcWalletRootPK) <- makeWalletRootKeys
 
-            -- create and store new address for source wallet,
-            -- we need it to send money from genesis wallet, before test payment
-            srcWalletAddress <- makeAddressAndStoreIt srcWalletPublicKey
-                                                      srcWalletEncSecretKey
-                                                      srcExtWallet
-                                                      defaultSrcAccount
-            -- send some money to source wallet
+            -- Create and store new address for source wallet,
+            -- we need it to send money from genesis wallet, before test payment.
+            ( srcWalletAddress
+              , srcWalletAddressDerivedSK
+              , srcWalletAddressDerivedPK ) <- makeFirstAddress srcWalletEncRootSK
+            -- Create external wallet, the source of test payment.
+            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn srcWalletRootPK
+            storeAddressInWalletAccount srcExtWallet defaultSrcAccount srcWalletAddress
+
+            -- Most likely that we'll have some change after test payment
+            -- (if test payment's amount is smaller that 'srcExtWallet' balance),
+            -- so we must provide change address for it.
+            srcWalletChangeAddress <- makeAnotherAddress srcWalletEncRootSK defaultSrcAccount
+            storeAddressInWalletAccount srcExtWallet defaultSrcAccount srcWalletChangeAddress
+
+            -- Send some money to source wallet.
             let initAmountInLovelaces = 1000000000
                 initPayment = makePayment genesisWallet
                                           genesisAccount
@@ -222,60 +228,73 @@ transactionSpecs wRef wc = do
             txResponse <- postTransaction wc initPayment
             void $ txResponse `mustBe` _OK
 
-            -- now source wallet contains some money
-            --srcExtWalletBalance <- getWalletBalanceInLovelaces wc srcExtWallet
-            --srcExtWalletBalance `shouldBe` initAmountInLovelaces
+            -- Now source wallet contains some money.
+            srcExtWalletBalance <- getWalletBalanceInLovelaces wc srcExtWallet
+            srcExtWalletBalance `shouldSatisfy` (> 0)
 
-            -- create another external wallet, the destination of test payment
-            (_dstWalletSecretKey, dstWalletEncSecretKey, dstWalletPublicKey) <- makeWalletKeys
-            (dstExtWallet, defaultDstAccount) <- makeExternalWalletBasedOn dstWalletPublicKey
+            -- Create another external wallet, the destination of test payment.
+            (dstWalletEncRootSK, dstWalletRootPK) <- makeWalletRootKeys
 
-            -- create and store new address for destination wallet,
-            -- we need it to send money from source wallet
-            dstWalletAddress <- makeAddressAndStoreIt dstWalletPublicKey
-                                                      dstWalletEncSecretKey
-                                                      dstExtWallet
-                                                      defaultDstAccount
+            -- Create and store new address for destination wallet,
+            -- we need it to send money from source wallet.
+            (dstWalletAddress, _, _) <- makeFirstAddress dstWalletEncRootSK
+            (dstExtWallet, defaultDstAccount) <- makeExternalWalletBasedOn dstWalletRootPK
+            storeAddressInWalletAccount dstExtWallet defaultDstAccount dstWalletAddress
 
-            --
-            srcWalletChangeAddress <- makeAddressAndStoreIt srcWalletPublicKey
-                                                            srcWalletEncSecretKey
-                                                            srcExtWallet
-                                                            defaultSrcAccount
-            -- test payment
+            -- Test payment.
             let testAmountInLovelaces = 100000000
                 testPayment = makePayment srcExtWallet
                                           defaultSrcAccount
                                           dstWalletAddress
                                           testAmountInLovelaces
-                testPaymentWithChangeAddress = PaymentWithChangeAddress testPayment
-                                                                        (Core.addrToBase58Text srcWalletChangeAddress)
+                changeAddressAsBase58 = Core.addrToBase58Text srcWalletChangeAddress
+                testPaymentWithChangeAddress = PaymentWithChangeAddress testPayment changeAddressAsBase58
 
             rawTxResponse <- postUnsignedTransaction wc testPaymentWithChangeAddress
             rawTx <- rawTxResponse `mustBe` _OK
 
-            -- now we have a raw transaction, but it wasn't piblished yet,
-            -- let's sign it (as if Ledger device did it)
-            let (RawTransaction txInHexFormat) = wrData rawTx
-                (Right txSerialized) = B16.decode txInHexFormat
-                (Right (tx :: Core.Tx)) = decodeFull' txSerialized
-                txHash = hash tx
-                protocolMagic = Core.ProtocolMagic 125 -- Some random value, it's just for test cluster.
-                (Signature txSignature) = sign protocolMagic SignTx srcWalletSecretKey txHash
+            -- Now we have a raw transaction, but it wasn't piblished yet,
+            -- let's sign it (as if Ledger device did it).
+            -- There's only one input for this transaction, so we should provide
+            -- only one proof for this input.
+            let RawTransaction txInHexFormat txSigDataInHexFormat _ = wrData rawTx
+                -- txSigDataInHexFormat is a hash data of this transaction, this
+                -- hash data should be signed by derivedSK.
+                Right txSigDataAsBytes = B16.decode txSigDataInHexFormat
+                protocolMagic = Core.ProtocolMagic 55550001
+                Signature txSignature = signEncoded protocolMagic
+                                                    SignTx
+                                                    srcWalletAddressDerivedSK
+                                                    txSigDataAsBytes
                 rawSignature = CC.unXSignature txSignature
                 txSignatureInHexFormat = B16.encode rawSignature
-                srcWalletPublicKeyAsBase58 = encodeBase58PublicKey srcWalletPublicKey
-                signedTx = SignedTransaction srcWalletPublicKeyAsBase58
+                srcWalletRootPKAsBase58 = encodeBase58PublicKey srcWalletRootPK
+                derivedPKAsBase58 = encodeBase58PublicKey srcWalletAddressDerivedPK
+                srcWalletAddressAsBase58 = Core.addrToBase58Text srcWalletAddress
+                inputProof = AddressWithProof srcWalletAddressAsBase58
+                                              txSignatureInHexFormat
+                                              derivedPKAsBase58
+                signedTx = SignedTransaction srcWalletRootPKAsBase58
                                              txInHexFormat
-                                             txSignatureInHexFormat
+                                             [inputProof]
+                addressCreatedFromThisPK = Core.checkPubKeyAddress srcWalletAddressDerivedPK
+                                                                   srcWalletAddress
+                txSignatureIsValid = checkSigRaw protocolMagic
+                                                 (Just SignTx)
+                                                 srcWalletAddressDerivedPK
+                                                 txSigDataAsBytes
+                                                 (Signature txSignature)
 
-            -- now we have signed transaction, let's publish it in the blockchain
+            addressCreatedFromThisPK `shouldBe` True
+            txSignatureIsValid `shouldBe` True
+
+            -- Now we have signed transaction, let's publish it in the blockchain.
             signedTxResponse <- postSignedTransaction wc signedTx
             void $ signedTxResponse `mustBe` _OK
 
-            -- check current balance of destination wallet
-            --dstExtWalletBalance <- getWalletBalanceInLovelaces wc dstExtWallet
-            --dstExtWalletBalance `shouldBe` testAmountInLovelaces
+            -- Check current balance of destination wallet.
+            dstExtWalletBalance <- getWalletBalanceInLovelaces wc dstExtWallet
+            dstExtWalletBalance `shouldSatisfy` (> 0)
   where
     makePayment srcWallet srcAccount dstAddress amount = Payment
         { pmtSource = PaymentSource
@@ -290,44 +309,47 @@ transactionSpecs wRef wc = do
         , pmtSpendingPassword = Nothing
         }
 
-    makeAddressAndStoreIt _publicKey encSecretKey wallet anAccount = do
-        -- we have to create HD address because we will sync this wallet
-        -- with the blockchain to see its actual balance
+    makeFirstAddress encSecretKey = do
+        -- We have to create HD address because we will sync this wallet
+        -- with the blockchain to see its actual balance.
+        let forBootstrapEra = Core.IsBootstrapEraAddr True
+            Just (anAddress, derivedEncSK) =
+                Core.deriveFirstHDAddress forBootstrapEra
+                                          emptyPassphrase
+                                          encSecretKey
+            derivedPK = encToPublic derivedEncSK
+            addressCreatedFromThisPK = Core.checkPubKeyAddress derivedPK anAddress
 
-        -- create HD secret key based on the 'encSecretKey'
-        let passCheck = ShouldCheckPassphrase True
-            accountIndex = accIndex anAccount
-            (Just hdSecretKey) = deriveHDSecretKey passCheck
-                                                   emptyPassphrase
-                                                   encSecretKey
-                                                   accountIndex
-        -- derive public key from HD secret key
-        let hdPublicKey = encToPublic hdSecretKey
-
-        -- we need HD passphrase to read HD derivation path later,
-        -- during synchronization with the blockchain
-        addrIndex <- randomAddressIndex
-        let hdPassphrase = deriveHDPassphrase hdPublicKey
-            forBootstrapEra = Core.IsBootstrapEraAddr True
-            (Just (anAddress, _)) = Core.createHDAddressH forBootstrapEra
-                                                          passCheck
-                                                          emptyPassphrase
-                                                          hdPassphrase
-                                                          hdSecretKey
-                                                          [accountIndex]
-                                                          addrIndex
-            anAddressAsBase58 = Core.addrToBase58Text anAddress
-
-        let addressCreatedFromThisPK = Core.checkPubKeyAddress hdPublicKey anAddress
         addressCreatedFromThisPK `shouldBe` True
 
-        -- store this HD-address in the wallet's account
+        pure (anAddress, encToSecret derivedEncSK, derivedPK)
+
+    makeAnotherAddress encSecretKey anAccount = do
+        addrIndex <- randomAddressIndex
+        let forBootstrapEra = Core.IsBootstrapEraAddr True
+            passCheck = ShouldCheckPassphrase True
+            Just (anAddress, derivedEncSecretKey) =
+                Core.deriveLvl2KeyPair forBootstrapEra
+                                       passCheck
+                                       emptyPassphrase
+                                       encSecretKey
+                                       (accIndex anAccount)
+                                       addrIndex
+            derivedPublicKey = encToPublic derivedEncSecretKey
+            addressCreatedFromThisPK = Core.checkPubKeyAddress derivedPublicKey anAddress
+
+        addressCreatedFromThisPK `shouldBe` True
+
+        pure anAddress
+
+    storeAddressInWalletAccount wallet anAccount anAddress = do
+        -- Store this HD-address in the wallet's account.
+        let anAddressAsBase58 = Core.addrToBase58Text anAddress
         storeResponse <- postStoreAddress wc
                                           (walId wallet)
                                           (accIndex anAccount)
                                           anAddressAsBase58
         void $ storeResponse `mustBe` _OK
-        pure anAddress
 
     makeExternalWalletBasedOn publicKey = do
         newExtWallet <- randomExternalWalletWithPublicKey CreateWallet publicKey
@@ -335,14 +357,14 @@ transactionSpecs wRef wc = do
         defaultAccount <- firstAccountInExtWallet wc extWallet
         pure (extWallet, defaultAccount)
 
-    makeWalletKeys = do
-        secretKey <- randomSecretKey
-        let encSecretKey = noPassEncrypt secretKey
-            publicKey    = encToPublic encSecretKey
-        pure (secretKey, encSecretKey, publicKey)
+    makeWalletRootKeys = do
+        rootSK <- randomSK
+        let encRootSK = noPassEncrypt rootSK
+            rootPK    = encToPublic encRootSK
+        pure (encRootSK, rootPK)
 
-    randomSecretKey :: IO SecretKey
-    randomSecretKey = generate arbitrary
+    randomSK :: IO SecretKey
+    randomSK = generate arbitrary
 
     randomAddressIndex :: IO Word32
     randomAddressIndex = generate arbitrary

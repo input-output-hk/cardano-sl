@@ -53,6 +53,7 @@ import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
 import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Infra.Arbitrary.Update ()
+import           Test.Pos.Ssc.Arbitrary ()
 import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 

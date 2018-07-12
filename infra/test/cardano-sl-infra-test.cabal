@@ -31,6 +31,7 @@ library
                      , cardano-sl-infra
                      , cardano-sl-sinbin
                      , cardano-sl-sinbin-test
+                     , cardano-sl-ssc-test
                      , cardano-sl-update-test
                      , cardano-sl-util-test
                      , containers

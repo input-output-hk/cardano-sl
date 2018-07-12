@@ -43,7 +43,7 @@ import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Infra.Arbitrary.Ssc (BadCommAndOpening (..),
+import           Test.Pos.Ssc.Arbitrary (BadCommAndOpening (..),
                      BadSignedCommitment (..), CommitmentOpening (..))
 
 spec :: Spec

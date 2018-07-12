@@ -103,7 +103,6 @@ result*
 # remove when done debugging
 1.1.1-1-w/
 
-
 # Created by https://www.gitignore.io/api/python
 
 ### Python ###
@@ -207,3 +206,9 @@ venv.bak/
 .mypy_cache/
 
 # End of https://www.gitignore.io/api/python
+
+# Don't include config files with sensitive data or tls certs
+/faucet/test-config.json
+/faucet/tls/*
+/faucet/wallet-source.json
+faucet/generated-wallet-details.json

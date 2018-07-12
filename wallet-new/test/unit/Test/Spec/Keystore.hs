@@ -28,10 +28,7 @@ import           Util.Buildable (ShowThroughBuild (..))
 -- | Creates and operate on a keystore. The 'Keystore' is created in a temporary
 -- directory and garbage-collected from the Operating System.
 withKeystore :: (Keystore -> IO a) -> IO a
-withKeystore action =
-    bracket Keystore.newTestKeystore
-            (\_ -> return ())
-            action
+withKeystore = Keystore.bracketTestKeystore
 
 genKeypair :: Gen ( ShowThroughBuild WalletId
                   , ShowThroughBuild EncryptedSecretKey

@@ -42,6 +42,7 @@ library
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Generic
                        Cardano.Wallet.API.V1.Handlers
+                       Cardano.Wallet.API.V1.Handlers.Addresses
                        Cardano.Wallet.API.V1.Info
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
@@ -62,6 +63,7 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.Addresses
                        Cardano.Wallet.Kernel.CoinSelection
                        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                        Cardano.Wallet.Kernel.CoinSelection.Generic
@@ -74,6 +76,7 @@ library
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create
                        Cardano.Wallet.Kernel.DB.HdWallet.Delete
+                       Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                        Cardano.Wallet.Kernel.DB.HdWallet.Read
                        Cardano.Wallet.Kernel.DB.HdWallet.Update
                        Cardano.Wallet.Kernel.DB.InDb
@@ -112,6 +115,7 @@ library
                        Cardano.Wallet.Util
 
                        Cardano.Wallet.WalletLayer
+                       Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
   other-modules:       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.Kernel
@@ -132,6 +136,7 @@ library
                      , beam-migrate
                      , beam-sqlite
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-block
                      , cardano-sl-client
@@ -171,6 +176,7 @@ library
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
+                     , mwc-random
                      , reflection
                      , safe-exceptions
                      , safecopy
@@ -384,6 +390,7 @@ test-suite wallet-unit-tests
                       Test.Infrastructure.Genesis
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
+                      Test.Spec.CreateAddress
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models
@@ -468,6 +475,7 @@ test-suite wallet-unit-tests
                     , data-default
                     , formatting
                     , hspec
+                    , ixset-typed
                     , lens
                     , log-warper
                     , mtl
@@ -475,6 +483,7 @@ test-suite wallet-unit-tests
                     , quickcheck-instances
                     , safe-exceptions
                     , serokell-util
+                    , servant-server
                     , tabl
                     , text
                     , formatting

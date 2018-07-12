@@ -4,16 +4,21 @@ import           Servant
 import           Universum
 
 import qualified Cardano.Wallet.API.V1 as V1
+import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import           Cardano.Wallet.WalletLayer.Types
 import           Mockable
 
 handlers :: ActiveWalletLayer Production -> Server V1.API
-handlers w = addresses :<|> wallets :<|> accounts :<|> transactions :<|> settings :<|> info
+handlers w =  Addresses.handlers w
+         :<|> wallets
+         :<|> accounts
+         :<|> transactions
+         :<|> settings
+         :<|> info
   where
     _ = walletPassiveLayer w
 
-    addresses = todo
     wallets = todo
     accounts = todo
     transactions = (todo :<|> getTransactionsHistory :<|> todo)

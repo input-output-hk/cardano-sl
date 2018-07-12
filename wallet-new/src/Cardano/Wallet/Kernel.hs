@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel (
   , init
   , walletLogMessage
   , walletPassive
+  , walletKeystore
   , wallets
     -- * The only effectful getter you will ever need
   , getWalletSnapshot

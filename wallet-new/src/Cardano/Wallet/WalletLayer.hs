@@ -10,7 +10,7 @@ module Cardano.Wallet.WalletLayer
     , bracketQuickCheckActiveWallet
     -- * We re-export the types since we want all the dependencies
     -- in this module, other modules shouldn't be touched.
-    , module Cardano.Wallet.WalletLayer.Types
+    , module Types
     ) where
 
 import           Universum
@@ -24,8 +24,7 @@ import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer.Types as Types
 
 ------------------------------------------------------------
 -- Kernel

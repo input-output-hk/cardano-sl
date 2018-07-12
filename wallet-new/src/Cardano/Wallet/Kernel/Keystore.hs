@@ -25,7 +25,7 @@ module Cardano.Wallet.Kernel.Keystore (
     -- * Conversions
     , toList
     -- * Tests handy functions
-    , newTestKeystore
+    , bracketTestKeystore
     ) where
 
 import           Universum hiding (toList)
@@ -115,6 +115,12 @@ bracketLegacyKeystore :: UserSecret -> (Keystore -> IO a) -> IO a
 bracketLegacyKeystore us withKeystore =
     bracket (newLegacyKeystore us)
             (\_ -> return ()) -- Leave teardown to the legacy wallet
+            withKeystore
+
+bracketTestKeystore :: (Keystore -> IO a) -> IO a
+bracketTestKeystore withKeystore =
+    bracket newTestKeystore
+            (releaseKeystore RemoveKeystoreIfEmpty)
             withKeystore
 
 -- | Creates a 'Keystore' out of a randomly generated temporary file (i.e.

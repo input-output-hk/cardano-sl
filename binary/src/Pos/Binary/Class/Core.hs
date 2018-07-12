@@ -962,7 +962,7 @@ szSimplify = cata (simplify . normalize)
     simplify = \case
         TodoF f pxy -> Left (todo f pxy)
         ValueF x    -> Right (Range { lo = x, hi = x })
-        CasesF xs   -> case sequence (map caseValue xs) of
+        CasesF xs   -> case mapM caseValue xs of
             Right xs' -> Right (Range { lo = minimum (map lo xs')
                                       , hi = maximum (map hi xs') })
             Left _  -> Left (szCases $ map (fmap toSize) xs)

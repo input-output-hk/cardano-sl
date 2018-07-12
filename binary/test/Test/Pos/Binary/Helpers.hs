@@ -380,7 +380,7 @@ szVerify ctx x = case szSimplify (szWithCtx ctx (pure x)) of
                       if lo range == hi range
                       then Exact
                       else WithinBounds sz range
-    Right range | otherwise -> OutOfBounds sz range
+    Right range -> OutOfBounds sz range
   where
     sz = fromIntegral $ LBS.length $ toLazyByteString $ encode x
 

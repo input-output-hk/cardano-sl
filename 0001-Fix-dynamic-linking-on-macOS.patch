@@ -1,0 +1,58 @@
+From e04ded2c186dc173b9c120efefe215b3ae124279 Mon Sep 17 00:00:00 2001
+From: Moritz Angermann <moritz.angermann@gmail.com>
+Date: Sun, 20 May 2018 07:46:48 +0800
+Subject: [PATCH] Fix dynamic linking on macOS
+
+---
+ default.nix                     |  3 +++
+ ghc-8.0.2-darwin-rec-link.patch | 24 ++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+)
+ create mode 100644 ghc-8.0.2-darwin-rec-link.patch
+
+diff --git a/default.nix b/default.nix
+index 89e5ba7fe..3b7f536a4 100644
+--- a/default.nix
++++ b/default.nix
+@@ -32,6 +32,9 @@ let
+     '';
+   });
+   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
++    ghc = overrideDerivation pkgs.haskell.compiler.ghc802 (drv: {
++      patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
++    });
+     overrides = self: super: {
+       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
+         configureFlags = (drv.configureFlags or []) ++ [
+diff --git a/ghc-8.0.2-darwin-rec-link.patch b/ghc-8.0.2-darwin-rec-link.patch
+new file mode 100644
+index 000000000..f670deeeb
+--- /dev/null
++++ b/ghc-8.0.2-darwin-rec-link.patch
+@@ -0,0 +1,24 @@
++diff --git a/compiler/main/DriverPipeline.hs b/compiler/main/DriverPipeline.hs
++index acd0d61..3e83c15 100644
++--- a/compiler/main/DriverPipeline.hs
+++++ b/compiler/main/DriverPipeline.hs
++@@ -1916,6 +1916,7 @@ linkBinary' staticLink dflags o_files dep_packages = do
++                       ++ pkg_framework_opts
++                       ++ debug_opts
++                       ++ thread_opts
+++                      ++ (if (platformOS platform `elem` [OSDarwin, OSiOS]) then [ "-Wl,-dead_strip_dylibs", "-Wl,-dead_strip" ] else [])
++                     ))
++ 
++ exeFileName :: Bool -> DynFlags -> FilePath
++diff --git a/compiler/main/SysTools.hs b/compiler/main/SysTools.hs
++index 1ab5b13..2ebbf51 100644
++--- a/compiler/main/SysTools.hs
+++++ b/compiler/main/SysTools.hs
++@@ -1737,6 +1737,7 @@ linkDynLib dflags0 o_files dep_packages
++                  ++ map Option pkg_lib_path_opts
++                  ++ map Option pkg_link_opts
++                  ++ map Option pkg_framework_opts
+++                 ++ [ Option "-Wl,-dead_strip_dylibs" ]
++               )
++         OSiOS -> throwGhcExceptionIO (ProgramError "dynamic libraries are not supported on iOS target")
++         _ -> do
+-- 
+2.17.0
+

@@ -1,0 +1,39 @@
+Name: libiserv
+Version: 8.5
+Copyright: XXX
+License: BSD3
+-- XXX License-File: LICENSE
+Author: XXX
+Maintainer: XXX
+Synopsis: Provides shared functionality between iserv and iserv-proxy
+Description:
+Category: Development
+build-type: Simple
+cabal-version: >=1.10
+
+Flag network
+    Description:   Build libiserv with over-the-network support
+    Default:       False
+
+Library
+    Default-Language: Haskell2010
+    Hs-Source-Dirs: src
+    Exposed-Modules: Lib
+                   , GHCi.Utils
+    Build-Depends: base       >= 4   && < 5,
+                   binary     >= 0.7 && < 0.9,
+                   bytestring >= 0.10 && < 0.11,
+                   containers >= 0.5 && < 0.6,
+                   deepseq    >= 1.4 && < 1.5,
+                   ghci       == 8.5.*
+    if flag(network)
+       Exposed-Modules: Remote.Message
+                      , Remote.Slave
+       Build-Depends: network    >= 2.6 && < 2.7,
+                      directory  >= 1.3 && < 1.4,
+                      filepath   >= 1.4 && < 1.5
+
+    if os(windows)
+       Cpp-Options: -DWINDOWS
+   else
+       Build-Depends: unix   >= 2.7 && < 2.8

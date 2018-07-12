@@ -3115,7 +3115,7 @@ Figure~\ref{fig:inputselection:normal_3to1_largeThenRandom}.
 \end{figure}
 
 Notice quite how rapidly the random coin selection reduces the size of the UTxO
-once it kicks in. If you watch the inputs-per-transaction histogram, you can see
+once it kicks in. If you look at the inputs-per-transaction histogram, you can see
 that when the random input selection takes over, it first creates a bunch of
 transactions with 10 inputs (we limited transaction size to 10 for this
 simulation), rapidly collecting dust. Once the dust is gone, the number of
@@ -3135,7 +3135,7 @@ algorithm, but there are some improvements we can make.
 \subsection{Active UTxO management}
 
 Figure~\ref{fig:inputselection:normal_1to1_randomOff} shows a simulation of a
-pure "select randomly until we reach the target value" coin selection algorithm.
+pure ``select randomly until we reach the target value'' coin selection algorithm.
 The first observation is that this algorithm is doing \emph{much} better than
 the largest-first policy in terms of the size of the UTxO, which is about
 \emph{2 orders of magnitude} smaller: a dramatic improvement. However, if we
@@ -3161,7 +3161,7 @@ outputs that are being created.
 \end{figure}
 
 This brings us to the topic of active UTxO management. In an ideal case, coin
-selection algorithms should, over time, create a UTxO that has "useful" outputs;
+selection algorithms should, over time, create a UTxO that has ``useful'' outputs;
 that is, outputs that allow us to process future payments with a minimum number
 of inputs. We can take advantage of self organization again:
 %

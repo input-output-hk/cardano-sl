@@ -27,15 +27,14 @@
 \newcommand{\lists}[1]{\left[{#1}\right]}
 \newcommand{\nelists}[1]{\left[{#1}\right]^+}
 \newcommand{\sets}[1]{\{{#1}\}}
-\newcommand{\maybe}[1]{\emptyset | {#1}}
+\newcommand{\maybe}[1]{$()$ | {#1}}
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\txids}{\idsof{\txs}}
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\agents}}
 \newcommand{\epochids}{\idsof{\mathcal{E}}}
-\newcommand{\slotids}{\idsof{\mathcal{S}}}
-\newcommand{\updids}{\idsof{\mathcal{UP}}}
+\newcommand{\slotids}{\idsof{\mathcal{S}}{\updids}{\idsof{\mathcal{UP}}}
 \newcommand{\stakeholderids}{\idsof{\mathcal{K}}}
 \newcommand{\pubkey}{\chi_{\textbf{pub}}}
 \newcommand{\signature}{\chi_{\textbf{sig}}}
@@ -140,7 +139,7 @@ terms for field names, as per standard Haskell syntax.
 
 This document straddles the middle-ground between the rule-based specification
 given in \cite{spiwack} and the concrete implementation at \cite{cardano}. As
-such, it tries to comprimise between the differing presentations of how the
+such, it tries to compromise between the differing presentations of how the
 blockchain is constructed.
 
 In general, we take the following approach:
@@ -182,8 +181,9 @@ Primitive types:
 \item [$\Word{8}$] 8-bit word
 \item [$\Word{32}$] 32-bit word
 \item [$\Word{64}$] 64-bit word
-\item [$\String$] Arbitrary string type. We do not draw any distinctions as to
-  whether this is implemented as a $\hstype{String}$ or $\hstype{Text}$.
+\item [$\String$] Arbitrary UTF8-encoded string type. We do not draw any
+  distinctions as to whether this is implemented as a $\hstype{String}$ or
+  $\hstype{Text}$.
 \item [$\Bytes$] Arbitrary string of bytes.
 \item [$\Integer$] arbitrary precision integers.
 \end{description}

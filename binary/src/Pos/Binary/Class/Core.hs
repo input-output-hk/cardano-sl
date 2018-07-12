@@ -863,10 +863,6 @@ instance Num b => Num (Range b) where
 instance Buildable (Range Byte) where
     build r = bprint (shown % ".." % shown) (toInteger $ lo r) (toInteger $ hi r)
 
-instance Buildable (Either Size (Range Byte)) where
-    build (Right x) = bprint build x
-    build (Left x)  = bprint build x
-
 -- | Fully evaluate a size expression by applying the given function to any
 --   suspended computations. @szEval g@ effectively turns each "thunk"
 --   of the form @TodoF f x@ into @g x@, then evaluates the result.

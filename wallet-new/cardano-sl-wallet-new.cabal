@@ -91,6 +91,7 @@ library
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
+                       Cardano.Wallet.Kernel.Restore
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Types
@@ -163,12 +164,14 @@ library
                      , lens
                      , log-warper
                      , memory
+                     , mmorph
                      , mtl
                      , neat-interpolation
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
                      , reflection
+                     , resourcet
                      , safe-exceptions
                      , safecopy
                      , serokell-util

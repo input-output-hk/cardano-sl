@@ -11,7 +11,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi(..), szCases, Case(..))
+import           Pos.Binary.Class (Bi (..), Case (..), szCases)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 
@@ -124,8 +124,8 @@ instance Bi AddrType where
             1 -> ATScript
             2 -> ATRedeem
             tag -> ATUnknown tag
-    encodedSizeExpr _ _ = 1
-    
+    encodedSizeExpr size _ = encodedSizeExpr size (Proxy @Word8)
+
 -- | Convert 'AddrSpendingData' to the corresponding 'AddrType'.
 addrSpendingDataToType :: AddrSpendingData -> AddrType
 addrSpendingDataToType =
@@ -138,6 +138,6 @@ addrSpendingDataToType =
 
 -- Define these at the end of the file to avoid TH staging issues.
 deriveSafeCopySimple 0 'base ''AddrSpendingData
-deriveSafeCopySimple 0 'base ''AddrType -- ☃
+deriveSafeCopySimple 0 'base ''AddrType --
 
 

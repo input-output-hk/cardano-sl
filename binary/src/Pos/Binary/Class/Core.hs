@@ -939,6 +939,7 @@ szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
     Nothing       -> normal
     Just override -> case override of
         SizeConstant sz -> sz
+        SizeExpression f -> f (szWithCtx ctx)
         SelectCase name -> case normal of
             Fix (CasesF cs) -> matchCase name cs
             _               -> normal
@@ -954,6 +955,8 @@ szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
 -- | Override mechanisms to be used with 'szWithCtx'.
 data SizeOverride
     = SizeConstant Size    -- ^ Replace with a fixed @Size@.
+    | SizeExpression ((forall a. Bi a => Proxy a -> Size) -> Size)
+                           -- ^ Recursively compute the size.
     | SelectCase   String  -- ^ Select only a specific case from a @CasesF@.
 
 -- | Simplify the given @Size@, resulting in either the simplified @Size@ or,

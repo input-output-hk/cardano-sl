@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- Need this to avoid a warning on the `typeName` helper function.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
@@ -28,6 +29,12 @@ module Test.Pos.Binary.Helpers
 
        -- * Message length
        , msgLenLimitedTest
+
+       -- * Static size estimates
+       , SizeTestConfig(..)
+       , cfg
+       , scfg
+       , sizeTest
        ) where
 
 import           Universum
@@ -35,22 +42,33 @@ import           Universum
 import           Codec.CBOR.FlatTerm (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Map (Map)
+import qualified Data.Map as M
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import           Data.Serialize (runGet, runPut)
-import           Data.Typeable (typeRep)
-import           Formatting (formatToString, int, (%))
+import           Data.Text.Lazy (unpack)
+import           Data.Text.Lazy.Builder (toLazyText)
+import           Data.Typeable (TypeRep, typeRep)
+import           Formatting (bprint, build, formatToString, int, (%))
+import           Hedgehog (annotate, failure, forAllWith, success)
+import qualified Hedgehog as HH
+import qualified Hedgehog.Gen as HH.Gen
 import           Prelude (read)
+import           Serokell.Data.Memory.Units (Byte)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, choose,
-                     conjoin, counterexample, forAll, property, resize,
-                     suchThat, vectorOf, (.&&.), (===))
+                                  conjoin, counterexample, forAll, property,
+                                  resize, suchThat, vectorOf, (.&&.), (===))
 import           Test.QuickCheck.Instances ()
 
-import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), decodeFull,
-                     decodeListLenCanonicalOf, decodeUnknownCborDataItem,
-                     encodeListLen, encodeUnknownCborDataItem, serialize,
-                     serialize', unsafeDeserialize)
+import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), LengthOf,
+                                   Range (..), Size, SizeOverride (..),
+                                   decodeFull, decodeListLenCanonicalOf,
+                                   decodeUnknownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem, serialize,
+                                   serialize', szSimplify, szWithCtx,
+                                   toLazyByteString, unsafeDeserialize)
 import           Pos.Binary.Limit (Limit (..))
 
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
@@ -280,3 +298,88 @@ msgLenLimitedTest lim = msgLenLimitedTest' @a lim "" (const True)
 ----------------------------------------------------------------------------
 
 deriving instance Bi bi => Bi (SmallGenerator bi)
+
+----------------------------------------------------------------------------
+-- Static size estimates
+----------------------------------------------------------------------------
+
+bshow :: Buildable a => a -> String
+bshow = unpack . toLazyText . bprint build
+
+-- | Configuration for a single test case.
+data SizeTestConfig a = SizeTestConfig
+    { debug    :: a -> String      -- ^ Pretty-print values
+    , lengthOf :: Maybe (a -> Int) -- ^ Compute the length of a value
+    , lengthTy :: TypeRep         -- ^ TypeRep used to represent the length
+    , gen      :: HH.Gen a        -- ^ Generator
+    , precise  :: Bool            -- ^ Must estimates be exact?
+    , addlCtx  :: Map TypeRep SizeOverride -- ^ Additional size overrides
+    }
+
+-- | Default configuration, for @Buildable@ types.
+cfg :: forall a. (Typeable a, Buildable a) => SizeTestConfig a
+cfg = SizeTestConfig
+    { debug    = bshow
+    , lengthOf = Nothing
+    , lengthTy = typeRep (Proxy @(LengthOf a))
+    , gen      = HH.Gen.discard
+    , precise  = False
+    , addlCtx  = M.fromList []
+    }
+
+-- | Default configuration, for @Show@able types.
+scfg :: forall a. (Typeable a, Show a) => SizeTestConfig a
+scfg = SizeTestConfig
+    { debug    = show
+    , lengthOf = Nothing
+    , lengthTy = typeRep (Proxy @(LengthOf a))
+    , gen      = HH.Gen.discard
+    , precise  = False
+    , addlCtx  = M.fromList []
+    }
+
+-- | Create a test case from the given test configuration.
+sizeTest :: forall a. Bi a => SizeTestConfig a -> HH.Property
+sizeTest SizeTestConfig{..} = HH.property $ do
+    x <- forAllWith debug gen
+
+    let ctx = M.union addlCtx $ M.fromList $ case lengthOf of
+            Nothing  -> []
+            Just len -> [ (lengthTy, SizeConstant $ fromIntegral (len x)) ]
+
+        badBounds sz bounds = do
+            annotate ("Computed bounds: " <> bshow bounds)
+            annotate ("Actual size:     " <> show sz)
+            annotate ("Value: " <> debug x)
+            failure
+
+    case szVerify ctx x of
+        Exact -> success
+        WithinBounds _ _  | not precise -> success
+        WithinBounds sz bounds -> badBounds sz bounds
+        BoundsAreSymbolic bounds -> do
+            annotate ("Bounds are symbolic: " <> bshow bounds)
+            failure
+        OutOfBounds sz bounds -> badBounds sz bounds
+
+-- | The possible results from @szVerify@, describing various ways
+--   a size can or cannot be found within a certain range.
+data ComparisonResult
+    = Exact                          -- ^ Size matched the bounds, and the bounds were exact.
+    | WithinBounds Byte (Range Byte) -- ^ Size matched the bounds, but the bounds are not exact.
+    | BoundsAreSymbolic Size         -- ^ The bounds could not be reduced to a numerical range.
+    | OutOfBounds Byte (Range Byte)  -- ^ The size fell outside of the bounds.
+
+-- | For a given value @x :: a@ with @Bi a@, check that the encoded size
+--   of @x@ falls within the statically-computed size range for @a@.
+szVerify :: Bi a => Map TypeRep SizeOverride -> a -> ComparisonResult
+szVerify ctx x = case szSimplify (szWithCtx ctx (pure x)) of
+    Left bounds -> BoundsAreSymbolic bounds
+    Right range | lo range <= sz && sz <= hi range ->
+                      if lo range == hi range
+                      then Exact
+                      else WithinBounds sz range
+    Right range | otherwise -> OutOfBounds sz range
+  where
+    sz = fromIntegral $ LBS.length $ toLazyByteString $ encode x
+

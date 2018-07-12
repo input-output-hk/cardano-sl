@@ -12,7 +12,7 @@
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
 
--- See note [Version orphan]
+-- Needed for the `Buildable`, `SubscriptionStatus` and `NodeId` orphans.
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.API.V1.Types (
@@ -1491,17 +1491,6 @@ data NodeSettings = NodeSettings {
    , setProjectVersion :: !Version
    , setGitRevision    :: !Text
    } deriving (Show, Eq, Generic)
-
--- See note [Version Orphan]
-instance ToSchema Version where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "Version") $ mempty
-            & type_ .~ SwaggerString
-
--- Note [Version Orphan]
--- I have opened a PR to add an instance of 'Version' to the swagger2
--- library. When the PR is merged, we can delete the instance here and remove the warning from the file.
--- PR: https://github.com/GetShopTV/swagger2/pull/152
 
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)

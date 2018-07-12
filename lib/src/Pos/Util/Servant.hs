@@ -5,10 +5,16 @@
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
+{-# LANGUAGE CPP                       #-}
 
--- GHC gives a false positive.
--- See inline note [redundant constraints]
-{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#if __GLASGOW_HASKELL__ >= 804
+{-# LANGUAGE PolyKinds                 #-}
+#endif
+
+-- Redundant constraint: api ~ someApiType n a
+-- in `apiArgName`
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 
 -- | Some utilites for more flexible servant usage.
 
@@ -515,7 +521,8 @@ paramRouteWithLog =
                 \sl -> sformat (string%": "%stext) paramName (paramVal sl)
         in addParamLogInfo paramInfo
 
-instance ( HasServer (subApi :> res) ctx
+instance {-# OVERLAPPABLE #-}
+         ( HasServer (subApi :> res) ctx
          , HasServer (subApi :> LoggingApiRec config res) ctx
          , ApiHasArg subApi res
          , ApiHasArg subApi (LoggingApiRec config res)
@@ -526,11 +533,13 @@ instance ( HasServer (subApi :> res) ctx
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog = paramRouteWithLog
 
-instance HasLoggingServer config res ctx =>
+instance {-# OVERLAPPING #-}
+         HasLoggingServer config res ctx =>
          HasLoggingServer config (Summary s :> res) ctx where
     routeWithLog = inRouteServer @(Summary s :> LoggingApiRec config res) route identity
 
-instance HasLoggingServer config res ctx =>
+instance {-# OVERLAPPING #-}
+         HasLoggingServer config res ctx =>
          HasLoggingServer config (Description d :> res) ctx where
     routeWithLog = inRouteServer @(Description d :> LoggingApiRec config res) route identity
 

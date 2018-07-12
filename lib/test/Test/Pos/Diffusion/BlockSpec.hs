@@ -93,6 +93,12 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
+      -- 'pureLogic' always gives an empty first component list, meaning all
+      -- of the input is *not* in the main chain. This would cause streaming
+      -- to fail, as it must have an intersection with the main chain from
+      -- which to start.
+    , getLcaMainChain = \(OldestFirst headers) ->
+          pure (NewestFirst (reverse headers), OldestFirst [])
     , getTip = pure arbitraryBlock
     , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
@@ -108,7 +114,7 @@ serializedBlock = Serialized . serialize'
 -- always ask for the entire chain (and not throw an exception).
 clientLogic :: Logic IO
 clientLogic = pureLogic
-    { getLcaMainChain = \headers -> pure headers
+    { getLcaMainChain = \headers -> pure (NewestFirst [], headers)
     }
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t

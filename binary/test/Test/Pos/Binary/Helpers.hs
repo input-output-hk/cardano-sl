@@ -351,16 +351,21 @@ sizeTest SizeTestConfig{..} = HH.property $ do
             annotate ("Computed bounds: " <> bshow bounds)
             annotate ("Actual size:     " <> show sz)
             annotate ("Value: " <> debug x)
-            failure
 
     case szVerify ctx x of
         Exact -> success
         WithinBounds _ _  | not precise -> success
-        WithinBounds sz bounds -> badBounds sz bounds
+        WithinBounds sz bounds -> do
+            badBounds sz bounds
+            annotate "Bounds were not exact."
+            failure
         BoundsAreSymbolic bounds -> do
             annotate ("Bounds are symbolic: " <> bshow bounds)
             failure
-        OutOfBounds sz bounds -> badBounds sz bounds
+        OutOfBounds sz bounds -> do
+            badBounds sz bounds
+            annotate "Size fell outside of bounds."
+            failure
 
 -- | The possible results from @szVerify@, describing various ways
 --   a size can or cannot be found within a certain range.

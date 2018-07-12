@@ -72,12 +72,12 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import           Data.Tagged (Tagged (..))
 import qualified Data.Text as Text
-import qualified Formatting.Buildable
 import           Data.Time.Units (Microsecond, Millisecond)
 import           Data.Typeable (TypeRep, typeRep)
 import qualified Data.Vector as Vector
 import qualified Data.Vector.Generic as Vector.Generic
 import           Foreign.Storable (sizeOf)
+import qualified Formatting.Buildable
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
@@ -209,7 +209,8 @@ instance Bi Char where
 
     encodedSizeExpr _ pxy = encodedSizeRange (Char.ord <$> pxy)
     encodedListSizeExpr size _ =
-        let bsLength = size (Proxy @(LengthOf [Char])) * size (Proxy @Char)
+        let bsLength = size (Proxy @(LengthOf [Char])) * szCases [ Case "minChar" 1
+                                                                 , Case "maxChar" 4 ]
         in  bsLength + apMono "(withSize _ 1 2 3 4 5)" (\x -> withSize x 1 2 3 4 5) bsLength
 
 ----------------------------------------------------------------------------
@@ -943,19 +944,21 @@ szWithCtx :: Bi a => Map TypeRep SizeOverride -> Proxy a -> Size
 szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
     Nothing       -> normal
     Just override -> case override of
-        SizeConstant sz -> sz
+        SizeConstant sz  -> sz
         SizeExpression f -> f (szWithCtx ctx)
-        SelectCase name -> case normal of
-            Fix (CasesF cs) -> matchCase name cs
-            _               -> normal
+        SelectCase name  -> cata (selectCase name) normal
   where
     -- The non-override case
     normal = encodedSizeExpr (szWithCtx ctx) pxy
 
-    matchCase name cs =
+    selectCase name orig = case orig of
+        CasesF cs -> matchCase name cs (Fix orig)
+        _         -> Fix orig
+
+    matchCase name cs orig =
         case find (\(Case name' _) -> name == name') cs of
           Just (Case _ x) -> x
-          Nothing         -> normal
+          Nothing         -> orig
 
 -- | Override mechanisms to be used with 'szWithCtx'.
 data SizeOverride

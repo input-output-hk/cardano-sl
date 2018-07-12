@@ -35,7 +35,7 @@ tests =
                                               , lengthOf = Just length
                                               , lengthTy = typeRep (Proxy @(LengthOf [Char]))
                                               , addlCtx = M.fromList
-                                                  [ (typeRep (Proxy @Char), SizeConstant 1) ]
+                                                  [ (typeRep (Proxy @[Char]), SelectCase "minChar") ]
                                               , precise = True
                                               })
          , ("Char 3", sizeTest $ cfg { gen = Gen.alpha

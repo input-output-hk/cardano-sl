@@ -27,7 +27,6 @@ import           Control.Monad (join)
 import           Control.Monad.Trans (MonadIO (..))
 
 import           Data.Attoparsec.Text (Parser, char, decimal, string, takeWhile)
-import           Data.Binary (Binary)
 import           Data.Binary (Binary (..))
 import qualified Data.ByteString.Lazy as BL
 import           Data.Data (Data)
@@ -46,8 +45,8 @@ import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch,
                      parseLoggerConfig, productionB, setupLogging, warningPlus,
                      zoomLogger)
 
-import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
+import           Pos.Util (realTime)
 import           Pos.Util.Trace (Trace, traceWith)
 
 -- * Transfered data types

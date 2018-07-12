@@ -15673,6 +15673,7 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , aeson-options
 , ansi-terminal
+, async
 , base
 , base16-bytestring
 , base58-bytestring
@@ -15684,7 +15685,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
@@ -15696,6 +15696,7 @@ license = stdenv.lib.licenses.mit;
 , deepseq
 , deriving-compat
 , ed25519
+, ekg-core
 , exceptions
 , extra
 , filepath
@@ -15708,6 +15709,8 @@ license = stdenv.lib.licenses.mit;
 , lens
 , log-warper
 , memory
+, mmorph
+, monad-control
 , mtl
 , plutus-prototype
 , pvss
@@ -15715,6 +15718,7 @@ license = stdenv.lib.licenses.mit;
 , quickcheck-instances
 , random
 , reflection
+, resourcet
 , safe-exceptions
 , safecopy
 , serokell-util
@@ -15725,7 +15729,11 @@ license = stdenv.lib.licenses.mit;
 , th-lift-instances
 , time
 , time-units
+, transformers
+, transformers-base
+, transformers-lift
 , universum
+, unliftio-core
 , unordered-containers
 , vector
 }:
@@ -15743,6 +15751,7 @@ libraryHaskellDepends = [
 aeson
 aeson-options
 ansi-terminal
+async
 base
 base58-bytestring
 bytestring
@@ -15750,7 +15759,6 @@ Cabal
 canonical-json
 cardano-sl-binary
 cardano-sl-crypto
-cardano-sl-networking
 cardano-sl-util
 cborg
 cereal
@@ -15759,6 +15767,7 @@ cryptonite
 data-default
 deepseq
 deriving-compat
+ekg-core
 exceptions
 extra
 filepath
@@ -15768,10 +15777,13 @@ hashable
 lens
 log-warper
 memory
+mmorph
+monad-control
 mtl
 plutus-prototype
 random
 reflection
+resourcet
 safe-exceptions
 safecopy
 serokell-util
@@ -15781,7 +15793,11 @@ text
 th-lift-instances
 time
 time-units
+transformers
+transformers-base
+transformers-lift
 universum
+unliftio-core
 unordered-containers
 vector
 ];
@@ -16926,6 +16942,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , binary
 , bytestring
+, cardano-sl-core
 , cardano-sl-util
 , containers
 , contravariant
@@ -16939,7 +16956,6 @@ license = stdenv.lib.licenses.mit;
 , kademlia
 , lens
 , log-warper
-, mmorph
 , monad-control
 , mtl
 , mwc-random
@@ -16958,11 +16974,7 @@ license = stdenv.lib.licenses.mit;
 , text
 , time
 , time-units
-, transformers
-, transformers-base
-, transformers-lift
 , universum
-, unliftio-core
 , vector
 }:
 mkDerivation {
@@ -16984,6 +16996,7 @@ attoparsec
 base
 binary
 bytestring
+cardano-sl-core
 cardano-sl-util
 containers
 cryptonite
@@ -16994,7 +17007,6 @@ hashable
 kademlia
 lens
 log-warper
-mmorph
 monad-control
 mtl
 network
@@ -17007,11 +17019,7 @@ stm
 text
 time
 time-units
-transformers
-transformers-base
-transformers-lift
 universum
-unliftio-core
 ];
 executableHaskellDepends = [
 async

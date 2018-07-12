@@ -11,9 +11,6 @@ import qualified Data.ByteString as BS
 import           Data.String (fromString)
 import           Data.Time.Units
 import           GHC.Generics (Generic)
-import           Mockable.Concurrent (async, cancel, delay, wait)
-import           Mockable.Production
-import           Mockable.SharedAtomic
 import           Network.Transport.Abstract
 import           Network.Transport.Concrete
 import qualified Network.Transport.Concrete.TCP as TCP
@@ -21,6 +18,9 @@ import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message
 import           Node.Util.Monitor (startMonitor)
+import           Pos.Core.Mockable.Concurrent (async, cancel, delay, wait)
+import           Pos.Core.Mockable.Production
+import           Pos.Core.Mockable.SharedAtomic
 import           System.Environment (getArgs)
 import           System.Random (mkStdGen)
 

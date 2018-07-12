@@ -45,7 +45,6 @@ import           Formatting (sformat)
 import           JsonLog.CanJsonLog (CanJsonLog)
 import           JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
-import           Mockable (realTime)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
@@ -56,6 +55,7 @@ import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)
 import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)
+import           Pos.Util.Util (realTime)
 
 type BlockId = Text
 type TxId = Text

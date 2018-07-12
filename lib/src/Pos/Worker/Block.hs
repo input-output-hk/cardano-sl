@@ -21,15 +21,12 @@ import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ,
                      criticalCQBootstrap, fixedTimeCQSec, networkDiameter,
                      nonCriticalCQ, nonCriticalCQBootstrap)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                      calcOverallChainQuality, createGenesisBlockAndApply,
                      createMainBlockAndApply)
-import           Pos.Block.Network.Logic (triggerRecovery)
-import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
@@ -65,6 +62,9 @@ import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
+import           Pos.Network.Block.Logic (triggerRecovery)
+import           Pos.Network.Block.Retrieval (retrievalWorker)
+import           Pos.Network.Block.WorkMode (BlockWorkMode)
 
 import           Pos.Update.DB (getAdoptedBVData)
 

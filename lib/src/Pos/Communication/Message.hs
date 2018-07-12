@@ -9,8 +9,6 @@ import           Universum
 import           Data.Tagged (Tagged)
 import           Node.Message.Class (Message (..))
 
-import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
-                     MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Txp (TxMsgContents)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
@@ -18,6 +16,8 @@ import           Pos.Infra.Communication.Types.Protocol (MsgSubscribe,
                      MsgSubscribe1)
 import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
                      InvOrData, MempoolMsg, ReqMsg, ReqOrRes)
+import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                     MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 

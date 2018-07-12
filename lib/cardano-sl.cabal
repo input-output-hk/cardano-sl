@@ -59,6 +59,11 @@ library
 
                         -- Network
                         Pos.Network.Update.Download
+                        Pos.Network.Block.Logic
+                        Pos.Network.Block.Retrieval
+                        Pos.Network.Block.RetrievalQueue
+                        Pos.Network.Block.Types
+                        Pos.Network.Block.WorkMode
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
@@ -67,6 +72,7 @@ library
 
                         -- Recovery
                         Pos.Recovery
+                        Pos.Recovery.Types
 
                         -- Client CLI
                         Pos.Client.CLI
@@ -290,6 +296,8 @@ test-suite cardano-test
                        Test.Pos.Ssc.Toss.PureSpec
 
                        -- Everything else
+                       Test.Pos.Block.Arbitrary.Message
+                       Test.Pos.Block.CborSpec
                        Test.Pos.Cbor.CborSpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Diffusion.BlockSpec
@@ -302,6 +310,7 @@ test-suite cardano-test
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
+
 
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck

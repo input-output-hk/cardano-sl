@@ -130,6 +130,7 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),

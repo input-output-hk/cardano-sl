@@ -223,6 +223,7 @@ test-suite test
 
   build-depends:    async
                   , base
+                  , cardano-sl-crypto-test
                   , cardano-sl-infra
                   , containers
                   , QuickCheck

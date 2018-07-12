@@ -12,7 +12,6 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (runExceptT, throwError)
 
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Core (HasProtocolConstants, epochOrSlotG,
                      epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB
@@ -20,6 +19,7 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo (..),
                      SyncStatus (..))
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Util.Util (HasLens (..))
 
 instance ( Monad m

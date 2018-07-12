@@ -11,9 +11,9 @@ import           Test.QuickCheck.Monadic (assert)
 
 import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
-import           Pos.Block.Network.Types (MsgBlock (..),
-                     MsgSerializedBlock (..))
 import           Pos.DB.Class (Serialized (..))
+import           Pos.Network.Block.Types (MsgBlock (..),
+                     MsgSerializedBlock (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)

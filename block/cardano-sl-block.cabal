@@ -16,19 +16,12 @@ library
   exposed-modules:
                         Pos.Block.BHelpers
                         Pos.Block.BListener
-                        Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Lrc
-                        Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
-
-                        Pos.Block.Network
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Network.Types
 
                         Pos.DB.Block
                         Pos.DB.Block.Load
@@ -58,7 +51,6 @@ library
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-delegation
-                      , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
@@ -139,7 +131,6 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Block.Arbitrary
-                       Test.Pos.Block.Arbitrary.Message
                        Test.Pos.Block.BlockSpec
                        Test.Pos.Block.CborSpec
                        Test.Pos.Block.SafeCopySpec
@@ -189,3 +180,37 @@ test-suite test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+benchmark bench-block
+  main-is:             Block.hs
+  hs-source-dirs:      bench test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+
+  other-modules:       Test.Pos.Block.Arbitrary
+                       Test.Pos.Block.Arbitrary.Generate
+
+  ghc-options: -O2
+  build-depends:       QuickCheck
+                     , base
+                     , bytestring
+                     , criterion >= 1.3.0.0
+                     , cardano-sl-binary
+                     , cardano-sl-block
+                     , cardano-sl-crypto
+                     , cardano-sl-core
+                     , cardano-sl-core-test
+                     , cardano-sl-crypto-test
+                     , cardano-sl-delegation-test
+                     , cardano-sl-ssc
+                     , cardano-sl-ssc-test
+                     , cardano-sl-txp-test
+                     , cardano-sl-update-test
+                     , deepseq
+                     , formatting
+                     , generic-arbitrary
+                     , random
+                     , text
+                     , text-format
+                     , universum

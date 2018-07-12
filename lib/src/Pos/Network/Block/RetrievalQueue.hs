@@ -1,5 +1,5 @@
 -- | Block retrieval queue with accompanying datatypes.
-module Pos.Block.RetrievalQueue
+module Pos.Network.Block.RetrievalQueue
        ( BlockRetrievalQueueTag
        , BlockRetrievalQueue
        , BlockRetrievalTask(..)

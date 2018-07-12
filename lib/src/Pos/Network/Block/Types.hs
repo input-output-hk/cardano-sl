@@ -1,6 +1,6 @@
 -- | Types describing protocol messages related to Blocks.
 
-module Pos.Block.Network.Types
+module Pos.Network.Block.Types
        ( MsgGetHeaders (..)
        , MsgGetBlocks (..)
        , MsgHeaders (..)

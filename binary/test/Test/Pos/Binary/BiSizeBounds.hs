@@ -20,7 +20,6 @@ tests :: IO Bool
 tests =
     let listOf = Gen.list (Range.linear 0 300)
         longListOf = Gen.list (Range.linear 0 100000)
-        wordGen = Gen.word Range.exponentialBounded
     in checkParallel $ Group "Encoded size bounds for core types."
        $ [ ("()"     , sizeTest $ scfg { gen = pure (), precise = True })
          , ("Bool"   , sizeTest $ cfg { gen = Gen.bool, precise = True })
@@ -63,20 +62,25 @@ tests =
          , ("Int64"  , sizeTest $ cfg { gen = Gen.int64  Range.exponentialBounded })
          , ("Tagged () Word32", sizeTest $ (scfg @(Tagged () Word32))
                { gen = Tagged <$> Gen.word32 Range.exponentialBounded })
-         , ("(Char, Bool)",
-               sizeTest $ scfg { gen = (,) <$> Gen.unicode <*> Gen.bool })
-         , ("(Char, Char, Bool)",
-               sizeTest $ scfg { gen = ((,,) <$> Gen.unicode <*> Gen.unicode <*> Gen.bool) })
-         , ("(Char, Char, Bool, Bool)",
-               sizeTest $ scfg { gen = ((,,,) <$> Gen.unicode <*> Gen.unicode <*> Gen.bool <*> Gen.bool) })
+         , ("(Bool, Bool)",
+               sizeTest $ scfg { gen = (,) <$> Gen.bool <*> Gen.bool
+                               , precise = True })
+         , ("(Bool, Bool, Bool)",
+               sizeTest $ scfg { gen = ((,,) <$> Gen.bool <*> Gen.bool <*> Gen.bool)
+                               , precise = True })
+         , ("(Bool, Bool, Bool, Bool)",
+               sizeTest $ scfg { gen = ((,,,) <$> Gen.bool <*> Gen.bool <*> Gen.bool <*> Gen.bool)
+                               , precise = True})
          , ("ByteString"     , sizeTest $ (scfg @BS.ByteString)
                { debug = show . (BS.unpack :: BS.ByteString -> [Word8])
                , lengthOf = Just (fromIntegral . BS.length)
-               , gen = Gen.bytes (Range.linear 0 1000) })
+               , gen = Gen.bytes (Range.linear 0 1000)
+               , precise = True })
          , ("Lazy.ByteString", sizeTest $ (scfg @LBS.ByteString)
                { debug = show . (LBS.unpack :: LBS.ByteString -> [Word8])
                , lengthOf = Just (fromIntegral . LBS.length)
-               , gen = LBS.fromStrict <$> Gen.bytes (Range.linear 0 1000) })
+               , gen = LBS.fromStrict <$> Gen.bytes (Range.linear 0 1000)
+               , precise = True })
          , ("Text", sizeTest $ cfg
                { lengthOf = Just length
                , lengthTy = typeRep (Proxy @(LengthOf [Char]))
@@ -93,10 +97,13 @@ tests =
                { gen = listOf Gen.bool
                , lengthOf = Just length
                , precise = True })
-         , ("Either Bool Word", sizeTest $ (scfg @(Either Bool Word))
-               { gen = Left  <$> Gen.bool })
-         , ("Either Bool Word", sizeTest $ (scfg @(Either Bool Word))
-               { gen = Right <$> wordGen })
-         , ("Maybe Word"      , sizeTest $ cfg { gen = wordGen })
+         , ("Either Bool Bool", sizeTest $ (scfg @(Either Bool Bool))
+               { gen = Left  <$> Gen.bool
+               , precise = True })
+         , ("Either Bool Bool", sizeTest $ (scfg @(Either Bool Bool))
+               { gen = Right <$> Gen.bool
+               , precise = True })
+         , ("Maybe Bool"      , sizeTest $ cfg { gen = Gen.bool
+                                               , precise = True })
          ]
 

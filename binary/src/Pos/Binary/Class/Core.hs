@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP              #-}
 {-# LANGUAGE DeriveFunctor    #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs            #-}
@@ -8,8 +7,6 @@
 {-# LANGUAGE TypeOperators    #-}
 
 -- | Bi typeclass and most basic functions.
-
-#include "MachDeps.h"
 
 module Pos.Binary.Class.Core
     ( Bi(..)
@@ -112,25 +109,14 @@ matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
     cborError (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
-withSize :: Integral s => s -> a -> a -> a -> a -> a -> a
-withSize s a1 a2 a3 a4 a5 =
-    if | s <= 0x17 -> a1
-       | s <= 0xff -> a2
-       | s <= 0xffff -> a3
-#if WORD_SIZE_IN_BITS == 64
-       | s <= 0xffffffff -> a4
-       | otherwise -> a5
-#elif WORD_SIZE_IN_BITS == 32
-       | otherwise -> a4
-#define ARCH_32bit
-#else
-#error expected WORD_SIZE_IN_BITS to be 32 or 64
-#endif
-
--- | Compute size of a @'Word'@, this is used for computation of @'Word8'@, ..,
--- @'Word32'@ encoded size.
+-- | Compute encoded size of an integer.
 withWordSize :: (Integral s, Integral a) => s -> a
-withWordSize s = withSize s 1 2 3 5 9
+withWordSize s =
+  if | s <= 0x17       -> 1
+     | s <= 0xff       -> 2
+     | s <= 0xffff     -> 3
+     | s <= 0xffffffff -> 5
+     | otherwise      -> 9
 
 ----------------------------------------
 
@@ -211,7 +197,7 @@ instance Bi Char where
     encodedListSizeExpr size _ =
         let bsLength = size (Proxy @(LengthOf [Char])) * szCases [ Case "minChar" 1
                                                                  , Case "maxChar" 4 ]
-        in  bsLength + apMono "(withSize _ 1 2 3 4 5)" (\x -> withSize x 1 2 3 4 5) bsLength
+        in  bsLength + apMono "withWordSize" withWordSize bsLength
 
 ----------------------------------------------------------------------------
 -- Numeric data

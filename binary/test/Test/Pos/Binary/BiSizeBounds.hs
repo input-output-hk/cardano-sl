@@ -11,7 +11,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as M
 import           Data.Tagged (Tagged (..))
 import           Data.Typeable (typeRep)
-import           Hedgehog (Group (..), checkParallel)
+import           Hedgehog (Group (..), checkParallel, withTests)
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Test.Pos.Binary.Helpers
@@ -19,6 +19,7 @@ import           Test.Pos.Binary.Helpers
 tests :: IO Bool
 tests =
     let listOf = Gen.list (Range.linear 0 300)
+        longListOf = Gen.list (Range.linear 0 100000)
         wordGen = Gen.word Range.exponentialBounded
     in checkParallel $ Group "Encoded size bounds for core types."
        $ [ ("()"     , sizeTest $ scfg { gen = pure (), precise = True })
@@ -26,18 +27,26 @@ tests =
          , ("Char"   , sizeTest $ cfg { gen = Gen.unicode })
          , ("Char 2" , sizeTest $ cfg { gen = Gen.latin1 })
          , ("String"   , sizeTest $ cfg { gen = listOf Gen.unicode
-                                              , lengthOf = Just length
-                                              , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
+                                        , lengthOf = Just length
+                                        , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
          , ("String 2" , sizeTest $ cfg { gen = listOf Gen.latin1
-                                              , lengthOf = Just length
-                                              , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
+                                        , lengthOf = Just length
+                                        , lengthTy = typeRep (Proxy @(LengthOf [Char])) })
          , ("String 3" , sizeTest $ cfg { gen = listOf Gen.alpha
-                                              , lengthOf = Just length
-                                              , lengthTy = typeRep (Proxy @(LengthOf [Char]))
-                                              , addlCtx = M.fromList
-                                                  [ (typeRep (Proxy @[Char]), SelectCase "minChar") ]
-                                              , precise = True
-                                              })
+                                        , lengthOf = Just length
+                                        , lengthTy = typeRep (Proxy @(LengthOf [Char]))
+                                        , addlCtx = M.fromList
+                                                    [ (typeRep (Proxy @[Char]), SelectCase "minChar") ]
+                                        , precise = True
+                                        })
+         , ("String 4" , withTests 20 $ sizeTest $
+               cfg { gen = longListOf Gen.alpha
+                   , lengthOf = Just length
+                   , lengthTy = typeRep (Proxy @(LengthOf [Char]))
+                   , addlCtx = M.fromList
+                               [ (typeRep (Proxy @[Char]), SelectCase "minChar") ]
+                   , precise = True
+                   })
          , ("Char 3", sizeTest $ cfg { gen = Gen.alpha
                                      , addlCtx = M.fromList
                                          [ (typeRep (Proxy @Char), SizeConstant 2) ]

@@ -4,11 +4,11 @@
 
 ### Features
 
-#### Cardano wallet API v1 for the exchanges
-A subset of endpoints from the Cardano wallet API, used by cryptocurrency exchanges, was moved to the new 
-Cardano REST API v1. The remaining endpoints will move from v0 to v1 in the next iteration of work. 
-Cryptocurrency exchanges using the API are encouraged to update their integrations and move to API v1 
-because the old API is now regarded as deprecated and will be removed in future versions. (CBR-101)
+- #### Cardano wallet API v1 for the exchanges
+  A subset of endpoints from the Cardano wallet API, used by cryptocurrency exchanges, was moved to the new 
+  Cardano REST API v1. The remaining endpoints will move from v0 to v1 in the next iteration of work. 
+  Cryptocurrency exchanges using the API are encouraged to update their integrations and move to API v1 
+  because the old API is now regarded as deprecated and will be removed in future versions. (CBR-101)
 
 #### Subscription status added to node information
 The endpoint that provides information about the node (`/api/v1/node-info`) was expanded to include

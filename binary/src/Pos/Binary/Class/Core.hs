@@ -72,7 +72,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import           Data.Tagged (Tagged (..))
 import qualified Data.Text as Text
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Units (Microsecond, Millisecond)
 import           Data.Typeable (TypeRep, typeRep)
 import qualified Data.Vector as Vector

@@ -28,7 +28,6 @@ import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
 import           Pos.DB.Class (SerializedBlock)
 import           Pos.Security.Params (SecurityParams (..))
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.

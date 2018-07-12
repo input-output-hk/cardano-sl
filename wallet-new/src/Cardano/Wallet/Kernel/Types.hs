@@ -26,9 +26,9 @@ import qualified Data.Map.Strict as Map
 import           Data.Word (Word32)
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut,
-                     TxOutAux (..), gbBody, mbTxs, mbWitnesses, txInputs,
-                     txOutputs)
+import           Pos.Core (MainBlock, Tx, TxAux (..), TxId, TxIn (..), TxOut,
+                     TxOutAux (..), gbBody, mainBlockSlot, mbTxs, mbWitnesses,
+                     txInputs, txOutputs)
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
@@ -151,31 +151,41 @@ mkRawResolvedBlock block ins =
 fromRawResolvedTx :: RawResolvedTx -> ResolvedTx
 fromRawResolvedTx rtx = ResolvedTx {
       _rtxInputs  = InDb $ NE.zip inps (rawResolvedTxInputs rtx)
-    , _rtxOutputs = InDb $ txUtxo tx
+    , _rtxOutputs = InDb $ txUtxo_ tx txId
     }
   where
     tx :: Tx
     tx = taTx (rawResolvedTx rtx)
 
+    txId = hash tx
+
     inps :: NonEmpty TxIn
     inps = tx ^. txInputs
 
+txUtxo_ :: Tx -> TxId -> Utxo
+txUtxo_ tx txId = Map.fromList $
+                      map (toTxInOut txId) (outs tx)
+
 txUtxo :: Tx -> Utxo
-txUtxo tx = Map.fromList $
-                map (toTxInOut tx) (outs tx)
+txUtxo tx = txUtxo_ tx txId
+          where txId = hash tx
 
 outs :: Tx -> [(Word32, TxOut)]
 outs tx = enumerate $ toList $ tx ^. txOutputs
 
-toTxInOut :: Tx -> (Word32, TxOut) -> (TxIn, TxOutAux)
-toTxInOut tx (idx, out) = (TxInUtxo (hash tx) idx, TxOutAux out)
+toTxInOut :: TxId -> (Word32, TxOut) -> (TxIn, TxOutAux)
+toTxInOut txId (idx, out) = (TxInUtxo txId idx, TxOutAux out)
 
 fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
 fromRawResolvedBlock rb = ResolvedBlock {
-      _rbTxs = zipWith aux (getBlockTxs (rawResolvedBlock rb))
-                          (rawResolvedBlockInputs rb)
+      _rbTxs  = zipWith aux (getBlockTxs b)
+                            (rawResolvedBlockInputs rb)
+
+    , _rbSlot = InDb (b ^. mainBlockSlot)
     }
   where
+    b = rawResolvedBlock rb
+
     -- Justification for the use of the unsafe constructor:
     -- The invariant for 'RawResolvedBlock' guarantees the invariant for the
     -- individual transactions.

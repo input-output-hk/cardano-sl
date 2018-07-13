@@ -17,6 +17,7 @@ library
 
   build-depends:       QuickCheck
                      , base
+                     , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-sinbin
                      , generic-arbitrary

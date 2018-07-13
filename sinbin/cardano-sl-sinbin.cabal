@@ -30,15 +30,9 @@ library
                         Pos.Sinbin.Shutdown.Logic
                         Pos.Sinbin.Shutdown.Types
 
-                        Pos.Sinbin.Slotting
-                        Pos.Sinbin.Slotting.Class
-                        Pos.Sinbin.Slotting.MemState
-                        Pos.Sinbin.Slotting.Types
-                        Pos.Sinbin.Slotting.Util
-                        Pos.Sinbin.Util.JsonLog.Events
-
                         Pos.Sinbin.StateLock
 
+                        Pos.Sinbin.Util.JsonLog.Events
                         Pos.Sinbin.Util.LogSafe
                         Pos.Sinbin.Util.TimeLimit
                         Pos.Sinbin.Util.TimeWarp

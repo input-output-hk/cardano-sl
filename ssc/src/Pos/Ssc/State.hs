@@ -11,8 +11,8 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           System.Wlog (WithLogger)
 
+import           Pos.Core.Slotting (MonadSlots)
 import           Pos.DB (MonadDBRead)
-import           Pos.Sinbin.Slotting (MonadSlots)
 import           Pos.Ssc.Types (SscState (..))
 
 -- Reexports

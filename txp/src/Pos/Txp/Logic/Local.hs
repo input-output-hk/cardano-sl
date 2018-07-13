@@ -31,12 +31,12 @@ import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash,
                      ProtocolMagic, siEpoch)
+import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Sinbin.Reporting (reportError)
-import           Pos.Sinbin.Slotting (MonadSlots (..))
 import           Pos.Sinbin.StateLock (Priority (..), StateLock,
                      StateLockMetrics, withStateLock)
 import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))

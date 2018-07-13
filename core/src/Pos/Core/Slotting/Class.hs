@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Pos.Sinbin.Slotting.Class
+module Pos.Core.Slotting.Class
        ( HasSlottingVar (..)
        , MonadSlotsData
        , MonadSlots (..)
@@ -15,8 +15,9 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 
-import           Pos.Core.Slotting (SlotId (..), Timestamp)
-import           Pos.Sinbin.Slotting.Types (SlottingData)
+import           Pos.Core.Slotting.SlotId (SlotId (..))
+import           Pos.Core.Slotting.Timestamp (Timestamp (..))
+import           Pos.Core.Slotting.Types (SlottingData)
 
 
 type MonadSlotsData ctx m =

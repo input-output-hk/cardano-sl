@@ -17,8 +17,6 @@ library
 
   build-depends:       QuickCheck
                      , base
-                     , bytestring
-                     , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto

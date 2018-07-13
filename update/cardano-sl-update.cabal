@@ -72,14 +72,12 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-lrc
-                     , cardano-sl-networking
                      , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , containers
                      , data-default
                      , deepseq
-                     , directory
                      , ether >= 0.5
                      , exceptions
                      , formatting
@@ -90,12 +88,9 @@ library
                      , reflection
                      , resourcet
                      , rocksdb-haskell-ng
-                     , safe-exceptions
                      , serokell-util
                      , stm
                      , tagged
-                     , template-haskell
-                     , formatting
                      , time-units
                      , transformers
                      , universum

@@ -38,7 +38,6 @@ library
                      , generic-arbitrary
                      , hedgehog
                      , kademlia
-                     , memory
                      , universum
 
   default-language:    Haskell2010

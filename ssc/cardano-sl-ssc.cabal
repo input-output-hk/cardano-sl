@@ -55,8 +55,7 @@ library
     Pos.Security.Params
     Pos.Security.Util
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , aeson-options
                      , array
                      , base
@@ -73,10 +72,8 @@ library
                      , cryptonite
                      , data-default
                      , ether
-                     , ekg-core
                      , exceptions
                      , formatting
-                     , generic-arbitrary
                      , lens
                      , log-warper
                      , memory

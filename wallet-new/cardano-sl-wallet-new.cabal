@@ -234,11 +234,6 @@ executable cardano-node
                        -Wall
                        -O2
   build-depends:       base
-                     , QuickCheck
-                     , acid-state
-                     , aeson
-                     , aeson-pretty
-                     , bytestring
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
@@ -249,7 +244,6 @@ executable cardano-node
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , conduit
                      , log-warper
                      , stm
                      , text
@@ -346,12 +340,6 @@ executable wal-integr-test
                      , text
                      , formatting
                      , universum
-                     , unordered-containers
-                     , wai
-                     , wai-cors
-                     , wai-extra
-                     , warp
-                     , x509
                      , x509-store
 
   default-language:    Haskell2010
@@ -451,9 +439,9 @@ test-suite wallet-unit-tests
                       UndecidableInstances
   hs-source-dirs:     server test/unit
 
-  build-depends:      base
+  build-depends:      acid-state
+                    , base
                     , bytestring
-                    , acid-state
                     , cardano-sl
                     , cardano-sl-block
                     , cardano-sl-client
@@ -465,7 +453,6 @@ test-suite wallet-unit-tests
                     , cardano-sl-lrc
                     , cardano-sl-ssc
                     , cardano-sl-txp
-                    , cardano-sl-txp-test
                     , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet-new
@@ -541,7 +528,6 @@ test-suite wallet-new-specs
                       MonadFailDesugaring
 
   build-depends:      base
-                    , acid-state
                     , aeson
                     , bytestring
                     , cardano-sl
@@ -550,7 +536,6 @@ test-suite wallet-new-specs
                     , cardano-sl-core
                     , cardano-sl-crypto
                     , cardano-sl-txp
-                    , cardano-sl-util
                     , cardano-sl-util-test
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
@@ -566,7 +551,6 @@ test-suite wallet-new-specs
                     , servant
                     , servant-server
                     , servant-swagger
-                    , servant-swagger-ui
                     , string-conv
                     , swagger2
                     , text
@@ -601,7 +585,6 @@ benchmark cardano-sl-wallet-new-bench
 
   type:                exitcode-stdio-1.0
   build-depends:       aeson
-                     , aeson-options
                      , async
                      , base
                      , bytestring
@@ -610,7 +593,6 @@ benchmark cardano-sl-wallet-new-bench
                      , cardano-sl-wallet
                      , cassava
                      , connection
-                     , cryptonite
                      , data-default
                      , gauge
                      , http-client

@@ -36,19 +36,13 @@ library
                      , cardano-sl-util-test
                      , containers
                      , cardano-sl-util-test
-                     , cryptonite
-                     , cryptonite-openssl >= 0.5
                      , data-default
-                     , formatting
                      , generic-arbitrary
                      , hedgehog
-                     , hspec
-                     , mtl
                      , pvss
                      , quickcheck-instances
                      , random
                      , serokell-util
-                     , tagged
                      , text
                      , time-units
                      , universum

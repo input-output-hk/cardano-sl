@@ -1490,6 +1490,50 @@ solution is to set a time bound. However, since all these $\mathsf{applyBlocks}$
 will come very close together (\emph{maybe} even as a single call), in practice
 this can probably work reasonably well.
 
+\subsection{Omitting checkpoints}
+
+Not all wallets are created at the start of the blockchain, of course.
+
+\begin{lemma}
+A wallet created after $n$ blocks have already been created will have checkpoints
+%
+\begin{equation*}
+  \underbrace{ (\emptyset, \emptyset)
+             : \cdots
+             : (\emptyset, \emptyset)
+             }_{\text{$n$ empty checkpoints}}
+: \underbrace{ (\emptyset, \emptyset)
+             }_{\text{initial checkpoint}}
+\end{equation*}
+\label{lem:wallet_later_created}
+\end{lemma}
+
+\begin{proof}[Proof (sketch)]
+We can assume that there have been no calls to $\mathtt{newPending}$. Each call
+to $\mathtt{applyBlock}$ will create a new empty checkpoint, because
+$\mathtt{updateUTxO}$ will not consider any of the addresses in those blocks to
+be ``$\mathtt{ours}$'' (and there are no pending transactions to remove for
+$\mathtt{updatePending}$). Similarly, if there have been previous rollbacks,
+those would simply have stripped off empty checkpoints.
+\end{proof}
+
+\cref{lem:wallet_later_created} gives us a very useful optimization opportunity:
+we can simply leave all the empty checkpoints as implicit, adding a single
+case to rollback:
+%
+\begin{equation*}
+\mathtt{rollback} ~ [(\emptyset, \emptyset)] = [(\emptyset, \emptyset)]
+\end{equation*}
+%
+Perhaps this seems like a trivial fact, but it's not vacuous: it does put
+constraints on what we can and cannot record in checkpoints. Looking ahead, we
+have to make sure that when we add in the expected UTxO
+(\cref{fig:model_with_expected_UTxO}) and block metadata
+(\cref{fig:tracking_metadata}), or when we choose a concrete instantiation of
+the block metadata (\cref{sec:confirmations}), we don't break this property.
+Fortunately, the expected UTxO is subset of the UTxO and must therefore also be
+empty, and the block metadata only records informatin about transactions that
+affect this wallet and about addresses that the wallet owns.
 
 \section{Minimum Balance}
 \label{sec:tracking_expected_UTxO}

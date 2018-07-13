@@ -280,11 +280,8 @@ intAndVerifyChain pc = runTranslateT $ do
             (finalUtxo', _) <- runIntT' ctxt $ int dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
-              else return $ Disagreement ledger UnexpectedUtxo {
-                         utxoDsl     = dslUtxo
-                       , utxoCardano = finalUtxo
-                       , utxoInt     = finalUtxo'
-                       }
+              else return . Disagreement ledger
+                  $ UnexpectedUtxo dslUtxo finalUtxo finalUtxo'
 
 {-------------------------------------------------------------------------------
   Chain verification test result
@@ -343,11 +340,8 @@ data Disagreement h a =
 
     -- | Both Cardano and the DSL reported the chain as valid, but they computed
     -- a different UTxO
-  | UnexpectedUtxo {
-        utxoDsl     :: Utxo h a
-      , utxoCardano :: Cardano.Utxo
-      , utxoInt     :: Cardano.Utxo
-      }
+    -- UnexpectedUtxo utxoDsl utxoCardano utxoInt
+  | UnexpectedUtxo !(Utxo h a) !Cardano.Utxo !Cardano.Utxo
 
 expectValid :: ValidationResult h a -> Bool
 expectValid ExpectedValid = True
@@ -392,7 +386,7 @@ instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
   build (UnexpectedInvalid e) = bprint ("UnexpectedInvalid " % build) e
   build (UnexpectedError e)   = bprint ("UnexpectedError " % shown) e
   build (UnexpectedValid e)   = bprint ("UnexpectedValid " % shown) e
-  build UnexpectedUtxo{..}    = bprint
+  build (UnexpectedUtxo utxoDsl utxoCardano utxoInt) = bprint
       ( "UnexpectedUtxo"
       % "{ dsl:     " % build
       % ", cardano: " % mapJson

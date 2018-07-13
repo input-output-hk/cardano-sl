@@ -102,9 +102,14 @@ test-suite test
                      , cborg
                      , cereal
                      , containers
+                     , cryptonite
+                     , data-default
                      , directory
-                     , filepath
                      , file-embed
+                     , extra
+                     , filepath
+                     , filelock
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , half

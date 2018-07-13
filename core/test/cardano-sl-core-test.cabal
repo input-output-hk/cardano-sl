@@ -22,8 +22,10 @@ library
                        Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Txp
                        Test.Pos.Core.Arbitrary.Txp.Unsafe
+                       Test.Pos.Core.Json
 
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , base16-bytestring
                      , bytestring
@@ -38,6 +40,8 @@ library
                      , containers
                      , cardano-sl-util-test
                      , data-default
+                     , ed25519
+                     , formatting
                      , generic-arbitrary
                      , hedgehog
                      , pvss
@@ -83,3 +87,4 @@ library
   ghc-options:
                        -O2
                        -Wall
+

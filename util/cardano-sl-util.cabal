@@ -127,19 +127,31 @@ test-suite test
 
   other-modules:
                        Spec
+                       Test.Pos.Util.Golden
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
+                       Test.Pos.Util.Tripping
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
+                     , bytestring
                      , async
                      , cardano-sl-util
+                     , directory
+                     , file-embed
+                     , filepath
+                     , formatting
+                     , hedgehog
                      , hspec
+                     , pretty-show
                      , QuickCheck
                      , quickcheck-instances
                      , stm
+                     , template-haskell
                      , text
+                     , text-format
                      , time
                      , time-units
                      , universum >= 1.1.0

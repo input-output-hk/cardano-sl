@@ -32,11 +32,12 @@ import           Pos.Crypto (AbstractHash, EncShare, PassPhrase,
                      safeCreateProxyCert, safeCreatePsk, sign, toPublic,
                      toVssPublicKey)
 
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden,
-                     discoverRoundTrip, eachOf, goldenTestBi,
-                     roundTripsAesonBuildable, roundTripsAesonShow,
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
+import           Test.Pos.Util.Golden (discoverGolden, eachOf)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonBuildable, roundTripsAesonShow)
 
 --------------------------------------------------------------------------------
 -- ProtocolMagic

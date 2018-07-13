@@ -15160,10 +15160,15 @@ license = stdenv.lib.licenses.mit;
 , cereal
 , containers
 , cpphs
+, cryptonite
+, data-default
 , digest
 , directory
+, extra
 , file-embed
+, filelock
 , filepath
+, fmt
 , formatting
 , generic-arbitrary
 , half
@@ -15233,9 +15238,14 @@ cardano-sl-util-test
 cborg
 cereal
 containers
+cryptonite
+data-default
 directory
+extra
 file-embed
+filelock
 filepath
+fmt
 formatting
 generic-arbitrary
 half
@@ -15272,8 +15282,8 @@ license = stdenv.lib.licenses.mit;
 , cborg
 , cereal
 , cpphs
+, cryptonite
 , directory
-, file-embed
 , filepath
 , formatting
 , half
@@ -15307,8 +15317,8 @@ cardano-sl-binary
 cardano-sl-util-test
 cborg
 cereal
+cryptonite
 directory
-file-embed
 filepath
 formatting
 half
@@ -15685,6 +15695,7 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , deepseq
 , deriving-compat
+, ed25519
 , exceptions
 , extra
 , filepath
@@ -15778,6 +15789,7 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 base16-bytestring
 bytestring
@@ -15790,6 +15802,7 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 deepseq
+ed25519
 formatting
 generic-arbitrary
 hedgehog
@@ -15816,6 +15829,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-core-test" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , base16-bytestring
 , bytestring
@@ -15829,6 +15843,8 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , containers
 , data-default
+, ed25519
+, formatting
 , generic-arbitrary
 , hedgehog
 , pvss
@@ -15854,6 +15870,7 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 base
 base16-bytestring
 bytestring
@@ -15867,6 +15884,8 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 data-default
+ed25519
+formatting
 generic-arbitrary
 hedgehog
 pvss
@@ -17870,6 +17889,7 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , async
 , base
+, bytestring
 , cborg
 , cereal
 , concurrent-extra
@@ -17885,6 +17905,7 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , formatting
 , hashable
+, hedgehog
 , hspec
 , lens
 , log-warper
@@ -17893,6 +17914,7 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , optparse-applicative
 , parsec
+, pretty-show
 , process
 , QuickCheck
 , quickcheck-instances
@@ -17905,6 +17927,7 @@ license = stdenv.lib.licenses.mit;
 , tagged
 , template-haskell
 , text
+, text-format
 , time
 , time-units
 , transformers
@@ -17968,13 +17991,23 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 async
 base
+bytestring
+directory
+file-embed
+filepath
+formatting
+hedgehog
 hspec
+pretty-show
 QuickCheck
 quickcheck-instances
 stm
+template-haskell
 text
+text-format
 time
 time-units
 universum
@@ -17991,6 +18024,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-util-test" = callPackage
 ({
   mkDerivation
+, aeson
 , attoparsec
 , base
 , base16-bytestring
@@ -17998,15 +18032,24 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cpphs
 , cryptonite
+, directory
+, file-embed
+, filepath
 , formatting
 , hedgehog
 , hspec
 , mtl
+, pretty-show
 , QuickCheck
 , quickcheck-instances
 , stdenv
+, tagged
+, template-haskell
+, text
+, text-format
 , time-units
 , universum
+, unordered-containers
 }:
 mkDerivation {
 
@@ -18019,20 +18062,30 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 attoparsec
 base
 base16-bytestring
 bytestring
 cardano-sl-util
 cryptonite
+directory
+file-embed
+filepath
 formatting
 hedgehog
 hspec
 mtl
+pretty-show
 QuickCheck
 quickcheck-instances
+tagged
+template-haskell
+text
+text-format
 time-units
 universum
+unordered-containers
 ];
 libraryToolDepends = [
 cpphs

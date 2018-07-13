@@ -17185,12 +17185,12 @@ license = stdenv.lib.licenses.mit;
 , lens
 , log-warper
 , lzma-conduit
+, megaparsec
 , mtl
 , network-info
 , network-transport
 , network-transport-tcp
 , optparse-applicative
-, parsec
 , reflection
 , safe-exceptions
 , serokell-util
@@ -17252,12 +17252,12 @@ kademlia
 lens
 log-warper
 lzma-conduit
+megaparsec
 mtl
 network-info
 network-transport
 network-transport-tcp
 optparse-applicative
-parsec
 reflection
 safe-exceptions
 serokell-util
@@ -70063,11 +70063,11 @@ license = stdenv.lib.licenses.mit;
 , fmt
 , formatting
 , hashable
+, megaparsec
 , microlens
 , microlens-mtl
 , mtl
 , o-clock
-, parsec
 , process
 , QuickCheck
 , quickcheck-instances
@@ -70088,8 +70088,8 @@ version = "0.9.0";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/serokell-util.git";
-sha256 = "0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd";
-rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
+sha256 = "0nlygdbs0pkaxk5y546niy2wiqj41p6cqyfp5xk58xxv5873wfwj";
+rev = "453672cbdaea2b4f372387d16fe1945103d46241";
 
 };
 libraryHaskellDepends = [
@@ -70105,11 +70105,11 @@ exceptions
 fmt
 formatting
 hashable
+megaparsec
 microlens
 microlens-mtl
 mtl
 o-clock
-parsec
 process
 QuickCheck
 quickcheck-instances

@@ -15708,6 +15708,7 @@ license = stdenv.lib.licenses.mit;
 , safecopy
 , serokell-util
 , stdenv
+, stm
 , template-haskell
 , text
 , th-lift-instances
@@ -15763,6 +15764,7 @@ reflection
 safe-exceptions
 safecopy
 serokell-util
+stm
 template-haskell
 text
 th-lift-instances
@@ -16610,6 +16612,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto-test
 , cardano-sl-networking
 , cardano-sl-sinbin
+, cardano-sl-ssc
 , cardano-sl-util
 , clock
 , containers
@@ -16670,6 +16673,7 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-networking
 cardano-sl-sinbin
+cardano-sl-ssc
 cardano-sl-util
 clock
 containers
@@ -16730,7 +16734,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto-test
 , cardano-sl-infra
 , cardano-sl-sinbin
-, cardano-sl-sinbin-test
+, cardano-sl-ssc
 , cardano-sl-ssc-test
 , cardano-sl-update-test
 , cardano-sl-util-test
@@ -16756,7 +16760,7 @@ cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
 cardano-sl-sinbin
-cardano-sl-sinbin-test
+cardano-sl-ssc
 cardano-sl-ssc-test
 cardano-sl-update-test
 cardano-sl-util-test
@@ -17255,35 +17259,6 @@ cpphs
 ];
 doHaddock = false;
 description = "Cardano SL - sinbin";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-sinbin-test" = callPackage
-({
-  mkDerivation
-, base
-, cardano-sl-core-test
-, cardano-sl-sinbin
-, generic-arbitrary
-, QuickCheck
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-sinbin-test";
-version = "1.3.0";
-src = ./../sinbin/test;
-libraryHaskellDepends = [
-base
-cardano-sl-core-test
-cardano-sl-sinbin
-generic-arbitrary
-QuickCheck
-universum
-];
-doHaddock = false;
-description = "Cardano SL - generators for cardano-sl-sinbin";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -17857,7 +17832,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-sinbin-test
 , cardano-sl-update
 , cardano-sl-util-test
 , generic-arbitrary
@@ -17878,7 +17852,6 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-sinbin-test
 cardano-sl-update
 cardano-sl-util-test
 generic-arbitrary

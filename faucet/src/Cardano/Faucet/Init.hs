@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -202,10 +203,32 @@ readWalletBalance
     -> PaymentSource
     -> ExceptT InitFaucetError m Int64
 readWalletBalance client (psWalletId -> wId) = do
-    lift $ logInfo "Reading initial wallet balance"
+    -- lift $ logInfo "Reading initial wallet balance"
     (fromIntegral . getCoin . unV1 . walBalance)
       <$> runClient CouldntReadBalance (getWallet client wId)
 
+--------------------------------------------------------------------------------
+-- | Monitor a wallet's balance
+--
+-- Sets the wallet's balance in the 'Gauge.Gauge' every 5 seconds
+monitorWalletBalance
+    :: (HasLoggerName m, CanLog m, MonadIO m)
+    => FaucetEnv -> m ()
+monitorWalletBalance fEnv = do
+    let wc = fEnv ^. feWalletClient . to liftClient
+        paymentSource = fEnv ^. (feSourceWallet . to cfgToPaymentSource)
+        balGauge = fEnv ^. feWalletBalance
+    forever $ do
+        liftIO $ threadDelay 5000000
+        eBal <- runExceptT $ readWalletBalance wc paymentSource
+        case eBal of
+            Left err -> do
+                logError ("Error reading balance: " <> (Text.pack $ show err))
+            Right bal -> do
+                logInfo ("Read wallet balance: " <> (Text.pack $ show bal))
+                liftIO $ Gauge.set balGauge bal
+
+--------------------------------------------------------------------------------
 -- | Gets an address out of an existing wallet
 --
 -- Fails with 'BadAddress'
@@ -311,8 +334,14 @@ initEnv fc store = do
     withSublogger "initEnv" $ logInfo "Initializing environment"
     env <- createEnv
     withSublogger "initEnv" $ logInfo "Created environment"
-    tID <- liftLogIO forkIO $ processWithdrawls env
-    withSublogger "initEnv" $ logInfo ("Forked thread for processing withdrawls:" <> show tID ^. packed)
+    wdTId <- liftLogIO forkIO $ processWithdrawls env
+    withSublogger "initEnv"
+        $ logInfo ( "Forked thread for processing withdrawls:"
+                 <> show wdTId ^. packed)
+    monTId <- liftLogIO forkIO $ monitorWalletBalance env
+    withSublogger "initEnv"
+        $ logInfo ( "Forked thread for monitoring the wallet balance:"
+                 <> show monTId ^. packed)
     return env
   where
     createEnv = withSublogger "init" $ do

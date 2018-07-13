@@ -4,7 +4,7 @@ let
   #haskell = import <haskell>;
 
   overlay = self: super: {
-    haskellPackages = (import <stackage> { pkgs = super; }).lts-2018-06-29
+    haskellPackages = (import <stackage> { pkgs = super; }).lts-12_0
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                           // stack-pkgs.packages hsPkgs); };
   };
@@ -72,9 +72,8 @@ let
           dropRevision'     = drv: overrideCabal drv (_: { revision = null; editedCabalFile = null; });
         });
 
-        compiler.ghc842 = (ps.haskell.compiler.ghc842.override {
-          ghcCrossFlavour = "perf-cross-ncg";
-          ghcFlavour = "quick";
+        compiler.ghc843 = (ps.haskell.compiler.ghc843.override {
+          ghcFlavour = if ps.stdenv.targetPlatform == ps.stdenv.hostPlatform then "quick" else "perf-cross-ncg";
           enableShared = false;
           enableIntegerSimple = false;
         }).overrideAttrs (drv: {
@@ -93,7 +92,7 @@ let
           autoreconf
           ''; 
         });
-        packages.ghc842 = (ps.haskell.packages.ghc842.override {
+        packages.ghc843 = (ps.haskell.packages.ghc843.override {
           overrides = self: super: rec {
             mkDerivation = drv: super.mkDerivation (drv // {
               enableLibraryProfiling = false;
@@ -228,7 +227,6 @@ pkgs.haskellPackages.override rec {
       overrideCabal (addBuildDepends pkg [ pkgs.windows.mingw_w64_pthreads ]) (drv: {
         postInstall = ''
           cp ${pkgs.windows.mingw_w64_pthreads}/bin/libwinpthread-1.dll $out/bin/
-          cp ${pkgs.gcc7-ng-libssp}/lib/libssp-0.dll $out/bin/
         '';
         buildFlags =  [ "--ghc-option=-debug" ];
       });

@@ -654,6 +654,9 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                 send conv $ MsgStreamNoBlock "handleStreamStart:strean Failed to find lca"
                 traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed for "%listJson) nodeId (cl:cxs))
                 return ()
+             -- 'lca' is the newest client-supplied checkpoint that we have.
+             -- We need to begin streaming from its child, which is what
+             -- 'Logic.streamBlocks' does.
              lca : _ -> do
                 let producer = do
                         Logic.streamBlocks logic lca

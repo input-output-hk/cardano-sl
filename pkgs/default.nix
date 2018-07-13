@@ -15911,6 +15911,7 @@ cardano-sl-crypto-test
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
 data-default
 ed25519
 formatting

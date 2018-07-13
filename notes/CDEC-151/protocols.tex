@@ -36,6 +36,7 @@
 
 \newcommand{\njd}[1]{\textcolor{purple}{\emph{#1}}}
 \newcommand{\avieth}[1]{\textcolor{blue}{\emph{#1}}}
+\newcommand{\dcoutts}[1]{\textcolor{orange}{\emph{#1}}}
 \addtolength{\marginparwidth}{-0.1\marginparwidth}
 
 \newcommand{\powerset}[1]{\mathbb{P}(#1)}
@@ -103,6 +104,9 @@ looking at how those can map onto lower level IPC protocols.
 \item[Version 0.2, June 22, 2018] Sketch of protocol proposal and goals for
                                   how to elaborate, based on further review
                                   and discussion with Alex and Neil.
+\item[Version 0.3, July 4, 2018]  Comments from Neil.
+\item[Version 0.4, July 8, 2018]  New section with alternative broadcast approach by Alex.
+\item[Version 0.5, July 13, 2018] Extend the discussion of the alternative broadcast approach.
 \end{description}
 
 \section{Introduction}
@@ -242,7 +246,7 @@ TODO: cover notes on:
 \section{Node-to-node protocol}
 
 The Ouroboros consensus protocol \citep{ouroboros-classic} describes what it
-needs from its network layer. That is:
+needs from its network layer. Informally, that:
 \begin{itemize}
 \item nodes that create a new block in a time slot need to be able to broadcast
       their \emph{entire blockchain} to all other nodes, and;
@@ -253,7 +257,19 @@ needs from its network layer. That is:
 The challenge is to simulate this specification in bounded resources and to do
 so without opening up opportunities for new attacks at the network level. Such
 attacks might include preventing broadcast or local denial of service by making
-them consume excess resources (time, memory, network, CPU).
+nodes consume excess resources (time, memory, network, CPU).
+
+There are a few aspects to bounding resource use in this setting.
+\begin{enumerate}
+\item We can try to establish some absolute bound on the required resources.
+\item With or without an absolute bound we can try to arrange things so that it
+      is difficult for an adversarial party to create a lot of work for honest
+      parties.
+\item If we cannot establish absolute resource bounds for a perfect simulation,
+      or the bounds might be too large for some instances, we can consider what
+      choices an instance with limited resources should make to achieve a good
+      enough simulation.
+\end{enumerate}
 
 Obviously na\"ively broadcasting entire chains is not something that can be
 done with bounded resources since there is no bound to the chain length.
@@ -275,63 +291,93 @@ no current formal argument as to how, in the presence of nodes acting
 adversarially with respect to data diffusion, at what level of adversarial
 action performance is compromised.
 
-\subsection{Broadcasting versus subscribing}
+It is unclear if or how the chain broadcast logic corresponds to the chain
+broadcast specified in the Ouroboros paper. Rather than implementing broadcast
+directly, it interleaves chain adoption with relaying of block headers. This
+may not be wrong, but there is no stated argument for it being faithful.
 
-It is tempting to consider pursuing an approach where each node subscribes to
-and follows the chains of a number of its peers and continuously selects
-between those chains following the Ouroboros chain validity and longest chain
-rules. This would allow us to impose constraints such as that each node only
-announces a single new block to its peers in each slot, since it would only be
-announcing the head of its own adopted chain. That obviously makes it easier
-for a node to bound its resource use since it only need consider N potential
-chains from the N peers it is subscribed to.
+The chain broadcast logic is vulnerable to straightforward resource consumption
+attacks: it responds to receiving a new chain head header by trying to chase
+that down before doing anything else. If this is slow (and attackers can make
+it slow) the logic does not proceed with considering headers from any other
+peer.
 
-It is not clear however that this is equivalent to what Ouroboros specifies:
-that chains be broadcast to everyone, and that each node looks at all chains
-that it receives within each time slot. By contrast the equivalence argument is
-much clearer if we broadcast the block header of each chain's head (via
-multicast or flooding over point-to-point links), and then chase down the rest
-of the chain back to an intersection point.
+The broadcast and chain logic are intertwined in ways that are complex and
+increase latency for relaying blocks, which limits the diameter of the network
+that can be supported for a given slot length.
 
-We will restrict ourselves to algorithms that can plausibly be argued are
-equivalent to broadcasting chains.
+\subsection{The major challenge}
 
-\subsection{Trying to bound Ouroboros bearer, compute and storage resource use}
+The major challenge in the design of a practical IPC protocol for Ouroboros is
+to find something that satisfies what Ouroboros specifies but does so in a way
+that is not open to various kinds of attacks from adversarial nodes.
 
-There are a few aspects to bounding resource use in this distributed setting.
-\begin{enumerate}
-\item We can try to establish some absolute bound on the required resources.
-\item With or without an absolute bound we can try to arrange things so that it
-      is difficult for an adversarial party to create a lot of work for honest
-      parties.
-\item If we cannot establish absolute resource bounds for a perfect simulation,
-      or the bounds might be too large for some instances, we can consider what
-      choices an instance with limited resources should make to achieve a good
-      enough simulation.
-\end{enumerate}
+Ouroboros specifies the overall state changes involved in agents obtaining
+and selecting candidate chains. The specification describes the state changes
+in a modular way, composed of two phases: broadcast of chains followed by
+selecting amongst all the candidate chains received.
 
-Let us review ideas on each point in turn.
+As mentioned previously, broadcasting whole chains is not practical, but it is
+relatively straightforward to recast this in in terms of broadcasting (or
+relaying) blocks.
 
-\subsubsection{Trying to establish absolute bounds}
+The more subtle problem is that while the specification describes chain
+broadcast and selection as separate phases, we cannot implement them separately.
+We must implement \emph{broadcast in the context of chain selection}, meaning
+that we must take advantage of the constraints imposed by chain selection to
+limit what can be broadcast. If we provided broadcast directly without any
+constraints then it could easily be abused by adversaries to conduct highly
+asymmetric resource consumption attacks.
 
-There are a number of standard tricks here. For starters we can break up the
-blockchain into individual blocks, and blocks themselves into a small fixed
-size header and a larger variable sized body. The basic idea is then that we
-initiate a chain broadcast by broadcasting the block header for the head block
-in the chain.
+So we want a design that achieves the equivalent effect of chain broadcast
+followed by local chain selection, but it is acceptable to intermingle the
+chain selection logic with the broadcast logic, indeed it would appear to be
+necessary to achieve a design that works in bounded resources.
+
+\subsection{Interleaving chain selection with relaying}
+
+With the previous point in mind, it is tempting to consider pursuing an
+approach where each node subscribes to and follows the chains of a number of
+its peers and continuously selects between those chains following the Ouroboros
+chain selection rule. The intuition is that that this should make it easier
+bound a node's resource use since it only need consider the N potential chains
+from its N immediate peers.
+
+The challenge in this interleaving approach is that the argument that it is
+equivalent to what Ouroboros specifies is not trivial. By contrast the
+equivalence argument is much clearer if we broadcast the block header of each
+chain's head and then chase down the rest of the chain back to an intersection
+point.
+
+\subsection{Basic techniques to help bound resource use}
+
+There are a number of tricks to help bound resource use that are standard for
+blockchain communication. We can break up the blockchain into individual blocks,
+and blocks themselves into a small fixed size header and a larger variable
+sized body. The basic idea is that we initiate a chain broadcast by
+communicating the block header for the head block in the chain.
 
 In PoW blockchain algorithms the header can contain the representation of a
 proof of work, while in PoS the header contains representation of the proof of
 stake: a signature showing that it was created by the appropriate party. In
 Ouroboros the PoS signature means that nodes that are up to date (at least
 within the same epoch) can verify that the header itself is plausible, and
-exclude incorrectly signed or inplausible headers.
+exclude incorrectly signed or implausible headers.
 
 A small fixed size header means that we can bound the network resource use
 to send or receive a single header, and can also bound the CPU resources needed
 to verify the header.
 
-Additionally the Ouroboros algorithm imposes a number of useful constraints:
+\subsection{Review of constraints on chain broadcast}
+
+The Ouroboros algorithm imposes a number of useful constraints on chain
+broadcast.
+
+We will refer both to the original `Ouroboros classic' \citep{ouroboros-classic}
+and to the newer version `Ouroboros genesis' \citep{ouroboros-genesis}. We will
+refer simply to `Ouroboros' where distinctions between the versions are
+irrelevant.
+
 \begin{itemize}
 \item Ouroboros specifies that chains with blocks from slots in the future are
       invalid. The signed block header contains the slot number so we can
@@ -349,7 +395,7 @@ Additionally the Ouroboros algorithm imposes a number of useful constraints:
       knows of a better one. This may be very useful in practice: at most one
       chain must be tracked per peer. An adversary cannot make an honest node
       retain multiple chains of its own broadcast.}
-\item Ouroboros classic (but not BG\marginpar{\njd{first use - expand}}) specifies that a node will only ever pick
+\item Ouroboros Classic (but not Genesis) specifies that a node will only ever pick
       a chain that diverges from its current chain within the last K blocks,
       implying that forks can be at most K long. This places a bound (of K) on
       the range in which a node needs to look for an intersection between the
@@ -359,21 +405,25 @@ Additionally the Ouroboros algorithm imposes a number of useful constraints:
 \item Each block must be signed by the appropriate slot leader. This signature
       -- which is the proof of stake -- can be checked by any node that has
       the chain up to the current epoch.
-\item In Ouroboros classic, there is only ever one legitimate leader for each
+\item In Ouroboros Classic, there is only ever one legitimate leader for each
       time slot, and non-adversarial players never sign more than one block
       for the slots in which they are the leader.
-\item In Ouroboros BG, the situation is similar: there can be more than one
+\item In Ouroboros Genesis, the situation is similar: there can be more than one
       legitimate leader for a time slot but the number of leaders in a slot
       follows a distribution that makes a large number highly unlikely (and
       this is not controlled by adversarial players).
-\item In both Ouroboros classic and BG it is possible for adversarial players
-      to sign multiple blocks for the same slot, but this is visible (so-called
-      `open adversarial behaviour').
+\item In both Ouroboros Classic and Genesis it is possible for adversarial
+      players to sign multiple blocks for the same slot, but this is visible
+      (so-called `open adversarial behaviour').
 \item \avieth{Theorem 4.13 from the original Ouroboros paper describes the
       probability of the existence of a flat fork of length $n$: 2 tines of
       equal block count intersecting $n$ slots prior. This is applicable to
       what we're doing here, both for resource bounds and for correctness.}
 \end{itemize}
+
+\subsection{Discussion of bounds}
+\dcoutts{This section needs to be revised in the light of the interleaving
+approach.}
 
 The combination of these constraints does place a limit on the number and
 length of plausibly valid chains that an adversary can create and try to get

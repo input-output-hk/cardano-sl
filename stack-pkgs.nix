@@ -89,5 +89,9 @@
       serokell-util = ./.stack.nix/serokell-util.nix;
       canonical-json = ./.stack.nix/canonical-json.nix;
       clock = ./.stack.nix/clock.nix;
-    };
+      # hack libiserv in...
+      libiserv = ./libiserv-8.5;
+      remote-iserv = ./remote-iserv-8.5;
+      iserv-proxy = ./iserv-proxy-8.5;
+   };
 }

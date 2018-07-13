@@ -31,7 +31,7 @@ import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
 
 
-import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 
 import           Pos.Util.Util (cborError)

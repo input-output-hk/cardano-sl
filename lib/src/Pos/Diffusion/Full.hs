@@ -75,7 +75,7 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
-import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))

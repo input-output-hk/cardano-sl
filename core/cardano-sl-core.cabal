@@ -44,6 +44,32 @@ library
                        Pos.Core.Context
                        Pos.Core.Delegation
                        Pos.Core.Genesis
+
+                       -- JsonLog (moved from networking in
+                       -- the `sinbin` shuffle). All modules
+                       -- must be exposed so that `networking`
+                       -- can import & re-export them.
+                       Pos.Core.JsonLog
+                       Pos.Core.JsonLog.CanJsonLog
+                       Pos.Core.JsonLog.Event
+                       Pos.Core.JsonLog.JsonLogT
+
+                       -- Mockable (moved from networking in
+                       -- the `sinbin` shuffle). All modules
+                       -- must be exposed so that `networking`
+                       -- can import & re-export them.
+                       Pos.Core.Mockable
+                       Pos.Core.Mockable.Channel
+                       Pos.Core.Mockable.Class
+                       Pos.Core.Mockable.Concurrent
+                       Pos.Core.Mockable.CurrentTime
+                       Pos.Core.Mockable.Instances
+                       Pos.Core.Mockable.Monad
+                       Pos.Core.Mockable.Production
+                       Pos.Core.Mockable.SharedAtomic
+                       Pos.Core.Mockable.SharedExclusive
+                       Pos.Core.Mockable.Metrics
+
                        Pos.Core.Script
                        Pos.Core.Slotting
                        Pos.Core.Ssc
@@ -173,6 +199,7 @@ library
   build-depends:       aeson
                      , aeson-options
                      , ansi-terminal
+                     , async
                      , base
                      , base58-bytestring
                      , bytestring
@@ -180,7 +207,6 @@ library
                      , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-crypto
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , cborg
                      , cereal
@@ -189,6 +215,7 @@ library
                      , data-default
                      , deepseq
                      , deriving-compat
+                     , ekg-core
                      , exceptions
                      , extra
                      , filepath
@@ -198,21 +225,27 @@ library
                      , lens
                      , log-warper >= 1.0.3
                      , memory
+                     , mmorph
+                     , monad-control
                      , mtl
                      , plutus-prototype
                      , random
                      , reflection
+                     , resourcet
                      , safecopy
                      , safe-exceptions
                      , serokell-util
                      , stm
                      , template-haskell
                      , text
-                     , formatting
                      , th-lift-instances
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
+                     , unliftio-core
                      , unordered-containers
                      , vector
 

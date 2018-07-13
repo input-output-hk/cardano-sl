@@ -21,8 +21,8 @@ import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
 import qualified Formatting.Buildable as Buildable
-import           Mockable (CurrentTime, Mockable, currentTime)
 import           Numeric.Lens (dividing)
+import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
 import qualified Prelude
 
 import           Pos.Binary.Class (Bi (..))

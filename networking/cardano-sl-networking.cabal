@@ -62,6 +62,7 @@ Library
                       , async
                       , attoparsec
                       , base
+                      , cardano-sl-core
                       , cardano-sl-util
                       , containers
                       , cryptonite
@@ -73,7 +74,6 @@ Library
                       , kademlia
                       , lens
                       , log-warper
-                      , mmorph
                       , monad-control
                       , mtl
                       , network
@@ -82,17 +82,13 @@ Library
                       , mtl >= 2.2.1
                       , random
                       , resourcet
-                      , transformers-lift
                       , universum
-                      , unliftio-core
                       , safe-exceptions
                       , stm
                       , text
                       , formatting
                       , time
                       , time-units
-                      , transformers
-                      , transformers-base
                       , ekg-core
 
   hs-source-dirs:       src

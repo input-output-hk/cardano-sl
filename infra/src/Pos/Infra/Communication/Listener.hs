@@ -11,7 +11,6 @@ import           Universum
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Binary.Class (Bi)
-import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Protocol (ConversationActions,
                      HandlerSpec (..), ListenerSpec (..), Message, NodeId,
                      OutSpecs, VerInfo (..), checkProtocolMagic,

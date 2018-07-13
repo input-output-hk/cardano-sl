@@ -21,7 +21,6 @@ import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening,
                      mlMCShares, mlMCVssCertificate)
 import           Pos.Communication.Message ()
 import           Pos.Core (StakeholderId)
-import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Relay (DataMsg, InvOrData,
                      InvReqDataParams (..), MempoolParams (NoMempool),
                      Relay (..), ReqMsg, ReqOrRes, relayListeners,

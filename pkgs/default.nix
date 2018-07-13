@@ -15869,6 +15869,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , containers
+, cryptonite
 , data-default
 , ed25519
 , formatting

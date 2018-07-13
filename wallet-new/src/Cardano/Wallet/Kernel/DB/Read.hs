@@ -1,6 +1,7 @@
 module Cardano.Wallet.Kernel.DB.Read (
     -- * Read-only, pure getters
     accountUtxo
+  , accountAvailableUtxo
   , accountTotalBalance
   , hdWallets
   ) where
@@ -48,6 +49,11 @@ walletQuery' snapshot qry= do
 accountUtxo :: DB -> HdAccountId -> Utxo
 accountUtxo snapshot accountId
     = walletQuery' snapshot (Spec.queryAccountUtxo accountId)
+
+-- | Returns the available Utxo for the input 'HdAccountId'.
+accountAvailableUtxo :: DB -> HdAccountId -> Utxo
+accountAvailableUtxo snapshot accountId
+    = walletQuery' snapshot (Spec.queryAccountAvailableUtxo accountId)
 
 -- | Returns the total balance for this 'HdAccountId'.
 accountTotalBalance :: DB -> HdAccountId -> Coin

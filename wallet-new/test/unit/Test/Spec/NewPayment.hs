@@ -82,7 +82,7 @@ prepareFixtures = do
                           <*> pure AssuranceLevelNormal
                           <*> (InDb <$> pick arbitrary)
     newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
-    utxo   <- pick (genUtxoWithAtLeast (InitialADA 100))
+    utxo   <- pick (genUtxoWithAtLeast (InitialADA 10000))
     -- Override all the addresses of the random Utxo with something meaningful,
     -- i.e. with 'Address'(es) generated in a principled way, and not random.
     utxo' <- foldlM (\acc (txIn, (TxOutAux (TxOut _ coin))) -> do
@@ -96,7 +96,7 @@ prepareFixtures = do
                                                                (getHdAddressIx newIndex)
                         return $ M.insert txIn (TxOutAux (TxOut addr coin)) acc
                     ) M.empty (M.toList utxo)
-    payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayee utxo (PayADA 10))
+    payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayee utxo (PayLovelace 10))
 
     return $ \keystore aw -> do
         liftIO $ Keystore.insert (WalletIdHdRnd newRootId) esk keystore
@@ -164,6 +164,7 @@ spec = describe "NewPayment" $ do
                                                                  newPayment
                                   )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
+
 
     describe "Generating a new payment (kernel)" $ do
         prop "newTransaction works " $ do

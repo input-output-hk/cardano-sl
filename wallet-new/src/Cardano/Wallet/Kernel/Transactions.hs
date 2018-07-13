@@ -103,6 +103,7 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
                      succeeded <- newPending activeWallet accountId txAux
                      case succeeded of
                           Left e   -> do
+                              print (sformat build e)
                               -- If the next retry would bring us to the
                               -- end of our allowed retries, we fail with
                               -- a proper error
@@ -115,7 +116,7 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
                           Right () -> return . Right . taTx $ txAux
     where
         retryPolicy :: RetryPolicyM IO
-        retryPolicy = constantDelay 5000000 <> limitRetries 5
+        retryPolicy = constantDelay 5000000 <> limitRetries 6
 
         -- If this is a hard coin selection error we cannot recover, stop
         -- retrying.
@@ -152,7 +153,7 @@ newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId paye
     -- | FIXME(adn) This number was computed out of the work Matt Noonan did
     -- on the size estimation. See [CBR-318].
     let maxInputs = 350
-    let availableUtxo = accountUtxo snapshot accountId
+    let availableUtxo = accountAvailableUtxo snapshot accountId
     res <- flip runReaderT payees . buildPayment $
            CoinSelection.random options
                                 (liftIO genChangeAddr)

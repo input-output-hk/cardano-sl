@@ -430,7 +430,11 @@ genChainDifficulty = ChainDifficulty <$> genBlockCount
 
 genCoeff :: Gen Coeff
 genCoeff = do
-    integer <- Gen.integral (Range.constant 0 1000000000000)
+    -- A `Coeff` wraps a Nano-precision integral value, which corresponds to a
+    -- number of "Lovelace" (10^6 Lovelace == 1 ADA). The `Coeff` values used
+    -- in Cardano correspond to less than 1 ADA.
+    let exponent = 9 + 6 :: Integer
+    integer <- Gen.integral (Range.constant 0 (10^exponent))
     pure $ Coeff (MkFixed integer)
 
 genCoin :: Gen Coin

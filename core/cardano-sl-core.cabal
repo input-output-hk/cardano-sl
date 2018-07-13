@@ -274,6 +274,7 @@ test-suite test
                        Test.Pos.Core.EnumEmpTest
 
                        Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
 
   build-depends:       base

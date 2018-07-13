@@ -25,7 +25,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..),
                      UndecidedProposalState (..), UpsExtra (..))
 
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Sinbin.Arbitrary.Slotting ()
+import           Test.Pos.Core.Arbitrary.Slotting ()
 import           Test.Pos.Update.Arbitrary.Core ()
 import           Test.Pos.Util.Modifier ()
 

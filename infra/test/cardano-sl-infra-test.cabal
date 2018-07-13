@@ -30,7 +30,6 @@ library
                      , cardano-sl-crypto-test
                      , cardano-sl-infra
                      , cardano-sl-sinbin
-                     , cardano-sl-sinbin-test
                      , cardano-sl-ssc
                      , cardano-sl-ssc-test
                      , cardano-sl-update-test

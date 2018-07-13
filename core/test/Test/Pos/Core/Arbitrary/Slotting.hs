@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for Pos.Slotting types (sinbin package)
 
-module Test.Pos.Sinbin.Arbitrary.Slotting () where
+module Test.Pos.Core.Arbitrary.Slotting () where
 
 import           Universum
 

@@ -23,10 +23,10 @@ import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 
 import           Pos.Core.Common (StakeholderId)
+import           Pos.Core.Slotting (SlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionData, NumSoftwareVersion, SoftwareVersion,
                      UpId)
-import           Pos.Sinbin.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState,
                      ConfirmedProposalState, ProposalState)
 import           Pos.Util.Modifier (MapModifier)

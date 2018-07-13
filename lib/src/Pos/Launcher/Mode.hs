@@ -29,6 +29,7 @@ import qualified Control.Monad.Reader as Mtl
 import           Mockable.Production (Production)
 
 import           Pos.Core (HasConfiguration, Timestamp)
+import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
@@ -40,7 +41,6 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar,
                      currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc.Context (LrcContext)
 import           Pos.Util.Lens (postfixLFields)

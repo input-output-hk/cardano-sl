@@ -6,7 +6,7 @@
 
 -- | Core types used in 'Slotting'.
 
-module Pos.Sinbin.Slotting.Types
+module Pos.Core.Slotting.Types
        ( EpochSlottingData (..)
        , SlottingData
        , getSlottingDataMap
@@ -27,15 +27,19 @@ module Pos.Sinbin.Slotting.Types
 import           Universum hiding (keys)
 
 import           Data.Map.Strict as M
+import           Data.Semigroup (Semigroup)
 import           Data.Time.Units (Millisecond, toMicroseconds)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi)
-import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..),
-                     Timestamp (..), addTimeDiffToTimestamp, getSlotIndex)
+import           Pos.Core.Slotting.EpochIndex (EpochIndex (..))
+import           Pos.Core.Slotting.LocalSlotIndex (LocalSlotIndex (..))
+import           Pos.Core.Slotting.TimeDiff (TimeDiff (..),
+                     addTimeDiffToTimestamp)
+import           Pos.Core.Slotting.Timestamp (Timestamp (..))
+import           Pos.Util.Orphans ()
 import           Pos.Util.Util (cborError)
 
-import           Data.Semigroup (Semigroup)
 
 ----------------------------------------------------------------------------
 -- Type declarations

@@ -69,6 +69,7 @@ import           Pos.Core (BlockVersionData, CoreConfiguration (..),
                      withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
+import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
@@ -92,7 +93,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
                      getCurrentSlotInaccurateSimple,
                      getCurrentSlotInaccurateSimple', getCurrentSlotSimple,
                      getCurrentSlotSimple', mkSimpleSlottingStateVar)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)

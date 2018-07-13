@@ -42,6 +42,7 @@ import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
+import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlunds)
@@ -54,7 +55,6 @@ import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Sinbin.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)

@@ -127,6 +127,10 @@ library
                        Pos.Core.Slotting.SlotId
                        Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
+                       Pos.Core.Slotting.Class
+                       Pos.Core.Slotting.MemState
+                       Pos.Core.Slotting.Types
+                       Pos.Core.Slotting.Util
 
                        -- SSC
                        Pos.Core.Ssc.Commitment
@@ -201,6 +205,7 @@ library
                      , safecopy
                      , safe-exceptions
                      , serokell-util
+                     , stm
                      , template-haskell
                      , text
                      , formatting
@@ -269,6 +274,7 @@ test-suite test
                        Test.Pos.Core.EnumEmpTest
 
                        Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
 
   build-depends:       base

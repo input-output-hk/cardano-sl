@@ -58,12 +58,11 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      encodeListLen)
 import           Pos.Core (ChainDifficulty, Coin, HeaderHash, ScriptVersion,
                      StakeholderId, mkCoin)
-import           Pos.Core.Slotting (EpochIndex, SlotId)
+import           Pos.Core.Slotting (EpochIndex, SlotId, SlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionModifier (..), NumSoftwareVersion,
                      SoftwareVersion, UpId, UpdateProposal (..), UpdateVote)
 import           Pos.Crypto (PublicKey)
-import           Pos.Sinbin.Slotting.Types (SlottingData)
 import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------

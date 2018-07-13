@@ -5,7 +5,7 @@
 
 -- | Slotting utilities.
 
-module Pos.Sinbin.Slotting.Util
+module Pos.Core.Slotting.Util
        (
          -- * Helpers using 'MonadSlots[Data]'
          getCurrentSlotFlat
@@ -21,16 +21,20 @@ import           Universum
 
 import           Data.Time.Units (Microsecond, convertUnit)
 
-import           Pos.Core (FlatSlotId, flattenSlotId)
-import           Pos.Core.Configuration (HasProtocolConstants, epochSlots)
-import           Pos.Core.Slotting (EpochIndex, LocalSlotIndex, SlotId (..),
-                     Timestamp (..), addTimeDiffToTimestamp, mkLocalSlotIndex)
-import           Pos.Sinbin.Slotting.Class (MonadSlots (..), MonadSlotsData)
-import           Pos.Sinbin.Slotting.MemState (getSystemStartM,
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
+                     epochSlots)
+import           Pos.Core.Slotting.Class (MonadSlots (..), MonadSlotsData)
+import           Pos.Core.Slotting.EpochIndex (EpochIndex (..))
+import           Pos.Core.Slotting.LocalSlotIndex (LocalSlotIndex (..),
+                     mkLocalSlotIndex)
+import           Pos.Core.Slotting.MemState (getSystemStartM,
                      withSlottingVarAtomM)
-
-import           Pos.Sinbin.Slotting.Types (EpochSlottingData (..),
-                     SlottingData, getAllEpochIndices, lookupEpochSlottingData)
+import           Pos.Core.Slotting.SlotId (FlatSlotId, SlotId (..),
+                     flattenSlotId)
+import           Pos.Core.Slotting.TimeDiff (addTimeDiffToTimestamp)
+import           Pos.Core.Slotting.Timestamp (Timestamp (..))
+import           Pos.Core.Slotting.Types (EpochSlottingData (..), SlottingData,
+                     getAllEpochIndices, lookupEpochSlottingData)
 
 import           Pos.Util.Util (leftToPanic)
 

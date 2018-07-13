@@ -1,3 +1,3 @@
 module Test.Pos.Infra.Arbitrary.Slotting () where
 
-import           Test.Pos.Sinbin.Arbitrary.Slotting ()
+import           Test.Pos.Core.Arbitrary.Slotting ()

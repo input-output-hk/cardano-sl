@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for Pos.Slotting types (sinbin package)
 
-module Test.Pos.Sinbin.Arbitrary.Slotting () where
+module Test.Pos.Core.Arbitrary.Slotting () where
 
 import           Universum
 
@@ -10,8 +10,8 @@ import           Test.QuickCheck (Arbitrary (..), arbitrary, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Sinbin.Slotting.Types (EpochSlottingData (..),
-                     SlottingData, createInitSlottingData)
+import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
+                     createInitSlottingData)
 
 import           Test.Pos.Core.Arbitrary ()
 

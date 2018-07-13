@@ -2,7 +2,7 @@
 
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
-module Pos.Sinbin.Slotting.MemState
+module Pos.Core.Slotting.MemState
        ( withSlottingVarAtomM
        , getSystemStartM
        , getAllEpochIndicesM
@@ -11,23 +11,20 @@ module Pos.Sinbin.Slotting.MemState
        , getEpochSlottingDataM
        , putEpochSlottingDataM
        , waitCurrentEpochEqualsM
-       , module Sinbin
        ) where
 
 import           Universum
 
 import           Control.Monad.STM (retry)
 
-import           Pos.Core.Slotting (EpochIndex, Timestamp)
-import           Pos.Sinbin.Slotting.Types (EpochSlottingData, SlottingData,
+import           Pos.Core.Slotting.Class (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Core.Slotting.EpochIndex (EpochIndex)
+import           Pos.Core.Slotting.Timestamp (Timestamp (..))
+import           Pos.Core.Slotting.Types (EpochSlottingData, SlottingData,
                      getAllEpochIndices, getCurrentEpochIndex,
                      getCurrentEpochSlottingData, getNextEpochIndex,
                      getNextEpochSlottingData, insertEpochSlottingDataUnsafe,
                      lookupEpochSlottingData)
-
-import           Pos.Sinbin.Slotting.Class as Sinbin (HasSlottingVar (..),
-                     MonadSlots (..), MonadSlotsData, SlottingVar,
-                     cloneSlottingVar)
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation

@@ -24,7 +24,6 @@ packages:
 - lrc
 - lrc/test
 - sinbin
-- sinbin/test
 - infra
 - infra/test
 - ssc
@@ -211,7 +210,7 @@ packages:
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
     git: https://github.com/input-output-hk/serokell-util.git
-    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6    
+    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
   extra-dep: true
 
 nix:

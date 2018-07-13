@@ -44,6 +44,7 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
                      isRedeemAddress, largestHDAddressBoot, mkCoin)
+import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -61,8 +62,6 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
-                     MonadSlotsData)
 import           Pos.Infra.StateLock (StateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)

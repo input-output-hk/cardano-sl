@@ -27,6 +27,7 @@ import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
+import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
@@ -44,8 +45,6 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
-                     MonadSlotsData)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig, jsonLogDefault)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))

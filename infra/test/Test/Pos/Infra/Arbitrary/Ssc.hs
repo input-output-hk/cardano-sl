@@ -20,7 +20,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
-import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 
 import           Test.Pos.Ssc.Arbitrary ()

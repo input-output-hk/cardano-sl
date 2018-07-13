@@ -45,7 +45,6 @@ library
                         Pos.Infra.Slotting.Impl
                         Pos.Infra.Slotting.Impl.Simple
                         Pos.Infra.Slotting.Impl.Util
-                        Pos.Infra.Slotting.MemState
                         Pos.Infra.Slotting.Types
                         Pos.Infra.Slotting.Error
                         Pos.Infra.Slotting.Util
@@ -128,6 +127,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-networking
+                      , cardano-sl-ssc
                       , cardano-sl-sinbin
                       , cardano-sl-util
                       , cardano-report-server >= 0.4.5

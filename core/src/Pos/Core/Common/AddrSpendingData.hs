@@ -138,6 +138,6 @@ addrSpendingDataToType =
 
 -- Define these at the end of the file to avoid TH staging issues.
 deriveSafeCopySimple 0 'base ''AddrSpendingData
-deriveSafeCopySimple 0 'base ''AddrType --
+deriveSafeCopySimple 0 'base ''AddrType -- ☃
 
 

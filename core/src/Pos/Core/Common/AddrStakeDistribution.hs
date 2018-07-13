@@ -35,9 +35,9 @@ data AddrStakeDistribution
     -- has a value, portion of this value is stake). The constructor
     -- is unsafe because there are some predicates which must hold:
     --
-    --   the sum of portions must be @maxBound@ (basically 1);
-    --   all portions must be positive;
-    --   there must be at least 2 items, because if there is only one item,
+    -- • the sum of portions must be @maxBound@ (basically 1);
+    -- • all portions must be positive;
+    -- • there must be at least 2 items, because if there is only one item,
     -- 'SingleKeyDistr' can be used instead (which is smaller).
     deriving (Eq, Ord, Show, Generic, Typeable)
 

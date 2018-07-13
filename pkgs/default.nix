@@ -15219,7 +15219,6 @@ hashable
 lens
 micro-recursion-schemes
 mtl
-QuickCheck
 safe-exceptions
 safecopy
 serokell-util
@@ -15339,7 +15338,6 @@ QuickCheck
 quickcheck-instances
 safecopy
 serokell-util
-tagged
 template-haskell
 text
 universum

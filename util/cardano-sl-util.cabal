@@ -65,7 +65,6 @@ library
                      , megaparsec
                      , mtl
                      , optparse-applicative
-                     , parsec
                      , process
                      , reflection
                      , resourcet

@@ -17913,7 +17913,6 @@ license = stdenv.lib.licenses.mit;
 , megaparsec
 , mtl
 , optparse-applicative
-, parsec
 , pretty-show
 , process
 , QuickCheck
@@ -17969,7 +17968,6 @@ lrucache
 megaparsec
 mtl
 optparse-applicative
-parsec
 process
 reflection
 resourcet

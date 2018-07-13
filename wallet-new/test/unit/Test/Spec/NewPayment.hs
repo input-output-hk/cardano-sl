@@ -7,13 +7,14 @@ import           Control.Lens (to)
 
 import           Test.Hspec (Spec, describe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
+import           Test.QuickCheck (arbitrary, choose)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import qualified Data.ByteString as B
 import qualified Data.Map.Strict as M
 
 import           Data.Acid (update)
+import           Formatting (build, sformat)
 import           System.Wlog (Severity)
 import           Test.Pos.Configuration (withDefConfiguration)
 
@@ -25,6 +26,7 @@ import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genPayee, genUtxoWithAtLeast)
 
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -138,20 +140,31 @@ genChangeAddr accountId pw = do
 spec :: Spec
 spec = describe "NewPayment" $ do
 
-{--
     describe "Generating a new payment (wallet layer)" $ do
 
-        prop "works as expected in the happy path scenario" $ withMaxSuccess 200 $
+        prop "pay works (SenderPaysFee)" $ do
             monadicIO $ do
-                withFixture $ \keystore layer Fixture{..} -> do
-                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
-                    let (HdRootId hdRoot) = fixtureHdRootId
-                        (AccountIdHdRnd myAccountId) = fixtureAccountId
-                        wId = sformat build (view fromDb hdRoot)
-                        accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
-                    res <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
+                withFixture @IO $ \_ activeLayer Fixture{..} -> do
+                    let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
+                    let (HdRootId (InDb rootAddress)) = fixtureHdRootId
+                    let sourceWallet = V1.WalletId (sformat build rootAddress)
+                    let accountIndex = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+                    let destinations =
+                            fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
+                                 ) fixturePayees
+                    let newPayment = V1.Payment {
+                                     pmtSource           = V1.PaymentSource sourceWallet accountIndex
+                                   , pmtDestinations     = destinations
+                                   , pmtGroupingPolicy   = Nothing
+                                   , pmtSpendingPassword = Nothing
+                                   }
+                    res <- liftIO ((WalletLayer.pay activeLayer) mempty
+                                                                 IgnoreGrouping
+                                                                 SenderPaysFee
+                                                                 newPayment
+                                  )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
---}
+
     describe "Generating a new payment (kernel)" $ do
         prop "newTransaction works " $ do
             monadicIO $ do

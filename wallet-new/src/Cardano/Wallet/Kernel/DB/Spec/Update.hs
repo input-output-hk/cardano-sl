@@ -15,6 +15,10 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Test.QuickCheck (Arbitrary (..))
 
+import           Formatting (bprint, (%))
+import qualified Formatting.Buildable
+import           Serokell.Util (listJsonIndent)
+
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -43,6 +47,11 @@ data NewPendingFailed =
     NewPendingInputsUnavailable (Set (InDb Core.TxIn))
 
 deriveSafeCopy 1 'base ''NewPendingFailed
+
+instance Buildable NewPendingFailed where
+    build (NewPendingInputsUnavailable inputs) =
+        let curatedInputs = map (view fromDb) (Set.toList inputs)
+        in bprint ("NewPendingInputsUnavailable { inputs = " % listJsonIndent 4 % " }") curatedInputs
 
 -- NOTE(adn) Short-circuiting the rabbit-hole with this instance by generating
 -- an empty set, thus avoiding the extra dependency on @cardano-sl-core-test@.

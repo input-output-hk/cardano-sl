@@ -213,6 +213,12 @@ data NewPaymentError =
       NewPaymentError Kernel.PaymentError
     | NewPaymentTimeLimitReached TimeExecutionLimit
 
+instance Buildable NewPaymentError where
+    build (NewPaymentError kernelErr) =
+        bprint ("NewPaymentError " % build) kernelErr
+    build (NewPaymentTimeLimitReached ter) =
+        bprint ("NewPaymentTimeLimitReached " % build) ter
+
 data EstimateFeesError =
       EstimateFeesError Kernel.EstimateFeesError
     | EstimateFeesTimeLimitReached TimeExecutionLimit

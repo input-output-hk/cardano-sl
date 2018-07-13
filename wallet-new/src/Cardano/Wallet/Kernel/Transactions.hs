@@ -66,10 +66,18 @@ instance Arbitrary NewTransactionError where
 
 data PaymentError = PaymentNewTransactionError NewTransactionError
                   | PaymentNewPendingError NewPendingError
-                  | PaymentSubmissionTimeoutReached
+                  | PaymentSubmissionMaxAttemptsReached
                   -- ^ When trying to send the newly-created transaction via
                   -- 'newPending' and the submission layer, we hit the number
                   -- of retries/max time allocated for the operation.
+
+instance Buildable PaymentError where
+    build (PaymentNewTransactionError txErr) =
+        bprint ("PaymentNewTransactionError " % build) txErr
+    build (PaymentNewPendingError npe) =
+        bprint ("PaymentNewPendingError " % build) npe
+    build PaymentSubmissionMaxAttemptsReached =
+        bprint "PaymentSubmissionMaxAttemptsReached"
 
 -- | Workhorse kernel function to perform a payment. It includes logic to
 -- stop trying to perform a payment if the payment would take more than 30
@@ -101,7 +109,7 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
                               retriesLeft <- applyPolicy retryPolicy rs
                               return . Left $ case retriesLeft of
                                    Nothing ->
-                                       PaymentSubmissionTimeoutReached
+                                       PaymentSubmissionMaxAttemptsReached
                                    Just _  ->
                                        PaymentNewPendingError e
                           Right () -> return . Right . taTx $ txAux

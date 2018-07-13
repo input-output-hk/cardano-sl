@@ -7,7 +7,7 @@ import           Control.Lens (to)
 
 import           Test.Hspec (Spec, describe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, choose)
+import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import qualified Data.ByteString as B
@@ -20,7 +20,8 @@ import           Test.Pos.Configuration (withDefConfiguration)
 
 import           Pos.Core (Address, Coin, IsBootstrapEraAddr (..), TxOut (..),
                      TxOutAux (..), deriveLvl2KeyPair)
-import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
+                     ShouldCheckPassphrase (..), encToSecret,
                      safeDeterministicKeyGen)
 
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
@@ -29,9 +30,12 @@ import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
-import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (CoinSelectionOptions (..), ExpenseRegulation (..),
+
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
+                     CoinSelectionOptions (..), ExpenseRegulation (..),
                      InputGrouping (..), newOptions)
+import           Cardano.Wallet.Kernel.CoinSelection.Generic
+                     (CoinSelHardErr (..))
 import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HasSpendingPassword (..), HdAccountId (..),
@@ -72,8 +76,10 @@ data Fixture = Fixture {
 -- | Prepare some fixtures using the 'PropertyM' context to prepare the data,
 -- and execute the 'acid-state' update once the 'PassiveWallet' gets into
 -- scope (after the bracket initialisation).
-prepareFixtures :: PropertyM IO (Keystore -> ActiveWallet -> IO Fixture)
-prepareFixtures = do
+prepareFixtures :: InitialBalance
+                -> Pay
+                -> PropertyM IO (Keystore -> ActiveWallet -> IO Fixture)
+prepareFixtures initialBalance toPay = do
     let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
     let newRootId = eskToHdRootId esk
     newRoot <- initHdRoot <$> pure newRootId
@@ -82,7 +88,7 @@ prepareFixtures = do
                           <*> pure AssuranceLevelNormal
                           <*> (InDb <$> pick arbitrary)
     newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
-    utxo   <- pick (genUtxoWithAtLeast (InitialADA 10000))
+    utxo   <- pick (genUtxoWithAtLeast initialBalance)
     -- Override all the addresses of the random Utxo with something meaningful,
     -- i.e. with 'Address'(es) generated in a principled way, and not random.
     utxo' <- foldlM (\acc (txIn, (TxOutAux (TxOut _ coin))) -> do
@@ -96,7 +102,7 @@ prepareFixtures = do
                                                                (getHdAddressIx newIndex)
                         return $ M.insert txIn (TxOutAux (TxOut addr coin)) acc
                     ) M.empty (M.toList utxo)
-    payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayee utxo (PayLovelace 10))
+    payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayee utxo toPay)
 
     return $ \keystore aw -> do
         liftIO $ Keystore.insert (WalletIdHdRnd newRootId) esk keystore
@@ -115,9 +121,11 @@ prepareFixtures = do
                          }
 
 withFixture :: MonadIO m
-            => (Keystore.Keystore -> ActiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
-withFixture cc = do
-    generateFixtures <- prepareFixtures
+            => InitialBalance
+            -> Pay
+            -> (Keystore.Keystore -> ActiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
+withFixture initialBalance toPay cc = do
+    generateFixtures <- prepareFixtures initialBalance toPay
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
         WalletLayer.bracketKernelPassiveWallet devNull keystore $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \pm -> do
@@ -137,14 +145,21 @@ genChangeAddr accountId pw = do
          Right addr -> pure addr
          Left err   -> throwM err
 
+fakeSigner :: PassPhrase
+           -> Maybe EncryptedSecretKey
+           -> Address
+           -> Either CoinSelHardErr SafeSigner
+fakeSigner _ Nothing addr    = Left (CoinSelHardErrAddressNotOwned (Proxy @ Cardano) addr)
+fakeSigner _ (Just esk) _    = Right (FakeSigner (encToSecret esk))
+
 spec :: Spec
 spec = describe "NewPayment" $ do
 
     describe "Generating a new payment (wallet layer)" $ do
 
-        prop "pay works (SenderPaysFee)" $ do
-            monadicIO $ do
-                withFixture @IO $ \_ activeLayer Fixture{..} -> do
+        prop "pay works (realSigner, SenderPaysFee)" $ withMaxSuccess 50 $ do
+            monadicIO $
+                withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ activeLayer Fixture{..} -> do
                     let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
                     let (HdRootId (InDb rootAddress)) = fixtureHdRootId
                     let sourceWallet = V1.WalletId (sformat build rootAddress)
@@ -165,11 +180,10 @@ spec = describe "NewPayment" $ do
                                   )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
-
     describe "Generating a new payment (kernel)" $ do
-        prop "newTransaction works " $ do
-            monadicIO $ do
-                withFixture @IO $ \_ _ Fixture{..} -> do
+        prop "newTransaction works (real signer, SenderPaysFee)" $ withMaxSuccess 50 $ do
+            monadicIO $
+                withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ _ Fixture{..} -> do
                     allWallets <- Kernel.hdWallets <$> Kernel.getWalletSnapshot fixturePw
                     let opts = (newOptions Kernel.cardanoFee) {
                                csoExpenseRegulation = SenderPaysFee
@@ -179,6 +193,24 @@ spec = describe "NewPayment" $ do
                     res <- liftIO (Kernel.newTransaction fixtureAw
                                                          (genChangeAddr fixtureAccountId fixturePw)
                                                          (Kernel.mkSigner mempty (Just fixtureESK) allWallets)
+                                                         opts
+                                                         hdAccountId
+                                                         fixturePayees
+                                  )
+                    liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
+
+        prop "newTransaction works (fake signer, ReceiverPaysFee)" $ withMaxSuccess 50 $ do
+            monadicIO $
+                withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                    allWallets <- Kernel.hdWallets <$> Kernel.getWalletSnapshot fixturePw
+                    let opts = (newOptions Kernel.cardanoFee) {
+                               csoExpenseRegulation = ReceiverPaysFee
+                             , csoInputGrouping     = IgnoreGrouping
+                             }
+                    let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+                    res <- liftIO (Kernel.newTransaction fixtureAw
+                                                         (genChangeAddr fixtureAccountId fixturePw)
+                                                         (fakeSigner mempty (Just fixtureESK))
                                                          opts
                                                          hdAccountId
                                                          fixturePayees

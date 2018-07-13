@@ -119,8 +119,9 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
         retryPolicy = constantDelay 5000000 <> limitRetries 6
 
         -- If this is a hard coin selection error we cannot recover, stop
-        -- retrying.
+        -- retrying. If we get a 'Tx' as output, stop retrying immediately.
         shouldRetry :: RetryStatus -> Either PaymentError Tx -> IO Bool
+        shouldRetry _ (Right _)                             = return False
         shouldRetry _ (Left (PaymentNewTransactionError _)) = return False
         shouldRetry _ _                                     = return True
 

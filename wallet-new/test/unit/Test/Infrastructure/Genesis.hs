@@ -22,6 +22,9 @@ data GenesisValues h = GenesisValues {
       -- | Initial balance of rich actor 0
       initR0   :: Value
 
+      -- | Initial balance of rich actor 1
+    , initR1   :: Value
+
       -- | Address of rich actor 0
     , r0       :: Addr
 
@@ -43,6 +46,7 @@ genesisValues :: (Hash h Addr) => TxSizeLinear -> Transaction h Addr -> GenesisV
 genesisValues txSizeLinear boot@Transaction{..} = GenesisValues{..}
   where
     initR0 = unsafeHead [val | Output a val <- trOuts, a == r0]
+    initR1 = unsafeHead [val | Output a val <- trOuts, a == r1]
 
       --11137499999752500
 

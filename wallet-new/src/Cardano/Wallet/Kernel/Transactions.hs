@@ -190,6 +190,10 @@ instance MonadRandom PayMonad where
 
 data EstimateFeesError = EstFeesTxCreationFailed NewTransactionError
 
+instance Buildable EstimateFeesError where
+    build (EstFeesTxCreationFailed newTxErr) =
+        bprint ("EstFeesTxCreationFailed " % build) newTxErr
+
 instance Arbitrary EstimateFeesError where
     arbitrary = EstFeesTxCreationFailed <$> arbitrary
 
@@ -213,8 +217,9 @@ estimateFees activeWallet@ActiveWallet{..} genChangeAddr signAddress options acc
     case res of
          Left e  -> return . Left . EstFeesTxCreationFailed $ e
          Right tx -> -- calculate the fee as the difference between inputs and outputs.
-             -- NOTE(adn) Do we need to worry about the 'ExpenseRegulation'
-             -- affecting the way we sum?
+             -- NOTE(adn) Apparently we shouldn't worry about the 'ExpenseRegulation'
+             -- affecting the way we sum, as no matter who pays for the fee,
+             -- the final difference won't be affected.
              return $ Right
                     $ sumOfInputs tx originalUtxo `unsafeSubCoin` sumOfOutputs tx
   where

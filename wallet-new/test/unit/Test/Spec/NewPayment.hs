@@ -5,7 +5,7 @@ import           Universum
 
 import           Control.Lens (to)
 
-import           Test.Hspec (Spec, describe, shouldSatisfy)
+import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
@@ -14,12 +14,12 @@ import qualified Data.ByteString as B
 import qualified Data.Map.Strict as M
 
 import           Data.Acid (update)
-import           Formatting (build, sformat)
+import           Formatting (build, formatToString, sformat)
 import           System.Wlog (Severity)
 import           Test.Pos.Configuration (withDefConfiguration)
 
-import           Pos.Core (Address, Coin, IsBootstrapEraAddr (..), TxOut (..),
-                     TxOutAux (..), deriveLvl2KeyPair)
+import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
+                     TxOut (..), TxOutAux (..), deriveLvl2KeyPair, mkCoin)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
                      ShouldCheckPassphrase (..), encToSecret,
                      safeDeterministicKeyGen)
@@ -152,6 +152,9 @@ fakeSigner :: PassPhrase
 fakeSigner _ Nothing addr    = Left (CoinSelHardErrAddressNotOwned (Proxy @ Cardano) addr)
 fakeSigner _ (Just esk) _    = Right (FakeSigner (encToSecret esk))
 
+constantFee :: Int -> NonEmpty Coin -> Coin
+constantFee _ _ = mkCoin 10
+
 spec :: Spec
 spec = describe "NewPayment" $ do
 
@@ -216,6 +219,101 @@ spec = describe "NewPayment" $ do
                                                          fixturePayees
                                   )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
+
+    describe "EstimateFees" $ do
+
+        describe "Estimating fees (wallet layer)" $ do
+
+            prop "estimating fees works (SenderPaysFee)" $ withMaxSuccess 50 $ do
+                monadicIO $
+                    withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ activeLayer Fixture{..} -> do
+                        let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
+                        let (HdRootId (InDb rootAddress)) = fixtureHdRootId
+                        let sourceWallet = V1.WalletId (sformat build rootAddress)
+                        let accountIndex = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+                        let destinations =
+                                fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
+                                     ) fixturePayees
+                        let newPayment = V1.Payment {
+                                         pmtSource           = V1.PaymentSource sourceWallet accountIndex
+                                       , pmtDestinations     = destinations
+                                       , pmtGroupingPolicy   = Nothing
+                                       , pmtSpendingPassword = Nothing
+                                       }
+                        res <- liftIO ((WalletLayer.estimateFees activeLayer) mempty
+                                                                              IgnoreGrouping
+                                                                              SenderPaysFee
+                                                                              newPayment
+                                      )
+                        case res of
+                             Left e  -> fail (formatToString build e)
+                             Right (V1.EstimatedFees (V1.V1 fee)) ->
+                                 fee `shouldSatisfy` (> (Coin 0))
+
+        describe "Estimating fees (kernel)" $ do
+            prop "estimating fees works (SenderPaysFee)" $ withMaxSuccess 50 $
+                monadicIO $
+                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                        let opts = (newOptions constantFee) {
+                                   csoExpenseRegulation = SenderPaysFee
+                                 , csoInputGrouping     = IgnoreGrouping
+                                 }
+                        let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+
+                        res <- liftIO (Kernel.estimateFees fixtureAw
+                                                           (genChangeAddr fixtureAccountId fixturePw)
+                                                           (fakeSigner mempty (Just fixtureESK))
+                                                           opts
+                                                           hdAccountId
+                                                           fixturePayees
+                                      )
+
+                        case res of
+                             Left e  -> fail (formatToString build e)
+                             Right x -> x `shouldBe` Coin 10
+
+            prop "estimating fees works (kernel, ReceiverPaysFee)" $ withMaxSuccess 50 $
+                monadicIO $
+                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                        let opts = (newOptions constantFee) {
+                                   csoExpenseRegulation = SenderPaysFee
+                                 , csoInputGrouping     = IgnoreGrouping
+                                 }
+                        let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+
+                        res <- liftIO (Kernel.estimateFees fixtureAw
+                                                           (genChangeAddr fixtureAccountId fixturePw)
+                                                           (fakeSigner mempty (Just fixtureESK))
+                                                           opts
+                                                           hdAccountId
+                                                           fixturePayees
+                                      )
+
+                        case res of
+                             Left e  -> fail (formatToString build e)
+                             Right x -> x `shouldBe` Coin 10
+
+            prop "estimating fees works (kernel, SenderPaysFee, cardanoFee)" $ withMaxSuccess 50 $
+                monadicIO $
+                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                        let opts = (newOptions Kernel.cardanoFee) {
+                                   csoExpenseRegulation = SenderPaysFee
+                                 , csoInputGrouping     = IgnoreGrouping
+                                 }
+                        let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+
+                        res <- liftIO (Kernel.estimateFees fixtureAw
+                                                           (genChangeAddr fixtureAccountId fixturePw)
+                                                           (fakeSigner mempty (Just fixtureESK))
+                                                           opts
+                                                           hdAccountId
+                                                           fixturePayees
+                                      )
+
+                        case res of
+                             Left e  -> fail (formatToString build e)
+                             Right x -> x `shouldSatisfy` (> (Coin 0))
+
 {--
     describe "Generating a new payment (Servant)" $ do
         prop "works as expected in the happy path scenario" $ do

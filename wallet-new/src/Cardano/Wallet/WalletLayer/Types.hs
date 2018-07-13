@@ -223,6 +223,12 @@ data EstimateFeesError =
       EstimateFeesError Kernel.EstimateFeesError
     | EstimateFeesTimeLimitReached TimeExecutionLimit
 
+instance Buildable EstimateFeesError where
+    build (EstimateFeesError kernelErr) =
+        bprint ("EstimateFeesError " % build) kernelErr
+    build (EstimateFeesTimeLimitReached ter) =
+        bprint ("EstimateFeesTimeLimitReached " % build) ter
+
 instance Arbitrary EstimateFeesError where
     arbitrary = oneof [ EstimateFeesError <$> arbitrary
                       , EstimateFeesTimeLimitReached <$> arbitrary

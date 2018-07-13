@@ -35,7 +35,7 @@ import qualified Data.DList as DList
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState,
                      sscGlobal, sscLocal)
 import           Pos.Util.Trace (traceWith)
-import           Pos.Util.Trace.Named (TraceNamed, LogNamed, LogItem)
+import           Pos.Util.Trace.Named (LogItem, LogNamed, TraceNamed)
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------

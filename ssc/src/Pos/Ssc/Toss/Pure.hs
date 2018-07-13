@@ -34,7 +34,7 @@ import           Pos.Ssc.Types (SscGlobalState, sgsCommitments, sgsOpenings,
                      sgsShares, sgsVssCertificates)
 import qualified Pos.Ssc.VssCertData as VCD
 import           Pos.Util.Trace (Trace, natTrace, traceWith)
-import           Pos.Util.Trace.Named (TraceNamed, LogNamed, LogItem)
+import           Pos.Util.Trace.Named (LogItem, LogNamed, TraceNamed)
 import           Pos.Util.Trace.Writer (writerTrace)
 
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes

@@ -32,6 +32,7 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent,
                      BlockScenario' (..), SnapshotId, SnapshotOperation (..),
                      beaInput, beaOutValid, berInput, berOutValid)
 import           Pos.Txp (MonadTxpLocal)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (eitherToThrow, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,
@@ -66,7 +67,7 @@ verifyAndApplyBlocks' ::
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic True blocks
+            verifyAndApplyBlocks noTrace dummyProtocolMagic True blocks
         return ()
   where
     blocks = fst <$> blunds

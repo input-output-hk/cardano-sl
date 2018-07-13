@@ -58,7 +58,8 @@ import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 --import           Pos.Util.Trace (noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
+                     logWarning)
 import           Pos.Util.Util (HasLens (..))
 import qualified System.Metrics.Counter as Metrics
 import           UnliftIO (MonadUnliftIO)

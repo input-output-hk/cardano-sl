@@ -48,7 +48,8 @@ import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
                      addrParserNoWildcard, addressToNodeId)
-import           Pos.Util.Trace.Named (TraceNamed, appendName, logError, logNotice)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
+                     logNotice)
 import           Serokell.Util.OptParse (fromParsec)
 
 #ifdef POSIX

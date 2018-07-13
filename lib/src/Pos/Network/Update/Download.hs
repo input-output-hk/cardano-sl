@@ -39,7 +39,8 @@ import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Concurrent (withMVar)
 import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
+                     logWarning)
 import           Pos.Util.Util (HasLens (..), (<//>))
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.

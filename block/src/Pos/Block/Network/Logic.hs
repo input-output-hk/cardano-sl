@@ -58,7 +58,8 @@ import           Pos.Sinbin.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Trace (noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
+                     logWarning)
 import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------

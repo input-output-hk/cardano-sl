@@ -29,8 +29,8 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic.Local (processProposal, processVote)
 import           Pos.Update.Params (UpdateParams)
-import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Trace.Named (TraceNamed, logNotice, logWarning)
+import           Pos.Util.Util (HasLens (..))
 
 
 type UpdateMode ctx m

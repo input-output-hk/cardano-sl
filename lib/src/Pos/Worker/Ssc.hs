@@ -41,7 +41,7 @@ import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
-                     getCurrentSlot, getSlotStartEmpatically, {-onNewSlot,-}
+                     getCurrentSlot, getSlotStartEmpatically,
                      onNewSlotNoLogging)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)

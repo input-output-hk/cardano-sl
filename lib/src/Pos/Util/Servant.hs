@@ -58,7 +58,7 @@ import           Universum hiding (id)
 
 --import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
-import           Control.Monad.Except (ExceptT (..) {-, MonadError (..)-})
+import           Control.Monad.Except (ExceptT (..))
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
@@ -66,24 +66,24 @@ import           Data.Default (Default (..))
 --import qualified Data.Text as T
 import qualified Data.Text.Buildable
 --import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Formatting (bprint, build, builder, {-fconst,-} formatToString,
-                     sformat, {-shown,-} stext, string, (%))
+import           Formatting (bprint, build, builder, formatToString, sformat,
+                     stext, string, (%))
 --import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           Pos.Util.Log (LoggerName)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
-import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
-                              {-ReflectMethod (..),-} ReqBody, Summary, Verb)
+import           Servant.API ((:<|>) (..), (:>), Capture, Description,
+                     QueryParam, ReqBody, Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
                      Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
-import           Pos.Util.Log (LoggerName {-, LoggerNameBox, usingLoggerName-})
 
-import           Pos.Util.Log.LogSafe (SecureLog, BuildableSafe, SecuredText,
-                     buildSafe {-,logInfoSP, plainOrSecureF, secretOnlyF-})
+import           Pos.Util.Log.LogSafe (BuildableSafe, SecureLog, SecuredText,
+                     buildSafe)
 
 -------------------------------------------------------------------------
 -- Utility functions

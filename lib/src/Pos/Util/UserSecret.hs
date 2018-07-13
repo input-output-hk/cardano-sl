@@ -55,7 +55,7 @@ import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 
 #ifdef POSIX
-import           Pos.Util.Trace.Named (TraceNamed, logWarning, logInfo)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo, logWarning)
 #else
 import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 #endif

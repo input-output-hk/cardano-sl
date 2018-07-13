@@ -28,6 +28,10 @@ import           Mockable (Async, Channel, ChannelT, Concurrently,
 import qualified Mockable.Metrics as Metrics
 import           UnliftIO (MonadUnliftIO)
 
+import qualified Katip.Monadic as KM
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+
 newtype ClockVar = ClockVar (IORef Microsecond)
 
 newtype Emulation a = Emulation { unEmulation :: ReaderT ClockVar IO a }
@@ -126,11 +130,14 @@ liftMockableProduction ::
     => d Emulation t
     -> Emulation t
 liftMockableProduction dmt =
-    Emulation . ReaderT $ \r ->
-        runProduction $ liftMockable $ hoist' (hoistF r) dmt
+    Emulation . ReaderT $ \r -> do
+        lh <- Log.setupLogging (defaultTestConfiguration Log.Debug)
+        Log.usingLoggerName lh "liftMockableProduction" $
+            runProduction $ liftMockable $ hoist' (hoistF r) dmt
   where
     hoistF :: ClockVar -> Emulation a -> Production a
-    hoistF ctx = Production . usingReaderT ctx . unEmulation
+    hoistF ctx emul = Production $ KM.KatipContextT $ ReaderT $ const $
+                          usingReaderT ctx $ unEmulation emul
 
 ----------------------------------------------------------------------------
 -- Metrics, SharedExclusive and other stuff // life is hard

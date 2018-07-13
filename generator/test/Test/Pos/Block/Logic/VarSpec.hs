@@ -38,6 +38,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                      DbNotEquivalentToSnapshot (..), runBlockScenario)
@@ -94,7 +95,7 @@ verifyEmptyMainBlock = do
     emptyBlock <- fst <$> bpGenBlock dummyProtocolMagic
                                      (EnableTxPayload False)
                                      (InplaceDB False)
-    whenLeftM (lift $ verifyBlocksPrefix dummyProtocolMagic (one emptyBlock))
+    whenLeftM (lift $ verifyBlocksPrefix noTrace dummyProtocolMagic (one emptyBlock))
         $ stopProperty
         . pretty
 
@@ -113,6 +114,7 @@ verifyValidBlocks = do
                 let (otherBlocks', _) = span isRight otherBlocks
                 in  block0 :| otherBlocks'
     verRes <- lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix
+        noTrace
         dummyProtocolMagic
         blocksToVerify
     whenLeft verRes $ stopProperty . pretty
@@ -129,7 +131,7 @@ verifyAndApplyBlocksSpec =
     applier blunds =
         let blocks = map fst blunds
         in satisfySlotCheck blocks $
-           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic True blocks) throwM
+           whenLeftM (verifyAndApplyBlocks noTrace dummyProtocolMagic True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>
@@ -277,7 +279,8 @@ blockPropertyScenarioGen m = do
     allSecrets <- getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ flip evalRandT g $ runBlockEventGenT dummyProtocolMagic
+    lift $ flip evalRandT g $ runBlockEventGenT noTrace
+                                                dummyProtocolMagic
                                                 allSecrets
                                                 genStakeholders
                                                 m

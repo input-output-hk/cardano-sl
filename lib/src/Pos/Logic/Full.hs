@@ -48,11 +48,11 @@ import qualified Pos.Recovery as Recovery
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Security.Util (shouldIgnorePkAddress)
+import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
 import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate,
                      sscProcessCommitment, sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.Mem (sscRunLocalQuery)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
 import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
                      tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.Types (ldModifier)

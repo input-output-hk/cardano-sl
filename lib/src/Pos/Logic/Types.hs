@@ -28,7 +28,7 @@ import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
                      UpdateVote, VoteId)
 import           Pos.DB.Class (SerializedBlock)
 import           Pos.Security.Params (SecurityParams (..))
-import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
+import           Pos.Sinbin.Ssc.Message (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 
 -- | The interface to a logic layer, i.e. some component which encapsulates

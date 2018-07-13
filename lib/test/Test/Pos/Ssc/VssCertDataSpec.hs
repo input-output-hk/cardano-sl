@@ -31,7 +31,7 @@ import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty,
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Ssc.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
 spec :: Spec

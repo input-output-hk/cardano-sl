@@ -22,7 +22,6 @@ library
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-util-test
                      , generic-arbitrary

@@ -41,7 +41,6 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-sinbin

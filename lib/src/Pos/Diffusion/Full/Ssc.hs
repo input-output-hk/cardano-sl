@@ -31,7 +31,7 @@ import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg,
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 import           Pos.Util.Trace (Severity, Trace)
 

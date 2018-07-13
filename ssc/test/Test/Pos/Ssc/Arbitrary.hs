@@ -46,7 +46,6 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
                      mkCommitmentsMap, randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic,
                      randomNumberInRange, toVssPublicKey, vssKeyGen)
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import           Pos.Ssc.Base (isCommitmentIdExplicit, isOpeningIdExplicit,
                      isSharesIdExplicit, mkSignedCommitment)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
@@ -260,21 +259,5 @@ instance Arbitrary MCShares where
     shrink = genericShrink
 
 instance Arbitrary MCVssCertificate where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary (DataMsg MCCommitment) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary (DataMsg MCOpening) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary (DataMsg MCShares) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink

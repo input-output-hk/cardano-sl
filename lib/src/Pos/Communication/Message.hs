@@ -18,7 +18,7 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
                      InvOrData, MempoolMsg, ReqMsg, ReqOrRes)
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
-import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
+import           Pos.Sinbin.Ssc.Message (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 
 -- Why?

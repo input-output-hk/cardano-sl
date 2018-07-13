@@ -74,7 +74,7 @@ import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),
 import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
                      MsgGetHeaders (..), MsgHeaders (..), MsgStream (..),
                      MsgStreamBlock (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Sinbin.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 
 import           Pos.Core.Chrono (NewestFirst (..))

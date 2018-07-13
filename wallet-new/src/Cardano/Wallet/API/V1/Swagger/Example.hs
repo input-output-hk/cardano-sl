@@ -2,22 +2,22 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
-
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Data.Default (Default (def))
+import qualified Data.Map.Strict as Map
 import           Node (NodeId (..))
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
+
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
+import qualified Pos.Core.Common as Core
+import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 
-import qualified Data.Map.Strict as Map
-import qualified Pos.Core.Common as Core
-import qualified Pos.Crypto.Signing as Core
+import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 
 
 class Arbitrary a => Example a where

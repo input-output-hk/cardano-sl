@@ -45,6 +45,7 @@ packages:
 - node
 - tools
 - wallet
+- wallet/test
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
 - acid-state-exts
@@ -211,7 +212,7 @@ packages:
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
     git: https://github.com/input-output-hk/serokell-util.git
-    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6    
+    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
   extra-dep: true
 
 nix:

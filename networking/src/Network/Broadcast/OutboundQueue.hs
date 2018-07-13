@@ -91,12 +91,11 @@ import           Control.Lens
 import           Control.Monad
 import           Data.Either (rights)
 import           Data.Foldable (fold)
-import           Data.List (intercalate, sortBy)
+import           Data.List (intercalate, sortOn)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import           Data.Monoid ((<>))
-import           Data.Ord (comparing)
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Text (Text)
@@ -162,19 +161,12 @@ newtype MaxAhead = MaxAhead Int
 data Enqueue =
     -- | For /all/ forwarding sets of the specified node type, chose /one/
     -- alternative to send the message to
-    EnqueueAll {
-        enqNodeType   :: NodeType
-      , enqMaxAhead   :: MaxAhead
-      , enqPrecedence :: Precedence
-      }
-
+    --EnqueueAll enqNodeType enqMaxAhead enqPrecedence
+    EnqueueAll !NodeType !MaxAhead !Precedence
     -- | Choose /one/ alternative of /one/ forwarding set of any of the
     -- specified node types (listed in order of preference)
-  | EnqueueOne {
-        enqNodeTypes  :: [NodeType]
-      , enqMaxAhead   :: MaxAhead
-      , enqPrecedence :: Precedence
-      }
+    -- EnqueueOne enqNodeTypes enqMaxAhead enqPrecedence
+  | EnqueueOne ![NodeType] !MaxAhead !Precedence
   deriving (Show)
 
 -- | The enqueuing policy
@@ -739,7 +731,7 @@ intEnqueue :: forall msg nid buck a.
 intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
     forM (qEnqueuePolicy msgType) $ \case
 
-      enq@EnqueueAll{..} -> do
+      enq@(EnqueueAll enqNodeType enqMaxAhead enqPrecedence) -> do
         let fwdSets :: AllOf (Alts nid)
             fwdSets = removeOrigin (msgOrigin msgType) $
                         peersRoutes peers ^. routesOfType enqNodeType
@@ -771,7 +763,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
         return enqueued
 
-      enq@EnqueueOne{..} -> do
+      enq@(EnqueueOne enqNodeTypes enqMaxAhead enqPrecedence) -> do
         let fwdSets :: [(NodeType, Alts nid)]
             fwdSets = concatMap
                         (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $
@@ -886,7 +878,7 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
                return Nothing
            | otherwise -> do
                return $ Just nstatsId
-      | NodeWithStats{..} <- sortBy (comparing ((+) <$> nstatsAhead <*> nstatsInFlight)) alts'
+      | NodeWithStats{..} <- sortOn ((+) <$> nstatsAhead <*> nstatsInFlight) alts'
       ]
   where
     debugFailure :: nid -> Text
@@ -1269,7 +1261,7 @@ cherish outQ act =
     maxNumIterations = 4
 
 successes :: [(nid, Maybe (Either SomeException a))] -> [a]
-successes = rights . mapMaybe id . map snd
+successes = rights . mapMaybe snd
 
 {-------------------------------------------------------------------------------
   Dequeue thread

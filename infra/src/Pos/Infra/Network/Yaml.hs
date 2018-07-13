@@ -465,22 +465,14 @@ instance FromJSON OQ.Enqueue where
             nodeType   <- obj .: "nodeType"
             maxAhead   <- obj .: "maxAhead"
             precedence <- obj .: "precedence"
-            return $ OQ.EnqueueAll {
-                  enqNodeType   = nodeType
-                , enqMaxAhead   = maxAhead
-                , enqPrecedence = precedence
-                }
+            return $ OQ.EnqueueAll nodeType maxAhead precedence
 
         parseEnqueueOne :: A.Object -> A.Parser OQ.Enqueue
         parseEnqueueOne obj = do
             nodeTypes  <- obj .: "nodeTypes"
             maxAhead   <- obj .: "maxAhead"
             precedence <- obj .: "precedence"
-            return $ OQ.EnqueueOne {
-                  enqNodeTypes  = nodeTypes
-                , enqMaxAhead   = maxAhead
-                , enqPrecedence = precedence
-                }
+            return $ OQ.EnqueueOne nodeTypes maxAhead precedence
 
 instance FromJSON OQ.Dequeue where
     parseJSON = A.withObject "Dequeue" $ \obj -> do

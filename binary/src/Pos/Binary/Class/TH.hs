@@ -505,9 +505,8 @@ deriveSimpleBiInternal predsMB headTy constrs = do
     encodedSizeExprConstr :: Int -> Cons -> Q Exp
     encodedSizeExprConstr _ (Cons _ cFields) = do
       let fields = mapM encodedSizeExprField cFields
-          --count = length cFields + (if length filteredConstrs > 1 then 1 else 0)
-          extraBytes = 2 -- error "MN TODO"
-      [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |] -- MN TODO: also add length and, when needed, Word8 tag
+          extraBytes = 2
+      [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |]
 
     encodedSizeExprField :: Field -> Q Exp
     encodedSizeExprField Field{..} = do

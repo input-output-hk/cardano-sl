@@ -1009,5 +1009,3 @@ szForce = cata $ \case
 
 szBounds :: Bi a => a -> Either Size (Range Byte)
 szBounds = szSimplify . szGreedy . pure
-
---szBoundsWithLength :: Bi a => Size -> a -> Bool

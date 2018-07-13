@@ -73,7 +73,7 @@ checkCoin (Coin c)
 coinF :: Format r (Coin -> r)
 coinF = build
 
--- | Unwraps 'Coin'. It's called  unsafe  so that people wouldn't use it
+-- | Unwraps 'Coin'. It's called “unsafe” so that people wouldn't use it
 -- willy-nilly if they want to sum coins or something. It's actually safe.
 unsafeGetCoin :: Coin -> Word64
 unsafeGetCoin = getCoin

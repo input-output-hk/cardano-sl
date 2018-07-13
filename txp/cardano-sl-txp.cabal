@@ -91,7 +91,6 @@ library
                      , serokell-util
                      , stm
                      , reflection
-                     , tagged
                      , template-haskell
                      , text
                      , formatting

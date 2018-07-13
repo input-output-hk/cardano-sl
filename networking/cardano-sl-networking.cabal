@@ -86,7 +86,6 @@ Library
                       , universum
                       , unliftio-core
                       , safe-exceptions
-                      , serokell-util
                       , stm
                       , text
                       , formatting

@@ -73,7 +73,6 @@ library
                       , lens
                       , log-warper
                       , mtl
-                      , random
                       , reflection
                       , rocksdb-haskell-ng
                       , pipes
@@ -192,14 +191,11 @@ benchmark bench-block
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
                      , cardano-sl-delegation-test
-                     , cardano-sl-ssc
                      , cardano-sl-ssc-test
-                     , cardano-sl-txp-test
                      , cardano-sl-update-test
                      , deepseq
                      , formatting
                      , generic-arbitrary
                      , random
                      , text
-                     , text-format
                      , universum

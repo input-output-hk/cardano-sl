@@ -439,9 +439,9 @@ test-suite wallet-unit-tests
                       UndecidableInstances
   hs-source-dirs:     server test/unit
 
-  build-depends:      base
+  build-depends:      acid-state
+                    , base
                     , bytestring
-                    , acid-state
                     , cardano-sl
                     , cardano-sl-block
                     , cardano-sl-client
@@ -453,7 +453,6 @@ test-suite wallet-unit-tests
                     , cardano-sl-lrc
                     , cardano-sl-ssc
                     , cardano-sl-txp
-                    , cardano-sl-txp-test
                     , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet-new
@@ -586,7 +585,6 @@ benchmark cardano-sl-wallet-new-bench
 
   type:                exitcode-stdio-1.0
   build-depends:       aeson
-                     , aeson-options
                      , async
                      , base
                      , bytestring

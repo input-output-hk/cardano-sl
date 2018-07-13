@@ -39,7 +39,6 @@ library
                      , safecopy
                      , template-haskell
                      , text
-                     , tagged
                      , universum
 
   default-language:    Haskell2010

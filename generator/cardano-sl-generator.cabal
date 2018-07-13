@@ -50,7 +50,6 @@ library
                      , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-ssc
-                     , cardano-sl-ssc-test
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util

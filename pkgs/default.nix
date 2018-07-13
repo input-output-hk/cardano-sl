@@ -15285,7 +15285,6 @@ license = stdenv.lib.licenses.mit;
 , quickcheck-instances
 , safecopy
 , stdenv
-, tagged
 , template-haskell
 , text
 , universum
@@ -15320,7 +15319,6 @@ pretty-show
 QuickCheck
 quickcheck-instances
 safecopy
-tagged
 template-haskell
 text
 universum
@@ -15355,7 +15353,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-ssc
 , cardano-sl-ssc-test
 , cardano-sl-txp
-, cardano-sl-txp-test
 , cardano-sl-update
 , cardano-sl-update-test
 , cardano-sl-util
@@ -15388,7 +15385,6 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , text
-, text-format
 , time-units
 , transformers
 , universum
@@ -15438,7 +15434,6 @@ lens
 log-warper
 mtl
 pipes
-random
 reflection
 rocksdb-haskell-ng
 safe-exceptions
@@ -15486,9 +15481,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-delegation-test
-cardano-sl-ssc
 cardano-sl-ssc-test
-cardano-sl-txp-test
 cardano-sl-update-test
 criterion
 deepseq
@@ -15497,7 +15490,6 @@ generic-arbitrary
 QuickCheck
 random
 text
-text-format
 universum
 ];
 doHaddock = false;
@@ -16150,7 +16142,6 @@ license = stdenv.lib.licenses.mit;
 , serokell-util
 , stdenv
 , time
-, time-units
 , transformers
 , universum
 , unliftio
@@ -16192,7 +16183,6 @@ rocksdb-haskell-ng
 safe-exceptions
 serokell-util
 time
-time-units
 transformers
 universum
 unliftio
@@ -16402,7 +16392,6 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-update
 cardano-sl-util
 lens
 log-warper
@@ -16537,7 +16526,6 @@ cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
 cardano-sl-ssc
-cardano-sl-ssc-test
 cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
@@ -16992,7 +16980,6 @@ network-transport-tcp
 random
 resourcet
 safe-exceptions
-serokell-util
 stm
 text
 time
@@ -17061,7 +17048,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-ssc
-, cardano-sl-update
 , cardano-sl-util
 , cpphs
 , log-warper
@@ -17087,7 +17073,6 @@ cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-ssc
-cardano-sl-update
 cardano-sl-util
 log-warper
 universum
@@ -17322,11 +17307,9 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , data-default
-, ekg-core
 , ether
 , exceptions
 , formatting
-, generic-arbitrary
 , lens
 , log-warper
 , memory
@@ -17334,7 +17317,6 @@ license = stdenv.lib.licenses.mit;
 , mono-traversable
 , mtl
 , parsec
-, QuickCheck
 , reflection
 , rocksdb-haskell-ng
 , serokell-util
@@ -17374,11 +17356,9 @@ cardano-sl-util
 containers
 cryptonite
 data-default
-ekg-core
 ether
 exceptions
 formatting
-generic-arbitrary
 lens
 log-warper
 memory
@@ -17386,7 +17366,6 @@ mmorph
 mono-traversable
 mtl
 parsec
-QuickCheck
 reflection
 rocksdb-haskell-ng
 serokell-util
@@ -17668,7 +17647,6 @@ license = stdenv.lib.licenses.mit;
 , serokell-util
 , stdenv
 , stm
-, tagged
 , template-haskell
 , text
 , transformers
@@ -17722,7 +17700,6 @@ rocksdb-haskell-ng
 safe-exceptions
 serokell-util
 stm
-tagged
 template-haskell
 text
 transformers
@@ -17790,7 +17767,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-lrc
-, cardano-sl-networking
 , cardano-sl-sinbin
 , cardano-sl-util
 , conduit
@@ -17798,7 +17774,6 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , data-default
 , deepseq
-, directory
 , ether
 , exceptions
 , formatting
@@ -17809,7 +17784,6 @@ license = stdenv.lib.licenses.mit;
 , reflection
 , resourcet
 , rocksdb-haskell-ng
-, safe-exceptions
 , serokell-util
 , stdenv
 , stm
@@ -17841,14 +17815,12 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-lrc
-cardano-sl-networking
 cardano-sl-sinbin
 cardano-sl-util
 conduit
 containers
 data-default
 deepseq
-directory
 ether
 exceptions
 formatting
@@ -17859,7 +17831,6 @@ mtl
 reflection
 resourcet
 rocksdb-haskell-ng
-safe-exceptions
 serokell-util
 stm
 tagged
@@ -18343,7 +18314,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-node-ipc
 , cardano-sl-ssc
 , cardano-sl-txp
-, cardano-sl-txp-test
 , cardano-sl-update
 , cardano-sl-util
 , cardano-sl-util-test
@@ -18563,7 +18533,6 @@ cardano-sl-delegation
 cardano-sl-lrc
 cardano-sl-ssc
 cardano-sl-txp
-cardano-sl-txp-test
 cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
@@ -18602,7 +18571,6 @@ vector
 ];
 benchmarkHaskellDepends = [
 aeson
-aeson-options
 async
 base
 bytestring

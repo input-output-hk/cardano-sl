@@ -12,7 +12,8 @@ import qualified Data.Aeson as A
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
-import qualified Text.Parsec as Parsec
+import           Data.Text (unpack)
+import qualified Text.Megaparsec as P
 
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Sinbin.Util.TimeWarp (NetworkAddress, addrParser)
@@ -85,5 +86,9 @@ instance Exception NodeAttackedError
 ----------------------------------------------------------------------------
 
 parseNetworkAddress :: A.Value -> A.Parser NetworkAddress
-parseNetworkAddress = A.withText "NetworkAddress" $ \s ->
-    toAesonError . over _Left show $ Parsec.parse addrParser "" s
+parseNetworkAddress = do
+  let
+    handleError :: Either (P.ParseError Char ()) NetworkAddress -> Either Text NetworkAddress
+    handleError = over _Left show
+  A.withText "NetworkAddress" $ \s ->
+    toAesonError . handleError $ P.parse addrParser "" (unpack s)

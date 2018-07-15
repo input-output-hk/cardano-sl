@@ -16,8 +16,8 @@ import qualified Network.Kademlia as K
 
 import           Data.Bifunctor (bimap)
 import           Pos.Binary.Class (deserializeOrFail', serialize')
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.DHT.Model.Types (DHTData, DHTKey)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 
 
 instance K.Serialize DHTData where

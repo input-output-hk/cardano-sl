@@ -1,12 +1,7 @@
 module Pos.Infra.Util.TimeWarp
-       ( NetworkAddress
-       , localhost
-       , addressToNodeId
+       ( addressToNodeId
        , addressToNodeId'
        , nodeIdToAddress
-       , addrParser
-       , addrParserNoWildcard
-
        ) where
 
 import           Universum
@@ -15,9 +10,7 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Network.Transport.TCP.Internal as TCP
 import           Node (NodeId (..))
 
--- Re-export these while refactoing.
-import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
-                     addrParserNoWildcard, localhost)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 
 -- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
 addressToNodeId :: NetworkAddress -> NodeId

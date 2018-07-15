@@ -31,6 +31,7 @@ import           Serokell.Util (listJson)
 import           System.Directory (doesFileExist)
 
 import           Pos.Binary.Class (decodeFull)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast,
                      enhancedMessageTimeout)
@@ -38,7 +39,6 @@ import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey,
                      DHTNode (..), randomDHTKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams (..))
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 kademliaConfig :: K.KademliaConfig

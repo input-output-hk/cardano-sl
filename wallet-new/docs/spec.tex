@@ -520,7 +520,7 @@ specification.
 \begin{definition}[Dependence]
 We say that transaction $t_2$ \emph{depends on} transaction $t_1$ if and only if
 \begin{equation*}
-\exists \mathit{ix} \ldotp (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ t_2
+\exists \mathit{ix} \ldotp (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ \{ t_2 \}
 \end{equation*}
 \end{definition}
 
@@ -686,7 +686,7 @@ we can define a function that computes only the `new' outputs from a block
 \end{equation*}
 \end{definition}
 %
-We can then prove that $\mathsf{updateUtxo}$ adds precisely the new outputs
+We can then prove that $\mathsf{updateUTxO}$ adds precisely the new outputs
 of a block to the UTxO:
 %
 \begin{lemma} \label{lem:update_remove_dom}
@@ -705,7 +705,7 @@ of a block to the UTxO:
 \end{align*}
 \end{proof}
 %
-This proofs relies on the precondition to $\mathsf{applyBlock}$, which simply
+This proof relies on the precondition to $\mathsf{applyBlock}$, which simply
 says that new transactions in a new block should have transaction IDs that do
 not occur in the UTxO of the existing chain (or wallet); this should be a
 straightforward property of the blockchain.
@@ -770,7 +770,7 @@ set of the pending includes change addresses that are not yet in the wallet
 UTxO. Additionally, as we will see in \cref{sec:rollback}, once we add
 rollback then this invariant no longer holds.
 
-\begin{invariant}[The wallet UTxO only covers addresses that belongs to the wallet]
+\begin{invariant}[The wallet UTxO only covers addresses that belong to the wallet]
 %
 \begin{equation*}
 \range \mathit{utxo} \subseteq \mathsf{TxOut_{ours}}
@@ -1548,7 +1548,7 @@ removed from the expected UTxO.
 \emph{Wallet state}
 %
 \begin{align*}
-& \mathit{checkpoints} \in [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{Utxo}] \\
+& \mathit{checkpoints} \in [\mathsf{UTxO} \times \mathsf{Pending} \times \mathsf{UTxO}] \\
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset, \emptyset)]
 \end{align*}
 %
@@ -2283,7 +2283,7 @@ well as the actual UTxO.
 \emph{Wallet state}
 %
 \begin{align*}
-& \mathit{checkpoints} \in [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{Utxo} \times \mathsf{Coin}] \\
+& \mathit{checkpoints} \in [\mathsf{UTxO} \times \mathsf{Pending} \times \mathsf{UTxO} \times \mathsf{Coin}] \\
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset, \emptyset, 0)]
 \end{align*}
 %
@@ -2367,7 +2367,7 @@ on rollback we simply revert to the previous value of the block metadata.
 %
 \begin{align*}
 & \mathsf{TxInfo} = \mathsf{TxId} \mapsto \mathsf{TxMeta}    \\
-& \mathsf{Wallet} = [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{BlockMeta}] \times \mathsf{TxInfo}
+& \mathsf{Wallet} = [\mathsf{UTxO} \times \mathsf{Pending} \times \mathsf{BlockMeta}] \times \mathsf{TxInfo}
 \end{align*}
 %
 \emph{Atomic updates}

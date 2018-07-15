@@ -44,6 +44,7 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      IsBootstrapEraAddr (..), deriveFirstHDAddress,
                      largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
                      makePubKeyAddress, siEpoch)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs,
@@ -57,7 +58,6 @@ import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..))
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),

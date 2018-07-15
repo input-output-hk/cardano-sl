@@ -28,6 +28,7 @@ import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
                      lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
                      slotSecurityParam, vssMaxTTL)
+import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      getCommitmentsMap, randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
@@ -45,7 +46,6 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)

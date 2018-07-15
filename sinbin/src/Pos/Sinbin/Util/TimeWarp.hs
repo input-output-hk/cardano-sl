@@ -9,7 +9,6 @@ module Pos.Sinbin.Util.TimeWarp
        , nodeIdToAddress
        , addrParser
        , addrParserNoWildcard
-       , module JsonLog
        ) where
 
 import           Universum
@@ -17,7 +16,6 @@ import           Universum
 import qualified Data.ByteString.Char8 as BS8
 import qualified Network.Transport.TCP.Internal as TCP
 import           Node (NodeId (..))
-import           Pos.Core.JsonLog as JsonLog
 import qualified Serokell.Util.Parse as P
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Text as P

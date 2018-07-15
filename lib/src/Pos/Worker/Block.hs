@@ -39,6 +39,7 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
                      getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -60,7 +61,6 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)

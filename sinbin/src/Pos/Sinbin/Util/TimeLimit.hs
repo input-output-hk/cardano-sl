@@ -22,9 +22,10 @@ import           Universum
 
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (sformat, shown, stext, (%))
-import           Mockable (Async, Delay, Mockable, delay, withAsyncWithUnmask)
 import           System.Wlog (WithLogger, logWarning)
 
+import           Pos.Core.Mockable (Async, Delay, Mockable, delay,
+                     withAsyncWithUnmask)
 import           Pos.Crypto.Random (randomNumber)
 import           Pos.Sinbin.Util.LogSafe (logWarningS)
 

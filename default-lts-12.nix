@@ -53,6 +53,24 @@ let
            done
          '';
       };
+
+      # on windows we have this habit of putting libraries
+      # into `bin`, wheras on unix it's usually `lib`. For
+      # this confuses nix easily. So we'll just move the
+      # .dll's from `bin` into `$out/lib`. Such that they
+      # are trivially found.
+      openssl = ps.openssl.overrideAttrs (drv: {
+        postInstall = with ps.stdenv; drv.postInstall + lib.optionalString hostPlatform.isWindows ''
+          cp $bin/bin/*.dll $out/lib/
+        '';
+      });
+      mfpr = ps.mfpr.overrideAttrs (drv: {
+        configureFlags = with ps.stdenv; (drv.configureFlags or []) ++ lib.optional hostPlatform.isWindows "--enable-static --disable-shared";
+      });
+      libmpc = ps.libmpc.overrideAttrs (drv: {
+        configureFlags = with ps.stdenv; (drv.configureFlags or []) ++ lib.optional hostPlatform.isWindows "--enable-static --disable-shared";
+      });
+
       # The old way of building rocksdb.
       # rocksdb = ps.rocksdb.overrideAttrs (drv: {
       #   patches = (drv.patches or []) ++ [ ./rocksdb-5.11.patch ];

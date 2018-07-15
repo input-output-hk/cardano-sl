@@ -1,0 +1,12 @@
+[submodule "hackage.nix"]
+	path = hackage
+	url = git@github.com:angerman/hackage.nix.git
+[submodule "stackage.nix"]
+	path = stackage
+	url = git@github.com:angerman/stackage.nix.git
+[submodule "haskell.nix"]
+	path = haskell
+	url = git@github.com:angerman/haskell.nix.git
+[submodule "nixpkgs"]
+	path = nixpkgs
+	url = git@github.com:angerman/nixpkgs.git

@@ -93,6 +93,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/serokell/kademlia.git";
         rev = "7120bb4d28e708acd52dfd61d3dca7914fac7d7f";
-        sha256 = null;
+        sha256 = "1k1wp9dwhzzqfivxc28vhxfqplnyh916crr7bhsiv829d6qifhw1";
       };
     }

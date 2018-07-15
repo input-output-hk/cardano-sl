@@ -73,6 +73,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/log-warper.git";
         rev = "4af8114fbcd5698a4e1fbc653031f0300e29faee";
-        sha256 = null;
+        sha256 = "09jl7wb48q1vc3cll1bbdp8d2dh5dhcgxiyq1z7mpwfikdph0d4c";
       };
     }

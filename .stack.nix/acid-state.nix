@@ -60,6 +60,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/parsonsmatt/acid-state";
         rev = "63ac55ae020655104936d8a90ccc6a939642cd0d";
-        sha256 = null;
+        sha256 = "0a0j3wx0zycb8r4ng8i7s99868vd6q2q39m81wpl3n05sxmlgkfm";
       };
     }

@@ -81,6 +81,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/stylish-haskell.git";
         rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
-        sha256 = null;
+        sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
       };
     }

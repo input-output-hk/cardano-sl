@@ -77,6 +77,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/serokell-util.git";
         rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
-        sha256 = null;
+        sha256 = "0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd";
       };
     }

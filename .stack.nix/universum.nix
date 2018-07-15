@@ -80,6 +80,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/universum.git";
         rev = "7f1b2483f71cacdfd032fe447064d6e0a1df50fc";
-        sha256 = null;
+        sha256 = "12ppiszywj0dsspwlhb8bzhsrlgszk8rvlhcy8il3ppz99mlnw5g";
       };
     }

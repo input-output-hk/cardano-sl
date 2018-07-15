@@ -70,6 +70,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/serokell/network-transport-tcp";
         rev = "3d56652123bd296dc759cd31947eb2a17924e68a";
-        sha256 = null;
+        sha256 = "1cim8867kf36kv6ax9jx5shlqd7hhs1i4jf101x4pk3wriwbxsds";
       };
     }

@@ -46,7 +46,7 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/engine.io.git";
         rev = "d3c55f51bb81cee7d0d551de930ce65fe7d76756";
-        sha256 = null;
+        sha256 = "139c0yfnj57cpwg4k0am2rp35sh959394nvlb98011rjy68200qc";
       };
       postUnpack = "sourceRoot+=/engine-io; echo source root reset to \$sourceRoot";
     }

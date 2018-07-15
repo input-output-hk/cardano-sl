@@ -34,6 +34,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/angerman/canonical-json.git";
         rev = "f66762e4c4fe484ed109d28ad541fc55cc841c2c";
-        sha256 = null;
+        sha256 = "0cqa4vnrj3wqqgzzg9v7p3ddrfsf5fx63dv2jnwnlfaczs007dkq";
       };
     }

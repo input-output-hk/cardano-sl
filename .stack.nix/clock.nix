@@ -54,6 +54,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/corsis/clock.git";
         rev = "ef60bd51a3587a173adf565c33bf2886df6e3842";
-        sha256 = null;
+        sha256 = "1r4n9imls483f7wd61fi1jk16z2k7w36gpx798sqidvwbnc831q1";
       };
     }

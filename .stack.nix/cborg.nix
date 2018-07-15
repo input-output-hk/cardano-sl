@@ -43,7 +43,7 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/well-typed/cborg";
         rev = "3d274c14ca3077c3a081ba7ad57c5182da65c8c1";
-        sha256 = null;
+        sha256 = "1w06annk6nm01brd60hzl15143cvjvsaam9lhwzpmppyvgb0cdyz";
       };
       postUnpack = "sourceRoot+=/cborg; echo source root reset to \$sourceRoot";
     }

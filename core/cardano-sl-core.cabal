@@ -31,6 +31,8 @@ library
 
                        Pos.Core.ProtocolConstants
 
+                       Pos.Core.NetworkAddress
+
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis
@@ -224,6 +226,7 @@ library
                      , hashable
                      , lens
                      , log-warper >= 1.0.3
+                     , parsec
                      , memory
                      , mmorph
                      , monad-control

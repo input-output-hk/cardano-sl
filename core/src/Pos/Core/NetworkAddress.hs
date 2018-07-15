@@ -1,12 +1,6 @@
-
--- | Utility functions related to time-warp project.
-
-module Pos.Sinbin.Util.TimeWarp
+module Pos.Core.NetworkAddress
        ( NetworkAddress
        , localhost
-       , addressToNodeId
-       , addressToNodeId'
-       , nodeIdToAddress
        , addrParser
        , addrParserNoWildcard
        ) where
@@ -14,11 +8,13 @@ module Pos.Sinbin.Util.TimeWarp
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8
-import qualified Network.Transport.TCP.Internal as TCP
-import           Node (NodeId (..))
 import qualified Serokell.Util.Parse as P
+-- We should really be using Megaparsec here instead of Parsec, but that
+-- requires 'Serokell.Util.Parse' to be modified to use Parsec and then
+-- have that dependency bubble up.
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Text as P
+
 
 -- | @"127.0.0.1"@.
 localhost :: ByteString
@@ -26,20 +22,6 @@ localhost = "127.0.0.1"
 
 -- | Full node address.
 type NetworkAddress = (ByteString, Word16)
-
--- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
-addressToNodeId :: NetworkAddress -> NodeId
-addressToNodeId = addressToNodeId' 0
-
-addressToNodeId' :: Word32 -> NetworkAddress -> NodeId
-addressToNodeId' eId (host, port) =
-    NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
-
-nodeIdToAddress :: NodeId -> Maybe NetworkAddress
-nodeIdToAddress (NodeId ep) = do
-    (hostName, strPort, _) <- TCP.decodeEndPointAddress ep
-    port <- readMaybe strPort
-    return (BS8.pack hostName, port)
 
 -- | Parsed for network address in format @host:port@.
 addrParser :: P.Parser NetworkAddress

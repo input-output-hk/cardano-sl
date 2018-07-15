@@ -114,6 +114,7 @@ library
                         Pos.Infra.Util.TimeLimit
                         Pos.Infra.Util.TimeWarp
 
+
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson

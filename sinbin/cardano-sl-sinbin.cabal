@@ -35,7 +35,6 @@ library
                         Pos.Sinbin.Util.JsonLog.Events
                         Pos.Sinbin.Util.LogSafe
                         Pos.Sinbin.Util.TimeLimit
-                        Pos.Sinbin.Util.TimeWarp
 
   other-modules:
                         Paths_cardano_sl_sinbin

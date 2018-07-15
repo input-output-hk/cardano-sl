@@ -31,6 +31,7 @@ import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash,
                      ProtocolMagic, siEpoch)
+import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
                      withStateLock)
@@ -39,7 +40,6 @@ import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Sinbin.Reporting (reportError)
-import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt,

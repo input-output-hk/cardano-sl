@@ -18,7 +18,7 @@
 
 -- | Safe/secure logging
 
-module Pos.Sinbin.Util.LogSafe
+module Pos.Core.Util.LogSafe
        ( -- * Logging functions
          SelectiveLogWrapped(..)
        , logMessageS

@@ -55,6 +55,7 @@ library
                        Pos.Core.JsonLog.CanJsonLog
                        Pos.Core.JsonLog.Event
                        Pos.Core.JsonLog.JsonLogT
+                       Pos.Core.JsonLog.LogEvents
 
                        -- Mockable (moved from networking in
                        -- the `sinbin` shuffle). All modules
@@ -78,6 +79,9 @@ library
                        Pos.Core.Ssc
                        Pos.Core.Txp
                        Pos.Core.Update
+
+                       Pos.Core.Util.LogSafe
+                       Pos.Core.Util.TimeLimit
 
                        Pos.Data.Attributes
                        Pos.Exception
@@ -219,6 +223,7 @@ library
                      , deepseq
                      , deriving-compat
                      , ekg-core
+                     , ether >= 0.5
                      , exceptions
                      , extra
                      , filepath

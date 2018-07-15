@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Some types for json logging.
-module Pos.Sinbin.Util.JsonLog.Events
+module Pos.Core.JsonLog.LogEvents
        ( HasJsonLogConfig (..)
        , InvReqDataFlowLog (..)
        , JLEvent(..)

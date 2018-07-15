@@ -40,11 +40,13 @@ import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock,
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
+import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
                      modifyStateLock)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
+import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
@@ -55,8 +57,6 @@ import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportError)
-import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Sinbin.Util.LogSafe (logInfoS)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)

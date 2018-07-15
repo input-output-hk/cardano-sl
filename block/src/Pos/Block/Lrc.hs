@@ -33,6 +33,7 @@ import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
                      epochSlots, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Core.Slotting (MonadSlots)
+import           Pos.Core.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
@@ -52,7 +53,6 @@ import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
-import           Pos.Sinbin.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1,
                      sscCalculateSeed)
 import           Pos.Txp.Configuration (HasTxpConfiguration)

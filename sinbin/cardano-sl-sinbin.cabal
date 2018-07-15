@@ -25,10 +25,6 @@ library
                         Pos.Sinbin.Reporting.Metrics
                         Pos.Sinbin.Reporting.Wlog
 
-                        Pos.Sinbin.Util.JsonLog.Events
-                        Pos.Sinbin.Util.LogSafe
-                        Pos.Sinbin.Util.TimeLimit
-
   other-modules:
                         Paths_cardano_sl_sinbin
 

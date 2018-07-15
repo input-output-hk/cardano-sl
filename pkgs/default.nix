@@ -16650,12 +16650,12 @@ license = stdenv.lib.licenses.mit;
 , kademlia
 , lens
 , log-warper
+, megaparsec
 , mtl
 , network-info
 , network-transport
 , network-transport-tcp
 , optparse-applicative
-, parsec
 , QuickCheck
 , safe-exceptions
 , serokell-util
@@ -16709,12 +16709,12 @@ iproute
 kademlia
 lens
 log-warper
+megaparsec
 mtl
 network-info
 network-transport
 network-transport-tcp
 optparse-applicative
-parsec
 safe-exceptions
 serokell-util
 stm
@@ -17306,11 +17306,11 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , lens
 , log-warper
+, megaparsec
 , memory
 , mmorph
 , mono-traversable
 , mtl
-, parsec
 , reflection
 , rocksdb-haskell-ng
 , serokell-util
@@ -17355,11 +17355,11 @@ exceptions
 formatting
 lens
 log-warper
+megaparsec
 memory
 mmorph
 mono-traversable
 mtl
-parsec
 reflection
 rocksdb-haskell-ng
 serokell-util

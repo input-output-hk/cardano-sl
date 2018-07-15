@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Utility functions related to time-warp project.
 
@@ -44,7 +45,7 @@ nodeIdToAddress (NodeId ep) = do
     return (BS8.pack hostName, port)
 
 -- | Parsed for network address in format @host:port@.
-addrParser :: (Ord e) => P.Parsec e String NetworkAddress
+addrParser :: P.CharParser NetworkAddress
 addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port) <* P.eof
 
 -- | Parses an IPv4 NetworkAddress where the host is not 0.0.0.0.

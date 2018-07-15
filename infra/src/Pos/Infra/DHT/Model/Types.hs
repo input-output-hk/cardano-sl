@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | DHT types.
 
@@ -31,8 +32,7 @@ import qualified Prelude
 import qualified Serokell.Util.Base64 as B64
 import qualified Serokell.Util.Parse as P
 import           Serokell.Util.Text (listBuilderJSON)
-import qualified Text.Parsec as P
-import qualified Text.Parsec.Text as P
+import qualified Text.Megaparsec.Char as P
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Crypto.Random (runSecureRandom)
@@ -110,11 +110,11 @@ randomDHTKey = DHTKey . hashAddress <$> liftIO (runSecureRandom genNonce)
 ----------------------------------------------------------------------------
 
 -- | Parser for DHT key.
-dhtKeyParser :: P.Parser DHTKey
+dhtKeyParser :: P.CharParser DHTKey
 dhtKeyParser = P.base64Url >>= toDHTKey
   where
-    toDHTKey = either P.parserFail return . bytesToDHTKey
+    toDHTKey = either undefined return . bytesToDHTKey
 
 -- | Parser for 'DHTNode'.
-dhtNodeParser :: P.Parser DHTNode
+dhtNodeParser :: P.CharParser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)

@@ -120,17 +120,17 @@ library
                       , aeson-options
                       , async
                       , base
-                      , parsec
                       , base64-bytestring
                       , bytestring
+                      , cardano-report-server >= 0.4.5
                       , cardano-sl-binary
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-networking
-                      , cardano-sl-ssc
                       , cardano-sl-sinbin
+                      , cardano-sl-ssc
                       , cardano-sl-util
-                      , cardano-report-server >= 0.4.5
+                      , clock
                       , containers
                       , directory
                       , dns
@@ -145,19 +145,19 @@ library
                       , kademlia
                       , lens
                       , log-warper >= 1.0.3
+                      , megaparsec
                       , mtl
                       , network-info
+                      , network-transport
                       , network-transport
                       , network-transport-tcp
                       , optparse-applicative
                       , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , stm
-                      , clock
                       , tagged
                       , text
                       , time-units
-                      , network-transport
                       , universum
                       , unordered-containers
                       , yaml

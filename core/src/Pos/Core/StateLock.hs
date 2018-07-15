@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-|
-Module:      Pos.Sinbin.StateLock
+Module:      Pos.Core.StateLock
 Description: A lock on the local state of a node
 
 Provides a lock that is to be taken while modifying, or requiring a
@@ -14,7 +14,7 @@ consistent view on, the local state (the database and mempool).
 It collects metrics on how long a given action waits on the lock, and
 how long the action takes.
 -}
-module Pos.Sinbin.StateLock
+module Pos.Core.StateLock
        ( Priority (..)
        , StateLock (..)
        , newEmptyStateLock

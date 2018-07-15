@@ -74,6 +74,7 @@ library
 
                        Pos.Core.Script
                        Pos.Core.Slotting
+                       Pos.Core.StateLock
                        Pos.Core.Ssc
                        Pos.Core.Txp
                        Pos.Core.Update

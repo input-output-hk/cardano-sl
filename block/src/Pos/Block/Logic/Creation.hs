@@ -41,6 +41,8 @@ import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
+import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
+                     modifyStateLock)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey)
@@ -53,8 +55,6 @@ import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportError)
-import           Pos.Sinbin.StateLock (Priority (..), StateLock,
-                     StateLockMetrics, modifyStateLock)
 import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Sinbin.Util.LogSafe (logInfoS)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)

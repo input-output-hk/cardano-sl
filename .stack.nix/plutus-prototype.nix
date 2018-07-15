@@ -44,6 +44,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/avieth/plutus-prototype";
         rev = "d094be301195fcd8ab864d793f114970426a4478";
-        sha256 = null;
+        sha256 = "1s932rghn4zn441waansp408b5bwk20rc1wsa5693a2nwnp4dijw";
       };
     }

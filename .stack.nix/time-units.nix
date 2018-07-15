@@ -28,6 +28,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/serokell/time-units.git";
         rev = "6c3747c1ac794f952de996dd7ba8a2f6d63bf132";
-        sha256 = null;
+        sha256 = "0psdr1if0rgnn24698x3583m0603rwd3sd7yb9whj03hskmkwpgs";
       };
     }

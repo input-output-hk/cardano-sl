@@ -76,6 +76,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/thoughtpolice/hs-ed25519";
         rev = "da4247b5b3420120e20451e6a252e2a2ca15b43c";
-        sha256 = null;
+        sha256 = "0fah4vkmqdkjsdh3s3x27yfaif2fbdg6049xvp54b5mh50yvxkfq";
       };
     }

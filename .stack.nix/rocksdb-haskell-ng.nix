@@ -62,6 +62,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/rocksdb-haskell-ng.git";
         rev = "49f501a082d745f3b880677220a29cafaa181452";
-        sha256 = null;
+        sha256 = "02jvri8ik8jgrxwa6qmh3xcwqvm4s27iv3sxpjpny79nlhlxvfzp";
       };
     }

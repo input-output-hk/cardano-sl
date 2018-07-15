@@ -90,6 +90,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/avieth/servant-quickcheck.git";
         rev = "e4e879abca99d0d56015765859fb37af59a81dbb";
-        sha256 = null;
+        sha256 = "1rq493iz8asavjwxfi7vnkrvbxwsnxy1j8w5b3slcg8l7g8ikz6z";
       };
     }

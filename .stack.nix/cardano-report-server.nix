@@ -97,6 +97,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/cardano-report-server.git";
         rev = "81eea7361a75923f9402fcb7840fb36722dbf88e";
-        sha256 = null;
+        sha256 = "0chhbnrl68aqjfhkqvq53v572zsg52mj8pjxl3n7nnbc006cqs49";
       };
     }

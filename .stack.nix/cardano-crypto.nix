@@ -91,6 +91,6 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/cardano-crypto";
         rev = "33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf";
-        sha256 = null;
+        sha256 = "1v165n4cmp4g272406vaaan7bwvrw2m55jwcbz8qqjxslxv1l63p";
       };
     }

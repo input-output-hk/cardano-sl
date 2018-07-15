@@ -67,7 +67,7 @@ let
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/haskell-hedgehog.git";
         rev = "2c9e51804e8217dff89f5c32cbe0d79ce20bc508";
-        sha256 = null;
+        sha256 = "07pvrslv6h3rz053lfxp0racnqj70yazik6mrn612i09vfaxis6b";
       };
       postUnpack = "sourceRoot+=/hedgehog; echo source root reset to \$sourceRoot";
     }

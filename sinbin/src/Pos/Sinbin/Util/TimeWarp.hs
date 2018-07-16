@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Utility functions related to time-warp project.
 
@@ -19,8 +20,8 @@ import           JsonLog
 import qualified Network.Transport.TCP.Internal as TCP
 import           Node (NodeId (..))
 import qualified Serokell.Util.Parse as P
-import qualified Text.Parsec as P
-import qualified Text.Parsec.Text as P
+import qualified Text.Megaparsec as P
+import qualified Text.Megaparsec.Char as P
 
 -- | @"127.0.0.1"@.
 localhost :: ByteString
@@ -44,11 +45,11 @@ nodeIdToAddress (NodeId ep) = do
     return (BS8.pack hostName, port)
 
 -- | Parsed for network address in format @host:port@.
-addrParser :: P.Parser NetworkAddress
+addrParser :: P.CharParser NetworkAddress
 addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port) <* P.eof
 
 -- | Parses an IPv4 NetworkAddress where the host is not 0.0.0.0.
-addrParserNoWildcard :: P.Parser NetworkAddress
+addrParserNoWildcard :: (Ord e) => P.Parsec e String NetworkAddress
 addrParserNoWildcard = do
     (host, port) <- addrParser
     if host == BS8.pack "0.0.0.0" then empty

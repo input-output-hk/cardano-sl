@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module Pos.Infra.DHT.Real.CLI
        ( dhtExplicitInitialOption
        , dhtNetworkAddressOption
@@ -10,10 +12,11 @@ module Pos.Infra.DHT.Real.CLI
 import           Universum
 
 import           Control.Exception.Safe (throwString)
+import           Data.Text (unpack)
 import           Formatting (build, formatToString, shown, (%))
 import qualified Options.Applicative as Opt
 import           Pos.Util.OptParse (fromParsec)
-import           Text.Parsec (eof, parse)
+import           Text.Megaparsec (ParsecT, Stream, Token, Tokens, eof, parse)
 
 import           Pos.Infra.DHT.Model.Types (DHTKey, DHTNode, dhtKeyParser,
                      dhtNodeParser)
@@ -61,7 +64,11 @@ dhtPeersFileOption =
 readDhtPeersFile :: FilePath -> IO [DHTNode]
 readDhtPeersFile path = do
     xs <- lines <$> readFile path
-    let parseLine x = case parse (dhtNodeParser <* eof) "" x of
+    let
+      ugh :: (Token s ~ Char, Tokens s ~ String, Stream s) => ParsecT () s m DHTNode
+      ugh = dhtNodeParser
+      parseLine :: Text -> IO DHTNode
+      parseLine x = case parse (ugh <* eof) "" (unpack x) of
             Left err -> throwString $ formatToString
                 ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err

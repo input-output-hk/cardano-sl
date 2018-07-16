@@ -44,7 +44,6 @@ library
                       , aeson-options
                       , async
                       , base
-                      , parsec
                       , base64-bytestring
                       , bytestring
                       , cardano-sl-binary
@@ -74,6 +73,7 @@ library
                       , kademlia
                       , lens
                       , log-warper >= 1.0.3
+                      , megaparsec
                       , mtl
                       , network-info
                       , network-transport

@@ -76,11 +76,11 @@ library
                      , formatting
                      , lens
                      , log-warper
+                     , megaparsec
                      , memory
                      , mmorph
                      , mono-traversable
                      , mtl
-                     , parsec
                      , reflection
                      , rocksdb-haskell-ng
                      , serokell-util

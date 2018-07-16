@@ -1,5 +1,5 @@
+{ system ? builtins.currentSystem }:
 let
-
   stack-pkgs = import ./stack-pkgs.nix;
   #haskell = import <haskell>;
 
@@ -96,7 +96,7 @@ let
           enableIntegerSimple = false;
         }).overrideAttrs (drv: {
           dontStrip = true;
-          hardeningDisable = [ "stackprotector" ];
+          hardeningDisable = [ "stackprotector" "format" ];
           patches = (drv.patches or []) ++ [
             ./move-iserv-8.4.2.patch
             ./hsc2hs-8.4.2.patch
@@ -124,6 +124,7 @@ let
   };
 
   pkgs = import <nixpkgs> {
+    inherit system;
     overlays = [ overlay ];
     config = config;
     crossSystem = (import <nixpkgs/lib>).systems.examples.mingwW64;

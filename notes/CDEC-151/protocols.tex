@@ -215,6 +215,13 @@ make use of a trusted node.
   services.
   }
 
+\subsection{Key references}
+
+We will refer both to the original `Ouroboros classic' \citep{ouroboros-classic}
+and to the later version `Ouroboros genesis' \citep{ouroboros-genesis}. We will
+refer simply to `Ouroboros' where distinctions between the versions are
+irrelevant.
+
 \section{Node-to-consumer protocols}
 
 TODO: cover notes on:
@@ -242,6 +249,114 @@ TODO: cover notes on:
 \item STM interface
 \item coping with talking to a load-balanced cluster of imperfectly synced producers
 \end{itemize}
+
+\subsection{Goals}
+
+\paragraph{Family of protocols}
+We are interested in a family of chain following protocols to cover a range of
+use cases. We are interested in:
+\begin{itemize}
+\item in-process protocols to be used for in-process chain consumers and as an
+      aid to implementing the producer side of inter-process protocols.
+      These will likely be exposed as APIs using STM or IO.
+\item OS-local IPC protocols for out-of-process chain consumers
+      such as wallets, and for implementing and scaling out the producer side
+      of IPC network protocols.
+\item efficient network IPC protocols for remote chain consumers, including
+      wallets and network relays or proxies.
+\item convenient stateless network IPC protocols for remote chain consumers
+      where a trade-off towards the convenience of consumer implementation is
+      appropriate.
+\end{itemize}
+
+In all these cases we will refer to the protocol peers as the chain producer
+and the chain consumer or follower.
+
+\paragraph{Resource use}
+In the IPC cases we are interested in protocols where the chain producer can
+ensure reasonable resource use even when the peer misbehaves to some degree. In
+particular we do not want slow consumers to force excessive resource use by the
+producer.
+
+\paragraph{Recursion as an indicator of completeness} As mentioned, part of the
+intention of having a family of related protocols is to be able to use some to
+help implement others, but also to chain combinations together to allow
+flexibility in application design. A measure of the completeness of each
+protocol family member is that the consumer side should be enough to implement
+the producer side of the same protocol or of another protocol in the family
+(e.g. a consumer of an in-process protocol being able to implement producer
+side of one of IPC protocols).
+
+\subsection{Forking and resource bounds}
+
+A chain producer following the Ouroboros protocol (or following another chain
+producer) can of course switch forks and hence chain following protocols must
+support this, and support it with reasonable resource bounds.
+
+In Ouroboros Classic there is a helpful constraint that the maximum length an
+alternative fork can diverge from a current chain is $K$ blocks. Ouroboros
+Genesis does not include this constants but it appears that it could be
+introduced without too much difficulty.
+
+The benefit of this constraint is that it divides the blockchain into two parts:
+a genuinely \emph{immutable} initial chain and a \emph{volatile} recent chain
+fragment. An immutable chain allows implementation options with simple and
+efficient on-disk storage. A volatile fragment that is bounded in length allows
+implementation options using combinations of in-memory and on-disk data storage.
+In particular, keeping track of up to $K$ blocks can easily be accommodated in
+memory\footnote{The current implementation uses $K = 2160$.}.
+
+\includegraphics[totalheight=2cm]{chain-diagram-imm-vol.pdf}
+
+While the volatile chain fragment is only $K$ long, a chain following protocol
+has to help chain consumers follow the volatile part of the chain as it
+switches between forks and this may need to store more information.
+
+Two general approaches to chain following protocols are as follows:
+\begin{itemize}
+\item The consumer and producer maintain enough information so that on a fork
+      the producer and consumer are able to immediately and precisely determine
+      how far the consumer has to roll back their chain before rolling forward
+      on the new chain.
+\item On a fork the consumer and producer have to engage in a protocol to
+      determine where (roughly or precisely) the intersection between the
+      consumer and producer's chains is and thus where the consumer needs to
+      roll back to before rolling forward.
+\end{itemize}
+
+The first approach leads to more stateful protocols and the second approach to
+stateless protocols. An appealing aspect of the first approach is being able to
+go directly to the right place without needing any further steps.
+
+A simple design following the first approach would be for the producer to keep
+track of all forks it has gone through, at least within the last $K$ blocks.
+This provides enough information for the producer to know the exact relationship
+between old forks and the current chain, so that any consumer on any old fork
+could be informed how to move to the new fork. The problem with this design is
+that it could in the worst cases involve keeping track of a lot of forks, up to
+$\mathbf{O}(K^2)$ of them. This is too many to hold in memory and so would lose
+the simplicity of a design based on keeping information about recent blocks in
+memory.
+
+\subsection{Sketch of a stateful chain following IPC protocol}
+
+In this stateful protocol there is a communication session with a bidirectional
+unicast channel between the chain producer and follower. It is stateful in that
+the chain producer maintains some state about the chain consumer.
+
+The state that the producer maintains about the consumer is the consumer's
+`read pointer', meaning the head of the consumer's chain and how that
+corresponds to the producer's chain. In a typical state the consumer's read
+pointer is on the producer's chain; the consumer simply asks for the next
+change and in response is given the next block header; and the producer updates
+the read pointer correspondingly. The protocol session is initiated with a few
+steps necessary to establish the initial read pointer.
+
+In general there 
+
+\subsection{Sketch of a stateless chain following IPC protocol}
+
+
 
 \section{Node-to-node protocol}
 
@@ -373,11 +488,6 @@ to verify the header.
 The Ouroboros algorithm imposes a number of useful constraints on chain
 broadcast.
 
-We will refer both to the original `Ouroboros classic' \citep{ouroboros-classic}
-and to the newer version `Ouroboros genesis' \citep{ouroboros-genesis}. We will
-refer simply to `Ouroboros' where distinctions between the versions are
-irrelevant.
-
 \begin{itemize}
 \item Ouroboros specifies that chains with blocks from slots in the future are
       invalid. The signed block header contains the slot number so we can
@@ -411,10 +521,11 @@ irrelevant.
 \item In Ouroboros Genesis, the situation is similar: there can be more than one
       legitimate leader for a time slot but the number of leaders in a slot
       follows a distribution that makes a large number highly unlikely (and
-      this is not controlled by adversarial players).
+      this is not controlled by adversarial players). Again, non-adversarial
+      players never sign more than one block for the slots in which they are
+      the leader.
 \item In both Ouroboros Classic and Genesis it is possible for adversarial
-      players to sign multiple blocks for the same slot, but this is visible
-      (so-called `open adversarial behaviour').
+      players to sign multiple blocks for the same slot.
 \item \avieth{Theorem 4.13 from the original Ouroboros paper describes the
       probability of the existence of a flat fork of length $n$: 2 tines of
       equal block count intersecting $n$ slots prior. This is applicable to
@@ -472,6 +583,92 @@ current chain are valid.
 \njd{This would seem to be the right spot for the simple MC analysis on
   distribution of burst lengths\\
 \includegraphics[totalheight=2cm]{burst-length-mc.png}}
+
+\subsection{Plausible design approaches}
+
+As discussed above we must design chain broadcast in the context of chain
+selection. There are at least two plausible design approaches that we have
+considered.
+
+The first involves relaying the block header of the chain head followed by
+chasing other block headers and bodies. It involves taking advantage of the
+chain validity and selection rules to apply validation as early as possible,
+including checking the signatures on block headers. It does not however involve
+intermediate nodes adopting a chain prior to relaying.
+
+The second does involve intermediate nodes adopting a chain prior to relaying.
+Each node keeps track of the chains of its immediate neighbours in the network,
+which is equivalent to nodes relaying their chains once they have adopted an
+updated chain. So a new chain can propagate from node to node but at each
+hop it is only relayed if the node selects the new chain itself.
+
+An advantage of the first approach is that it is easier to argue that it is
+equivalent to what Ouroboros specifies. By relaying block headers in advance
+of requesting blocks and doing full chain validation it is possible to minimise
+the hop-by-hop latency.
+
+An advantage of the second approach is that by doing more validation in advance
+of relaying, the number of initially plausible but ultimately invalid chains
+that each node must consider can be curtailed considerably. The second approach
+would appear to involve less implementation complexity by avoiding having to
+track the state of multiple outstanding requests for more block headers and
+bodies and may be able to reuse much of the implementation of a node-to-consumer
+chain following protocol. A disadvantage is that the simplest approach to
+adopting a chain before forwarding would involve a high hop-by-hop latency
+since a block header could not be sent on before a block body was received.
+More complex variants may be able to overcome this limitation. And of course
+the whole approach is only legitimate if we can convincingly argue that it is
+equivalent to what Ouroboros specifies.
+
+\subsection{An argument for interleaving chain selection with relaying}
+
+This is an attempt to construct an informal argument that designs based on
+interleaving chain relaying with chain selection may be equivalent to chain
+broadcast followed by chain selection.
+
+Let us start with the basic model: chain broadcast followed by chain selection.
+In this model all nodes are able to send on a broadcast channel and all nodes
+can reliably receive chains on this channel. The slot leader adds a new block
+to its chain and sends it on the broadcast channel to all nodes. In each time
+slot, all nodes collect all chains received on the broadcast channel into a set.
+At the end of the time slot each node selects their best chain, given their
+existing chain and the set of candidate chains received via broadcast. The
+chain selection function selects the longest valid chain that is longer than
+the current chain. Ties are broken arbitrarily.
+
+An argument that some other proposed model is equivalent to this basic model
+has to argue that the chain that is selected by each honest node is the same
+as in the basic model. In this context `the same chain' can involve refinements
+of the arbitrary choice between chains of the same length. More precisely we
+could recast the chain selection function to return the set of all alternatives
+which we are indifferent between. In this style we can say that a model is a
+refinement if the set of selected alternative chains is a non-empty subset of
+the set from the original model.
+
+Let us now consider a model that is one step in the intended direction but
+still relatively simple. Instead of a broadcast channel, assume that the
+nodes are arranged in a graph with unicast channels on the graph edges. We
+assume that all honest nodes are at least connected to each other via other
+honest nodes\footnote{This is an assumption that any refinement to a P2P
+network needs to make, and an assumption that the P2P connectivity layer must
+discharge.}. The slot leader adds a new block to its chain and sends it on the
+unicast channels to all its immediate neighbour nodes. Upon receiving a chain
+on a channel from a neighbour, a node validates the chain and does chain
+selection between the new candidate chain and its current chain. If it selects
+the new chain then it relays the new chain on the unicast channels to all its
+immediate neighbour nodes.
+
+This model involves switching from chain selection as an operation on a set of
+candidate chains and the current chain, to being a binary operation between a
+single candidate chain and the current chain. We claim as a lemma that
+compositions of the binary operator version is equivalent to the whole-set
+version, modulo differences between indifferent alternatives.
+
+\begin{align*}
+\mathsf{selectChain} & \in \mathsf{Chain} \to \mathbb{P}~\mathsf{Chain}
+                                          \to \mathbb{P}~\mathsf{Chain} \\
+\mathsf{selectChain} ~ c ~ cs & = blah
+\end{align*}
 
 \avieth{\subsection{Proposal for a data structure for forks over $k$ slots.}}
 

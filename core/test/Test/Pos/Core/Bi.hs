@@ -81,8 +81,7 @@ import           Pos.Merkle (mkMerkleTree, mtRoot)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden,
-                     discoverRoundTrip, eachOf, goldenTestBi,
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Core.Gen
 import           Test.Pos.Crypto.Bi (getBytes)

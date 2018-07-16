@@ -35,9 +35,7 @@ import           Pos.Crypto (AbstractHash, EncShare, PassPhrase,
                      toVssPublicKey)
 
 import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden,
-                     discoverRoundTrip, eachOf, goldenTestBi,
-                     roundTripsAesonBuildable, roundTripsAesonShow,
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)

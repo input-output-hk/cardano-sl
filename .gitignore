@@ -206,4 +206,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# delegation design spec
+docs/delegation_design_spec.pdf
+
 # End of https://www.gitignore.io/api/python

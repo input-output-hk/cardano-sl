@@ -16,8 +16,8 @@ import           Pos.Core (HasProtocolConstants, epochOrSlotG,
                      epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfo (..),
-                     SyncStatus (..))
+import           Pos.Infra.Recovery.Info (CurrentSlot (..),
+                     MonadRecoveryInfo (..), SyncStatus (..), TipSlot (..))
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Util.Util (HasLens (..))
@@ -36,18 +36,18 @@ instance ( Monad m
             recoveryIsInProgress >>= \case
                 False -> pass
                 True -> throwError SSDoingRecovery
-            curSlot <- note SSUnknownSlot =<< getCurrentSlot
+            curSlotId <- note SSUnknownSlot =<< getCurrentSlot
             tipHeader <- lift DB.getTipHeader
-            let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
-            unless (tipSlot <= curSlot) $
-                throwError
-                    SSInFuture
-                    {sslbCurrentSlot = curSlot, sslbTipSlot = tipSlot}
-            let slotDiff = flattenSlotId curSlot - flattenSlotId tipSlot
+            let curSlot = CurrentSlot curSlotId
+            let tipSlot@(TipSlot tipSlotId) = TipSlot $
+                    epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
+            unless (tipSlotId <= curSlotId) $
+                throwError $
+                    SSInFuture tipSlot curSlot
+            let slotDiff = flattenSlotId curSlotId - flattenSlotId tipSlotId
             unless (slotDiff < fromIntegral lagBehindParam) $
-                throwError
-                    SSLagBehind
-                    {sslbCurrentSlot = curSlot, sslbTipSlot = tipSlot}
+                throwError $
+                    SSLagBehind tipSlot curSlot
       where
         recoveryIsInProgress = do
             var <- view (lensOf @RecoveryHeaderTag)

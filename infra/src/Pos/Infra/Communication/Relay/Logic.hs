@@ -24,7 +24,7 @@ module Pos.Infra.Communication.Relay.Logic
        , invReqDataFlowTK
        , dataFlow
 
-       -- Re-export Infra-ned type.
+       -- Re-export Core-ed type.
        , InvReqDataFlowLog (..)
        ) where
 

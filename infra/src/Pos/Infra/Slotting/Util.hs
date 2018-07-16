@@ -19,7 +19,7 @@ module Pos.Infra.Slotting.Util
          -- * Waiting for system start
        , waitSystemStart
 
-         -- * Re-exported from the Infra
+         -- * Re-exported from Core
        , ActionTerminationPolicy (..)
        , OnNewSlotParams (..)
        , defaultOnNewSlotParams

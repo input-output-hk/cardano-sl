@@ -114,7 +114,8 @@ instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
 -- Loops on forward links
 ----------------------------------------------------------------------------
 
--- | Creates a Producer for blocks from a given HeaderHash.
+-- | Creates a Producer for blocks from a given HeaderHash, exclusive: the
+-- block for that hash is not produced, its child is the first thing produced.
 streamBlocks
     :: ( Monad m )
     => (HeaderHash -> m (Maybe SerializedBlock))
@@ -122,7 +123,8 @@ streamBlocks
     -> HeaderHash
     -> Producer SerializedBlock m ()
 streamBlocks loadBlock forwardLink base = do
-    loop base
+    mFirst <- lift $ forwardLink base
+    maybe (pure ()) loop mFirst
   where
     loop hhash = do
         mb <- lift $ loadBlock hhash

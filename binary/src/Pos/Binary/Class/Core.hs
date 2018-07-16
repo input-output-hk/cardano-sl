@@ -790,7 +790,12 @@ data SizeF t
     | ApF String (Byte -> Byte) t
       -- ^ Application of a monotonic function to a size.
     | forall a. Bi a => TodoF (forall x. Bi x => Proxy x -> Size) (Proxy a)
-      -- ^ A suspended size calculation ("thunk").
+      -- ^ A suspended size calculation ("thunk"). This is used to delay the
+      --   computation of a size until some later point, which is useful for
+      --   progressively building more detailed size estimates for a type
+      --   from the outside in. For example, `szLazy` can be followed by
+      --   applications of `szForce` to reveal more detailed expressions
+      --   describing the size bounds on a type.
   deriving Typeable
 
 instance Functor SizeF where
@@ -957,26 +962,23 @@ data SizeOverride
 -- | Simplify the given @Size@, resulting in either the simplified @Size@ or,
 --   if it was fully simplified, an explicit upper and lower bound.
 szSimplify :: Size -> Either Size (Range Byte)
-szSimplify = cata (simplify . normalize)
+szSimplify = cata $ \case
+    TodoF f pxy -> Left (todo f pxy)
+    ValueF x    -> Right (Range { lo = x, hi = x })
+    CasesF xs   -> case mapM caseValue xs of
+        Right xs' -> Right (Range { lo = minimum (map lo xs')
+                                  , hi = maximum (map hi xs') })
+        Left _  -> Left (szCases $ map (fmap toSize) xs)
+    AddF x y  -> binOp (+) x y
+    MulF x y  -> binOp (*) x y
+    SubF x y  -> binOp (-) x y
+    NegF x    -> unOp negate x
+    AbsF x    -> unOp abs x
+    SgnF x    -> unOp signum x
+    ApF _ f (Right x) -> Right (Range { lo = f (lo x), hi = f (hi x) })
+    ApF n f (Left x)  -> Left  (apMono n f x)
+
   where
-    simplify = \case
-        TodoF f pxy -> Left (todo f pxy)
-        ValueF x    -> Right (Range { lo = x, hi = x })
-        CasesF xs   -> case mapM caseValue xs of
-            Right xs' -> Right (Range { lo = minimum (map lo xs')
-                                      , hi = maximum (map hi xs') })
-            Left _  -> Left (szCases $ map (fmap toSize) xs)
-        AddF x y  -> binOp (+) x y
-        MulF x y  -> binOp (*) x y
-        SubF x y  -> binOp (-) x y
-        NegF x    -> unOp negate x
-        AbsF x    -> unOp abs x
-        SgnF x    -> unOp signum x
-        ApF _ f (Right x) -> Right (Range { lo = f (lo x), hi = f (hi x) })
-        ApF n f (Left x)  -> Left  (apMono n f x)
-
-    normalize = id -- TODO
-
     binOp :: (forall a. Num a => a -> a -> a) -> Either Size (Range Byte) -> Either Size (Range Byte) -> Either Size (Range Byte)
     binOp (#) (Right x) (Right y) = Right (x # y)
     binOp (#) x y                 = Left (toSize x # toSize y)

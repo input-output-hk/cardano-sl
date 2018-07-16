@@ -391,7 +391,6 @@ errorWas predicate _ _ (STB hardErr) =
 -------------------------------------------------------------------------------}
 
 type Policy = CoinSelectionOptions
-           -> Gen Core.Address
            -> MkTx Gen
            -> Word64
            -> CoinSelPolicy Core.Utxo Gen Core.TxAux
@@ -404,8 +403,22 @@ type RunResult = ( Core.Utxo
 maxNumInputs :: Word64
 maxNumInputs = 300
 
-mkTx :: Core.ProtocolMagic -> SecretKey -> MkTx Gen
-mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
+genChange :: Core.Utxo -> NonEmpty Core.TxOut -> [Core.Coin] -> Gen [Core.TxOutAux]
+genChange utxo payee css = forM css $ \change -> do
+    changeAddr <- genUniqueChangeAddress utxo payee
+    return Core.TxOutAux {
+        Core.toaOut = Core.TxOut {
+            Core.txOutAddress = changeAddr
+          , Core.txOutValue   = change
+          }
+      }
+
+mkTx :: Core.Utxo
+     -> NonEmpty Core.TxOut
+     -> Core.ProtocolMagic
+     -> SecretKey
+     -> MkTx Gen
+mkTx utxo payee pm key = mkStdTx pm (genChange utxo payee) (\_addr -> Right (fakeSigner key))
 
 payRestrictInputsTo :: Word64
                     -> (InitialBalance -> Gen Core.Utxo)
@@ -425,8 +438,7 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
         res <- bimap STB identity <$>
                  policy
                    options
-                   (genUniqueChangeAddress utxo payee)
-                   (mkTx pm key)
+                   (mkTx utxo payee pm key)
                    maxInputs
                    (fmap Core.TxOutAux payee)
                    utxo

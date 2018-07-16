@@ -17,7 +17,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , getEQ
   , member
   , size
-  , onlyOne
+  , getOne
     -- * Construction
   , fromList
   , omap
@@ -152,10 +152,8 @@ size = IxSet.size . unwrapIxSet
 -- one, i.e. only if it has @exactly@ one element in it. Usually this is
 -- used in tandem with 'getEQ' to witness the existence of exactly one element
 -- in the set indexed by a particular index.
-onlyOne :: IxSet a -> Maybe a
-onlyOne ixset = case IxSet.toList . unwrapIxSet $ ixset of
-                  [WrapOrdByPrimKey x] -> Just x
-                  _                    -> Nothing
+getOne :: HasPrimKey a => IxSet a -> Maybe a
+getOne = fmap coerce . IxSet.getOne . unwrapIxSet
 
 {-------------------------------------------------------------------------------
   Construction

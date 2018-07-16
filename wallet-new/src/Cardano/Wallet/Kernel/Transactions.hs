@@ -16,7 +16,7 @@ import           Universum
 
 import           Control.Lens (to)
 import           Control.Retry (RetryPolicyM, RetryStatus, applyPolicy,
-                     constantDelay, limitRetries, retrying)
+                     fullJitterBackoff, limitRetries, retrying)
 import           Crypto.Random (MonadRandom (..))
 import qualified Data.Set as Set
 import           Test.QuickCheck (Arbitrary (..))
@@ -25,6 +25,7 @@ import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import qualified Data.ByteArray as ByteArray
+import qualified Pos.Binary as Bi
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
                      CoinSelectionOptions, estimateCardanoFee, mkStdTx)
@@ -100,10 +101,12 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
             case tx of
                  Left e      -> return (Left $ PaymentNewTransactionError e)
                  Right txAux -> do
+                     -- TODO(adn) As part of CBR-239 or CBR-324, we should
+                     -- ensure that 'newPending' inserts the transaction
+                     -- inside the TxMeta storage.
                      succeeded <- newPending activeWallet accountId txAux
                      case succeeded of
                           Left e   -> do
-                              print (sformat build e)
                               -- If the next retry would bring us to the
                               -- end of our allowed retries, we fail with
                               -- a proper error
@@ -115,8 +118,9 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
                                        PaymentNewPendingError e
                           Right () -> return . Right . taTx $ txAux
     where
+        -- See <https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter>
         retryPolicy :: RetryPolicyM IO
-        retryPolicy = constantDelay 5000000 <> limitRetries 6
+        retryPolicy = fullJitterBackoff 5000000 <> limitRetries 6
 
         -- If this is a hard coin selection error we cannot recover, stop
         -- retrying. If we get a 'Tx' as output, stop retrying immediately.
@@ -142,14 +146,23 @@ newTransaction :: ActiveWallet
 newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId payees = do
     snapshot <- getWalletSnapshot walletPassive
     let toTxOuts = fmap (\(a,c) -> TxOutAux (TxOut a c))
-    let mkTx = mkStdTx walletProtocolMagic signAddress
+    let genChangeOuts css = forM css $ \change -> do
+            changeAddr <- liftIO genChangeAddr
+            return TxOutAux {
+                toaOut = TxOut {
+                    txOutAddress = changeAddr
+                  , txOutValue   = change
+                  }
+              }
+    let mkTx = mkStdTx walletProtocolMagic genChangeOuts signAddress
     -- | NOTE(adn) This number was computed out of the work Matt Noonan did
     -- on the size estimation. See [CBR-318].
     let maxInputs = 350
     let availableUtxo = accountAvailableUtxo snapshot accountId
-    res <- flip runReaderT payees . buildPayment $
+    freshCounter <- newIORef 1
+    let initialSeed = encodeUtf8 @Text @ByteString . sformat build $ hash payees
+    res <- flip runReaderT (initialSeed, freshCounter) . buildPayment $
            CoinSelection.random options
-                                (liftIO genChangeAddr)
                                 mkTx
                                 maxInputs
                                 (toTxOuts payees)
@@ -163,17 +176,28 @@ newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId paye
 -- when we estimate the fees and later create a transaction, the coin selection
 -- will always yield the same value, making the process externally-predicatable.
 newtype PayMonad a = PayMonad {
-      buildPayment :: ReaderT (NonEmpty (Address, Coin)) IO a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadReader (NonEmpty (Address, Coin)))
+      buildPayment :: ReaderT (ByteString, IORef Word16) IO a
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadIO
+               , MonadReader (ByteString, IORef Word16)
+               )
 
 -- | \"Invalid\" 'MonadRandom' instance for 'PayMonad' which generates
--- randomness using the hash of 'NonEmpty (Address, Coin)' as fixed seed.
+-- randomness using the hash of 'NonEmpty (Address, Coin)' as fixed seed,
+-- plus an internal counter used to shift the bits of such hash.
+-- This ensures that the coin selection algorithm runs in a random environment
+-- which is yet deterministically reproduceable by feeding the same set of
+-- payees.
 instance MonadRandom PayMonad where
-    getRandomBytes _ =
-        ask >>= return . ByteArray.convert
-                       . encodeUtf8 @Text @ByteString
-                       . sformat build
-                       . hash
+    getRandomBytes _ = do
+        (initialSeed, counterRef) <- ask
+        counterValue <- readIORef counterRef
+        let randVal = ByteArray.convert . mappend (Bi.serialize' counterValue)
+                                        $ initialSeed
+        modifyIORef' counterRef succ
+        return randVal
 
 {-------------------------------------------------------------------------------
   Estimating fees
@@ -208,9 +232,10 @@ estimateFees activeWallet@ActiveWallet{..} genChangeAddr signAddress options acc
     case res of
          Left e  -> return . Left . EstFeesTxCreationFailed $ e
          Right tx -> -- calculate the fee as the difference between inputs and outputs.
-             -- NOTE(adn) Apparently we shouldn't worry about the 'ExpenseRegulation'
-             -- affecting the way we sum, as no matter who pays for the fee,
-             -- the final difference won't be affected.
+             -- NOTE(adn) In case of 'SenderPaysFee' is practice there might be a slightly
+             -- increase of the projected fee in the case we are forced to pick "yet another input"
+             -- to be able to pay the fee, which would, in turn, also increase the fee due to
+             -- the extra input being picked.
              return $ Right
                     $ sumOfInputs tx originalUtxo `unsafeSubCoin` sumOfOutputs tx
   where

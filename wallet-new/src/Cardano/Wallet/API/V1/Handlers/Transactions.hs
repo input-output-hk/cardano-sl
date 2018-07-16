@@ -54,7 +54,8 @@ newTransaction aw payment@Payment{..} = do
 
     -- TODO(adn) If the wallet is being restored, we need to disallow any @Payment@ from
     -- being submitted.
-
+    -- NOTE(adn) The 'SenderPaysFee' option will become configurable as part
+    -- of CBR-291.
     res <- liftIO $ runProduction $ (WalletLayer.pay aw) (maybe mempty coerce pmtSpendingPassword)
                                                          (toInputGrouping pmtGroupingPolicy)
                                                          SenderPaysFee
@@ -63,6 +64,8 @@ newTransaction aw payment@Payment{..} = do
          Left err -> throwM err
          Right tx -> do
              now <- liftIO getCurrentTimestamp
+             -- NOTE(adn) As part of [CBR-329], we could simply fetch the
+             -- entire 'Transaction' as part of the TxMeta.
              return $ single Transaction {
                                txId            = V1 (hash tx)
                              , txConfirmations = 0

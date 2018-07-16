@@ -160,6 +160,6 @@ readHdAddressByCardanoAddress cardanoAddr = do
     aux . IxSet.getEQ cardanoAddr . readAllHdAddresses
   where
     aux :: IxSet HdAddress -> Either UnknownHdAddress HdAddress
-    aux ixset = case IxSet.onlyOne ixset of
+    aux ixset = case IxSet.getOne ixset of
                      Just x  -> Right x
                      Nothing -> Left (UnknownHdCardanoAddress cardanoAddr)

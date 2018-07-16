@@ -168,6 +168,7 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
 -- | Build a transaction
 type MkTx m = NonEmpty (Core.TxIn, Core.TxOutAux) -- ^ Transaction inputs
            -> NonEmpty Core.TxOutAux              -- ^ Transaction outputs
+           -> [Core.Coin]                         -- ^ Generated change.
            -> m (Either CoinSelHardErr Core.TxAux)
 
 -- | Construct a standard transaction
@@ -176,10 +177,16 @@ type MkTx m = NonEmpty (Core.TxIn, Core.TxOutAux) -- ^ Transaction inputs
 -- multisignature transactions, etc.
 mkStdTx :: Monad m
         => Core.ProtocolMagic
+        -> ([Core.Coin] -> m [Core.TxOutAux])
+        -- ^ Function to turn a list of change into proper Core.TxOutAux.
+        -- This function is likely going to do some IO like creating and
+        -- persisting change addresses into the database.
         -> (Core.Address -> Either CoinSelHardErr Core.SafeSigner)
         -> MkTx m
-mkStdTx pm hdwSigners inps outs =
-    return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) outs
+mkStdTx pm genChange hdwSigners inps outs change = do
+    chng <- genChange change
+    let allOuts = foldl' (flip NE.cons) outs chng
+    return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
   where
     -- Repack a utxo-derived tuple into a format suitable for
     -- 'TxOwnedInputs'.
@@ -206,14 +213,13 @@ type PickUtxo m = Core.Coin  -- ^ Fee to still cover
 -- just be run again on a new snapshot of the wallet DB.
 runCoinSelT :: forall m. Monad m
             => CoinSelectionOptions
-            -> m Core.Address
             -> PickUtxo m
             -> MkTx m
             -> (forall utxo. PickFromUtxo utxo
                   => NonEmpty (Output (Dom utxo))
                   -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)])
             -> CoinSelPolicy Core.Utxo m Core.TxAux
-runCoinSelT opts genChangeAddr pickUtxo mkTx policy request utxo = do
+runCoinSelT opts pickUtxo mkTx policy request utxo = do
     mSelection <- unwrapCoinSelT policy' utxo
     case mSelection of
       Left err -> return (Left err)
@@ -222,22 +228,14 @@ runCoinSelT opts genChangeAddr pickUtxo mkTx policy request utxo = do
             inps = concatMap selectedEntries
                      (additionalUtxo : map coinSelInputs css)
             outs = map coinSelOutput css
-        changeOuts <- forM (concatMap coinSelChange css) $ \change -> do
-                        changeAddr <- genChangeAddr
-                        return Core.TxOutAux {
-                            Core.toaOut = Core.TxOut {
-                                Core.txOutAddress = changeAddr
-                              , Core.txOutValue   = change
-                              }
-                          }
         let allInps = case inps of
                         []   -> error "runCoinSelT: empty list of inputs"
                         i:is -> i :| is
-            allOuts = case outs ++ changeOuts of
-                        []   -> error "runCoinSelT: empty list of outputs"
-                        o:os -> o :| os
+            originalOuts = case outs of
+                               []   -> error "runCoinSelT: empty list of outputs"
+                               o:os -> o :| os
         -- TODO: We should shuffle allOuts
-        mkTx allInps allOuts
+        mkTx allInps originalOuts (concatMap coinSelChange css)
   where
     policy' :: CoinSelT Core.Utxo CoinSelHardErr m
                  ([CoinSelResult Cardano], SelectedUtxo Cardano)
@@ -315,12 +313,11 @@ validateOutput out =
 -- | Random input selection policy
 random :: forall m. MonadRandom m
        => CoinSelectionOptions
-       -> m Core.Address  -- ^ Generate change address
        -> MkTx m          -- ^ Build and sign transaction
        -> Word64          -- ^ Maximum number of inputs
        -> CoinSelPolicy Core.Utxo m Core.TxAux
-random opts changeAddr mkTx maxInps =
-      runCoinSelT opts changeAddr pickUtxo mkTx
+random opts mkTx maxInps =
+      runCoinSelT opts pickUtxo mkTx
     $ Random.random Random.PrivacyModeOn maxInps . NE.toList
   where
     -- We ignore the size of the fee, and just pick randomly
@@ -332,12 +329,11 @@ random opts changeAddr mkTx maxInps =
 -- NOTE: Not for production use.
 largestFirst :: forall m. Monad m
              => CoinSelectionOptions
-             -> m Core.Address
              -> MkTx m
              -> Word64
              -> CoinSelPolicy Core.Utxo m Core.TxAux
-largestFirst opts changeAddr mkTx maxInps =
-      runCoinSelT opts changeAddr pickUtxo mkTx
+largestFirst opts mkTx maxInps =
+      runCoinSelT opts pickUtxo mkTx
     $ LargestFirst.largestFirst maxInps . NE.toList
   where
     pickUtxo :: PickUtxo m
@@ -354,6 +350,10 @@ largestFirst opts changeAddr mkTx maxInps =
 {-------------------------------------------------------------------------------
   Cardano-specific fee-estimation.
 -------------------------------------------------------------------------------}
+
+-- NOTE(adn): Once https://github.com/input-output-hk/cardano-sl/pull/3232
+-- will be merged, we should use the proper formula rather than the unrolled
+-- computation below.
 
 {-| Estimate the size of a transaction, in bytes.
 

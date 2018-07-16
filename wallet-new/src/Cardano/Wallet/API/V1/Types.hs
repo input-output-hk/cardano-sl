@@ -42,6 +42,8 @@ module Cardano.Wallet.API.V1.Types (
   , Account (..)
   , accountsHaveSameId
   , AccountIndex
+  , AccountAddresses (..)
+  , AccountBalance (..)
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
@@ -902,6 +904,7 @@ data Account = Account
     , accWalletId  :: !WalletId
     } deriving (Show, Ord, Eq, Generic)
 
+
 --
 -- IxSet indices
 --
@@ -918,6 +921,15 @@ instance IxSet.Indexable (AccountIndex ': SecondaryAccountIxs)
                          (OrdByPrimKey Account) where
     indices = ixList
 
+-- | Datatype wrapping addresses for per-field endpoint
+newtype AccountAddresses = AccountAddresses
+    { acaAddresses :: [WalletAddress]
+    } deriving (Show, Ord, Eq, Generic)
+
+-- | Datatype wrapping balance for per-field endpoint
+newtype AccountBalance = AccountBalance
+    { acbAmount    :: V1 Core.Coin
+    } deriving (Show, Ord, Eq, Generic)
 
 accountsHaveSameId :: Account -> Account -> Bool
 accountsHaveSameId a b =
@@ -926,6 +938,8 @@ accountsHaveSameId a b =
     accIndex a == accIndex b
 
 deriveJSON Serokell.defaultOptions ''Account
+deriveJSON Serokell.defaultOptions ''AccountAddresses
+deriveJSON Serokell.defaultOptions ''AccountBalance
 
 instance ToSchema Account where
     declareNamedSchema =
@@ -937,12 +951,32 @@ instance ToSchema Account where
             & ("walletId"  --^ "Id of the wallet this account belongs to.")
           )
 
+instance ToSchema AccountAddresses where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "aca" (\(--^) props -> props
+            & ("addresses" --^ "Public addresses pointing to this account.")
+          )
+
+instance ToSchema AccountBalance where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "acb" (\(--^) props -> props
+            & ("amount"    --^ "Available funds, in Lovelace.")
+          )
+
 instance Arbitrary Account where
     arbitrary = Account <$> arbitrary
                         <*> arbitrary
                         <*> arbitrary
                         <*> pure "My account"
                         <*> arbitrary
+
+instance Arbitrary AccountAddresses where
+    arbitrary =
+        AccountAddresses <$> arbitrary
+
+instance Arbitrary AccountBalance where
+    arbitrary =
+        AccountBalance <$> arbitrary
 
 deriveSafeBuildable ''Account
 instance BuildableSafeGen Account where
@@ -959,8 +993,17 @@ instance BuildableSafeGen Account where
         accAmount
         accWalletId
 
+instance Buildable AccountAddresses where
+    build =
+        bprint listJson . acaAddresses
+
+instance Buildable AccountBalance where
+    build =
+        bprint build . acbAmount
+
 instance Buildable [Account] where
-    build = bprint listJson
+    build =
+        bprint listJson
 
 -- | Account Update
 data AccountUpdate = AccountUpdate {
@@ -1901,15 +1944,3 @@ instance Arbitrary Redemption where
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet        = WalletUpdate
-  Update Account       = AccountUpdate
-  Update WalletAddress = () -- read-only
-
-type family New (original :: *) :: * where
-  New Wallet  = NewWallet
-  New Account = NewAccount
-  New WalletAddress = NewAddress
-
-type CaptureWalletId = Capture "walletId" WalletId
-
-type CaptureAccountId = Capture "accountId" AccountIndex

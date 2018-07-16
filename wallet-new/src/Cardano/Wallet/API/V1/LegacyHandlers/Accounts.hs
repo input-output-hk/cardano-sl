@@ -36,6 +36,8 @@ handlers pm txpConfig submitTx =
     :<|> newAccount
     :<|> updateAccount
     :<|> redeemAda pm txpConfig submitTx
+    :<|> getAccountAddresses
+    :<|> getAccountBalance
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -108,3 +110,25 @@ redeemAda pm txpConfig submitTx walletId accountIndex r = do
                     , V0.crSeed = seed
                     }
             V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem
+
+getAccountAddresses
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
+    -> AccountIndex
+    -> RequestParams
+    -> FilterOperations WalletAddress
+    -> SortOperations WalletAddress
+    -> m (WalletResponse AccountAddresses)
+getAccountAddresses wId accIdx pagination filters sorts = do
+    resp <- respondWith pagination filters sorts (getAddresses <$> getAccount wId accIdx)
+    return resp { wrData = AccountAddresses . wrData $ resp }
+  where
+    getAddresses =
+        IxSet.fromList . accAddresses . wrData
+
+getAccountBalance
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountIndex -> m (WalletResponse AccountBalance)
+getAccountBalance wId accIdx = do
+    resp <- getAccount wId accIdx
+    return resp { wrData = AccountBalance . accAmount . wrData $ resp }

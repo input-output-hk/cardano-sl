@@ -74,6 +74,8 @@ instance Example BackupPhrase where
 instance Example Address
 instance Example Metadata
 instance Example AccountIndex
+instance Example AccountBalance
+instance Example AccountAddresses
 instance Example WalletId
 instance Example AssuranceLevel
 instance Example SyncPercentage

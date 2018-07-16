@@ -6,7 +6,6 @@ module Main where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import qualified Data.ByteString.Char8 as B8
 import           Data.Map (fromList)
 import           Data.Traversable (for)
 import           Data.X509.File (readSignedObject)
@@ -15,20 +14,23 @@ import           System.Environment (withArgs)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
 
+import           AccountSpecs (accountSpecs)
 import           AddressSpecs (addressSpecs)
 import           CLI
 import           Functions
-import qualified QuickCheckSpecs as QuickCheck
 import           TransactionSpecs (transactionSpecs)
 import           Types
 import           Util (WalletRef, newWalletRef)
 import           WalletSpecs (walletSpecs)
 
+import qualified Data.ByteString.Char8 as B8
+import qualified QuickCheckSpecs as QuickCheck
+
+
 -- | Here we want to run main when the (local) nodes
 -- have started.
 main :: IO ()
 main = do
-
     hSetEncoding stdout utf8
     CLOptions {..} <- getOptions
 
@@ -53,9 +55,9 @@ main = do
 
     -- some monadic fold or smth similar
     _ <- runActionCheck
-        walletClient
-        walletState
-        actionDistribution
+       walletClient
+       walletState
+       actionDistribution
 
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef
@@ -75,7 +77,7 @@ main = do
         either (fail . ("Error decoding X509 certificates: " <>)) return
 
     actionDistribution :: ActionProbabilities
-    actionDistribution = do
+    actionDistribution =
         (PostWallet, Weight 2)
             :| (PostTransaction, Weight 5)
             : fmap (, Weight 1) [minBound .. maxBound]
@@ -94,12 +96,13 @@ initialWalletState wc = do
         _transactions     = mempty
         _actionsNum       = 0
         _successActions   = mempty
-    pure $ WalletState {..}
+    return WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)
 
 deterministicTests :: WalletRef -> WalletClient IO -> Manager -> Spec
 deterministicTests wref wc manager = do
+    accountSpecs wref wc
     addressSpecs wref wc
     walletSpecs wref wc
     transactionSpecs wref wc

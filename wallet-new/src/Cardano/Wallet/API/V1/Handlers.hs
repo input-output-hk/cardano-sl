@@ -5,6 +5,7 @@ import           Universum
 
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
+import qualified Cardano.Wallet.API.V1.Handlers.Transactions as Transactions
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import           Cardano.Wallet.WalletLayer.Types
 import           Mockable
@@ -13,7 +14,7 @@ handlers :: ActiveWalletLayer Production -> Server V1.API
 handlers w =  Addresses.handlers w
          :<|> wallets
          :<|> accounts
-         :<|> transactions
+         :<|> Transactions.handlers w
          :<|> settings
          :<|> info
   where
@@ -21,13 +22,7 @@ handlers w =  Addresses.handlers w
 
     wallets = todo
     accounts = todo
-    transactions = (todo :<|> getTransactionsHistory :<|> todo)
     settings = todo
     info = todo
 
     todo = error "TODO"
-
-    getTransactionsHistory _ _ _ _ _ _ =
-      liftIO $ runProduction ret
-        where
-          ret = error "TODO" -- CBR-239

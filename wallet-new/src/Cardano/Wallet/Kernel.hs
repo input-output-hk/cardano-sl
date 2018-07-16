@@ -32,7 +32,6 @@ import           Universum hiding (State, init)
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import qualified Data.Map.Strict as Map
-import           Data.Time.Clock.POSIX (getPOSIXTime)
 
 import           System.Wlog (Severity (..))
 
@@ -62,12 +61,13 @@ import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
                      addPending, defaultResubmitFunction, exponentialBackoff,
                      newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
+import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 
 -- Handy re-export of the pure getters
 
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 
-import           Pos.Core (Timestamp (..), TxAux (..))
+import           Pos.Core (TxAux (..))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
@@ -161,10 +161,6 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel esk 
         walletId      = WalletIdHdRnd rootId
 
         insertESK _arg = insertWalletESK pw walletId esk >> return (Right accountIds)
-
--- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
-getCurrentTimestamp :: IO Timestamp
-getCurrentTimestamp = Timestamp . round . (* 1000000) <$> getPOSIXTime
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation

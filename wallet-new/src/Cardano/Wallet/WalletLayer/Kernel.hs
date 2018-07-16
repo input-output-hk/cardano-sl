@@ -55,7 +55,7 @@ import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
 import           Pos.Crypto.Signing
 
-import           Cardano.Wallet.API.V1.Types (EstimatedFees (..), Payment (..),
+import           Cardano.Wallet.API.V1.Types (Payment (..),
                      PaymentDistribution (..), PaymentSource (..), V1 (..),
                      WalletId (..), unV1)
 
@@ -211,7 +211,7 @@ bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiv
                                                        payees
                   case fees of
                        Left e  -> return . Left  . EstimateFeesError $ e
-                       Right f -> return . Right . EstimatedFees . V1 $ f
+                       Right f -> return . Right $ f
         }
 
 

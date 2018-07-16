@@ -247,7 +247,7 @@ spec = describe "NewPayment" $ do
                                       )
                         case res of
                              Left e  -> fail (formatToString build e)
-                             Right (V1.EstimatedFees (V1.V1 fee)) ->
+                             Right fee ->
                                  fee `shouldSatisfy` (> (Coin 0))
 
         describe "Estimating fees (kernel)" $ do

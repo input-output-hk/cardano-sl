@@ -44,12 +44,12 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Cardano.Wallet.API.V1.Types (EstimatedFees, Payment)
+import           Cardano.Wallet.API.V1.Types (Payment)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation, InputGrouping)
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core (Tx)
+import           Pos.Core (Coin, Tx)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (PassPhrase)
 
@@ -202,7 +202,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
                      -- ^ Who pays the fee, if the sender or the receivers.
                      -> Payment
                      -- ^ The payment we need to perform.
-                     -> m (Either EstimateFeesError EstimatedFees)
+                     -> m (Either EstimateFeesError Coin)
     }
 
 ------------------------------------------------------------
@@ -213,6 +213,12 @@ data NewPaymentError =
       NewPaymentError Kernel.PaymentError
     | NewPaymentTimeLimitReached TimeExecutionLimit
 
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show NewPaymentError where
+    show = formatToString build
+
+instance Exception NewPaymentError
+
 instance Buildable NewPaymentError where
     build (NewPaymentError kernelErr) =
         bprint ("NewPaymentError " % build) kernelErr
@@ -222,6 +228,12 @@ instance Buildable NewPaymentError where
 data EstimateFeesError =
       EstimateFeesError Kernel.EstimateFeesError
     | EstimateFeesTimeLimitReached TimeExecutionLimit
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show EstimateFeesError where
+    show = formatToString build
+
+instance Exception EstimateFeesError
 
 instance Buildable EstimateFeesError where
     build (EstimateFeesError kernelErr) =

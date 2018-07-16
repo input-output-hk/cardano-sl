@@ -15,7 +15,7 @@ module Cardano.Wallet.Kernel.Internal (
   , walletLogMessage
   ) where
 
-import           Universum hiding (State, init)
+import           Universum hiding (State)
 
 import           Control.Lens.TH
 

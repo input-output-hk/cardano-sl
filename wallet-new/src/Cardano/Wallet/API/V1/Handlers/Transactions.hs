@@ -1,7 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 
-module Cardano.Wallet.API.V1.Handlers.Transactions where
+module Cardano.Wallet.API.V1.Handlers.Transactions (
+      handlers
+    , newTransaction
+    , getTransactionsHistory
+    , estimateFees
+    ) where
 
 import           Universum
 

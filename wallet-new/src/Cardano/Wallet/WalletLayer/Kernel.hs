@@ -42,9 +42,8 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      InputGrouping, newOptions)
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
-import           Pos.Core (decodeTextAddress)
 
-import           Pos.Core (Address, Coin)
+import           Pos.Core (Address, Coin, decodeTextAddress)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (safeDeterministicKeyGen)
@@ -168,13 +167,8 @@ bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiv
         -- | Generates a new transaction @and submit it as pending@.
         , pay = \spendingPassword grouping regulation payment -> do
               liftIO $ limitExecutionTimeTo (60 :: Second) NewPaymentTimeLimitReached $ do
-                  let pw = Kernel.walletPassive activeWallet
-                  snapshot <- liftIO (Kernel.getWalletSnapshot pw)
-                  let keystore = Kernel.walletPassive activeWallet ^. Internal.walletKeystore
                   (genChangeAddr, mkSigner, opts, accountId, payees) <-
-                       liftIO $ setupPayment pw
-                                             (Kernel.hdWallets snapshot)
-                                             keystore
+                       liftIO $ setupPayment (Kernel.walletPassive activeWallet)
                                              spendingPassword
                                              grouping
                                              regulation
@@ -192,13 +186,8 @@ bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiv
         -- | Estimates the fees for a payment.
         , estimateFees = \spendingPassword grouping regulation payment -> do
               liftIO $ limitExecutionTimeTo (60 :: Second) EstimateFeesTimeLimitReached $ do
-                  let pw = Kernel.walletPassive activeWallet
-                  snapshot <- liftIO (Kernel.getWalletSnapshot pw)
-                  let keystore = Kernel.walletPassive activeWallet ^. Internal.walletKeystore
                   (genChangeAddr, mkSigner, opts, accountId, payees) <-
-                      liftIO $ setupPayment pw
-                                            (Kernel.hdWallets snapshot)
-                                            keystore
+                      liftIO $ setupPayment (Kernel.walletPassive activeWallet)
                                             spendingPassword
                                             grouping
                                             regulation
@@ -215,9 +204,9 @@ bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiv
         }
 
 
+-- | Internal function setup to facilitate the creation of the necessary
+-- context to perform either a new payment or the estimation of the fees.
 setupPayment :: Kernel.PassiveWallet
-             -> HD.HdWallets
-             -> Keystore
              -> PassPhrase
              -> InputGrouping
              -> ExpenseRegulation
@@ -228,8 +217,13 @@ setupPayment :: Kernel.PassiveWallet
                    , HD.HdAccountId
                    , NonEmpty (Address, Coin)
                    )
-setupPayment pw wallets keystore spendingPassword grouping regulation payment = do
-    let (WalletId wId) = psWalletId . pmtSource $ payment
+setupPayment pw spendingPassword grouping regulation payment = do
+    snapshot <- liftIO (Kernel.getWalletSnapshot pw)
+
+    let keystore = pw ^. Internal.walletKeystore
+        wallets = Kernel.hdWallets snapshot
+        (WalletId wId) = psWalletId . pmtSource $ payment
+
     hdRootId  <- case Core.decodeTextAddress wId of
                      Left e  -> throwM (InvalidAddressConversionFailed e)
                      Right a -> return (HD.HdRootId . InDb $ a)

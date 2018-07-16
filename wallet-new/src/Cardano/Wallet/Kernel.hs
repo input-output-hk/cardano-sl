@@ -67,9 +67,7 @@ import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 
-import           Pos.Core (TxAux (..))
-
-import           Pos.Core (ProtocolMagic)
+import           Pos.Core (ProtocolMagic, TxAux (..))
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Txp (Utxo)

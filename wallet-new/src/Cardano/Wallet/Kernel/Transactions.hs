@@ -142,16 +142,8 @@ newTransaction :: ActiveWallet
 newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId payees = do
     snapshot <- getWalletSnapshot walletPassive
     let toTxOuts = fmap (\(a,c) -> TxOutAux (TxOut a c))
-    -- We generate a new change address outside the 'MonadRandom' monad in which
-    -- coin selection runs, so that we keep our \"external\" model consistent
-    -- by generating it once, before calling coin selection. Specifically, we
-    -- pass this potential change address from the outside.
-    -- One disadvantage of this approach is that in case of failure of the
-    -- coin-selection we might be left with such dangling address, but in the
-    -- future we could easily add a function to delete an address, keeping the
-    -- possible number of orphans at bay.
     let mkTx = mkStdTx walletProtocolMagic signAddress
-    -- | FIXME(adn) This number was computed out of the work Matt Noonan did
+    -- | NOTE(adn) This number was computed out of the work Matt Noonan did
     -- on the size estimation. See [CBR-318].
     let maxInputs = 350
     let availableUtxo = accountAvailableUtxo snapshot accountId
@@ -170,7 +162,6 @@ newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId paye
 -- from a fixed seed obtained from hashing the payees. This guarantees that
 -- when we estimate the fees and later create a transaction, the coin selection
 -- will always yield the same value, making the process externally-predicatable.
-
 newtype PayMonad a = PayMonad {
       buildPayment :: ReaderT (NonEmpty (Address, Coin)) IO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadReader (NonEmpty (Address, Coin)))
@@ -212,7 +203,7 @@ estimateFees :: ActiveWallet
              -> IO (Either EstimateFeesError Coin)
 estimateFees activeWallet@ActiveWallet{..} genChangeAddr signAddress options accountId payees = do
     snapshot         <- getWalletSnapshot walletPassive
-    let originalUtxo = accountUtxo snapshot accountId
+    let originalUtxo = accountAvailableUtxo snapshot accountId
     res <- newTransaction activeWallet genChangeAddr signAddress options accountId payees
     case res of
          Left e  -> return . Left . EstFeesTxCreationFailed $ e
@@ -271,7 +262,7 @@ mkSigner spendingPassword (Just esk) allWallets addr =
                  _                   ->
                      Left (CoinSelHardErrAddressNotOwned (Proxy @ Cardano) addr)
 
--- | An hopefully-accurate estimate of the Tx fees in Cardano.
+-- | An estimate of the Tx fees in Cardano based on a sensible number of defaults.
 cardanoFee :: Int -> NonEmpty Coin -> Coin
 cardanoFee inputs outputs = Core.mkCoin $
     estimateCardanoFee linearFeePolicy inputs (toList $ fmap Core.getCoin outputs)

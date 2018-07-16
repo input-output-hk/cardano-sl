@@ -35,7 +35,7 @@ import qualified Formatting.Buildable
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-                     Wallet, WalletId, WalletUpdate)
+                     Payment, Wallet, WalletId, WalletUpdate)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
@@ -44,7 +44,6 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Cardano.Wallet.API.V1.Types (Payment)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation, InputGrouping)
 

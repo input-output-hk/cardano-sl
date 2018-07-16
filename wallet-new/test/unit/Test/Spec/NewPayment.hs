@@ -58,6 +58,10 @@ import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 import           Util.Buildable (ShowThroughBuild (..))
 
+import qualified Cardano.Wallet.API.V1.Handlers.Transactions as Handlers
+import           Control.Monad.Except (runExceptT)
+import           Servant.Server
+
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | Do not pollute the test runner output with logs.
@@ -138,6 +142,8 @@ withFixture initialBalance toPay cc = do
             walletSendTx = \_tx -> return False
           }
 
+-- | Generate a fresh change 'Address', throwing an exception if the underlying
+-- operation fails.
 genChangeAddr :: AccountId -> PassiveWallet -> IO Address
 genChangeAddr accountId pw = do
     res <- Kernel.createAddress mempty accountId pw
@@ -145,6 +151,7 @@ genChangeAddr accountId pw = do
          Right addr -> pure addr
          Left err   -> throwM err
 
+-- | A fake signer which doesn't check for 'Address' ownership.
 fakeSigner :: PassPhrase
            -> Maybe EncryptedSecretKey
            -> Address
@@ -152,8 +159,36 @@ fakeSigner :: PassPhrase
 fakeSigner _ Nothing addr    = Left (CoinSelHardErrAddressNotOwned (Proxy @ Cardano) addr)
 fakeSigner _ (Just esk) _    = Right (FakeSigner (encToSecret esk))
 
+-- | A constant fee calculation.
 constantFee :: Int -> NonEmpty Coin -> Coin
 constantFee _ _ = mkCoin 10
+
+-- | Helper function to facilitate payments via the Layer or Servant.
+withPayment :: MonadIO n
+            => InitialBalance
+            -- ^ How big the wallet Utxo must be
+            -> Pay
+            -- ^ How big the payment must be
+            -> (ActiveWalletLayer n -> V1.Payment -> IO ())
+            -- ^ The action to run.
+            -> PropertyM IO ()
+withPayment initialBalance toPay action = do
+    withFixture initialBalance toPay $ \keystore activeLayer Fixture{..} -> do
+        liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+        let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
+        let (HdRootId (InDb rootAddress)) = fixtureHdRootId
+        let sourceWallet = V1.WalletId (sformat build rootAddress)
+        let accountIndex = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+        let destinations =
+                fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
+                     ) fixturePayees
+        let newPayment = V1.Payment {
+                         pmtSource           = V1.PaymentSource sourceWallet accountIndex
+                       , pmtDestinations     = destinations
+                       , pmtGroupingPolicy   = Nothing
+                       , pmtSpendingPassword = Nothing
+                       }
+        action activeLayer newPayment
 
 spec :: Spec
 spec = describe "NewPayment" $ do
@@ -162,20 +197,7 @@ spec = describe "NewPayment" $ do
 
         prop "pay works (realSigner, SenderPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
-                withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ activeLayer Fixture{..} -> do
-                    let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
-                    let (HdRootId (InDb rootAddress)) = fixtureHdRootId
-                    let sourceWallet = V1.WalletId (sformat build rootAddress)
-                    let accountIndex = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
-                    let destinations =
-                            fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
-                                 ) fixturePayees
-                    let newPayment = V1.Payment {
-                                     pmtSource           = V1.PaymentSource sourceWallet accountIndex
-                                   , pmtDestinations     = destinations
-                                   , pmtGroupingPolicy   = Nothing
-                                   , pmtSpendingPassword = Nothing
-                                   }
+                withPayment (InitialADA 10000) (PayLovelace 10) $ \activeLayer newPayment -> do
                     res <- liftIO ((WalletLayer.pay activeLayer) mempty
                                                                  IgnoreGrouping
                                                                  SenderPaysFee
@@ -205,7 +227,6 @@ spec = describe "NewPayment" $ do
         prop "newTransaction works (fake signer, ReceiverPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
                 withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
-                    allWallets <- Kernel.hdWallets <$> Kernel.getWalletSnapshot fixturePw
                     let opts = (newOptions Kernel.cardanoFee) {
                                csoExpenseRegulation = ReceiverPaysFee
                              , csoInputGrouping     = IgnoreGrouping
@@ -220,26 +241,21 @@ spec = describe "NewPayment" $ do
                                   )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
+    describe "Generating a new payment (Servant)" $ do
+
+        prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $
+            monadicIO $
+                withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
+                    res <- liftIO (runExceptT . runHandler' $ Handlers.newTransaction activeLayer newPayment)
+                    liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
+
     describe "EstimateFees" $ do
 
         describe "Estimating fees (wallet layer)" $ do
 
             prop "estimating fees works (SenderPaysFee)" $ withMaxSuccess 50 $ do
                 monadicIO $
-                    withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ activeLayer Fixture{..} -> do
-                        let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
-                        let (HdRootId (InDb rootAddress)) = fixtureHdRootId
-                        let sourceWallet = V1.WalletId (sformat build rootAddress)
-                        let accountIndex = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
-                        let destinations =
-                                fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
-                                     ) fixturePayees
-                        let newPayment = V1.Payment {
-                                         pmtSource           = V1.PaymentSource sourceWallet accountIndex
-                                       , pmtDestinations     = destinations
-                                       , pmtGroupingPolicy   = Nothing
-                                       , pmtSpendingPassword = Nothing
-                                       }
+                    withPayment (InitialADA 10000) (PayLovelace 10) $ \activeLayer newPayment -> do
                         res <- liftIO ((WalletLayer.estimateFees activeLayer) mempty
                                                                               IgnoreGrouping
                                                                               SenderPaysFee
@@ -314,17 +330,10 @@ spec = describe "NewPayment" $ do
                              Left e  -> fail (formatToString build e)
                              Right x -> x `shouldSatisfy` (> (Coin 0))
 
-{--
-    describe "Generating a new payment (Servant)" $ do
-        prop "works as expected in the happy path scenario" $ do
-            monadicIO $
-                withFixture $ \keystore layer Fixture{..} -> do
-                    liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
-                    let (HdRootId hdRoot) = fixtureHdRootId
-                        (AccountIdHdRnd myAccountId) = fixtureAccountId
-                        wId = sformat build (view fromDb hdRoot)
-                        accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
-                        req = V1.NewAddress Nothing accIdx (V1.WalletId wId)
-                    res <- liftIO (runExceptT . runHandler' $ Handlers.newAddress layer req)
-                    liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
---}
+        describe "Estimating fees (Servant)" $ do
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $
+                monadicIO $
+                    withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
+                        res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer newPayment)
+                        liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
+

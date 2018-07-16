@@ -1,22 +1,24 @@
 ---
-title: Design Specification for Delegation in Shelley
+title: Design Specification for Delegation and Incentives in Shelley
 subtitle: 'Status: DRAFT'
-author: Philipp Kant
+author: Lars Brünjes, Philipp Kant
 documentclass: scrartcl
 toc: t
 numbersections: true
 # This document uses pandoc extensions to markdown. To compile, use
+#   gnuplot rewards.gnuplot
 #   pandoc -o delegation_design_spec.pdf delegation_design_spec.md
 ...
 
 # Purpose
-This document describes the requirements and design for a delegation
-mechanism to be used in the Shelley release of Cardano.
+This document describes the requirements and design for a
+delegation- and incentives-mechanism to be used in the Shelley release of Cardano.
 
 Delegation will allow holders of Ada to transfer their rights to
 participate in the proof of stake (_PoS_) protocol to _stake
-pools_. Stake pools are run by _stake pool operators_, and a person
-delegating to a stake pool is called _delegator_, _member_, or
+pools_. Stake pools are run by _stake pool operators_
+(also called _pool leaders_),
+and a person delegating to a stake pool is called _delegator_, _member_, or
 _participant_ of a stake pool.
 
 Introducing delegation is important to increase the stability and
@@ -731,6 +733,16 @@ will require them to post a new certificate, which will notify the
 stakeholders that delegated to the pool, possibly triggering a
 re-delegation.
 
+In addition to the above, we will also require pool operators
+to include a list of IP-adresses and/or domain names in the registration
+certificate, pointing to publicly reachable _relay nodes_ under their control.
+(It is necessary to have a sufficient number of such publicly reachable nodes
+in order to establish a reliable peer-to-peer network.)
+We will use no technical mechanism to check the validity and availability
+of these relay nodes, but will rely on social pressure instead: People
+contemplating joining a pool will check the published data
+and will put little trust in operators who publish fake or unreliable addresses.
+
 ### Display of Stake Pools in the Wallet
 
 The wallet software will keep a list of all the stakepool registration
@@ -1307,6 +1319,516 @@ fewer rewards with delegators).
 
 TODO: Needs definitive input from incentives stream regarding how to
 incentivise users to delegate away from code nodes.
+
+# Design of Incentives
+
+## Overview of Incentives
+
+On a high level, goal of the Incentives mechanism is to incentivize stakeholders
+to follow the protocol and thereby guaranteeing secure and efficient operation
+of Cardano.
+
+More specifically, we want a majority of stake (at least 80%) to delegate to a
+number of $k$ _stake pools_ (where $k$ is a parameter of the system -- see
+[below](#parameters)). The _pool leaders_ of those stake pools are supposed to
+
+ - provide additional network infrastructure,
+ - be online for and participate in the election mechanism and
+ - be online during slots for which they have been elected slot leader and
+   then create a block containing as many transactions as possible.
+
+Stakeholders who do not want to register a pool and become pool leaders can
+either
+
+ - _delegate_ their stake to a registered pool (we hope most will do this) or
+ - participate in the protocol without registering a pool (at most 20% of stake
+   should belong to such "one-man pools").
+ - (They can also not do anything, but will not receive any rewards in that
+   case.)
+
+Incentives are provided in the form of _social pressure_ (by making pool leader
+performance and adherence to the protocol public), but mostly by _monetary
+incentives_ in the form of ADA.
+
+Design goal of the mechanism is to align monetary incentives as perfectly as
+possible with protocol adherence: If every stakeholder follows his own financial
+interests, the system should settle into a desirable state.
+If possible, there should never be a conflict of interest between maximizing
+rewards and "doing the right thing".
+
+Rewards will be paid for each epoch and will be drawn from two sources,
+
+ - monetary expansion and
+ - transaction fees.
+
+Rewards for one epoch will roughly be split proportional to stake. However,
+there will be several refinements to this general principle:
+
+ - Rewards for a stake pool will be capped when the pool gets too large (otherwise,
+   the system would converge towards a state with all stake being delegated to
+   one giant stake pool).
+ - Rewards will decrease if a pool leader does not create the blocks he is
+   supposed to create.
+ - Pool leaders will be compensated for their trouble and risk by
+
+   - reimbursing their costs and
+   - giving them a _margin_ before distributing pool rewards proportionally
+     amongst pool leader and pool members. (Pool leaders publicly declare their
+     margin, which they can freely choose.)
+
+  - Pool rewards will slightly increase with the stake of their leader. There is
+    no minimal stake required to create a pool - anybody can do this. However,
+    pools led by leaders with high stake will get higher rewards. (Otherwise, somebody with
+    low stake could easily and cheaply create several pools and gain control over a majority of
+    stake.)
+
+Our game theoretic analysis has shown that if stakeholders try to maximize their
+rewards in a "short-sighted" (_myopic_) way (pool members joining the pool with the highest
+rewards _at this moment_, pool leaders raising their margins to get higher
+rewards _at this moment_), chaotic behavior will ensue.
+
+Therefore we will calculate _non-myopic_ rewards and make them public, thus
+guiding stakeholders to behave in a way that will benefit them in the long run.
+Our analysis shows that if everybody follows this advice, the system will
+stabilize in a _Nash Equilibrium_, meaning that no stakeholder will have
+incentive to act differently.
+
+Rewards to both the pool leaders and the pool members will be calculated by the
+system and will be available to all stakeholders after each epoch. No manual
+intervention (transfer of funds) will be necessary.
+
+## Parameters
+
+There will be a couple of parameters whose values have to be set in advance:
+
+ - The desired number of pools $k\in\mathbb{N}_+$.
+ - The influence $a_0\in[0,\infty)$ a pool leader's stake should have on the desirability of the
+   pool. Small values of $a_0$ indicate little influence.
+ - The _expansion rate_ $\rho\in[0,1]$, determining the fraction of still available ADA
+   that will be created per epoch.
+ - The fraction $\tau\in[0,1]$ of rewards going to the treasury.
+ - An exponent $\gamma\in(0,\infty)$ for penalty calculation.
+
+We will discuss [later](#deciding-on-good-values-for-the-parameters)
+how one could approach choosing reasonable values for these.
+
+## Reminder: Stakepool Registration
+
+Recall from [above](#stakepool-registration) that
+stakeholders who wish to operate and lead a stake pool have to _register_
+their pool on the blockchain. From the point of view of reward-calculation (see
+[below](#epoch-rewards)), the following information has to be included in the
+registration:
+
+ - The _costs_ of operating the pool (in ADA/epoch).
+ - The pool leader _margin_ (in $[0,1]$), indicating the additional share the
+   pool leader will take from pool rewards before splitting rewards amongst
+   members (see [below](#pool-leader-reward)).
+ - Proof of _ADA pledged to the pool_. This could be provided as a list of
+   addresses, signed by the corresponding secret spending keys.
+
+There will be no lower bound on the amount of ADA that has to be pledged, but
+we will see [below](#pool-rewards) that pool rewards will increase with
+this amount.
+This is necessary to prevent people with low stake from registering many pools,
+gaining control over a lot of stake and attacking the system (see [below](#a_0)).
+
+## Epoch Rewards
+
+There will be three sources of rewards for an epoch:
+_transaction fees_, _monetary expansion_ and rewards from the _previous_ epoch.
+
+### Transaction Fees
+
+All transaction fees from all transactions from all blocks created during the
+epoch will be used as rewards.
+
+### Monetary Expansion
+
+Let $T$ be the total amount of ADA in existence during a specific
+epoch, and let $T_\infty$ be the maximal possible amount of ADA in the future.
+At this moment, $T=31,000,000,000$ and $T_\infty=45,000,000,000$.
+Then the amount of $\rho\cdot(T_\infty - T)$ ADA
+will be newly created.
+
+Since $T_\infty$ is finite, rewards from monetary expansion will decrease over
+time. This has to be compensated by
+
+ - rising transaction fees when more and more people use the system and
+ - higher exchange rates from ADA to USD when the system become more valuable.
+
+### Rewards from the Previous Epoch
+
+As we will see [below](#pool-rewards),
+not all available rewards from an epoch will actually be distributed during that
+epoch. The rest will be added to the rewards of the following epoch.
+
+### Treasury
+
+A fraction $\tau$ of the rewards for one epoch will go to the _treasury_.
+
+## Reward Splitting
+
+In this section we describe how the total rewards $R$
+from one epoch are split amongst stakeholders.
+
+These calculations proceed in two steps:
+First, rewards are split amongst _pools_.
+Next, each pool splits its share of $R$ amongst its leader and its members.
+
+### Pool Rewards
+
+For a given epoch, the _maximal_ rewards for a pool are
+$$
+    f(s,\sigma) :=
+    \frac{R}{1 + a_0}
+    \cdot
+    \left(\sigma' + s'\cdot a_0\cdot\frac{\sigma' - s'\frac{z_0-\sigma'}{z_0}}{z_0}\right).
+$$
+Here
+
+  - $R$ are the total available rewards for the epoch (in ADA).
+  - $a_0\in[0,\infty)$ is a parameter determining leader-stake influence on pool rewards.
+  - $z_0:=1/k$ is the size of a saturated pool.
+  - $\sigma':=\min(\sigma, z_0)$, where $\sigma$ is the relative stake of the pool.
+  - $s':=\min(s, z_0)$, where $s$ is the relative stake of the pool leader (the
+    amount of ADA pledged during [pool registration](#stake-pool-registration).
+
+The _actual_ rewards for a pool $j$ (with relative stake $\sigma_j$ and relative
+leader-stake $s_j$) which should have created $N_j$ blocks in
+that epoch and actually created $n_j\leq N_j$ out of those are
+$$
+    \hat{f}_j := \left(\frac{n_j}{\max(N_j, 1)}\right)^\gamma\cdot f(s_j,\sigma_j).
+$$
+So if the pool leader of pool $j$ faithfully creates all blocks
+in slots for which one of the pool members was elected slot leader,
+$n_j=N_j$ and
+$\hat{f}_j=f(s_j,\sigma_j)$, i.e. the pool gets all available rewards.
+
+If on the other hand the pool leader does not create even a single block,
+$\hat{f}_j=0$, and the pool will get no rewards whatsoever for that epoch.
+
+What happens in between these two extremes is controlled by parameter
+$\gamma\in(0,\infty)$:
+For $\gamma=1$, the penalty will be proportional to the number of missed blocks.
+For $0<\gamma<1$, penalties for missing the first few blocks will be relatively
+light,
+whereas for $\gamma>1$, penalties will be over-propertionally harsh in the
+beginning.
+
+The difference $f(s_j,\sigma_j)-\hat{f}_j$ will be sent to the treasury.
+In particular, this means that _no pool can increase its own rewards by
+somehow preventing another pool from producing blocks_.
+
+Note that $\sum_jf(s_j,\sigma_j)\leq 1$
+and that the difference $R-\sum_jf(s_j,\sigma_j)$ will normally
+be strictly positive. This difference will be added to the following epoch's rewards.
+
+### Reward Splitting inside a pool
+
+After the rewards for a pool have been determined
+according to the [previous section](#pool-rewards),
+those rewards are then split amongst the _pool leader_ and the _pool members_.
+
+Consider
+
+  - $\hat{f}$, the _pool rewards_,
+  - $c$, the pool _costs_ (in ADA),
+  - $m\in[0,1]$, the _margin_,
+  - $\sigma\in[0,1]$, the relative stake of the pool.
+
+Note that the values $c$ and $m$ for registered pools are available from the [pool
+registration](#stake-pool-registration).
+Stakeholders who have _not_ registered a pool
+and participate in the protocol on
+their own are treated like _pool leaders of one-man pools with margin 1_ (costs
+are irrelevant in this case, because all pool rewards go to the pool leader
+anyway).
+
+#### Pool Leader Reward
+
+The _pool leader reward $r_\mathrm{leader}$_ (in ADA) is calculated as follows
+(where $s\in[0,1]$ is the stake of the pool leader):
+$$
+    r_\mathrm{leader}(\hat{f}, c, m, s, \sigma) :=
+    \left\{
+    \begin{array}{ll}
+        \displaystyle\hat{f} &
+        \text{if $\hat{f}\leq c$,} \\
+        \displaystyle c + (\hat{f} - c)\cdot\left(m + (1-m)\cdot\frac{s}{\sigma}\right) &
+        \text{otherwise.}
+    \end{array}
+    \right.
+$$
+
+#### Pool Member Reward
+
+The _pool member reward $r_\mathrm{member}$_ (in ADA) is calculated as follows
+(where $t\in[0,1]$ is the stake of the pool member):
+$$
+    r_\mathrm{member}(\hat{f}, c, m, t, \sigma) :=
+    \left\{
+    \begin{array}{ll}
+        \displaystyle 0 &
+        \text{if $\hat{f}\leq c$,} \\
+        \displaystyle (\hat{f} - c)\cdot(1-m)\cdot\frac{t}{\sigma} &
+        \text{otherwise.}
+    \end{array}
+    \right.
+$$
+
+## Non-Myopic Utility
+
+It would be short-sighted ("myopic") for stakeholders to directly use the
+formulas from section [Reward Splitting](#reward-splitting).
+They should instead take the long-term ("non-myopic") view.
+To this end, the system will calculate and display the "non-myopic" rewards that
+pool leaders and pool members can expect,
+thus supporting stakeholders in their decision whether to create a pool
+and to which pool to delegate their stake.
+
+The idea is to first rank all pools by "desirability",
+to then assume that the $k$ most desirable pools will eventually be saturated,
+whereas all other pools will lose all their members,
+then to finally base all reward calculations on these assumptions.
+
+### Pool Desirability and Ranking
+
+First we define the _desirability_ of a pool
+whose leader has stake $s$, costs $c$ and margin $m$.
+Simply put, this number indicates how "desirable" or "attractive" this pool is to (potential)
+members.
+
+If the pool is _saturated_, the pool rewards are
+$$
+    \tilde{f}(s) :=
+    f(s,z_0)=
+    \frac{R}{1 + a_0}
+    \cdot
+    \left(z_0 + \min(s,z_0)\cdot a_0\right).
+$$
+
+The _desirability_ is then defined as
+$$
+    d(c, m, s) :=
+    \left\{
+    \begin{array}{ll}
+        \displaystyle 0 &
+        \text{if $\tilde{f}(s)\leq c$,} \\
+        \displaystyle(\hat{f} - c)\cdot(1-m) &
+        \text{otherwise.}
+    \end{array}
+    \right.
+$$
+To determine a pool's _rank_, we order pools by decreasing desirability. The most
+desirable pool gets rank 1, the second most desirable pool gets rank 2
+and so on.
+
+We predict that pools with rank $\leq k$ will eventually be saturated,
+whereas pools with rank $>k$ will lose all members and only consist of the
+leader.
+
+### Non-Myopic Pool Stake
+
+Consider a pool with leader stake $s$, total stake $\sigma$
+and rank $r$.
+We define its _non-myopic stake_ $\sigma_\mathrm{nm}$ as
+$$
+    \sigma_\mathrm{nm}(s,\sigma,r) :=
+    \left\{
+    \begin{array}{ll}
+        \max(\sigma,z_0) &
+        \text{if $r\leq k$,} \\
+        s &
+        \text{otherwise.}
+    \end{array}
+    \right.
+$$
+
+### Non-Myopic Pool Leader Rewards
+
+The non-myopic pool leader rewards of a pool with costs $c$, margin $m$, leader stake
+$s$, stake $\sigma$ and rank $r$ are
+$$
+    r_\mathrm{leader, nm}(c, m, s, \sigma, r) :=
+    r_\mathrm{leader}\Bigl(f\bigl(s,\sigma_\mathrm{nm}(s,\sigma, r)\bigr), c, m, s, \sigma_\mathrm{nm}(s,\sigma,r)\Bigr).
+$$
+
+### Non-Myopic Pool Member Rewards
+
+The non-myopic pool member rewards of a pool with costs $c$, margin $m$, leader stake
+$s$, stake $\sigma$, member stake $t$ and rank $r$ are
+$$
+    r_\mathrm{member, nm}(c, m, s, \sigma, t, r) :=
+    r_\mathrm{member}\Bigl(f\bigl(s,\sigma_\mathrm{nm}(s,\sigma, r)\bigr), c, m, t, \sigma_\mathrm{nm}(s,\sigma,r)\Bigr).
+$$
+
+## Claiming Rewards
+
+All information necessary to calculate each stakeholder's rewards for each epoch
+are contained in the blockchain, so there is in principle no need to record any
+extra information related to the Incentives mechanism.
+
+However, there is the challenge to avoid "bloat" caused by thousands of "micro
+payments" from rewards after each epoch.
+
+We are considering two solutions to this problem:
+
+
+- Use a "lottery" which gives everybody the same rewards _in expectation_,
+  but drastically reduces the number of actual payments to a manageable
+  number.
+
+  Disadvantage of this idea is the potentially high _variance_,
+  but on the other hand, the element of randomness could also add some
+  additional "thrill" to the process.
+- Only pay to UTXO's which haven't changed over the duration of the epoch
+  and then modify those UTXO's instead of creating new ones.
+
+  This would imply that people holding on to their ADA instead of spending them would get
+  higher rewards, which may or may not be a problem. It would certainly fit with
+  the general narrative that transaction fees (and incentives in general) flow
+  from people _using_ the system (spending ADA) to people _operating_ the system
+  (holding ADA).
+
+## System Inputs needed for Calculations
+
+In order to calculate rewards, the following information must be available
+for each pool (including "one-man pools" of individual protocol participants):
+
+- Cost, margin and pledged ADA of the pool leader.
+  (These will be zero, one and zero for "one-man" pools.)
+- Staking addresses of pool leader and pool members.
+- Number of times per epoch the owner of an address belonging to the pool
+  was elected slot leader and actually created a block.
+
+## Information in Daedalus
+
+Out game theoretic analysis assumes that every stakeholder has all relevant
+information available at any time.
+
+This means that pool _costs_ and _margins_ and pool (leader) _stakes_, as well
+as the (non-myopic) utilities derived from these figures, have to be
+easily accessible, so that stakeholders can quickly react to changes and always
+choose the strategy that maximizes their own rewards.
+
+The _Daedalus_ wallet software must therefore make this information readily available.
+
+## Deciding on Good Values for the Parameters
+
+We need to decide on reasonable values for the parameters $k$, $a_0$, $\rho$ and
+$\tau$ (see [above](#parameters)).
+
+### $k$
+
+The desired number of pools $k$ depends on the level of decentralization we want
+on the one hand and network efficiency of the Cardano protocol on the other
+hand. A value of $k=100$ seems to be reasonable.
+
+### $a_0$
+
+As explained above, parameter $a_0$ determines the influence that a pool
+leader's stake has on pool rewards.
+
+Our game theoretic analysis predicts that the $k$ pools with the highest value
+of $a_0s-c$ (stake $s$, cost $c$) will create the saturated pools.
+If we assume $s=\frac{1}{k}$ for those highest ranking pools, an attacker who is
+willing to claim zero costs would need stake $s$ satisfying
+$$
+    a_0\cdot s - 0 > a_0\cdot\frac{1}{k} - c
+$$
+to get one saturated pool. If therefore we want anybody who
+strives for a majority of votes to have stake at least $S$,
+then $s=\frac{S}{k/2}$, and we get
+$$
+    a_0\cdot\frac{S}{k/2}<a_0\cdot\frac{1}{k}-c
+    \;\Longrightarrow\;
+    a_0\left(\frac{1}{k}-\frac{S}{k/2}\right)=a_0\cdot\frac{1-2S}{k}>c
+    \;\Longrightarrow\;
+    a_0>\frac{ck}{1-2S}.
+$$
+So for example, for $k=100$, $c=0.001$ and $S=0.1$, we would get
+$$
+    a_0>\frac{0.001\cdot 100}{1-2\cdot 0.1}
+    =\frac{0.1}{0.8}
+    =0.125.
+$$
+
+![Effect of different choices for $a_0$\label{figrewards}](rewards.png)
+
+See figure \ref{figrewards} below for the effect of various choices for $a_0$ on pool
+rewards (for $k=10$).
+
+### $\rho$
+
+In order to determin the inflation rate per epoch $\rho$, we need four more
+pieces of information:
+
+ - The expected _exchange rate_ $e$ from ADA to USD (in USD/ADA).
+ - The average _costs_ $c$ (in USD) to run a pool for one year.
+ - The average _transaction fees_ $F$ (in ADA) paid during one epoch.
+ - The expected ratio $r$ of _rewards_ per year per staked ADA.
+
+The available rewards for one epoch (assuming an equilibrium state with $k$
+pools and noticing that there are $\frac{365}{5}=73$ epochs per year) will be
+$$
+    \left(1-\tau\right)\cdot\bigl(F + \rho\cdot\left(T\infty - T\right)\bigr) - \frac{k\cdot c}{73\cdot e}.
+$$
+On the other hand, _expected_ rewards per epoch are
+$$
+    T\cdot\left(\sqrt[73]{1+r}-1\right).
+$$
+Equating the two, we get
+$$
+    \rho=\frac{T\cdot\left(\sqrt[73]{1+r}-1\right)-(1-\tau)\cdot F+\frac{k\cdot c}{73\cdot e}}{\left(1-\tau\right)\cdot\left(T_\infty-T\right)}.
+$$
+For example, using
+
+ - $k=100$,
+ - $T=31,000,000,000\,\mathrm{ADA}$,
+ - $T_\infty=45,000,000,000\,\mathrm{ADA}$,
+ - $e=0.5\,\mathrm{USD/ADA}$,
+ - $c=1,000\,\mathrm{USD}$,
+ - $F=2,000\,\mathrm{ADA}$ and
+ - $r=0.05$,
+ - $\tau=0.2$,
+
+we would get
+$$
+    \rho=\frac
+        {31,000,000,000\cdot\left(\sqrt[73]{1+0.05}-1\right)-0.8\cdot 2000+\frac{100\cdot 1000}{73\cdot 0.5}}
+        {0.8\cdot\left(45,000,000,000 - 31,000,000,000\right)}
+    \approx
+    0.0019.
+$$
+This would correspond to reducing the remaining amount of available ADA by ${1.0019}^{73}-1\approx 0.144=14.4\%$ per year (which sounds awfully high\ldots).
+
+### $\tau$
+
+Setting $\tau$ is a policy decision; we will probably use $\tau=0.2$, i.e. 20\%
+of available epoch rewards will be sent to the treasury.
+
+### $\gamma$
+
+Setting $\gamma$ is also a policy decision. Having said this, values of
+$\gamma<1$ seem to be preferable, because pool operators occasionally missing
+one or two slots will not be punished too harshly.
+
+To help with the task of deciding on a reasonable value for $\gamma$,
+we show the effect of different values on a potential pool that was
+elected to create 100 pools in a given epoch. The table below shows the ratio
+of rewards paid for varying numbers of missed slots and values of $\gamma$:
+
+\begin{tabular}[t]{rrrrr}
+    missed slots & $\gamma=1$ & $\gamma=0.7$ & $\gamma=0.5$ & $\gamma=0.3$ \\
+    \hline
+      0 & 1.0000 & 1.0000 & 1.0000 & 1.0000 \\
+      1 & 0.9900 & 0.9930 & 0.9950 & 0.9970 \\
+      5 & 0.9500 & 0.9647 & 0.9747 & 0.9847 \\
+     10 & 0.9000 & 0.9289 & 0.9487 & 0.9689 \\
+     50 & 0.5000 & 0.6156 & 0.7071 & 0.8123 \\
+    100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+\end{tabular}
 
 # Satisfying the Requirements
 

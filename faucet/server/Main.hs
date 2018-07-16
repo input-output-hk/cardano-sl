@@ -19,7 +19,7 @@ import           Servant
 import           System.Environment (getArgs)
 import           System.Remote.Monitoring (forkServer, serverMetricStore)
 import           System.Remote.Monitoring.Statsd (forkStatsd)
-import           System.Wlog (launchFromFile, usingLoggerName)
+import           System.Wlog (LoggerNameBox, launchFromFile, usingLoggerName)
 
 import           Cardano.Faucet
 import           Cardano.Faucet.Swagger
@@ -39,7 +39,7 @@ main = withCompileInfo $ do
       _statsd <- liftIO $ forkStatsd (config ^. fcStatsdOpts . _Wrapped') (fEnv ^. feStore)
       liftIO $ run (config ^. fcPort) (serve faucetDocAPI server)
   where
-    -- runLogger :: LoggerNameBox IO a -> IO a
+    runLogger :: FaucetConfig -> LoggerNameBox IO a -> IO a
     runLogger fc = launchFromFile (fc ^. fcLoggerConfigFile) "faucet"
     nat :: FaucetEnv -> M a -> Handler a
     nat e = Handler . ExceptT . usingLoggerName "server" . runM e

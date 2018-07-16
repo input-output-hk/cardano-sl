@@ -61,8 +61,10 @@ instance A.FromJSON AttackType where
             ", acceptable values are NoBlocks|NoCommitments"
 
 data AttackTarget
-    = NetworkAddressTarget { attNetworkAddr :: NetworkAddress}
-    | PubKeyAddressTarget { attPkAddr :: StakeholderId}
+    -- NetworkAddressTarget attNetworkAddr
+    = NetworkAddressTarget !NetworkAddress
+    -- PubKeyAddressTarget attPkAddr
+    | PubKeyAddressTarget  !StakeholderId
     deriving (Eq, Show)
 
 instance A.FromJSON AttackTarget where

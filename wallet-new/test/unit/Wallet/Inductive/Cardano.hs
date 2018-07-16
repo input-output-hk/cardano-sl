@@ -230,16 +230,15 @@ equivalentT activeWallet esk = \mkWallet w ->
           let dsl = f inductiveCtxtWallet
           translated <- toCardano ctxt fld dsl
 
-          unless (translated == kernel) $
-            throwError EquivalenceViolation {
-                equivalenceViolationName     = fld
-              , equivalenceViolationEvents   = inductiveCtxtEvents
-              , equivalenceViolationEvidence = NotEquivalent {
+          unless (translated == kernel) .
+            throwError $ EquivalenceViolation
+              fld
+              NotEquivalent {
                     notEquivalentDsl        = dsl
                   , notEquivalentTranslated = translated
                   , notEquivalentKernel     = kernel
                   }
-              }
+              inductiveCtxtEvents
 
     toCardano :: Interpret h a
               => InductiveCtxt h
@@ -248,40 +247,32 @@ equivalentT activeWallet esk = \mkWallet w ->
     toCardano InductiveCtxt{..} fld a = do
         ma' <- catchTranslateErrors $ runIntT' inductiveCtxtInt $ int a
         case ma' of
-          Left err -> throwError EquivalenceNotChecked {
-              equivalenceNotCheckedName   = fld
-            , equivalenceNotCheckedReason = err
-            , equivalenceNotCheckedEvents = inductiveCtxtEvents
-            }
-          Right (a', _ic') ->
-            return a'
+          Left err -> throwError
+              $ EquivalenceNotChecked fld err inductiveCtxtEvents
+          Right (a', _ic') -> return a'
 
 data EquivalenceViolation h =
     -- | Cardano wallet and pure wallet are not equivalent
-    EquivalenceViolation {
-        -- | The property we were checking
-        equivalenceViolationName     :: Text
-
-        -- | Evidence (what was not the same?)
-      , equivalenceViolationEvidence :: EquivalenceViolationEvidence
-
-        -- | The events that led to the error
-      , equivalenceViolationEvents   :: OldestFirst [] (WalletEvent h Addr)
-      }
+    -- EquivalenceViolation
+    --     equivalenceViolationName     = The property we were checking
+    --     equivalenceViolationEvidence = Evidence (what wasn't the same?)
+    --     equivalenceViolationEvents   = The events that led to the error
+    EquivalenceViolation
+        !Text
+        !EquivalenceViolationEvidence
+        !(OldestFirst [] (WalletEvent h Addr))
 
     -- | We got an unexpected interpretation exception
     --
     -- This indicates a bug in the tesing infrastructure.
-  | EquivalenceNotChecked {
-        -- | The property we were checking
-        equivalenceNotCheckedName   :: Text
-
-        -- | Why did we not check the equivalence
-      , equivalenceNotCheckedReason :: IntException
-
-        -- | The events that led to the error
-      , equivalenceNotCheckedEvents :: OldestFirst [] (WalletEvent h Addr)
-      }
+    -- EquivalenceNotChecked
+    --     equivalenceNotCheckedName   = The property we were checking
+    --     equivalenceNotCheckedReason = Why did we not check the equivalence
+    --     equivalenceNotCheckedEvents = The events that led to the error
+  | EquivalenceNotChecked
+        !Text
+        !IntException
+        !(OldestFirst [] (WalletEvent h Addr))
 
 data EquivalenceViolationEvidence =
     forall a. (Buildable a, Buildable (Interpreted a)) => NotEquivalent {
@@ -295,7 +286,10 @@ data EquivalenceViolationEvidence =
 -------------------------------------------------------------------------------}
 
 instance Hash h Addr => Buildable (EquivalenceViolation h) where
-  build EquivalenceViolation{..} = bprint
+  build (EquivalenceViolation
+            equivalenceViolationName
+            equivalenceViolationEvidence
+            equivalenceViolationEvents) = bprint
     ( "EquivalenceViolation "
     % "{ name:      " % build
     % ", evidence:  " % build
@@ -305,7 +299,10 @@ instance Hash h Addr => Buildable (EquivalenceViolation h) where
     equivalenceViolationName
     equivalenceViolationEvidence
     equivalenceViolationEvents
-  build EquivalenceNotChecked{..} = bprint
+  build (EquivalenceNotChecked
+            equivalenceNotCheckedName
+            equivalenceNotCheckedReason
+            equivalenceNotCheckedEvents) = bprint
     ( "EquivalenceNotChecked "
     % "{ name:      " % build
     % ", reason:    " % build

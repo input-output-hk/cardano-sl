@@ -34,7 +34,6 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Yaml as Yaml
 import           Formatting (build, sformat, shown, (%))
-import           Mockable.Concurrent ()
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
@@ -42,6 +41,7 @@ import qualified Options.Applicative as Opt
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      logError, logNotice, usingLoggerName)
 
+import           Pos.Core.Mockable.Concurrent ()
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
                      addrParserNoWildcard)
 import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),

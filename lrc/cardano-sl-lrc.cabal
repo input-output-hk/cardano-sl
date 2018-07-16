@@ -46,7 +46,6 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
                      , conduit

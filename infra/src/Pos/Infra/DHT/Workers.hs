@@ -9,12 +9,12 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, (%))
-import           Mockable (Async, Delay, Mockable)
 import           Network.Kademlia (takeSnapshot)
 import           System.Wlog (WithLogger, logNotice)
 
 import           Pos.Binary.Class (serialize)
 import           Pos.Core (HasProtocolConstants)
+import           Pos.Core.Mockable (Async, Delay, Mockable)
 import           Pos.Core.Slotting (MonadSlots, flattenSlotId, slotIdF)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (kademliaDumpInterval)

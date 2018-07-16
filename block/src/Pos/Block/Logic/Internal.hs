@@ -29,7 +29,6 @@ import           Universum
 import           Control.Lens (each, _Wrapped)
 import qualified Crypto.Random as Rand
 import           Formatting (sformat, (%))
-import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
@@ -44,6 +43,7 @@ import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
                      mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))

@@ -21,7 +21,6 @@ import qualified Data.HashSet as HS
 import           Data.List ((\\))
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable as B
-import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
@@ -31,6 +30,7 @@ import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId,
                      prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB

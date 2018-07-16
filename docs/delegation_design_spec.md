@@ -622,7 +622,8 @@ certificate is overridden or revoked.
 
 #### Updating Local State
 
-**TODO: Update this section**
+**TODO: Update this section, it is probably out of date and assumes a
+  more complicated scheme which we started with.**
 
 Each node (that has to verify blocks) will maintain a database with
 valid certificates. In the following, we will describe how that

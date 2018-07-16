@@ -1517,7 +1517,7 @@ $\mathtt{updatePending}$). Similarly, if there have been previous rollbacks,
 those would simply have stripped off empty checkpoints.
 \end{proof}
 
-\cref{lem:wallet_later_created} gives us a very useful optimization opportunity:
+\cref{lem:wallet_later_created} gives us a very useful optimisation opportunity:
 we can simply leave all the empty checkpoints as implicit, adding a single
 case to rollback:
 %
@@ -1532,7 +1532,7 @@ have to make sure that when we add in the expected UTxO
 (\cref{fig:tracking_metadata}), or when we choose a concrete instantiation of
 the block metadata (\cref{sec:confirmations}), we don't break this property.
 Fortunately, the expected UTxO is subset of the UTxO and must therefore also be
-empty, and the block metadata only records informatin about transactions that
+empty, and the block metadata only records information about transactions that
 affect this wallet and about addresses that the wallet owns.
 
 \section{Minimum Balance}
@@ -2673,7 +2673,7 @@ that the current wallet does not have).
       edge node {$\mathsf{applyBlock}$} (RPersisted)
     ;
 \end{tikzpicture}
-\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right}). We will come back to the marked transistions ($\dagger$) in Section~\ref{sec:submission_interface}.}
+\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right}). We will come back to the marked transitions ($\dagger$) in Section~\ref{sec:submission_interface}.}
 \end{figure}
 
 \section{Transaction Submission}
@@ -3072,16 +3072,16 @@ spends all of the wallet's UTxO, sending it to a single output address.)
 \subsection{Self organisation}
 \label{sec:selforganisation}
 
-The term `self organization' refers to the emergence of complex behaviour
+The term `self organisation' refers to the emergence of complex behaviour
 (typically in biological systems) from simple rules and random fluctuations.
-In this section we will see how we can take advantage of self organization
+In this section we will see how we can take advantage of self organisation
 to design a simple yet effective coin selection algorithm.
 
 In this section we present the conclusions of an in-depth study of coin
 selection that we have done as part of the the redesign of the Cardano wallet.
 We will describe some of the problems and trade-offs that need to be made. We
 then propose a novel coin selection algorithm. The algorithm is efficient and
-straight-forward to implement, and through studing simulations of the algorithm
+straight-forward to implement, and through studying simulations of the algorithm
 under various conditions we will see that it is very effective.
 As our starting point, we will use the random algorithm described by Mark
 Erhardt in his masters thesis \citep{Erhardt:thesis}.
@@ -3095,8 +3095,14 @@ unspent outputs that remain unused in the user's wallet because they're not
 particularly useful. For example, consider the `largest first' algorithm: a
 simple algorithm which considers all unspent outputs of the wallet in order of
 size, adding them to a running total until it has covered the requested amount.
+
 Figure~\ref{fig:inputselection:normal_3to1_largest} shows the effect of this
-algorithm.
+algorithm. In order to evaluate a coin selection policy we need an ``event
+stream'' of deposits and withdrawals to evaluate it against. For the particular
+simulation shown in Figure~\ref{fig:inputselection:normal_3to1_largest} we use a
+3:1 ratio between deposits and withdrawals (i.e., 3 times more deposits than
+withdrawals), with both deposits and withdrawals normally distributed. We will
+consider many more different event streams later in this section.
 
 \begin{figure}[p]
 \begin{center}
@@ -3166,7 +3172,7 @@ simulation), rapidly collecting dust. Once the dust is gone, the number of
 inputs shrinks to about 3 or 4, which makes perfect sense given the 3:1 ratio of
 deposits and withdrawals.
 
-We will restate Erhardt's observation as our first self organization principle:
+We will restate Erhardt's observation as our first self organisation principle:
 %
 \begin{quote}
 \textbf{Self organisation principle 1}. Random selection has a high probability
@@ -3207,7 +3213,7 @@ outputs that are being created.
 This brings us to the topic of active UTxO management. In an ideal case, coin
 selection algorithms should, over time, create a UTxO that has ``useful'' outputs;
 that is, outputs that allow us to process future payments with a minimum number
-of inputs. We can take advantage of self organization again:
+of inputs. We can take advantage of self organisation again:
 %
 \begin{quote}
 \textbf{Self organisation principle 2}. If for each payment request for value
@@ -3284,7 +3290,7 @@ output from the UTxO, and it turns out to be huge. What do we do? One option
 is to discard it and continue searching, but this would result in coin selection
 frequently traversing the entire UTxO, resulting in poor performance.
 
-Fortunately, self organization comes to the rescue again. We can set an upper
+Fortunately, self organisation comes to the rescue again. We can set an upper
 bound on the size of the change output we still consider acceptable (we will
 set it to twice the payment value). Then we take advantage of the following
 property.
@@ -3328,11 +3334,11 @@ going. An output is considered an improvement when:
 \subsection{Evaluation}
 
 The algorithm (Figure~\ref{fig:RandomImprove}) is deceptively simple. Do the
-self organization principles we isolated really mean that order will emerge from
+self organisation principles we isolated really mean that order will emerge from
 chaos? Simulations suggest, yes, it does. We already mentioned how random input
 selection does a great job at cleaning up dust in
 Figure~\ref{fig:inputselection:normal_3to1_largeThenRandom}; what we didn't
-emphasize in that section is that the algorithm we simulated there is actually
+emphasise in that section is that the algorithm we simulated there is actually
 our \texttt{Random-Improve} algorithm. Notice how the median change:payment
 ratio is initially very low (indicative of a coin selection algorithm that is
 generating a lot of dust outputs), but climbs rapidly back to 1 as soon as
@@ -3507,7 +3513,7 @@ the results of running our algorithm on this dataset.
 \end{tabular}
 \end{center}
 \caption{\label{fig:inputselection:MoneyPot_randomOn}
-  \texttt{Random-Improve}, using the MoneyPot data set. There is a rougly 2:1
+  \texttt{Random-Improve}, using the MoneyPot data set. There is a roughly 2:1
   deposit:payment ratio. Values have been scaled. Log scale on the x-axis.
 }
 \end{figure}
@@ -3529,9 +3535,13 @@ One of the large Cardano exchange node has also helped us with
 some anonymised data (deposits and payments), similar in nature to the
 MoneyPot dataset albeit significantly larger. Coming from an exchange node,
 however, this dataset is \emph{very much} skewed towards deposits, with a
-deposit:payment ratio of roughly 30:1. Under these circumstances, of course,
-coin selection alone cannot keep the UTxO size small
-(Figure~\ref{fig:inputselection:CardanoExchange_randomOn}).
+deposit:payment ratio of roughly 30:1. Under these circumstances
+(Figure~\ref{fig:inputselection:CardanoExchange_randomOn}) our coin selection
+algorithm cannot keep the UTxO size small on its own (exchanges have additional
+infrastructure in place to address this problem). The UTxO here also contains
+some truly enormous outputs, which is pushing the change:payment ratio up,
+although as more withdrawals are being made the algorithm is able to push it
+down.
 
 \begin{figure}[p]
 \begin{center}
@@ -3543,16 +3553,11 @@ coin selection alone cannot keep the UTxO size small
 \end{center}
 \caption{\label{fig:inputselection:CardanoExchange_randomOn}
   \texttt{Random-Improve}, using data set from a large Cardano exchange.
-  There is a rougly 30:1 deposit:payment ratio. Values have been scaled.
+  There is a roughly 30:1 deposit:payment ratio. Values have been scaled.
   Log scale on the x-axis.
 }
 \end{figure}
 
-The UTxO here also contains some truly enormous outputs, which is pushing the
-change:payment ratio up, although as more withdrawals are being made the
-algorithm is able to push it down. Coin selection alone cannot deal with
-a situation like this (and indeed, exchanges have additional infrastructure in
-place that alleviates this problem).
 
 \subsection{Conclusions}
 
@@ -3563,7 +3568,7 @@ of the algorithm can be of crucial importance to high-traffic wallets such as
 exchange nodes.
 
 In his thesis, Erhardt proposes ``Branch and Bound'' as his preferred coin
-selection algorithm. Branch and Bound in essense is a limited backtracking
+selection algorithm. Branch and Bound in essence is a limited backtracking
 algorithm that tries to find an exact match, so that no change output needs
 to be generated at all. When the backtracking cannot find an exact match within
 its bounds, the algorithm then falls back on random selection. It does not,
@@ -3582,7 +3587,7 @@ Cardano blockchain, we would not expect that there \emph{exist} exact matches
 anywhere near that often (never mind \emph{finding} them).
 
 Instead our proposed \texttt{Random-Improve} does no search at all, instead purely
-relying on self organization principles, the first of which was stated by
+relying on self organisation principles, the first of which was stated by
 Erhardt, and the other two we identified as part of this research. Although
 in the absence of more real data it is hard to evaluate any coin selection
 algorithm, we have shown that the algorithm performs well across a large
@@ -3590,11 +3595,11 @@ variety of different distributions and deposit:payment ratios. Moreover it is
 straight-forward to implement and has high performance.
 
 One improvement we may wish to consider is that \emph{when} there are very large
-deposits, we could occassionally issue a ``reorganization transaction'' that
+deposits, we could occasionally issue a ``reorganisation transaction'' that
 splits those large deposits into smaller chunks. This would bring the
 change:payment ratio down, which would improve the evolution of the UTxO over
 time and is beneficial also for other, more technical reasons (it reduces the
-need for dependent transactions). Such reorganization is largely orthogonal to
+need for dependent transactions). Such reorganisation is largely orthogonal to
 this algorithm, however, and can be implemented independently.
 
 \section{Appendix: Transaction fees}

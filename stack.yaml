@@ -23,7 +23,6 @@ packages:
 - db
 - lrc
 - lrc/test
-- sinbin
 - infra
 - infra/test
 - ssc
@@ -316,7 +315,6 @@ ghc-options:
   cardano-sl-lrc-test:    -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-sinbin:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-ssc:         -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-txp:         -Werror -Wcompat -fwarn-redundant-constraints

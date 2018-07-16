@@ -44,6 +44,7 @@ packages:
 - node
 - tools
 - wallet
+- wallet/test
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
 - acid-state-exts

@@ -28,6 +28,7 @@ import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -39,8 +40,7 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
 import           Pos.Delegation.Class (DelegationVar)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..), Reporter (..))
+import           Pos.Infra.Reporting (MonadReporting (..), Reporter (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,

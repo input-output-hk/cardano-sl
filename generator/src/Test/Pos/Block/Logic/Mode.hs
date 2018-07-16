@@ -69,6 +69,8 @@ import           Pos.Core (BlockVersionData, CoreConfiguration (..),
                      withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
@@ -83,8 +85,6 @@ import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
                      MonadSlots (..), SimpleSlottingMode,
                      SimpleSlottingStateVar, currentTimeSlottingSimple,

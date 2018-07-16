@@ -6,7 +6,7 @@
 --
 -- FIXME this is only about "misbehaviour metrics". Rename it.
 
-module Pos.Sinbin.Reporting.MemState
+module Pos.Core.Reporting.MemState
        ( MisbehaviorMetrics (..)
        , HasMisbehaviorMetrics (..)
        , initializeMisbehaviorMetrics

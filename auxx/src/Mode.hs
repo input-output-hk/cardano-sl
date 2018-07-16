@@ -45,6 +45,8 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
                      makePubKeyAddress, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs,
@@ -53,8 +55,6 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..))

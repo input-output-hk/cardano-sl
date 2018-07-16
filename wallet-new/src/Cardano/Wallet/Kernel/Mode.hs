@@ -19,6 +19,7 @@ import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB

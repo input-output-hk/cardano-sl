@@ -40,6 +40,8 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
+                     MetricMonitorState, noReportMonitor, recordValue)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -51,9 +53,7 @@ import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader))
 import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
                      needTriggerRecovery, recoveryCommGuard)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
-                     MetricMonitorState, noReportMonitor, recordValue,
-                     reportOrLogE)
+import           Pos.Infra.Reporting (reportOrLogE)
 import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
                      OnNewSlotParams (..), currentTimeSlotting,
                      defaultOnNewSlotParams, getSlotStartEmpatically,

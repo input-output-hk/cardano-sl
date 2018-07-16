@@ -73,6 +73,8 @@ library
                        Pos.Core.Mockable.SharedExclusive
                        Pos.Core.Mockable.Metrics
 
+                       Pos.Core.Reporting
+
                        Pos.Core.Script
                        Pos.Core.Slotting
                        Pos.Core.StateLock
@@ -165,6 +167,11 @@ library
                        Pos.Core.Slotting.Types
                        Pos.Core.Slotting.Util
 
+                       -- Reporting
+                       Pos.Core.Reporting.MemState
+                       Pos.Core.Reporting.Methods
+                       Pos.Core.Reporting.Metrics
+
                        -- SSC
                        Pos.Core.Ssc.Commitment
                        Pos.Core.Ssc.CommitmentsMap
@@ -212,6 +219,7 @@ library
                      , bytestring
                      , Cabal
                      , canonical-json
+                     , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
                      , cardano-sl-crypto
                      , cardano-sl-util

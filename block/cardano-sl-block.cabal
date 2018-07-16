@@ -54,7 +54,6 @@ library
                       , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
-                      , cardano-sl-sinbin
                       , cardano-sl-txp
                       , cardano-sl-update
                       , cardano-sl-util

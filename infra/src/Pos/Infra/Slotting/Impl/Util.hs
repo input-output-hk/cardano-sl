@@ -3,7 +3,7 @@
 module Pos.Infra.Slotting.Impl.Util
        ( approxSlotUsingOutdated
 
-       -- Re-exported from the Sinbin
+       -- Re-exported from the Infra
        , slotFromTimestamp
        ) where
 

@@ -72,7 +72,6 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-lrc
-                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , containers

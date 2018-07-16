@@ -41,6 +41,7 @@ import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
                      modifyStateLock)
@@ -56,7 +57,6 @@ import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)

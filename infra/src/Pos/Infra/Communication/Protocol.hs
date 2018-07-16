@@ -39,8 +39,8 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Infra.Communication.Types.Protocol
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Sinbin.Reporting (MonadReporting)
 
 mapListener
     :: (forall t. IO t -> IO t) -> Listener -> Listener

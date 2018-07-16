@@ -35,6 +35,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash,
                      ProtocolMagic, SlotId (..), slotIdF)
+import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.StateLock (StateLock)
 import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal,
                      UpdateVote (..))
@@ -42,7 +43,6 @@ import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as DB
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Sinbin.Reporting (MonadReporting)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext (..))
 import qualified Pos.Update.DB as DB

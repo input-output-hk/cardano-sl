@@ -40,6 +40,8 @@ import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
                      HasPrimaryKey (..), SlotId (..), Timestamp,
                      epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
@@ -54,8 +56,6 @@ import           Pos.Generator.Block.Param (BlockGenParams (..),
                      HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)

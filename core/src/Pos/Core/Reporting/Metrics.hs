@@ -4,7 +4,7 @@
 
 -- | This module basically combines reporting functionality with metrics.
 
-module Pos.Sinbin.Reporting.Metrics
+module Pos.Core.Reporting.Metrics
        ( MetricMonitor (..)
        , MetricMonitorState
        , mkMetricMonitorState

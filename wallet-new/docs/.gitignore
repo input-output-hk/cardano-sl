@@ -1,4 +1,5 @@
 *.aux
+*.auxlock
 *.bbl
 *.blg
 *.lof
@@ -6,3 +7,5 @@
 *.pdf
 *.toc
 *.out
+spec-figure*
+*.tex.bak

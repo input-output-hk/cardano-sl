@@ -13,6 +13,14 @@ import           Test.QuickCheck (arbitrary, generate)
 
 type WalletRef = MVar Wallet
 
+data PaginationTest a = PaginationTest
+    { page         :: Maybe Page
+    , perPage      :: Maybe PerPage
+    , filters      :: FilterOperations a
+    , sorts        :: SortOperations a
+    , expectations :: [a] -> IO ()
+    }
+
 randomWallet :: WalletOperation -> IO NewWallet
 randomWallet walletOp =
     generate $
@@ -28,6 +36,12 @@ randomCreateWallet = randomWallet CreateWallet
 
 randomRestoreWallet :: IO NewWallet
 randomRestoreWallet = randomWallet RestoreWallet
+
+randomAccount :: WalletClient IO -> IO (Wallet, Account)
+randomAccount wc = do
+    newWallet <- randomWallet CreateWallet
+    wallet@Wallet{..} <- createWalletCheck wc newWallet
+    (\(account, _) -> (wallet, account)) <$> firstAccountAndId wc wallet
 
 createWalletCheck :: WalletClient IO -> NewWallet -> IO Wallet
 createWalletCheck wc newWallet = do
@@ -46,6 +60,15 @@ firstAccountAndId wc wallet = do
     let (toAddr : _) = accAddresses toAcct
 
     pure (toAcct, toAddr)
+
+createAddress :: WalletClient IO -> (Wallet, Account) -> IO WalletAddress
+createAddress wc (Wallet{..}, Account{..}) = do
+    eresp <- postAddress wc (NewAddress Nothing accIndex walId)
+    wrData <$> eresp `shouldPrism` _Right
+
+createAddresses :: WalletClient IO -> Int -> (Wallet, Account) -> IO [WalletAddress]
+createAddresses wc n src =
+    replicateM n (createAddress wc src)
 
 newWalletRef :: IO WalletRef
 newWalletRef = newEmptyMVar

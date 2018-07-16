@@ -99,6 +99,16 @@ data WalletClient m
         :: WalletId -> New Account -> Resp m Account
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
+    , getAccountAddresses
+         :: WalletId
+         -> AccountIndex
+         -> Maybe Page
+         -> Maybe PerPage
+         -> FilterOperations WalletAddress
+         -> SortOperations WalletAddress
+         -> Resp m AccountAddresses
+    , getAccountBalance
+         :: WalletId -> AccountIndex -> Resp m AccountBalance
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -210,6 +220,10 @@ hoistClient phi wc = WalletClient
          \x -> phi . postAccount wc x
     , updateAccount =
          \x y -> phi . updateAccount wc x y
+    , getAccountAddresses =
+         \x y p pp f s -> phi $ getAccountAddresses wc x y p pp f s
+    , getAccountBalance =
+         \x -> phi . getAccountBalance wc x
     , postTransaction =
          phi . postTransaction wc
     , getTransactionIndexFilterSorts =

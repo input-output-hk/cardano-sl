@@ -26,6 +26,8 @@ handlers =
     :<|> listAccounts
     :<|> newAccount
     :<|> updateAccount
+    :<|> getAccountAddresses
+    :<|> getAccountBalance
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -68,3 +70,25 @@ updateAccount wId accIdx accUpdate = do
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)
+
+getAccountAddresses
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
+    -> AccountIndex
+    -> RequestParams
+    -> FilterOperations WalletAddress
+    -> SortOperations WalletAddress
+    -> m (WalletResponse AccountAddresses)
+getAccountAddresses wId accIdx pagination filters sorts = do
+    resp <- respondWith pagination filters sorts (getAddresses <$> getAccount wId accIdx)
+    return resp { wrData = AccountAddresses . wrData $ resp }
+  where
+    getAddresses =
+        IxSet.fromList . accAddresses . wrData
+
+getAccountBalance
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountIndex -> m (WalletResponse AccountBalance)
+getAccountBalance wId accIdx = do
+    resp <- getAccount wId accIdx
+    return resp { wrData = AccountBalance . accAmount . wrData $ resp }

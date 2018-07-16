@@ -111,12 +111,16 @@ matchSize requestedSize lbl actualSize =
 
 -- | Compute encoded size of an integer.
 withWordSize :: (Integral s, Integral a) => s -> a
-withWordSize s =
-  if | s <= 0x17       -> 1
-     | s <= 0xff       -> 2
-     | s <= 0xffff     -> 3
-     | s <= 0xffffffff -> 5
-     | otherwise      -> 9
+withWordSize x = let s = fromIntegral x :: Integer in
+  if | s <= 0x17 &&
+       s >= (-0x18)        -> 1
+     | s <= 0xff &&
+       s >= (-0x100)       -> 2
+     | s <= 0xffff &&
+       s >= (-0x10000)     -> 3
+     | s <= 0xffffffff &&
+       s >= (-0x100000000) -> 5
+     | otherwise           -> 9
 
 ----------------------------------------
 
@@ -208,7 +212,7 @@ instance Bi Integer where
     decode = D.decodeIntegerCanonical
 
 encodedSizeRange :: forall a. (Integral a, Bounded a) => Proxy a -> Size
-encodedSizeRange _ = szCases [ mkCase "minBound" minBound
+encodedSizeRange _ = szCases [ mkCase "minBound" 0 -- min, in absolute value
                              , mkCase "maxBound" maxBound ]
   where mkCase n x = Case n (fromIntegral $ (withWordSize :: a -> Integer) x)
 

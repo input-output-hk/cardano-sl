@@ -67,6 +67,11 @@ tests =
          , ("Word32" , sizeTest $ cfg { gen = Gen.word32 Range.exponentialBounded })
          , ("Word64" , sizeTest $ cfg { gen = Gen.word64 Range.exponentialBounded })
          , ("Int"    , sizeTest $ cfg { gen = Gen.int    Range.exponentialBounded })
+         , ("Int (precision)", sizeTest $ cfg
+               { gen = Gen.int Range.exponentialBounded
+               , computedCtx = \x -> M.fromList
+                   [ (typeRep (Proxy @Int), SizeConstant $ fromIntegral (withWordSize x :: Integer)) ]
+               , precise = True })
          , ("Float"  , sizeTest $ cfg { gen = Gen.float (Range.exponentialFloat (-1000000) 1000000) })
          , ("Int32"  , sizeTest $ cfg { gen = Gen.int32  Range.exponentialBounded })
          , ("Int64"  , sizeTest $ cfg { gen = Gen.int64  Range.exponentialBounded })

@@ -903,7 +903,7 @@ szLazy = todo (encodedSizeExpr szLazy)
     in their 'Bi' instance.
 
 > ghci> putStrLn $ pretty $ szGreedy (Proxy @TxAux)
-> (0 + { ok=(2 + ((0 + (((1 + (2 + ((_ :: LengthOf [TxIn]) * (2 + { TxInUtxo=(2 + ((1 + 34) + { minBound=1 maxBound=5 })) })))) + (2 + ((_ :: LengthOf [TxOut]) * (0 + { ok=(2 + ((0 + ((2 + ((2 + withWordSize((((1 + 30) + (_ :: Attributes AddrAttributes)) + 1))) + (((1 + 30) + (_ :: Attributes AddrAttributes)) + 1))) + { minBound=1 maxBound=5 })) + { minBound=1 maxBound=9 })) })))) + (_ :: Attributes ()))) + (_ :: Vector TxInWitness))) })
+> (0 + { TxAux=(2 + ((0 + (((1 + (2 + ((_ :: LengthOf [TxIn]) * (2 + { TxInUtxo=(2 + ((1 + 34) + { minBound=1 maxBound=5 })) })))) + (2 + ((_ :: LengthOf [TxOut]) * (0 + { TxOut=(2 + ((0 + ((2 + ((2 + withWordSize((((1 + 30) + (_ :: Attributes AddrAttributes)) + 1))) + (((1 + 30) + (_ :: Attributes AddrAttributes)) + 1))) + { minBound=1 maxBound=5 })) + { minBound=1 maxBound=9 })) })))) + (_ :: Attributes ()))) + (_ :: Vector TxInWitness))) })
 
 -}
 szGreedy :: Bi a => (Proxy a -> Size)
@@ -999,7 +999,7 @@ szSimplify = cata $ \case
 -- | Force any thunks in the given @Size@ expression.
 --
 -- > ghci> putStrLn $ pretty $ szForce $ szLazy (Proxy @TxAux)
--- > (0 + { ok=(2 + ((0 + (_ :: Tx)) + (_ :: Vector TxInWitness))) })
+-- > (0 + { TxAux=(2 + ((0 + (_ :: Tx)) + (_ :: Vector TxInWitness))) })
 szForce :: Size -> Size
 szForce = cata $ \case
     AddF x y -> x + y

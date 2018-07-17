@@ -395,8 +395,11 @@ that the number of consumers will be limited according to available resources.
 \subsection{Sketch of a stateful chain following IPC protocol}
 
 In this stateful protocol there is a communication session with a bidirectional
-unicast channel between the chain producer and follower. It is stateful in that
-the chain producer maintains some state about the chain consumer.
+unicast channel between the chain producer and chain consumer. It is stateful
+in the sense that the chain producer maintains some state about the state of
+the chain consumer. The state that the producer maintains about the consumer
+is the consumer's `read pointer'. This tracks what the producer knows about the
+head of the consumer's chain.
 
 \begin{figure}
 \pgfdeclareimage[height=6cm]{chain-diagram-read-pointers}{chain-diagram-read-pointers.pdf}
@@ -407,15 +410,53 @@ the chain producer maintains some state about the chain consumer.
 \label{chain-diagram-read-pointers}
 \end{figure}
 
-The state that the producer maintains about the consumer is the consumer's
-`read pointer', meaning the head of the consumer's chain and how that
-corresponds to the producer's chain. In a typical state the consumer's read
-pointer is on the producer's chain; the consumer simply asks for the next
-change and in response is given the next block header; and the producer updates
-the read pointer correspondingly. The protocol session is initiated with a few
-steps necessary to establish the initial read pointer.
+Figure \ref{chain-diagram-read-pointers} illustrates an example with a producer
+and two consumers. In the example, consumer A illustrates a typical case where
+the consumer's read pointer is on the producer's chain, while consumer B
+illustrates a case involving a fork. We will cover both cases.
 
-In general there 
+\paragraph{Request/Response interaction}
+The form of interaction between the consumer and producer follows a simple
+request/response pattern. The consumer makes a request to ask for the next
+state change and the producer replies with an instruction on how the consumer
+should change its state. These update are either to roll forward to a given
+block (supplied by value or by reference), or to roll backwards to a given
+point on the client's chain.
+
+The protocol is agnostic about whether it is just block headers or full blocks,
+and it is agnostic about whether blocks are provided by value or by reference.
+The protocol can be instantiated with any choice of these details.
+
+\paragraph{Typical case: consumer on the current chain}
+In the typical case (consumer A in Figure \ref{chain-diagram-read-pointers}),
+the read pointer is on the producer's chain and is not yet at the chain head
+so there is a next block. In this case when the consumer requests the next
+instruction, the producer simply sends the next block. The producer can assume
+that the consumer will update its local state and so the producer can update
+the read pointer to point to the next block.
+
+As a special case, if the read pointer is at the head block when the consumer
+ask for the next instruction then the producer's response is delayed until
+the producer's own chain next changes (by adding a block or rolling back).
+Optionally the producer can inform the consumer promptly that it is in this
+state and will have to wait for the next update.
+
+\paragraph{Interesting case: consumer on an old fork}
+The more interesting case is the case involving forks. In the example of
+consumer B in Figure \ref{chain-diagram-read-pointers}, the consumer was at
+block 41, hash 0x660f, which is on an old fork that is no longer on the
+producer's chain. The state that the producer has in this case ...
+
+% In both cases the producer assumes that the consumer will update its
+% own state as instructed and so the producer can update the read pointer for
+% this consumer correspondingly.
+
+% In this case when the consumer asks for the next
+% change the response is given the next block header; and the producer updates
+% the read pointer correspondingly. The protocol session is initiated with a few
+% steps necessary to establish the initial read pointer.
+
+% In general there 
 
 \subsection{Sketch of a stateless chain following IPC protocol}
 

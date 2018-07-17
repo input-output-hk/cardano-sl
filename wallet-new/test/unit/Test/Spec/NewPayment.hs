@@ -20,8 +20,7 @@ import           Test.Pos.Configuration (withDefConfiguration)
 
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
                      TxOut (..), TxOutAux (..), deriveLvl2KeyPair, mkCoin)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
-                     ShouldCheckPassphrase (..), encToSecret,
+import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      safeDeterministicKeyGen)
 
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
@@ -29,13 +28,10 @@ import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
-import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 
-import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
-                     CoinSelectionOptions (..), ExpenseRegulation (..),
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (CoinSelectionOptions (..), ExpenseRegulation (..),
                      InputGrouping (..), newOptions)
-import           Cardano.Wallet.Kernel.CoinSelection.Generic
-                     (CoinSelHardErr (..))
 import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HasSpendingPassword (..), HdAccountId (..),
@@ -142,23 +138,6 @@ withFixture initialBalance toPay cc = do
             walletSendTx = \_tx -> return False
           }
 
--- | Generate a fresh change 'Address', throwing an exception if the underlying
--- operation fails.
-genChangeAddr :: AccountId -> PassiveWallet -> IO Address
-genChangeAddr accountId pw = do
-    res <- Kernel.createAddress mempty accountId pw
-    case res of
-         Right addr -> pure addr
-         Left err   -> throwM err
-
--- | A fake signer which doesn't check for 'Address' ownership.
-fakeSigner :: PassPhrase
-           -> Maybe EncryptedSecretKey
-           -> Address
-           -> Either CoinSelHardErr SafeSigner
-fakeSigner _ Nothing addr    = Left (CoinSelHardErrAddressNotOwned (Proxy @ Cardano) addr)
-fakeSigner _ (Just esk) _    = Right (FakeSigner (encToSecret esk))
-
 -- | A constant fee calculation.
 constantFee :: Int -> NonEmpty Coin -> Coin
 constantFee _ _ = mkCoin 10
@@ -209,22 +188,20 @@ spec = describe "NewPayment" $ do
         prop "newTransaction works (real signer, SenderPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
                 withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ _ Fixture{..} -> do
-                    allWallets <- Kernel.hdWallets <$> Kernel.getWalletSnapshot fixturePw
                     let opts = (newOptions Kernel.cardanoFee) {
                                csoExpenseRegulation = SenderPaysFee
                              , csoInputGrouping     = IgnoreGrouping
                              }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    res <- liftIO (Kernel.newTransaction fixtureAw
-                                                         (genChangeAddr fixtureAccountId fixturePw)
-                                                         (Kernel.mkSigner mempty (Just fixtureESK) allWallets)
-                                                         opts
-                                                         hdAccountId
-                                                         fixturePayees
-                                  )
+                    (res, _) <- liftIO (Kernel.newTransaction fixtureAw
+                                                              mempty
+                                                              opts
+                                                              hdAccountId
+                                                              fixturePayees
+                                       )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
-        prop "newTransaction works (fake signer, ReceiverPaysFee)" $ withMaxSuccess 50 $ do
+        prop "newTransaction works (ReceiverPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
                 withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
                     let opts = (newOptions Kernel.cardanoFee) {
@@ -232,13 +209,12 @@ spec = describe "NewPayment" $ do
                              , csoInputGrouping     = IgnoreGrouping
                              }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    res <- liftIO (Kernel.newTransaction fixtureAw
-                                                         (genChangeAddr fixtureAccountId fixturePw)
-                                                         (fakeSigner mempty (Just fixtureESK))
-                                                         opts
-                                                         hdAccountId
-                                                         fixturePayees
-                                  )
+                    (res, _) <- liftIO (Kernel.newTransaction fixtureAw
+                                                              mempty
+                                                              opts
+                                                              hdAccountId
+                                                              fixturePayees
+                                       )
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
     describe "Generating a new payment (Servant)" $ do
@@ -277,8 +253,7 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees fixtureAw
-                                                           (genChangeAddr fixtureAccountId fixturePw)
-                                                           (fakeSigner mempty (Just fixtureESK))
+                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -298,8 +273,7 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees fixtureAw
-                                                           (genChangeAddr fixtureAccountId fixturePw)
-                                                           (fakeSigner mempty (Just fixtureESK))
+                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -319,8 +293,7 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees fixtureAw
-                                                           (genChangeAddr fixtureAccountId fixturePw)
-                                                           (fakeSigner mempty (Just fixtureESK))
+                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees

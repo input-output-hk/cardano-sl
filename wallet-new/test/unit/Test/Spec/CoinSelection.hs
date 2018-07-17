@@ -28,10 +28,11 @@ import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..),
-                     CoinSelPolicy, CoinSelectionOptions (..),
-                     ExpenseRegulation (..), InputGrouping (..), MkTx,
-                     largestFirst, mkStdTx, newOptions, random)
+import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
+                     CoinSelHardErr (..), CoinSelPolicy,
+                     CoinSelectionOptions (..), ExpenseRegulation (..),
+                     InputGrouping (..), largestFirst, mkStdTx, newOptions,
+                     random)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (estimateCardanoFee)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
@@ -391,9 +392,8 @@ errorWas predicate _ _ (STB hardErr) =
 -------------------------------------------------------------------------------}
 
 type Policy = CoinSelectionOptions
-           -> MkTx Gen
            -> Word64
-           -> CoinSelPolicy Core.Utxo Gen Core.TxAux
+           -> CoinSelPolicy Core.Utxo Gen CoinSelFinalResult
 
 type RunResult = ( Core.Utxo
                  , NonEmpty Core.TxOut
@@ -403,7 +403,10 @@ type RunResult = ( Core.Utxo
 maxNumInputs :: Word64
 maxNumInputs = 300
 
-genChange :: Core.Utxo -> NonEmpty Core.TxOut -> [Core.Coin] -> Gen [Core.TxOutAux]
+genChange :: Core.Utxo
+          -> NonEmpty Core.TxOut
+          -> [Core.Coin]
+          -> Gen [Core.TxOutAux]
 genChange utxo payee css = forM css $ \change -> do
     changeAddr <- genUniqueChangeAddress utxo payee
     return Core.TxOutAux {
@@ -413,12 +416,17 @@ genChange utxo payee css = forM css $ \change -> do
           }
       }
 
-mkTx :: Core.Utxo
-     -> NonEmpty Core.TxOut
-     -> Core.ProtocolMagic
+mkTx :: Core.ProtocolMagic
      -> SecretKey
-     -> MkTx Gen
-mkTx utxo payee pm key = mkStdTx pm (genChange utxo payee) (\_addr -> Right (fakeSigner key))
+     -> NonEmpty (Core.TxIn, Core.TxOutAux)
+     -- ^ Selected inputs
+     -> NonEmpty Core.TxOutAux
+     -- ^ Selected outputs
+     -> [Core.TxOutAux]
+     -- ^ A list of change addresess, in the form of 'TxOutAux'(s).
+     -> Gen (Either CoinSelHardErr Core.TxAux)
+mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
+
 
 payRestrictInputsTo :: Word64
                     -> (InitialBalance -> Gen Core.Utxo)
@@ -435,14 +443,16 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
         payee <- genP utxo amount
         key   <- arbitrary
         let options = adjustOptions (newOptions feeFunction)
-        res <- bimap STB identity <$>
-                 policy
-                   options
-                   (mkTx utxo payee pm key)
-                   maxInputs
-                   (fmap Core.TxOutAux payee)
-                   utxo
-        return (utxo, payee, res)
+        res <- policy options
+                      maxInputs
+                      (fmap Core.TxOutAux payee)
+                      utxo
+        case res of
+             Left e -> return (utxo, payee, Left (STB e))
+             Right (CoinSelFinalResult inputs outputs coins) -> do
+                    change <- genChange utxo payee coins
+                    txAux  <- mkTx pm key inputs outputs change
+                    return (utxo, payee, bimap STB identity txAux)
 
 pay :: (InitialBalance -> Gen Core.Utxo)
     -> (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))

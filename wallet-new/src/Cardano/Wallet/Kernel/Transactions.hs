@@ -6,7 +6,6 @@ module Cardano.Wallet.Kernel.Transactions (
     , NewTransactionError(..)
     , PaymentError(..)
     , EstimateFeesError(..)
-    , mkSigner
     , cardanoFee
     -- * Internal & testing use only
     , newTransaction
@@ -19,16 +18,20 @@ import           Control.Retry (RetryPolicyM, RetryStatus, applyPolicy,
                      fullJitterBackoff, limitRetries, retrying)
 import           Crypto.Random (MonadRandom (..))
 import qualified Data.Set as Set
+import qualified Data.Vector as V
+import           System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import qualified Data.ByteArray as ByteArray
-import qualified Pos.Binary as Bi
+import qualified Data.ByteString as B
 
+import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
-                     CoinSelectionOptions, estimateCardanoFee, mkStdTx)
+                     CoinSelFinalResult (..), CoinSelectionOptions,
+                     estimateCardanoFee, mkStdTx)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
@@ -37,12 +40,15 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read
                      (readHdAddressByCardanoAddress)
+import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 
 import           Cardano.Wallet.Kernel (getWalletSnapshot, newPending)
 import           Cardano.Wallet.Kernel.DB.Read as Getters
-import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..))
+import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
+                     walletKeystore)
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 
 import           Pos.Core (Address, Coin, Tx (..), TxAux (..), TxOut (..),
                      TxOutAux (..), unsafeSubCoin)
@@ -85,19 +91,16 @@ instance Buildable PaymentError where
 -- seconds, as well as internally retrying up to 5 times to propagate the
 -- transaction via 'newPending'.
 pay :: ActiveWallet
-    -> IO Address
-    -- ^ A computation to generate change 'Address'es.
-    -> (Address -> Either CoinSelHardErr SafeSigner)
+    -> PassPhrase
     -> CoinSelectionOptions
     -> HdAccountId
-    -- ^ The source @(root, account) from where the payment was
-    -- originated
+    -- ^ The source HD Account from where the payment was originated
     -> NonEmpty (Address, Coin)
     -- ^ The payees
     -> IO (Either PaymentError Tx)
-pay activeWallet genChangeAddr signAddress opts accountId payees = do
+pay activeWallet spendingPassword opts accountId payees = do
         retrying retryPolicy shouldRetry $ \rs -> do
-            tx <- newTransaction activeWallet genChangeAddr signAddress opts accountId payees
+            (tx, _) <- newTransaction activeWallet spendingPassword opts accountId payees
             case tx of
                  Left e      -> return (Left $ PaymentNewTransactionError e)
                  Right txAux -> do
@@ -131,22 +134,67 @@ pay activeWallet genChangeAddr signAddress opts accountId payees = do
 
 -- | Creates a new 'TxAux' without submitting it to the network.
 newTransaction :: ActiveWallet
-               -> IO Address
-               -- ^ A computation to generate change 'Address'es.
-               -> (Address -> Either CoinSelHardErr SafeSigner)
-               -- ^ A function to sign each Address
+               -> PassPhrase
+               -- ^ The spending password.
                -> CoinSelectionOptions
                -- ^ The options describing how to tune the coin selection.
                -> HdAccountId
-               -- ^ The source @(root, account) from where the payment was
-               -- originated
+               -- ^ The source HD account from where the payment should originate
                -> NonEmpty (Address, Coin)
                -- ^ The payees
-               -> IO (Either NewTransactionError TxAux)
-newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId payees = do
+               -> IO (Either NewTransactionError TxAux, Utxo)
+newTransaction ActiveWallet{..} spendingPassword options accountId payees = do
+
+    -- | NOTE(adn) This number was computed out of the work Matt Noonan did
+    -- on the size estimation. See [CBR-318].
+    let maxInputs = 350
+
     snapshot <- getWalletSnapshot walletPassive
-    let toTxOuts = fmap (\(a,c) -> TxOutAux (TxOut a c))
-    let genChangeOuts css = forM css $ \change -> do
+    let availableUtxo = accountAvailableUtxo snapshot accountId
+
+    initialEnv <- newEnvironment
+
+    -- STEP 1: Run coin selection.
+    res <- flip runReaderT initialEnv . buildPayment $
+           CoinSelection.random options
+                                maxInputs
+                                (fmap toTxOut payees)
+                                availableUtxo
+    case res of
+         Left err -> return (Left . CoinSelectionFailed $ err, availableUtxo)
+         Right (CoinSelFinalResult inputs outputs coins) -> do
+             -- STEP 2: Generate the change addresses needed.
+             changeAddresses   <- genChangeOuts coins
+
+             -- STEP 3: Perform the signing and forge the final TxAux.
+             let keystore = walletPassive ^. walletKeystore
+             mbEsk <- Keystore.lookup (WalletIdHdRnd $ accountId ^. hdAccountIdParent) keystore
+             let allWallets    = hdWallets snapshot
+                 signAddress   = mkSigner spendingPassword mbEsk allWallets
+                 mkTx          = mkStdTx walletProtocolMagic signAddress
+
+             (, availableUtxo) . bimap CoinSelectionFailed identity
+                 <$> mkTx inputs outputs changeAddresses
+
+    where
+        -- Generate an initial seed for the random generator using the hash of
+        -- the payees, which ensure that the coin selection (and the fee estimation)
+        -- is \"pseudo deterministic\" and replicable.
+        newEnvironment :: IO Env
+        newEnvironment =
+            let initialSeed = V.fromList . map fromIntegral
+                                         . B.unpack
+                                         . encodeUtf8 @Text @ByteString
+                                         . sformat build
+                                         $ hash payees
+            in Env <$> initialize initialSeed
+
+        toTxOut :: (Address, Coin) -> TxOutAux
+        toTxOut (a, c) = TxOutAux (TxOut a c)
+
+        -- | Generates the list of change outputs from a list of change coins.
+        genChangeOuts :: MonadIO m => [Coin] -> m [TxOutAux]
+        genChangeOuts css = forM css $ \change -> do
             changeAddr <- liftIO genChangeAddr
             return TxOutAux {
                 toaOut = TxOut {
@@ -154,35 +202,30 @@ newTransaction ActiveWallet{..} genChangeAddr signAddress options accountId paye
                   , txOutValue   = change
                   }
               }
-    let mkTx = mkStdTx walletProtocolMagic genChangeOuts signAddress
-    -- | NOTE(adn) This number was computed out of the work Matt Noonan did
-    -- on the size estimation. See [CBR-318].
-    let maxInputs = 350
-    let availableUtxo = accountAvailableUtxo snapshot accountId
-    freshCounter <- newIORef 1
-    let initialSeed = encodeUtf8 @Text @ByteString . sformat build $ hash payees
-    res <- flip runReaderT (initialSeed, freshCounter) . buildPayment $
-           CoinSelection.random options
-                                mkTx
-                                maxInputs
-                                (toTxOuts payees)
-                                availableUtxo
-    case res of
-         Left err -> return . Left . CoinSelectionFailed $ err
-         Right t  -> return . Right $ t
+
+        -- | Monadic computation to generate a new change 'Address'. This will
+        -- run after coin selection, when we create the final transaction as
+        -- part of 'mkTx'.
+        genChangeAddr :: IO Address
+        genChangeAddr = do
+            res <- Kernel.createAddress spendingPassword
+                                        (AccountIdHdRnd accountId)
+                                        walletPassive
+            case res of
+                 Right addr -> pure addr
+                 Left err   -> throwM err
 
 -- | Special monad used to process the payments, which randomness is derived
 -- from a fixed seed obtained from hashing the payees. This guarantees that
 -- when we estimate the fees and later create a transaction, the coin selection
 -- will always yield the same value, making the process externally-predicatable.
 newtype PayMonad a = PayMonad {
-      buildPayment :: ReaderT (ByteString, IORef Word16) IO a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadIO
-               , MonadReader (ByteString, IORef Word16)
-               )
+      buildPayment :: ReaderT Env IO a
+    } deriving ( Functor , Applicative , Monad , MonadIO, MonadReader Env)
+
+-- | This 'Env' datatype is necessary to convince GHC that indeed we have
+-- a 'MonadReader' instance defined on 'GenIO' for the 'PayMonad'.
+newtype Env = Env { getEnv :: GenIO }
 
 -- | \"Invalid\" 'MonadRandom' instance for 'PayMonad' which generates
 -- randomness using the hash of 'NonEmpty (Address, Coin)' as fixed seed,
@@ -191,13 +234,10 @@ newtype PayMonad a = PayMonad {
 -- which is yet deterministically reproduceable by feeding the same set of
 -- payees.
 instance MonadRandom PayMonad where
-    getRandomBytes _ = do
-        (initialSeed, counterRef) <- ask
-        counterValue <- readIORef counterRef
-        let randVal = ByteArray.convert . mappend (Bi.serialize' counterValue)
-                                        $ initialSeed
-        modifyIORef' counterRef succ
-        return randVal
+    getRandomBytes len = do
+        gen <- asks getEnv
+        randomBytes <- liftIO (asGenIO (flip uniformVector len) gen)
+        return $ ByteArray.convert (B.pack $ V.toList randomBytes)
 
 {-------------------------------------------------------------------------------
   Estimating fees
@@ -213,22 +253,17 @@ instance Arbitrary EstimateFeesError where
     arbitrary = EstFeesTxCreationFailed <$> arbitrary
 
 estimateFees :: ActiveWallet
-             -> IO Address
-             -- ^ A computation to generate a new change 'Address.
-             -> (Address -> Either CoinSelHardErr SafeSigner)
-             -- ^ A function to sign each Address
+             -> PassPhrase
+             -- ^ The spending password.
              -> CoinSelectionOptions
              -- ^ The options describing how to tune the coin selection.
              -> HdAccountId
-             -- ^ The source @(root, account) from where the payment was
-             -- originated
+             -- ^ The source HD Account from where the payment should originate
              -> NonEmpty (Address, Coin)
              -- ^ The payees
              -> IO (Either EstimateFeesError Coin)
-estimateFees activeWallet@ActiveWallet{..} genChangeAddr signAddress options accountId payees = do
-    snapshot         <- getWalletSnapshot walletPassive
-    let originalUtxo = accountAvailableUtxo snapshot accountId
-    res <- newTransaction activeWallet genChangeAddr signAddress options accountId payees
+estimateFees activeWallet@ActiveWallet{..} spendingPassword options accountId payees = do
+    (res, originalUtxo) <- newTransaction activeWallet spendingPassword options accountId payees
     case res of
          Left e  -> return . Left . EstFeesTxCreationFailed $ e
          Right tx -> -- calculate the fee as the difference between inputs and outputs.

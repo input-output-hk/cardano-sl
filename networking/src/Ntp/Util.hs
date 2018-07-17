@@ -27,6 +27,7 @@ module Ntp.Util
     , logDebug
     , logInfo
     , logWarning
+    , logError
     ) where
 
 import           Control.Exception (Exception, IOException, catch, throw)
@@ -66,6 +67,9 @@ logInfo msg = traceWith ntpTrace (Wlog.Info, msg)
 
 logDebug :: Text -> IO ()
 logDebug msg = traceWith ntpTrace (Wlog.Debug, msg)
+
+logError :: Text -> IO ()
+logError msg = traceWith ntpTrace (Wlog.Error, msg)
 
 data AddrFamily = IPv4 | IPv6
     deriving Show
@@ -247,7 +251,9 @@ udpLocalAddresses = do
     --                 Hints        Host    Service
     Socket.getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
 
-data SendToException = NoMatchingSocket
+data SendToException
+    = NoMatchingSocket
+    | SendToIOException AddrFamily IOException
     deriving Show
 
 instance Exception SendToException
@@ -269,8 +275,13 @@ sendTo sock bs addr = case fmap (foldEitherOrBoth . bimap fn fn) $ pairEitherOrB
     fn :: ( Last (WithAddrFamily t Socket)
           , First (WithAddrFamily t SockAddr)
           )
-        -> IO ()
-    fn (Last sock_, First addr_) = void $ Socket.ByteString.sendTo (runWithAddrFamily sock_) bs (runWithAddrFamily addr_)
+       -> IO ()
+    fn (Last sock_, First addr_) =
+        void (Socket.ByteString.sendTo (runWithAddrFamily sock_) bs (runWithAddrFamily addr_))
+            `catch` handleIOException (getAddrFamily addr_)
+
+    handleIOException :: AddrFamily -> IOException -> IO ()
+    handleIOException addressFamily e = throw (SendToIOException addressFamily e)
 
 -- |
 -- Low level primitive which sends a request to a single ntp server.
@@ -283,18 +294,27 @@ sendPacket sock packet addrs = do
     let bs = LBS.toStrict $ encode $ packet
     traverse_
         (\addr ->
-            sendTo sock bs addr
-                `catch` handleIOError addr
+            (sendTo sock bs addr)
                 `catch` handleSendToException addr
         )
         addrs
   where
     -- just log; socket closure is handled by receiver
     handleSendToException :: Addresses -> SendToException -> IO ()
-    handleSendToException addr e =
-        logWarning $ sformat
+    handleSendToException addr e@NoMatchingSocket =
+        logError $ sformat
             ("sendPacket SendToException: "%shown%" "%shown%": "%shown) addr sock e
-    handleIOError :: Addresses -> IOError -> IO ()
-    handleIOError addr e =
-        logWarning $ sformat
-            ("sendPacket IOError: "%shown%" "%shown%": "%shown) addr sock e
+    handleSendToException addr (SendToIOException addressFamily ioerr) = do
+        logError $ sformat
+            ("sendPacket IOError: "%shown%" "%shown%": "%shown) addr sock ioerr
+        case (addr, addressFamily) of
+            -- try to send the packet to the other address in case the current
+            -- system does not support IPv4/6.
+            (EBBoth _ r, IPv6) -> do
+                logDebug $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst r)
+                sendPacket sock packet [EBSecond r]
+            (EBBoth l _, IPv4) -> do
+                logDebug $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst l)
+                sendPacket sock packet [EBFirst  l]
+            _                  ->
+                logDebug "sendPacket: not retrying"

@@ -21,7 +21,6 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Data.Typeable (typeRep)
 import           Formatting (sformat)
-import GHC.TypeLits
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -33,7 +32,7 @@ import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
 import qualified Pos.Txp.Toil.Types as V0
-import           Pos.Util.Mnemonic (Mnemonic, ValidMnemonicSentence)
+import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -127,24 +126,11 @@ instance Migrate V0.CCoin (V1 Core.Coin) where
 instance Migrate (V1 Core.Coin) V0.CCoin where
     eitherMigrate (V1 c) = pure (V0.encodeCType c)
 
-instance (n ~ m, ValidMnemonicSentence n, IsBackupPhrase n)
+instance (n ~ m, n ~ 12)
     => Migrate (Mnemonic n) (V0.CBackupPhrase m) where
     eitherMigrate =
         Right . V0.CBackupPhrase
 
-type family IsBackupPhrase n :: Constraint where
-    IsBackupPhrase 9 = (9 ~ 9)
-    IsBackupPhrase 12 = (12 ~ 12)
-    IsBackupPhrase n = TypeError (BackupPhraseError n)
-
-type BackupPhraseError (n :: Nat) =
-        'Text "You attempted to convert a `Mnemonic " ':<>: 'ShowType n
-        ':<>: 'Text "` into a `CBackupPhrase`."
-    ':$$:
-        'Text "This is not allowed. The only valid values for a `CBackupPhease`"
-        ':<>: 'Text " are 9 and 12."
-
---
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
 

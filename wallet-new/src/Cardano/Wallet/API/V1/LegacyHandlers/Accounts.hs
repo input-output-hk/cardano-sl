@@ -92,8 +92,8 @@ redeemAda pm submitTx walletId accountIndex r = do
     accountId <- migrate (walletId, accountIndex)
     let caccountId = V0.encodeCType accountId
     fmap single . migrate =<< case redemptionMnemonic r of
-        Just (V1 mnemonic) -> do
-            phrase <- migrate mnemonic
+        Just (RedemptionMnemonic mnemonic) -> do
+            let phrase = V0.CBackupPhrase mnemonic
             let cpaperRedeem = V0.CPaperVendWalletRedeem
                     { V0.pvWalletId = caccountId
                     , V0.pvSeed = seed

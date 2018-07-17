@@ -1,5 +1,7 @@
 -- | Useful functions for serialization/deserialization.
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Binary.Class.Primitive
        ( serialize
        , serializeWith
@@ -27,10 +29,13 @@ module Pos.Binary.Class.Primitive
        -- * CBOR in CBOR
        , encodeKnownCborDataItem
        , encodeUnknownCborDataItem
+       , knownCborDataItemSizeExpr
+       , unknownCborDataItemSizeExpr
        , decodeKnownCborDataItem
        , decodeUnknownCborDataItem
        -- * Cyclic redundancy check
        , encodeCrcProtected
+       , encodedCrcProtectedSizeExpr
        , decodeCrcProtected
        ) where
 
@@ -53,8 +58,8 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize,
-                     toCborError)
+import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
+                     enforceSize, toCborError, withWordSize)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -221,6 +226,12 @@ encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize
 encodeUnknownCborDataItem :: BSL.ByteString -> E.Encoding
 encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
 
+knownCborDataItemSizeExpr :: Size -> Size
+knownCborDataItemSizeExpr x = 2 + apMono "withWordSize" withWordSize x + x
+
+unknownCborDataItemSizeExpr :: Size -> Size
+unknownCborDataItemSizeExpr x = 2 + apMono "withWordSize" withWordSize x + x
+
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.
 decodeCborDataItemTag :: D.Decoder s ()
@@ -256,6 +267,11 @@ encodeCrcProtected x =
     E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
     body = serialize x
+
+encodedCrcProtectedSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
+encodedCrcProtectedSizeExpr size pxy =
+    2 + unknownCborDataItemSizeExpr (size pxy)
+      + size (pure $ crc32 (serialize (error "unused" :: a)))
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a

@@ -181,7 +181,8 @@ deriveIndexedBiInternal predsMB headTy constrs = do
                                 %shown%"', passed type '"%shown%"'")
                         field name realType passedType
     ty <- conT headTy
-    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr
+    makeBiInstanceTH preds ty <$> biEncodeExpr
+                              <*> biDecodeExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -448,7 +449,9 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                                 %shown%"', passed type '"%shown%"'")
                         field cName realType passedType
     ty <- conT headTy
-    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr
+    makeBiInstanceWithSizeTH preds ty <$> biEncodeExpr
+                                      <*> biDecodeExpr
+                                      <*> biEncodedSizeExprExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -486,6 +489,30 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                 mconcatE (encodeFlat (length cFields + 1) : encodeTag ix : map (encodeField val) cFields)
             else
                 mconcatE (encodeFlat (length cFields) : map (encodeField val) cFields)
+
+    biEncodedSizeExprExpr :: Q Exp
+    biEncodedSizeExprExpr = do
+        size <- newName "_size"
+        pxy  <- newName "_"
+        lam1E (varP size) $
+            lam1E (varP pxy) $ do
+                [| $(return $ LitE $ IntegerL $ if length filteredConstrs > 1 then 1 else 0)
+                   + Bi.szCases $(
+                    fmap ListE (sequence $
+                                imap (\idx ctor -> [| Bi.Case $(pure $ LitE $ StringL $ show (cName ctor))
+                                                             $(encodedSizeExprConstr idx ctor) |])
+                                filteredConstrs)) |]
+
+    encodedSizeExprConstr :: Int -> Cons -> Q Exp
+    encodedSizeExprConstr _ (Cons _ cFields) = do
+      let fields = mapM encodedSizeExprField cFields
+          extraBytes = 2
+      [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |]
+
+    encodedSizeExprField :: Field -> Q Exp
+    encodedSizeExprField Field{..} = do
+        (_, fTy) <- expToNameAndType fFieldAndType
+        [| _size (Proxy :: Proxy $(pure fTy)) |]
 
     -- Ensure the encoding of constructors with multiple arguments are encoded as a flat term.
     encodeFlat :: Int -> Q Exp
@@ -565,6 +592,16 @@ makeBiInstanceTH preds ty encodeE decodeE = one $
         (AppT (ConT ''Bi.Bi) ty)
         [ ValD (VarP 'Bi.encode) (NormalB encodeE) []
         , ValD (VarP 'Bi.decode) (NormalB decodeE) []
+        ]
+
+makeBiInstanceWithSizeTH :: Cxt -> Type -> Exp -> Exp -> Exp -> [Dec]
+makeBiInstanceWithSizeTH preds ty encodeE decodeE encodedSizeExprE = one $
+  plainInstanceD
+        preds -- context
+        (AppT (ConT ''Bi.Bi) ty)
+        [ ValD (VarP 'Bi.encode) (NormalB encodeE) []
+        , ValD (VarP 'Bi.decode) (NormalB decodeE) []
+        , ValD (VarP 'Bi.encodedSizeExpr) (NormalB encodedSizeExprE) []
         ]
 
 data MatchConstructors

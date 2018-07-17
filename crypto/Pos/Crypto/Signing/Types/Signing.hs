@@ -89,6 +89,7 @@ decodeXPub = toCborError . over _Left fromString . CC.xpub =<< decode
 instance Bi PublicKey where
     encode (PublicKey a) = encodeXPub a
     decode = fmap PublicKey decodeXPub
+    encodedSizeExpr _ _ = 66
 
 -- | Wrapper around 'CC.XPrv'.
 newtype SecretKey = SecretKey CC.XPrv

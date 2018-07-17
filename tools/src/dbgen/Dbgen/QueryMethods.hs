@@ -1,16 +1,18 @@
-{-# LANGUAGE GADTs      #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RankNTypes        #-}
 
-module QueryMethods where
+module Dbgen.QueryMethods where
 
 import           Universum
 
 import           Pos.Wallet.Web.Methods.Logic (getWallets)
 import           Text.Printf (printf)
 
-import           Lib (timed)
-import           Rendering (say)
-import           Types (Method (..), UberMonad)
+import           Dbgen.Lib (timed)
+import           Dbgen.Rendering (say)
+import           Dbgen.Types (Method (..), UberMonad)
 
 queryMethods :: Maybe Method -> UberMonad ()
 queryMethods Nothing = say "No valid method read from the CLI."

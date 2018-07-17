@@ -2,17 +2,20 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ViewPatterns        #-}
 
-module Lib where
+module Dbgen.Lib where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict,
-                     withObject, (.:))
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecodeStrict,
+                     object, withObject, (.:), (.=))
 import qualified Data.ByteString as B
 import           Data.Function (id)
 import qualified Data.List.NonEmpty as NE
@@ -49,9 +52,9 @@ import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate,
                      vectorOf)
 import           Text.Printf (printf)
 
-import           CLI (CLI (..))
-import           Rendering (green, renderAccountId, say)
-import           Types (UberMonad)
+import           Dbgen.CLI (CLI (..))
+import           Dbgen.Rendering (green, renderAccountId, say)
+import           Dbgen.Types (UberMonad)
 
 import           Test.Pos.Core.Arbitrary.Txp ()
 
@@ -149,10 +152,18 @@ instance FromJSON FakeUtxoCoinDistribution where
         distrType <- o .: "type"
         case distrType of
           "none"  -> pure NoDistribution
-          "range" -> RangeDistribution <$> o .: "range" <*> o .: "amount"
+          "range" -> RangeDistribution
+                        <$> (AddressRange <$> o .: "range")
+                        <*> (DistributionAmount <$> o .: "amount")
           _       -> fail ("Unknown type: " ++ distrType)
 
-instance ToJSON FakeUtxoCoinDistribution
+instance ToJSON FakeUtxoCoinDistribution where
+    toJSON NoDistribution = object ["type" .= ("none" :: String)]
+    toJSON (RangeDistribution (AddressRange ar) (DistributionAmount da)) =
+        object [ "type"   .= ("range" :: String)
+               , "range"  .= ar
+               , "amount" .= da
+               ]
 
 type NumOfOutgoingAddresses = Int
 type NumberOfBatches = Int
@@ -179,7 +190,13 @@ instance FromJSON FakeTxsHistory where
           "simple" -> SimpleTxsHistory <$> o .: "txsCount" <*> o .: "numOutgoingAddress"
           _        -> fail ("Unknown type: " ++ distrType)
 
-instance ToJSON FakeTxsHistory
+instance ToJSON FakeTxsHistory where
+    toJSON NoHistory = object ["type" .= ("none" :: String)]
+    toJSON (SimpleTxsHistory txsCount numOutgoingAddress) =
+        object [ "type"               .= ("simple" :: String)
+               , "txsCount"           .= txsCount
+               , "numOutgoingAddress" .= numOutgoingAddress
+               ]
 
 
 --

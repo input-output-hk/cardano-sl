@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE RankNTypes       #-}
 
-module Types where
+module Dbgen.Types where
 
 import           Universum
 

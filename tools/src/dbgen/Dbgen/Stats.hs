@@ -1,6 +1,8 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TypeFamilies      #-}
 
-module Stats where
+module Dbgen.Stats where
 
 import           Universum
 
@@ -11,7 +13,7 @@ import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Text.Printf (printf)
 
-import           Rendering (blankLine, bold, listOf, red, renderAccount,
+import           Dbgen.Rendering (blankLine, bold, listOf, red, renderAccount,
                      renderWallet, say)
 
 {- For reference:

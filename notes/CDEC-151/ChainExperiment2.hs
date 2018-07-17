@@ -593,12 +593,13 @@ pruneVolatileBlocks cs = cs
 -- | An STM-based interface provided by a chain producer to chain consumers.
 --
 data ChainProducer = ChainProducer {
-       establishChainConsumer :: [(Slot, BlockId)] -> STM ChainConsumer
+       establishChainConsumer :: [(Slot, BlockId)]
+                              -> STM (ChainConsumer, [(Slot, BlockId)])
      }
 
 data ChainConsumer = ChainConsumer {
        currentReadPoint :: STM (Slot, BlockId),
-       extraLocalChain  :: [(Slot, BlockId)] -> STM (),
+       improveReadPoint :: [(Slot, BlockId)] -> STM (),
        tryPeekChain     :: STM (Maybe (ConsumeChain Block)),
        tryReadChain     :: STM (Maybe (ConsumeChain Block))
      }

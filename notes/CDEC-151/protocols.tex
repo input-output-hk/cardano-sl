@@ -398,8 +398,8 @@ In this stateful protocol there is a communication session with a bidirectional
 unicast channel between the chain producer and chain consumer. It is stateful
 in the sense that the chain producer maintains some state about the state of
 the chain consumer. The state that the producer maintains about the consumer
-is the consumer's `read pointer'. This tracks what the producer knows about the
-head of the consumer's chain.
+is the `read pointer'. This tracks what the producer knows about the head of
+the consumer's chain.
 
 \begin{figure}
 \pgfdeclareimage[height=6cm]{chain-diagram-read-pointers}{chain-diagram-read-pointers.pdf}
@@ -410,18 +410,28 @@ head of the consumer's chain.
 \label{chain-diagram-read-pointers}
 \end{figure}
 
-Figure \ref{chain-diagram-read-pointers} illustrates an example with a producer
-and two consumers. In the example, consumer A illustrates a typical case where
-the consumer's read pointer is on the producer's chain, while consumer B
-illustrates a case involving a fork. We will cover both cases.
+Figure \ref{chain-diagram-read-pointers} illustrates an example producer's
+chain plus tracking for two consumers. In the example, consumer A illustrates a
+typical case where the consumer's read pointer is on the producer's chain,
+while consumer B illustrates a case involving a fork. We will elaborate both
+cases.
 
 \paragraph{Request/Response interaction}
 The form of interaction between the consumer and producer follows a simple
-request/response pattern. The consumer makes a request to ask for the next
-state change and the producer replies with an instruction on how the consumer
-should change its state. These update are either to roll forward to a given
-block (supplied by value or by reference), or to roll backwards to a given
-point on the client's chain.
+request/response pattern driven by the consumer. The consumer makes a request
+to ask for the next state change and the producer replies with an instruction
+on how the consumer should change its state. These update are either to roll
+forward to a given block (supplied by value or by reference), or to roll
+backwards to a given point on the client's chain.
+
+The consumer-driven pattern effectively flips round to being producer driven in
+the case that a consumer is at the head of the producer's chain. In this case
+the consumer issues the request but the producer does not reply until the
+producer's own chain state changes (by adding a new block or switching fork).
+So in this state the consumer is waiting and it is the producer that will
+initiate the next change by pushing an update to the consumer. So it is
+still the same request/response pattern, but with a long delay before the
+response.
 
 The protocol is agnostic about whether it is just block headers or full blocks,
 and it is agnostic about whether blocks are provided by value or by reference.
@@ -435,28 +445,114 @@ instruction, the producer simply sends the next block. The producer can assume
 that the consumer will update its local state and so the producer can update
 the read pointer to point to the next block.
 
-As a special case, if the read pointer is at the head block when the consumer
-ask for the next instruction then the producer's response is delayed until
-the producer's own chain next changes (by adding a block or rolling back).
-Optionally the producer can inform the consumer promptly that it is in this
-state and will have to wait for the next update.
+\paragraph{Producer state change: adding a block}
+
+As mentioned above, if the read pointer is at the head block when the consumer
+asks for the next instruction then the producer's response is delayed until
+the producer's own chain next changes. When the producer's state changes by
+adding a block then all consumers that were at the chain head and are waiting
+on a response will be sent a response containing the new block.
 
 \paragraph{Interesting case: consumer on an old fork}
 The more interesting case is the case involving forks. In the example of
 consumer B in Figure \ref{chain-diagram-read-pointers}, the consumer was at
 block 41, hash 0x660f, which is on an old fork that is no longer on the
-producer's chain. The state that the producer has in this case ...
+producer's chain. The state that the producer has in this case records the fact
+that the consumer was at this old block, but the read pointer points to the
+location on the producer's chain that the consumer will need to move to. So
+when the consumer asks for an update the producer will send an instruction to
+tell it to rollback to the given block. The producer will then update its read
+pointer to record the fact that the consumer is now back on the chain at the
+target block (39, hash fa40 in the example).
 
-% In both cases the producer assumes that the consumer will update its
-% own state as instructed and so the producer can update the read pointer for
-% this consumer correspondingly.
+So it is clear that the producer's state about the consumer has two cases, the
+normal case and the fork case. In the fork case the location of the read
+pointer is at the target block on the current chain to roll back to.
 
-% In this case when the consumer asks for the next
-% change the response is given the next block header; and the producer updates
-% the read pointer correspondingly. The protocol session is initiated with a few
-% steps necessary to establish the initial read pointer.
+\paragraph{Producer state change: switching fork}
 
-% In general there 
+The situation when a read pointer state gets into the fork case is when the
+producer's chain switches fork. A fork switch involves removing some number
+of recent blocks and adding more blocks. The producer must update any consumer
+read pointers that point to the blocks that are being removed. The recorded
+state must remember the block that the consumer was at, but the read pointer
+must move to the block that the consumer will be asked to roll back to.
+
+It is worth pointing out here is what happens for read pointers that are
+encountered when removing block that were \emph{already} in the fork state.
+The read pointer is simply moved as normal, and the original state recording
+which block the consumer was at is preserved. This explains why the read
+pointer for the fork state has to be at the block on the current chain that the
+consumer will roll back to rather than at the block on the old fork: it is so
+that if there is a further fork the read pointer can easily be found and moved.
+
+\paragraph{Establishing a new consumer session}
+
+So far we have covered the operation once a session is established. To
+establish a new session we must establish the read pointer state for the
+consumer on the producer side. This involves finding the intersection between
+the producer and consumer's chains, sometimes called the \emph{last common
+ancestor} (LCA).
+
+The consumer opens by sending a list of points on their chain. These points
+are pairs of slot number and block hash. The list is in order of the slot
+number. There is some flexibility in which points the consumer sends but it
+must include the head block and -- to guarantee that an intersection can be
+found -- the block K back from the head. This guarantee is so because the
+longest fork the producer could have had is K blocks and so provided the
+consumer was previously following the same producer's chain then the block K
+back is guaranteed to still be on the producer's current chain.
+
+A reasonable choice for a list of points would be the consumer's current chain
+head and then points ${2^n | n \in {1..}, 2^n \leq K}$ earlier. The producer
+can compare these points with its own chain to find the first point that is
+on its chain. This gives a range in which the intersection point is known to
+be. The producer establishes the initial read pointer as follows.
+\begin{itemize}
+\item If the consumer's chain head block is on the producer's chain then the
+      read pointer is established in the normal state, pointing to that block.
+\item If the consumer's chain head block is \emph{not} on the producer's chain
+      then the read pointer is established in the fork state recording the
+      consumer's head block and pointing to the block at the older end of the
+      range in which the intersection point is known to be. This state means
+      that if the consumer asks for the first update it will be told to roll
+      back to (the lower bound on) the intersection point. This is a safe
+      approximation but could waste re-sending many blocks.
+\end{itemize}
+At this stage we have at least established a safe lower bound on the
+intersection point and set up a read pointer so that we could proceed with the
+main protocol from here. The only remaining problem is one of efficiency if
+the range for the intersection point is large. So at this stage there are two
+cases depending on the size of the range for the intersection point.
+\begin{itemize}
+\item If the size of the range is below some agreed threshold then we are
+      essentially done: the read pointer is established and the producer can
+      reply informing the consumer that this is now the case.
+\item If the size of the range is above the threshold then we need further
+      steps to narrow down the range.
+\end{itemize}
+In the latter case the further steps are as follows. The producer has already
+established the read pointer at the older end of the range. It now sends back
+the block range and an ordered list of points from its chain that fall within
+the range. Again these points are pairs of slot number and block hash. A good
+choice of points are ones that divide the range into sub-ranges of almost equal
+size.
+
+The consumer now inspects these points from the producer and determines which
+ones occur on its chain, thus narrowing down the range in which the
+intersection point must fall. The consumer may now send a further list of
+points within the range it has determined. The producer uses these points to
+`improve' the read pointer by moving it forward if possible. This is done by
+checking which if any occur on the producer's chain. If the producer's chain
+has switched fork since the producer sent its initial response then it may be
+the case that none of the points the consumer sends do occur on the producer's
+chain. In this unlikely case the read pointer is not altered and no improvement
+is made.
+
+\dcoutts{Does it make sense to generalise this slightly and allow the
+`improvement' message at any time? All it does is optionally improve the read
+pointer on the producer side. Are there ever cases where it'd be useful beyond
+the initial establishing of the session?}
 
 \subsection{Sketch of a stateless chain following IPC protocol}
 

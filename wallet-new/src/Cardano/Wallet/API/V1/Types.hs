@@ -75,6 +75,7 @@ module Cardano.Wallet.API.V1.Types (
   , TimeInfo(..)
   , SubscriptionStatus(..)
   , Redemption(..)
+  , RedemptionMnemonic(..)
   , ShieldedRedemptionCode(..)
   -- * Some types for the API
   , CaptureWalletId
@@ -1797,6 +1798,17 @@ instance BuildableSafeGen NodeInfo where
         nfoLocalTimeInformation
         (Map.toList nfoSubscriptionStatus)
 
+-- | A redemption mnemonic.
+newtype RedemptionMnemonic = RedemptionMnemonic
+    { unRedemptionMnemonic :: Mnemonic 9
+    }
+    deriving stock (Eq, Show, Generic)
+    deriving newtype (ToJSON, FromJSON, Arbitrary)
+
+instance ToSchema RedemptionMnemonic where
+    declareNamedSchema _ = pure $
+        NamedSchema (Just "RedemptionMnemonic") (toSchema (Proxy @(Mnemonic 9)))
+
 -- | A shielded redemption code.
 newtype ShieldedRedemptionCode = ShieldedRedemptionCode
     { unShieldedRedemptionCode :: Text
@@ -1825,7 +1837,7 @@ instance BuildableSafeGen ShieldedRedemptionCode where
 data Redemption = Redemption
     { redemptionRedemptionCode   :: ShieldedRedemptionCode
     -- ^ The redemption code associated with the Ada to redeem.
-    , redemptionMnemonic         :: Maybe (V1 (Mnemonic 9))
+    , redemptionMnemonic         :: Maybe RedemptionMnemonic
     -- ^ An optional mnemonic. This mnemonic was included with paper
     -- certificates, and the presence of this field indicates that we're
     -- doing a paper vend.

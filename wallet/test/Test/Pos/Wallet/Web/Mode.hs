@@ -57,6 +57,7 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..),
                      largestHDAddressBoot)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -78,7 +79,6 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
                      newStateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)

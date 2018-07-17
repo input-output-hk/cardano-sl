@@ -5,7 +5,9 @@ module Pos.Infra.Reporting
        ) where
 
 import           Pos.Infra.Reporting.Ekg as X
+import           Pos.Infra.Reporting.Exceptions as X
+import           Pos.Infra.Reporting.Http as X
+import           Pos.Infra.Reporting.Methods as X
 import           Pos.Infra.Reporting.NodeInfo as X
 import           Pos.Infra.Reporting.Statsd as X
-import           Pos.Sinbin.Reporting as X
-
+import           Pos.Infra.Reporting.Wlog as X

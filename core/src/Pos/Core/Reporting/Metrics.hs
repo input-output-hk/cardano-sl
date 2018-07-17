@@ -4,7 +4,7 @@
 
 -- | This module basically combines reporting functionality with metrics.
 
-module Pos.Sinbin.Reporting.Metrics
+module Pos.Core.Reporting.Metrics
        ( MetricMonitor (..)
        , MetricMonitorState
        , mkMetricMonitorState
@@ -16,12 +16,12 @@ import           Universum
 
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build, sformat)
-import           Mockable (CurrentTime, Mockable, currentTime)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (WithLogger, logDebug)
 
+import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'

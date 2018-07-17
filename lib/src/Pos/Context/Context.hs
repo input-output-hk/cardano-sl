@@ -31,10 +31,10 @@ import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..),
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MisbehaviorMetrics (..))
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                     MisbehaviorMetrics (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..),
                      ShutdownContext (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..),

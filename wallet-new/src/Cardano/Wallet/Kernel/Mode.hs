@@ -18,6 +18,8 @@ import           Pos.Block.Types
 import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
@@ -27,7 +29,6 @@ import           Pos.Infra.Reporting
 import           Pos.Infra.Shutdown
 import           Pos.Infra.Slotting
 import           Pos.Infra.Util.JsonLog.Events
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher
 import           Pos.Txp.Configuration
 import           Pos.Txp.Logic

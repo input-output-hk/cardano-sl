@@ -66,7 +66,6 @@ library
                      , cardano-sl-db
                      , cardano-sl-lrc
                      , cardano-sl-networking
-                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , containers
                      , cryptonite

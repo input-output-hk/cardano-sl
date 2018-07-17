@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Some types for json logging.
-module Pos.Sinbin.Util.JsonLog.Events
+module Pos.Core.JsonLog.LogEvents
        ( HasJsonLogConfig (..)
        , InvReqDataFlowLog (..)
        , JLEvent(..)
@@ -42,9 +42,6 @@ import           Data.Aeson.Types (ToJSON)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Ether
 import           Formatting (sformat)
-import           JsonLog.CanJsonLog (CanJsonLog)
-import           JsonLog.JsonLogT (JsonLogConfig (..))
-import qualified JsonLog.JsonLogT as JL
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
@@ -53,6 +50,9 @@ import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)
+import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog)
+import           Pos.Core.JsonLog.JsonLogT (JsonLogConfig (..))
+import qualified Pos.Core.JsonLog.JsonLogT as JL
 import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)
 import           Pos.Util.Util (realTime)

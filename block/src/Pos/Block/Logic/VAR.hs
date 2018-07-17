@@ -37,10 +37,10 @@ import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG,
                      prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
-import           Pos.Sinbin.Reporting (HasMisbehaviorMetrics)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Settings

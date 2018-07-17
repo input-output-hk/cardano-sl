@@ -43,6 +43,7 @@ import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
                      blockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Exception (cardanoExceptionFromException,
@@ -55,7 +56,7 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
                      waitForConversations, waitForDequeues)
 import           Pos.Infra.Diffusion.Types (DiffusionHealth (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
+import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
 import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),

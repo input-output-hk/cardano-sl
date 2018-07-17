@@ -14716,7 +14716,6 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-sl-lrc
 , cardano-sl-lrc-test
 , cardano-sl-networking
-, cardano-sl-sinbin
 , cardano-sl-ssc
 , cardano-sl-ssc-test
 , cardano-sl-txp
@@ -14825,7 +14824,6 @@ cardano-sl-delegation
 cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -14914,7 +14912,6 @@ cardano-sl-infra-test
 cardano-sl-lrc
 cardano-sl-lrc-test
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-ssc-test
 cardano-sl-txp
@@ -15359,7 +15356,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-delegation-test
 , cardano-sl-lrc
 , cardano-sl-networking
-, cardano-sl-sinbin
 , cardano-sl-ssc
 , cardano-sl-ssc-test
 , cardano-sl-txp
@@ -15423,7 +15419,6 @@ cardano-sl-db
 cardano-sl-delegation
 cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -15681,6 +15676,7 @@ license = stdenv.lib.licenses.mit;
 , Cabal
 , canonical-json
 , cardano-crypto
+, cardano-report-server
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-crypto
@@ -15697,6 +15693,7 @@ license = stdenv.lib.licenses.mit;
 , deriving-compat
 , ed25519
 , ekg-core
+, ether
 , exceptions
 , extra
 , filepath
@@ -15712,6 +15709,7 @@ license = stdenv.lib.licenses.mit;
 , mmorph
 , monad-control
 , mtl
+, parsec
 , plutus-prototype
 , pvss
 , QuickCheck
@@ -15757,6 +15755,7 @@ base58-bytestring
 bytestring
 Cabal
 canonical-json
+cardano-report-server
 cardano-sl-binary
 cardano-sl-crypto
 cardano-sl-util
@@ -15768,6 +15767,7 @@ data-default
 deepseq
 deriving-compat
 ekg-core
+ether
 exceptions
 extra
 filepath
@@ -15780,6 +15780,7 @@ memory
 mmorph
 monad-control
 mtl
+parsec
 plutus-prototype
 random
 reflection
@@ -16161,7 +16162,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-lrc
 , cardano-sl-networking
-, cardano-sl-sinbin
 , cardano-sl-util
 , conduit
 , cpphs
@@ -16204,7 +16204,6 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-util
 conduit
 ether
@@ -16645,11 +16644,12 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
+, cardano-sl-db
 , cardano-sl-networking
-, cardano-sl-sinbin
 , cardano-sl-ssc
 , cardano-sl-util
 , clock
+, conduit
 , containers
 , cpphs
 , directory
@@ -16659,13 +16659,17 @@ license = stdenv.lib.licenses.mit;
 , ekg-wai
 , ether
 , exceptions
+, filepath
 , formatting
 , hashable
 , hspec
+, http-client
+, http-client-tls
 , iproute
 , kademlia
 , lens
 , log-warper
+, lzma-conduit
 , mtl
 , network-info
 , network-transport
@@ -16678,7 +16682,9 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , tagged
+, tar
 , text
+, time
 , time-units
 , universum
 , unix
@@ -16706,11 +16712,12 @@ cardano-report-server
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-db
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-util
 clock
+conduit
 containers
 directory
 dns
@@ -16719,12 +16726,16 @@ ekg-statsd
 ekg-wai
 ether
 exceptions
+filepath
 formatting
 hashable
+http-client
+http-client-tls
 iproute
 kademlia
 lens
 log-warper
+lzma-conduit
 mtl
 network-info
 network-transport
@@ -16735,7 +16746,9 @@ safe-exceptions
 serokell-util
 stm
 tagged
+tar
 text
+time
 time-units
 universum
 unix
@@ -16768,7 +16781,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
-, cardano-sl-sinbin
 , cardano-sl-ssc
 , cardano-sl-ssc-test
 , cardano-sl-update-test
@@ -16794,7 +16806,6 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
-cardano-sl-sinbin
 cardano-sl-ssc
 cardano-sl-ssc-test
 cardano-sl-update-test
@@ -17155,140 +17166,6 @@ doHaddock = false;
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-sinbin" = callPackage
-({
-  mkDerivation
-, aeson
-, aeson-options
-, async
-, base
-, base64-bytestring
-, bytestring
-, cardano-report-server
-, cardano-sl-binary
-, cardano-sl-core
-, cardano-sl-crypto
-, cardano-sl-db
-, cardano-sl-networking
-, cardano-sl-util
-, clock
-, conduit
-, containers
-, cpphs
-, data-default
-, directory
-, dns
-, ekg-core
-, ekg-statsd
-, ekg-wai
-, ether
-, exceptions
-, filepath
-, formatting
-, hashable
-, http-client
-, http-client-tls
-, iproute
-, kademlia
-, lens
-, log-warper
-, lzma-conduit
-, mtl
-, network-info
-, network-transport
-, network-transport-tcp
-, optparse-applicative
-, parsec
-, reflection
-, safe-exceptions
-, serokell-util
-, stdenv
-, stm
-, tagged
-, tar
-, template-haskell
-, text
-, time
-, time-units
-, transformers
-, universum
-, unordered-containers
-, yaml
-}:
-mkDerivation {
-
-pname = "cardano-sl-sinbin";
-version = "1.3.0";
-src = ./../sinbin;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Wcompat"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-aeson
-aeson-options
-async
-base
-base64-bytestring
-bytestring
-cardano-report-server
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-crypto
-cardano-sl-db
-cardano-sl-networking
-cardano-sl-util
-clock
-conduit
-containers
-data-default
-directory
-dns
-ekg-core
-ekg-statsd
-ekg-wai
-ether
-exceptions
-filepath
-formatting
-hashable
-http-client
-http-client-tls
-iproute
-kademlia
-lens
-log-warper
-lzma-conduit
-mtl
-network-info
-network-transport
-network-transport-tcp
-optparse-applicative
-parsec
-reflection
-safe-exceptions
-serokell-util
-stm
-tagged
-tar
-template-haskell
-text
-time
-time-units
-transformers
-universum
-unordered-containers
-yaml
-];
-libraryToolDepends = [
-cpphs
-];
-doHaddock = false;
-description = "Cardano SL - sinbin";
-license = stdenv.lib.licenses.mit;
-
-}) {};
 "cardano-sl-ssc" = callPackage
 ({
   mkDerivation
@@ -17303,7 +17180,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-lrc
 , cardano-sl-networking
-, cardano-sl-sinbin
 , cardano-sl-util
 , containers
 , cpphs
@@ -17353,7 +17229,6 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-util
 containers
 cryptonite
@@ -17619,7 +17494,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-networking
-, cardano-sl-sinbin
 , cardano-sl-util
 , cardano-sl-util-test
 , conduit
@@ -17677,7 +17551,6 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-networking
-cardano-sl-sinbin
 cardano-sl-util
 conduit
 containers
@@ -17769,7 +17642,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-lrc
-, cardano-sl-sinbin
 , cardano-sl-util
 , conduit
 , containers
@@ -17817,7 +17689,6 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-lrc
-cardano-sl-sinbin
 cardano-sl-util
 conduit
 containers

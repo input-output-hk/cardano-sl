@@ -755,6 +755,17 @@ of these relay nodes, but will rely on social pressure instead: People
 contemplating joining a pool will check the published data
 and will put little trust in operators who publish fake or unreliable addresses.
 
+_Remark_: Due to the nature of our Incentives Mechanism 
+(see [below](#design-of-incentives)), 
+very large stakeholders are incentivized to split their stake and create
+several pools.
+For a future version of Cardano, we plan to facilitate this by allowing such
+stakeholders to set up all their pools with a single certificate.
+For the present version, however, these pools will have to be created manually.
+This seems justified, given that there is only a handful of such very large
+stakeholders and seeing as such a feature would unnecessarily complicate
+engineering.
+
 ### Display of Stake Pools in the Wallet
 
 The wallet software will keep a list of all the stakepool registration

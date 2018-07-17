@@ -5,6 +5,13 @@ if [ -z "$1" ]; then
     exit
 fi
 
+testSED=$(sed --version &> /dev/null && echo YES || echo NO)
+if [ "x${testSED}" != "xYES" ]; then
+  echo "don't know if your version of 'sed' works."
+  echo "  on a mac:  install 'gnu-sed' from homebrew/.."
+  exit 1
+fi
+
 newVersion=$1
 
 function updateVersion() {

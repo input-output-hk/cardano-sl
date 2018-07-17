@@ -25,12 +25,12 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Data.Reflection (given)
 import           Formatting (build, sformat, (%))
-import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
                      logDebug, logError, logWarning)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash,
                      ProtocolMagic, siEpoch)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))

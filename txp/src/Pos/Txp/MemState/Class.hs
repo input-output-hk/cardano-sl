@@ -28,8 +28,9 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
-import           Mockable (CurrentTime, Mockable)
+
 import           Pos.Core (HeaderHash)
+import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.Core.Txp (TxAux, TxId)

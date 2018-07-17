@@ -13,10 +13,10 @@ module Pos.Block.BListener
 import           Universum
 
 import           Control.Monad.Trans (MonadTrans (..))
-import           Mockable (SharedAtomicT)
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Mockable (SharedAtomicT)
 import           Pos.DB.BatchOp (SomeBatchOp)
 
 class Monad m => MonadBListener m where

@@ -29,13 +29,14 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable as B
-import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Core.Mockable (Async, Delay, Mockable, Mockables,
+                     SharedAtomic)
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Infra.Communication.Types.Protocol
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)

@@ -28,7 +28,6 @@ import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Random.Strict (RandT)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
-import           Mockable (MonadMockable, Promise)
 import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
@@ -40,6 +39,7 @@ import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
                      HasPrimaryKey (..), SlotId (..), Timestamp,
                      epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
+import           Pos.Core.Mockable (MonadMockable, Promise)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Crypto (SecretKey)

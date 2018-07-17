@@ -45,8 +45,11 @@ import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (wlogTrace)
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Trace.Named (appendName, setupLogging)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
 -- when trying to resolve it.
@@ -115,8 +118,10 @@ withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
 withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
+    logTrace' <- liftIO $ setupLogging (defaultTestConfiguration Log.Debug) "withServer"
+    --let logTrace = natTrace liftIO logTrace'
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server" <> "outboundqueue"))
+                 (appendName ("server" <> "outboundqueue") logTrace')
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -159,8 +164,9 @@ withClient
 withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
+    logTrace' <- liftIO $ setupLogging (defaultTestConfiguration Log.Debug) "withServer"
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 (appendName ("client" <> "outboundqueue") logTrace')
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -190,7 +196,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = streamWindow
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = appendName ("client" <> "diffusion") logTrace'
         }
 
 

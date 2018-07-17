@@ -855,17 +855,25 @@ instance Buildable t => Buildable (Case t) where
 -- | A range of values. Should satisfy the invariant @forall x. lo x <= hi x@.
 data Range b = Range { lo :: b, hi :: b }
 
-instance Num b => Num (Range b) where
+-- | The @Num@ instance for @Range@ uses interval arithmetic. Note that the
+--   @signum@ method is not lawful: if the interval @x@ includes 0 in its
+--   interior but is not symmetric about 0, then @abs x * signum x /= x@.
+instance (Ord b, Num b) => Num (Range b) where
     x + y = Range { lo = lo x + lo y
                   , hi = hi x + hi y }
-    x * y = Range { lo = lo x * lo y
-                  , hi = hi x * hi y }
+    x * y = let products = [ u * v | u <- [lo x, hi x]
+                                   , v <- [lo y, hi y] ]
+            in Range { lo = minimum products, hi = maximum products }
     x - y = Range { lo = lo x - hi y
                   , hi = hi x - lo y }
     negate x = Range { lo = negate (hi x)
                      , hi = negate (lo x) }
-    abs x = x
-    signum x = x
+    abs x = if | lo x <= 0 && hi x >= 0 -> Range { lo = 0
+                                             , hi = max (hi x) (negate $ lo x) }
+               | lo x <= 0 && hi x <= 0 -> Range { lo = negate (hi x)
+                                             , hi = negate (lo x) }
+               | otherwise           -> x
+    signum x = Range { lo = signum (lo x), hi = signum (hi x) }
     fromInteger n = Range { lo = fromInteger n
                           , hi = fromInteger n }
 

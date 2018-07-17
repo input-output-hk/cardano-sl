@@ -151,7 +151,6 @@ test-suite test
                      , stm
                      , template-haskell
                      , text
-                     , text-format
                      , time
                      , time-units
                      , universum >= 1.1.0

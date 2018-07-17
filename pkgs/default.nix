@@ -17806,7 +17806,6 @@ license = stdenv.lib.licenses.mit;
 , tagged
 , template-haskell
 , text
-, text-format
 , time
 , time-units
 , transformers
@@ -17886,7 +17885,6 @@ quickcheck-instances
 stm
 template-haskell
 text
-text-format
 time
 time-units
 universum
@@ -17925,7 +17923,6 @@ license = stdenv.lib.licenses.mit;
 , tagged
 , template-haskell
 , text
-, text-format
 , time-units
 , universum
 , unordered-containers
@@ -17961,7 +17958,6 @@ quickcheck-instances
 tagged
 template-haskell
 text
-text-format
 time-units
 universum
 unordered-containers

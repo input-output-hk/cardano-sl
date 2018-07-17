@@ -65,8 +65,8 @@
 
 \numberwithin{equation}{lemma}
 
-\floatstyle{boxed}
-\restylefloat{figure}
+%\floatstyle{boxed}
+%\restylefloat{figure}
 
 \lstset{basicstyle=\ttfamily\small}
 
@@ -131,6 +131,13 @@ There are two relatively clearly distinct use cases for IPC for Cardano nodes:
 
 It is plausible that both use cases could be served by the same protocol, but
 this is not a given a priori.
+
+\subsection{Key references}
+
+We will refer both to the original `Ouroboros classic' \citep{ouroboros-classic}
+and to the later version `Ouroboros genesis' \citep{ouroboros-genesis}. We will
+refer simply to `Ouroboros' where distinctions between the versions are
+irrelevant.
 
 \subsection{Goals}
 
@@ -215,13 +222,6 @@ make use of a trusted node.
   services.
   }
 
-\subsection{Key references}
-
-We will refer both to the original `Ouroboros classic' \citep{ouroboros-classic}
-and to the later version `Ouroboros genesis' \citep{ouroboros-genesis}. We will
-refer simply to `Ouroboros' where distinctions between the versions are
-irrelevant.
-
 \section{Node-to-consumer protocols}
 
 TODO: cover notes on:
@@ -272,20 +272,51 @@ use cases. We are interested in:
 In all these cases we will refer to the protocol peers as the chain producer
 and the chain consumer or follower.
 
-\paragraph{Resource use}
-In the IPC cases we are interested in protocols where the chain producer can
-ensure reasonable resource use even when the peer misbehaves to some degree. In
-particular we do not want slow consumers to force excessive resource use by the
-producer.
-
 \paragraph{Recursion as an indicator of completeness} As mentioned, part of the
 intention of having a family of related protocols is to be able to use some to
 help implement others, but also to chain combinations together to allow
 flexibility in application design. A measure of the completeness of each
 protocol family member is that the consumer side should be enough to implement
 the producer side of the same protocol or of another protocol in the family
-(e.g. a consumer of an in-process protocol being able to implement producer
-side of one of IPC protocols).
+(e.g. the consumer side of an in-process protocol being sufficient to implement
+the producer side of one of IPC protocols).
+
+\paragraph{Resource use with misbehaving peers}
+In the IPC cases we are interested in protocols where the chain producer can
+ensure reasonable resource use even when the peer misbehaves to some degree. In
+particular we do not want slow consumers to force excessive resource use by the
+producer.
+
+\paragraph{Consistent resource use}
+In a system such as Cardano that has timing constraints and is operated by many
+different users, there is a concern about the \emph{consistency} and
+\emph{predictability} of resource use. As an example, if a process in the system
+typically uses a certain amount of memory then operators who deploy that
+process will tend to provision the host system's resources to accommodate that
+typical memory requirements and will not provision too much extra memory (as
+that would cost more). If the process has quite different memory requirements in
+a worst case vs a typical scenario then this potentially constructs a serious
+hazard: if the worst case scenario can be forced by adversaries then this
+provides a mechanism for adversaries to cause resource exhaustion and denial
+of service on very many nodes in the system simultaneously -- perhaps enabling
+further attacks once many honest nodes are offline.
+
+Even if the worst case resource requirements are clearly documented for
+operators it is inevitable that resources will not be reserved: operators will
+ignore the documentation, or automatic systems will reclaim unused resources
+and not be able to provide them in time when they are needed. The practice of
+manual or automatic `thin' provisioning exacerbates the issue.
+
+The best solution is, as far as possible, to use the same amount of resources --
+such as memory -- at all times. This means selecting and designing algorithms
+to avoid significant differences in resource consumption between worst case and
+best case situations. This may mean forgoing opportunities to reduce resource
+use in benign situations to maintain consistency across all situations.
+
+Even if the resource use is not attacker controlled, it is good to avoid
+`spikey' resource use for similar reasons, especially if the spikes are
+synchronised between instances\footnote{In the current implementation epoch
+boundaries are a good example of synchronised resource spikes.}.
 
 \subsection{Forking and resource bounds}
 
@@ -294,9 +325,9 @@ producer) can of course switch forks and hence chain following protocols must
 support this, and support it with reasonable resource bounds.
 
 In Ouroboros Classic there is a helpful constraint that the maximum length an
-alternative fork can diverge from a current chain is $K$ blocks. Ouroboros
-Genesis does not include this constants but it appears that it could be
-introduced without too much difficulty.
+alternative fork can diverge from the current chain is $K$ blocks. Ouroboros
+Genesis does not need this constants but it appears that it could be
+reintroduced without too much difficulty.
 
 The benefit of this constraint is that it divides the blockchain into two parts:
 a genuinely \emph{immutable} initial chain and a \emph{volatile} recent chain
@@ -306,7 +337,20 @@ implementation options using combinations of in-memory and on-disk data storage.
 In particular, keeping track of up to $K$ blocks can easily be accommodated in
 memory\footnote{The current implementation uses $K = 2160$.}.
 
-\includegraphics[totalheight=2cm]{chain-diagram-imm-vol.pdf}
+Figure \ref{chain-diagram-imm-vol} illustrates a representation comprised of
+immutable and volatile parts. Incidentally, it illustrates a couple possible
+design choices: to have significant overlap between the immutable and volatile
+parts, and for the immutable part to trail somewhat behind the most recent K
+blocks.
+
+\begin{figure}
+\pgfdeclareimage[height=3cm]{chain-diagram-imm-vol}{chain-diagram-imm-vol.pdf}
+\begin{center}
+\pgfuseimage{chain-diagram-imm-vol}
+\end{center}
+\caption{A blockchain representation comprised of immutable and volatile parts.}
+\label{chain-diagram-imm-vol}
+\end{figure}
 
 While the volatile chain fragment is only $K$ long, a chain following protocol
 has to help chain consumers follow the volatile part of the chain as it
@@ -334,15 +378,34 @@ This provides enough information for the producer to know the exact relationship
 between old forks and the current chain, so that any consumer on any old fork
 could be informed how to move to the new fork. The problem with this design is
 that it could in the worst cases involve keeping track of a lot of forks, up to
-$\mathbf{O}(K^2)$ of them. This is too many to hold in memory and so would lose
-the simplicity of a design based on keeping information about recent blocks in
-memory.
+$\mathbf{O}(K^2)$ of them. If we keep them all in memory then this would set up
+exactly the kind of attacker-controlled resource spike that we are trying to
+avoid. If we keep them all on disk then we lose the simplicity of an in-memory
+design.
+
+A plausible alternative design involves the producer not keeping track of all
+old forks, but instead keeping track of all the chain consumers and what old
+forks they were on. In this design, instead of needing memory proportional to
+the number of possible forks, it needs memory proportional to the number of
+consumers. In particular it is possible to keep track of just the last $K$
+blocks in the chain and $\mathbf{O}(1)$ state per consumer, giving an overall
+complexity of $\mathbf{O}(K + C)$ for $C$ consumers. It is of course expected
+that the number of consumers will be limited according to available resources.
 
 \subsection{Sketch of a stateful chain following IPC protocol}
 
 In this stateful protocol there is a communication session with a bidirectional
 unicast channel between the chain producer and follower. It is stateful in that
 the chain producer maintains some state about the chain consumer.
+
+\begin{figure}
+\pgfdeclareimage[height=6cm]{chain-diagram-read-pointers}{chain-diagram-read-pointers.pdf}
+\begin{center}
+\pgfuseimage{chain-diagram-read-pointers}
+\end{center}
+\caption{Representation of a producer's chain, including `read pointers' for two example consumers.}
+\label{chain-diagram-read-pointers}
+\end{figure}
 
 The state that the producer maintains about the consumer is the consumer's
 `read pointer', meaning the head of the consumer's chain and how that

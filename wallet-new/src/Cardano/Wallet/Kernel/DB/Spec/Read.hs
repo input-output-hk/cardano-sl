@@ -3,6 +3,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Read (
     -- * Queries
     queryAccountTotalBalance
   , queryAccountUtxo
+  , queryAccountAvailableUtxo
   ) where
 
 import           Universum
@@ -55,6 +56,12 @@ accountUtxoBalance = view (checkpointUtxoBalance . fromDb)
 accountPendingTxs :: Checkpoint -> PendingTxs
 accountPendingTxs = view (checkpointPending . pendingTransactions . fromDb)
 
+-- | The Available UtxO is the cached utxo balance minus any (pending) spent utxo
+accountAvailableUtxo :: Checkpoint -> Utxo
+accountAvailableUtxo c =
+    let pendingIns = txIns (accountPendingTxs c)
+    in utxoRemoveInputs (accountUtxo c) pendingIns
+
 -- | The Available Balance is the cached utxo balance minus any (pending) spent utxo
 accountAvailableBalance :: Checkpoint -> Core.Coin
 accountAvailableBalance c =
@@ -103,5 +110,11 @@ queryAccountTotalBalance accountId db
 queryAccountUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Utxo
 queryAccountUtxo accountId db
     = accountUtxo <$> checkpoint
+    where
+        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+
+queryAccountAvailableUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Utxo
+queryAccountAvailableUtxo accountId db
+    = accountAvailableUtxo <$> checkpoint
     where
         checkpoint = HD.readHdAccountCurrentCheckpoint accountId db

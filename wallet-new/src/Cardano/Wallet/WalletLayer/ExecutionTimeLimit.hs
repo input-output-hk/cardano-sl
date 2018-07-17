@@ -8,6 +8,8 @@ import           Universum
 import           Formatting (bprint, shown, (%))
 import qualified Formatting.Buildable
 
+import           Test.QuickCheck (Arbitrary (..), Gen, Positive (..))
+
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (AsyncCancelled (..))
 import qualified Control.Concurrent.Async as Async
@@ -23,6 +25,10 @@ instance Exception TimeExecutionLimit
 instance Buildable TimeExecutionLimit where
     build (TimeExecutionLimitReached secs) =
         bprint ("TimeExecutionLimitReached " % shown) secs
+
+instance Arbitrary TimeExecutionLimit where
+    arbitrary = TimeExecutionLimitReached . fromIntegral
+                                          . getPositive <$> (arbitrary :: Gen (Positive Int))
 
 limitExecutionTimeTo :: Second
                      -> (TimeExecutionLimit -> b)

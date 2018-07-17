@@ -154,7 +154,7 @@ actionWithNewWallet pm sscParams nodeParams params =
     -- in the legacy wallet (see 'actionWithWallet').
     plugins :: (PassiveWalletLayer Production, PassiveWallet)
             -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w = mconcat [ Plugins.walletBackend params w ]
+    plugins w = mconcat [ Plugins.walletBackend pm params w ]
 
     -- Extract the logger name from node parameters
     --

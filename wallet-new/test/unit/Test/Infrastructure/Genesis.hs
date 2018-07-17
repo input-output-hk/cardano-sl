@@ -10,8 +10,9 @@ import qualified Data.List (head)
 import           UTxO.Context
 import           UTxO.DSL
 
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (estimateCardanoFee)
 import           Pos.Core (TxSizeLinear)
-import           Test.Infrastructure.Generator (estimateCardanoFee)
 
 {-------------------------------------------------------------------------------
   Convenient access to some values in the Cardano genesis block

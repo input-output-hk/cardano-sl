@@ -12,6 +12,7 @@ import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 
+import           Pos.Core ()
 import           Test.QuickCheck (Arbitrary, arbitrary, generate)
 
 -- | Initialize the passive wallet.
@@ -45,9 +46,9 @@ bracketPassiveWallet =
         , _pwlRollbackBlocks = \_     -> liftedGen
        }
 
-    -- | A utility function.
-    liftedGen :: forall b. (Arbitrary b) => n b
-    liftedGen = liftIO . generate $ arbitrary
+-- | A utility function.
+liftedGen :: forall b n. (MonadIO n, Arbitrary b) => n b
+liftedGen = liftIO . generate $ arbitrary
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
@@ -58,5 +59,12 @@ bracketActiveWallet
     -> (ActiveWalletLayer n -> m a) -> m a
 bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
-      (return ActiveWalletLayer{..})
+      (return activeWalletLayer)
       (\_ -> return ())
+  where
+    activeWalletLayer :: ActiveWalletLayer n
+    activeWalletLayer = ActiveWalletLayer {
+          walletPassiveLayer = walletPassiveLayer
+        , pay          = \_ _ _ -> error "unimplemented"
+        , estimateFees = \_ _ _ -> error "unimplemented"
+        }

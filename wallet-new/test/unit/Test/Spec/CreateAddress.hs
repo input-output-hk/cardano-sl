@@ -19,7 +19,6 @@ import           System.Wlog (Severity)
 
 import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
 
-import           Cardano.Wallet.Kernel (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
@@ -30,6 +29,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)

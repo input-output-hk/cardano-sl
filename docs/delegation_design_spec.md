@@ -10,6 +10,18 @@ numbersections: true
 #   pandoc -o delegation_design_spec.pdf delegation_design_spec.md
 ...
 
+# Acknowledgements
+
+_List of Contributors:_
+Lars Brünjes,
+Duncan Coutts,
+Philipp Kant,
+Dimitris Karakostas,
+Aggelos Kiayias,
+Elias Koutsoupias,
+Mario Larangeira,
+Aikaterini-Panagiota Stouka.
+
 # Purpose
 This document describes the requirements and design for a
 delegation- and incentives-mechanism to be used in the Shelley release of Cardano.

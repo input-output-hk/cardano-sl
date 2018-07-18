@@ -16,13 +16,13 @@ module Ntp.Client
     , withNtpClient
     ) where
 
-import           Universum hiding (Last)
+import           Universum hiding (Last, catch)
 
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (async, cancel, concurrently_, race,
                      withAsync)
 import           Control.Concurrent.STM (TVar, modifyTVar', retry)
-import           Control.Exception.Safe (Exception, catchAny, handleAny)
+import           Control.Exception (Exception, IOException, catch, handle)
 import           Control.Monad (forever)
 import           Data.Binary (decodeOrFail)
 import qualified Data.ByteString.Lazy as LBS
@@ -130,7 +130,7 @@ sendLoop cli addrs = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll        = ntpPollDelay (ncSettings cli)
 
-    _ <- withAsync
+    () <- withAsync
         (do
             -- wait for reponses and update status
             _ <- timeout respTimeout waitForResponses
@@ -177,7 +177,7 @@ startReceive cli =
     -- Receive responses from the network and update ntp client state.
     loop :: AddrFamily -> Socket.Socket -> IO ()
     loop addressFamily sock
-        = handleAny (handleE addressFamily) $ forever $ do
+        = handle (handleIOException addressFamily) $ forever $ do
             (bs, _) <- recvFrom sock ntpPacketSize
             case decodeOrFail $ LBS.fromStrict bs of
                 Left  (_, _, err)    ->
@@ -187,15 +187,15 @@ startReceive cli =
 
     -- Restart the @loop@ in case of errors; wait 5s before recreacting the
     -- socket.
-    handleE
+    handleIOException
         :: AddrFamily
-        -> SomeException
+        -> IOException
         -> IO ()
-    handleE addressFamily e = do
+    handleIOException addressFamily e = do
         logDebug $ sformat ("startReceive failed with reason: "%shown) e
         threadDelay 5000000
         udpLocalAddresses >>= createAndBindSock addressFamily >>= \case
-            Nothing   -> logWarning "Recreating of socket failed" >> handleE addressFamily e
+            Nothing   -> logWarning "recreating of sockets failed (retrying)" >> handleIOException addressFamily e
             Just sock -> do
                 atomically $ modifyTVar' (ncSockets cli) (\s -> s <> sock)
                 case sock of
@@ -248,8 +248,12 @@ spawnNtpClient settings ncStatus = do
     fn :: Last (WithAddrFamily t Socket.Socket) -> IO ()
     fn (Last sock) = Socket.close $ runWithAddrFamily sock
 
--- | Run Ntp client in a seprate thread, return a mutable cell which holds
+-- |
+-- Run Ntp client in a seprate thread; it returns a mutable cell which holds
 -- `NtpStatus`.
+--
+-- This function should be called once, it will run an ntp client in a new
+-- thread untill the program terminates.
 withNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
 withNtpClient ntpSettings = do
     liftIO $ logInfo "withNtpClient"
@@ -262,7 +266,7 @@ withNtpClient ntpSettings = do
 -- Try to create IPv4 and IPv6 socket.
 mkSockets :: NtpClientSettings -> IO Sockets
 mkSockets settings =
-    (doMkSockets) `catchAny` handlerE >>= \case
+    (doMkSockets) `catch` handleIOException >>= \case
         Option (Just sock) -> pure sock
         Option Nothing     -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
@@ -276,8 +280,8 @@ mkSockets settings =
             (<>) <$> (Option <$> createAndBindSock IPv4 addrs)
                  <*> (Option <$> createAndBindSock IPv6 addrs)
 
-    handlerE :: SomeException -> IO (Option Sockets)
-    handlerE e = do
+    handleIOException :: IOException -> IO (Option Sockets)
+    handleIOException e = do
         logWarning $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e

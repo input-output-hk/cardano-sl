@@ -150,7 +150,7 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
 -- just a Text) it's possible to call 'decodeTextAddress' to grab a valid
 -- 'Core.Address', and then transform this into a 'Kernel.WalletId' type
 -- easily.
-data HdRootId = HdRootId (InDb Core.Address)
+data HdRootId = HdRootId { getHdRootId :: InDb Core.Address }
   deriving (Eq, Ord)
 
 instance Arbitrary HdRootId where

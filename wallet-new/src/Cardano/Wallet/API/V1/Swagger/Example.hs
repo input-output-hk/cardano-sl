@@ -71,6 +71,9 @@ instance Example (Mnemonic 12)  where
 instance Example (V1 (Mnemonic 12)) where
     example = V1 <$> example
 
+instance Example BackupPhrase where
+    example = pure (BackupPhrase def)
+
 instance Example Address
 instance Example Metadata
 instance Example AccountIndex

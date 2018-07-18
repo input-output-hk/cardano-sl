@@ -1,12 +1,24 @@
 { system ? builtins.currentSystem }:
 let
   stack-pkgs = import ./stack-pkgs.nix;
-  #haskell = import <haskell>;
+
+  # We use some customized libiserv/remote-iserv/iserv-proxy
+  # instead of the ones provided by ghc. This is mostly due
+  # to being able to hack on them freely as needed.
+  #
+  # iserv is only relevant for template-haskell execution in
+  # a cross compiling setup.
+  iserv-pkgs = {
+    libiserv = ./libiserv-8.5;
+    remote-iserv = ./remote-iserv-8.5;
+    iserv-proxy = ./iserv-proxy-8.5;
+  };
 
   overlay = self: super: {
     haskellPackages = (import <stackage> { pkgs = super; }).lts-12_0
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
-                          // stack-pkgs.packages hsPkgs); };
+                          // stack-pkgs.packages hsPkgs)
+                          // iserv-pkgs; };
   };
 
   config = {

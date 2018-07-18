@@ -28,6 +28,7 @@ library
                      , async
                      , base
                      , bytestring
+                     , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-core-test

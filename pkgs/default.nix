@@ -16648,13 +16648,18 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-report-server
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-networking
 , cardano-sl-ssc
+, cardano-sl-ssc-test
+, cardano-sl-update-test
 , cardano-sl-util
+, cardano-sl-util-test
 , clock
 , conduit
 , containers
@@ -16668,7 +16673,9 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
+, generic-arbitrary
 , hashable
+, hedgehog
 , hspec
 , http-client
 , http-client-tls
@@ -16768,10 +16775,24 @@ cpphs
 testHaskellDepends = [
 async
 base
+bytestring
+cardano-sl-binary
+cardano-sl-binary-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
 cardano-sl-crypto-test
+cardano-sl-ssc
+cardano-sl-ssc-test
+cardano-sl-update-test
+cardano-sl-util-test
 containers
+generic-arbitrary
+hedgehog
 hspec
+kademlia
 QuickCheck
+universum
 ];
 doHaddock = false;
 description = "Cardano SL - infrastructural";
@@ -16781,8 +16802,11 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-infra-test" = callPackage
 ({
   mkDerivation
+, async
 , base
 , bytestring
+, cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
@@ -16795,6 +16819,7 @@ license = stdenv.lib.licenses.mit;
 , containers
 , generic-arbitrary
 , hedgehog
+, hspec
 , kademlia
 , QuickCheck
 , stdenv
@@ -16806,8 +16831,11 @@ pname = "cardano-sl-infra-test";
 version = "1.3.0";
 src = ./../infra/test;
 libraryHaskellDepends = [
+async
 base
 bytestring
+cardano-sl-binary
+cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
@@ -16820,6 +16848,7 @@ cardano-sl-util-test
 containers
 generic-arbitrary
 hedgehog
+hspec
 kademlia
 QuickCheck
 universum

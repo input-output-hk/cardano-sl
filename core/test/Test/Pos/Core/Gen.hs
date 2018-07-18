@@ -144,6 +144,8 @@ module Test.Pos.Core.Gen
         -- Helpers
         , genByte
         , genUTF8Byte
+        , genWord16
+        , gen32Bytes
        ) where
 
 import           Universum
@@ -686,8 +688,6 @@ genOpeningsMap = do
 
 genSharesDistribution :: Gen SharesDistribution
 genSharesDistribution = genCustomHashMap genStakeholderId genWord16
-  where
-    genWord16 = Gen.word16 Range.constantBounded
 
 genSharesMap :: Gen SharesMap
 genSharesMap = do
@@ -1018,3 +1018,6 @@ genWord32 = Gen.word32 Range.constantBounded
 
 genWord8 :: Gen Word8
 genWord8 = Gen.word8 Range.constantBounded
+
+genWord16 :: Gen Word16
+genWord16 = Gen.word16 Range.constantBounded

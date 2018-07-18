@@ -12,6 +12,9 @@ module Pos.Core.Update.SystemTag
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.Aeson (FromJSON (..))
+import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson.TH (deriveToJSON)
 import           Data.Char (isAscii)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
@@ -27,6 +30,11 @@ newtype SystemTag = SystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
 instance NFData SystemTag
+
+instance FromJSON SystemTag where
+    parseJSON v = SystemTag <$> parseJSON v
+
+deriveToJSON defaultOptions ''SystemTag
 
 instance Bi SystemTag where
     encode = encode . getSystemTag

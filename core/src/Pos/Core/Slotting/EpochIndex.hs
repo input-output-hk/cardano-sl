@@ -11,6 +11,7 @@ import           Data.Ix (Ix)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
 import qualified Formatting.Buildable as Buildable
+import           Servant.API (FromHttpApiData)
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Util.Some (Some, liftLensSome)
@@ -23,6 +24,12 @@ newtype EpochIndex = EpochIndex
 instance Buildable EpochIndex where
     build = bprint ("#"%int)
 
+instance Bi EpochIndex where
+    encode (EpochIndex epoch) = encode epoch
+    decode = EpochIndex <$> decode
+
+deriving instance FromHttpApiData EpochIndex
+
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
@@ -32,10 +39,6 @@ instance HasEpochIndex (Some HasEpochIndex) where
 instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
-
-instance Bi EpochIndex where
-    encode (EpochIndex epoch) = encode epoch
-    decode = EpochIndex <$> decode
 
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
 -- from the epoch specified as the epoch that unlocks stakes:

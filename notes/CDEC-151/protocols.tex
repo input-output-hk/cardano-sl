@@ -394,6 +394,7 @@ complexity of $\mathbf{O}(K + C)$ for $C$ consumers. It is of course expected
 that the number of consumers will be limited according to available resources.
 
 \subsection{Sketch of a stateful chain following IPC protocol}
+\label{sec:stateful-ipc}
 
 In this stateful protocol there is a communication session with a bidirectional
 unicast channel between the chain producer and chain consumer. It is stateful
@@ -870,6 +871,30 @@ version, modulo differences between indifferent alternatives.
                                           \to \mathbb{P}~\mathsf{Chain} \\
 \mathsf{selectChain} ~ c ~ cs & = blah
 \end{align*}
+
+\subsection{Sketch of a design for interleaving chain selection with relaying}
+
+We assume a peer discover mechanism that establishes associations between
+nodes, from which each node selects and establishes connections with a small
+number of peers (on the order of 3-8). The rest of the description will be
+from the perspective of a single node within this graph.
+
+The node uses the chain following protocol from Section \ref{sec:stateful-ipc}
+with each of its connected peers. It uses this protocol independently for each
+peer to give us a \emph{candidate} chain for each peer. At a high level the
+idea is that the node's own chain will be continuously selected from the set of
+candidate chains by following the normal Ouroboros chain validation and chain
+selection rules.
+
+\begin{figure}
+\pgfdeclareimage[height=6cm]{node-diagram-chains-state}{node-diagram-chains-state.pdf}
+\begin{center}
+\pgfuseimage{node-diagram-chains-state}
+\end{center}
+\caption{Representation of a producer's chain, including `read pointers' for two example consumers.}
+\label{node-diagram-chains-state}
+\end{figure}
+
 
 \avieth{\subsection{Proposal for a data structure for forks over $k$ slots.}}
 

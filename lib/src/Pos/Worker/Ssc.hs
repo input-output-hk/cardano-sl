@@ -13,7 +13,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit)
 import           Formatting (build, ords, sformat, shown, (%))
-import           Mockable (MonadMockable, currentTime, delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
@@ -29,6 +28,7 @@ import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
                      slotSecurityParam, vssMaxTTL)
 import           Pos.Core.JsonLog (CanJsonLog)
+import           Pos.Core.Mockable (MonadMockable, currentTime, delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,

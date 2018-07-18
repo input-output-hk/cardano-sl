@@ -17,7 +17,6 @@ import           Universum
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
 import           Data.Time.Units (Second)
-import           Mockable (Concurrently, Delay, Mockable, concurrently, delay)
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 
@@ -31,6 +30,8 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..),
                      TxOut (..), getCurrentTimestamp)
+import           Pos.Core.Mockable (Concurrently, Delay, Mockable, concurrently,
+                     delay)
 import           Pos.Core.Txp (_txOutputs)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
                      ShouldCheckPassphrase (..), checkPassMatches, hash,

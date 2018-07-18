@@ -33,8 +33,6 @@ import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           JsonLog (CanJsonLog (..))
-import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
@@ -44,6 +42,8 @@ import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot,
                      mainBlockTxPayload)
 import           Pos.Core.Block.Constructors (genesisBlock0)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)

@@ -152,7 +152,6 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       async
                      , base
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , lens
@@ -184,7 +183,6 @@ executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
   build-depends:       base
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , network-transport-tcp
@@ -211,7 +209,6 @@ executable bench-log-reader
   other-modules:       LogReaderOptions
   build-depends:       base == 4.*
                      , attoparsec
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , conduit-extra

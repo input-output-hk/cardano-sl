@@ -15,7 +15,6 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat,
                      shown, (%))
-import           Mockable (delay)
 import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
@@ -40,6 +39,7 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
                      MetricMonitorState, noReportMonitor, recordValue)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))

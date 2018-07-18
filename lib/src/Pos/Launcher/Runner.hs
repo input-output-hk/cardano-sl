@@ -19,8 +19,6 @@ import           Universum
 import           Control.Concurrent.Async (race)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
-import           JsonLog (jsonLog)
-import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
@@ -33,6 +31,8 @@ import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants)
+import           Pos.Core.JsonLog (jsonLog)
+import           Pos.Core.Mockable.Production (Production (..))
 import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)

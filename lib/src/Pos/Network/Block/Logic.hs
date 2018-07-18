@@ -23,7 +23,6 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import           Formatting (bprint, build, sformat, shown, stext, (%))
 import qualified Formatting.Buildable as B
-import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
@@ -39,6 +38,7 @@ import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (forConcurrently)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Crypto (ProtocolMagic, shortHashF)

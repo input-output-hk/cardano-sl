@@ -258,7 +258,6 @@ test-suite cardano-wallet-test
                      , cardano-sl-generator
                      , cardano-sl-infra
                      , cardano-sl-lrc
-                     , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update

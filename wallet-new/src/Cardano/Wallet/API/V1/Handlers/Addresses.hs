@@ -7,8 +7,6 @@ import           Universum
 
 import           Servant
 
-import           Mockable.Production (Production, runProduction)
-
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer,
                      PassiveWalletLayer (..), walletPassiveLayer)
 
@@ -16,6 +14,8 @@ import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
+
+import           Pos.Core.Mockable.Production (Production, runProduction)
 
 handlers :: ActiveWalletLayer Production -> ServerT Addresses.API Handler
 handlers w =  listAddresses

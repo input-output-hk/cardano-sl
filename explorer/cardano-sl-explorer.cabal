@@ -164,7 +164,6 @@ executable cardano-explorer
                      , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-explorer
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , log-warper
                      , optparse-applicative

@@ -36,35 +36,7 @@ let
       # means we do not need the gcc7 hack
       # in our nixpkgs to allow mingw with
       # libwinpthreads.
-      rocksdb = stdenv.mkDerivation {
-         name = "rocksdb-prebuilt";
-         src = ps.buildPackages.fetchurl {
-           url = "https://s3.eu-central-1.amazonaws.com/ci-static/serokell-rocksdb-haskell-325427fc709183c8fdf777ad5ea09f8d92bf8585.zip";
-           sha256 = "11w6nbg39y7n3j7d5p4mvls3h5sbld71nx8yxxrckh8ak8yr6kwp";
-         };
-         nativeBuildInputs = [ buildPackages.unzip ];
-         buildInputs = [ buildPackages.unzip ];
-
-         unpackPhase = ''
-           unzip $src
-         '';
-         dontBuild = true;
-         installPhase = ''
-           install -d $out/lib
-           # dlls
-           for dll in $(find . -name "*.dll"); do
-               install -C -m 755 $dll $out/lib
-           done
-           # libs
-           for lib in $(find . -name "*.lib"); do
-               install -C -m 755 $lib $out/lib
-           done
-           # archives
-           for archive in $(find . -name "*.a"); do
-               install -C -m 755 $archive $out/lib
-           done
-         '';
-      };
+      rocksdb = buildPackages.callPackage ./rocksdb-prebuilt.nix {};# inherit (buildPackages) fetchurl unzip; };
 
       # on windows we have this habit of putting libraries
       # into `bin`, wheras on unix it's usually `lib`. For
@@ -144,10 +116,9 @@ let
 
 in with pkgs.haskellPackages;
 with pkgs.haskell.lib;
-# pkgs.lib.mapAttrs (_: x: callPackage x {})
 pkgs.haskellPackages.override rec {
   # note: we want `haskellPackages` here, as that is the one
-  #       we provide in the overly(!)
+  #       we provide in the overlay(!)
   buildHaskellPackages = pkgs.buildPackages.haskellPackages;
   overrides = self: super: rec {
 
@@ -181,33 +152,6 @@ pkgs.haskellPackages.override rec {
          (addPostBuild' postBuild pkg)))));
 
   addGitRev = subject: subject.overrideAttrs (drv: { GITREV = "blahblahblah"; });
-  doSymlinkLibs = pkg: let targetPrefix = with pkgs.stdenv; lib.optionalString
-    (hostPlatform != buildPlatform)
-    "${hostPlatform.config}-";
-
-    in pkgs.haskell.lib.overrideCabal pkg (drv: {
-     preConfigure = ''
-        echo "Patching dynamic library dependencies"
-        # 1. Link all dylibs from 'dynamic-library-dirs's in package confs to $out/lib/links
-        mkdir -p $out/lib/links
-        for d in $(grep dynamic-library-dirs $packageConfDir/*|awk '{print $2}'); do
-          for l in $d/*.dylib; do
-            ln -s $l $out/lib/links/$(basename $l)
-          done
-        done
-            
-        # 2. Patch 'dynamic-library-dirs' in package confs to point to the symlink dir
-        for f in $packageConfDir/*.conf; do
-          sed -i "s,dynamic-library-dirs: .*,dynamic-library-dirs: $out/lib/links," $f
-        done
-
-        # 3. Recache package database
-        ls $out/lib/links
-        echo "Recaching..."
-        ${targetPrefix}ghc-pkg --package-db="$packageConfDir" recache
-    '' + (drv.preConfigure or"");
-#    preConfigurePhases = [ "patchDynLibs" ] ++ (drv.preConfigurePhases or []);
-  });
   doTemplateHaskellVerbose = pkg: with pkgs.haskell.lib; let
     buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
     buildFlags = map (opt: "--ghc-option=" + opt) [
@@ -236,23 +180,6 @@ pkgs.haskellPackages.override rec {
         (addPreBuild' preBuild
          (addPostBuild' postBuild pkg)))));
 
-  doTemplateHaskellWindows = ip: port: pkg: with pkgs.haskell.lib; let
-    buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
-    buildFlags = map (opt: "--ghc-option=" + opt) [
-      "-fexternal-interpreter"
-      "-pgmi" "${buildHaskellPackages.iserv-proxy}/bin/iserv-proxy"
-      "-opti" ip "-opti" port "-opti" "-v"
-      # TODO: this should be automatically injected based on the extraLibrary.
-      "-L${pkgs.windows.mingw_w64_pthreads}/lib"
-    ]; in 
-    appendBuildFlags' buildFlags
-     (addBuildDepends' [ self.remote-iserv ]
-      (addExtraLibrary' pkgs.windows.mingw_w64_pthreads
-       (addBuildTools' buildTools pkg)));
-
-    #fetch a package candidate from hackage and return the cabal2nix expression.
-    hackageCandidate = name: ver: args: self.callCabal2nix name (fetchTarball "https://hackage.haskell.org/package/${name}-${ver}/candidate/${name}-${ver}.tar.gz") args;
-
     # TODO: Why is `network` not properly propagated from `libiserv`?
     remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
       overrideCabal (addBuildDepends pkg [ pkgs.windows.mingw_w64_pthreads ]) (drv: {
@@ -261,15 +188,11 @@ pkgs.haskellPackages.override rec {
         '';
         buildFlags =  [ "--ghc-option=-debug" ];
       });
-    doProf = pkg: pkgs.haskell.lib.overrideCabal pkg (drv: {
-        buildFlags = (drv.buildFlags or []) ++ [ "--ghc-option=-prof" "--ghc-option=-fprof-auto" "--ghc-option=-fprof-cafs" ];
-    });
-    streaming-commons = pkgs.haskell.lib.appendPatch super.streaming-commons ./streaming-commons-0.2.0.0.patch;
-    cryptonite-openssl = pkgs.haskell.lib.appendPatch super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
-    x509-system = pkgs.haskell.lib.appendPatch super.x509-system ./x509-system-1.6.6.patch;
-    conduit = pkgs.haskell.lib.appendPatch super.conduit ./conduit-1.3.0.2.patch;
-    # rocksdb-haskell-ng = pkgs.haskell.lib.appendPatch super.rocksdb-haskell-ng ./rocksdb-haskell-ng.patch;
-    file-embed-lzma = pkgs.haskell.lib.appendPatch super.file-embed-lzma ./file-embed-lzma-0.patch;
+    streaming-commons     = appendPatch super.streaming-commons  ./streaming-commons-0.2.0.0.patch;
+    cryptonite-openssl    = appendPatch super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
+    x509-system           = appendPatch super.x509-system        ./x509-system-1.6.6.patch;
+    conduit               = appendPatch super.conduit            ./conduit-1.3.0.2.patch;
+    file-embed-lzma       = appendPatch super.file-embed-lzma    ./file-embed-lzma-0.patch;
     
     ether                 = doTemplateHaskell super.ether;
     generics-sop          = doTemplateHaskell super.generics-sop;
@@ -285,11 +208,10 @@ pkgs.haskellPackages.override rec {
     cardano-sl-crypto     = doTemplateHaskell super.cardano-sl-crypto;
     cardano-sl-crypto-test= doTemplateHaskell super.cardano-sl-crypto-test;
     cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;
-    cardano-sl-core       = doTemplateHaskellVerbose super.cardano-sl-core;
+    cardano-sl-core       = doTemplateHaskell super.cardano-sl-core;
     cardano-sl-core-test  = doTemplateHaskell super.cardano-sl-core-test;
     
-    cardano-sl-db         = doTemplateHaskellVerbose super.cardano-sl-db;
-#    cardano-sl-db         = doTemplateHaskellWindows "10.0.1.24" "8080" super.cardano-sl-db;
+    cardano-sl-db         = doTemplateHaskell super.cardano-sl-db;
     cardano-sl-lrc        = doTemplateHaskell super.cardano-sl-lrc;
     cardano-sl-infra      = doTemplateHaskell super.cardano-sl-infra;
     cardano-sl-txp        = doTemplateHaskell super.cardano-sl-txp;
@@ -312,36 +234,12 @@ pkgs.haskellPackages.override rec {
     cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
 
     trifecta              = doTemplateHaskell super.trifecta;
-    cardano-sl-tools      = doTemplateHaskell (addGitRev super.cardano-sl-tools);
+    cardano-sl-tools      = doTemplateHaskell (addGitRev (super.cardano-sl-tools.override { flags = { for-installer = true; }; }));
     hedgehog              = doTemplateHaskell super.hedgehog;
-    
-#     QuickCheck            = enableLibraryProfiling super.QuickCheck;
-#     quickcheck-io         = enableLibraryProfiling super.quickcheck-io;
-#     hspec-core            = enableLibraryProfiling super.hspec-core;
-#     hspec                 = enableLibraryProfiling super.hspec;
-#     random                = enableLibraryProfiling super.random;
-#     tf-random             = enableLibraryProfiling super.tf-random;
-#     primitive             = enableLibraryProfiling super.primitive;
-#     transformers          = enableLibraryProfiling super.transformers;
-#     HUnit                 = enableLibraryProfiling super.HUnit;
-#     call-stack            = enableLibraryProfiling super.call-stack;
-#     stm                   = enableLibraryProfiling super.stm;
-#     clock                 = enableLibraryProfiling super.clock;
-#     hspec-expectations    = enableLibraryProfiling super.hspec-expectations;
-#     ansi-terminal         = enableLibraryProfiling super.ansi-terminal;
-#     colour                = enableLibraryProfiling super.colour;
-#     base-compat           = enableLibraryProfiling super.base-compat;
-#     setenv                = enableLibraryProfiling super.setenv;
-#     temporary             = enableLibraryProfiling super.temporary;
-#     exceptions            = enableLibraryProfiling super.exceptions;
-#     mtl                   = enableLibraryProfiling super.mtl;
-#     transformers-compat   = enableLibraryProfiling super.transformers-compat;
-#     hspec-discover        = enableLibraryProfiling super.hspec-discover;
-# #    template-haskell      = enableLibraryProfiling super.template-haskell;
-    
-#     checked-rocksdb-haskell-ng = overrideCabal (doCheck (enableLibraryProfiling (enableExecutableProfiling super.rocksdb-haskell-ng)))#(pkgs.haskell.lib.appendPatch super.rocksdb-haskell-ng ./rocksdb-haskell-ng.patch))))
-#     (drv: {
-#      postInstall = ''fail'';
-#     });
+
+    cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };
+    time-locale-compat    = super.time-locale-compat.override { flags = { old-locale = false; }; };
+    libiserv              = super.libiserv.override           { flags = { network = true; }; };
+
   };
 } // { pkgs-x = pkgs; }

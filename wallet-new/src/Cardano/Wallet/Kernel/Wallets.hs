@@ -2,6 +2,8 @@ module Cardano.Wallet.Kernel.Wallets (
     createHdWallet
     -- * Errors
     , CreateWalletError(..)
+    -- * Internal & testing use only
+    , createWalletHdRnd
     ) where
 
 import qualified Prelude

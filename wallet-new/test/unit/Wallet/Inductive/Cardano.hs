@@ -16,16 +16,19 @@ import           Universum
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.List as List
+import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 
 import           Cardano.Wallet.Kernel.Util
 import           Util.Validated
@@ -159,16 +162,22 @@ equivalentT activeWallet esk = \mkWallet w ->
                 -> Utxo
                 -> TranslateT (EquivalenceViolation h) m HD.HdAccountId
     walletBootT ctxt utxo = do
-        res <- liftIO $ Kernel.createWalletHdRnd passiveWallet walletName
-                                                 spendingPassword assuranceLevel
-                                                 esk utxo
+        res <- liftIO $ Kernel.createWalletHdRnd passiveWallet
+                                                 emptyPassphrase
+                                                 walletName
+                                                 assuranceLevel
+                                                 esk
+                                                 utxo
 
-        either createWalletErr (checkWalletAccountState ctxt) res
+        either createWalletErr (\_ -> checkWalletAccountState ctxt accountIds) res
 
         where
             walletName       = HD.WalletName "(test wallet)"
-            spendingPassword = HD.NoSpendingPassword
             assuranceLevel   = HD.AssuranceLevelNormal
+
+            utxoByAccount = prefilterUtxo rootId esk utxo
+            accountIds    = Map.keys utxoByAccount
+            rootId        = HD.eskToHdRootId esk
 
             createWalletErr _ = error "ERROR: could not create the HdWallet"
 

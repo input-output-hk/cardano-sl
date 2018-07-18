@@ -90,6 +90,9 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet
 -- | Wallet name
 newtype WalletName = WalletName Text
 
+instance Buildable WalletName where
+    build (WalletName wName) = bprint build wName
+
 -- | Account name
 newtype AccountName = AccountName Text
 
@@ -120,6 +123,10 @@ data AssuranceLevel =
     AssuranceLevelNormal
   | AssuranceLevelStrict
 
+instance Buildable AssuranceLevel where
+    build AssuranceLevelNormal = "normal"
+    build AssuranceLevelStrict = "strict"
+
 -- | Does this wallet have a spending password
 data HasSpendingPassword =
     -- | No spending password set
@@ -127,6 +134,11 @@ data HasSpendingPassword =
 
     -- | If there is a spending password, we record when it was last updated.
   | HasSpendingPassword (InDb Core.Timestamp)
+
+instance Buildable HasSpendingPassword where
+    build NoSpendingPassword = "no"
+    build (HasSpendingPassword (InDb lastUpdate)) =
+        bprint ("updated " % build) lastUpdate
 
 deriveSafeCopy 1 'base ''WalletName
 deriveSafeCopy 1 'base ''AccountName
@@ -207,6 +219,20 @@ data HdRoot = HdRoot {
       -- | When was this wallet created?
     , _hdRootCreatedAt   :: InDb Core.Timestamp
     }
+
+instance Buildable HdRoot where
+    build HdRoot{..} =
+        bprint (
+            "HdRoot { id = " % build %
+                 ", name = " % build %
+          ", hasPassword = " % build %
+       ", assuranceLevel = " % build %
+            ", createdAt = " % build
+        ) (_fromDb . getHdRootId $ _hdRootId)
+          _hdRootName
+          _hdRootHasPassword
+          _hdRootAssurance
+          (_fromDb _hdRootCreatedAt)
 
 -- | Account in a HD wallet
 --

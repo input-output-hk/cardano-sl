@@ -1,6 +1,4 @@
-module Cardano.Wallet.API.V1.Handlers.Wallets (
-      handlers
-    ) where
+module Cardano.Wallet.API.V1.Handlers.Wallets where
 
 import           Universum
 

@@ -385,6 +385,7 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.CreateAddress
+                      Test.Spec.CreateWallet
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models
@@ -449,6 +450,7 @@ test-suite wallet-unit-tests
   build-depends:      acid-state
                     , base
                     , bytestring
+                    , cardano-crypto
                     , cardano-sl
                     , cardano-sl-block
                     , cardano-sl-client

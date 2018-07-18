@@ -14995,7 +14995,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
-, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-update
@@ -15067,7 +15066,6 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-generator
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -15115,7 +15113,6 @@ cardano-sl
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-txp
 cardano-sl-util
 formatting
@@ -15577,7 +15574,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-infra
 , cardano-sl-lrc
-, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-update
@@ -15620,7 +15616,6 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-lrc
-cardano-sl-networking
 cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
@@ -16436,7 +16431,6 @@ cardano-sl
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
 lens
 log-warper
@@ -17091,9 +17085,9 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , cardano-sl
+, cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
-, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-util
 , cpphs
@@ -17116,9 +17110,9 @@ isExecutable = true;
 executableHaskellDepends = [
 base
 cardano-sl
+cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-util
 log-warper
@@ -17328,7 +17322,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-infra
-, cardano-sl-networking
 , cardano-sl-txp
 , cardano-sl-update
 , cardano-sl-util
@@ -17423,7 +17416,6 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
@@ -18153,7 +18145,6 @@ cardano-sl-delegation
 cardano-sl-generator
 cardano-sl-infra
 cardano-sl-lrc
-cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update

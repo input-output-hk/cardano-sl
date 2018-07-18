@@ -13,7 +13,6 @@ import           Universum
 import           Servant
 
 import           Data.Coerce (coerce)
-import           Mockable.Production (Production, runProduction)
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation (..), InputGrouping (..))
@@ -24,6 +23,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
                      defaultInputSelectionPolicy)
 import           Pos.Core (Address, Tx (..), TxOut (..))
+import           Pos.Core.Mockable.Production (Production, runProduction)
 import           Pos.Crypto (hash)
 
 import           Cardano.Wallet.API.Request

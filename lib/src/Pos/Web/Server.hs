@@ -29,7 +29,6 @@ import           Data.X509.CertificateStore (readCertificateStore)
 import           Data.X509.Validation (ValidationChecks (..),
                      ValidationHooks (..))
 import qualified Data.X509.Validation as X509
-import           Mockable (Production (runProduction))
 import           Network.TLS (CertificateRejectReason (..),
                      CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
@@ -48,6 +47,7 @@ import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Mockable (Production (runProduction))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.GState as GS

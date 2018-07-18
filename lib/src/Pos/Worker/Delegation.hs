@@ -9,9 +9,10 @@ import           Universum
 import           Control.Lens ((%=))
 import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Data.Time.Units (Second)
-import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
 import           System.Wlog (WithLogger)
 
+import           Pos.Core.Mockable (CurrentTime, Delay, Mockable, currentTime,
+                     delay)
 import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
 import           Pos.Delegation.Configuration (HasDlgConfiguration,
                      dlgMessageCacheTimeout)

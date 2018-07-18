@@ -18,7 +18,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub,
@@ -28,6 +27,7 @@ import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (Production)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)

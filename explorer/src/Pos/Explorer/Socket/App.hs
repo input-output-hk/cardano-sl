@@ -22,7 +22,6 @@ import           Data.Time.Units (Millisecond)
 import           Ether.TaggedTrans ()
 import           Formatting (int, sformat, (%))
 import qualified GHC.Exts as Exts
-import           Mockable (withAsync)
 import           Network.EngineIO (SocketId)
 import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
 import           Network.HTTP.Types.Status (status404)
@@ -41,6 +40,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerName,
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core (addressF, siEpoch)
+import           Pos.Core.Mockable (withAsync)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 

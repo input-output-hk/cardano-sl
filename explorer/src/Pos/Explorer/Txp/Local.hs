@@ -8,12 +8,12 @@ module Pos.Explorer.Txp.Local
        , eTxNormalize
        ) where
 
-import           JsonLog (CanJsonLog (..))
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Core (BlockVersionData, EpochIndex, Timestamp)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot), getSlotStart)

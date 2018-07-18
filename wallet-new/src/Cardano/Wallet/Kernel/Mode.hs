@@ -11,7 +11,6 @@ module Cardano.Wallet.Kernel.Mode
 import           Control.Lens (makeLensesWith)
 import           Universum
 
-import           Mockable
 import           Pos.Block.BListener
 import           Pos.Block.Slog
 import           Pos.Block.Types
@@ -19,6 +18,7 @@ import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block

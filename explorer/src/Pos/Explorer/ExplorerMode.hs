@@ -48,9 +48,8 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
 import           Pos.Explorer.Socket.Holder (ConnectionsState)
 import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
--- Need Emulation because it has instance Mockable CurrentTime
-import           Mockable (Production, currentTime, runProduction)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (Production, currentTime, runProduction)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -58,6 +57,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
 import           Pos.WorkMode (MinWorkMode)
 
+-- Need Emulation because it has instance Mockable CurrentTime
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)

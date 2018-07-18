@@ -26,9 +26,9 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable.Production (Production)
 
 import           Pos.Core (HasConfiguration, Timestamp)
+import           Pos.Core.Mockable.Production (Production)
 import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,

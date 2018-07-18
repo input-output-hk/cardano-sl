@@ -4,18 +4,19 @@ module Test.Pos.Infra.SlottingSpec
        ( spec
        ) where
 
-import           Data.Time.Units         (fromMicroseconds, toMicroseconds)
-import           Mockable                (Production, currentTime, delay, runProduction)
-import           Test.Hspec              (Spec, describe, it, shouldBe)
-import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Property, choose, ioProperty)
+import           Data.Time.Units (fromMicroseconds, toMicroseconds)
+import           Test.Hspec (Spec, describe, it, shouldBe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (Property, choose, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, assert, monadic, pick, run)
 import           Universum
 
-import           Pos.Constants           (epochDuration, slotDuration)
-import           Pos.Infra.Slotting      (MonadSlots (..), getCurrentSlot)
-import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
-                                          Timestamp (..), unflattenSlotId)
+import           Pos.Constants (epochDuration, slotDuration)
+import           Pos.Core.Mockable (Production, currentTime, delay,
+                     runProduction)
+import           Pos.Infra.Slotting (MonadSlots (..), getCurrentSlot)
+import           Pos.Types (EpochIndex, LocalSlotIndex, SlotId (..),
+                     Timestamp (..), unflattenSlotId)
 
 -- | These tests are not included into .cabal
 

@@ -18,10 +18,10 @@ import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
 import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
-import           Mockable (Delay, Mockable, delay)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
+import           Pos.Core.Mockable (Delay, Mockable, delay)
 import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF,
                      hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)

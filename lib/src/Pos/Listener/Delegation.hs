@@ -11,11 +11,11 @@ module Pos.Listener.Delegation
 import           Universum
 
 import           Formatting (build, sformat, shown, (%))
-import           Mockable (CurrentTime, Delay, Mockable)
 import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ProxySKHeavy)
+import           Pos.Core.Mockable (CurrentTime, Delay, Mockable)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.Delegation.Class (MonadDelegation)

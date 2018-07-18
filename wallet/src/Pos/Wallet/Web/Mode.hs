@@ -28,8 +28,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           Mockable (LowLevelAsync, Mockable, Production)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
@@ -45,6 +43,7 @@ import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
                      isRedeemAddress, largestHDAddressBoot, mkCoin)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (LowLevelAsync, Mockable, Production)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..), Reporter (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -80,6 +79,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect (MonadBlockchainInfo (..),

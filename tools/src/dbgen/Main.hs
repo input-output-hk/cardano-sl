@@ -15,12 +15,12 @@ import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Data.Time.Units (fromMicroseconds)
-import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
                      NodeArgs (..), getNodeParams, gtSscParams)
 import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
+import           Pos.Core.Mockable (Production, runProduction)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)

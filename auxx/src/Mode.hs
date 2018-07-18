@@ -26,7 +26,6 @@ import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
-import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
@@ -45,6 +44,7 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
                      makePubKeyAddress, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (Production)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)

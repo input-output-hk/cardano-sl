@@ -36,7 +36,6 @@ import qualified Pos.Wallet.Web.Error.Types as V0
 import           Control.Exception (fromException)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
-import           Mockable
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
@@ -45,6 +44,7 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods,
                      corsRequestHeaders, simpleCorsResourcePolicy,
                      simpleMethods)
 import           Ntp.Client (NtpStatus)
+import           Pos.Core.Mockable
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)

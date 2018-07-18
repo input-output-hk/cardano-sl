@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
@@ -27,6 +26,7 @@ import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
+import           Pos.Core.Mockable (MonadMockable)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)

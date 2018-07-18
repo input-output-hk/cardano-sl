@@ -9,7 +9,6 @@ import           Universum
 import           Data.Acid (createArchive, createCheckpoint)
 import           Data.Time.Units (Second, TimeUnit)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Delay, Mockable, delay)
 import           Serokell.AcidState.ExtendedState (ExtendedState (..),
                      extendedStateToAcid)
 import           System.Directory (getModificationTime, listDirectory,
@@ -17,6 +16,7 @@ import           System.Directory (getModificationTime, listDirectory,
 import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logDebug, logError)
 
+import           Pos.Core.Mockable (Delay, Mockable, delay)
 import           Pos.Wallet.Web.State.State (WalletDB)
 
 type MonadAcidCleanup ctx m =

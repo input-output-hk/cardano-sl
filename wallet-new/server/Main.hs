@@ -10,11 +10,11 @@ import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
 import           Pos.Core (epochSlots)
+import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)

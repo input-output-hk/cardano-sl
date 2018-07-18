@@ -76,6 +76,7 @@ module Cardano.Wallet.API.V1.Types (
   , SubscriptionStatus(..)
   , Redemption(..)
   , RedemptionMnemonic(..)
+  , BackupPhrase(..)
   , ShieldedRedemptionCode(..)
   -- * Some types for the API
   , CaptureWalletId
@@ -297,17 +298,6 @@ instance
     parseJSON =
         fmap V1 . parseJSON
 
-instance
-    ( mw ~ MnemonicWords n
-    , n ~ EntropySize mw
-    , ValidChecksumSize n csz
-    , ValidEntropySize n
-    , ValidMnemonicSentence mw
-    ) => ToSchema (V1 (Mnemonic mw)) where
-    declareNamedSchema _ = do
-        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic mw))
-        return $ NamedSchema (Just "V1BackupPhrase") schm
-
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
     case Base16.decode text of
@@ -512,9 +502,25 @@ instance BuildableSafeGen WalletOperation where
     buildSafeGen _ RestoreWallet = "restore"
 
 
+newtype BackupPhrase = BackupPhrase
+    { unBackupPhrase :: Mnemonic 12
+    }
+    deriving stock (Eq, Show)
+    deriving newtype (ToJSON, FromJSON, Arbitrary)
+
+deriveSafeBuildable ''BackupPhrase
+instance BuildableSafeGen BackupPhrase where
+    buildSafeGen _ _  = "<backup phrase>"
+
+instance ToSchema BackupPhrase where
+    declareNamedSchema _ =
+        pure
+            . NamedSchema (Just "V1BackupPhrase")
+            $ toSchema (Proxy @(Mnemonic 12))
+
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !(V1 (Mnemonic 12))
+      newwalBackupPhrase     :: !BackupPhrase
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName

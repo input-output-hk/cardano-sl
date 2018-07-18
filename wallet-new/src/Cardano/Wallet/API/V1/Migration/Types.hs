@@ -3,10 +3,6 @@
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
--- This pragma is required for the 'IsBackupPhrase' type family that is
--- otherwise complained about as "unused"
-{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
-
 module Cardano.Wallet.API.V1.Migration.Types
     ( Migrate(..)
     , migrate

@@ -610,6 +610,10 @@ once the rewards for their last active epoch have been distributed.
 
 #### Addresses and Associated Balances per Staking Key
 
+**TODO**: Verify that we indeed have to do this. It should also be
+  possible to traverse the UTxO directly in the Follow-the-Satoshi
+  algorithm, and then follow any delegation indirections.
+
 At two points in the protocol, we will need to know which addresses
 belong to a specific staking key, and what their balances are: leader
 election for the upcoming epoch, and sharing out rewards for a past
@@ -868,6 +872,12 @@ rewards for this not-asked-for delegation.
 
 Posting a "private" registration certificate with $m=1$ will ensure
 that all rewards are sent to the address specified in the certificate.
+
+**TODO**: We might want to consider _not_ giving rewards to people
+  managing their own stake without a private staking pool, since that
+  could make the implementation simpler (not having two mechanisms for
+  the same thing). It would also give us a mechanism, for free, to
+  exclude the core nodes from getting rewards.
 
 ### Rewards
 

@@ -47,7 +47,10 @@ let
       # means we do not need the gcc7 hack
       # in our nixpkgs to allow mingw with
       # libwinpthreads.
-      rocksdb = pkgs.callPackage ./rocksdb-prebuilt.nix { inherit (buildPackages) fetchurl unzip; };
+      rocksdb = with ps.stdenv;
+        if hostPlatform.isWindows
+        then pkgs.callPackage ./rocksdb-prebuilt.nix { inherit (buildPackages) fetchurl unzip; }
+        else ps.rocksdb;
 
       # on windows we have this habit of putting libraries
       # into `bin`, wheras on unix it's usually `lib`. For

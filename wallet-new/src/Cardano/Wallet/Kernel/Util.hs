@@ -6,6 +6,8 @@ module Cardano.Wallet.Kernel.Util (
   , withoutKeys
   , restrictKeys
     -- * Dealing with OldestFirst/NewestFirst
+  , liftOldestFirst'
+  , liftNewestFirst'
   , liftOldestFirst
   , liftNewestFirst
     -- * Probabilities
@@ -60,11 +62,21 @@ m `restrictKeys` s = m `Map.intersection` Map.fromSet (const ()) s
   Dealing with OldestFirst/NewestFirst
 -------------------------------------------------------------------------------}
 
+liftOldestFirst' :: Functor m
+                 => (f a -> m (f a))
+                 -> OldestFirst f a -> m (OldestFirst f a)
+liftOldestFirst' f = fmap OldestFirst . f . getOldestFirst
+
+liftNewestFirst' :: Functor m
+                 => (f a -> m (f a))
+                 -> NewestFirst f a -> m (NewestFirst f a)
+liftNewestFirst' f = fmap NewestFirst . f . getNewestFirst
+
 liftOldestFirst :: (f a -> f a) -> OldestFirst f a -> OldestFirst f a
-liftOldestFirst f = OldestFirst . f . getOldestFirst
+liftOldestFirst f = runIdentity . liftOldestFirst' (Identity . f)
 
 liftNewestFirst :: (f a -> f a) -> NewestFirst f a -> NewestFirst f a
-liftNewestFirst f = NewestFirst . f . getNewestFirst
+liftNewestFirst f = runIdentity . liftNewestFirst' (Identity . f)
 
 {-------------------------------------------------------------------------------
   Probabilities

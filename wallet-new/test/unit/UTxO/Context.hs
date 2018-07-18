@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Context needed for the translation between DSL and Cardano types
 module UTxO.Context (
@@ -67,6 +68,7 @@ data CardanoContext = CardanoContext {
     , ccData        :: GenesisData
     , ccUtxo        :: Utxo
     , ccSecrets     :: GeneratedSecrets
+    , ccMagic       :: ProtocolMagic
 
       -- | Initial stake distribution
     , ccInitLeaders :: SlotLeaders
@@ -86,15 +88,15 @@ data CardanoContext = CardanoContext {
     }
 
 initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
-initCardanoContext pm = CardanoContext{..}
+initCardanoContext ccMagic = CardanoContext{..}
   where
     ccLeaders     = genesisLeaders epochSlots
     ccStakes      = genesisStakes
-    ccBlock0      = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
+    ccBlock0      = genesisBlock0 ccMagic (GenesisHash genesisHash) ccLeaders
     ccData        = genesisData
     ccUtxo        = unGenesisUtxo genesisUtxo
-    ccSecrets     = fromMaybe (error "initCardanoContext: secrets unavailable")
-                  $ generatedSecrets
+    ccSecrets     = fromMaybe (error "initCardanoContext: no secrets") $
+                      generatedSecrets
     ccInitLeaders = ccLeaders
     ccBalances    = utxoToAddressCoinPairs ccUtxo
     ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
@@ -134,13 +136,22 @@ initCardanoContext pm = CardanoContext{..}
   So it's actually the rich actors that sign blocks on behalf of the
   stakeholders.
 
-  The genesis UTxO computed by 'genesisUtxo', being a Utxo, is simply a multiset of
+  The genesis UTxO computed by 'genesisUtxo', being a Utxo, is simply a set of
   unspent transaction outputs; 'genesisStakes' then uses 'utxoToStakes' to turn
   this into a 'StakeMap'. A key component of this transaction is 'txOutStake',
   which relies on 'bootstrapEtaDistr' for addresses marked 'BootstrapEraDistr'.
   Thus the 'StakesMap' computed by 'genesisStakes' will contain 'StakeholderId's
   of the stakeholders, even though (somewhat confusingly) the stakeholders are
   never actually assigned any addresses.
+
+  In order to compute the stake distribution, `txOutStake` needs a series of
+  weights for each of the stakeholders. In the test configuration these
+  are all set to 1
+
+  > 1a1ff7035103d8a9: 1
+  > 281e5ae9e357970a: 1
+  > 44283ce5c44e6e00: 1
+  > 5f53e01e1366aeda: 1
 
   Finally, 'genesisLeaders' uses 'followTheSatoshiUtxo' applied to the
   'genesisUtxo' to compute the 'SlotLeaders' (aka 'NonEmpty StakeholderId').
@@ -634,12 +645,14 @@ instance Buildable CardanoContext where
       % ", stakes:       " % listJson
       % ", balances:     " % listJson
       % ", utxo:         " % mapJson
+      % ", data:         " % build
       % "}"
       )
       ccInitLeaders
       (map (bprint pairF) (HM.toList ccStakes))
       (map (bprint pairF) ccBalances)
       ccUtxo
+      ccData
 
 instance Buildable AddrMap where
   build AddrMap{..} = bprint
@@ -660,3 +673,11 @@ instance Buildable TransCtxt where
       tcCardano
       tcActors
       tcAddrMap
+
+instance Buildable GenesisData where
+  build GenesisData{..} = bprint
+      ( "GenesisData"
+      % "{ bootStakeholders: " % build
+      % "}"
+      )
+      gdBootStakeholders

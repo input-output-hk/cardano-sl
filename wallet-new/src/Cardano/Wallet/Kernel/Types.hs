@@ -118,15 +118,16 @@ mkRawResolvedTx txAux ins =
 
 -- | Signed block along with its resolved inputs
 --
--- If this block sits directly after an epoch boundary, it might additionally
--- have an attached epoch boundary block which should directly proceed it in the
--- chain . This is becuase the DSL contains no notion of epoch boundaries.
---
 -- Constructor is marked unsafe because the caller should make sure that
 -- invariant 'invRawResolvedBlock' holds.
 data RawResolvedBlock = UnsafeRawResolvedBlock {
+      -- | The underlying 'MainBlock'
       rawResolvedBlock       :: MainBlock
-    , rawResolvedBlockEBB    :: Maybe GenesisBlock
+
+      -- | Resolved inputs
+      --
+      -- Working with these inputs is more convenient using a 'ResolvedBlock';
+      -- see 'fromRawResolvedBlock'.
     , rawResolvedBlockInputs :: ResolvedBlockInputs
     }
 
@@ -144,10 +145,12 @@ invRawResolvedBlock block ins =
     txs = getBlockTxs block
 
 -- | Smart constructor for 'RawResolvedBlock' that checks the invariant
-mkRawResolvedBlock :: MainBlock -> Maybe GenesisBlock -> ResolvedBlockInputs -> RawResolvedBlock
-mkRawResolvedBlock block mebb  ins =
+mkRawResolvedBlock :: MainBlock
+                   -> ResolvedBlockInputs
+                   -> RawResolvedBlock
+mkRawResolvedBlock block ins =
     if invRawResolvedBlock block ins
-      then UnsafeRawResolvedBlock block mebb ins
+      then UnsafeRawResolvedBlock block ins
       else error "mkRawResolvedBlock: invariant violation"
 
 {-------------------------------------------------------------------------------

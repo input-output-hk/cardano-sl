@@ -29,6 +29,7 @@ import           Util.Validated
 import           UTxO.DSL
 import           Wallet.Abstract
 import           Wallet.Inductive
+import           Wallet.Inductive.History
 import           Wallet.Inductive.Interpreter
 
 {-------------------------------------------------------------------------------
@@ -46,24 +47,24 @@ import           Wallet.Inductive.Interpreter
 type Invariant h a = Inductive h a -> Validated (InvariantViolation h a) ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
-invariant :: forall h a.
-             Text                             -- ^ Name of the invariant
+invariant :: forall h a. (Hash h a, Buildable a)
+          => Text                             -- ^ Name of the invariant
           -> (Transaction h a -> Wallet h a)  -- ^ Construct empty wallet
           -> (Wallet h a -> Maybe InvariantViolationEvidence) -- ^ Property
           -> Invariant h a
 invariant name e p = void . interpret notChecked ((:[]) . e) p'
   where
-    notChecked :: History h a
+    notChecked :: History
                -> InvalidInput h a
                -> InvariantViolation h a
     notChecked history reason = InvariantNotChecked name reason history
 
-    violation :: History h a
+    violation :: History
               -> InvariantViolationEvidence
               -> InvariantViolation h a
     violation history ev = InvariantViolation name ev history
 
-    p' :: History h a
+    p' :: History
        -> [Wallet h a]
        -> Validated (InvariantViolation h a) ()
     p' history [w] = case p w of
@@ -74,18 +75,28 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
 -- | Invariant violation
 data InvariantViolation h a =
     -- | Invariance violation
-    --       invariantViolationName     =  Name of the invariant
-    --       invariantViolationEvidence = Evidence that the invariant
-    --                                    was violated
-    --       invariantViolationEvents   = The evennts that led to the error
-    InvariantViolation !Text !InvariantViolationEvidence !(History h a)
+    InvariantViolation {
+        -- | Name of the invariant
+        invariantViolationName     :: Text
+
+        -- | Evidence that the invariant was violated
+      , invariantViolationEvidence :: InvariantViolationEvidence
+
+        -- | The evens that led to the error
+      , invariantViolationEvents   :: History
+      }
 
     -- | The invariant was not checked because the input was invalid
-    --   InvariantNotChecked
-    --       invariantNotCheckedName   = Name of the invariant
-    --       invariantNotCheckedReason = Why did we not check the invariant
-    --       invariantNotCheckedEvents = The events that led to the error
-  | InvariantNotChecked !Text !(InvalidInput h a) !(History h a)
+  | InvariantNotChecked {
+        -- | Name of the invariant
+        invariantNotCheckedName   :: Text
+
+        -- | Why did we not check the invariant
+      , invariantNotCheckedReason :: InvalidInput h a
+
+        -- | The events that led to the error
+      , invariantNotCheckedEvents :: History
+      }
 
 {-------------------------------------------------------------------------------
   Evidence that an invariant was violated
@@ -183,28 +194,28 @@ walletInvariants applicableInvariants l e w = do
         , pendingInUtxoOrExpected l e w
         ]
 
-pendingInUtxo :: Hash h a => WalletInv h a
+pendingInUtxo :: (Hash h a, Buildable a) => WalletInv h a
 pendingInUtxo l e = invariant (l <> "/pendingInUtxo") e $ \w ->
     checkSubsetOf ("txIns (pending w)",
                     txIns (pending w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
-utxoIsOurs :: Buildable a => WalletInv h a
+utxoIsOurs :: (Hash h a, Buildable a) => WalletInv h a
 utxoIsOurs l e = invariant (l <> "/utxoIsOurs") e $ \w ->
     checkAllSatisfy ("isOurs",
                       ours w . outAddr)
                     ("utxoRange (utxo w)",
                       utxoRange (utxo w))
 
-changeNotAvailable :: Hash h a => WalletInv h a
+changeNotAvailable :: (Hash h a, Buildable a) => WalletInv h a
 changeNotAvailable l e = invariant (l <> "/changeNotAvailable") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (available w)",
                     utxoDomain (available w))
 
-changeNotInUtxo :: Hash h a => WalletInv h a
+changeNotInUtxo :: (Hash h a, Buildable a) => WalletInv h a
 changeNotInUtxo l e = invariant (l <> "/changeNotInUtxo") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
@@ -218,14 +229,14 @@ changeAvailable l e = invariant (l <> "/changeAvailable") e $ \w ->
                ("total w",
                  total w)
 
-balanceChangeAvailable :: WalletInv h a
+balanceChangeAvailable :: (Hash h a, Buildable a) => WalletInv h a
 balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w ->
     checkEqual ("utxoBalance (change w) + utxoBalance (available w)",
                  utxoBalance (change w) + utxoBalance (available w))
                ("utxoBalance (total w)",
                  utxoBalance (total w))
 
-pendingInputsDisjoint :: Hash h a => WalletInv h a
+pendingInputsDisjoint :: (Hash h a, Buildable a) => WalletInv h a
 pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->
     asum [ checkDisjoint ("trIns " <> pretty h1, trIns tx1)
                          ("trIns " <> pretty h2, trIns tx2)
@@ -234,21 +245,21 @@ pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->
          , h1 /= h2
          ]
 
-utxoExpectedDisjoint :: Hash h a => WalletInv h a
+utxoExpectedDisjoint :: (Hash h a, Buildable a) => WalletInv h a
 utxoExpectedDisjoint l e = invariant (l <> "/utxoExpectedDisjoint") e $ \w ->
     checkDisjoint ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
                   ("utxoDomain (expectedUtxo w)",
                     utxoDomain (expectedUtxo w))
 
-expectedUtxoIsOurs :: Buildable a => WalletInv h a
+expectedUtxoIsOurs :: (Hash h a, Buildable a) => WalletInv h a
 expectedUtxoIsOurs l e = invariant (l <> "/expectedUtxoIsOurs") e $ \w ->
     checkAllSatisfy ("isOurs",
                       ours w . outAddr)
                     ("utxoRange (expectedUtxo w)",
                       utxoRange (expectedUtxo w))
 
-pendingInUtxoOrExpected :: Hash h a => WalletInv h a
+pendingInUtxoOrExpected :: (Hash h a, Buildable a) => WalletInv h a
 pendingInUtxoOrExpected l e = invariant (l <> "/pendingInUtxoOrExpected") e $ \w ->
     checkSubsetOf ("txIns (pending w)",
                     txIns (pending w))
@@ -267,17 +278,17 @@ walletEquivalent :: forall h a. (Hash h a, Eq a, Buildable a)
 walletEquivalent lbl e e' = void .
     interpret notChecked (\boot -> [e boot, e' boot]) p
   where
-    notChecked :: History h a
+    notChecked :: History
                -> InvalidInput h a
                -> InvariantViolation h a
     notChecked history reason = InvariantNotChecked lbl reason history
 
-    violation :: History h a
+    violation :: History
               -> InvariantViolationEvidence
               -> InvariantViolation h a
     violation history ev = InvariantViolation lbl ev history
 
-    p :: History h a
+    p :: History
       -> [Wallet h a]
       -> Validated (InvariantViolation h a) ()
     p history [w, w'] = sequence_ [

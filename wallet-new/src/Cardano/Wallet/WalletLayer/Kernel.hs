@@ -174,7 +174,7 @@ bracketPassiveWallet logFunction keystore f =
     blundToResolvedBlock (b,u)
         = rightToJust b <&> \mainBlock ->
             fromRawResolvedBlock
-            $ UnsafeRawResolvedBlock mainBlock Nothing spentOutputs'
+            $ UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
             spentOutputs' = map (map fromJust) $ undoTx u
             rightToJust   = either (const Nothing) Just

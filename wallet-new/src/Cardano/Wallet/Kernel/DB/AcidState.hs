@@ -26,8 +26,10 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
-    -- * errors
+    -- * Errors
   , NewPendingError
+    -- * Testing
+  , ObservableRollbackUseInTestsOnly(..)
   ) where
 
 import           Universum
@@ -38,6 +40,7 @@ import           Control.Monad.Except (MonadError, catchError)
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Data.Acid (Query, Update, makeAcidic)
+import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
@@ -47,8 +50,9 @@ import           Pos.Core.Chrono (OldestFirst (..))
 import qualified Pos.Core.Txp as Txp
 import           Pos.Txp (Utxo)
 
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
-                     PrefilteredBlock (..))
+                     PrefilteredBlock (..), emptyPrefilteredBlock)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
@@ -160,21 +164,26 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 -- * For every address encountered in the block outputs, create an HdAddress if it
 -- does not already exist.
 applyBlock :: Map HdAccountId PrefilteredBlock -> Update DB ()
-applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
+applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $ do
+    blocksByAccount' <- fillInEmptyBlock blocksByAccount
     createPrefiltered
         initUtxoAndAddrs
         (\prefBlock -> zoom hdAccountCheckpoints $
                            modify $ Spec.applyBlock prefBlock)
-        blocksByAccount
+        blocksByAccount'
   where
-    -- NOTE: When we create the new wallet, we look at the genesis UTxO and create
-    -- an initial balance for all accounts that we recognize as ours. This means that
-    -- when we later discover a new account that is also ours, it cannot appear
-    -- in the genesis UTxO, because if it did, we would already have seen it
-    -- (the genesis UTxO is static, after all). Hence we use empty initial utxo
-    -- for accounts discovered during applyBlock.
-    -- The Addrs need to be created during account initialisation and so we pass them here.
-    initUtxoAndAddrs :: PrefilteredBlock -> (Utxo,[AddrWithId])
+    -- Initial UTxO and addresses for a new account
+    --
+    -- NOTE: When we initialize the kernel, we look at the genesis UTxO and create
+    -- an initial balance for all accounts that we recognize as ours. This means
+    -- that when we later discover a new account that is also ours, it cannot appear
+    -- in the genesis UTxO, because if it did, we would already have seen it (the
+    -- genesis UTxO is static, after all). Hence we use empty initial utxo for
+    -- accounts discovered during 'applyBlock' (and 'switchToFork')
+    --
+    -- The Addrs need to be created during account initialisation and so we pass
+    -- them here.
+    initUtxoAndAddrs :: PrefilteredBlock -> (Utxo, [AddrWithId])
     initUtxoAndAddrs pb = (Map.empty, pfbAddrs pb)
 
 -- | Switch to a fork
@@ -184,11 +193,40 @@ applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
 -- TODO: We use a plain list here rather than 'OldestFirst' since the latter
 -- does not have a 'SafeCopy' instance.
 switchToFork :: Int
-             -> [PrefilteredBlock]
+             -> [Map HdAccountId PrefilteredBlock]
              -> Update DB ()
-switchToFork n blocks = runUpdateNoErrors $
+switchToFork n blocks = runUpdateNoErrors $ zoom dbHdWallets $ do
+    blocks' <- mapM fillInEmptyBlock blocks
+    createPrefiltered
+        initUtxoAndAddrs
+        (\prefBlocks -> zoom hdAccountCheckpoints $
+                            modify $ Spec.switchToFork n (OldestFirst prefBlocks))
+        (distribute blocks')
+  where
+    -- The natural result of prefiltering each block is a list of maps, but
+    -- in order to apply them to each account, we want a map of lists
+    --
+    -- NOTE: We have to be careful to /first/ use 'fillInEmptyBlock' to make
+    -- sure that if, say, the first and third slot both contain a block for
+    -- account A, but the second does not, we end up with an empty block
+    -- inserted for slot 2.
+    distribute :: [Map HdAccountId PrefilteredBlock]
+               -> Map HdAccountId [PrefilteredBlock]
+    distribute = Map.unionsWith (++) . map (Map.map (:[]))
+
+    -- See comments in 'applyBlock'
+    initUtxoAndAddrs :: [PrefilteredBlock] -> (Utxo, [AddrWithId])
+    initUtxoAndAddrs pbs = (Map.empty, concatMap pfbAddrs pbs)
+
+-- | Observable rollback, used for tests only
+--
+-- See 'switchToFork' for use in real code.
+observableRollbackUseInTestsOnly :: Update DB ()
+observableRollbackUseInTestsOnly = runUpdateNoErrors $
     zoomAll (dbHdWallets . hdWalletsAccounts) $
-        hdAccountCheckpoints %~ Spec.switchToFork n (OldestFirst blocks)
+      hdAccountCheckpoints %~ Spec.observableRollbackUseInTestsOnly
+
+
 
 {-------------------------------------------------------------------------------
   Wallet creation
@@ -215,8 +253,37 @@ createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
   Internal auxiliary: apply a function to a prefiltered block/utxo
 -------------------------------------------------------------------------------}
 
+-- | Given a map from account IDs, add default values for all accounts in
+-- the wallet that aren't given a value in the map
+fillInDefaults :: forall p e.
+                  (HdAccount -> p)   -- ^ Default value
+               -> Map HdAccountId p  -- ^ Map with values per account
+               -> Update' HdWallets e (Map HdAccountId p)
+fillInDefaults def accs =
+    aux <$> IxSet.toMap <$> use hdWalletsAccounts
+  where
+    aux :: Map HdAccountId HdAccount -> Map HdAccountId p
+    aux = Map.Merge.merge newAccount needsDefault valueForExistingAcc accs
+
+    newAccount :: Map.Merge.SimpleWhenMissing HdAccountId p p
+    newAccount = Map.Merge.mapMaybeMissing $ \_accId p -> Just p
+
+    needsDefault :: Map.Merge.SimpleWhenMissing HdAccountId HdAccount p
+    needsDefault = Map.Merge.mapMaybeMissing $ \_accId acc -> Just (def acc)
+
+    valueForExistingAcc :: Map.Merge.SimpleWhenMatched HdAccountId p HdAccount p
+    valueForExistingAcc = Map.Merge.zipWithMatched $ \_accId p _acc -> p
+
+-- | Specialization of 'fillInDefaults' for prefiltered blocks
+fillInEmptyBlock :: Map HdAccountId PrefilteredBlock
+                 -> Update' HdWallets e (Map HdAccountId PrefilteredBlock)
+fillInEmptyBlock = fillInDefaults (const emptyPrefilteredBlock)
+
 -- | For each of the specified accounts, create them if they do not exist,
 -- and apply the specified function.
+--
+-- NOTE: Any accounts that aren't in the map are simply skilled. See
+-- 'fillInDefaults'.
 createPrefiltered :: forall p e.
                      (p -> (Utxo,[AddrWithId]))
                       -- ^ Initial UTxO (when we are creating the account),
@@ -257,7 +324,6 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
             firstCheckpoint utxo' = Checkpoint {
                   _checkpointUtxo        = InDb utxo'
                 , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
-                , _checkpointExpected    = InDb Map.empty
                 , _checkpointPending     = Pending . InDb $ Map.empty
                 -- Since this is the first checkpoint before we have applied
                 -- any blocks, the block metadata is empty
@@ -329,4 +395,6 @@ makeAcidic ''DB [
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount
+      -- Testing
+    , 'observableRollbackUseInTestsOnly
     ]

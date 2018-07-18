@@ -14,14 +14,12 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , pendingTransactions
   , checkpointUtxo
   , checkpointUtxoBalance
-  , checkpointExpected
   , checkpointPending
   , checkpointBlockMeta
     -- ** Lenses into the current checkpoint
   , currentCheckpoint
   , currentUtxo
   , currentUtxoBalance
-  , currentExpected
   , currentPending
   , currentPendingTxs
   , currentBlockMeta
@@ -33,9 +31,9 @@ import           Control.Lens (to)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as M
 import           Data.SafeCopy (base, deriveSafeCopy)
-import           Formatting (bprint, (%))
-import           Formatting.Buildable (build)
-import           Serokell.Util.Text (listJsonIndent)
+import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
+import           Serokell.Util.Text (listJsonIndent, mapJson)
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
@@ -80,11 +78,23 @@ removePending ids (Pending (InDb old)) = Pending (InDb $ old `withoutKeys` ids)
 
 -- | Per-wallet state
 --
--- This is the same across all wallet types.
+-- NOTE: At the moment this does not included the expected UTxO. The expected
+-- UTxO is used for two things:
+--
+-- * Block resolution (translating tx inputs to their corresponding outputs, so
+--   that we know the corresponding addresses, needed for prefilering)
+-- * Minimum balance computation
+--
+-- Fortunately however we can rely on a full node as backing, so we don't need
+-- to use the expected UTxO for block resolution (this is explained in the
+-- formal spec in section "Prefiltering -- Consequences", under "possible
+-- alternatives"), and minimum balance computation is a new feature that we
+-- haven't implemented yet.
+--
+-- NOTE: This is the same across all wallet types.
 data Checkpoint = Checkpoint {
       _checkpointUtxo        :: InDb Core.Utxo
     , _checkpointUtxoBalance :: InDb Core.Coin
-    , _checkpointExpected    :: InDb Core.Utxo
     , _checkpointPending     :: Pending
     , _checkpointBlockMeta   :: BlockMeta
     }
@@ -107,14 +117,12 @@ currentCheckpoint = neHead
 
 currentUtxo        :: Lens' Checkpoints Core.Utxo
 currentUtxoBalance :: Lens' Checkpoints Core.Coin
-currentExpected    :: Lens' Checkpoints Core.Utxo
 currentBlockMeta   :: Lens' Checkpoints BlockMeta
 currentPending     :: Lens' Checkpoints Pending
 currentPendingTxs  :: Lens' Checkpoints PendingTxs
 
 currentUtxo        = currentCheckpoint . checkpointUtxo        . fromDb
 currentUtxoBalance = currentCheckpoint . checkpointUtxoBalance . fromDb
-currentExpected    = currentCheckpoint . checkpointExpected    . fromDb
 currentBlockMeta   = currentCheckpoint . checkpointBlockMeta
 currentPending     = currentCheckpoint . checkpointPending
 currentPendingTxs  = currentPending . pendingTransactions . fromDb
@@ -134,3 +142,17 @@ instance Buildable Pending where
     build (Pending p) =
       let elems = p ^. fromDb . to M.toList
       in bprint ("Pending " % listJsonIndent 4) (map fst elems)
+
+instance Buildable Checkpoint where
+    build Checkpoint{..} = bprint
+        ( "Checkpoint"
+        % "{ utxo:        " % mapJson
+        % ", utxoBalance: " % build
+        % ", pending:     " % build
+        % ", blockMeta:   " % build
+        % "}"
+        )
+      (_fromDb _checkpointUtxo)
+      (_fromDb _checkpointUtxoBalance)
+      _checkpointPending
+      _checkpointBlockMeta

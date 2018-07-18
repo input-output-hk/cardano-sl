@@ -10,8 +10,10 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Core.Chrono
 
 import           Test.Infrastructure.Generator
+import           Test.Infrastructure.Genesis
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
@@ -23,8 +25,9 @@ import           UTxO.Translate
 import           Wallet.Abstract
 import           Wallet.Inductive
 import           Wallet.Inductive.Cardano
+import           Wallet.Inductive.Validation
 
-import qualified Wallet.Basic as Base
+import qualified Wallet.Rollback.Full as Full
 
 {-------------------------------------------------------------------------------
   Compare the wallet kernel with the pure model
@@ -32,34 +35,98 @@ import qualified Wallet.Basic as Base
 
 spec :: Spec
 spec =
-    it "Compare wallet kernel to pure model" $
-      forAll (genInductiveUsingModel model) $ \ind -> do
-        bracketActiveWallet $ \activeWallet -> do
-          checkEquivalent activeWallet ind
+    describe "Compare wallet kernel to pure model" $ do
+      describe "Using hand-written inductive wallets" $ do
+        it "computes identical results in presence of dependent pending transactions" $
+          bracketActiveWallet $ \activeWallet -> do
+            checkEquivalent activeWallet (dependentPending genesis)
+      it "computes identical results using generated inductive wallets" $
+        forAll (genInductiveUsingModel model) $ \ind -> do
+          conjoin [
+              shouldBeValidated $ void (inductiveIsValid ind)
+            , bracketActiveWallet $ \activeWallet -> do
+                checkEquivalent activeWallet ind
+            ]
   where
     transCtxt = runTranslateNoErrors ask
     boot      = bootstrapTransaction transCtxt
     model     = (cardanoModel linearFeePolicy boot) {
-                    gmMaxNumOurs    = 1
-                  , gmPotentialOurs = isPoorAddr
-                  }
+                     gmMaxNumOurs    = 1
+                   , gmPotentialOurs = isPoorAddr
+                   }
+
+    -- TODO: These constants should not be hardcoded here.
+    linearFeePolicy :: TxSizeLinear
     linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
+
+    genesis :: GenesisValues GivenHash Addr
+    genesis = genesisValues linearFeePolicy boot
 
     checkEquivalent :: forall h. Hash h Addr
                     => Kernel.ActiveWallet
                     -> Inductive h Addr
                     -> Expectation
     checkEquivalent activeWallet ind = do
-       shouldReturnValidated $ runTranslateT $ do
+       shouldReturnValidated $ runTranslateTNoErrors $ do
          equivalentT activeWallet (encKpEnc ekp) (mkWallet (== addr)) ind
       where
         [addr]       = Set.toList $ inductiveOurs ind
         AddrInfo{..} = resolveAddr addr transCtxt
         Just ekp     = addrInfoMasterKey
 
-    -- TODO: We should move to the full model instead of the base model
     mkWallet :: Hash h Addr => Ours Addr -> Transaction h Addr -> Wallet h Addr
-    mkWallet = walletBoot Base.walletEmpty
+    mkWallet = walletBoot Full.walletEmpty
+
+{-------------------------------------------------------------------------------
+  Manually written inductives
+
+  NOTE: In order to test the wallet we want a HD structure. This means that
+  the rich actors are not suitable test subjects.
+-------------------------------------------------------------------------------}
+
+-- | Inductive where the rollback causes dependent transactions to exist
+--
+-- This tests that when we report the 'change' of the wallet, we don't include
+-- any outputs from pending transactions that are consumed by /other/ pending
+-- transactions.
+dependentPending :: forall h. Hash h Addr
+                 => GenesisValues h Addr -> Inductive h Addr
+dependentPending GenesisValues{..} = Inductive {
+      inductiveBoot   = boot
+    , inductiveOurs   = Set.singleton p0
+    , inductiveEvents = OldestFirst [
+          NewPending t0                  -- t0 pending
+        , ApplyBlock $ OldestFirst [t0]  -- t0 new confirmed, change available
+        , NewPending t1                  -- t1 pending, uses change from t0
+        , Rollback                       -- now we have a dependent pending tr
+        ]
+    }
+  where
+    fee = overestimate txFee 1 2
+
+    t0 :: Transaction h Addr
+    t0 = Transaction {
+             trFresh = 0
+           , trIns   = Set.fromList [ fst initUtxoP0 ]
+           , trOuts  = [ Output p1 1000
+                       , Output p0 (initBalP0 - 1 * (1000 + fee))
+                       ]
+           , trFee   = fee
+           , trHash  = 1
+           , trExtra = []
+           }
+
+    t1 :: Transaction h Addr
+    t1 = Transaction {
+             trFresh = 0
+           , trIns   = Set.fromList [ Input (hash t0) 1 ]
+           , trOuts  = [ Output p1 1000
+                       , Output p0 (initBalP0 - 2 * (1000 + fee))
+                       ]
+           , trFee   = fee
+           , trHash  = 2
+           , trExtra = []
+           }
 
 {-------------------------------------------------------------------------------
   Wallet resource management

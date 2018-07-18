@@ -5,10 +5,12 @@ module Wallet.Inductive (
     -- * Inductive wallets
   , Inductive(..)
   , uptoFirstRollback
+  , inductiveInit
   ) where
 
 import           Universum
 
+import qualified Data.List as List
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
@@ -60,6 +62,11 @@ uptoFirstRollback i@Inductive{..} = i {
     }
   where
     notRollback = not . walletEventIsRollback
+
+inductiveInit :: forall h a. Inductive h a -> Inductive h a
+inductiveInit i@Inductive{..} = i {
+      inductiveEvents = liftOldestFirst List.init inductiveEvents
+    }
 
 {-------------------------------------------------------------------------------
   Pretty-printing

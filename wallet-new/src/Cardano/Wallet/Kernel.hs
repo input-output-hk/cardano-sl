@@ -9,15 +9,19 @@ module Cardano.Wallet.Kernel (
     PassiveWallet -- opaque
   , DB -- opaque
   , WalletId
-  , applyBlock
-  , applyBlocks
   , bracketPassiveWallet
   , init
   , walletLogMessage
   , walletPassive
-    -- * The only effectful getter you will ever need
+    -- ** Respond to block chain events
+  , applyBlock
+  , applyBlocks
+  , switchToFork
+    -- *** Testing
+  , observableRollbackUseInTestsOnly
+    -- ** The only effectful getter you will ever need
   , getWalletSnapshot
-    -- * Pure getters acting on a DB snapshot
+    -- ** Pure getters acting on a DB snapshot
   , module Getters
     -- * Active wallet
   , ActiveWallet -- opaque
@@ -48,8 +52,10 @@ import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
-                     CancelPending (..), DB, NewPending (..), NewPendingError,
-                     Snapshot (..), defDB)
+                     CancelPending (..), CreateHdWallet (..), DB,
+                     NewPending (..), NewPendingError,
+                     ObservableRollbackUseInTestsOnly (..), Snapshot (..),
+                     SwitchToFork (..), defDB)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
@@ -140,7 +146,7 @@ applyBlock pw@PassiveWallet{..} b
     = do
         blocksByAccount <- prefilterBlock' pw b
         -- apply block to all Accounts in all Wallets
-        void $ update' _wallets $ ApplyBlock blocksByAccount
+        update' _wallets $ ApplyBlock blocksByAccount
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
 --
@@ -149,6 +155,25 @@ applyBlocks :: PassiveWallet
             -> OldestFirst [] ResolvedBlock
             -> IO ()
 applyBlocks = mapM_ . applyBlock
+
+-- | Switch to a new fork
+--
+-- NOTE: The Ouroboros protocol says that this is only valid if the number of
+-- resolved blocks exceeds the length of blocks to roll back.
+switchToFork :: PassiveWallet
+             -> Int             -- ^ Number of blocks to roll back
+             -> [ResolvedBlock] -- ^ Blocks in the new fork
+             -> IO ()
+switchToFork pw@PassiveWallet{..} n bs = do
+    blockssByAccount <- mapM (prefilterBlock' pw) bs
+    update' _wallets $ SwitchToFork n blockssByAccount
+
+-- | Observable rollback
+--
+-- Only used for tests. See 'switchToFork'.
+observableRollbackUseInTestsOnly :: PassiveWallet -> IO ()
+observableRollbackUseInTestsOnly PassiveWallet{..} =
+    update' _wallets $ ObservableRollbackUseInTestsOnly
 
 {-------------------------------------------------------------------------------
   Active wallet

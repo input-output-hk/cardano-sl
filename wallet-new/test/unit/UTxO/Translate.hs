@@ -4,10 +4,10 @@ module UTxO.Translate (
     TranslateT
   , Translate
   , runTranslateT
+  , runTranslateTNoErrors
   , runTranslate
   , runTranslateNoErrors
   , withConfig
-  , withProtocolMagic
   , mapTranslateErrors
   , catchTranslateErrors
   , catchSomeTranslateErrors
@@ -63,11 +63,15 @@ import           Test.Pos.Configuration (withDefConfiguration,
   (Eventually we may wish to do this differently.)
 -------------------------------------------------------------------------------}
 
+-- | Translation environment
+--
+-- NOTE: As we reduce the scope of 'HasConfiguration' and
+-- 'HasUpdateConfiguration', those values should be added into the
+-- 'CardanoContext' instead.
 data TranslateEnv = TranslateEnv {
-      teContext       :: TransCtxt
-    , teProtocolMagic :: ProtocolMagic
-    , teConfig        :: Dict HasConfiguration
-    , teUpdate        :: Dict HasUpdateConfiguration
+      teContext :: TransCtxt
+    , teConfig  :: Dict HasConfiguration
+    , teUpdate  :: Dict HasUpdateConfiguration
     }
 
 newtype TranslateT e m a = TranslateT {
@@ -106,7 +110,6 @@ runTranslateT (TranslateT ta) =
       let env :: TranslateEnv
           env = TranslateEnv {
                     teContext       = initContext (initCardanoContext pm)
-                  , teProtocolMagic = pm
                   , teConfig        = Dict
                   , teUpdate        = Dict
                   }
@@ -114,6 +117,10 @@ runTranslateT (TranslateT ta) =
             case ma of
               Left  e -> throw  e
               Right a -> return a
+
+-- | Specialised form of 'runTranslateT' when there can be no errors
+runTranslateTNoErrors :: Monad m => TranslateT Void m a -> m a
+runTranslateTNoErrors = runTranslateT
 
 -- | Specialization of 'runTranslateT'
 runTranslate :: Exception e => Translate e a -> a
@@ -131,11 +138,6 @@ withConfig f = do
     Dict <- TranslateT $ asks teConfig
     Dict <- TranslateT $ asks teUpdate
     f
-
--- | Pull the ProtocolMagic from the TranslateEnv
-withProtocolMagic
-    :: Monad m => (ProtocolMagic -> TranslateT e m a) -> TranslateT e m a
-withProtocolMagic = (TranslateT (asks teProtocolMagic) >>=)
 
 -- | Map errors
 mapTranslateErrors :: Functor m
@@ -163,18 +165,17 @@ catchSomeTranslateErrors act = do
 -------------------------------------------------------------------------------}
 
 -- | Slot ID of the first block
-translateFirstSlot :: Monad m => TranslateT Text m SlotId
-translateFirstSlot = withConfig $ do
-    SlotId 0 <$> mkLocalSlotIndex 0
+translateFirstSlot :: SlotId
+translateFirstSlot = SlotId 0 localSlotIndexMinBound
 
 -- | Increment slot ID
 --
 -- TODO: Surely a function like this must already exist somewhere?
-translateNextSlot :: Monad m => SlotId -> TranslateT Text m SlotId
+translateNextSlot :: Monad m => SlotId -> TranslateT e m SlotId
 translateNextSlot (SlotId epoch lsi) = withConfig $
-    case addLocalSlotIndex 1 lsi of
-      Just lsi' -> return $ SlotId epoch lsi'
-      Nothing   -> SlotId (epoch + 1) <$> mkLocalSlotIndex 0
+    return $ case addLocalSlotIndex 1 lsi of
+               Just lsi' -> SlotId epoch       lsi'
+               Nothing   -> SlotId (epoch + 1) localSlotIndexMinBound
 
 -- | Genesis block header
 translateGenesisHeader :: Monad m => TranslateT e m GenesisBlockHeader
@@ -216,10 +217,10 @@ verifyBlocksPrefix blocks =
         validatedFromExceptT . throwError $ VerifyBlocksError "Whoa! Empty epoch!"
       ESRStartsOnBoundary _    ->
         validatedFromExceptT . throwError $ VerifyBlocksError "No genesis epoch!"
-      ESRValid genEpoch (OldestFirst succEpochs) -> withProtocolMagic $ \pm -> do
+      ESRValid genEpoch (OldestFirst succEpochs) -> do
         CardanoContext{..} <- asks tcCardano
-        verify $ validateGenEpoch pm ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
-          epochUndos <- sequence $ validateSuccEpoch pm <$> succEpochs
+        verify $ validateGenEpoch ccMagic ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
+          epochUndos <- sequence $ validateSuccEpoch ccMagic <$> succEpochs
           return $ foldl' (\a b -> a <> b) genUndos epochUndos
 
   where

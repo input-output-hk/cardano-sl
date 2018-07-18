@@ -75,7 +75,7 @@ initState = State {
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Buildable st)
+mkWallet :: (Hash h a, Buildable st, Buildable a)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Incr.mkWallet ours (l . stateIncr) self st) {
       applyBlock = \b ->
@@ -102,7 +102,7 @@ walletEmpty ours = fix (mkWallet ours identity) initState
   Implementation
 -------------------------------------------------------------------------------}
 
-applyBlock' :: Hash h a
+applyBlock' :: (Hash h a, Buildable a)
             => (Set (Input h a), Utxo h a)
             -> State h a -> State h a
 applyBlock' (ins, outs) State{..} = State{
@@ -116,7 +116,7 @@ applyBlock' (ins, outs) State{..} = State{
     Checkpoint{..} = _stateCurrent
     Incr.State{..} = _checkpointIncr
 
-rollback' :: Hash h a => State h a -> State h a
+rollback' :: (Hash h a, Buildable a) => State h a -> State h a
 rollback' State{ _stateCheckpoints = [] } = error "rollback': no checkpoints"
 rollback' State{ _stateCheckpoints = prev : checkpoints'
                , _stateCurrent     = curr

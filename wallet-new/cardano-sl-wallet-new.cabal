@@ -422,6 +422,7 @@ test-suite wallet-unit-tests
                       Wallet.Inductive.Generator
                       Wallet.Inductive.Interpreter
                       Wallet.Inductive.Invariants
+                      Wallet.Inductive.History
                       Wallet.Inductive.Validation
                       Wallet.Prefiltered
                       Wallet.Rollback.Basic

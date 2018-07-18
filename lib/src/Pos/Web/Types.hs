@@ -23,6 +23,8 @@ data SscStage
     | SharesStage
     | OrdinaryStage
 
+deriveToJSON defaultOptions ''SscStage
+
 -- | TLS Transport Layer Security file paths.
 data TlsParams = TlsParams
     { tpCertPath   :: FilePath

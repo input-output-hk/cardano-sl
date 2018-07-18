@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem }:
+{ system ? builtins.currentSystem, target ? null }:
 let
   stack-pkgs = import ./stack-pkgs.nix;
 
@@ -14,13 +14,24 @@ let
     iserv-proxy = ./iserv-proxy-8.5;
   };
 
+  # Build the LTS-12 overlay.
+  #
+  # TODO: have this be produced in the `stack-pkgs.nix` file
+  #       that way we could pick the proper `lts-12_0` based
+  #       on the stack.yaml file, instead of hand-injecting
+  #       it here.
   overlay = self: super: {
-    haskellPackages = (import <stackage> { pkgs = super; }).lts-12_0
+    haskellPackages = ((import <stackage> { pkgs = super; }).lts-12_0
+      # ontop of the LTS, inject the extra pacakges and source deps.
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                           // stack-pkgs.packages hsPkgs)
-                          // iserv-pkgs; };
-  };
+                          // iserv-pkgs; }).override
+        { overrides = self: super:
+          # global overrides (effect haskellPackages, as well as buildHaskellPackages)
+          { libiserv = super.libiserv.override { flags = { network = true; }; }; }; }; };
 
+  # configure out general nix setup.
+  # 
   config = {
     allowUnsupportedSystem = true;
 
@@ -36,7 +47,7 @@ let
       # means we do not need the gcc7 hack
       # in our nixpkgs to allow mingw with
       # libwinpthreads.
-      rocksdb = buildPackages.callPackage ./rocksdb-prebuilt.nix {};# inherit (buildPackages) fetchurl unzip; };
+      rocksdb = buildPackages.callPackage ./rocksdb-prebuilt.nix {};
 
       # on windows we have this habit of putting libraries
       # into `bin`, wheras on unix it's usually `lib`. For
@@ -55,12 +66,6 @@ let
         configureFlags = with ps.stdenv; (drv.configureFlags or []) ++ lib.optional hostPlatform.isWindows "--enable-static --disable-shared";
       });
 
-      # The old way of building rocksdb.
-      # rocksdb = ps.rocksdb.overrideAttrs (drv: {
-      #   patches = (drv.patches or []) ++ [ ./rocksdb-5.11.patch ];
-      #   buildFlags = "rocksdb VERBOSE=1";
-      #   src = ./rocksdb;
-      # });
       haskell = lib.recursiveUpdate ps.haskell {
         lib = ps.haskell.lib // (with ps.haskell.lib; {
           # sanity
@@ -107,12 +112,20 @@ let
     };
   };
 
-  pkgs = import <nixpkgs> {
+  # Combine the Overlay, and Config to produce
+  # our package set.
+  pkgs = import <nixpkgs> ({
     inherit system;
     overlays = [ overlay ];
     config = config;
     crossSystem = (import <nixpkgs/lib>).systems.examples.mingwW64;
-  };
+  } // (if target != null
+        then { crossSystem = { win64   = (import <nixpkgs/lib>).systems.examples.mingwW64;
+                               macOS   = abort "macOS target not available";
+                               rpi     = abort "Raspberry Pi target not available";
+                               ios     = abort "iOS target not available";
+                               android = abort "Android target not available"; }."${target}"; }
+        else {}));
 
 in with pkgs.haskellPackages;
 with pkgs.haskell.lib;
@@ -123,7 +136,7 @@ pkgs.haskellPackages.override rec {
   overrides = self: super: rec {
 
     # Logic to run TH via an external interpreter (64bit windows via wine64)
-  doTemplateHaskell = pkg: with pkgs.haskell.lib; let
+  doTemplateHaskellMingw32 = pkg: with pkgs.haskell.lib; let
     buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
     buildFlags = map (opt: "--ghc-option=" + opt) [
       "-fexternal-interpreter"
@@ -150,6 +163,13 @@ pkgs.haskellPackages.override rec {
        (addBuildTools' buildTools
         (addPreBuild' preBuild
          (addPostBuild' postBuild pkg)))));
+
+  # how to perform TH for different host platforms.
+  doTemplateHaskell = pkg:
+    with pkgs.stdenv;
+      if hostPlatform.isWindows
+      then doTemplateHaskellMingw32 pkg
+      else assert buildPlatform == hostPlatform; pkg;
 
   addGitRev = subject: subject.overrideAttrs (drv: { GITREV = "blahblahblah"; });
   doTemplateHaskellVerbose = pkg: with pkgs.haskell.lib; let
@@ -229,17 +249,27 @@ pkgs.haskellPackages.override rec {
     cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
     cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
-    cardano-sl-wallet-new = doTemplateHaskell (addGitRev super.cardano-sl-wallet-new);
+    cardano-sl-wallet-new = addBuildDepends
+                              (doTemplateHaskell (addGitRev super.cardano-sl-wallet-new))
+                              # TODO: why do we need to explicity addBuilDepends his?
+                              #       it should have been propagated from
+                              #       rocksdb-haskell-ng?
+                              [ pkgs.rocksdb ];
 
     cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
 
     trifecta              = doTemplateHaskell super.trifecta;
-    cardano-sl-tools      = doTemplateHaskell (addGitRev (super.cardano-sl-tools.override { flags = { for-installer = true; }; }));
+    cardano-sl-tools      = doTemplateHaskell
+                              (addGitRev
+                                (super.cardano-sl-tools.override { flags = { for-installer = true; }; }));
     hedgehog              = doTemplateHaskell super.hedgehog;
 
     cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };
     time-locale-compat    = super.time-locale-compat.override { flags = { old-locale = false; }; };
+
+    # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
     libiserv              = super.libiserv.override           { flags = { network = true; }; };
 
+    rocksdb-haskell-ng    = appendConfigureFlag super.rocksdb-haskell-ng "--ghc-options=-v3";
   };
 } // { pkgs-x = pkgs; }

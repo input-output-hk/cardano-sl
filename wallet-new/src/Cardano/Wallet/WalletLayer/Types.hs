@@ -20,6 +20,7 @@ module Cardano.Wallet.WalletLayer.Types
     , rollbackBlocks
     -- * Errors
     , WalletLayerError(..)
+    , CreateWalletError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
     , CreateAddressError(..)
@@ -39,6 +40,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (TimeExecutionLimit)
 
@@ -54,7 +56,32 @@ import           Pos.Crypto (PassPhrase)
 
 
 ------------------------------------------------------------
--- Common errors
+-- Errors creating a new Wallet
+------------------------------------------------------------
+
+data CreateWalletError =
+      CreateWalletError Kernel.CreateWalletError
+    | CreateWalletTimeLimitReached TimeExecutionLimit
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show CreateWalletError where
+    show = formatToString build
+
+instance Exception CreateWalletError
+
+instance Arbitrary CreateWalletError where
+    arbitrary = oneof [ CreateWalletError <$> arbitrary
+                      , CreateWalletTimeLimitReached <$> arbitrary
+                      ]
+
+instance Buildable CreateWalletError where
+    build (CreateWalletError kernelError) =
+        bprint ("CreateWalletError " % build) kernelError
+    build (CreateWalletTimeLimitReached timeLimit) =
+        bprint ("CreateWalletTimeLimitReached " % build) timeLimit
+
+------------------------------------------------------------
+-- Errors creating a new Address
 ------------------------------------------------------------
 
 data CreateAddressError =
@@ -104,7 +131,7 @@ instance Exception WalletLayerError
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet   :: NewWallet -> m Wallet
+      _pwlCreateWallet   :: NewWallet -> m (Either CreateWalletError Wallet)
     , _pwlGetWalletIds   :: m [WalletId]
     , _pwlGetWallet      :: WalletId -> m (Maybe Wallet)
     , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
@@ -129,7 +156,9 @@ makeLenses ''PassiveWalletLayer
 -- Passive wallet layer getters
 ------------------------------------------------------------
 
-createWallet :: forall m. PassiveWalletLayer m -> NewWallet -> m Wallet
+createWallet :: forall m. PassiveWalletLayer m
+             -> NewWallet
+             -> m (Either CreateWalletError Wallet)
 createWallet pwl = pwl ^. pwlCreateWallet
 
 getWalletIds :: forall m. PassiveWalletLayer m -> m [WalletId]

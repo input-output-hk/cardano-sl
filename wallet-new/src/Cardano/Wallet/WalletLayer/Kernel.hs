@@ -19,6 +19,7 @@ import           Pos.Block.Types (Blund, Undo (..))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
@@ -38,15 +39,13 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
                      InputGrouping, newOptions)
 
+import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Pos.Core (Address, Coin, decodeTextAddress)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (safeDeterministicKeyGen)
-import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
-import qualified Data.Map.Strict as Map
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (Payment (..),
@@ -75,15 +74,17 @@ bracketPassiveWallet logFunction keystore f =
               $ \invoke -> do
                   -- TODO (temporary): build a sample wallet from a backup phrase
                   _ <- liftIO $ do
-                    let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
-                    Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel esk Map.empty
+                    Kernel.createHdWallet w
+                                          (def @(BIP39.Mnemonic 12))
+                                          emptyPassphrase
+                                          assuranceLevel
+                                          walletName
 
                   f (passiveWalletLayer w invoke) w
 
   where
     -- TODO consider defaults
     walletName       = HD.WalletName "(new wallet)"
-    spendingPassword = HD.NoSpendingPassword
     assuranceLevel   = HD.AssuranceLevelNormal
 
     -- | TODO(ks): Currently not implemented!

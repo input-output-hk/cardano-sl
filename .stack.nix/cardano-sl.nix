@@ -24,8 +24,6 @@ let
           depends  = ([
             hsPkgs.base
             hsPkgs.QuickCheck
-            hsPkgs.acid-state
-            hsPkgs.acid-state-exts
             hsPkgs.async
             hsPkgs.aeson
             hsPkgs.aeson-options
@@ -34,7 +32,6 @@ let
             hsPkgs.ansi-wl-pprint
             hsPkgs.bytestring
             hsPkgs.canonical-json
-            hsPkgs.cardano-crypto
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-binary-test
             hsPkgs.cardano-sl-block
@@ -50,8 +47,6 @@ let
             hsPkgs.cardano-sl-txp
             hsPkgs.cardano-sl-update
             hsPkgs.cardano-sl-util
-            hsPkgs.cardano-sl-util-test
-            hsPkgs.cereal
             hsPkgs.conduit
             hsPkgs.constraints
             hsPkgs.containers
@@ -59,7 +54,6 @@ let
             hsPkgs.cryptonite
             hsPkgs.data-default
             hsPkgs.directory
-            hsPkgs.ed25519
             hsPkgs.ekg-core
             hsPkgs.ether
             hsPkgs.exceptions
@@ -67,7 +61,6 @@ let
             hsPkgs.filepath
             hsPkgs.formatting
             hsPkgs.generic-arbitrary
-            hsPkgs.hashable
             hsPkgs.hspec
             hsPkgs.http-client
             hsPkgs.http-client-tls
@@ -84,12 +77,10 @@ let
             hsPkgs.optparse-applicative
             hsPkgs.parsec
             hsPkgs.pipes
-            hsPkgs.plutus-prototype
             hsPkgs.pvss
             hsPkgs.random
             hsPkgs.reflection
             hsPkgs.safe-exceptions
-            hsPkgs.safecopy
             hsPkgs.serokell-util
             hsPkgs.servant
             hsPkgs.servant-client
@@ -133,7 +124,6 @@ let
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-binary
               hsPkgs.cardano-sl-binary-test
-              hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-block-test
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-core-test
@@ -150,42 +140,34 @@ let
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-ssc-test
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-update-test
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test
-              hsPkgs.cborg
               hsPkgs.containers
               hsPkgs.cryptonite
               hsPkgs.data-default
               hsPkgs.deepseq
               hsPkgs.extra
               hsPkgs.filelock
-              hsPkgs.fmt
               hsPkgs.formatting
               hsPkgs.generic-arbitrary
               hsPkgs.hspec
               hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.mtl
               hsPkgs.network-transport
               hsPkgs.network-transport-inmemory
               hsPkgs.pipes
               hsPkgs.pvss
               hsPkgs.random
               hsPkgs.reflection
-              hsPkgs.safecopy
               hsPkgs.serokell-util
-              hsPkgs.stm
               hsPkgs.tagged
               hsPkgs.text
-              hsPkgs.formatting
               hsPkgs.time
               hsPkgs.time-units
               hsPkgs.universum
               hsPkgs.unordered-containers
-              hsPkgs.vector
             ];
             build-tools = [
               hsPkgs.buildPackages.cpphs
@@ -196,11 +178,9 @@ let
           "cardano-bench-criterion" = {
             depends  = [
               hsPkgs.QuickCheck
-              hsPkgs.aeson
               hsPkgs.base
               hsPkgs.bytestring
               hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-block-test
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-core-test
@@ -211,24 +191,18 @@ let
               hsPkgs.cardano-sl-lrc
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test
               hsPkgs.criterion
               hsPkgs.deepseq
               hsPkgs.formatting
-              hsPkgs.log-warper
-              hsPkgs.network
               hsPkgs.network-transport
               hsPkgs.network-transport-tcp
               hsPkgs.optparse-applicative
               hsPkgs.pipes
-              hsPkgs.stm
               hsPkgs.time-units
-              hsPkgs.transformers
               hsPkgs.universum
-              hsPkgs.vector
             ];
             build-tools = [
               hsPkgs.buildPackages.cpphs

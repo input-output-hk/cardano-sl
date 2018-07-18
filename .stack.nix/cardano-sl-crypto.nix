@@ -60,7 +60,6 @@ let
             depends  = [
               hsPkgs.QuickCheck
               hsPkgs.base
-              hsPkgs.aeson
               hsPkgs.bytestring
               hsPkgs.cardano-crypto
               hsPkgs.cardano-sl-binary
@@ -75,7 +74,6 @@ let
               hsPkgs.hspec
               hsPkgs.memory
               hsPkgs.quickcheck-instances
-              hsPkgs.template-haskell
               hsPkgs.text
               hsPkgs.universum
               hsPkgs.unordered-containers

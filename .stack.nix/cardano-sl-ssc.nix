@@ -22,7 +22,6 @@ let
       components = {
         "cardano-sl-ssc" = {
           depends  = [
-            hsPkgs.QuickCheck
             hsPkgs.aeson
             hsPkgs.aeson-options
             hsPkgs.array
@@ -32,19 +31,14 @@ let
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
-            hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-lrc
-            hsPkgs.cardano-sl-networking
-            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
             hsPkgs.containers
             hsPkgs.cryptonite
             hsPkgs.data-default
             hsPkgs.ether
-            hsPkgs.ekg-core
             hsPkgs.exceptions
             hsPkgs.formatting
-            hsPkgs.generic-arbitrary
             hsPkgs.lens
             hsPkgs.log-warper
             hsPkgs.memory

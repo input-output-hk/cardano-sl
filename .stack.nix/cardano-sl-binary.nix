@@ -22,7 +22,6 @@ let
       components = {
         "cardano-sl-binary" = {
           depends  = [
-            hsPkgs.QuickCheck
             hsPkgs.base
             hsPkgs.binary
             hsPkgs.bytestring
@@ -32,9 +31,9 @@ let
             hsPkgs.containers
             hsPkgs.digest
             hsPkgs.formatting
-            hsPkgs.half
             hsPkgs.hashable
             hsPkgs.lens
+            hsPkgs.micro-recursion-schemes
             hsPkgs.mtl
             hsPkgs.safecopy
             hsPkgs.safe-exceptions
@@ -44,7 +43,6 @@ let
             hsPkgs.text
             hsPkgs.th-utilities
             hsPkgs.time-units
-            hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unordered-containers
             hsPkgs.vector
@@ -60,9 +58,7 @@ let
               hsPkgs.aeson
               hsPkgs.base
               hsPkgs.bytestring
-              hsPkgs.canonical-json
               hsPkgs.cardano-sl-binary
-              hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test
               hsPkgs.cborg
               hsPkgs.cereal
@@ -70,23 +66,19 @@ let
               hsPkgs.cryptonite
               hsPkgs.data-default
               hsPkgs.directory
+              hsPkgs.file-embed
               hsPkgs.extra
               hsPkgs.filepath
               hsPkgs.filelock
-              hsPkgs.file-embed
               hsPkgs.fmt
               hsPkgs.formatting
               hsPkgs.generic-arbitrary
               hsPkgs.half
               hsPkgs.hedgehog
               hsPkgs.hspec
-              hsPkgs.lens
               hsPkgs.mtl
               hsPkgs.pretty-show
-              hsPkgs.pvss
               hsPkgs.quickcheck-instances
-              hsPkgs.random
-              hsPkgs.reflection
               hsPkgs.safecopy
               hsPkgs.serokell-util
               hsPkgs.tagged
@@ -96,7 +88,6 @@ let
               hsPkgs.time-units
               hsPkgs.universum
               hsPkgs.unordered-containers
-              hsPkgs.vector
             ];
             build-tools = [
               hsPkgs.buildPackages.cpphs

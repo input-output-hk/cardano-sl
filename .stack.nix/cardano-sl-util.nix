@@ -24,14 +24,12 @@ let
           depends  = [
             hsPkgs.aeson
             hsPkgs.base
-            hsPkgs.binary
             hsPkgs.cborg
             hsPkgs.cereal
             hsPkgs.containers
             hsPkgs.concurrent-extra
             hsPkgs.contravariant
             hsPkgs.cryptonite
-            hsPkgs.data-default
             hsPkgs.deepseq
             hsPkgs.directory
             hsPkgs.ether
@@ -56,12 +54,9 @@ let
             hsPkgs.tagged
             hsPkgs.template-haskell
             hsPkgs.text
-            hsPkgs.formatting
-            hsPkgs.th-lift-instances
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
-            hsPkgs.transformers-base
             hsPkgs.transformers-lift
             hsPkgs.universum
             hsPkgs.unliftio-core
@@ -74,14 +69,22 @@ let
         tests = {
           "test" = {
             depends  = [
+              hsPkgs.aeson
               hsPkgs.base
+              hsPkgs.bytestring
               hsPkgs.async
               hsPkgs.cardano-sl-util
+              hsPkgs.directory
+              hsPkgs.file-embed
+              hsPkgs.filepath
+              hsPkgs.formatting
+              hsPkgs.hedgehog
               hsPkgs.hspec
+              hsPkgs.pretty-show
               hsPkgs.QuickCheck
               hsPkgs.quickcheck-instances
-              hsPkgs.serokell-util
               hsPkgs.stm
+              hsPkgs.template-haskell
               hsPkgs.text
               hsPkgs.time
               hsPkgs.time-units

@@ -28,14 +28,16 @@ let
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-sinbin-test
+            hsPkgs.cardano-sl-ssc
+            hsPkgs.cardano-sl-ssc-test
+            hsPkgs.cardano-sl-update-test
             hsPkgs.cardano-sl-util-test
             hsPkgs.containers
             hsPkgs.generic-arbitrary
             hsPkgs.hedgehog
             hsPkgs.kademlia
-            hsPkgs.memory
             hsPkgs.universum
           ];
         };

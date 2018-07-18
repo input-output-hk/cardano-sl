@@ -28,7 +28,6 @@ let
             hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-crypto-test
-            hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-ssc
             hsPkgs.cardano-sl-util-test
             hsPkgs.generic-arbitrary

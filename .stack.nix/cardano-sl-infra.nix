@@ -34,9 +34,10 @@ let
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-networking
-            hsPkgs.cardano-sl-sinbin
+            hsPkgs.cardano-sl-ssc
             hsPkgs.cardano-sl-util
             hsPkgs.cardano-report-server
+            hsPkgs.clock
             hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.directory
@@ -48,7 +49,6 @@ let
             hsPkgs.exceptions
             hsPkgs.filepath
             hsPkgs.formatting
-            hsPkgs.lzma-conduit
             hsPkgs.hashable
             hsPkgs.http-client
             hsPkgs.http-client-tls
@@ -60,20 +60,16 @@ let
             hsPkgs.network-info
             hsPkgs.network-transport
             hsPkgs.network-transport-tcp
+            hsPkgs.lzma-conduit
             hsPkgs.optparse-applicative
-            hsPkgs.reflection
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
             hsPkgs.stm
-            hsPkgs.clock
-            hsPkgs.tagged
-            hsPkgs.template-haskell
             hsPkgs.tar
-            hsPkgs.text
-            hsPkgs.formatting
             hsPkgs.time
+            hsPkgs.tagged
+            hsPkgs.text
             hsPkgs.time-units
-            hsPkgs.transformers
             hsPkgs.network-transport
             hsPkgs.universum
             hsPkgs.unordered-containers
@@ -88,6 +84,7 @@ let
             depends  = [
               hsPkgs.async
               hsPkgs.base
+              hsPkgs.cardano-sl-crypto-test
               hsPkgs.cardano-sl-infra
               hsPkgs.containers
               hsPkgs.QuickCheck

@@ -10,6 +10,7 @@
       "json-sop" = hsPkgs.json-sop."0.2.0.3";
       "lens-sop" = hsPkgs.lens-sop."0.2.0.2";
       "lzma-clib" = hsPkgs.lzma-clib."5.2.2";
+      "micro-recursion-schemes" = hsPkgs.micro-recursion-schemes."5.0.2.2";
       "servant-multipart" = hsPkgs.servant-multipart."0.11.2";
       "Chart-diagrams" = hsPkgs.Chart-diagrams."1.8.2";
       "pretty-show" = hsPkgs.pretty-show."1.7";
@@ -40,8 +41,6 @@
       cardano-sl-db = ./.stack.nix/cardano-sl-db.nix;
       cardano-sl-lrc = ./.stack.nix/cardano-sl-lrc.nix;
       cardano-sl-lrc-test = ./.stack.nix/cardano-sl-lrc-test.nix;
-      cardano-sl-sinbin = ./.stack.nix/cardano-sl-sinbin.nix;
-      cardano-sl-sinbin-test = ./.stack.nix/cardano-sl-sinbin-test.nix;
       cardano-sl-infra = ./.stack.nix/cardano-sl-infra.nix;
       cardano-sl-infra-test = ./.stack.nix/cardano-sl-infra-test.nix;
       cardano-sl-ssc = ./.stack.nix/cardano-sl-ssc.nix;
@@ -54,7 +53,6 @@
       cardano-sl-delegation-test = ./.stack.nix/cardano-sl-delegation-test.nix;
       cardano-sl-block = ./.stack.nix/cardano-sl-block.nix;
       cardano-sl-block-test = ./.stack.nix/cardano-sl-block-test.nix;
-      cardano-sl-block-bench = ./.stack.nix/cardano-sl-block-bench.nix;
       cardano-sl = ./.stack.nix/cardano-sl.nix;
       cardano-sl-generator = ./.stack.nix/cardano-sl-generator.nix;
       cardano-sl-client = ./.stack.nix/cardano-sl-client.nix;
@@ -89,9 +87,5 @@
       serokell-util = ./.stack.nix/serokell-util.nix;
       canonical-json = ./.stack.nix/canonical-json.nix;
       clock = ./.stack.nix/clock.nix;
-      # hack libiserv in...
-      libiserv = ./libiserv-8.5;
-      remote-iserv = ./remote-iserv-8.5;
-      iserv-proxy = ./iserv-proxy-8.5;
-   };
+    };
 }

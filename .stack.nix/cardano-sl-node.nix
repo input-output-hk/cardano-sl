@@ -28,7 +28,6 @@ let
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
-              hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl
               hsPkgs.log-warper

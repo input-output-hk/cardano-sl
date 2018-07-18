@@ -27,14 +27,14 @@ let
             hsPkgs.base
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
-            hsPkgs.cardano-sl-util
             hsPkgs.cardano-sl-util-test
             hsPkgs.cborg
             hsPkgs.cereal
             hsPkgs.cryptonite
+            hsPkgs.containers
             hsPkgs.directory
+            hsPkgs.cryptonite
             hsPkgs.filepath
-            hsPkgs.file-embed
             hsPkgs.formatting
             hsPkgs.half
             hsPkgs.hedgehog
@@ -43,10 +43,9 @@ let
             hsPkgs.pretty-show
             hsPkgs.quickcheck-instances
             hsPkgs.safecopy
+            hsPkgs.serokell-util
             hsPkgs.template-haskell
             hsPkgs.text
-            hsPkgs.formatting
-            hsPkgs.tagged
             hsPkgs.universum
           ];
           build-tools = [

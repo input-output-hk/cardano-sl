@@ -28,6 +28,7 @@ let
             hsPkgs.async
             hsPkgs.attoparsec
             hsPkgs.base
+            hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-util
             hsPkgs.containers
             hsPkgs.cryptonite
@@ -39,7 +40,6 @@ let
             hsPkgs.kademlia
             hsPkgs.lens
             hsPkgs.log-warper
-            hsPkgs.mmorph
             hsPkgs.monad-control
             hsPkgs.mtl
             hsPkgs.network
@@ -48,18 +48,13 @@ let
             hsPkgs.mtl
             hsPkgs.random
             hsPkgs.resourcet
-            hsPkgs.transformers-lift
             hsPkgs.universum
-            hsPkgs.unliftio-core
             hsPkgs.safe-exceptions
-            hsPkgs.serokell-util
             hsPkgs.stm
             hsPkgs.text
             hsPkgs.formatting
             hsPkgs.time
             hsPkgs.time-units
-            hsPkgs.transformers
-            hsPkgs.transformers-base
             hsPkgs.ekg-core
           ];
         };

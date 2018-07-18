@@ -23,20 +23,28 @@ let
         "cardano-sl-util-test" = {
           depends  = [
             hsPkgs.QuickCheck
+            hsPkgs.aeson
             hsPkgs.attoparsec
             hsPkgs.base
             hsPkgs.base16-bytestring
             hsPkgs.bytestring
             hsPkgs.cardano-sl-util
             hsPkgs.cryptonite
+            hsPkgs.directory
+            hsPkgs.file-embed
+            hsPkgs.filepath
             hsPkgs.formatting
             hsPkgs.hedgehog
             hsPkgs.hspec
             hsPkgs.mtl
+            hsPkgs.pretty-show
             hsPkgs.quickcheck-instances
             hsPkgs.tagged
+            hsPkgs.template-haskell
+            hsPkgs.text
             hsPkgs.time-units
             hsPkgs.universum
+            hsPkgs.unordered-containers
           ];
           build-tools = [
             hsPkgs.buildPackages.cpphs

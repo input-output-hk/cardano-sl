@@ -95,7 +95,6 @@ let
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-explorer
               hsPkgs.cardano-sl-networking
-              hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
               hsPkgs.log-warper
               hsPkgs.optparse-applicative
@@ -155,7 +154,6 @@ let
               hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-binary-test
-              hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-block-test
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-core-test
@@ -186,8 +184,6 @@ let
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-core-test
               hsPkgs.cardano-sl-explorer
-              hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.criterion
               hsPkgs.universum
               hsPkgs.weigh

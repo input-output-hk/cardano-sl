@@ -118,7 +118,6 @@ let
     inherit system;
     overlays = [ overlay ];
     config = config;
-    crossSystem = (import <nixpkgs/lib>).systems.examples.mingwW64;
   } // (if target != null
         then { crossSystem = { win64   = (import <nixpkgs/lib>).systems.examples.mingwW64;
                                macOS   = abort "macOS target not available";
@@ -171,6 +170,12 @@ pkgs.haskellPackages.override rec {
       then doTemplateHaskellMingw32 pkg
       else assert buildPlatform == hostPlatform; pkg;
 
+  appendPatchMingw = pkg: p:
+    with pkg.stdenv;
+      if hostPlatform.isWindows
+      then appendPatch pkg p
+      else pkg;
+
   addGitRev = subject: subject.overrideAttrs (drv: { GITREV = "blahblahblah"; });
   doTemplateHaskellVerbose = pkg: with pkgs.haskell.lib; let
     buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
@@ -208,11 +213,11 @@ pkgs.haskellPackages.override rec {
         '';
         buildFlags =  [ "--ghc-option=-debug" ];
       });
-    streaming-commons     = appendPatch super.streaming-commons  ./streaming-commons-0.2.0.0.patch;
-    cryptonite-openssl    = appendPatch super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
-    x509-system           = appendPatch super.x509-system        ./x509-system-1.6.6.patch;
-    conduit               = appendPatch super.conduit            ./conduit-1.3.0.2.patch;
-    file-embed-lzma       = appendPatch super.file-embed-lzma    ./file-embed-lzma-0.patch;
+    streaming-commons     = appendPatchMingw super.streaming-commons  ./streaming-commons-0.2.0.0.patch;
+    cryptonite-openssl    = appendPatchMingw super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
+    x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;
+    conduit               = appendPatchMingw super.conduit            ./conduit-1.3.0.2.patch;
+    file-embed-lzma       = appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch;
     
     ether                 = doTemplateHaskell super.ether;
     generics-sop          = doTemplateHaskell super.generics-sop;

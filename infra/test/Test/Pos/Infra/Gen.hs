@@ -15,6 +15,9 @@ module Test.Pos.Infra.Gen
         -- Slotting Generators
         , genEpochSlottingData
         , genSlottingData
+
+        -- Pos.Infra.Communication Generators
+        , genHandlerSpec
         ) where
 
 import           Universum
@@ -27,9 +30,9 @@ import           Network.Kademlia.HashNodeId (genNonce, hashAddress)
 
 import           Pos.Core (EpochIndex (..))
 import           Pos.Crypto.Random (deterministic)
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
-                     HandlerSpec (..), InvMsg (..), MempoolMsg (..),
-                     ReqMsg (..), ResMsg (..))
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
+                     MempoolMsg (..), ReqMsg (..), ResMsg (..))
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
                      createSlottingDataUnsafe)

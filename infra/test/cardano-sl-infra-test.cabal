@@ -19,11 +19,16 @@ library
                        Test.Pos.Infra.Arbitrary.Ssc
                        Test.Pos.Infra.Arbitrary.Txp
                        Test.Pos.Infra.Arbitrary.Update
+                       Test.Pos.Infra.Bi
+                       Test.Pos.Infra.Diffusion.Subscription.StatusSpec
+                       Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
                        Test.Pos.Infra.Gen
 
   build-depends:       QuickCheck
+                     , async
                      , base
                      , bytestring
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
@@ -36,6 +41,7 @@ library
                      , containers
                      , generic-arbitrary
                      , hedgehog
+                     , hspec
                      , kademlia
                      , universum
 
@@ -43,5 +49,6 @@ library
 
   ghc-options:         -Wall
                        -O2
+                       -threaded
 
   default-extensions:  NoImplicitPrelude

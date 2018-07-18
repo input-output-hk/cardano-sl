@@ -1401,9 +1401,11 @@ there will be several refinements to this general principle:
 
   - Pool rewards will slightly increase with the stake of their leader. There is
     no minimal stake required to create a pool - anybody can do this. However,
-    pools led by leaders with high stake will get higher rewards. (Otherwise, somebody with
-    low stake could easily and cheaply create several pools and gain control over a majority of
-    stake.)
+    pools led by leaders with high stake will get higher rewards.
+    (This will discourage pool leaders from splitting their stake to operate
+    several pools. It will also help preventing Sybil attacks,
+    where an attacker with low stake tries to gain control over a majority of
+    stake by creating a lot of pools with low costs.)
 
 Our game theoretic analysis has shown that if stakeholders try to maximize their
 rewards in a "short-sighted" (_myopic_) way (pool members joining the pool with the highest
@@ -1753,29 +1755,62 @@ hand. A value of $k=100$ seems to be reasonable.
 As explained above, parameter $a_0$ determines the influence that a pool
 leader's stake has on pool rewards.
 
-Our game theoretic analysis predicts that the $k$ pools with the highest value
-of $a_0s-c$ (stake $s$, cost $c$) will create the saturated pools.
-If we assume $s=\frac{1}{k}$ for those highest ranking pools, an attacker who is
-willing to claim zero costs would need stake $s$ satisfying
+Our game theoretic analysis predicts that the $k$ pools with the highest
+_potential_, the highest value
+of
 $$
-    a_0\cdot s - 0 > a_0\cdot\frac{1}{k} - c
+    P(\lambda,c):=\left(z_0+a_0\cdot\lambda\right)\cdot\frac{R}{1+a_0}-c
 $$
-to get one saturated pool. If therefore we want anybody who
-strives for a majority of votes to have stake at least $S$,
-then $s=\frac{S}{k/2}$, and we get
+(where $\lambda$ is the stake commited by the pool leader and $c$ are the pool costs)
+will create the saturated pools.
+
+Let us consider an attacker with stake $S < \frac{1}{2}$, who wants to gain control over a
+majority of stake. This means he has to lead $\frac{k}{2}$ pools,
+committing $\lambda=\frac{2S}{k}$ stake to each. 
+
+In order for his $\frac{k}{2}$ pools to be successful,
+each of these needs to have higher potential than the honest stakeholder
+with the $\frac{k}{2}$-highest potential has. 
+If that honest player has commited stake $\tilde{\lambda}\leq\frac{1}{k}$ and has costs
+$\tilde{c}$ and if our malicious attacker is willing to lie and claim zero
+costs, this means
 $$
-    a_0\cdot\frac{S}{k/2}<a_0\cdot\frac{1}{k}-c
-    \;\Longrightarrow\;
-    a_0\left(\frac{1}{k}-\frac{S}{k/2}\right)=a_0\cdot\frac{1-2S}{k}>c
-    \;\Longrightarrow\;
-    a_0>\frac{ck}{1-2S}.
+\begin{split}
+    P\left(\frac{2S}{k}, 0\right) > P(\tilde{\lambda}, \tilde{c})
+    &\Longleftrightarrow
+    \left(z_0+a_0\cdot\frac{2S}{k}\right)\cdot\frac{R}{1+a_0} > \left(z_0+a_0\cdot\tilde{\lambda}\right)\cdot\frac{R}{1+a_0}-\tilde{c} \\
+    &\Longleftrightarrow
+    a_0\cdot\frac{2S}{k}\cdot\frac{R}{1+a_0} > a_0\cdot\tilde{\lambda}\cdot\frac{R}{1+a_0}-\tilde{c} \\
+    &\Longleftrightarrow
+    a_0\cdot\left(\frac{2S}{k}-\tilde{\lambda}\right)\cdot\frac{R}{1+a_0} > -\tilde{c} \\
+    &\stackrel{a_0>0}{\Longleftrightarrow}
+    \frac{2S}{k}-\tilde{\lambda} > -\frac{\tilde{c}\cdot(1+a_0)}{R\cdot a_0} =
+    \frac{\tilde{c}}{R}\cdot\left(1 + \frac{1}{a_0}\right) \\
+    &\Longleftrightarrow
+    S > \frac{k}{2}\cdot\left[\tilde{\lambda}-\frac{\tilde{c}}{R}\cdot\left(1+\frac{1}{a_0}\right)\right] \\
+\end{split}
 $$
-So for example, for $k=100$, $c=0.001$ and $S=0.1$, we would get
+
+So for example, for $k=100$, $\tilde{\lambda}=0.01$, $\tilde{c}=0.001$ and $R=1$, the attacker would need to
+create 50 pools, and his stake $S$ would need to satisfy
 $$
-    a_0>\frac{0.001\cdot 100}{1-2\cdot 0.1}
-    =\frac{0.1}{0.8}
-    =0.125.
+    S 
+    > 50\cdot\left[0.01-0.001\cdot\left(1+\frac{1}{a_0}\right)\right]
+    = 0.5 - 0.05\cdot\left(1+\frac{1}{a_0}\right)\\
 $$
+
+In the following table, we can see how the choice of $a_0$ influences the
+minimal stake $S$ needed for a successful attack in this example.
+
+\begin{tabular}[t]{rr}
+    $a_0$ & $S$ \\
+    \hline
+    0.115 & 0.0152 \\
+    0.150 & 0.1167 \\
+    0.200 & 0.2000 \\
+    0.250 & 0.2500 \\
+    0.300 & 0.2833 \\
+\end{tabular}
 
 ![Effect of different choices for $a_0$\label{figrewards}](rewards.png)
 

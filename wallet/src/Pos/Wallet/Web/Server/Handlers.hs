@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Handlers
 import           Universum
 
 import           Ntp.Client (NtpStatus)
+
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
 import           Servant.API ((:<|>) ((:<|>)))
 import           Servant.Generic (AsServerT, GenericProduct, ToServant,

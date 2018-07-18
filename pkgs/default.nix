@@ -16643,7 +16643,6 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
-, aeson-options
 , async
 , base
 , base64-bytestring
@@ -16719,7 +16718,6 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 aeson
-aeson-options
 async
 base
 base64-bytestring
@@ -16984,6 +16982,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
+, aeson-options
 , async
 , attoparsec
 , base
@@ -17038,6 +17037,7 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 aeson
+aeson-options
 async
 attoparsec
 base

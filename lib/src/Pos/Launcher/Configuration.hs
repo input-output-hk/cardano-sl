@@ -34,6 +34,8 @@ import           System.FilePath (takeDirectory)
 import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
                      usingLoggerName)
 
+import           Ntp.Client (NtpConfiguration)
+
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration ()
@@ -45,7 +47,6 @@ import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Delegation.Configuration
-import           Pos.Infra.Ntp.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Txp.Configuration
 import           Pos.Update.Configuration

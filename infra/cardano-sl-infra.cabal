@@ -98,9 +98,6 @@ library
                         Pos.Infra.Statistics.Ekg
                         Pos.Infra.Statistics.Statsd
 
-                        -- NTP
-                        Pos.Infra.Ntp.Configuration
-
                         -- Pos.Infra.Binary
                         Pos.Infra.Binary
                         Pos.Infra.Binary.DHTModel
@@ -116,7 +113,6 @@ library
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson
-                      , aeson-options
                       , async
                       , base
                       , parsec

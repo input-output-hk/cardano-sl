@@ -11,7 +11,9 @@
 -- | This module implements functionality of NTP client.
 
 module Ntp.Client
-    ( NtpClientSettings (..)
+    ( NtpConfiguration (..)
+    , NtpClientSettings (..)
+    , ntpClientSettings
     , NtpStatus (..)
     , withNtpClient
     ) where
@@ -24,11 +26,15 @@ import           Control.Concurrent.Async (async, cancel, concurrently_, race,
 import           Control.Concurrent.STM (TVar, modifyTVar', retry)
 import           Control.Exception (Exception, IOException, catch, handle)
 import           Control.Monad (forever)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
+import           Data.Aeson.Options (defaultOptions)
 import           Data.Binary (decodeOrFail)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup (Last (..))
-import           Data.Time.Units (Microsecond, TimeUnit, toMicroseconds)
+import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds,
+                     toMicroseconds)
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import qualified Network.Socket as Socket
@@ -78,6 +84,32 @@ data NtpClient = NtpClient
       -- once all responses arrived.
     , ncSettings :: NtpClientSettings
       -- ^ Ntp client configuration.
+    }
+
+data NtpConfiguration = NtpConfiguration
+    {
+      ntpcServers         :: [String]
+      -- ^ List of DNS names of ntp servers
+    , ntpcResponseTimeout :: !Integer
+      -- ^ how long to await for responses from ntp servers (in microseconds)
+    , ntpcPollDelay       :: !Integer
+      -- ^ how long to wait between sending requests to the ntp servers (in
+      -- microseconds)
+    } deriving (Show, Generic)
+
+instance FromJSON NtpConfiguration where
+    parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON NtpConfiguration where
+    toJSON = genericToJSON defaultOptions
+
+ntpClientSettings :: NtpConfiguration -> NtpClientSettings
+ntpClientSettings NtpConfiguration {..} = NtpClientSettings
+    { ntpServers         = ntpcServers
+    , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
+    , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
+    , ntpSelection       = minimum . NE.map abs
+    -- ^ Take minmum of received offsets.
     }
 
 mkNtpClient :: NtpClientSettings -> TVar NtpStatus -> Sockets -> IO NtpClient

@@ -1,6 +1,8 @@
 { stdenv, fetchurl, scons, zlib, pkgs
 , arch ? "x86" # or "amd64" for 64bit
+, gcc
 }:
+with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "nsis";
   version = "3.03";
@@ -9,7 +11,7 @@ stdenv.mkDerivation rec {
     sha256 = "abae7f4488bc6de7a4dd760d5f0e7cd3aad7747d4d7cd85786697c8991695eaa";
   };
 
-  nativeBuildInputs = [ scons ];
+  nativeBuildInputs = [ scons ] ++ optional stdenv.isLinux gcc;
 
   buildInputs = [ zlib ];
 

@@ -24,19 +24,6 @@ Library
                         Network.Broadcast.OutboundQueue.Demo
 
                         Node
-
-                        Mockable
-                        Mockable.Channel
-                        Mockable.Class
-                        Mockable.Concurrent
-                        Mockable.CurrentTime
-                        Mockable.Instances
-                        Mockable.Monad
-                        Mockable.Production
-                        Mockable.SharedAtomic
-                        Mockable.SharedExclusive
-                        Mockable.Metrics
-
                         Node.Internal
                         Node.Conversation
                         Node.Message.Decoder
@@ -48,11 +35,6 @@ Library
                         Ntp.Client
 
                         Bench.Network.Commons
-
-                        JsonLog
-                        JsonLog.CanJsonLog
-                        JsonLog.Event
-                        JsonLog.JsonLogT
 
   other-modules:        Ntp.Packet
                         Ntp.Util

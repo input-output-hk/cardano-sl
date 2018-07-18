@@ -9,7 +9,7 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 
-import           Util.Validated
+import           Data.Validated
 import           UTxO.DSL
 import           Wallet.Abstract
 import           Wallet.Inductive

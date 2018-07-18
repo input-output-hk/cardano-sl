@@ -34,8 +34,8 @@ import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 
+import           Data.Validated
 import           Util.Buildable
-import           Util.Validated
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)
 import qualified UTxO.DSL as DSL

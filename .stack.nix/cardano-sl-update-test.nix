@@ -29,11 +29,8 @@ let
             hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-crypto-test
-            hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-sinbin-test
             hsPkgs.cardano-sl-update
             hsPkgs.cardano-sl-util-test
-            hsPkgs.containers
             hsPkgs.generic-arbitrary
             hsPkgs.universum
             hsPkgs.unordered-containers

@@ -20,23 +20,6 @@ let
         buildType = "Simple";
       };
       components = {
-        "cardano-sl-txp-test" = {
-          depends  = [
-            hsPkgs.QuickCheck
-            hsPkgs.base
-            hsPkgs.cardano-sl-binary
-            hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-core-test
-            hsPkgs.cardano-sl-crypto
-            hsPkgs.cardano-sl-crypto-test
-            hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-txp
-            hsPkgs.cardano-sl-util-test
-            hsPkgs.data-default
-            hsPkgs.generic-arbitrary
-            hsPkgs.universum
-            hsPkgs.vector
-          ];
-        };
+        "cardano-sl-txp-test" = {};
       };
     } // rec { src = ../txp/test; }

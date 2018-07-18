@@ -23,6 +23,7 @@ let
         "cardano-sl-core-test" = {
           depends  = [
             hsPkgs.QuickCheck
+            hsPkgs.aeson
             hsPkgs.base
             hsPkgs.base16-bytestring
             hsPkgs.bytestring
@@ -35,20 +36,16 @@ let
             hsPkgs.cardano-sl-util
             hsPkgs.cardano-sl-util-test
             hsPkgs.containers
-            hsPkgs.cardano-sl-util-test
             hsPkgs.cryptonite
-            hsPkgs.cryptonite-openssl
             hsPkgs.data-default
+            hsPkgs.ed25519
             hsPkgs.formatting
             hsPkgs.generic-arbitrary
             hsPkgs.hedgehog
-            hsPkgs.hspec
-            hsPkgs.mtl
             hsPkgs.pvss
             hsPkgs.quickcheck-instances
             hsPkgs.random
             hsPkgs.serokell-util
-            hsPkgs.tagged
             hsPkgs.text
             hsPkgs.time-units
             hsPkgs.universum

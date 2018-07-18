@@ -39,13 +39,11 @@ let
           "dbgen" = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
               hsPkgs.base
-              hsPkgs.acid-state
               hsPkgs.acid-state-exts
               hsPkgs.aeson
               hsPkgs.ansi-terminal
               hsPkgs.bytestring
               hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-core-test
@@ -53,22 +51,17 @@ let
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
               hsPkgs.containers
-              hsPkgs.cryptonite
               hsPkgs.data-default
-              hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.mtl
               hsPkgs.network-transport-tcp
               hsPkgs.optparse-applicative
               hsPkgs.optparse-applicative
               hsPkgs.optparse-generic
               hsPkgs.optparse-generic
               hsPkgs.QuickCheck
-              hsPkgs.serokell-util
               hsPkgs.stm
               hsPkgs.string-conv
               hsPkgs.text
@@ -109,7 +102,6 @@ let
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
-              hsPkgs.cryptonite
               hsPkgs.directory
               hsPkgs.filepath
               hsPkgs.formatting

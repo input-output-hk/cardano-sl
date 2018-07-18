@@ -33,6 +33,7 @@ let
             hsPkgs.beam-migrate
             hsPkgs.beam-sqlite
             hsPkgs.bytestring
+            hsPkgs.cardano-crypto
             hsPkgs.cardano-sl
             hsPkgs.cardano-sl-block
             hsPkgs.cardano-sl-client
@@ -72,7 +73,9 @@ let
             hsPkgs.network-transport
             hsPkgs.optparse-applicative
             hsPkgs.QuickCheck
+            hsPkgs.mwc-random
             hsPkgs.reflection
+            hsPkgs.retry
             hsPkgs.safe-exceptions
             hsPkgs.safecopy
             hsPkgs.serokell-util
@@ -109,11 +112,6 @@ let
           "cardano-node" = {
             depends  = [
               hsPkgs.base
-              hsPkgs.QuickCheck
-              hsPkgs.acid-state
-              hsPkgs.aeson
-              hsPkgs.aeson-pretty
-              hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
@@ -124,7 +122,6 @@ let
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
               hsPkgs.cardano-sl-wallet-new
-              hsPkgs.conduit
               hsPkgs.log-warper
               hsPkgs.stm
               hsPkgs.text
@@ -172,12 +169,6 @@ let
               hsPkgs.text
               hsPkgs.formatting
               hsPkgs.universum
-              hsPkgs.unordered-containers
-              hsPkgs.wai
-              hsPkgs.wai-cors
-              hsPkgs.wai-extra
-              hsPkgs.warp
-              hsPkgs.x509
               hsPkgs.x509-store
             ];
           };
@@ -185,9 +176,9 @@ let
         tests = {
           "wallet-unit-tests" = {
             depends  = [
+              hsPkgs.acid-state
               hsPkgs.base
               hsPkgs.bytestring
-              hsPkgs.acid-state
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-client
@@ -199,7 +190,6 @@ let
               hsPkgs.cardano-sl-lrc
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet-new
@@ -209,13 +199,16 @@ let
               hsPkgs.data-default
               hsPkgs.formatting
               hsPkgs.hspec
+              hsPkgs.ixset-typed
               hsPkgs.lens
               hsPkgs.log-warper
               hsPkgs.mtl
               hsPkgs.QuickCheck
               hsPkgs.quickcheck-instances
               hsPkgs.safe-exceptions
+              hsPkgs.reflection
               hsPkgs.serokell-util
+              hsPkgs.servant-server
               hsPkgs.tabl
               hsPkgs.text
               hsPkgs.formatting
@@ -235,7 +228,6 @@ let
           "wallet-new-specs" = {
             depends  = [
               hsPkgs.base
-              hsPkgs.acid-state
               hsPkgs.aeson
               hsPkgs.bytestring
               hsPkgs.cardano-sl
@@ -244,7 +236,6 @@ let
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test
               hsPkgs.cardano-sl-wallet
               hsPkgs.cardano-sl-wallet-new
@@ -260,7 +251,6 @@ let
               hsPkgs.servant
               hsPkgs.servant-server
               hsPkgs.servant-swagger
-              hsPkgs.servant-swagger-ui
               hsPkgs.string-conv
               hsPkgs.swagger2
               hsPkgs.text
@@ -273,7 +263,6 @@ let
           "cardano-sl-wallet-new-bench" = {
             depends  = [
               hsPkgs.aeson
-              hsPkgs.aeson-options
               hsPkgs.async
               hsPkgs.base
               hsPkgs.bytestring
@@ -282,7 +271,6 @@ let
               hsPkgs.cardano-sl-wallet
               hsPkgs.cassava
               hsPkgs.connection
-              hsPkgs.cryptonite
               hsPkgs.data-default
               hsPkgs.gauge
               hsPkgs.http-client

@@ -24,8 +24,6 @@ let
           depends  = [
             hsPkgs.QuickCheck
             hsPkgs.base
-            hsPkgs.bytestring
-            hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto

@@ -31,16 +31,12 @@ let
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
-            hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-lrc
-            hsPkgs.cardano-sl-networking
-            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
             hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.data-default
             hsPkgs.deepseq
-            hsPkgs.directory
             hsPkgs.ether
             hsPkgs.exceptions
             hsPkgs.formatting
@@ -51,12 +47,9 @@ let
             hsPkgs.reflection
             hsPkgs.resourcet
             hsPkgs.rocksdb-haskell-ng
-            hsPkgs.safe-exceptions
             hsPkgs.serokell-util
             hsPkgs.stm
             hsPkgs.tagged
-            hsPkgs.template-haskell
-            hsPkgs.formatting
             hsPkgs.time-units
             hsPkgs.transformers
             hsPkgs.universum

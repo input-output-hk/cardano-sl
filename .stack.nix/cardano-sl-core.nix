@@ -27,15 +27,15 @@ let
             hsPkgs.aeson
             hsPkgs.aeson-options
             hsPkgs.ansi-terminal
+            hsPkgs.async
             hsPkgs.base
             hsPkgs.base58-bytestring
-            hsPkgs.bifunctors
             hsPkgs.bytestring
             hsPkgs.Cabal
             hsPkgs.canonical-json
+            hsPkgs.cardano-report-server
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-crypto
-            hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-util
             hsPkgs.cborg
             hsPkgs.cereal
@@ -44,6 +44,8 @@ let
             hsPkgs.data-default
             hsPkgs.deepseq
             hsPkgs.deriving-compat
+            hsPkgs.ekg-core
+            hsPkgs.ether
             hsPkgs.exceptions
             hsPkgs.extra
             hsPkgs.filepath
@@ -52,21 +54,29 @@ let
             hsPkgs.hashable
             hsPkgs.lens
             hsPkgs.log-warper
+            hsPkgs.parsec
             hsPkgs.memory
+            hsPkgs.mmorph
+            hsPkgs.monad-control
             hsPkgs.mtl
             hsPkgs.plutus-prototype
             hsPkgs.random
             hsPkgs.reflection
+            hsPkgs.resourcet
             hsPkgs.safecopy
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
+            hsPkgs.stm
             hsPkgs.template-haskell
             hsPkgs.text
-            hsPkgs.formatting
             hsPkgs.th-lift-instances
             hsPkgs.time
             hsPkgs.time-units
+            hsPkgs.transformers
+            hsPkgs.transformers-base
+            hsPkgs.transformers-lift
             hsPkgs.universum
+            hsPkgs.unliftio-core
             hsPkgs.unordered-containers
             hsPkgs.vector
           ];
@@ -77,6 +87,7 @@ let
         tests = {
           "test" = {
             depends  = [
+              hsPkgs.aeson
               hsPkgs.base
               hsPkgs.base16-bytestring
               hsPkgs.bytestring
@@ -91,6 +102,7 @@ let
               hsPkgs.containers
               hsPkgs.cryptonite
               hsPkgs.deepseq
+              hsPkgs.ed25519
               hsPkgs.formatting
               hsPkgs.generic-arbitrary
               hsPkgs.hedgehog

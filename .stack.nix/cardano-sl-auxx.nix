@@ -86,14 +86,12 @@ let
               hsPkgs.base
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-auxx
-              hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
-              hsPkgs.cardano-sl-update
               hsPkgs.log-warper
               hsPkgs.temporary
               hsPkgs.network-transport-tcp

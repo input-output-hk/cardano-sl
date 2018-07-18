@@ -37,9 +37,7 @@ let
             hsPkgs.cardano-sl-delegation
             hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-lrc
-            hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-ssc
-            hsPkgs.cardano-sl-ssc-test
             hsPkgs.cardano-sl-txp
             hsPkgs.cardano-sl-update
             hsPkgs.cardano-sl-util
@@ -91,7 +89,6 @@ let
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-ssc-test
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test

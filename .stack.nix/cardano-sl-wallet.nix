@@ -68,7 +68,6 @@ let
             hsPkgs.memory
             hsPkgs.monad-control
             hsPkgs.mtl
-            hsPkgs.quickcheck-instances
             hsPkgs.random
             hsPkgs.reflection
             hsPkgs.safe-exceptions
@@ -125,13 +124,11 @@ let
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-txp-test
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test
               hsPkgs.cardano-sl-wallet
               hsPkgs.containers
-              hsPkgs.cryptonite
               hsPkgs.data-default
               hsPkgs.deepseq
               hsPkgs.ekg-core
@@ -140,9 +137,7 @@ let
               hsPkgs.hspec
               hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.memory
               hsPkgs.mtl
-              hsPkgs.quickcheck-instances
               hsPkgs.safe-exceptions
               hsPkgs.safecopy
               hsPkgs.serokell-util

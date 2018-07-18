@@ -28,15 +28,9 @@ let
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
-            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
-            hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-networking
-            hsPkgs.cardano-sl-sinbin
             hsPkgs.cardano-sl-util
-            hsPkgs.cardano-sl-util-test
             hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.data-default
@@ -46,7 +40,6 @@ let
             hsPkgs.fmt
             hsPkgs.formatting
             hsPkgs.free
-            hsPkgs.generic-arbitrary
             hsPkgs.hashable
             hsPkgs.lens
             hsPkgs.log-warper
@@ -61,7 +54,6 @@ let
             hsPkgs.serokell-util
             hsPkgs.stm
             hsPkgs.reflection
-            hsPkgs.tagged
             hsPkgs.template-haskell
             hsPkgs.text
             hsPkgs.formatting
@@ -69,7 +61,6 @@ let
             hsPkgs.universum
             hsPkgs.unliftio
             hsPkgs.unordered-containers
-            hsPkgs.vector
           ];
           build-tools = [
             hsPkgs.buildPackages.cpphs
@@ -79,18 +70,14 @@ let
           "test" = {
             depends  = [
               hsPkgs.base
-              hsPkgs.cardano-sl-binary
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-core-test
               hsPkgs.cardano-sl-crypto
-              hsPkgs.cardano-sl-crypto-test
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-util-test
               hsPkgs.containers
-              hsPkgs.data-default
               hsPkgs.fmt
-              hsPkgs.generic-arbitrary
               hsPkgs.hspec
               hsPkgs.lens
               hsPkgs.mtl

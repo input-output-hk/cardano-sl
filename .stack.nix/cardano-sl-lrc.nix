@@ -26,10 +26,8 @@ let
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-db
-            hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-txp
             hsPkgs.cardano-sl-util
             hsPkgs.conduit
@@ -37,7 +35,6 @@ let
             hsPkgs.formatting
             hsPkgs.lens
             hsPkgs.log-warper
-            hsPkgs.reflection
             hsPkgs.rocksdb-haskell-ng
             hsPkgs.formatting
             hsPkgs.universum

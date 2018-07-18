@@ -47,7 +47,7 @@ let
       # means we do not need the gcc7 hack
       # in our nixpkgs to allow mingw with
       # libwinpthreads.
-      rocksdb = buildPackages.callPackage ./rocksdb-prebuilt.nix {};
+      rocksdb = pkgs.callPackage ./rocksdb-prebuilt.nix { inherit (buildPackages) fetchurl unzip; };
 
       # on windows we have this habit of putting libraries
       # into `bin`, wheras on unix it's usually `lib`. For
@@ -249,12 +249,7 @@ pkgs.haskellPackages.override rec {
     cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
     cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
-    cardano-sl-wallet-new = addBuildDepends
-                              (doTemplateHaskell (addGitRev super.cardano-sl-wallet-new))
-                              # TODO: why do we need to explicity addBuilDepends his?
-                              #       it should have been propagated from
-                              #       rocksdb-haskell-ng?
-                              [ pkgs.rocksdb ];
+    cardano-sl-wallet-new = doTemplateHaskell (addGitRev super.cardano-sl-wallet-new);
 
     cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
 
@@ -269,7 +264,5 @@ pkgs.haskellPackages.override rec {
 
     # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
     libiserv              = super.libiserv.override           { flags = { network = true; }; };
-
-    rocksdb-haskell-ng    = appendConfigureFlag super.rocksdb-haskell-ng "--ghc-options=-v3";
   };
 } // { pkgs-x = pkgs; }

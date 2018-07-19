@@ -19,6 +19,7 @@ import           System.Wlog (Severity (Debug))
 import           Pos.Chain.Block (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
@@ -29,13 +30,15 @@ import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
-                     RawResolvedBlock (..), fromRawResolvedBlock)
+                     RawResolvedBlock (..), WalletId (..),
+                     fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAddressError (..), CreateWalletError (..),
-                     EstimateFeesError (..), NewPaymentError (..),
-                     PassiveWalletLayer (..), WalletLayerError (..))
+                     CreateAccountError (..), CreateAddressError (..),
+                     CreateWalletError (..), EstimateFeesError (..),
+                     NewPaymentError (..), PassiveWalletLayer (..),
+                     WalletLayerError (..))
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
@@ -142,7 +145,45 @@ bracketPassiveWallet logFunction keystore rocksDB f =
             , _pwlUpdateWallet   = error "Not implemented!"
             , _pwlDeleteWallet   = error "Not implemented!"
 
-            , _pwlCreateAccount  = error "Not implemented!"
+            , _pwlCreateAccount  =
+                \(V1.WalletId wId) (V1.NewAccount mbSpendingPassword accountName) -> do
+                    liftIO $ limitExecutionTimeTo (30 :: Second) CreateAccountTimeLimitReached $ do
+                        case decodeTextAddress wId of
+                             Left _ ->
+                                 return $ Left (CreateAccountWalletIdDecodingFailed wId)
+                             Right rootAddr -> do
+                                let hdRootId = HD.HdRootId . InDb $ rootAddr
+                                let passPhrase = maybe mempty coerce mbSpendingPassword
+                                res <- liftIO $ Kernel.createAccount passPhrase
+                                                                     (HD.AccountName accountName)
+                                                                     (WalletIdHdRnd hdRootId)
+                                                                     wallet
+                                case res of
+                                     Right newAccount -> do
+                                         -- Create a new address to go in tandem
+                                         -- with this brand-new 'Account'.
+                                         let accountId = newAccount ^. HD.hdAccountId
+                                         newAddrE <- Kernel.createAddress passPhrase
+                                                                          (AccountIdHdRnd accountId)
+                                                                          wallet
+                                         return $ case newAddrE of
+                                              Left e -> Left $ CreateAccountFirstAddressGenerationFailed e
+                                              Right addr ->
+                                                  Right V1.Account {
+                                                      accIndex     = accountId ^. HD.hdAccountIdIx
+                                                                                . to HD.getHdAccountIx
+                                                    , accAddresses = [
+                                                        V1.WalletAddress {
+                                                           addrId            = V1.V1 addr
+                                                         , addrUsed          = False
+                                                         , addrChangeAddress = False
+                                                        }
+                                                        ]
+                                                    , accAmount    = V1.V1 (Core.mkCoin 0)
+                                                    , accName      = accountName
+                                                    , accWalletId  = V1.WalletId wId
+                                                    }
+                                     Left  err        -> return (Left $ CreateAccountError err)
             , _pwlGetAccounts    = error "Not implemented!"
             , _pwlGetAccount     = error "Not implemented!"
             , _pwlUpdateAccount  = error "Not implemented!"

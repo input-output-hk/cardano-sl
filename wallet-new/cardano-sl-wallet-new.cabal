@@ -40,6 +40,7 @@ library
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Generic
                        Cardano.Wallet.API.V1.Handlers
+                       Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
                        Cardano.Wallet.API.V1.Handlers.Transactions
                        Cardano.Wallet.API.V1.Handlers.Wallets
@@ -63,6 +64,7 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.Accounts
                        Cardano.Wallet.Kernel.Addresses
                        Cardano.Wallet.Kernel.BIP39
                        Cardano.Wallet.Kernel.CoinSelection

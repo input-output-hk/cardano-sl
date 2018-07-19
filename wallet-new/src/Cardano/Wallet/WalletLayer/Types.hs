@@ -24,6 +24,7 @@ module Cardano.Wallet.WalletLayer.Types
     , NewPaymentError(..)
     , EstimateFeesError(..)
     , CreateAddressError(..)
+    , CreateAccountError(..)
     ) where
 
 import qualified Prelude
@@ -38,6 +39,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
                      Payment, Wallet, WalletId, WalletUpdate)
 
+import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
@@ -111,6 +113,35 @@ instance Buildable CreateAddressError where
     build (CreateAddressTimeLimitReached timeLimit) =
         bprint ("CreateAddressTimeLimitReached " % build) timeLimit
 
+------------------------------------------------------------
+-- Errors when dealing with Accounts
+------------------------------------------------------------
+
+data CreateAccountError =
+      CreateAccountError Kernel.CreateAccountError
+    | CreateAccountWalletIdDecodingFailed Text
+    -- ^ Decoding the parent's 'WalletId' from a raw 'Text' failed.
+    | CreateAccountTimeLimitReached TimeExecutionLimit
+    | CreateAccountFirstAddressGenerationFailed Kernel.CreateAddressError
+    -- ^ When trying to create the first 'Address' to go in tandem with this
+    -- 'Account', the generation failed.
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show CreateAccountError where
+    show = formatToString build
+
+instance Exception CreateAccountError
+
+instance Buildable CreateAccountError where
+    build (CreateAccountError kernelError) =
+        bprint ("CreateAccountError " % build) kernelError
+    build (CreateAccountWalletIdDecodingFailed txt) =
+        bprint ("CreateAccountWalletIdDecodingFailed " % build) txt
+    build (CreateAccountTimeLimitReached timeLimit) =
+        bprint ("CreateAccountTimeLimitReached " % build) timeLimit
+    build (CreateAccountFirstAddressGenerationFailed kernelError) =
+        bprint ("CreateAccountFirstAddressGenerationFailed " % build) kernelError
 
 ------------------------------------------------------------
 -- General-purpose errors which may arise when working with
@@ -138,7 +169,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
     , _pwlDeleteWallet   :: WalletId -> m Bool
     -- * accounts
-    , _pwlCreateAccount  :: WalletId -> NewAccount -> m Account
+    , _pwlCreateAccount  :: WalletId -> NewAccount -> m (Either CreateAccountError Account)
     , _pwlGetAccounts    :: WalletId -> m [Account]
     , _pwlGetAccount     :: WalletId -> AccountIndex -> m (Maybe Account)
     , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> m Account
@@ -175,7 +206,10 @@ deleteWallet :: forall m. PassiveWalletLayer m -> WalletId -> m Bool
 deleteWallet pwl = pwl ^. pwlDeleteWallet
 
 
-createAccount :: forall m. PassiveWalletLayer m -> WalletId -> NewAccount -> m Account
+createAccount :: forall m. PassiveWalletLayer m
+              -> WalletId
+              -> NewAccount
+              -> m (Either CreateAccountError Account)
 createAccount pwl = pwl ^. pwlCreateAccount
 
 getAccounts :: forall m. PassiveWalletLayer m -> WalletId -> m [Account]

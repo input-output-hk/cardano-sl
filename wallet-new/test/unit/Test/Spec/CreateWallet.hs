@@ -96,7 +96,7 @@ spec = describe "CreateWallet" $ do
             monadicIO $ do
                 request <- genNewWalletRq
                 withLayer $ \layer _ -> do
-                    let w' = request { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ" }
+                    let w' = request { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ 日本" }
                     liftIO $ do
                         res <- (WalletLayer._pwlCreateWallet layer) w'
                         (bimap STB STB res) `shouldSatisfy` isRight
@@ -124,7 +124,7 @@ spec = describe "CreateWallet" $ do
                                  mbEsk <- Keystore.lookup wid (wallet ^. Internal.walletKeystore)
                                  mbEsk `shouldSatisfy` isJust
 
-    describe "Address creation (Servant)" $ do
+    describe "Wallet creation (Servant)" $ do
         prop "works as expected in the happy path scenario" $ do
             monadicIO $ do
                 rq <- genNewWalletRq

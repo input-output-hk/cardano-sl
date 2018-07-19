@@ -31,17 +31,7 @@ let
     inherit (cardanoPkgs) ghc;
   };
   addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
-    testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
-    preCheck = ''
-      mkdir -p dist/test
-      touch dist/test/test.log
-      tail -F dist/test/test.log &
-      export TAILPID=$!
-    '';
-    postCheck = ''
-      sleep 10
-      kill $TAILPID
-    '';
+    testTarget = "--show-details=streaming";
   });
 
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {

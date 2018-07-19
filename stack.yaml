@@ -198,13 +198,6 @@ packages:
   extra-dep: true
 
 
-# use github source, until we can use the 6.3.6 release from
-# hackage, that is, once `cabal update` ran.
-- location:
-    git: https://github.com/chrisdone/formatting.git
-    commit: 444bc8b1190f9c7f94af41b6f538071545392754
-  extra-dep: true
-
 # Need to adjust version bounds on serokell-util.
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
@@ -253,6 +246,9 @@ extra-deps:
 - happy-1.19.5
 # Good bug fixes in here.
 - criterion-1.4.0.0
+
+# Fix for a space leak: https://github.com/chrisdone/formatting/pull/44
+- formatting-6.3.6
 
 # Servant stuff not found on stackage
 - servant-multipart-0.11.2

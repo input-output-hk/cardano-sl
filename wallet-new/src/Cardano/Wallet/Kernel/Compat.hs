@@ -6,17 +6,21 @@
 
 module Cardano.Wallet.Kernel.Compat
   ( runDBReadT
+  , getCoreConfigurations
   ) where
 
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.Monad.Trans.Reader (ReaderT (ReaderT), runReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
-import           Pos.Core (BlockVersionData, CoreConfiguration,
-                     GeneratedSecrets, GenesisData, GenesisHash,
+import           Pos.Core (BlockVersionData, CoreConfiguration, Timestamp,
+                     GeneratedSecrets, GenesisData, GenesisHash(GenesisHash), ProtocolMagic,
                      ProtocolConstants, getGenesisHash, withCoreConfiguration,
                      withGeneratedSecrets, withGenesisBlockVersionData,
-                     withGenesisData, withGenesisHash, withProtocolConstants)
+                     withGenesisData, withGenesisHash, withProtocolConstants,
+                     generatedSecrets, genesisData, genesisHash,
+                     genesisBlockVersionData, protocolConstants,
+                     withCoreConfigurations)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class (MonadDBRead (..), Serialized (Serialized))
 import           Universum
@@ -61,4 +65,32 @@ runDBReadT cc ygs gd gh bvd pc ndbs act =
   withGenesisBlockVersionData bvd $
   withProtocolConstants pc $
   runReaderT (unDBReadT act) ndbs
+
+-- | Like 'Pos.Core.Configuration.Core.withCoreConfigurations', but doesn't
+-- rely on 'Given'. Rather, it returns all of the values expected by
+-- 'HasConfiguration' as first class values.
+getCoreConfigurations
+  :: CoreConfiguration
+  -> FilePath
+  -- ^ Directory where 'configuration.yaml' is stored.
+  -> Maybe Timestamp
+  -- ^ Optional system start time.
+  --   It must be given when the genesis spec uses a testnet initializer.
+  -> Maybe Integer
+  -- ^ Optional seed which overrides one from testnet initializer if
+  -- provided.
+  -> IO ( ProtocolMagic
+        , Maybe GeneratedSecrets
+        , GenesisData
+        , GenesisHash
+        , BlockVersionData
+        , ProtocolConstants )
+getCoreConfigurations cc fp yts yseed =
+    withCoreConfigurations cc fp yts yseed $ \pm -> do
+        pure ( pm
+             , generatedSecrets
+             , genesisData
+             , GenesisHash genesisHash
+             , genesisBlockVersionData
+             , protocolConstants )
 

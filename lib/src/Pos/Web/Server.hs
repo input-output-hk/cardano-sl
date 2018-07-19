@@ -42,7 +42,6 @@ import           Servant.Server (Handler, HasServer, ServantErr (errBody),
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)
-import           Pos.Aeson.Txp ()
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)

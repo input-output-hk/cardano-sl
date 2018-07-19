@@ -22,8 +22,8 @@ import           Universum hiding (Last, catch)
 
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (async, cancel, concurrently_, race,
-                     withAsync)
-import           Control.Concurrent.STM (TVar, modifyTVar', retry)
+                     wait, withAsync)
+import           Control.Concurrent.STM (TVar, check, modifyTVar', retry)
 import           Control.Exception (Exception, IOException, catch, handle)
 import           Control.Monad (forever)
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
@@ -149,6 +149,11 @@ updateStatus cli = updateStatus' cli fn
            )
 
 -- |
+-- Internal commands raised by the send loop.
+data NtpClientCmd = SendRequest
+    deriving Eq
+
+-- |
 -- Every `ntpPollDelay` we send a request to the list of `ntpServers`.  Before
 -- sending a request, we put `NtpSyncPending` to `ncState`.  After sending
 -- all requests we wait until either all servers responded or
@@ -167,6 +172,10 @@ sendLoop cli addrs = do
             -- wait for responses and update status
             _ <- timeout respTimeout waitForResponses
             updateStatus cli
+            -- after @'updateStatus'@ @'ntpStatus'@ is guaranteed to be
+            -- different from @'NtpSyncPending'@, now we can wait until it was
+            -- changed back to @'NtpSyncPending'@ to force a request.
+            waitForRequest
         )
         (\a -> do
             -- send packets and wait until end of poll delay
@@ -174,8 +183,11 @@ sendLoop cli addrs = do
             pack <- mkNtpPacket
             sendPacket sock pack addrs
 
-            threadDelay $ fromIntegral poll
-            cancel a
+            cmd <- timeout poll (wait a)
+            case cmd of
+                Nothing -> cancel a
+                Just SendRequest
+                        -> sendLoop cli addrs
         )
 
     -- reset state & status before next loop
@@ -191,6 +203,14 @@ sendLoop cli addrs = do
                 when (length resps < svs)
                     retry
             logDebug "collected all responses"
+
+        -- Wait for a request to force an ntp check.
+        waitForRequest =
+            atomically $ do
+                status <- readTVar $ ncStatus cli
+                check (status == NtpSyncPending)
+                return SendRequest
+
 
 -- |
 -- Start listening for responses on the socket @'ncSockets'@

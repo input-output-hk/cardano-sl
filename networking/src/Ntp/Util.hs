@@ -176,9 +176,9 @@ resolveHost :: String -> IO (Maybe Addresses)
 resolveHost host = do
     let hints = Socket.defaultHints
             { addrSocketType = Datagram
-            , addrFlags = [AI_ADDRCONFIG]  -- since we use AF_INET family
+            , addrFlags = [AI_ADDRCONFIG]  -- since we use @AF_INET@ family
             }
-    -- TBD why catch here? Why not let 'resolveHost' throw the exception?
+    -- TBD why catch here? Why not let @'resolveHost'@ throw the exception?
     addrInfos <- Socket.getAddrInfo (Just hints) (Just host) Nothing
                     `catch` (\(_ :: IOException) -> return [])
 
@@ -219,7 +219,7 @@ replacePort _    sockAddr                          = sockAddr
 
 createAndBindSock
     :: AddrFamily
-    -- ^ indicates which socket family to create, either AF_INET6 or AF_INET
+    -- ^ indicates which socket family to create, either @AF_INET6@ or @AF_INET@
     -> [AddrInfo]
     -- ^ list of local addresses
     -> IO (Maybe Sockets)
@@ -284,7 +284,7 @@ sendTo sock bs addr = case fmap (foldEitherOrBoth . bimap fn fn) $ pairEitherOrB
     handleIOException addressFamily e = throw (SendToIOException addressFamily e)
 
 -- |
--- Low level primitive which sends a request to a single ntp server.
+-- Low level primitive which sends a request to a single NTP server.
 sendPacket
     :: Sockets
     -> NtpPacket
@@ -299,7 +299,6 @@ sendPacket sock packet addrs = do
         )
         addrs
   where
-    -- just log; socket closure is handled by receiver
     handleSendToException :: Addresses -> SendToException -> IO ()
     handleSendToException addr e@NoMatchingSocket =
         logError $ sformat

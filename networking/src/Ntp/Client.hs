@@ -51,7 +51,7 @@ import           Ntp.Util (AddrFamily (..), Addresses, EitherOrBoth (..),
 import           Pos.Util.Trace (traceWith)
 
 data NtpStatus =
-      -- | The difference between ntp time and local system time
+      -- | The difference between NTP time and local system time
       NtpDrift NtpOffset
       -- | NTP client has send requests to the servers
     | NtpSyncPending
@@ -164,12 +164,12 @@ sendLoop cli addrs = do
 
     () <- withAsync
         (do
-            -- wait for reponses and update status
+            -- wait for responses and update status
             _ <- timeout respTimeout waitForResponses
             updateStatus cli
         )
         (\a -> do
-            -- send packets and wait untill end of poll delay
+            -- send packets and wait until end of poll delay
             sock <- atomically $ readTVar $ ncSockets cli
             pack <- mkNtpPacket
             sendPacket sock pack addrs
@@ -193,7 +193,7 @@ sendLoop cli addrs = do
             logDebug "collected all responses"
 
 -- |
--- Start listening for responses on the socket `ncSockets
+-- Start listening for responses on the socket @'ncSockets'@
 startReceive :: NtpClient -> IO ()
 startReceive cli =
     atomically (readTVar $ ncSockets cli) >>= \case
@@ -206,7 +206,7 @@ startReceive cli =
         EBSecond (Last (WithIPv4 sock_ipv4)) ->
             loop IPv4 sock_ipv4
     where
-    -- Receive responses from the network and update ntp client state.
+    -- Receive responses from the network and update NTP client state.
     loop :: AddrFamily -> Socket.Socket -> IO ()
     loop addressFamily sock
         = handle (handleIOException addressFamily) $ forever $ do
@@ -217,7 +217,7 @@ startReceive cli =
                 Right (_, _, packet) ->
                     handleNtpPacket packet
 
-    -- Restart the @loop@ in case of errors; wait 5s before recreacting the
+    -- Restart the @loop@ in case of errors; wait 5s before recreating the
     -- socket.
     handleIOException
         :: AddrFamily
@@ -238,8 +238,8 @@ startReceive cli =
                     EBBoth _ _
                         -> error "NtpClient: startReceive: impossible"
 
-    -- Compute the clock offset based on current time and record it in the ntp
-    -- client state.   A packet will be digarded if it came after
+    -- Compute the clock offset based on current time and record it in the NTP
+    -- client state.   A packet will be disgarded if it came after
     -- @'ntpResponseTimeout'@.
     handleNtpPacket
         :: NtpPacket
@@ -256,10 +256,10 @@ startReceive cli =
                 atomically $ modifyTVar' (ncState cli) ( offset : )
 
 -- |
--- Spawn ntp client which will send request to ntp servers every ntpPollDelay
--- and will lisent for responses.  The `ncStatus` will be updated every
--- `ntpPollDelay` with the most recent value.  It should be run in a seprate
--- thread, since it will block infinitelly.
+-- Spawn NTP client which will send request to NTP servers every @'ntpPollDelay'@
+-- and will listen for responses.  The @'ncStatus'@ will be updated every
+-- @'ntpPollDelay'@ with the most recent value.  It should be run in a separate
+-- thread, since it will block infinitely.
 spawnNtpClient :: NtpClientSettings -> TVar NtpStatus -> IO ()
 spawnNtpClient settings ncStatus = do
     logInfo "starting"
@@ -281,16 +281,16 @@ spawnNtpClient settings ncStatus = do
     fn (Last sock) = Socket.close $ runWithAddrFamily sock
 
 -- |
--- Run Ntp client in a seprate thread; it returns a mutable cell which holds
--- `NtpStatus`.
+-- Run NTP client in a separate thread; it returns a mutable cell which holds
+-- @'NtpStatus'@.
 --
--- This function should be called once, it will run an ntp client in a new
--- thread untill the program terminates.
+-- This function should be called once, it will run an NTP client in a new
+-- thread until the program terminates.
 withNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
 withNtpClient ntpSettings = do
     liftIO $ logInfo "withNtpClient"
     ncStatus <- newTVarIO NtpSyncPending
-    -- using async so the ntp thread will be left running even if the parent
+    -- using async so the NTP thread will be left running even if the parent
     -- thread finished.
     _ <- liftIO $ async (spawnNtpClient ntpSettings ncStatus)
     return ncStatus

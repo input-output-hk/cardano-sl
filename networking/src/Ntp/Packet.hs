@@ -51,7 +51,7 @@ instance Binary NtpPacket where
         ntpPoll   <- getInt8
         _         <- getWord8
 
-        -- skip 5 `Word32` words
+        -- skip 5 @'Word32'@ words
         skip 20
 
         ntpOriginTime   <- getTimestamp
@@ -76,9 +76,9 @@ ntpPacketSize :: Int
 ntpPacketSize = 48
 
 -- |
--- For pairs `(x, y) :: (Word32, Word32)` with `y \`mod\` 4294 == 0` it is
--- be righ inverse of `realMsgToNtp`.   In general it is not injective (for that
--- we'd need to use `Picosecond` insteaed of `Microsecond`).
+-- For pairs @(x, y) :: (Word32, Word32)@ with @y \`mod\` 4294 == 0@ it is
+-- be right inverse of @'realMsgToNtp'@.   In general it is not injective (for that
+-- we'd need to use @'Picosecond'@ instead of @'Microsecond'@).
 ntpToRealMcs :: Word32 -> Word32 -> Microsecond
 ntpToRealMcs sec frac =
     let -- microseconds
@@ -91,7 +91,7 @@ ntpToRealMcs sec frac =
     in fromMicroseconds $ secMicro + fracMicro
 
 -- |
--- It is a partial function, since `Microsecond ~ Integer`; it is well defined
+-- It is a partial function, since @Microsecond ~ Integer@; it is well defined
 -- for:
 -- @
 --  x < 2085978496 = (maxBound @Word32 * 1000000) - ntpTimestampDelta + 1`
@@ -104,7 +104,7 @@ realMcsToNtp (toMicroseconds -> mcs) =
         , fromIntegral $ frac * 4294)
 
 -- |
--- Smart constructor for @NptPacket@.
+-- Smart constructor for @'NtpPacket'@.
 mkNtpPacket :: IO NtpPacket
 mkNtpPacket = do
     let ntpParams       = 0x1b
@@ -115,23 +115,21 @@ mkNtpPacket = do
     return NtpPacket{..}
 
 -- |
--- NtpOffset is the difference between ntp time and localtime
+-- @'NtpOffset'@ is the difference between NTP time and local time.
 newtype NtpOffset = NtpOffset { getNtpOffset :: Microsecond }
     deriving (Enum, Eq, Integral, Num, Ord, Real, Show, TimeUnit)
 
--- |
--- TODO: add a test
 clockOffsetPure :: NtpPacket -> Microsecond -> NtpOffset
 clockOffsetPure NtpPacket{..} localTime = NtpOffset
     $ (ntpReceivedTime - ntpOriginTime + ntpTransmitTime - localTime)
       `div` 2
 
 -- |
--- Compute clock offset unless the ntp packet was requested more than the given
+-- Compute clock offset unless the NTP packet was requested more than the given
 -- timeout.
 clockOffset
     :: Microsecond
-    -- ^ @'ntpResponseTimeout'@, ignore reponses which come after it passed.
+    -- ^ @'ntpResponseTimeout'@, ignore responses which come after it passed.
     -> NtpPacket
     -> IO (Maybe NtpOffset)
 clockOffset respTimeout packet = do

@@ -22,9 +22,9 @@ import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.Txp (TxMsgContents (..))
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
-import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have

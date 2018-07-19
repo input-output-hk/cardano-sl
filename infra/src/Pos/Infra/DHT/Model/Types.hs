@@ -34,10 +34,10 @@ import qualified Serokell.Util.Parse as P
 import           Serokell.Util.Text (listBuilderJSON)
 import qualified Text.Megaparsec.Char as P
 
+import           Control.Monad.Fail (fail)
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Crypto.Random (runSecureRandom)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
-import           Control.Monad.Fail (fail)
 
 -- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable

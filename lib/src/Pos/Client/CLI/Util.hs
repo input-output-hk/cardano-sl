@@ -18,11 +18,11 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
 import           Mockable (CurrentTime, Mockable, currentTime)
+import qualified Serokell.Util.Parse as P
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo,
                      parseLoggerConfig, productionB)
 import           Text.Megaparsec (try)
 import qualified Text.Megaparsec.Char as P
-import qualified Serokell.Util.Parse as P
 
 import           Pos.Block.Configuration (blockConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))

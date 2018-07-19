@@ -27,16 +27,11 @@ library
                        Pos.Update.Constants
                        Pos.Update.DB
                        Pos.Update.DB.Misc
-                       Pos.Update.Download
-                       Pos.Update.Mode
 
                        -- Logic
                        Pos.Update.Logic
                        Pos.Update.Logic.Global
                        Pos.Update.Logic.Local
-
-                       Pos.Update.Network
-                       Pos.Update.Network.Listeners
 
                        -- Poll
                        Pos.Update.Poll
@@ -67,47 +62,34 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
-                       -- Worker
-                       Pos.Update.Worker
-
   build-depends:       Cabal
                      , aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-infra
                      , cardano-sl-lrc
-                     , cardano-sl-networking
-                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , containers
                      , data-default
                      , deepseq
-                     , directory
                      , ether >= 0.5
                      , exceptions
                      , formatting
                      , hashable
-                     , http-client
-                     , http-client-tls
-                     , http-conduit
                      , lens
                      , log-warper
-                     , memory
                      , mtl
                      , reflection
                      , resourcet
                      , rocksdb-haskell-ng
-                     , safe-exceptions
                      , serokell-util
                      , stm
                      , tagged
-                     , template-haskell
-                     , text-format
                      , time-units
                      , transformers
                      , universum

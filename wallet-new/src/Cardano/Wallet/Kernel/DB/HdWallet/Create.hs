@@ -21,8 +21,8 @@ import           Universum
 import           Control.Lens (at, (.=))
 import           Data.SafeCopy (base, deriveSafeCopy)
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
+import qualified Formatting.Buildable
 
 import qualified Pos.Core as Core
 
@@ -56,6 +56,7 @@ data CreateHdAddressError =
 
     -- | Address already used
   | CreateHdAddressExists HdAddressId
+  deriving Eq
 
 deriveSafeCopy 1 'base ''CreateHdRootError
 deriveSafeCopy 1 'base ''CreateHdAccountError

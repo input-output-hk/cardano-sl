@@ -32,8 +32,8 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import           Data.Default (def)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, formatToString, (%))
+import qualified Formatting.Buildable
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Hspec (Spec)
@@ -46,8 +46,7 @@ import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
-                     RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getSecretDefault, modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -58,6 +57,7 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..),
                      largestHDAddressBoot)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -79,9 +79,9 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
                      newStateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
+import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),

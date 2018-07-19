@@ -35,18 +35,21 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 
+import           Test.QuickCheck (Arbitrary (..), oneof)
+
 import           Data.Acid (Query, Update, makeAcidic)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
+import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
-                     PrefilteredBlock (..), PrefilteredUtxo)
+                     PrefilteredBlock (..))
 
-import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
@@ -97,6 +100,17 @@ data NewPendingError =
 
 deriveSafeCopy 1 'base ''NewPendingError
 
+instance Arbitrary NewPendingError where
+    arbitrary = oneof [ NewPendingUnknown <$> arbitrary
+                      , NewPendingFailed  <$> arbitrary
+                      ]
+
+instance Buildable NewPendingError where
+    build (NewPendingUnknown unknownAccount) =
+        bprint ("NewPendingUnknown " % build) unknownAccount
+    build (NewPendingFailed npf) =
+        bprint ("NewPendingFailed " % build) npf
+
 newPending :: HdAccountId
            -> InDb Core.TxAux
            -> Update DB (Either NewPendingError ())
@@ -145,21 +159,22 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 --
 -- * For every address encountered in the block outputs, create an HdAddress if it
 -- does not already exist.
---
--- TODO(@uroboros/ryan) Move BlockMeta inside PrefilteredBlock (as part of CBR-239: Support history tracking and queries)
-applyBlock :: (Map HdAccountId PrefilteredBlock, BlockMeta) -> Update DB ()
-applyBlock (blocksByAccount,meta) = runUpdateNoErrors $ zoom dbHdWallets $
+applyBlock :: Map HdAccountId PrefilteredBlock -> Update DB ()
+applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
     createPrefiltered
         initUtxoAndAddrs
         (\prefBlock -> zoom hdAccountCheckpoints $
-                           modify $ Spec.applyBlock (prefBlock,meta))
+                           modify $ Spec.applyBlock prefBlock)
         blocksByAccount
   where
-    -- Accounts are discovered during wallet creation (if the account was given
-    -- a balance in the genesis block) or otherwise, during ApplyBlock. For
-    -- accounts discovered during ApplyBlock, we can assume that there was no
-    -- genesis utxo, hence we use empty initial utxo for such new accounts.
-    initUtxoAndAddrs :: PrefilteredBlock -> (Utxo, [AddrWithId])
+    -- NOTE: When we create the new wallet, we look at the genesis UTxO and create
+    -- an initial balance for all accounts that we recognize as ours. This means that
+    -- when we later discover a new account that is also ours, it cannot appear
+    -- in the genesis UTxO, because if it did, we would already have seen it
+    -- (the genesis UTxO is static, after all). Hence we use empty initial utxo
+    -- for accounts discovered during applyBlock.
+    -- The Addrs need to be created during account initialisation and so we pass them here.
+    initUtxoAndAddrs :: PrefilteredBlock -> (Utxo,[AddrWithId])
     initUtxoAndAddrs pb = (Map.empty, pfbAddrs pb)
 
 -- | Switch to a fork
@@ -169,11 +184,11 @@ applyBlock (blocksByAccount,meta) = runUpdateNoErrors $ zoom dbHdWallets $
 -- TODO: We use a plain list here rather than 'OldestFirst' since the latter
 -- does not have a 'SafeCopy' instance.
 switchToFork :: Int
-             -> [(PrefilteredBlock, BlockMeta)]
+             -> [PrefilteredBlock]
              -> Update DB ()
 switchToFork n blocks = runUpdateNoErrors $
     zoomAll (dbHdWallets . hdWalletsAccounts) $
-      hdAccountCheckpoints %~ Spec.switchToFork n (OldestFirst blocks)
+        hdAccountCheckpoints %~ Spec.switchToFork n (OldestFirst blocks)
 
 {-------------------------------------------------------------------------------
   Wallet creation
@@ -183,15 +198,18 @@ switchToFork n blocks = runUpdateNoErrors $
 --
 --  Given prefiltered utxo's, by account, create an HdAccount for each account,
 --  along with HdAddresses for all utxo outputs.
+--
+-- NOTE: since the genesis Utxo does not come into being through regular transactions,
+--       there is no block metadata to record when we create a wallet
 createHdWallet :: HdRoot
-               -> Map HdAccountId PrefilteredUtxo
+               -> Map HdAccountId (Utxo,[AddrWithId])
                -> Update DB (Either HD.CreateHdRootError ())
 createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
       HD.createHdRoot newRoot
       createPrefiltered
-        identity
-        (\_ -> return ()) -- we just want to create the accounts
-        utxoByAccount
+          identity
+          (\_ -> return ()) -- we just want to create the accounts
+          utxoByAccount
 
 {-------------------------------------------------------------------------------
   Internal auxiliary: apply a function to a prefiltered block/utxo
@@ -200,12 +218,13 @@ createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
 -- | For each of the specified accounts, create them if they do not exist,
 -- and apply the specified function.
 createPrefiltered :: forall p e.
-                     (p -> (Utxo, [AddrWithId]))
+                     (p -> (Utxo,[AddrWithId]))
                       -- ^ Initial UTxO (when we are creating the account),
                       -- as well as set of addresses the account should have
                   -> (p -> Update' HdAccount e ())
                       -- ^ Function to apply to the account
-                  -> Map HdAccountId p -> Update' HdWallets e ()
+                  -> Map HdAccountId p
+                  -> Update' HdWallets e ()
 createPrefiltered initUtxoAndAddrs applyP accs = do
       forM_ (Map.toList accs) $ \(accId, p) -> do
         let utxo  :: Utxo
@@ -240,8 +259,9 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
                 , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
                 , _checkpointExpected    = InDb Map.empty
                 , _checkpointPending     = Pending . InDb $ Map.empty
-                -- TODO(@uroboros/ryan) proper BlockMeta initialisation (as part of CBR-239: Support history tracking and queries)
-                , _checkpointBlockMeta   = BlockMeta . InDb $ Map.empty
+                -- Since this is the first checkpoint before we have applied
+                -- any blocks, the block metadata is empty
+                , _checkpointBlockMeta   = mempty
                 }
 
 {-------------------------------------------------------------------------------

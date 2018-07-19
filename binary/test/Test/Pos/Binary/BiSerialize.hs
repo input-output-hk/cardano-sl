@@ -11,8 +11,8 @@ import qualified Hedgehog as H
 
 import           Pos.Binary.Class (Cons (..), Field (..), cborError,
                      deriveIndexedBi)
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden,
-                     goldenTestBi)
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi)
+import           Test.Pos.Util.Golden (discoverGolden)
 
 --------------------------------------------------------------------------------
 -- Since `deriveSimpleBi` no longer works on sum types, we cannot do a simple

@@ -25,21 +25,21 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Data.Reflection (given)
 import           Formatting (build, sformat, (%))
-import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
                      logDebug, logError, logWarning)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash,
                      ProtocolMagic, siEpoch)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
+import           Pos.Core.Reporting (reportError)
+import           Pos.Core.Slotting (MonadSlots (..))
+import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
+                     withStateLock)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                     StateLockMetrics, withStateLock)
-import           Pos.Sinbin.Reporting (reportError)
-import           Pos.Sinbin.Slotting (MonadSlots (..))
-import           Pos.Sinbin.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt,

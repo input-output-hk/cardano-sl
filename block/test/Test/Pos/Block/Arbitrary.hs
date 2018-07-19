@@ -20,8 +20,8 @@ module Test.Pos.Block.Arbitrary
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,
@@ -29,8 +29,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
-                     genSscPayloadForSlot)
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog (SlogUndo)
@@ -47,6 +45,8 @@ import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
+import           Test.Pos.Ssc.Arbitrary (SscPayloadDependsOnSlot (..),
+                     genSscPayload, genSscPayloadForSlot)
 import           Test.Pos.Update.Arbitrary (genUpdatePayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot

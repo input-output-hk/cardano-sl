@@ -14,9 +14,9 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, builder, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),

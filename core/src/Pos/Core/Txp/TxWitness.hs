@@ -9,14 +9,15 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 
-import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
+import           Pos.Binary.Class (Bi (..), Case (..), decodeKnownCborDataItem,
                      decodeListLenCanonical, decodeUnknownCborDataItem,
                      encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, matchSize)
+                     encodeUnknownCborDataItem, knownCborDataItemSizeExpr,
+                     matchSize, szCases)
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                      Signature, hash, shortHashF)
@@ -89,6 +90,16 @@ instance Bi TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
+    encodedSizeExpr size _ = 2 +
+        (szCases $ map (fmap knownCborDataItemSizeExpr) $
+            [ let PkWitness key sig     = error "unused"
+              in  Case "PkWitness" $ size ((,) <$> pure key <*> pure sig)
+            , let ScriptWitness key sig = error "unused"
+              in  Case "ScriptWitness" $ size ((,) <$> pure key <*> pure sig)
+            , let RedeemWitness key sig = error "unused"
+              in  Case "RedeemWitness" $ size ((,) <$> pure key <*> pure sig)
+            ])
+
 instance NFData TxInWitness
 
 -- | Data that is being signed when creating a TxSig.
@@ -101,6 +112,7 @@ data TxSigData = TxSigData
 instance Bi TxSigData where
     encode (TxSigData {..}) = encode txSigTxHash
     decode = TxSigData <$> decode
+    encodedSizeExpr size pxy = size (txSigTxHash <$> pxy)
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData

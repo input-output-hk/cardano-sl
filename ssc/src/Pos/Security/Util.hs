@@ -7,7 +7,7 @@ import           Universum
 
 
 import           Pos.Core (StakeholderId)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..),
                      SecurityParams (..))
 import           Pos.Util.Util (HasLens (..))

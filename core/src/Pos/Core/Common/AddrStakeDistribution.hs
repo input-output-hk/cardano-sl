@@ -11,11 +11,11 @@ import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class (Bi (..), szCases)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (shortHashF)
 import           Pos.Util.Util (cborError, toCborError)
@@ -71,6 +71,13 @@ instance Bi AddrStakeDistribution where
                         pretty tag
             len -> cborError $
                 "decode @AddrStakeDistribution: unexpected length " <> pretty len
+    encodedSizeExpr size _ = szCases
+        [ Bi.Case "BoostrapEraDistr" 1
+        , let SingleKeyDistr id = error "unused"
+          in  Bi.Case "SingleKeyDistr" $ size ((,) <$> pure (0 :: Word8) <*> pure id)
+        , let UnsafeMultiKeyDistr distr = error "unused"
+          in  Bi.Case "UnsafeMultiKeyDistr" $ size ((,) <$> pure (1 :: Word8) <*> pure distr)
+        ]
 
 data MultiKeyDistrError
     = MkdMapIsEmpty

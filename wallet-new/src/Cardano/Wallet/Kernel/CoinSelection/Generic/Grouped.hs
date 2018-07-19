@@ -8,8 +8,6 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped (
   , Sum(..)
   , Size(..)
     -- * Conditions for grouping
-  , HasAddress(..)
-  , utxoEntryAddr
   , CanGroup(..)
   , unsafeUtxoLookup
     -- * Grouped UTxO
@@ -22,8 +20,8 @@ import           Universum hiding (Sum (..), group)
 import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
@@ -74,14 +72,6 @@ instance CoinSelDom dom => CoinSelDom (Grouped dom) where
 {-------------------------------------------------------------------------------
   Conditions under which we can group UTxOs
 -------------------------------------------------------------------------------}
-
-class (CoinSelDom dom, Ord (Address dom)) => HasAddress dom where
-  type Address dom :: *
-
-  outAddr :: Output dom -> Address dom
-
-utxoEntryAddr :: HasAddress dom => UtxoEntry dom -> Address dom
-utxoEntryAddr = outAddr . utxoEntryOut
 
 class (PickFromUtxo utxo, HasAddress (Dom utxo)) => CanGroup utxo where
   -- | Lookup a specific entry

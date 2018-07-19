@@ -1,4 +1,8 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Some types related to SSC. There are also types in
 -- "Pos.Core.Ssc".
@@ -34,9 +38,9 @@ import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import           Formatting (sformat, (%))
+import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
 import           Universum

@@ -14,6 +14,7 @@ import           Control.Exception.Safe (Exception (..))
 import           Data.Text.Buildable (Buildable (..))
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import           Formatting (bprint, stext, (%))
+import           Formatting.Buildable (Buildable (..))
 import           GHC.Generics (Generic)
 
 import           Pos.Core (HeaderHash)

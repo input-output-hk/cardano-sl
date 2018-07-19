@@ -15,14 +15,14 @@ import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     PassiveWalletLayer (..))
+                     CreateAddressError (..), PassiveWalletLayer (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, Address, NewAccount (..), NewWallet (..),
-                     V1 (..), Wallet, WalletId, WalletOperation (..),
-                     WalletUpdate)
+                     AccountUpdate, Address, NewAccount (..), NewAddress,
+                     NewWallet (..), V1 (..), Wallet, WalletId,
+                     WalletOperation (..), WalletUpdate)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
@@ -82,6 +82,7 @@ bracketPassiveWallet =
         , _pwlUpdateAccount  = pwlUpdateAccount
         , _pwlDeleteAccount  = pwlDeleteAccount
 
+        , _pwlCreateAddress  = pwlCreateAddress
         , _pwlGetAddresses   = pwlGetAddresses
 
         , _pwlApplyBlocks    = pwlApplyBlocks
@@ -98,8 +99,19 @@ bracketActiveWallet
     -> (ActiveWalletLayer m -> n a) -> n a
 bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
-      (return ActiveWalletLayer{..})
+      (return activeWalletLayer)
       (\_ -> return ())
+  where
+    notUsed = "The activeWalletLayer is not used for the legacy handlers, " <>
+              "for historical reasons. However, if you wish to use it, simply " <>
+              "move the concrete implementation of your LegacyHandler(s) into " <>
+              "this function."
+    activeWalletLayer :: ActiveWalletLayer m
+    activeWalletLayer = ActiveWalletLayer {
+          walletPassiveLayer = walletPassiveLayer
+        , pay          = \_ _ _ -> error notUsed
+        , estimateFees = \_ _ _ -> error notUsed
+        }
 
 ------------------------------------------------------------
 -- Wallet
@@ -253,6 +265,9 @@ pwlDeleteAccount wId accIdx = do
 ------------------------------------------------------------
 -- Address
 ------------------------------------------------------------
+
+pwlCreateAddress :: NewAddress -> m (Either CreateAddressError Address)
+pwlCreateAddress = error "Not implemented!"
 
 pwlGetAddresses :: WalletId -> m [Address]
 pwlGetAddresses = error "Not implemented!"

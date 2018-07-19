@@ -19,7 +19,6 @@ module Pos.Client.KeyStorage
        , KeyData
        , KeyError (..)
        , AllUserSecrets (..)
-       , keyDataFromFile
        ) where
 
 import           Universum
@@ -27,12 +26,11 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
-import           System.Wlog (WithLogger)
 
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash,
                      runSecureRandom, safeKeyGen)
-import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret,
-                     peekUserSecret, usKeys, usPrimKey, writeUserSecret)
+import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, usKeys,
+                     usPrimKey, writeUserSecret)
 
 type KeyData = TVar UserSecret
 
@@ -108,9 +106,6 @@ newSecretKey pp = do
 
 containsKey :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
 containsKey ls k = hash k `elem` map hash ls
-
-keyDataFromFile :: (MonadIO m, WithLogger m) => FilePath -> m KeyData
-keyDataFromFile fp = peekUserSecret fp >>= liftIO . STM.newTVarIO
 
 data KeyError =
     PrimaryKey !Text -- ^ Failed attempt to delete primary key

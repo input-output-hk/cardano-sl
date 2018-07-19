@@ -12,7 +12,7 @@ import           Universum
 -- FIXME we use Production in here only because it gives a 'HasLoggerName'
 -- instance so that 'bracketNodeResources' can log.
 -- Get rid of production and use a 'Trace IO' instead.
-import           Mockable.Production (Production (..))
+import           Pos.Core.Mockable.Production (Production (..))
 
 import           Pos.Core.Configuration (epochSlots)
 import           Pos.Crypto (ProtocolMagic)

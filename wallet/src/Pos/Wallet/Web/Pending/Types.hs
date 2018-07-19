@@ -29,9 +29,9 @@ module Pos.Wallet.Web.Pending.Types
 import           Universum
 
 import           Control.Lens (makeLenses, makePrisms)
-import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 
 import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core.Common (ChainDifficulty)

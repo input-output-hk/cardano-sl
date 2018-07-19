@@ -19,17 +19,17 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production (..), runProduction)
 import           Network.Wai (Application)
 import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Core.Mockable (Production (..), runProduction)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (runRealMode)

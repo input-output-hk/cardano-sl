@@ -15,11 +15,8 @@ import           Formatting (build, sformat, (%))
 import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import qualified Pos.Block.Logic as Block
-import qualified Pos.Block.Network as Block
-import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData,
                      HasConfiguration, HeaderHash, ProxySKHeavy, StakeholderId,
@@ -34,14 +31,21 @@ import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
                      SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
-import           Pos.Delegation.Listeners (DlgListenerConstraint)
-import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import qualified Pos.GState.BlockExtra as DB (resolveForwardLink, streamBlocks)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)
+import           Pos.Listener.Delegation (DlgListenerConstraint)
+import qualified Pos.Listener.Delegation as Delegation (handlePsk)
+import           Pos.Listener.Txp (TxpMode)
+import qualified Pos.Listener.Txp as Txp (handleTxDo)
+import           Pos.Listener.Update (UpdateMode)
+import qualified Pos.Listener.Update as Update (handleProposal, handleVote)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
+import qualified Pos.Network.Block.Logic as Block
+import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
+import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Security.Util (shouldIgnorePkAddress)
 import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate,
@@ -54,13 +58,8 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
 import           Pos.Txp.MemState (getMemPool, withTxpLocalData)
-import           Pos.Txp.Network.Listeners (TxpMode)
-import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
 import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes,
                      getLocalVote, isProposalNeeded, isVoteNeeded)
-import           Pos.Update.Mode (UpdateMode)
-import qualified Pos.Update.Network.Listeners as Update (handleProposal,
-                     handleVote)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic

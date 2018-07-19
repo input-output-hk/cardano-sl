@@ -21,9 +21,9 @@ import qualified Data.Hashable as H
 import qualified Data.Map as M
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
+import           Formatting.Buildable (Buildable)
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
 import           Pos.Binary.Class

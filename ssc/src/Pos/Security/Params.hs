@@ -9,13 +9,13 @@ import           Universum
 
 import           Control.Lens (_Left)
 import qualified Data.Aeson as A
+import           Data.Aeson.Options (defaultOptions)
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
-import           Serokell.Aeson.Options (defaultOptions)
 import qualified Text.Parsec as Parsec
 
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
+import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Network attack settings (a part of the behavior config).
@@ -61,8 +61,10 @@ instance A.FromJSON AttackType where
             ", acceptable values are NoBlocks|NoCommitments"
 
 data AttackTarget
-    = NetworkAddressTarget { attNetworkAddr :: NetworkAddress}
-    | PubKeyAddressTarget { attPkAddr :: StakeholderId}
+    -- NetworkAddressTarget attNetworkAddr
+    = NetworkAddressTarget !NetworkAddress
+    -- PubKeyAddressTarget attPkAddr
+    | PubKeyAddressTarget  !StakeholderId
     deriving (Eq, Show)
 
 instance A.FromJSON AttackTarget where

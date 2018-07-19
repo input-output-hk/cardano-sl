@@ -6,6 +6,9 @@ module Test.Spec.CoinSelection.Generators (
     , genFiddlyPayees
     , genUtxo
     , genFiddlyUtxo
+    , StakeGenOptions(..)
+    , GenerationTarget(..)
+    , toLovelaces
     , InitialBalance(..)
     , Pay(..)
     , genUniqueChangeAddress
@@ -31,6 +34,8 @@ import           Util.Buildable ()
 
 import           Cardano.Wallet.Kernel.CoinSelection ()
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance)
+
+import           Test.Pos.Core.Arbitrary ()
 
 {-------------------------------------------------------------------------------
   Useful types

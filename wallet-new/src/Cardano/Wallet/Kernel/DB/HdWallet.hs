@@ -58,17 +58,22 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomOrCreateHdAddress
   , assumeHdRootExists
   , assumeHdAccountExists
+    -- * General-utility functions
+  , eskToHdRootId
   ) where
 
 import           Universum
 
 import           Control.Lens (at)
 import           Control.Lens.TH (makeLenses)
+import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (base, deriveSafeCopy)
 
-import qualified Data.Text.Buildable
+import           Test.QuickCheck (Arbitrary (..), oneof, vectorOf)
+
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
@@ -88,13 +93,24 @@ newtype WalletName = WalletName Text
 -- | Account name
 newtype AccountName = AccountName Text
 
+instance Buildable AccountName where
+    build (AccountName txt) = bprint build txt
+
 -- | Account index
-newtype HdAccountIx = HdAccountIx Word32
+newtype HdAccountIx = HdAccountIx { getHdAccountIx :: Word32 }
   deriving (Eq, Ord)
 
+-- NOTE(adn) if we need to generate only @hardened@ account indexes, we
+-- need to extend this arbitrary instance accordingly.
+instance Arbitrary HdAccountIx where
+    arbitrary = HdAccountIx <$> arbitrary
+
 -- | Address index
-newtype HdAddressIx = HdAddressIx Word32
+newtype HdAddressIx = HdAddressIx { getHdAddressIx :: Word32 }
   deriving (Eq, Ord)
+
+instance Arbitrary HdAddressIx where
+    arbitrary = HdAddressIx <$> arbitrary
 
 -- | Wallet assurance level
 --
@@ -123,9 +139,25 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
   HD wallets
 -------------------------------------------------------------------------------}
 
--- | HD wallet root ID
-data HdRootId = HdRootId (InDb (Core.AddressHash Core.PublicKey))
+-- | HD wallet root ID. Conceptually, this is just an 'Address' in the form
+-- of 'Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxxJgxdAYHrDeSCSbCxrvx', but is,
+-- in a sense, a special breed as it's derived from the 'PublicKey' (derived
+-- from some BIP-39 mnemonics, typically) and which does not depend from any
+-- delegation scheme, as you cannot really pay into this 'Address'. This
+-- ensures that, given an 'EncryptedSecretKey' we can derive its 'PublicKey'
+-- and from that the 'Core.Address'.
+-- On the \"other side\", given a RESTful 'WalletId' (which is ultimately
+-- just a Text) it's possible to call 'decodeTextAddress' to grab a valid
+-- 'Core.Address', and then transform this into a 'Kernel.WalletId' type
+-- easily.
+data HdRootId = HdRootId (InDb Core.Address)
   deriving (Eq, Ord)
+
+instance Arbitrary HdRootId where
+  arbitrary = do
+      (_, esk) <- Core.safeDeterministicKeyGen <$> (BS.pack <$> vectorOf 12 arbitrary)
+                                               <*> pure mempty
+      pure (eskToHdRootId esk)
 
 -- | HD wallet account ID
 data HdAccountId = HdAccountId {
@@ -134,12 +166,18 @@ data HdAccountId = HdAccountId {
     }
   deriving (Eq, Ord)
 
+instance Arbitrary HdAccountId where
+  arbitrary = HdAccountId <$> arbitrary <*> arbitrary
+
 -- | HD wallet address ID
 data HdAddressId = HdAddressId {
       _hdAddressIdParent :: HdAccountId
     , _hdAddressIdIx     :: HdAddressIx
     }
   deriving (Eq, Ord)
+
+instance Arbitrary HdAddressId where
+  arbitrary = HdAddressId <$> arbitrary <*> arbitrary
 
 -- | Root of a HD wallet
 --
@@ -184,6 +222,14 @@ data HdAccount = HdAccount {
     , _hdAccountCheckpoints :: NonEmpty Checkpoint
     }
 
+instance Buildable HdAccount where
+    build HdAccount{..} =
+        bprint ("HdAccount { id = "   % build
+                         % " name = " % build
+                         % " checkpoints = <checkpoints> "
+                         % " }"
+               ) _hdAccountId _hdAccountName
+
 -- | Address in an account of a HD wallet
 data HdAddress = HdAddress {
       -- | Address ID
@@ -204,6 +250,20 @@ data HdAddress = HdAddress {
       -- TODO: Do we need this at all?
     , _hdAddressIsChange :: Bool
     }
+
+{-------------------------------------------------------------------------------
+  General-utility functions
+-------------------------------------------------------------------------------}
+
+-- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'. See the
+-- comment in the definition of 'makePubKeyAddressBoot' on why this is
+-- acceptable.
+eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
+eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
+
+{-------------------------------------------------------------------------------
+  Template Haskell splices
+-------------------------------------------------------------------------------}
 
 makeLenses ''HdAccountId
 makeLenses ''HdAddressId
@@ -245,6 +305,10 @@ data UnknownHdRoot =
     -- | Unknown root ID
     UnknownHdRoot HdRootId
 
+instance Arbitrary UnknownHdRoot where
+    arbitrary = oneof [ UnknownHdRoot <$> arbitrary
+                      ]
+
 -- | Unknown account
 data UnknownHdAccount =
     -- | Unknown root ID
@@ -252,6 +316,12 @@ data UnknownHdAccount =
 
     -- | Unknown account (implies the root is known)
   | UnknownHdAccount HdAccountId
+  deriving Eq
+
+instance Arbitrary UnknownHdAccount where
+    arbitrary = oneof [ UnknownHdAccountRoot <$> arbitrary
+                      , UnknownHdAccount <$> arbitrary
+                      ]
 
 -- | Unknown address
 data UnknownHdAddress =
@@ -263,6 +333,9 @@ data UnknownHdAddress =
 
     -- | Unknown address (implies the account is known)
   | UnknownHdAddress HdAddressId
+
+    -- | Unknown address (implies it was not derived from the given Address)
+  | UnknownHdCardanoAddress Core.Address
 
 embedUnknownHdRoot :: UnknownHdRoot -> UnknownHdAccount
 embedUnknownHdRoot = go
@@ -295,24 +368,24 @@ instance HasPrimKey HdAddress where
     type PrimKey HdAddress = HdAddressId
     primKey = _hdAddressId
 
-type HdRootIxs    = '[]
-type HdAccountIxs = '[HdRootId]
-type HdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
+type SecondaryHdRootIxs    = '[]
+type SecondaryHdAccountIxs = '[HdRootId]
+type SecondaryHdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
 
-type instance IndicesOf HdRoot    = HdRootIxs
-type instance IndicesOf HdAccount = HdAccountIxs
-type instance IndicesOf HdAddress = HdAddressIxs
+type instance IndicesOf HdRoot    = SecondaryHdRootIxs
+type instance IndicesOf HdAccount = SecondaryHdAccountIxs
+type instance IndicesOf HdAddress = SecondaryHdAddressIxs
 
-instance IxSet.Indexable (HdRootId ': HdRootIxs)
+instance IxSet.Indexable (HdRootId ': SecondaryHdRootIxs)
                          (OrdByPrimKey HdRoot) where
     indices = ixList
 
-instance IxSet.Indexable (HdAccountId ': HdAccountIxs)
+instance IxSet.Indexable (HdAccountId ': SecondaryHdAccountIxs)
                          (OrdByPrimKey HdAccount) where
     indices = ixList
                 (ixFun ((:[]) . view hdAccountRootId))
 
-instance IxSet.Indexable (HdAddressId ': HdAddressIxs)
+instance IxSet.Indexable (HdAddressId ': SecondaryHdAddressIxs)
                          (OrdByPrimKey HdAddress) where
     indices = ixList
                 (ixFun ((:[]) . view hdAddressRootId))

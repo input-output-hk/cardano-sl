@@ -14,8 +14,8 @@ module Pos.Delegation.Cede.Types
        ) where
 
 import           Control.Lens (makeLenses)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 import           Universum
 
 import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)

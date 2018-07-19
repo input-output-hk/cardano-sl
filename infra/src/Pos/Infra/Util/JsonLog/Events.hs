@@ -18,4 +18,4 @@ module Pos.Infra.Util.JsonLog.Events
        ) where
 
 -- Only export the above from this module.
-import           Pos.Sinbin.Util.JsonLog.Events
+import           Pos.Core.JsonLog.LogEvents

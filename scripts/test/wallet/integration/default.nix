@@ -29,7 +29,7 @@ in pkgs.writeScript "integration-tests" ''
   # Verify we see "transaction list is empty after filtering out asset-locked source addresses" in at least 1 core node log file
   if [[ $EXIT_STATUS -eq 0 ]]
   then
-    ${pkgs.gnugrep}/bin/grep "transaction list is empty after filtering out asset-locked source addresses" state-demo/logs/node*.json
+    ${pkgs.gnugrep}/bin/grep "transaction list is empty after filtering out asset-locked source addresses" state-demo/logs/core*.json
     EXIT_STATUS=$?
   fi
   stop_cardano

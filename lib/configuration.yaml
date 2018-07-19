@@ -14820,7 +14820,7 @@ testnet_full: &testnet_full
     genesis:
       src:
         file: testnet-genesis.json
-        hash: f0204568043f6cb8068a81ddc1e9ca575615aed12a3a815678afc5ca12a94eb8
+        hash: 6300910ff7d8ca51a61df661a09dfd1486be756f32eff7f348e1f4e3b6166c54
 
   update: &testnet_full_update
     applicationName: cardano-sl
@@ -14870,20 +14870,25 @@ testnet_launch: &testnet_launch
         protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 1097911063
-        avvmDistr: *mainnet_avvmDistr
+        avvmDistr: {}
         initializer:
           testBalance:
             poors:        100
             richmen:      7
-            richmenShare: 0.93
-            totalBalance: 13887504355000000
+            richmenShare: 0.95
+            totalBalance: 42000000000000000 # 42e9 ADA
             useHDAddresses: True
           fakeAvvmBalance:
             count: 100
-            oneBalance: 1000000000000 # 1e6 ADA
-          avvmBalanceFactor: 0.1
+            oneBalance: 20000000000000 # 2e7 ADA
+          avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0 # should be overridden using --configuration-seed
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
 
 ##############################################################################
 ##                                                                          ##
@@ -15023,7 +15028,7 @@ devnet: &devnet
           useHeavyDlg: True
           seed: 0
 
-  update:
+  update: &devnet_update
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15040,7 +15045,7 @@ devnet: &devnet
 devnet_win64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15052,7 +15057,7 @@ devnet_win64:
 devnet_macos64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15064,7 +15069,7 @@ devnet_macos64:
 devnet_linux64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:

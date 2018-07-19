@@ -15,6 +15,9 @@ module Test.Pos.Infra.Gen
         -- Slotting Generators
         , genEpochSlottingData
         , genSlottingData
+
+        -- Pos.Infra.Communication Generators
+        , genHandlerSpec
         ) where
 
 import           Universum
@@ -27,13 +30,14 @@ import           Network.Kademlia.HashNodeId (genNonce, hashAddress)
 
 import           Pos.Core (EpochIndex (..))
 import           Pos.Crypto.Random (deterministic)
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..))
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      MempoolMsg (..), ReqMsg (..), ResMsg (..))
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
                      createSlottingDataUnsafe)
 
-import           Test.Pos.Core.Gen (genTimeDiff)
+import           Test.Pos.Core.Gen (gen32Bytes, genTimeDiff, genWord16)
 import           Test.Pos.Util.Gen (genMillisecond)
 
 ----------------------------------------------------------------------------
@@ -94,3 +98,16 @@ genEpochIndexDataPairs range = do
         (\xs i -> (: xs) <$> genEpochIndexDataPair i)
         []
         [0..len]
+
+----------------------------------------------------------------------------
+-- Pos.Infra.Communication Generators
+----------------------------------------------------------------------------
+
+genHandlerSpec :: Gen HandlerSpec
+genHandlerSpec = Gen.choice [ ConvHandler <$> genWord16
+                              -- 0 is reserved for ConvHandler tag.
+                              -- See HandlerSpec Bi instance.
+                            , UnknownHandler
+                                  <$> Gen.word8 (Range.constant 1 255)
+                                  <*> gen32Bytes
+                            ]

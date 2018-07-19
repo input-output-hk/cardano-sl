@@ -1,0 +1,80 @@
+#!/bin/sh
+
+# This is a git pre-commit hook that runs sytlish-haskell and hlint over the
+# Haskell files you are about to commit. Sylish-haskell will modify the files
+# that need modification in place. Hlinf warnings are reported as that and
+# the commit is aborted, so you can fix it.
+# Obviously you need stylish-haskell and hlint on your path. The easiest
+# way to do this is to run:
+#
+#    > stack install hlint stylish-haskell
+#
+# in the cardano-sl tree (to ensure the correct version of stylish-haskell is
+# retrieved). The install command will copy them to  ~/.local/bin/ which should
+# be on your $PATH variable.
+
+# To install this, copy it to '.git/hooks/pre-commit' in the cardano checkout
+# amd make it executatble.
+
+# It would be possible to symlink it but that is probably a bad idea security
+# wise.
+
+
+#-------------------------------------------------------------------------------
+# This is really only needed it you are starting with an empty repo.
+if git rev-parse --verify HEAD >/dev/null 2>&1 ; then
+	against=HEAD
+else
+	# Initial commit: diff against an empty tree object
+	against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+	fi
+
+# Find all the files that are about to be commited.
+files=$(git diff-index --name-status --cached HEAD | sed "s/^D.*$//;s/^[A-Z]+[ \t]*/ /")
+
+# Redirect output to stderr.
+exec 1>&2
+
+#-------------------------------------------------------------------------------
+# Prevent files with non-ascii filenames from being committed.
+
+if test $(git diff --cached --name-only --diff-filter=A -z $against | LC_ALL=C tr -d '[ -~]\0' | wc -c) != 0 ; then
+	echo "Error: Attempt to add a non-ascii file name."
+	echo "Commit aborted."
+	exit 1
+	fi
+
+#-------------------------------------------------------------------------------
+# Check the formatting of all HS files.
+
+hsfiles=""
+for f in $files ; do
+	if test $(echo $f | grep -c "\.hs$") -gt 0 ; then
+		if test $(echo $f | grep -c ^PatchedPkgs) -eq 0 ; then
+			hsfiles="$hsfiles $f"
+			fi
+		fi
+	done
+
+if test -n "$hsfiles" ; then
+	stylish-haskell -i ${hsfiles}
+	if test $? -ne 0 ; then
+		echo
+		echo "Commit aborted. Stylish Haskell failed."
+		exit 1
+		fi
+	hlint ${hsfiles}
+	if test $? -ne 0 ; then
+		echo
+		echo "Commit aborted. Fix the above error before trying again."
+		exit 1
+		fi
+	fi
+
+# Need to add them if we want stylish-haskell changes to be commited.
+git add ${hsfiles}
+
+#-------------------------------------------------------------------------------
+# All ok!
+
+exit 0

@@ -18,13 +18,11 @@ module Pos.Ssc
        , module Pos.Ssc.Functions
        , module Pos.Ssc.Mem
        , module Pos.Ssc.Message
-       , module Pos.Ssc.Mode
        , module Pos.Ssc.SecretStorage
        , module Pos.Ssc.Seed
        , module Pos.Ssc.State
        , module Pos.Ssc.Types
        , module Pos.Ssc.VssCertData
-       , module Pos.Ssc.Worker
        ) where
 
 import           Pos.Ssc.Base
@@ -36,11 +34,9 @@ import           Pos.Ssc.Functions
 import           Pos.Ssc.Logic
 import           Pos.Ssc.Mem
 import           Pos.Ssc.Message
-import           Pos.Ssc.Mode
 import           Pos.Ssc.SecretStorage
 import           Pos.Ssc.Seed
 import           Pos.Ssc.State
 import           Pos.Ssc.Toss
 import           Pos.Ssc.Types
 import           Pos.Ssc.VssCertData
-import           Pos.Ssc.Worker

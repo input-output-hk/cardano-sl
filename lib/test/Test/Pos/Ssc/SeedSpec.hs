@@ -32,6 +32,7 @@ import           Pos.Crypto (DecShare, PublicKey, SecretKey,
 import           Pos.Ssc (SscSeedError (..), calculateSeed, secretToSharedSeed,
                      vssThreshold)
 
+import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating, sublistN)
 

@@ -12,7 +12,6 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
@@ -23,6 +22,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (epochSlots)
+import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
@@ -36,10 +36,10 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
                      NodeParams (..), NodeResources (..), bracketNodeResources,
                      loggerBracket, runNode, runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
-import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Worker.Update (updateTriggerWorker)
 
 loggerName :: LoggerName
 loggerName = "node"

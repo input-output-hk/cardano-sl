@@ -16,13 +16,13 @@ import           Universum
 
 import           Control.Lens (at, ix, (?~))
 import           Data.Aeson (Value (Number))
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Default
 import           Data.Swagger as S
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), choose, getPositive)
 import           Web.HttpApiData
 

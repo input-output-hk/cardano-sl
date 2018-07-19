@@ -27,20 +27,21 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
+import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Core.Mockable (Async, Delay, Mockable, Mockables,
+                     SharedAtomic)
+import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Infra.Communication.Types.Protocol
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Sinbin.Reporting (MonadReporting)
-import           Pos.Sinbin.Slotting (MonadSlots)
 
 mapListener
     :: (forall t. IO t -> IO t) -> Listener -> Listener

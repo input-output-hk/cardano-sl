@@ -14,7 +14,8 @@ import           Universum
 import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Ether
-import           Mockable (ChannelT, Counter, Distribution, Gauge,
+
+import           Pos.Core.Mockable (ChannelT, Counter, Distribution, Gauge,
                      MFunctor' (..), Mockable (..), Promise, SharedAtomicT,
                      SharedExclusiveT, ThreadId)
 

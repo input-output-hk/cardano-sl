@@ -19,10 +19,8 @@ library
                        Pos.Delegation.Class
                        Pos.Delegation.Configuration
                        Pos.Delegation.DB
-                       Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Types
-                       Pos.Delegation.Worker
 
   other-modules:
                        Pos.Delegation.Cede.Class
@@ -33,24 +31,18 @@ library
                        Pos.Delegation.Logic.Mempool
                        Pos.Delegation.Logic.VAR
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
+                     , aeson-options
                      , base
                      , cardano-sl-binary
                      , cardano-sl-core
-                     , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-infra
                      , cardano-sl-lrc
-                     , cardano-sl-networking
-                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , ether
                      , formatting
-                     , generic-arbitrary
                      , lens
                      , log-warper
                      , lrucache
@@ -61,9 +53,8 @@ library
                      , safe-exceptions
                      , rocksdb-haskell-ng
                      , serokell-util
-                     , text-format
+                     , formatting
                      , time
-                     , time-units
                      , transformers
                      , universum
                      , unliftio

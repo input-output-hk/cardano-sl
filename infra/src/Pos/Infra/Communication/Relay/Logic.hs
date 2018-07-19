@@ -24,7 +24,7 @@ module Pos.Infra.Communication.Relay.Logic
        , invReqDataFlowTK
        , dataFlow
 
-       -- Re-export Sinbin-ned type.
+       -- Re-export Core-ed type.
        , InvReqDataFlowLog (..)
        ) where
 
@@ -40,6 +40,7 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Limit (Limit, mlEither)
+import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg, mlResMsg)
 import           Pos.Infra.Communication.Listener (listenerConv)
@@ -56,7 +57,6 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      InvOrData, MempoolMsg (..), ReqMsg (..), ReqOrRes,
                      ResMsg (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Sinbin.Util.JsonLog.Events (InvReqDataFlowLog (..))
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 

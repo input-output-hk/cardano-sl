@@ -7,7 +7,6 @@ module Pos.Block.Logic.Header
        ( ClassifyHeaderRes (..)
        , classifyNewHeader
        , ClassifyHeadersRes (..)
-       , classifyHeaders
 
        , GetHeadersFromManyToError (..)
        , getHeadersFromManyTo
@@ -20,28 +19,25 @@ import           Universum hiding (elems)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
-import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE (toList)
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
-import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
+import           Serokell.Util.Verify (VerificationRes (..))
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..),
-                     verifyHeader, verifyHeaders)
-import           Pos.Block.Logic.Util (lcaWithMainChain)
-import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash,
-                     SlotId (..), blkSecurityParam, bvdMaxHeaderSize,
-                     difficultyL, epochIndexL, epochOrSlotG,
-                     getChainDifficulty, getEpochOrSlot, headerHash,
+                     verifyHeader)
+import           Pos.Core (HeaderHash, blkSecurityParam, bvdMaxHeaderSize,
+                     difficultyL, epochIndexL, getEpochOrSlot, headerHash,
                      headerHashG, headerSlotL, prevBlockL)
 import           Pos.Core.Block (BlockHeader (..))
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
-import           Pos.Crypto (ProtocolMagic, hash)
+import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -49,9 +45,7 @@ import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState.BlockExtra as GS
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Sinbin.Slotting (MonadSlots (getCurrentSlot))
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
-import           Pos.Util (buildListBounds, _neHead, _neLast)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -153,98 +147,6 @@ data ClassifyHeadersRes
     | CHsInvalid !Text             -- ^ Header is invalid.
 
 deriving instance Show ClassifyHeadersRes
-
--- | Classify headers received in response to 'GetHeaders' message.
---
--- * If there are any errors in chain of headers, CHsInvalid is returned.
--- * If chain of headers is a valid continuation or alternative branch,
---    lca child is returned.
--- * If chain of headers forks from our main chain too much, CHsUseless
---    is returned, because paper suggests doing so.
--- * CHsUseless is also returned if we aren't too far behind the current slot,
---    but the newest header in the list isn't
---    from the current slot. See CSL-177.
-classifyHeaders ::
-       forall ctx m.
-       ( MonadDBRead m
-       , MonadSlots ctx m
-       , WithLogger m
-       )
-    => ProtocolMagic
-    -> Bool -- recovery in progress?
-    -> NewestFirst NE BlockHeader
-    -> m ClassifyHeadersRes
-classifyHeaders pm inRecovery headers = do
-    tipHeader <- DB.getTipHeader
-    let tip = headerHash tipHeader
-    haveOldestParent <- isJust <$> DB.getHeader oldestParentHash
-    leaders <- LrcDB.getLeadersForEpoch oldestHeaderEpoch
-    let headersValid =
-            isVerSuccess $
-            verifyHeaders pm leaders (headers & _NewestFirst %~ toList)
-    mbCurrentSlot <- getCurrentSlot
-    let newestHeaderConvertedSlot =
-            case newestHeader ^. epochOrSlotG of
-                EpochOrSlot (Left e)  -> SlotId e minBound
-                EpochOrSlot (Right s) -> s
-    if
-       | newestHash == headerHash tip ->
-             pure $ CHsUseless "Newest hash is the same as our tip"
-       | newestHeader ^. difficultyL <= tipHeader ^. difficultyL ->
-             pure $ CHsUseless
-                 "Newest hash difficulty is not greater than our tip's"
-       | Just currentSlot <- mbCurrentSlot,
-         not inRecovery,
-         newestHeaderConvertedSlot /= currentSlot ->
-             pure $ CHsUseless $ sformat
-                 ("Newest header is from slot "%build%", but current slot"%
-                  " is "%build%" (and we're not in recovery mode)")
-                 (newestHeader ^. epochOrSlotG) currentSlot
-         -- This check doesn't normally fail. RetrievalWorker
-         -- calculates lrc every time before calling this function so
-         -- it only fails when oldest header is from the next epoch e'
-         -- and somehow lrc didn't calculate data for e' knowing the
-         -- last header from e.
-       | isNothing leaders ->
-             pure $ CHsUseless $
-             "Don't know leaders for oldest header epoch " <> pretty headersValid
-       | not headersValid ->
-             pure $ CHsInvalid "Header chain is invalid"
-       | not haveOldestParent ->
-             pure $ CHsInvalid
-                 "Didn't manage to find block corresponding to parent \
-                 \of oldest element in chain (should be one of checkpoints)"
-       | otherwise -> fromMaybe uselessGeneral <$> processClassify tipHeader
-  where
-    newestHeader = headers ^. _NewestFirst . _neHead
-    newestHash = headerHash newestHeader
-    oldestHeader = headers ^. _NewestFirst . _neLast
-    oldestHeaderEpoch = oldestHeader ^. epochIndexL
-    oldestParentHash = oldestHeader ^. prevBlockL
-    uselessGeneral =
-        CHsUseless "Couldn't find lca -- maybe db state updated in the process"
-    processClassify tipHeader = runMaybeT $ do
-        lift $ logDebug $
-            sformat ("Classifying headers (newest first): "%buildListBounds) $
-                getNewestFirst $ map (view headerHashG) headers
-        lca <-
-            MaybeT . DB.getHeader =<<
-            MaybeT (lcaWithMainChain $ toOldestFirst headers)
-        let depthDiff :: BlockCount
-            depthDiff = getChainDifficulty (tipHeader ^. difficultyL) -
-                        getChainDifficulty (lca ^. difficultyL)
-        lcaChild <- MaybeT $ pure $
-            find (\bh -> bh ^. prevBlockL == headerHash lca) headers
-        pure $ if
-            | hash lca == hash tipHeader -> CHsValid lcaChild
-            | depthDiff < 0 -> error "classifyHeaders@depthDiff is negative"
-            | depthDiff > blkSecurityParam ->
-                  CHsUseless $
-                  sformat ("Difficulty difference of (tip,lca) is "%int%
-                           " which is more than blkSecurityParam = "%int)
-                          depthDiff blkSecurityParam
-            | otherwise -> CHsValid lcaChild
-
 
 data GetHeadersFromManyToError = GHFBadInput Text deriving (Show,Generic)
 

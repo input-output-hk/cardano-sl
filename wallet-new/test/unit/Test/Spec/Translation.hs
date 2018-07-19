@@ -5,14 +5,14 @@ module Test.Spec.Translation (
 import           Universum
 
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, shown, (%))
+import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
 
 import qualified Pos.Block.Error as Cardano
-import           Pos.Core (Coeff (..), TxSizeLinear (..), getCoin)
+import           Pos.Core (Coeff (..), SlotCount, TxSizeLinear (..), getCoin)
 import qualified Pos.Txp.Toil as Cardano
 
 import           Test.Infrastructure.Generator
@@ -47,6 +47,10 @@ spec = do
 
       it "can reject double spending" $
         intAndVerifyPure linearFeePolicy doublespend `shouldSatisfy` expectInvalid
+
+      it "can construct and verify chain that spans epochs" $
+        let epochSlots = runTranslateNoErrors $ asks (ccEpochSlots . tcCardano)
+        in intAndVerifyPure linearFeePolicy (spanEpochs epochSlots) `shouldSatisfy` expectValid
 
     describe "Translation QuickCheck tests" $ do
       prop "can translate randomly generated chains" $
@@ -162,6 +166,66 @@ example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
              , trExtra = ["t4"]
              }
 
+
+-- | Chain that spans epochs
+spanEpochs :: forall h. Hash h Addr => SlotCount -> GenesisValues h -> Chain h Addr
+spanEpochs epochSlots GenesisValues{..} = OldestFirst $
+    go 1
+       (Input hashBoot 0)
+       (Input hashBoot 1)
+       initR0
+       initR1
+       (2 * fromIntegral epochSlots) -- 5 epochs
+  where
+    go :: Int           -- Next available hash
+       -> Input h Addr  -- UTxO entry with r0's balance
+       -> Input h Addr  -- UTxO entry with r1's balance
+       -> Value         -- r0's current total balance
+       -> Value         -- r1's current total balance
+       -> Int           -- Number of cycles to go
+       -> [Block h Addr]
+    go _ _ _ _ _ 1 = []
+    go freshHash r0utxo r1utxo r0balance r1balance n =
+        let tPing = ping freshHash       r0utxo r0balance
+            tPong = pong (freshHash + 1) r1utxo r1balance
+        in OldestFirst [tPing, tPong]
+         : go (freshHash + 2)
+              (Input (hash tPing) 1)
+              (Input (hash tPong) 1)
+              (r0balance - 10 - fee)
+              (r1balance - 10 - fee)
+              (n - 1)
+
+    -- Rich 0 transferring a small amount to rich 1
+    ping :: Int -> Input h Addr -> Value -> Transaction h Addr
+    ping freshHash r0utxo r0balance = Transaction {
+          trFresh = 0
+        , trFee   = fee
+        , trHash  = freshHash
+        , trIns   = Set.fromList [ r0utxo ]
+        , trOuts  = [ Output r1 10
+                    , Output r0 (r0balance - 10 - fee)
+                    ]
+        , trExtra = ["ping"]
+        }
+
+    -- Rich 1 transferring a small amount to rich 0
+    pong :: Int -> Input h Addr -> Value -> Transaction h Addr
+    pong freshHash r1utxo r1balance = Transaction {
+          trFresh = 0
+        , trFee   = fee
+        , trHash  = freshHash
+        , trIns   = Set.fromList [ r1utxo ]
+        , trOuts  = [ Output r0 10
+                    , Output r1 (r1balance - 10 - fee)
+                    ]
+        , trExtra = ["pong"]
+        }
+
+    fee :: Value
+    fee = overestimate txFee 1 2
+
+
 -- | Over-estimate the total fee, by assuming the resulting transaction is
 --   as large as possible for the given number of inputs and outputs.
 overestimate :: (Int -> [Value] -> Value) -> Int -> Int -> Value
@@ -206,7 +270,7 @@ intAndVerifyChain pc = runTranslateT $ do
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst
-                    $ map Right chain'
+                    $ chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
           (Invalid _ e' , Invalid _ e) -> return $ ExpectedInvalid e' e
@@ -216,11 +280,8 @@ intAndVerifyChain pc = runTranslateT $ do
             (finalUtxo', _) <- runIntT' ctxt $ int dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
-              else return $ Disagreement ledger UnexpectedUtxo {
-                         utxoDsl     = dslUtxo
-                       , utxoCardano = finalUtxo
-                       , utxoInt     = finalUtxo'
-                       }
+              else return . Disagreement ledger
+                  $ UnexpectedUtxo dslUtxo finalUtxo finalUtxo'
 
 {-------------------------------------------------------------------------------
   Chain verification test result
@@ -279,11 +340,8 @@ data Disagreement h a =
 
     -- | Both Cardano and the DSL reported the chain as valid, but they computed
     -- a different UTxO
-  | UnexpectedUtxo {
-        utxoDsl     :: Utxo h a
-      , utxoCardano :: Cardano.Utxo
-      , utxoInt     :: Cardano.Utxo
-      }
+    -- UnexpectedUtxo utxoDsl utxoCardano utxoInt
+  | UnexpectedUtxo !(Utxo h a) !Cardano.Utxo !Cardano.Utxo
 
 expectValid :: ValidationResult h a -> Bool
 expectValid ExpectedValid = True
@@ -328,7 +386,7 @@ instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
   build (UnexpectedInvalid e) = bprint ("UnexpectedInvalid " % build) e
   build (UnexpectedError e)   = bprint ("UnexpectedError " % shown) e
   build (UnexpectedValid e)   = bprint ("UnexpectedValid " % shown) e
-  build UnexpectedUtxo{..}    = bprint
+  build (UnexpectedUtxo utxoDsl utxoCardano utxoInt) = bprint
       ( "UnexpectedUtxo"
       % "{ dsl:     " % build
       % ", cardano: " % mapJson

@@ -55,7 +55,7 @@ import qualified Basement.UArray as Basement
 import qualified Crypto.Encoding.BIP39.English as Dictionary
 import qualified Crypto.Random.Entropy as Crypto
 import qualified Data.ByteString.Char8 as B8
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 
 
 --

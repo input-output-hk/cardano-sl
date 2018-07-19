@@ -16,7 +16,8 @@ import           Data.Hashable (Hashable)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
+import           Pos.Binary.Class (Bi (..), Size, decodeBinary, encodeBinary,
+                     withWordSize)
 
 instance Hashable Ed25519.PublicKey
 instance Hashable Ed25519.SecretKey
@@ -45,14 +46,21 @@ instance ToJSON Ed25519.Signature where
 instance Bi Ed25519.PublicKey where
     encode (Ed25519.PublicKey k) = encode k
     decode = Ed25519.PublicKey <$> decode
+    encodedSizeExpr _ _ = bsSize 32
 
 instance Bi Ed25519.SecretKey where
     encode (Ed25519.SecretKey k) = encode k
     decode = Ed25519.SecretKey <$> decode
+    encodedSizeExpr _ _ = bsSize 64
 
 instance Bi Ed25519.Signature where
     encode (Ed25519.Signature s) = encode s
     decode = Ed25519.Signature <$> decode
+    encodedSizeExpr _ _ = bsSize 64
+
+-- Helper for encodedSizeExpr in Bi instances
+bsSize :: Int -> Size
+bsSize x = fromIntegral (x + withWordSize x)
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape

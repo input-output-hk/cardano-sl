@@ -19,10 +19,13 @@ library
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Txp
                        Test.Pos.Core.Arbitrary.Txp.Unsafe
+                       Test.Pos.Core.Json
 
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , base16-bytestring
                      , bytestring
@@ -35,20 +38,16 @@ library
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
-                     , cardano-sl-util-test
                      , cryptonite
-                     , cryptonite-openssl >= 0.5
                      , data-default
+                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hedgehog
-                     , hspec
-                     , mtl
                      , pvss
                      , quickcheck-instances
                      , random
                      , serokell-util
-                     , tagged
                      , text
                      , time-units
                      , universum
@@ -88,3 +87,4 @@ library
   ghc-options:
                        -O2
                        -Wall
+

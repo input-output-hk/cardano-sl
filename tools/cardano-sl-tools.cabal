@@ -40,36 +40,28 @@ executable dbgen
                      , QueryMethods
   if !flag(for-installer)
    build-depends:      base >= 4.7 && < 5
-                     , acid-state
                      , acid-state-exts
                      , aeson
                      , ansi-terminal
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-block
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , cardano-sl-networking
                      , cardano-sl-txp
-                     , cardano-sl-txp-test
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , containers
-                     , cryptonite
                      , data-default
-                     , lens
                      , log-warper
-                     , mtl
                      , network-transport-tcp >= 0.6
                      , optparse-applicative
                      , optparse-applicative
                      , optparse-generic
                      , optparse-generic
                      , QuickCheck
-                     , serokell-util
                      , stm
                      , string-conv
                      , text
@@ -164,7 +156,6 @@ executable cardano-keygen
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cryptonite
                      , directory
                      , filepath
                      , formatting
@@ -218,6 +209,7 @@ executable cardano-launcher
   main-is:             Main.hs
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-wl-pprint
                      , async
                      , base
@@ -455,7 +447,6 @@ executable cardano-blockchain-analyser
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , directory
                      , formatting

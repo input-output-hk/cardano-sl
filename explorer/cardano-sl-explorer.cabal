@@ -72,7 +72,7 @@ library
                       , servant-generic
                       , stm
                       , text
-                      , text-format
+                      , formatting
                       , time
                       , time-units
                       , transformers
@@ -164,8 +164,6 @@ executable cardano-explorer
                      , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-explorer
-                     , cardano-sl-networking
-                     , cardano-sl-update
                      , cardano-sl-util
                      , log-warper
                      , optparse-applicative
@@ -347,7 +345,6 @@ test-suite cardano-explorer-test
                      , bytestring
                      , cardano-sl
                      , cardano-sl-binary-test
-                     , cardano-sl-block
                      , cardano-sl-block-test
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -412,8 +409,6 @@ benchmark cardano-explorer-bench
                      , cardano-sl
                      , cardano-sl-core-test
                      , cardano-sl-explorer
-                     , cardano-sl-txp
-                     , cardano-sl-txp-test
                      , criterion
                      , universum >= 0.1.11
                      , weigh

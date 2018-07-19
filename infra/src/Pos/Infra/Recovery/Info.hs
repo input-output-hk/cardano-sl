@@ -2,7 +2,9 @@
 -- and provide helpers related to it.
 
 module Pos.Infra.Recovery.Info
-       ( SyncStatus (..)
+       ( CurrentSlot (..)
+       , TipSlot (..)
+       , SyncStatus (..)
        , MonadRecoveryInfo(..)
        , recoveryInProgress
        , getSyncStatusK
@@ -12,12 +14,16 @@ module Pos.Infra.Recovery.Info
 
 import           Universum
 
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
+import qualified Formatting.Buildable
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core (HasProtocolConstants, SlotCount, SlotId, slotIdF,
                      slotSecurityParam)
+
+newtype TipSlot = TipSlot SlotId
+
+newtype CurrentSlot = CurrentSlot SlotId
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.
@@ -28,17 +34,17 @@ data SyncStatus
     | SSUnknownSlot
     -- ^ We don't know current slot, so we are definitely not
     -- synchronized well enough.
-    | SSLagBehind { sslbTipSlot     :: !SlotId
+    | SSLagBehind !TipSlot
                   -- ^ Our tip's slot (if our tip is genesis, we use 0
                   -- as local slot).
-                  , sslbCurrentSlot :: !SlotId }
-    -- ^ We know current slot, but our tip's slot lags behind current
-    -- slot too much.
-    | SSInFuture { sslbTipSlot     :: !SlotId
-                 , sslbCurrentSlot :: !SlotId }
-    -- ^ We know current slot and our tip's slot is greater than the
-    -- current one. Most likely we are misconfigured or we are
-    -- cheating somehow (e. g. creating blocks using block-gen).
+                  !CurrentSlot
+                  -- ^ We know current slot, but our tip's slot lags behind
+                  -- current slot too much.
+    | SSInFuture !TipSlot
+                 !CurrentSlot
+                 -- ^ We know current slot and our tip's slot is greater than
+                 -- the current one. Most likely we are misconfigured or we are
+                 -- cheating somehow (e. g. creating blocks using block-gen).
     | SSKindaSynced
     -- ^ We are kinda synchronized, i. e. all previously described
     -- statuses are not about us.
@@ -48,13 +54,13 @@ instance Buildable SyncStatus where
         \case
             SSDoingRecovery -> "we're doing recovery"
             SSUnknownSlot -> "we don't know current slot"
-            SSLagBehind {..} ->
+            SSLagBehind (TipSlot sslbTipSlot) (CurrentSlot sslbCurrentSlot) ->
                 bprint
                     ("we lag behind too much, our tip's slot is: " %slotIdF %
                      ", but current slot is " %slotIdF)
                     sslbTipSlot
                     sslbCurrentSlot
-            SSInFuture {..} ->
+            SSInFuture (TipSlot sslbTipSlot) (CurrentSlot sslbCurrentSlot) ->
                 bprint
                     ("we invented a time machine, our tip's slot is: " %slotIdF %
                      " and it's greater than current slot: " %slotIdF)

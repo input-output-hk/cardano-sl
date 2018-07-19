@@ -51,11 +51,12 @@ import           Control.Exception (throwIO)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base64 as B64 (decode, encode)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as B
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting (bprint, build, hex, sformat, shown, (%))
+import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Transport (EndPointAddress (..))
 import qualified Node as N
@@ -63,13 +64,16 @@ import           Node.Message.Class (Message (..), MessageCode)
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson, mapJson)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     decodeKnownCborDataItem, decodeUnknownCborDataItem,
+                     deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
+                     encodeUnknownCborDataItem, enforceSize)
 import           Pos.Binary.Limit (Limit (..))
 import           Pos.Core.Update (BlockVersion)
 import           Pos.Infra.Communication.BiP (BiP)
 import           Pos.Infra.Network.Types (MsgType (..), NodeId (..),
                      NodeType (..), Origin (..))
-import           Pos.Util.Util (toAesonError)
+import           Pos.Util.Util (cborError, toAesonError)
 
 type PackingType = BiP
 type PeerData = VerInfo
@@ -186,6 +190,19 @@ data HandlerSpec
     | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
+instance Bi HandlerSpec where
+    encode input = case input of
+        ConvHandler mname        ->
+            encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
+        UnknownHandler word8 bs  ->
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem (LBS.fromStrict bs)
+    decode = do
+        enforceSize "HandlerSpec" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> ConvHandler        <$> decodeKnownCborDataItem
+            _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
+
 convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageCode, HandlerSpec)
 convH pSnd pReply = (messageCode pSnd, ConvHandler $ messageCode pReply)
 
@@ -213,6 +230,14 @@ data VerInfo = VerInfo
     , vIInHandlers   :: HandlerSpecs
     , vIOutHandlers  :: HandlerSpecs
     } deriving (Eq, Generic, Show)
+
+deriveSimpleBi ''VerInfo [
+    Cons 'VerInfo [
+        Field [| vIMagic        :: Int32        |],
+        Field [| vIBlockVersion :: BlockVersion |],
+        Field [| vIInHandlers   :: HandlerSpecs |],
+        Field [| vIOutHandlers  :: HandlerSpecs |]
+    ]]
 
 instance Buildable VerInfo where
     build VerInfo {..} = bprint ("VerInfo { magic="%hex%", blockVersion="
@@ -330,9 +355,27 @@ instance Monoid MkListeners where
 data MsgSubscribe = MsgSubscribe | MsgSubscribeKeepAlive
     deriving (Generic, Show, Eq)
 
+instance Bi MsgSubscribe where
+    encode = \case
+        MsgSubscribe          -> encode (42 :: Word8)
+        MsgSubscribeKeepAlive -> encode (43 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe
+        43 -> pure MsgSubscribeKeepAlive
+        n  -> cborError $ "MsgSubscribe wrong byte: " <> show n
+
 -- | Old version of MsgSubscribe.
 data MsgSubscribe1 = MsgSubscribe1
     deriving (Generic, Show, Eq)
+
+-- deriveSimpleBi is not happy with constructors without arguments
+-- "fake" deriving as per `MempoolMsg`.
+-- TODO: Shall we encode this as `CBOR` TkNull?
+instance Bi MsgSubscribe1 where
+    encode MsgSubscribe1 = encode (42 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe1
+        n  -> cborError $ "MsgSubscribe1 wrong byte:" <> show n
 
 mlMsgSubscribe :: Limit MsgSubscribe
 mlMsgSubscribe = 0

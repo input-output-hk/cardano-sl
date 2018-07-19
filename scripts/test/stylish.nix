@@ -1,4 +1,4 @@
-{ runCommand, stylish-haskell, src, lib, localLib, diffutils }:
+{ runCommand, stylish-haskell, src, lib, localLib, diffutils, glibcLocales }:
 
 let
   # just haskell sources and the stylish-haskell config file
@@ -14,7 +14,7 @@ let
 in
 runCommand "cardano-stylish-check" {
   succeedOnFailure = true;
-  buildInputs = [ stylish-haskell diffutils ];
+  buildInputs = [ stylish-haskell diffutils glibcLocales ];
 } ''
   set +e
   ${localLib.utf8LocaleSetting}

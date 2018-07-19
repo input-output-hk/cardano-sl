@@ -22,17 +22,18 @@ import           Control.Lens (makeLenses, makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
                      verifyGeneric)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
                      decodeKnownCborDataItem, decodeUnknownCborDataItem,
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
-                     encodeUnknownCborDataItem, enforceSize)
+                     encodeUnknownCborDataItem, enforceSize,
+                     knownCborDataItemSizeExpr, szCases)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF)
 import           Pos.Crypto (Hash, hash, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -71,6 +72,11 @@ instance Bi Tx where
     decode = do
         enforceSize "Tx" 3
         UnsafeTx <$> decode <*> decode <*> decode
+
+    encodedSizeExpr size pxy = 1
+        + size (_txInputs     <$> pxy)
+        + size (_txOutputs    <$> pxy)
+        + size (_txAttributes <$> pxy)
 
 instance NFData Tx
 
@@ -155,6 +161,10 @@ instance Bi TxIn where
         case tag of
             0 -> uncurry TxInUtxo <$> decodeKnownCborDataItem
             _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
+    encodedSizeExpr size _ = 2 + (knownCborDataItemSizeExpr $
+        szCases [ let TxInUtxo txInHash txInIndex = error "unused"
+                  in  Case "TxInUtxo" (size ((,) <$> pure txInHash <*> pure txInIndex))
+                ])
 
 instance NFData TxIn
 

@@ -11,13 +11,13 @@ import           Universum
 import           Data.Aeson (FromJSON (..), FromJSONKey (..),
                      FromJSONKeyFunction (..), ToJSON (toJSON), ToJSONKey (..),
                      object, withObject, (.:), (.=))
+import qualified Data.Aeson.Options as S (defaultOptions)
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (sformat)
-import qualified Serokell.Aeson.Options as S (defaultOptions)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Fee ()

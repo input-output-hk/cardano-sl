@@ -32,12 +32,12 @@ import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
+import           Pos.Core.Slotting (MonadSlots (..), getCurrentSlotFlat,
+                     slotFromTimestamp)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
 import           Pos.GState.BlockExtra (isBlockInMainChain)
-import           Pos.Infra.Slotting (slotFromTimestamp)
-import           Pos.Sinbin.Slotting (MonadSlots (..), getCurrentSlotFlat)
 import           Pos.Util (_neHead)
 
 -- | Find LCA of headers list and main chain, including oldest

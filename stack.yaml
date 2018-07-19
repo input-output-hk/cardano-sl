@@ -6,11 +6,10 @@ flags:
 
 extra-package-dbs: []
 
-# util -> networking → binary →  crypto → core → db → [lrc, infra]
-#              → [ssc, txp, update, delegation] → block → lib → ...
-# Then we have two branches:
-# ... → client → generator → [auxx, explorer, wallet] → wallet-new
-# ... → [node, tools]
+# The dependency graph which was previously here has been dropped in favor of
+# PNG output from the script `scripts/package-dep-graph.sh`, which uses
+# `stack dot` to construct a graph which represents the current state exactly.
+
 packages:
 - util
 - util/test
@@ -24,10 +23,10 @@ packages:
 - db
 - lrc
 - lrc/test
-- sinbin
 - infra
 - infra/test
 - ssc
+- ssc/test
 - txp
 - txp/test
 - update
@@ -36,7 +35,6 @@ packages:
 - delegation/test
 - block
 - block/test
-- block/bench
 - lib
 - generator
 - client
@@ -167,7 +165,7 @@ packages:
 # buggy async
 - location:
     git: https://github.com/input-output-hk/log-warper.git
-    commit: fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55
+    commit: 4af8114fbcd5698a4e1fbc653031f0300e29faee
   extra-dep: true
 
 # Exposes a custom discovery function so you can specify the prefix.
@@ -192,6 +190,21 @@ packages:
     commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
   extra-dep: true
 
+# Custom Universum prelude, that brings back some of the
+# formatting logic, as well as `pretty`.
+- location:
+    git: https://github.com/input-output-hk/universum.git
+    commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
+  extra-dep: true
+
+
+# Need to adjust version bounds on serokell-util.
+# serokell-util has an upper bound preventing 6.3 for some reason
+- location:
+    git: https://github.com/input-output-hk/serokell-util.git
+    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -208,12 +221,13 @@ extra-deps:
 - lifted-async-0.10.0.1
 
 # Serokell-specific utilities not on stackage
-- serokell-util-0.8.0
-# serokell-util has an upper bound preventing 6.3 for some reason.
-# TODO: investigate?
-- formatting-6.2.5
+- fmt-0.6
+# We *must* use 6.3.6 at least, otherwise `int` is synonymous with `build` and
+# will result in an infinite loop -> space leak; however we can't yet because
+# CI hasn't run cabal update yet.
+# - formatting-6.3.6
 
-# Following 9 are not on stackage.
+# Following 10 are not on stackage.
 - pvss-0.2.0
 - systemd-1.1.2
 - base58-bytestring-0.1.0
@@ -223,6 +237,8 @@ extra-deps:
 - json-sop-0.2.0.3
 - lens-sop-0.2.0.2
 - lzma-clib-5.2.2
+- micro-recursion-schemes-5.0.2.2
+
 # The changelog for directory-1.3.1.1 indicate some potentially important
 # bugfixes over directory-1.3.0.2, which is what's on lts-11.
 - directory-1.3.1.1
@@ -230,6 +246,9 @@ extra-deps:
 - happy-1.19.5
 # Good bug fixes in here.
 - criterion-1.4.0.0
+
+# Fix for a space leak: https://github.com/chrisdone/formatting/pull/44
+- formatting-6.3.6
 
 # Servant stuff not found on stackage
 - servant-multipart-0.11.2
@@ -259,6 +278,16 @@ extra-deps:
 # Needed for coin selection in the wallet
 - normaldistribution-1.1.0.3
 
+# This used to be Serokell.Aeson.Options
+- aeson-options-0.0.0
+
+# universum depends on tasty-hedgehog
+# tasty-hedgehog < 0.2 depends on hedgehog < 0.6
+# LTS-11.13 -- LTS-11.17 provide tasty-hedgehog-0.1.0.2
+# thus to use our hedgehog-0.6+ from source,
+# we need to explicilty bump tasty-hedgehog to 0.2.0.0.
+- tasty-hedgehog-0.2.0.0
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
@@ -269,7 +298,6 @@ ghc-options:
   cardano-sl-binary:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary-test: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-block:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-block-bench: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-block-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-client:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core:        -Werror -Wcompat -fwarn-redundant-constraints

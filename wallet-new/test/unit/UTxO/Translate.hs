@@ -190,19 +190,126 @@ verify ma = withConfig $ do
     return $ validatedFromEither (Verify.verify utxo ma)
 
 -- | Wrapper around 'UTxO.Verify.verifyBlocksPrefix'
+--
+-- NOTE: This assumes right now that we verify starting from the genesis block.
+-- If that assumption is not valid, we need to pass in the slot leaders here.
+-- Probably easier is to always start from an epoch boundary block; in such a
+-- case in principle we don't need to pass in the set of leaders all, since the
+-- the core of the block verification code ('verifyBlocks' from module
+-- "Pos.Block.Logic.Integrity") will then take the set of leaders from the
+-- genesis/epoch boundary block itself. In practice, however, the passed in set
+-- of leaders is verified 'slogVerifyBlocks', so we'd have to modify the
+-- verification code a bit.
+
+--   It is not required that all blocks are from the same epoch. This will
+--   split the chain into epochs and validate each epoch individually
 verifyBlocksPrefix
-  :: Monad m
+  :: forall e' m.  Monad m
   => OldestFirst NE Block
   -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
-verifyBlocksPrefix blocks = do
-    CardanoContext{..} <- asks tcCardano
-    let tip         = ccHash0
-        currentSlot = Nothing
-    withProtocolMagic $ \pm ->
-      verify $ Verify.verifyBlocksPrefix
-          pm
-          tip
-          currentSlot
-          ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
-          (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
-          blocks
+verifyBlocksPrefix blocks =
+    case splitEpochs blocks of
+      ESREmptyEpoch _          ->
+        validatedFromExceptT . throwError $ VerifyBlocksError "Whoa! Empty epoch!"
+      ESRStartsOnBoundary _    ->
+        validatedFromExceptT . throwError $ VerifyBlocksError "No genesis epoch!"
+      ESRValid genEpoch (OldestFirst succEpochs) -> withProtocolMagic $ \pm -> do
+        CardanoContext{..} <- asks tcCardano
+        verify $ validateGenEpoch pm ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
+          epochUndos <- sequence $ validateSuccEpoch pm <$> succEpochs
+          return $ foldl' (\a b -> a <> b) genUndos epochUndos
+
+  where
+    validateGenEpoch :: ProtocolMagic
+                     -> HeaderHash
+                     -> SlotLeaders
+                     -> OldestFirst NE MainBlock
+                     -> ( HasConfiguration
+                          => Verify VerifyBlocksException (OldestFirst NE Undo))
+    validateGenEpoch pm ccHash0 ccInitLeaders geb = do
+      Verify.verifyBlocksPrefix
+        pm
+        ccHash0
+        Nothing
+        ccInitLeaders
+        (OldestFirst [])
+        (Right <$> geb ::  OldestFirst NE Block)
+    validateSuccEpoch :: ProtocolMagic
+                      -> EpochBlocks NE
+                      -> ( HasConfiguration
+                           => Verify VerifyBlocksException (OldestFirst NE Undo))
+    validateSuccEpoch pm (SuccEpochBlocks ebb emb) = do
+      Verify.verifyBlocksPrefix
+        pm
+        (ebb ^. headerHashG)
+        Nothing
+        (ebb ^. gbBody . gbLeaders)
+        (OldestFirst []) -- ^ TODO pass these?
+        (Right <$> emb)
+
+-- | Blocks inside an epoch
+data EpochBlocks a = SuccEpochBlocks !GenesisBlock !(OldestFirst a MainBlock)
+
+-- | Try to convert the epoch into a non-empty epoch
+neEpoch :: EpochBlocks [] -> Maybe (EpochBlocks NE)
+neEpoch (SuccEpochBlocks ebb (OldestFirst mbs)) = case nonEmpty mbs of
+  Nothing   -> Nothing
+  Just mbs' -> Just $ SuccEpochBlocks ebb (OldestFirst mbs')
+
+-- | Epoch splitting result. This validates that the chain follow the pattern
+--   `m(m*)(b(m+))*`, where `m` denotes a main block, and `b` a boundary block.
+--
+--   Either we have a valid splitting of the chain into epochs, or at some point
+--   we have an empty epoch, in which case we return the successive boundary
+--   blocks, or we have that the chain starts on a boundary block.
+--
+--   This does not catch the case where blocks are in the wrong epoch, which
+--   will be detected by slot leaders being incorrect.
+data EpochSplitResult
+  = ESRValid !(OldestFirst NE MainBlock) !(OldestFirst [] (EpochBlocks NE))
+  | ESREmptyEpoch !GenesisBlock
+  | ESRStartsOnBoundary !GenesisBlock
+
+-- | Split a non-empty set of blocks into the genesis epoch (which does not start with
+--   an epoch boundary block) and a set of successive epochs, starting with an EBB.
+splitEpochs :: OldestFirst NE Block
+            -> EpochSplitResult
+splitEpochs blocks = case spanEpoch blocks of
+  (Left (SuccEpochBlocks ebb _), _) -> ESRStartsOnBoundary ebb
+  (Right genEpoch, OldestFirst rem') -> go [] (OldestFirst <$> nonEmpty rem') where
+    go !acc Nothing = ESRValid genEpoch (OldestFirst $ reverse acc)
+    go !acc (Just neRem) = case spanEpoch neRem of
+      (Right _, _) -> error "Impossible!"
+      (Left ebs@(SuccEpochBlocks ebb _), OldestFirst newRem) -> case neEpoch ebs of
+        Nothing   -> ESREmptyEpoch ebb
+        Just ebs' -> go (ebs' :  acc) (OldestFirst <$> nonEmpty newRem)
+
+-- | Span the epoch until the next epoch boundary block.
+--
+--   - If the list of blocks starts with an EBB, this will return 'Left
+--     EpochBlocks' containing the EBB and the successive blocks.
+--   - If the list of blocks does not start with an EBB, this will return
+--     `Right (OldestFirst NE Block)` containg all blocks before the next
+--     EBB.
+--
+--   In either case, it will also return any remainng blocks, which will either be
+--   empty or start with an EBB.
+spanEpoch :: OldestFirst NE Block
+          -> (Either (EpochBlocks []) (OldestFirst NE MainBlock), OldestFirst [] Block)
+spanEpoch (OldestFirst (x:|xs)) = case x of
+  Left ebb -> over _1 (Left . SuccEpochBlocks ebb . OldestFirst)
+              . over _2 OldestFirst
+              $ spanMaybe rightToMaybe xs
+  -- Take until we find an EBB
+  Right mb -> over _1 (Right . OldestFirst . (mb :|))
+       . over _2 OldestFirst
+       $ spanMaybe rightToMaybe xs
+
+-- | Returns the maximal prefix of the input list mapped to `Just`, along with
+-- the remainder.
+spanMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
+spanMaybe = go [] where
+  go !acc _ [] = (reverse acc, [])
+  go !acc f (x:xs) = case f x of
+    Just x' -> go (x':acc) f xs
+    Nothing -> (reverse acc, x:xs)

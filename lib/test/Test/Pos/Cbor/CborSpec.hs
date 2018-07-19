@@ -21,7 +21,6 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..))
 
-import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Communication ()
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
@@ -31,7 +30,6 @@ import qualified Pos.Core.Ssc as Ssc
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
-import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
@@ -52,9 +50,11 @@ import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
+import           Test.Pos.Infra.Arbitrary.Update ()
+import           Test.Pos.Ssc.Arbitrary ()
 import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
-
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId

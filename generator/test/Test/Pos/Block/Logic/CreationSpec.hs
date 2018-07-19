@@ -15,8 +15,7 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
                      counterexample, elements, forAll, generate, listOf,
                      listOf1, oneof, property)
 
-import           Pos.Arbitrary.Ssc (commitmentMapEpochGen,
-                     vssCertificateEpochGen)
+
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
@@ -39,6 +38,8 @@ import           Test.Pos.Configuration (withDefConfiguration,
 import           Test.Pos.Core.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
+import           Test.Pos.Ssc.Arbitrary (commitmentMapEpochGen,
+                     vssCertificateEpochGen)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec

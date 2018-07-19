@@ -16,5 +16,6 @@ newtype BlockCount = BlockCount {getBlockCount :: Word64}
 instance Bi BlockCount where
     encode = encode . getBlockCount
     decode = BlockCount <$> decode
+    encodedSizeExpr size pxy = size (getBlockCount <$> pxy)
 
 deriveSafeCopySimple 0 'base ''BlockCount

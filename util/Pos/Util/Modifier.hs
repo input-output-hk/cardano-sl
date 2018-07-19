@@ -40,8 +40,8 @@ import           Control.DeepSeq (NFData)
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
-import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable
 import           GHC.Generics (Generic)
 import           Serokell.Util (listJson, pairF)
 

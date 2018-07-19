@@ -65,7 +65,7 @@ library
                      , scrypt
                      , serokell-util
                      , text
-                     , text-format
+                     , formatting
                      , universum
                      , unordered-containers
 
@@ -120,7 +120,6 @@ test-suite test
 
   build-depends:       QuickCheck
                      , base
-                     , aeson
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary
@@ -135,7 +134,6 @@ test-suite test
                      , hspec
                      , memory
                      , quickcheck-instances
-                     , template-haskell
                      , text
                      , universum >= 0.1.11
                      , unordered-containers

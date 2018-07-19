@@ -18,7 +18,6 @@ library
   other-modules:
                        Test.Pos.Update.Arbitrary.Core
                        Test.Pos.Update.Arbitrary.MemState
-                       Test.Pos.Update.Arbitrary.Network
                        Test.Pos.Update.Arbitrary.Poll
 
   build-depends:       QuickCheck
@@ -28,11 +27,8 @@ library
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-infra
-                     , cardano-sl-infra-test
                      , cardano-sl-update
                      , cardano-sl-util-test
-                     , containers
                      , generic-arbitrary
                      , universum
                      , unordered-containers

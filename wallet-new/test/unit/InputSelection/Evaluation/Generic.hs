@@ -66,9 +66,8 @@ import           Control.Lens.TH (makeLenses)
 import           Data.Conduit
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import qualified Data.Text.Buildable
 import qualified Data.Text.IO as Text
-import           Formatting (bprint, build, sformat, shown, (%))
+import           Formatting (build, sformat, (%))
 import           System.Directory (createDirectory)
 import           System.FilePath ((<.>), (</>))
 import qualified System.IO.Error as IO
@@ -790,10 +789,3 @@ evaluateUsingEvents evalOptions@EvalOptions{..}
             (prefix' </> "mkframes.gnuplot")
             (deriveBounds overallStats accStats)
             plotInstr
-
-{-------------------------------------------------------------------------------
-  Orphans
--------------------------------------------------------------------------------}
-
-instance Buildable (Fixed E2) where
-  build = bprint shown

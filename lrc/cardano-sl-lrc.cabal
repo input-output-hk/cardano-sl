@@ -44,10 +44,8 @@ library
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
-                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
                      , conduit
@@ -55,9 +53,8 @@ library
                      , formatting
                      , lens
                      , log-warper
-                     , reflection
                      , rocksdb-haskell-ng
-                     , text-format
+                     , formatting
                      , universum
                      , unliftio
                      , unordered-containers

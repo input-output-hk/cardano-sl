@@ -8,8 +8,8 @@ module Pos.Infra.Communication.Relay.Types
 import           Prelude (Show (..))
 import           Universum hiding (Show)
 
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import           Node (Message)
 
 import           Pos.Binary.Class (Bi)

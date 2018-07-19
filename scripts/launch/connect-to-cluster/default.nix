@@ -7,11 +7,12 @@
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
-, walletListen ? "127.0.0.1:8090"
-, walletDocListen ? "127.0.0.1:8091"
-, ekgListen ? "127.0.0.1:8000"
+, walletListen ? "localhost:8090"
+, walletDocListen ? "localhost:8091"
+, ekgListen ? "localhost:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
+, confFile ? null
 , confKey ? null
 , relays ? null
 , debug ? false
@@ -46,7 +47,7 @@ let
       relays = "127.0.0.1";
     };
     override = {
-      inherit relays confKey;
+      inherit relays confKey confFile;
     };
   };
   executables =  {
@@ -94,14 +95,12 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
-      --configuration-key ${environments.${environment}.confKey} \
-      --configuration-file ${configFiles}/lib/configuration.yaml
+      ${configurationArgs}
   fi
   ''}
 
   ${executables.${executable}}                                     \
-    --configuration-file ${configFiles}/lib/configuration.yaml \
-    --configuration-key ${environments.${environment}.confKey}     \
+    ${configurationArgs}                                           \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
     ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
     ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
@@ -119,4 +118,4 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     +RTS ${ghcRuntimeArgs} -RTS                                    \
     ${additionalNodeArgs}                                          \
     $RUNTIME_ARGS
-''
+'' // { inherit walletListen walletDocListen ekgListen; }

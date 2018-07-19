@@ -62,12 +62,12 @@ import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
                      decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, later, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Encoding, biSize,
-                     encodeCrcProtected)
+                     encodeCrcProtected, encodedCrcProtectedSizeExpr)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
@@ -124,6 +124,10 @@ instance Bi Address where
         (addrRoot, addrAttributes, addrType) <- Bi.decodeCrcProtected
         let res = Address {..}
         pure res
+    encodedSizeExpr size pxy =
+        encodedCrcProtectedSizeExpr size ( (,,) <$> (addrRoot       <$> pxy)
+                                                <*> (addrAttributes <$> pxy)
+                                                <*> (addrType       <$> pxy) )
 
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize

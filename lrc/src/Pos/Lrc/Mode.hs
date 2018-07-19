@@ -8,10 +8,10 @@ module Pos.Lrc.Mode
 
 import           Universum
 
-import           Mockable (Async, Concurrently, Delay, Mockables)
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Core.Mockable (Async, Concurrently, Delay, Mockables)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Lrc.Context (HasLrcContext)
 

@@ -85,6 +85,7 @@ import           Data.Semigroup (Semigroup)
 
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
@@ -95,14 +96,13 @@ import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
+import qualified Formatting.Buildable
 import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
 import qualified Prelude
-import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
 import qualified Serokell.Util.Base16 as Base16
 import           Servant
@@ -130,6 +130,7 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),

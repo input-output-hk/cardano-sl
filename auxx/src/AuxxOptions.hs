@@ -17,9 +17,8 @@ import qualified NeatInterpolation as N
 import           Options.Applicative (CommandFields, Mod, Parser, command,
                      execParser, footerDoc, fullDesc, header, help, helper,
                      info, infoOption, long, maybeReader, metavar, option,
-                     progDesc, subparser, value)
+                     progDesc, strOption, subparser, value)
 import           Pos.Communication (NodeId)
-import           Serokell.Util.OptParse (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
@@ -49,7 +48,7 @@ data AuxxStartMode
 
 data AuxxAction
     = Repl
-    | Cmd { cmd :: !Text }
+    | Cmd !Text
 
 ----------------------------------------------------------------------------
 -- Parse action

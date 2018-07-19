@@ -34,7 +34,6 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
-                     , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
@@ -47,7 +46,7 @@ library
                      , safe-exceptions
                      , serokell-util
                      , stm
-                     , text-format
+                     , formatting
                      , transformers
                      , universum
                      , unordered-containers

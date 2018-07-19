@@ -13,7 +13,6 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (has)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
-import           Mockable (delay, forConcurrently)
 import           Serokell.Util (enumerate, listJson)
 import           System.Wlog (logDebug, logInfo, modifyLoggerName)
 
@@ -25,6 +24,7 @@ import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux,
                      difficultyL)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Mockable (delay, forConcurrently)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)

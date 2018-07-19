@@ -5,7 +5,6 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Accounts
 
 import           Universum
 
-import           Data.Default (def)
 import qualified Data.IxSet.Typed as IxSet
 import           Servant
 
@@ -88,7 +87,7 @@ redeemAda
     -> MonadV1 (WalletResponse Transaction)
 redeemAda pm submitTx walletId accountIndex r = do
     let ShieldedRedemptionCode seed = redemptionRedemptionCode r
-        spendingPassword = maybe def unV1 (redemptionSpendingPassword r)
+        V1 spendingPassword = redemptionSpendingPassword r
     accountId <- migrate (walletId, accountIndex)
     let caccountId = V0.encodeCType accountId
     fmap single . migrate =<< case redemptionMnemonic r of

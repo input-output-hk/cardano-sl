@@ -17,8 +17,6 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 import qualified Test.QuickCheck.Property as Property
 
-import           Pos.Util.Mnemonic (Mnemonic)
-
 import qualified Pos.Core as Core
 import qualified Pos.Core.Update as Core
 
@@ -34,9 +32,10 @@ spec :: Spec
 spec = parallel $ describe "Marshalling & Unmarshalling" $ do
     parallel $ describe "Roundtrips" $ do
         -- Aeson roundrips
-        aesonRoundtripProp @(V1 (Mnemonic 12)) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
+        aesonRoundtripProp @BackupPhrase Proxy
+        aesonRoundtripProp @Redemption Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
         aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy

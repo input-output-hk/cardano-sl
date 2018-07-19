@@ -13,14 +13,14 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.Monad.Trans.Reader (ReaderT (ReaderT), runReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
-import           Pos.Core (BlockVersionData, CoreConfiguration, Timestamp,
-                     GeneratedSecrets, GenesisData, GenesisHash(GenesisHash), ProtocolMagic,
-                     ProtocolConstants, getGenesisHash, withCoreConfiguration,
+import           Pos.Core (BlockVersionData, CoreConfiguration,
+                     GeneratedSecrets, GenesisData, GenesisHash (GenesisHash),
+                     ProtocolConstants, ProtocolMagic, Timestamp,
+                     generatedSecrets, genesisBlockVersionData, genesisData,
+                     genesisHash, getGenesisHash, protocolConstants,
+                     withCoreConfiguration, withCoreConfigurations,
                      withGeneratedSecrets, withGenesisBlockVersionData,
-                     withGenesisData, withGenesisHash, withProtocolConstants,
-                     generatedSecrets, genesisData, genesisHash,
-                     genesisBlockVersionData, protocolConstants,
-                     withCoreConfigurations)
+                     withGenesisData, withGenesisHash, withProtocolConstants)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class (MonadDBRead (..), Serialized (Serialized))
 import           Universum

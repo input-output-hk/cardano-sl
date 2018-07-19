@@ -37,6 +37,7 @@ import qualified Text.Megaparsec.Char as P
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Crypto.Random (runSecureRandom)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
+import           Control.Monad.Fail (fail)
 
 -- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable
@@ -113,7 +114,7 @@ randomDHTKey = DHTKey . hashAddress <$> liftIO (runSecureRandom genNonce)
 dhtKeyParser :: P.CharParser DHTKey
 dhtKeyParser = P.base64Url >>= toDHTKey
   where
-    toDHTKey = either undefined return . bytesToDHTKey
+    toDHTKey = either fail return . bytesToDHTKey
 
 -- | Parser for 'DHTNode'.
 dhtNodeParser :: P.CharParser DHTNode

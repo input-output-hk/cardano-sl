@@ -13,9 +13,9 @@ module Pos.Exception
        ) where
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import qualified Text.Show
@@ -33,7 +33,7 @@ instance Show CardanoException where
 instance Exception CardanoException
 
 instance Buildable CardanoException where
-    build (CardanoException e) = Data.Text.Buildable.build e
+    build (CardanoException e) = Formatting.Buildable.build e
 
 -- | Helper to define sub-exception of CardanoException.
 cardanoExceptionToException :: (Buildable e, Exception e) => e -> SomeException

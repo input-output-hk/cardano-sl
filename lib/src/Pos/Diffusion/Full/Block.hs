@@ -23,8 +23,8 @@ import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Set as S
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
+import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Conversation (sendRaw)
 import           Pipes (await, runEffect, (>->))
@@ -33,11 +33,6 @@ import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
-                     MsgGetHeaders (..), MsgHeaders (..),
-                     MsgSerializedBlock (..), MsgStream (..),
-                     MsgStreamBlock (..), MsgStreamStart (..),
-                     MsgStreamUpdate (..))
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
@@ -46,6 +41,9 @@ import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
                      bvdSlotDuration, difficultyL, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
                      blockHeader)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Exception (cardanoExceptionFromException,
@@ -58,12 +56,15 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
                      waitForConversations, waitForDequeues)
 import           Pos.Infra.Diffusion.Types (DiffusionHealth (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
+import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
+import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
 -- Dubious having this security stuff in here.
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
-                     toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..),
                      NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)

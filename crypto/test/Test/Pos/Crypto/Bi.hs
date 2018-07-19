@@ -12,7 +12,8 @@ import           Universum
 
 import           Cardano.Crypto.Wallet (XPrv, unXPrv, xprv, xpub)
 
-import           Crypto.Hash (Blake2b_256)
+import           Crypto.Hash (Blake2b_224, Blake2b_256, Blake2b_384,
+                     Blake2b_512, SHA1)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Data.List.NonEmpty (fromList)
@@ -20,6 +21,7 @@ import           Data.List.NonEmpty (fromList)
 import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
 
+import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (AbstractHash, EncShare, PassPhrase,
                      ProtocolMagic (..), ProxyCert, ProxySecretKey,
                      PublicKey (..), RedeemSignature, SafeSigner (FakeSigner),
@@ -32,11 +34,13 @@ import           Pos.Crypto (AbstractHash, EncShare, PassPhrase,
                      safeCreateProxyCert, safeCreatePsk, sign, toPublic,
                      toVssPublicKey)
 
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden,
-                     discoverRoundTrip, eachOf, goldenTestBi,
-                     roundTripsAesonBuildable, roundTripsAesonShow,
+import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
+import           Test.Pos.Util.Golden (discoverGolden, eachOf)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonBuildable, roundTripsAesonShow)
 
 --------------------------------------------------------------------------------
 -- ProtocolMagic
@@ -394,6 +398,32 @@ constantByteString
 
 --------------------------------------------------------------------------------
 
+sizeEstimates :: H.Group
+sizeEstimates = let check :: forall a. (Show a, Bi a) => Gen a -> Property
+                    check g = sizeTest $ scfg { gen = g, precise = True } in
+    H.Group "Encoded size bounds for crypto types."
+        [ ("PublicKey"         , check genPublicKey)
+        , ("WithHash PublicKey", check $ genWithHash genPublicKey)
+        , ("AbstractHash Blake2b_224 PublicKey",
+           check @(AbstractHash Blake2b_224 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash Blake2b_256 PublicKey",
+           check @(AbstractHash Blake2b_256 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash Blake2b_384 PublicKey",
+           check @(AbstractHash Blake2b_384 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash Blake2b_512 PublicKey",
+           check @(AbstractHash Blake2b_512 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash SHA1 PublicKey",
+           check @(AbstractHash SHA1 PublicKey) $ genAbstractHash genPublicKey)
+        , ("RedeemPublicKey", check genRedeemPublicKey)
+        , ("RedeemSecretKey", check genRedeemSecretKey)
+        , ("RedeemSignature PublicKey", check (genRedeemSignature (ProtocolMagic 0) genPublicKey))
+        ]
+
+--------------------------------------------------------------------------------
+
 tests :: IO Bool
-tests = (&&) <$> H.checkSequential $$discoverGolden
-             <*> H.checkSequential $$discoverRoundTrip
+tests = and <$> sequence
+    [ H.checkSequential $$discoverGolden
+    , H.checkSequential $$discoverRoundTrip
+    , H.checkParallel sizeEstimates
+    ]

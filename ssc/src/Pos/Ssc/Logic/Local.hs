@@ -32,13 +32,13 @@ import           Pos.Core (BlockVersionData (..), EpochIndex, HasGenesisData,
                      HasProtocolConstants, SlotId (..), StakeholderId,
                      VssCertificate, epochIndexL,
                      mkVssCertificatesMapSingleton)
+import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      SscPayload (..), mkCommitmentsMap)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
-import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)

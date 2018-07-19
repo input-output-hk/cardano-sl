@@ -28,9 +28,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
-import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently,
-                     currentTime, delay, forConcurrently, modifySharedAtomic,
-                     newSharedAtomic)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
@@ -44,6 +41,9 @@ import           Pos.Core (BlockVersionData (bvdSlotDuration),
                      deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData,
                      genesisSecretKeys)
+import           Pos.Core.Mockable (Mockable, SharedAtomic, SharedAtomicT,
+                     concurrently, currentTime, delay, forConcurrently,
+                     modifySharedAtomic, newSharedAtomic)
 import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
                      TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,

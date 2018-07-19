@@ -5,8 +5,8 @@ module Pos.Core.Update.Data
 import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), Raw, deriveSimpleBi)
 import           Pos.Crypto (Hash)

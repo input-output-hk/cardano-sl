@@ -7,8 +7,8 @@ module Pos.Update.Context
 
 import           Universum
 
+import           Pos.Core.Slotting (MonadSlots)
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Update.MemState.Types (MemVar, newMemVar)
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
 

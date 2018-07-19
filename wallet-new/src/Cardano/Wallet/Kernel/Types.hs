@@ -11,7 +11,7 @@ module Cardano.Wallet.Kernel.Types (
   , mkRawResolvedBlock
   -- ** Abstract Wallet/AccountIds
   , WalletId (..)
-  , WalletESKs
+  , AccountId (..)
   , accountToWalletId
     -- ** From raw to derived types
   , fromRawResolvedTx
@@ -24,14 +24,17 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Data.Word (Word32)
+import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut,
-                     TxOutAux (..), gbBody, mbTxs, mbWitnesses, txInputs,
-                     txOutputs)
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Core (GenesisBlock, MainBlock, Tx, TxAux (..), TxId,
+                     TxIn (..), TxOut, TxOutAux (..), gbBody, mainBlockSlot,
+                     mbTxs, mbWitnesses, txInputs, txOutputs)
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
+
+import           Formatting (bprint, (%))
+import qualified Formatting as F
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -59,15 +62,26 @@ data WalletId =
 
     deriving (Eq, Ord)
 
--- | Map of Wallet Master keys indexed by WalletId
---
--- TODO: We may need to rethink having this in-memory
--- ESK should _not_ end up in the wallet's acid-state log
-type WalletESKs = Map WalletId EncryptedSecretKey
+instance Buildable WalletId where
+    build (WalletIdHdRnd rootId) =
+        bprint ("WalletIdHdRnd " % F.build) rootId
 
 accountToWalletId :: HD.HdAccountId -> WalletId
 accountToWalletId accountId
     = WalletIdHdRnd $ accountId ^. HD.hdAccountIdParent
+
+-- | Account Id
+--
+-- An Account Id can take several forms, the simplest of which is a
+-- random-indexed, hardeded HD Account.
+data AccountId =
+    -- | HD wallet with randomly generated (hardened) index.
+    AccountIdHdRnd HD.HdAccountId
+    deriving (Eq, Ord)
+
+instance Buildable AccountId where
+    build (AccountIdHdRnd accountId) =
+        bprint ("AccountIdHdRnd " % F.build) accountId
 
 {-------------------------------------------------------------------------------
   Input resolution: raw types
@@ -103,10 +117,15 @@ mkRawResolvedTx txAux ins =
 
 -- | Signed block along with its resolved inputs
 --
+-- If this block sits directly after an epoch boundary, it might additionally
+-- have an attached epoch boundary block which should directly proceed it in the
+-- chain . This is becuase the DSL contains no notion of epoch boundaries.
+--
 -- Constructor is marked unsafe because the caller should make sure that
 -- invariant 'invRawResolvedBlock' holds.
 data RawResolvedBlock = UnsafeRawResolvedBlock {
       rawResolvedBlock       :: MainBlock
+    , rawResolvedBlockEBB    :: Maybe GenesisBlock
     , rawResolvedBlockInputs :: ResolvedBlockInputs
     }
 
@@ -124,10 +143,10 @@ invRawResolvedBlock block ins =
     txs = getBlockTxs block
 
 -- | Smart constructor for 'RawResolvedBlock' that checks the invariant
-mkRawResolvedBlock :: MainBlock -> ResolvedBlockInputs -> RawResolvedBlock
-mkRawResolvedBlock block ins =
+mkRawResolvedBlock :: MainBlock -> Maybe GenesisBlock -> ResolvedBlockInputs -> RawResolvedBlock
+mkRawResolvedBlock block mebb  ins =
     if invRawResolvedBlock block ins
-      then UnsafeRawResolvedBlock block ins
+      then UnsafeRawResolvedBlock block mebb ins
       else error "mkRawResolvedBlock: invariant violation"
 
 {-------------------------------------------------------------------------------
@@ -137,31 +156,41 @@ mkRawResolvedBlock block ins =
 fromRawResolvedTx :: RawResolvedTx -> ResolvedTx
 fromRawResolvedTx rtx = ResolvedTx {
       _rtxInputs  = InDb $ NE.zip inps (rawResolvedTxInputs rtx)
-    , _rtxOutputs = InDb $ txUtxo tx
+    , _rtxOutputs = InDb $ txUtxo_ tx txId
     }
   where
     tx :: Tx
     tx = taTx (rawResolvedTx rtx)
 
+    txId = hash tx
+
     inps :: NonEmpty TxIn
     inps = tx ^. txInputs
 
+txUtxo_ :: Tx -> TxId -> Utxo
+txUtxo_ tx txId = Map.fromList $
+                      map (toTxInOut txId) (outs tx)
+
 txUtxo :: Tx -> Utxo
-txUtxo tx = Map.fromList $
-                map (toTxInOut tx) (outs tx)
+txUtxo tx = txUtxo_ tx txId
+          where txId = hash tx
 
 outs :: Tx -> [(Word32, TxOut)]
 outs tx = enumerate $ toList $ tx ^. txOutputs
 
-toTxInOut :: Tx -> (Word32, TxOut) -> (TxIn, TxOutAux)
-toTxInOut tx (idx, out) = (TxInUtxo (hash tx) idx, TxOutAux out)
+toTxInOut :: TxId -> (Word32, TxOut) -> (TxIn, TxOutAux)
+toTxInOut txId (idx, out) = (TxInUtxo txId idx, TxOutAux out)
 
 fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
 fromRawResolvedBlock rb = ResolvedBlock {
-      _rbTxs = zipWith aux (getBlockTxs (rawResolvedBlock rb))
-                          (rawResolvedBlockInputs rb)
+      _rbTxs  = zipWith aux (getBlockTxs b)
+                            (rawResolvedBlockInputs rb)
+
+    , _rbSlot = InDb (b ^. mainBlockSlot)
     }
   where
+    b = rawResolvedBlock rb
+
     -- Justification for the use of the unsafe constructor:
     -- The invariant for 'RawResolvedBlock' guarantees the invariant for the
     -- individual transactions.

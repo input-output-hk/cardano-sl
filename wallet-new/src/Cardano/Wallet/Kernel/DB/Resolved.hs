@@ -8,6 +8,7 @@ module Cardano.Wallet.Kernel.DB.Resolved (
   , rtxInputs
   , rtxOutputs
   , rbTxs
+  , rbSlot
   ) where
 
 import           Universum
@@ -15,8 +16,9 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import           Formatting.Buildable
+
 import           Serokell.Util (listJson, mapJson)
 
 import qualified Pos.Core as Core
@@ -56,6 +58,9 @@ data ResolvedTx = ResolvedTx {
 data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
       _rbTxs  :: [ResolvedTx]
+
+      -- | The `SlotId` of the slot this block appeared in
+    , _rbSlot :: InDb Core.SlotId
     }
 
 makeLenses ''ResolvedTx

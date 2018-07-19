@@ -15,7 +15,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap,
                      Opening, SignedCommitment, StakeholderId,
                      VssCertificate (..), addressHash)
@@ -25,6 +24,7 @@ import qualified Pos.Ssc.Types as Toss
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Toss" $ do

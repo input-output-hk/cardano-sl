@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 -- | Log file retrieval using log-warper, for the purpose of reporting.
 
 module Pos.Infra.Reporting.Wlog

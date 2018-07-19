@@ -22,7 +22,7 @@ import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks,
                      verifyAndApplyBlocks)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (HasConfiguration, HeaderHash)
-import           Pos.Core.Chrono (NE, OldestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
 import           Pos.Exception (CardanoFatalError (..))
@@ -65,7 +65,7 @@ verifyAndApplyBlocks' ::
     -> m ()
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
-        (_ :: HeaderHash) <- eitherToThrow =<<
+        _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
             verifyAndApplyBlocks dummyProtocolMagic True blocks
         return ()
   where

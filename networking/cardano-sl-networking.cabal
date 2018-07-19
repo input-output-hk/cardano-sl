@@ -24,19 +24,6 @@ Library
                         Network.Broadcast.OutboundQueue.Demo
 
                         Node
-
-                        Mockable
-                        Mockable.Channel
-                        Mockable.Class
-                        Mockable.Concurrent
-                        Mockable.CurrentTime
-                        Mockable.Instances
-                        Mockable.Monad
-                        Mockable.Production
-                        Mockable.SharedAtomic
-                        Mockable.SharedExclusive
-                        Mockable.Metrics
-
                         Node.Internal
                         Node.Conversation
                         Node.Message.Decoder
@@ -49,11 +36,6 @@ Library
 
                         Bench.Network.Commons
 
-                        JsonLog
-                        JsonLog.CanJsonLog
-                        JsonLog.Event
-                        JsonLog.JsonLogT
-
   other-modules:        Ntp.Packet
                         Ntp.Util
                         Data.NonEmptySet
@@ -62,6 +44,7 @@ Library
                       , async
                       , attoparsec
                       , base
+                      , cardano-sl-core
                       , cardano-sl-util
                       , containers
                       , cryptonite
@@ -73,7 +56,6 @@ Library
                       , kademlia
                       , lens
                       , log-warper
-                      , mmorph
                       , monad-control
                       , mtl
                       , network
@@ -82,18 +64,13 @@ Library
                       , mtl >= 2.2.1
                       , random
                       , resourcet
-                      , transformers-lift
                       , universum
-                      , unliftio-core
                       , safe-exceptions
-                      , serokell-util
                       , stm
                       , text
-                      , text-format
+                      , formatting
                       , time
                       , time-units
-                      , transformers
-                      , transformers-base
                       , ekg-core
 
   hs-source-dirs:       src
@@ -157,7 +134,6 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       async
                      , base
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , lens
@@ -189,7 +165,6 @@ executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
   build-depends:       base
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , network-transport-tcp
@@ -216,7 +191,6 @@ executable bench-log-reader
   other-modules:       LogReaderOptions
   build-depends:       base == 4.*
                      , attoparsec
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , conduit-extra
@@ -229,7 +203,7 @@ executable bench-log-reader
                      , resourcet
                      , safe-exceptions
                      , text
-                     , text-format
+                     , formatting
                      , unliftio-core
   hs-source-dirs:      bench/LogReader
   if flag(benchmarks)

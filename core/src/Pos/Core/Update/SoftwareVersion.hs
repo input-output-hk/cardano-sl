@@ -9,8 +9,8 @@ import           Universum
 
 import           Control.Monad.Except (MonadError)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, stext, (%))
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
 import           Pos.Util.Some (Some, liftLensSome)

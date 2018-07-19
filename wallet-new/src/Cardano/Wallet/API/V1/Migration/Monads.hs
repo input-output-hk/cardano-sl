@@ -11,9 +11,9 @@ module Cardano.Wallet.API.V1.Migration.Monads (
 import           Universum
 
 import qualified Control.Monad.Catch as Catch
-import           Mockable (runProduction)
 import           Servant
 
+import           Pos.Core.Mockable (runProduction)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.

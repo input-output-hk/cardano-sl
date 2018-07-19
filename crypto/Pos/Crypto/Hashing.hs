@@ -54,13 +54,13 @@ import           Data.Coerce (coerce)
 import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection (reifyNat)
 import           Data.SafeCopy (SafeCopy (..))
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe (unsafeDupablePerformIO)
 
-import           Pos.Binary.Class (Bi (..), Raw)
+import           Pos.Binary.Class (Bi (..), Raw, withWordSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Util.Util (parseJSONWithRead, toAesonError, toCborError)
@@ -89,6 +89,7 @@ instance Ord a => Ord (WithHash a) where
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
     decode = withHash <$> decode
+    encodedSizeExpr size pxy = size (whData <$> pxy)
 
 withHash :: Bi a => a -> WithHash a
 withHash a = WithHash a (force h)
@@ -145,6 +146,9 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
         toCborError $ case Hash.digestFromByteString bs of
             Nothing -> Left "AbstractHash.decode: invalid digest"
             Just x  -> Right (AbstractHash x)
+    encodedSizeExpr _ _ =
+        let realSz = hashDigestSize (error "unused, I hope!" :: algo)
+        in fromInteger (toInteger (withWordSize realSz + realSz))
 
 instance (HashAlgorithm algo, Typeable algo, Typeable a) => SafeCopy (AbstractHash algo a) where
    putCopy = putCopyBi

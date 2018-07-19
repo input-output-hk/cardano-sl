@@ -27,7 +27,6 @@ import           Control.Monad (join)
 import           Control.Monad.Trans (MonadIO (..))
 
 import           Data.Attoparsec.Text (Parser, char, decimal, string, takeWhile)
-import           Data.Binary (Binary)
 import           Data.Binary (Binary (..))
 import qualified Data.ByteString.Lazy as BL
 import           Data.Data (Data)
@@ -35,8 +34,8 @@ import           Data.Functor (($>))
 import           Data.Int (Int64)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
-import           Data.Text.Buildable (Buildable (build))
 import           Data.Time.Units (toMicroseconds)
+import           Formatting.Buildable (Buildable (build))
 
 import qualified Formatting as F
 import           GHC.Generics (Generic)
@@ -46,8 +45,8 @@ import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch,
                      parseLoggerConfig, productionB, setupLogging, warningPlus,
                      zoomLogger)
 
-import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
+import           Pos.Util (realTime)
 import           Pos.Util.Trace (Trace, traceWith)
 
 -- * Transfered data types

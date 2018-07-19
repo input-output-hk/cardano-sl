@@ -15,9 +15,9 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Gen, Property, arbitrary, conjoin,
                      counterexample, forAll)
 
-import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, sformat, (%))
 import qualified Formatting as F
+import           Formatting.Buildable (Buildable (..))
 import qualified Text.Tabl as Tabl
 
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
@@ -28,14 +28,16 @@ import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..),
-                     CoinSelPolicy, CoinSelectionOptions (..),
-                     ExpenseRegulation (..), InputGrouping (..), MkTx,
-                     largestFirst, mkStdTx, newOptions, random)
+import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
+                     CoinSelHardErr (..), CoinSelPolicy,
+                     CoinSelectionOptions (..), ExpenseRegulation (..),
+                     InputGrouping (..), largestFirst, mkStdTx, newOptions,
+                     random)
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (estimateCardanoFee)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
-import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genFiddlyPayees, genFiddlyUtxo, genGroupedUtxo,
@@ -390,10 +392,8 @@ errorWas predicate _ _ (STB hardErr) =
 -------------------------------------------------------------------------------}
 
 type Policy = CoinSelectionOptions
-           -> Gen Core.Address
-           -> MkTx Gen
            -> Word64
-           -> CoinSelPolicy Core.Utxo Gen Core.TxAux
+           -> CoinSelPolicy Core.Utxo Gen CoinSelFinalResult
 
 type RunResult = ( Core.Utxo
                  , NonEmpty Core.TxOut
@@ -403,8 +403,30 @@ type RunResult = ( Core.Utxo
 maxNumInputs :: Word64
 maxNumInputs = 300
 
-mkTx :: Core.ProtocolMagic -> SecretKey -> MkTx Gen
+genChange :: Core.Utxo
+          -> NonEmpty Core.TxOut
+          -> [Core.Coin]
+          -> Gen [Core.TxOutAux]
+genChange utxo payee css = forM css $ \change -> do
+    changeAddr <- genUniqueChangeAddress utxo payee
+    return Core.TxOutAux {
+        Core.toaOut = Core.TxOut {
+            Core.txOutAddress = changeAddr
+          , Core.txOutValue   = change
+          }
+      }
+
+mkTx :: Core.ProtocolMagic
+     -> SecretKey
+     -> NonEmpty (Core.TxIn, Core.TxOutAux)
+     -- ^ Selected inputs
+     -> NonEmpty Core.TxOutAux
+     -- ^ Selected outputs
+     -> [Core.TxOutAux]
+     -- ^ A list of change addresess, in the form of 'TxOutAux'(s).
+     -> Gen (Either CoinSelHardErr Core.TxAux)
 mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
+
 
 payRestrictInputsTo :: Word64
                     -> (InitialBalance -> Gen Core.Utxo)
@@ -421,15 +443,16 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
         payee <- genP utxo amount
         key   <- arbitrary
         let options = adjustOptions (newOptions feeFunction)
-        res <- bimap STB identity <$>
-                 policy
-                   options
-                   (genUniqueChangeAddress utxo payee)
-                   (mkTx pm key)
-                   maxInputs
-                   (fmap Core.TxOutAux payee)
-                   utxo
-        return (utxo, payee, res)
+        res <- policy options
+                      maxInputs
+                      (fmap Core.TxOutAux payee)
+                      utxo
+        case res of
+             Left e -> return (utxo, payee, Left (STB e))
+             Right (CoinSelFinalResult inputs outputs coins) -> do
+                    change <- genChange utxo payee coins
+                    txAux  <- mkTx pm key inputs outputs change
+                    return (utxo, payee, bimap STB identity txAux)
 
 pay :: (InitialBalance -> Gen Core.Utxo)
     -> (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))

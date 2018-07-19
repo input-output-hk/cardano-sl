@@ -16,9 +16,9 @@ import           Data.Default (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core (HeaderHash, SlotId (..), UpdateProposals)
+import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
-import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Poll.Modifier (PollModifier)
 import           Pos.Update.Poll.Types (LocalVotes)
 

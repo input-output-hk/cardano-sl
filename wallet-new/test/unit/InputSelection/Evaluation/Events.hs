@@ -13,8 +13,8 @@ import           Universum
 import           Conduit
 import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.Map.Strict as Map
-import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable
 import qualified Prelude
 import           Serokell.Util (listJson, mapJson)
 import           Test.QuickCheck hiding (replay)

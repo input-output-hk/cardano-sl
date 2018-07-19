@@ -34,15 +34,16 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Yaml as Yaml
 import           Formatting (build, sformat, shown, (%))
-import           Mockable.Concurrent ()
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
-import           Serokell.Util.OptParse (fromParsec)
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      logError, logNotice, usingLoggerName)
 
+import           Pos.Core.Mockable.Concurrent ()
+import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
+                     addrParserNoWildcard)
 import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),
                      MalformedDHTKey (..), fromYamlConfig)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
@@ -50,8 +51,8 @@ import           Pos.Infra.Network.Types (NodeId, NodeName (..))
 import qualified Pos.Infra.Network.Types as T
 import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
-                     addrParserNoWildcard, addressToNodeId)
+import           Pos.Infra.Util.TimeWarp (addressToNodeId)
+import           Pos.Util.OptParse (fromParsec)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)

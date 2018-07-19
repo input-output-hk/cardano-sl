@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Pos.Core.Bi
        ( tests
+       , feedPM
        ) where
 
 import           Universum
 
 import           Cardano.Crypto.Wallet (xprv, xpub)
+import           Crypto.Hash (Blake2b_224)
 import qualified Crypto.SCRAPE as Scrape
 import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
@@ -16,11 +18,14 @@ import qualified Data.Map as M
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Data.Time.Units (Millisecond, fromMicroseconds)
+import           Data.Typeable (typeRep)
 import qualified Data.Vector as V
-import           Hedgehog (Property)
+import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
+import qualified Hedgehog.Gen as Gen
 
-import           Pos.Binary.Class (Raw (..), asBinary)
+import           Pos.Binary.Class (Bi, Case (..), LengthOf, Raw (..),
+                     SizeOverride (..), asBinary, szCases)
 import           Pos.Core.Block (BlockHeader (..), BlockHeaderAttributes,
                      BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
                      GenesisConsensusData (..), GenesisProof (..), HeaderHash,
@@ -65,7 +70,7 @@ import           Pos.Crypto (AbstractHash (..), EncShare (..),
                      HDAddressPayload (..), Hash, ProtocolMagic (..),
                      PublicKey (..), RedeemPublicKey, RedeemSignature,
                      SafeSigner (..), Secret (..), SecretKey (..),
-                     SecretProof (..), SignTag (..), VssKeyPair,
+                     SecretProof (..), SignTag (..), Signature, VssKeyPair,
                      VssPublicKey (..), abstractHash, createPsk, decryptShare,
                      deterministic, deterministicVssKeyGen, hash, proxySign,
                      redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
@@ -75,12 +80,14 @@ import           Pos.Merkle (mkMerkleTree, mtRoot)
 
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden,
-                     discoverRoundTrip, eachOf, goldenTestBi,
+import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Core.Gen
 import           Test.Pos.Crypto.Bi (getBytes)
 import           Test.Pos.Crypto.Gen (genProtocolMagic)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf)
+import           Test.Pos.Util.Tripping (discoverRoundTrip)
 
 
 --------------------------------------------------------------------------------
@@ -1733,10 +1740,105 @@ exampleProxySKBlockInfo = Just (staticProxySKHeavys !! 0, examplePublicKey)
 exampleLightDlgIndices :: LightDlgIndices
 exampleLightDlgIndices = LightDlgIndices (EpochIndex 7, EpochIndex 88)
 
+sizeEstimates :: H.Group
+sizeEstimates =
+  let check :: forall a. (Show a, Bi a) => Gen a -> Property
+      check g = sizeTest $ scfg { gen = g }
+      pm = ProtocolMagic 0
+      knownTxIn (TxInUnknown _ _) = False
+      knownTxIn _                 = True
+      pkOrRedeem (PubKeyASD _) = True
+      pkOrRedeem (RedeemASD _) = True
+      pkOrRedeem _             = False
+
+      -- Explicit bounds for types, based on the generators from Gen.
+      attrUnitSize = (typeRep (Proxy @(Attributes ()))
+                     , SizeConstant 1)
+      attrAddrSize = (typeRep (Proxy @(Attributes AddrAttributes)),
+                      SizeConstant (szCases [ Case "min" 1, Case "max" 1024 ]))
+      portionSize  = (typeRep (Proxy @(Map (AbstractHash Blake2b_224 PublicKey) CoinPortion)),
+                      SizeConstant (szCases [ Case "min" 1, Case "max" 1024 ]))
+      txSigSize    = (typeRep (Proxy @(Signature TxSigData))
+                     , SizeConstant 66)
+      scriptSize   = (typeRep (Proxy @Script),
+                      SizeConstant $ szCases [ Case "loScript" 1
+                                             , Case "hiScript" 255 ])
+
+  in H.Group "Encoded size bounds for core types."
+        [ ("Coin"                 , check genCoin)
+        , ("BlockCount"           , check genBlockCount)
+        , ("TxId"                 , check genTxId)
+        , ("Attributes ()"        , sizeTest $ scfg
+              { gen = genAttributes (pure ())
+              , addlCtx = M.fromList [ attrUnitSize ]
+              })
+        , ("Attributes AddrAttributes", sizeTest $ scfg
+              { gen = genAttributes genAddrAttributes
+              , addlCtx = M.fromList [ attrAddrSize ]
+              })
+        , ("Address"              , sizeTest $ scfg
+              { gen = genAddress
+              , addlCtx = M.fromList [ attrAddrSize ]
+              })
+        , ("AddrStakeDistribution", sizeTest $ scfg
+              { gen = genAddrStakeDistribution
+              , addlCtx = M.fromList [ portionSize ]
+              })
+        , ("AddrSpendingData"     , sizeTest $ scfg
+              { gen = Gen.filter pkOrRedeem genAddrSpendingData
+              , addlCtx = M.fromList
+                  [ (typeRep (Proxy @AddrSpendingData),
+                     SelectCases ["PubKeyASD", "RedeemASD"])
+                  ] })
+        , ("AddrType"             , check genAddrType)
+        , ("Tx"                   , sizeTest $ scfg
+              { gen = genTx
+              , addlCtx = M.fromList [ attrUnitSize, attrAddrSize ]
+              , computedCtx = \tx -> M.fromList
+                  [ (typeRep (Proxy @(LengthOf [TxIn])),
+                     SizeConstant (fromIntegral $ length $ _txInputs tx))
+                  , (typeRep (Proxy @(LengthOf [TxOut])),
+                     SizeConstant (fromIntegral $ length $ _txOutputs tx))
+                  ]
+              })
+        , ("TxIn"                 , check (Gen.filter knownTxIn genTxIn))
+        , ("TxOut"                , sizeTest $ scfg
+              { gen = genTxOut
+              , addlCtx = M.fromList [ attrAddrSize ]
+              })
+        , ("TxAux"                , sizeTest $ scfg
+              { gen = genTxAux pm
+              , addlCtx = M.fromList [ attrUnitSize
+                                     , attrAddrSize
+                                     , scriptSize
+                                     , txSigSize ]
+              , computedCtx = \(TxAux tx witness) -> M.fromList
+                  [ (typeRep (Proxy @(LengthOf [TxIn])),
+                     SizeConstant (fromIntegral $ length $ _txInputs tx))
+                  , (typeRep (Proxy @(LengthOf (Vector TxInWitness))),
+                     SizeConstant (fromIntegral $ length witness))
+                  , (typeRep (Proxy @(LengthOf [TxOut])),
+                     SizeConstant (fromIntegral $ length $ _txOutputs tx))
+                  ]
+              })
+        , ("TxInWitness"          , sizeTest $ scfg
+              { gen = genTxInWitness pm
+              , addlCtx = M.fromList [ txSigSize, scriptSize ]
+              })
+        , ("TxSigData"            , check genTxSigData)
+        , ("Signature TxSigData"  , sizeTest $ scfg
+              { gen = genTxSig pm
+              , addlCtx = M.fromList [ txSigSize ]
+              })
+        ]
+
 -----------------------------------------------------------------------
 -- Main test export
 -----------------------------------------------------------------------
 
 tests :: IO Bool
-tests = (&&) <$> H.checkSequential $$discoverGolden
-             <*> H.checkParallel $$discoverRoundTrip
+tests = and <$> sequence
+    [ H.checkSequential $$discoverGolden
+    , H.checkParallel $$discoverRoundTrip
+    , H.checkParallel sizeEstimates
+    ]

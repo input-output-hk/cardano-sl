@@ -3,7 +3,7 @@
 
 module TransactionSpecs (transactionSpecs) where
 
-import           Universum hiding (log)
+import           Universum
 
 import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http

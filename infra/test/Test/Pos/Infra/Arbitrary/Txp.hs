@@ -6,8 +6,6 @@
 
 module Test.Pos.Infra.Arbitrary.Txp () where
 
-import           Universum
-
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)

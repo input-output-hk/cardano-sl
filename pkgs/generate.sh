@@ -1,7 +1,12 @@
 #!/usr/bin/env nix-shell
-#!nix-shell -i bash -p bash
+#!nix-shell -i bash -p bash cabal2nix stack cabal-install ghc
 
-# regenerate the `pkgs/default.nix` file based on the current contents of cardano-sl.cabal and stack.yaml
+# Regenerate the `pkgs/default.nix` file based on the current
+# contents of cardano-sl.cabal and stack.yaml, with a hackage snapshot.
+
+# Update this if you need a package version recently uploaded to hackage.
+# Any timestamp works.
+hackageSnapshot="2018-07-17T09:58:14Z"
 
 function runInShell {
   local inputs="$1"
@@ -20,6 +25,8 @@ fi
 # Get relative path to script directory
 scriptDir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
+echo "Using hackage snapshot from ${hackageSnapshot}"
+
 pushd "${scriptDir}"
 
   # https://github.com/NixOS/cabal2nix/issues/146
@@ -27,6 +34,6 @@ pushd "${scriptDir}"
      https://github.com/luite/hfsevents.git > hfsevents.nix
 
   # Generate cardano-sl package set
-  runInShell "cabal2nix glibcLocales" "$(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix" --platform x86_64-linux --hackage-snapshot 2018-06-20T09:58:14Z -j8 --test --bench --no-indent ./.. > default.nix.new
+  runInShell "cabal2nix glibcLocales" "$(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix" --platform x86_64-linux --hackage-snapshot "${hackageSnapshot}" -j8 --test --bench --no-indent ./.. > default.nix.new
   mv default.nix.new default.nix
 popd

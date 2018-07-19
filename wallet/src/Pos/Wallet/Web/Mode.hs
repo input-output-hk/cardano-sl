@@ -28,8 +28,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           Mockable (LowLevelAsync, Mockable, Production)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
@@ -44,6 +42,11 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
                      isRedeemAddress, largestHDAddressBoot, mkCoin)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (LowLevelAsync, Mockable, Production)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..), Reporter (..))
+import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -54,19 +57,14 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
 import           Pos.Infra.Network.Types (HasNodeType (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..), Reporter (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
-                     MonadSlotsData)
 import           Pos.Infra.StateLock (StateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
 import           Pos.Ssc.Types (HasSscContext (..))
@@ -81,6 +79,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect (MonadBlockchainInfo (..),

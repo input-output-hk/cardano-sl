@@ -8,9 +8,11 @@ import qualified Data.Set as Set
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 
 import           Test.Infrastructure.Generator
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           UTxO.Bootstrap
@@ -51,7 +53,7 @@ spec =
                     -> Expectation
     checkEquivalent activeWallet ind = do
        shouldReturnValidated $ runTranslateT $ do
-         equivalentT activeWallet (encKpHash ekp, encKpEnc ekp) (mkWallet (== addr)) ind
+         equivalentT activeWallet (encKpEnc ekp) (mkWallet (== addr)) ind
       where
         [addr]       = Set.toList $ inductiveOurs ind
         AddrInfo{..} = resolveAddr addr transCtxt
@@ -67,7 +69,9 @@ spec =
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
+bracketPassiveWallet postHook = do
+      Keystore.bracketTestKeystore $ \keystore ->
+          Kernel.bracketPassiveWallet logMessage keystore postHook
   where
    -- TODO: Decide what to do with logging.
    -- For now we are not logging them to stdout to not alter the output of
@@ -78,9 +82,10 @@ bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
 -- | Initialize active wallet in a manner suitable for generator-based testing
 bracketActiveWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
 bracketActiveWallet test =
-    bracketPassiveWallet $ \passive ->
-      Kernel.bracketActiveWallet passive diffusion $ \active ->
-        test active
+    withDefConfiguration $ \pm -> do
+        bracketPassiveWallet $ \passive ->
+          Kernel.bracketActiveWallet pm passive diffusion $ \active ->
+            test active
 
 -- TODO: Decide what we want to do with submitted transactions
 diffusion :: Kernel.WalletDiffusion

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Cardano.Wallet.Kernel.Actions
     ( WalletAction(..)
     , WalletActionInterp(..)
@@ -14,8 +15,8 @@ module Cardano.Wallet.Kernel.Actions
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, shown, (%))
+import qualified Formatting.Buildable
 import           Universum
 
 import           Pos.Core.Chrono
@@ -32,6 +33,7 @@ data WalletAction b
     = ApplyBlocks    (OldestFirst NE b)
     | RollbackBlocks (NewestFirst NE b)
     | LogMessage Text
+    | Shutdown
 
 -- | Interface abstraction for the wallet worker.
 --   The caller provides these primitive wallet operations;
@@ -116,17 +118,23 @@ interp walletInterp action = do
 
       LogMessage txt -> emit txt
 
+      Shutdown -> error "walletWorker: unreacheable dead code, reached!"
+
   where
     WalletActionInterp{..} = lifted walletInterp
     prependNewestFirst bs = \nf -> NewestFirst (getNewestFirst bs <> getNewestFirst nf)
 
 -- | Connect a wallet action interpreter to a channel of actions.
-walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
+walletWorker :: forall b. Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
 walletWorker chan ops = do
     emit ops "Starting wallet worker."
-    void $ (`evalStateT` initialWorkerState) $ forever $
-      lift (readChan chan) >>= interp ops
+    void $ (`evalStateT` initialWorkerState) tick
     emit ops "Finishing wallet worker."
+    where
+        tick :: StateT (WalletWorkerState b) IO ()
+        tick = lift (readChan chan) >>= \case
+            Shutdown -> return ()
+            msg      -> interp ops msg >> tick
 
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
@@ -141,11 +149,11 @@ initialWorkerState = WalletWorkerState
 
 -- | Start up a wallet worker; the worker will respond to actions issued over the
 --   returned channel.
-forkWalletWorker :: (MonadIO m, MonadIO m') => WalletActionInterp IO b -> m (WalletAction b -> m' ())
-forkWalletWorker ops = liftIO $ do
+forkWalletWorker :: WalletActionInterp IO b -> IO (WalletAction b -> IO ())
+forkWalletWorker ops = do
     c <- newChan
     link =<< async (walletWorker c ops)
-    return (liftIO . writeChan c)
+    return (writeChan c)
 
 -- | Check if this is the initial worker state.
 isInitialState :: Eq b => WalletWorkerState b -> Bool
@@ -179,6 +187,7 @@ instance Show b => Buildable (WalletAction b) where
       ApplyBlocks bs    -> bprint ("ApplyBlocks " % shown) bs
       RollbackBlocks bs -> bprint ("RollbackBlocks " % shown) bs
       LogMessage bs     -> bprint ("LogMessage " % shown) bs
+      Shutdown          -> bprint "Shutdown"
 
 instance Show b => Buildable [WalletAction b] where
     build was = case was of

@@ -8,28 +8,21 @@ module Pos.Block.Types
        , LastKnownHeader
        , LastKnownHeaderTag
        , MonadLastKnownHeader
-
-       , RecoveryHeaderTag
-       , RecoveryHeader
-       , MonadRecoveryHeader
        ) where
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Delegation ()
 import           Pos.Block.Slog.Types (SlogUndo (..))
 import           Pos.Core (HasConfiguration, HasDifficulty (..),
                      HasHeaderHash (..))
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Delegation.Types (DlgUndo)
-import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Update.Poll.Types (USUndo)
 import           Pos.Util.Util (HasLens (..))
 
@@ -67,11 +60,6 @@ data LastKnownHeaderTag
 type LastKnownHeader = TVar (Maybe BlockHeader)
 type MonadLastKnownHeader ctx m
      = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx LastKnownHeader)
-
-data RecoveryHeaderTag
-type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)
-type MonadRecoveryHeader ctx m
-     = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx RecoveryHeader)
 
 -- TH derived instances at the end of the file.
 

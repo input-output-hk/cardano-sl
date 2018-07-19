@@ -1,4 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.
 
@@ -23,34 +26,12 @@ module Pos.Infra.Reporting.Methods
 import           Universum
 
 import           Control.Exception (ErrorCall (..), Exception (..))
-import           Pos.ReportServer.Report (ReportType (..))
 import           System.Wlog (Severity (..), WithLogger, logMessage)
 
+import           Pos.Core.Reporting (MonadReporting (..), Reporter (..),
+                     noReporter, reportError, reportInfo)
 import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
-import           Pos.Infra.Reporting.MemState ()
-
--- | Encapsulates the sending of a report, with potential for side-effects.
-newtype Reporter m = Reporter
-    { runReporter :: ReportType -> m ()
-    }
-
-noReporter :: Applicative m => Reporter m
-noReporter = Reporter (const (pure ()))
-
--- | Typeclass analgoue of 'Reporter', for those who are allergic to using
--- function arguments.
-class MonadReporting m where
-    report :: ReportType -> m ()
-
--- | Report some general information.
-reportInfo :: MonadReporting m => Text -> m ()
-reportInfo = report . RInfo
-
--- | Report «error», i. e. a situation when something is wrong with our
--- node, e. g. an assertion failed.
-reportError :: MonadReporting m => Text -> m ()
-reportError = report . RError
 
 ----------------------------------------------------------------------------
 -- Exception handling

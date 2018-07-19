@@ -46,10 +46,9 @@ import           Universum
 
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import qualified Data.Map as Map
-import qualified Data.Text.Buildable
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
-import           Mockable (Production, currentTime, runProduction)
+import qualified Formatting.Buildable
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll,
@@ -69,6 +68,10 @@ import           Pos.Core (BlockVersionData, CoreConfiguration (..),
                      withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
+import           Pos.Core.Mockable (Production, currentTime, runProduction)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
+import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
@@ -82,8 +85,6 @@ import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
                      MonadSlots (..), SimpleSlottingMode,
                      SimpleSlottingStateVar, currentTimeSlottingSimple,
@@ -92,7 +93,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
                      getCurrentSlotInaccurateSimple,
                      getCurrentSlotInaccurateSimple', getCurrentSlotSimple,
                      getCurrentSlotSimple', mkSimpleSlottingStateVar)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
@@ -114,6 +114,7 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation,
                      sudoLiftIO)
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
                      defaultTestConf, defaultTestGenesisSpec)
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 ----------------------------------------------------------------------------

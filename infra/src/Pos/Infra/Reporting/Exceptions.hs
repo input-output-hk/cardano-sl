@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | Exceptions related to error reporting.
 --
 -- FIXME rename. These are log-warper and HTTP specific.
@@ -9,8 +11,8 @@ module Pos.Infra.Reporting.Exceptions
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable
 import           Formatting (bprint, shown, stext, string, (%))
+import qualified Formatting.Buildable
 
 import           Pos.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)

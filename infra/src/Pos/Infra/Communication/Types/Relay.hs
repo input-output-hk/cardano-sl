@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
@@ -11,6 +12,7 @@ module Pos.Infra.Communication.Types.Relay
        , InvOrData
        , InvOrDataTK
        , RelayLogEvent (..)
+       , SscMessageConstraints
        ) where
 
 import           Universum hiding (id)
@@ -18,14 +20,20 @@ import           Universum hiding (id)
 import           Control.Lens (Wrapped (..), iso)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Tagged (Tagged)
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as B
 
-import           Pos.Binary.Class (Bi (..))
+import           Node.Message.Class (Message)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Core (ProxySKHeavy, StakeholderId)
 import           Pos.Core.Txp (TxMsgContents (..))
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
+
 import           Pos.Util.Util (cborError)
+
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
@@ -67,6 +75,10 @@ instance Typeable tag => Bi (MempoolMsg tag) where
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Generic, Show, Eq)
+
+instance Bi (DataMsg ProxySKHeavy) where
+    encode = encode . dmContents
+    decode = DataMsg <$> decode
 
 instance Bi (DataMsg TxMsgContents) where
     encode (DataMsg (TxMsgContents txAux)) = encode txAux
@@ -119,5 +131,45 @@ data RelayLogEvent =
       RelayQueueFull
     | EnqueueDequeueTime !Integer
     deriving Show
+
+instance Bi (DataMsg MCCommitment) where
+    encode (DataMsg (MCCommitment signedComm)) = encode signedComm
+    decode = DataMsg . MCCommitment <$> decode
+
+instance Bi (DataMsg MCOpening) where
+    encode (DataMsg (MCOpening sId opening)) = encodeListLen 2 <> encode sId <> encode opening
+    decode = do
+        enforceSize "DataMsg MCOpening" 2
+        DataMsg <$> (MCOpening <$> decode <*> decode)
+
+instance Bi (DataMsg MCShares) where
+    encode (DataMsg (MCShares sId innerMap)) = encodeListLen 2 <> encode sId <> encode innerMap
+    decode = do
+        enforceSize "DataMsg MCShares" 2
+        DataMsg <$> (MCShares <$> decode <*> decode)
+
+instance Bi (DataMsg MCVssCertificate) where
+    encode (DataMsg (MCVssCertificate vss)) = encode vss
+    decode = DataMsg . MCVssCertificate <$> decode
+
+-- TODO: someone who knows networking should take a look because this really
+-- doesn't look like something that anyone should ever have to write
+type SscMessageConstraints =
+    ( Each '[Message]
+        [ InvOrData (Tagged MCCommitment     StakeholderId) MCCommitment
+        , InvOrData (Tagged MCOpening        StakeholderId) MCOpening
+        , InvOrData (Tagged MCShares         StakeholderId) MCShares
+        , InvOrData (Tagged MCVssCertificate StakeholderId) MCVssCertificate ]
+    , Each '[Message]
+        [ ReqMsg (Tagged MCCommitment     StakeholderId)
+        , ReqMsg (Tagged MCOpening        StakeholderId)
+        , ReqMsg (Tagged MCShares         StakeholderId)
+        , ReqMsg (Tagged MCVssCertificate StakeholderId) ]
+    , Each '[Message]
+        [ ReqOrRes (Tagged MCCommitment     StakeholderId)
+        , ReqOrRes (Tagged MCOpening        StakeholderId)
+        , ReqOrRes (Tagged MCShares         StakeholderId)
+        , ReqOrRes (Tagged MCVssCertificate StakeholderId) ]
+    )
 
 $(deriveJSON defaultOptions ''RelayLogEvent)

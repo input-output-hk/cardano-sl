@@ -6,8 +6,8 @@ module Pos.Core.Slotting.TimeDiff
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Units (Microsecond)
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
 import           Pos.Binary.Class (Bi (..))

@@ -45,14 +45,12 @@ library
 
   build-depends:       aeson
                      , base
-                     , binary
                      , cborg
                      , cereal
                      , containers
                      , concurrent-extra
                      , contravariant
                      , cryptonite
-                     , data-default
                      , deepseq
                      , directory
                      , ether
@@ -77,12 +75,9 @@ library
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
-                     , th-lift-instances
                      , time
                      , time-units
                      , transformers
-                     , transformers-base
                      , transformers-lift
                      , universum
                      , unliftio-core
@@ -132,19 +127,29 @@ test-suite test
 
   other-modules:
                        Spec
+                       Test.Pos.Util.Golden
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
+                       Test.Pos.Util.Tripping
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
+                     , bytestring
                      , async
                      , cardano-sl-util
+                     , directory
+                     , file-embed
+                     , filepath
+                     , formatting
+                     , hedgehog
                      , hspec
+                     , pretty-show
                      , QuickCheck
                      , quickcheck-instances
-                     , serokell-util >= 0.1.3.4
                      , stm
+                     , template-haskell
                      , text
                      , time
                      , time-units

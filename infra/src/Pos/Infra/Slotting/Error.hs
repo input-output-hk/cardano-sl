@@ -7,8 +7,8 @@ module Pos.Infra.Slotting.Error
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
+import qualified Formatting.Buildable
 
 import           Pos.Core.Slotting (SlotId, slotIdF)
 import           Pos.Exception (cardanoExceptionFromException,

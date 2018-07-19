@@ -18,6 +18,7 @@ module Pos.Util.UserSecret
        , mkGenesisWalletUserSecret
 
        , UserSecret
+       , isEmptyUserSecret
        , usKeys
        , usVss
        , usWallet
@@ -42,8 +43,8 @@ import           Control.Exception.Safe (onException, throwString)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
-import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, formatToString, later, (%))
+import qualified Formatting.Buildable
 import qualified Prelude
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
@@ -135,6 +136,9 @@ data UserSecret = UserSecret
     } deriving (Generic)
 
 deriving instance Eq EncryptedSecretKey => Eq UserSecret
+
+isEmptyUserSecret :: UserSecret -> Bool
+isEmptyUserSecret us = null (_usKeys us)
 
 instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
     arbitrary = genericArbitrary

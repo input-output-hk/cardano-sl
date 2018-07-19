@@ -11,10 +11,10 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core.Configuration ()
+import           Pos.Core.StateLock (Priority (..), StateLock,
+                     withStateLockNoMetrics)
 import           Pos.Core.Update (UpdatePayload (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash)
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                     withStateLockNoMetrics)
 import           Pos.Update.MemState.Types (MemPool (..))
 import           Pos.Update.Poll (LocalVotes)
 import           Pos.Util.Util (HasLens')

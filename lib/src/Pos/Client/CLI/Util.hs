@@ -17,7 +17,6 @@ import           Universum hiding (try)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
-import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo,
                      parseLoggerConfig, productionB)
 import           Text.Parsec (parserFail, try)
@@ -32,10 +31,11 @@ import           Pos.Core (StakeholderId, Timestamp (..))
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                      coreConfiguration, genesisData, prettyGenesisJson)
 import           Pos.Core.Genesis (gdStartTime)
+import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
+import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Infra.Util.TimeWarp (addrParser)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))

@@ -25,12 +25,12 @@ import           Pos.Core (BlockVersionData, ComponentBlock (..),
                      HasProtocolConstants, HeaderHash, epochIndexL,
                      epochOrSlotG, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Reporting (MonadReporting, reportError)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
-import           Pos.Infra.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)

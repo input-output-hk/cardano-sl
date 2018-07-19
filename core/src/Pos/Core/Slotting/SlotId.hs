@@ -25,8 +25,8 @@ import           Universum
 
 import           Control.Lens (Iso', iso, lens, makeLensesFor)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, ords, (%))
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants,

@@ -3,15 +3,19 @@
 base_common="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function find_binary {
+  local nix=""
+  [[ -z $2 ]] || nix="--nix"
   pushd "$base_common/.." > /dev/null || exit
-  binpath=$(stack path --local-install-root)/bin
+  binpath=$(stack ${nix} path --local-install-root)/bin
   popd > /dev/null || exit
   echo "$binpath/$1"
 }
 
 function find_build_binary {
+  local nix=""
+  [[ -z $2 ]] || nix="--nix"
   pushd "$base_common/.." > /dev/null || exit
-  binpath=$(stack path --dist-dir)/build
+  binpath=$(stack ${nix} path --dist-dir)/build
   popd > /dev/null || exit
   echo "$binpath/$1/$1"
 }
@@ -209,6 +213,8 @@ function node_cmd {
   keys_args="--genesis-secret $i"
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
+  elif [[ "$DEMO_GENESIS_KEYS_DIR" != "" ]]; then
+      keys_args="--keyfile \"$DEMO_GENESIS_KEYS_DIR/key$i.sk\""
   fi
 
   if [[ $NO_REBUILD == "" ]]; then

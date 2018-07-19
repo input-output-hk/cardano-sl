@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Definition of `VssCertData` which is a wrapper around all VSS certificates
 -- known to the node and auxiliary functions.
 --

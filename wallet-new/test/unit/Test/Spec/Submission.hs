@@ -10,8 +10,8 @@ module Test.Spec.Submission (
 import           Universum hiding (elems)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId (..),
-                     HdAccountIx (..), HdRootId (..))
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+                     HdAccountIx (..), HdRootId (..), eskToHdRootId)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
                      pendingTransactions, removePending)
 import           Cardano.Wallet.Kernel.Submission
@@ -22,13 +22,13 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           Data.Text.Buildable (build)
 import qualified Data.Vector as V
 import           Formatting (bprint, (%))
 import qualified Formatting as F
+import           Formatting.Buildable (build)
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
-import           Pos.Crypto.Signing (deterministicKeyGen)
+import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Core.Arbitrary.Txp as Core
@@ -65,10 +65,9 @@ myAccountId = HdAccountId {
     }
     where
         myHdRootId :: HdRootId
-        myHdRootId = HdRootId $ InDb (Core.unsafeAddressHash .
-                                      fst .
-                                      deterministicKeyGen $
-                                      BS.pack (replicate 32 0))
+        myHdRootId = eskToHdRootId .
+                               snd .
+                               safeDeterministicKeyGen (BS.pack (replicate 32 0)) $ mempty
 
 -- Generates a random schedule by picking a slot >= of the input one but
 -- within a 'slot + 10' range, as really generating schedulers which generates

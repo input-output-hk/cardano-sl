@@ -31,6 +31,8 @@ library
 
                        Pos.Core.ProtocolConstants
 
+                       Pos.Core.NetworkAddress
+
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis
@@ -44,11 +46,44 @@ library
                        Pos.Core.Context
                        Pos.Core.Delegation
                        Pos.Core.Genesis
+
+                       -- JsonLog (moved from networking in
+                       -- the `sinbin` shuffle). All modules
+                       -- must be exposed so that `networking`
+                       -- can import & re-export them.
+                       Pos.Core.JsonLog
+                       Pos.Core.JsonLog.CanJsonLog
+                       Pos.Core.JsonLog.Event
+                       Pos.Core.JsonLog.JsonLogT
+                       Pos.Core.JsonLog.LogEvents
+
+                       -- Mockable (moved from networking in
+                       -- the `sinbin` shuffle). All modules
+                       -- must be exposed so that `networking`
+                       -- can import & re-export them.
+                       Pos.Core.Mockable
+                       Pos.Core.Mockable.Channel
+                       Pos.Core.Mockable.Class
+                       Pos.Core.Mockable.Concurrent
+                       Pos.Core.Mockable.CurrentTime
+                       Pos.Core.Mockable.Instances
+                       Pos.Core.Mockable.Monad
+                       Pos.Core.Mockable.Production
+                       Pos.Core.Mockable.SharedAtomic
+                       Pos.Core.Mockable.SharedExclusive
+                       Pos.Core.Mockable.Metrics
+
+                       Pos.Core.Reporting
+
                        Pos.Core.Script
                        Pos.Core.Slotting
+                       Pos.Core.StateLock
                        Pos.Core.Ssc
                        Pos.Core.Txp
                        Pos.Core.Update
+
+                       Pos.Core.Util.LogSafe
+                       Pos.Core.Util.TimeLimit
 
                        Pos.Data.Attributes
                        Pos.Exception
@@ -127,6 +162,15 @@ library
                        Pos.Core.Slotting.SlotId
                        Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
+                       Pos.Core.Slotting.Class
+                       Pos.Core.Slotting.MemState
+                       Pos.Core.Slotting.Types
+                       Pos.Core.Slotting.Util
+
+                       -- Reporting
+                       Pos.Core.Reporting.MemState
+                       Pos.Core.Reporting.Methods
+                       Pos.Core.Reporting.Metrics
 
                        -- SSC
                        Pos.Core.Ssc.Commitment
@@ -167,16 +211,17 @@ library
                        Pos.Core.Update.VoteId
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-terminal
+                     , async
                      , base
                      , base58-bytestring
-                     , bifunctors
                      , bytestring
                      , Cabal
                      , canonical-json
+                     , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
                      , cardano-sl-crypto
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , cborg
                      , cereal
@@ -185,6 +230,8 @@ library
                      , data-default
                      , deepseq
                      , deriving-compat
+                     , ekg-core
+                     , ether >= 0.5
                      , exceptions
                      , extra
                      , filepath
@@ -193,21 +240,29 @@ library
                      , hashable
                      , lens
                      , log-warper >= 1.0.3
+                     , parsec
                      , memory
+                     , mmorph
+                     , monad-control
                      , mtl
                      , plutus-prototype
                      , random
                      , reflection
+                     , resourcet
                      , safecopy
                      , safe-exceptions
                      , serokell-util
+                     , stm
                      , template-haskell
                      , text
-                     , text-format
                      , th-lift-instances
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
+                     , unliftio-core
                      , unordered-containers
                      , vector
 
@@ -240,8 +295,9 @@ library
                        ScopedTypeVariables
                        MonadFailDesugaring
 
-  ghc-options:         -Wall
+  ghc-options:
                        -O2
+                       -Wall
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -262,16 +318,19 @@ test-suite test
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.EnumEmpTest
                        Test.Pos.Core.Gen
+                       Test.Pos.Core.Json
                        Test.Pos.Core.LimitsSpec
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
-                       Test.Pos.Core.EnumEmpTest
 
                        Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
                      , base16-bytestring
                      , bytestring
                      , cardano-crypto
@@ -285,6 +344,7 @@ test-suite test
                      , containers
                      , cryptonite
                      , deepseq
+                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hedgehog

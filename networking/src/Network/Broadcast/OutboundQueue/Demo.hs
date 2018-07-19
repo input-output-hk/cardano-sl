@@ -328,11 +328,12 @@ recvSyncVar (SyncVar v) (CommsDelay delay) = do
     return a
 
 demoEnqueuePolicy :: OutQ.EnqueuePolicy nid
-demoEnqueuePolicy _ = [OutQ.EnqueueOne {
-    enqNodeTypes  = [NodeCore, NodeRelay, NodeEdge]
-  , enqMaxAhead   = OutQ.MaxAhead 1
-  , enqPrecedence = OutQ.PHigh
-  }]
+demoEnqueuePolicy _ =
+    [(OutQ.EnqueueOne
+         [NodeCore, NodeRelay, NodeEdge]
+         (OutQ.MaxAhead 1)
+         OutQ.PHigh)
+    ]
 
 demoDequeuePolicy :: OutQ.DequeuePolicy
 demoDequeuePolicy _ = OutQ.Dequeue {

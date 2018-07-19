@@ -132,13 +132,19 @@ let
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev;
+      launchGenesis = true;
+      configurationKey = "testnet_full";
+      runWallet = false;
+    };
     tests = let
       src = localLib.cleanSourceTree ./.;
     in {
       shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { inherit src; };
       hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
       stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
-      buildWalletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
       swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {

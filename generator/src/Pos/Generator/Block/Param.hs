@@ -11,8 +11,8 @@ import           Universum
 
 import           Control.Lens.TH (makeClassy)
 import           Data.Default (Default (..))
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, formatToString, int, (%))
+import qualified Formatting.Buildable
 import qualified Prelude
 import           Serokell.Util (pairF)
 

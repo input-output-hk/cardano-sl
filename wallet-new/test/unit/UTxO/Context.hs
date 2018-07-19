@@ -38,8 +38,8 @@ module UTxO.Context (
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (listJson, mapJson, pairF)
 import           Serokell.Util.Base16 (base16F)
 import           Universum
@@ -57,37 +57,43 @@ import           UTxO.Crypto
 
 -- | The information returned by core
 data CardanoContext = CardanoContext {
-      ccLeaders  :: SlotLeaders
-    , ccStakes   :: StakesMap
-    , ccBlock0   :: GenesisBlock
-    , ccData     :: GenesisData
-    , ccUtxo     :: Utxo
-    , ccSecrets  :: GeneratedSecrets
+      ccStakes      :: StakesMap
+    , ccBlock0      :: GenesisBlock
+    , ccData        :: GenesisData
+    , ccUtxo        :: Utxo
+    , ccSecrets     :: GeneratedSecrets
+
+      -- | Initial stake distribution
+    , ccInitLeaders :: SlotLeaders
 
       -- | Initial balances
       --
       -- Derived from 'ccUtxo'.
-    , ccBalances :: [(Address, Coin)]
+    , ccBalances    :: [(Address, Coin)]
 
       -- | Hash of block0
       --
       -- NOTE: Derived from 'ccBlock0', /not/ the same as 'genesisHash'.
-    , ccHash0    :: HeaderHash
+    , ccHash0       :: HeaderHash
+
+      -- | Number of slots in an epoch
+    , ccEpochSlots  :: SlotCount
     }
 
 initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
 initCardanoContext pm = CardanoContext{..}
   where
-    ccLeaders  = genesisLeaders epochSlots
-    ccStakes   = genesisStakes
-    ccBlock0   = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
-    ccData     = genesisData
-    ccUtxo     = unGenesisUtxo genesisUtxo
-    ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $
-                 generatedSecrets
-
-    ccBalances = utxoToAddressCoinPairs ccUtxo
-    ccHash0    = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
+    ccLeaders     = genesisLeaders epochSlots
+    ccStakes      = genesisStakes
+    ccBlock0      = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
+    ccData        = genesisData
+    ccUtxo        = unGenesisUtxo genesisUtxo
+    ccSecrets     = fromMaybe (error "initCardanoContext: secrets unavailable")
+                  $ generatedSecrets
+    ccInitLeaders = ccLeaders
+    ccBalances    = utxoToAddressCoinPairs ccUtxo
+    ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
+    ccEpochSlots  = epochSlots
 
 {-------------------------------------------------------------------------------
   More explicit representation of the various actors in the genesis block
@@ -501,14 +507,14 @@ resolveAddress addr TransCtxt{..} =
   where
     AddrMap{..} = tcAddrMap
 
-leaderForSlot :: SlotId -> TransCtxt -> Stakeholder
-leaderForSlot slotId TransCtxt{..} = actorsStake Map.! leader
+leaderForSlot :: SlotLeaders -> SlotId -> TransCtxt -> Stakeholder
+leaderForSlot leaders slotId TransCtxt{..} = actorsStake Map.! leader
   where
     Actors{..}         = tcActors
     CardanoContext{..} = tcCardano
 
     leader :: StakeholderId
-    leader = ccLeaders NE.!! slotIx
+    leader = leaders NE.!! slotIx
 
     slotIx :: Int
     slotIx = fromIntegral $ getSlotIndex (siSlot slotId)
@@ -535,8 +541,10 @@ blockSignInfo Stakeholder{..} = BlockSignInfo{..}
     bsiKey    = regKpSec richKey
     bsiPSK    = delPSK
 
-blockSignInfoForSlot :: SlotId -> TransCtxt -> BlockSignInfo
-blockSignInfoForSlot slotId = blockSignInfo . leaderForSlot slotId
+blockSignInfoForSlot :: SlotLeaders -> SlotId -> TransCtxt -> BlockSignInfo
+blockSignInfoForSlot leaders slotId =
+      blockSignInfo
+    . leaderForSlot leaders slotId
 
 {-------------------------------------------------------------------------------
   Pretty-printing
@@ -617,13 +625,13 @@ instance Buildable Addr where
 instance Buildable CardanoContext where
   build CardanoContext{..} = bprint
       ( "CardanoContext"
-      % "{ leaders:  " % listJson
-      % ", stakes:   " % listJson
-      % ", balances: " % listJson
-      % ", utxo:     " % mapJson
+      % "{ initLeaders:  " % listJson
+      % ", stakes:       " % listJson
+      % ", balances:     " % listJson
+      % ", utxo:         " % mapJson
       % "}"
       )
-      ccLeaders
+      ccInitLeaders
       (map (bprint pairF) (HM.toList ccStakes))
       (map (bprint pairF) ccBalances)
       ccUtxo

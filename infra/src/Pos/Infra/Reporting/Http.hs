@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Infra.Reporting.Http
        ( sendReport
@@ -22,9 +23,9 @@ import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 
 import           Paths_cardano_sl_infra (version)
+import           Pos.Core.Reporting ()
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
-import           Pos.Infra.Reporting.MemState ()
 import           Pos.Util.CompileInfo (CompileTimeInfo)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Pos.Util.Util ((<//>))

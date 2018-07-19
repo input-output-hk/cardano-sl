@@ -87,7 +87,7 @@ import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 import           Serokell.Util (listJsonIndent, mapBuilder)
 import           Servant.Multipart (FileData, Mem)
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import qualified Prelude
 
 data SyncProgress = SyncProgress

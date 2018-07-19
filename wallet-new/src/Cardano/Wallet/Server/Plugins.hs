@@ -36,7 +36,6 @@ import qualified Pos.Wallet.Web.Error.Types as V0
 import           Control.Exception (fromException)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
-import           Mockable
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
@@ -45,6 +44,7 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods,
                      corsRequestHeaders, simpleCorsResourcePolicy,
                      simpleMethods)
 import           Ntp.Client (NtpStatus)
+import           Pos.Core.Mockable
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
@@ -204,14 +204,15 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
 -- | A 'Plugin' to start the wallet REST server
 --
 -- NOTE: There is no web socket support in the new wallet for now.
-walletBackend :: NewWalletBackendParams
+walletBackend :: ProtocolMagic
+              -> NewWalletBackendParams
               -> (PassiveWalletLayer Production, PassiveWallet)
               -> Plugin Kernel.WalletMode
-walletBackend (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
+walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-        bracketKernelActiveWallet passiveLayer passiveWallet diffusion' $ \active -> do
+        bracketKernelActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
           ctx <- view shutdownContext
           let
             portCallback :: Word16 -> IO ()

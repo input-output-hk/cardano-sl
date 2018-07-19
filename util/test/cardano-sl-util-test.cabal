@@ -16,27 +16,37 @@ library
   exposed-modules:
                        Test.Pos.Util.Base16
                        Test.Pos.Util.Gen
+                       Test.Pos.Util.Golden
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.Orphans
                        Test.Pos.Util.QuickCheck
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.QuickCheck.Arbitrary
+                       Test.Pos.Util.Tripping
 
   build-depends:       QuickCheck
+                     , aeson
                      , attoparsec
                      , base
                      , base16-bytestring
                      , bytestring
                      , cardano-sl-util
                      , cryptonite
+                     , directory
+                     , file-embed
+                     , filepath
                      , formatting
                      , hedgehog
                      , hspec
                      , mtl
+                     , pretty-show
                      , quickcheck-instances
                      , tagged
+                     , template-haskell
+                     , text
                      , time-units
                      , universum
+                     , unordered-containers
 
   default-language:    Haskell2010
 

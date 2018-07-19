@@ -51,11 +51,11 @@ import           Data.Default (Default (..))
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Units (Millisecond)
 import           Formatting (Format, bprint, build, builder, int, later, shown,
                      stext, (%))
+import qualified Formatting.Buildable as Buildable
 import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 import qualified Prelude

@@ -118,10 +118,10 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple,
                      extension)
-import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
+import qualified Formatting.Buildable
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HeaderHash, ProtocolConstants (..), SlotId, Timestamp,
@@ -323,7 +323,7 @@ data WalletStorage = WalletStorage
       -- | Non-wallet-specific client metadata.
     , _wsProfile         :: !WebTypes.CProfile
       -- | List of descriptions of approved and downloaded updates, waiting
-      -- for user action. See "Pos.Update.Download" and @updateNotifier@ in
+      -- for user action. See "Pos.Network.Update.Download" and @updateNotifier@ in
       -- "Pos.Wallet.Web.Sockets.Notifier" for more info of how updates work.
     , _wsReadyUpdates    :: [WebTypes.CUpdateInfo]
       -- | For every wallet ID (@CId Wal@) stores metadata for transactions in

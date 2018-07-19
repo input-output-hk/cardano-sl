@@ -14,7 +14,7 @@ module Pos.Core.Block.Union.Instances
 import           Universum
 
 import           Control.Lens (Getter, choosing, lens, to)
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()
@@ -59,9 +59,7 @@ blockHeader = to getBlockHeader
 -- | Representation of 'Block' passed to a component.
 data ComponentBlock payload =
     ComponentBlockGenesis (Some IsGenesisHeader)
-    | ComponentBlockMain
-       { bcmHeader  :: !(Some IsMainHeader)
-       , bcmPayload :: !payload }
+    | ComponentBlockMain !(Some IsMainHeader) !payload
 
 instance HasHeaderHash (ComponentBlock a) where
     headerHash (ComponentBlockGenesis genesisHeader) = headerHash genesisHeader

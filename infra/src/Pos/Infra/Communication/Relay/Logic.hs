@@ -23,12 +23,13 @@ module Pos.Infra.Communication.Relay.Logic
        , invReqDataFlow
        , invReqDataFlowTK
        , dataFlow
+
+       -- Re-export Core-ed type.
        , InvReqDataFlowLog (..)
        ) where
 
 import           Control.Exception (throwIO)
 import           Control.Exception.Safe (handleAny, try)
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Proxy (asProxyTypeOf)
 import           Data.Tagged (Tagged, tagWith)
 import           Data.Typeable (typeRep)
@@ -39,6 +40,7 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Limit (Limit, mlEither)
+import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg, mlResMsg)
 import           Pos.Infra.Communication.Listener (listenerConv)
@@ -56,6 +58,7 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      ResMsg (..))
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+
 
 data InvReqCommunicationException =
       UnexpectedRequest
@@ -392,22 +395,6 @@ dataFlow logTrace what enqueue msg dt = handleAny handleE $ do
 ----------------------------------------------------------------------------
 -- Helpers for Communication.Methods
 ----------------------------------------------------------------------------
-
-data InvReqDataFlowLog =
-      InvReqAccepted
-        { invReqStart    :: !Integer
-        , invReqReceived :: !Integer
-        , invReqSent     :: !Integer
-        , invReqClosed   :: !Integer
-        }
-    | InvReqRejected
-        { invReqStart    :: !Integer
-        , invReqReceived :: !Integer
-        }
-    | InvReqException !Text
-    deriving Show
-
-$(deriveJSON defaultOptions ''InvReqDataFlowLog)
 
 invReqDataFlowTK
     :: forall key contents.

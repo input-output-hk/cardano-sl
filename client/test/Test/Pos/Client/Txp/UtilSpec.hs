@@ -39,6 +39,7 @@ import           Pos.Util.Util (leftToPanic)
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode,
                      TxpTestProperty, withBVData)
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Test.Pos.Util.QuickCheck.Property (stopProperty)

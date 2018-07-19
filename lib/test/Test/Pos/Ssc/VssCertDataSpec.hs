@@ -17,7 +17,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose,
                      conjoin, counterexample, suchThat, vectorOf, (.&&.),
                      (==>))
 
-import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration,
                      SlotId (..), VssCertificate (..), getCertId,
                      getVssCertificatesMap, mkVssCertificate,
@@ -32,6 +31,7 @@ import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty,
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
 spec :: Spec

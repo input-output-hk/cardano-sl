@@ -8,10 +8,10 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
+import qualified Formatting.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class (Bi (..), Case (..), szCases)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 
@@ -90,6 +90,15 @@ instance Bi AddrSpendingData where
             2 -> RedeemASD <$> decode
             tag -> UnknownASD tag <$> Bi.decodeUnknownCborDataItem
 
+    encodedSizeExpr size _ = szCases
+        [ let PubKeyASD pk = error "unused"
+          in  Case "PubKeyASD" $ size ((,) <$> pure (w8 0) <*> pure pk)
+        , let ScriptASD script = error "unused"
+          in  Case "ScriptASD" $ size ((,) <$> pure (w8 1) <*> pure script)
+        , let RedeemASD redeemPK = error "unused"
+          in  Case "RedeemASD" $ size ((,) <$> pure (w8 2) <*> pure redeemPK)
+        ]
+
 -- | Type of an address. It corresponds to constructors of
 -- 'AddrSpendingData'. It's separated, because 'Address' doesn't store
 -- 'AddrSpendingData', but we want to know its type.
@@ -115,6 +124,7 @@ instance Bi AddrType where
             1 -> ATScript
             2 -> ATRedeem
             tag -> ATUnknown tag
+    encodedSizeExpr size _ = encodedSizeExpr size (Proxy @Word8)
 
 -- | Convert 'AddrSpendingData' to the corresponding 'AddrType'.
 addrSpendingDataToType :: AddrSpendingData -> AddrType

@@ -28,9 +28,9 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Slotting ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Infra.Arbitrary.Slotting ()
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

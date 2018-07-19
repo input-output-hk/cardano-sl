@@ -8,8 +8,8 @@ import           Universum
 
 import           Data.Fixed (Nano)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)

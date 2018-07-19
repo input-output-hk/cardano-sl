@@ -108,6 +108,7 @@ looking at how those can map onto lower level IPC protocols.
 \item[Version 0.4, July 8, 2018]  New section with alternative broadcast approach by Alex.
 \item[Version 0.5, July 13, 2018] Extend the discussion of the alternative broadcast approach.
 \item[Version 0.6, July 17, 2018] Fleshed out section on chain following protocols.
+\item[Version 0.6.1, July 19, 2018] Minor additional text, to aid understanding.
 \end{description}
 
 \section{Introduction}
@@ -190,38 +191,36 @@ networking and processing cost of engaging in the consensus protocol.  In
 particular everything was integrated into a single process: the consensus
 algorithm itself, serving data to other peers and components such as the wallet
 or explorer. If we were to have a robust and efficient node-to-consumer protocol
-then we can make many other choices. \marginpar{\njd{Process memory space as
-    the basis of trust}}.
+then we can make many other choices.
 
-With an efficient \emph{local} IPC protocol we can have applications like
-wallets and explorers as separate processes. Even for tightly integrated
-components it can make sense to run them in separate OS processes. Not only is
-the timing constraints for a consensus node are much easier to manage when it
-does not have to share CPU resources with chain consumers, but it enables the
-use of operating system features to give finer control over resource consumption
-for sophisticated end-users.
-There have been cases in production where a highly
-loaded wallet component takes more than its allowed allocation of CPU resources
-and causes the local node to miss its deadlines.  By giving a consensus node a
-dedicated CPU core it becomes more plausible to provide the necessary hard real
-time guarantees. In addition, scaling on multi-core machines is significantly
-easier with multiple OS processes than with a multi-threaded OS process with a
-shared-heap. This could allow for larger capacity Cardano relay deployments
-where there are multiple network facing proxy processes that all get their chain
-from a single local consensus node.
+With an efficient \emph{local} IPC protocol we can have applications
+like wallets and explorers as separate processes. Even for tightly
+integrated components it can make sense to run them in separate OS
+processes and the associated OS mamagement tools. Not only is the
+timing constraints for a consensus node are much easier to manage when
+it does not have to share CPU resources with chain consumers, but it
+enables the use of operating system features to give finer control
+over resource consumption for sophisticated end-users.  There have
+been cases in production where a highly loaded wallet component takes
+more than its allowed allocation of CPU resources and causes the local
+node to miss its deadlines.  By giving a consensus node a dedicated
+CPU core it becomes more plausible to provide the necessary hard real
+time guarantees. In addition, scaling on multi-core machines is
+significantly easier with multiple OS processes than with a
+multi-threaded OS process with a shared-heap. This could allow for
+larger capacity Cardano relay deployments where there are multiple
+network facing proxy processes that all get their chain from a single
+local consensus node.
 
-With an efficient \emph{network} IPC protocol we can do similar things but
-extend it across multiple machines. For example, clusters of relays operated
-by a single organisation may be also to operate more efficiently using a
-node-to-consumer protocol than a node-to-node protocol. Similarly it allows for
-wallet or explorer-like applications that need to scale out, and are able to
+With an efficient \emph{network} IPC protocol we can do similar things
+but extend it across multiple machines. This permits: large
+organisations to achieve better alignment with their security
+policies; clusters of relays operated by a single organisation to use
+the more efficient (less resource costly) node-to-consumer protocol
+instead of the node-to-node protocol; Similarly it allows for wallet
+or explorer-like applications that need to scale out, and are able to
 make use of a trusted node.
 
-\njd{In someways what is being proposed here is that by creating the notion of
-  a `chain-observer' we can gain flexibility, reduce both computational and
-  space complexity and enable a range of `lighter-weight' products and derived
-  services.
-  }
 
 \section{Node-to-consumer protocols}
 
@@ -281,6 +280,7 @@ protocol family member is that the consumer side should be enough to implement
 the producer side of the same protocol or of another protocol in the family
 (e.g. the consumer side of an in-process protocol being sufficient to implement
 the producer side of one of IPC protocols).
+\njd{I don't quite get this - are you implying some sort of `protocol duality' here?}
 
 \paragraph{Resource use with misbehaving peers}
 In the IPC cases we are interested in protocols where the chain producer can
@@ -327,16 +327,19 @@ support this, and support it with reasonable resource bounds.
 
 In Ouroboros Classic there is a helpful constraint that the maximum length an
 alternative fork can diverge from the current chain is $K$ blocks. Ouroboros
-Genesis does not need this constants but it appears that it could be
+Genesis does not need this constant but it appears that it could be
 reintroduced without too much difficulty.
 
-The benefit of this constraint is that it divides the blockchain into two parts:
-a genuinely \emph{immutable} initial chain and a \emph{volatile} recent chain
-fragment. An immutable chain allows implementation options with simple and
-efficient on-disk storage. A volatile fragment that is bounded in length allows
-implementation options using combinations of in-memory and on-disk data storage.
-In particular, keeping track of up to $K$ blocks can easily be accommodated in
-memory\footnote{The current implementation uses $K = 2160$.}.
+The benefit of this constraint is that it divides the blockchain into
+two parts: a genuinely \emph{immutable} initial chain and a
+\emph{volatile} recent chain fragment. An immutable chain allows
+implementation options with simple and efficient on-disk storage for
+the chain representation and other associated data structures. A
+volatile fragment that is bounded in length allows implementation
+options using combinations of in-memory and on-disk data storage.  In
+particular, keeping track of up to $K$ blocks can easily be
+accommodated in memory\footnote{The current implementation uses
+  $K = 2160$.}.
 
 Figure \ref{chain-diagram-imm-vol} illustrates a representation comprised of
 immutable and volatile parts. Incidentally, it illustrates a couple possible

@@ -1,4 +1,4 @@
-module Dbgen.CLI where
+module Pos.Tools.Dbgen.CLI where
 
 import           Universum
 
@@ -11,7 +11,7 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId, CAccountId (..))
 import           Text.Read (readMaybe)
 
-import           Dbgen.Types (Method (..))
+import           Pos.Tools.Dbgen.Types (Method (..))
 
 data CLI = CLI
     { config            :: FilePath

@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module Test.Dbgen.Json
+module Test.Pos.Tools.Dbgen.Json
        ( tests
        ) where
 
@@ -14,9 +14,9 @@ import           Hedgehog (Property, checkParallel, checkSequential)
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Dbgen.Lib
+import           Pos.Tools.Dbgen.Lib
 
-import           Test.Dbgen.Gen (genAccountSpec, genAddressRange,
+import           Test.Pos.Tools.Dbgen.Gen (genAccountSpec, genAddressRange,
                      genDistributionAmount, genFakeTxsHistory,
                      genFakeUtxoCoinDistribution, genGenSpec, genWalletSpec)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)

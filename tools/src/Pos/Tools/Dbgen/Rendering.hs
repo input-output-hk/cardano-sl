@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
-module Dbgen.Rendering where
+module Pos.Tools.Dbgen.Rendering where
 
 import           Universum
 

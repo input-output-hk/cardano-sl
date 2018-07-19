@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-module Dbgen.Stats where
+module Pos.Tools.Dbgen.Stats where
 
 import           Universum
 
@@ -13,7 +13,7 @@ import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Text.Printf (printf)
 
-import           Dbgen.Rendering (blankLine, bold, listOf, red, renderAccount,
+import           Pos.Tools.Dbgen.Rendering (blankLine, bold, listOf, red, renderAccount,
                      renderWallet, say)
 
 {- For reference:

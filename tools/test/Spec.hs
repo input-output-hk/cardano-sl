@@ -2,7 +2,7 @@ module Spec (spec) where
 
 import           Test.Hspec
 
-import qualified Test.Launcher.Environment
+import qualified Test.Pos.Tools.Launcher.Environment
 
 spec :: Spec
-spec = Test.Launcher.Environment.spec
+spec = Test.Pos.Tools.Launcher.Environment.spec

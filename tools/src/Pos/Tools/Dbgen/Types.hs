@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE RankNTypes       #-}
 
-module Dbgen.Types where
+module Pos.Tools.Dbgen.Types where
 
 import           Universum
 

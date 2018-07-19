@@ -14,7 +14,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
-module Launcher.Environment
+module Pos.Tools.Launcher.Environment
   ( substituteEnvVarsValue
   , substituteEnvVarsText
   )
@@ -30,7 +30,7 @@ import qualified Text.Parser.Combinators as P
 import qualified Text.Parser.Token as P
 import qualified Text.Trifecta as P
 
-import           Launcher.Logging (reportErrorDefault)
+import           Pos.Tools.Launcher.Logging (reportErrorDefault)
 
 -- * Environment variable parsing and substitution for the launcher configuration file,
 --   typically launcher-config.yaml.

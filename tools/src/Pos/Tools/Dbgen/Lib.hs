@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ViewPatterns        #-}
 
-module Dbgen.Lib where
+module Pos.Tools.Dbgen.Lib where
 
 import           Universum
 
@@ -52,9 +52,9 @@ import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate,
                      vectorOf)
 import           Text.Printf (printf)
 
-import           Dbgen.CLI (CLI (..))
-import           Dbgen.Rendering (green, renderAccountId, say)
-import           Dbgen.Types (UberMonad)
+import           Pos.Tools.Dbgen.CLI (CLI (..))
+import           Pos.Tools.Dbgen.Rendering (green, renderAccountId, say)
+import           Pos.Tools.Dbgen.Types (UberMonad)
 
 import           Test.Pos.Core.Arbitrary.Txp ()
 

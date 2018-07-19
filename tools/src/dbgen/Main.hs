@@ -17,6 +17,7 @@ import           Data.Maybe (fromJust, isJust)
 import           Data.Time.Units (fromMicroseconds)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
+
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
                      NodeArgs (..), getNodeParams, gtSscParams)
 import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
@@ -42,11 +43,11 @@ import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
-import           Dbgen.CLI (CLI (..))
-import           Dbgen.Lib (generateWalletDB, loadGenSpec)
-import           Dbgen.Rendering (bold, say)
-import           Dbgen.Stats (showStatsAndExit, showStatsData)
-import           Dbgen.Types (UberMonad)
+import           Pos.Tools.Dbgen.CLI (CLI (..))
+import           Pos.Tools.Dbgen.Lib (generateWalletDB, loadGenSpec)
+import           Pos.Tools.Dbgen.Rendering (bold, say)
+import           Pos.Tools.Dbgen.Stats (showStatsAndExit, showStatsData)
+import           Pos.Tools.Dbgen.Types (UberMonad)
 
 defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {

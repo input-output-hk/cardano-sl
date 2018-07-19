@@ -14,7 +14,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
-module Launcher.Logging
+module Pos.Tools.Launcher.Logging
   (reportErrorDefault)
 where
 

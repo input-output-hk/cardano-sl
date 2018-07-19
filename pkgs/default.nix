@@ -17461,7 +17461,6 @@ executableHaskellDepends = [
 acid-state-exts
 aeson
 aeson-options
-ansi-terminal
 ansi-wl-pprint
 asn1-encoding
 asn1-types
@@ -17503,12 +17502,10 @@ network-transport-tcp
 optparse-applicative
 optparse-generic
 process
-QuickCheck
 safe-exceptions
 serokell-util
 silently
 stm
-string-conv
 tabl
 tar
 text

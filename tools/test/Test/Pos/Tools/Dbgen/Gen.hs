@@ -1,4 +1,4 @@
-module Test.Dbgen.Gen
+module Test.Pos.Tools.Dbgen.Gen
        ( genAccountSpec
        , genAddressRange
        , genDistributionAmount
@@ -12,7 +12,7 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Dbgen.Lib (AccountSpec (..), AddressRange (..),
+import           Pos.Tools.Dbgen.Lib (AccountSpec (..), AddressRange (..),
                      DistributionAmount (..), FakeTxsHistory (..),
                      FakeUtxoCoinDistribution (..), GenSpec (..),
                      WalletSpec (..))

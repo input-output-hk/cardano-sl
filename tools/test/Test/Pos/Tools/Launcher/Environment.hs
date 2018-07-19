@@ -1,18 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Launcher.Environment
+module Test.Pos.Tools.Launcher.Environment
        ( spec
        ) where
 
 import           Test.Hspec
 
 import qualified Data.Aeson as AE
-import           Launcher.Environment (substituteEnvVarsValue)
+import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
 import qualified System.Directory as Sys
 import           System.Environment (setEnv)
 import           System.IO.Temp
 
 spec :: Spec
-spec = describe "Test.Launcher.Environment" $ do
+spec = describe "Test.Pos.Tools.Launcher.Environment" $ do
     it "substitutes defined vars" unitParserSample1
     it "fails on undefined vars"  unitParserSample2
 

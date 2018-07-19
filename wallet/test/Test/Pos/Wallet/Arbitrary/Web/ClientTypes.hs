@@ -1,8 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Arbitrary instances for client types
 
-module Pos.Arbitrary.Wallet.Web.ClientTypes
+module Test.Pos.Wallet.Arbitrary.Web.ClientTypes
        (
        ) where
 

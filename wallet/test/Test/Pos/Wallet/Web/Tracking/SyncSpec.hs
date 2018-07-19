@@ -18,13 +18,11 @@ import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
                      sublistOf, suchThat, vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
-
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
@@ -43,6 +41,7 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
+import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 

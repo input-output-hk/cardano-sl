@@ -18062,6 +18062,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-update
 , cardano-sl-util
 , cardano-sl-util-test
+, cardano-sl-wallet-test
 , containers
 , cpphs
 , cryptonite
@@ -18135,7 +18136,6 @@ cardano-sl
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-delegation
@@ -18218,6 +18218,7 @@ cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
+cardano-sl-wallet-test
 containers
 data-default
 deepseq
@@ -18279,6 +18280,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-wallet
+, cardano-sl-wallet-test
 , cassava
 , conduit
 , connection
@@ -18388,6 +18390,7 @@ cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
+cardano-sl-wallet-test
 conduit
 connection
 containers
@@ -18562,6 +18565,37 @@ yaml
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
 description = "The Wallet Backend for a Cardano node";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-wallet-test" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, cardano-sl-core-test
+, cardano-sl-wallet
+, QuickCheck
+, serokell-util
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-wallet-test";
+version = "1.3.0";
+src = ./../wallet/test;
+libraryHaskellDepends = [
+base
+bytestring
+cardano-sl-core-test
+cardano-sl-wallet
+QuickCheck
+serokell-util
+universum
+];
+doHaddock = false;
+description = "Cardano SL - wallet (Arbitrary instances)";
 license = stdenv.lib.licenses.mit;
 
 }) {};

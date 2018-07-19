@@ -1,0 +1,29 @@
+name:                cardano-sl-wallet-test
+version:             1.3.0
+synopsis:            Cardano SL - wallet (Arbitrary instances)
+description:         QuickCheck Arbitrary instances for the Cardano SL wallet
+                     functionality.
+license:             MIT
+license-file:        LICENSE
+author:              IOHK
+maintainer:          IOHK <support@iohk.io>
+copyright:           2018 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Test.Pos.Wallet.Arbitrary.Web.ClientTypes
+
+  build-depends:       QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl-core-test
+                     , cardano-sl-wallet
+                     , serokell-util >= 0.1.3.4
+                     , universum
+
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -O2

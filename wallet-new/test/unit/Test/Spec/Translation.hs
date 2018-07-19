@@ -292,17 +292,17 @@ data ValidationResult h a =
     ExpectedValid
 
     -- | We expected the chain to be invalid; DSL and Cardano both agree
-  | ExpectedInvalid {
-        validationErrorDsl     :: Text
-      , validationErrorCardano :: Cardano.VerifyBlocksException
-      }
+    -- ExpectedInvalid
+    --     validationErrorDsl
+    --     validationErrorCardano
+  | ExpectedInvalid !Text !Cardano.VerifyBlocksException
 
     -- | Variation on 'ExpectedInvalid', where we cannot even /construct/
     -- the Cardano chain, much less validate it.
-  | ExpectedInvalid' {
-        validationErrorDsl :: Text
-      , validationErrorInt :: IntException
-      }
+    -- ExpectedInvalid
+    --     validationErrorDsl
+    --     validationErrorInt
+  | ExpectedInvalid'  !Text !IntException
 
     -- | Disagreement between the DSL and Cardano
     --
@@ -315,10 +315,10 @@ data ValidationResult h a =
     --
     -- We record the error message from Cardano, if Cardano thought the chain
     -- was invalid, as well as the ledger that causes the problem.
-  | Disagreement {
-        validationLedger       :: Ledger h a
-      , validationDisagreement :: Disagreement h a
-      }
+    -- Disagreement
+    --     validationLedger
+    --     validationDisagreement
+  | Disagreement !(Ledger h a) !(Disagreement h a)
 
 -- | Disagreement between Cardano and the DSL
 --
@@ -357,7 +357,9 @@ expectInvalid _otherwise            = False
 
 instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
   build ExpectedValid = "ExpectedValid"
-  build ExpectedInvalid{..} = bprint
+  build (ExpectedInvalid
+             validationErrorDsl
+             validationErrorCardano) = bprint
       ( "ExpectedInvalid"
       % ", errorDsl:     " % build
       % ", errorCardano: " % build
@@ -365,7 +367,9 @@ instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
       )
       validationErrorDsl
       validationErrorCardano
-  build ExpectedInvalid'{..} = bprint
+  build (ExpectedInvalid'
+             validationErrorDsl
+             validationErrorInt) = bprint
       ( "ExpectedInvalid'"
       % ", errorDsl: " % build
       % ", errorInt: " % build
@@ -373,7 +377,9 @@ instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
       )
       validationErrorDsl
       validationErrorInt
-  build Disagreement{..} = bprint
+  build (Disagreement
+             validationLedger
+             validationDisagreement) = bprint
       ( "Disagreement "
       % "{ ledger: "       % build
       % ", disagreement: " % build

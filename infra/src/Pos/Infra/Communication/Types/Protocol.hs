@@ -186,8 +186,9 @@ buildBS :: ByteString -> B.Builder
 buildBS = bprint base16F
 
 data HandlerSpec
-    = ConvHandler { hsReplyType :: MessageCode }
-    | UnknownHandler Word8 ByteString
+    -- | ConvHandler hsReplyType
+    = ConvHandler !MessageCode
+    | UnknownHandler !Word8 !ByteString
     deriving (Show, Generic, Eq)
 
 instance Bi HandlerSpec where

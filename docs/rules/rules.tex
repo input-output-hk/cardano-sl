@@ -1520,7 +1520,49 @@ requirement of Cardano. Therefore this constraint should be weakened.
   model allows empty outputs, because it is believed to be essential
   for coloured coins.
 \end{itemize}
+
+\section{Delegation in Shelley}
+\label{sec:delegation-shelley}
+
+\newcommand{\enterpriseid}{\mathsf{dev}_\mathsf{null}}
+\newcommand{\distributionslot}{\mathsf{s}_\mathsf{d}}
+
+This section describes the changes to the spec required to describe
+the delegation starting with the Shelley release\improvement{Some
+  reference to the design document}
+
+A distinguished slot $\distributionslot ∈ ℕ$ is introduced to
+represent the first slot beyond the bootstrap era.
+
+There must be a distinguished agent id to represent enterprise staking
+(\emph{i.e.} opting out of staking): $\enterpriseid ∈ \agentids$.
+
+Blocks must contain an additional field\improvement{Define pool certificates}
+\begin{record}
+  \item[Pool certificates] A list of pool certificates
+\end{record}
+
+Transaction validation must be modified
+\begin{description}
+\item[Bootstrap era] These rules apply only if the slot $s$ is such that
+  $s<\distributionslot$. \emph{the bootstrap era rules are otherwise
+    unchanged}.
+\item[Distributed era] These rules only apply if the slot $s$ is such
+  that $s > \distributionslot$.
+  \begin{description}
+  \item[Stake delegation] For every output $o ∈ \outputs{τ}$, the
+    stake is delegated to a single agent id: the support of
+    $\repartition{o}$ has cardinality $1$.
+  \end{description}
+
+\end{description}
+
+\improvement{The formula for reward repartition is in the delegation
+  design document. They can be copied from there when the details of
+  how rewards are collected have been settled.}
+
 \end{document}
 
 %  LocalWords:  combinator summands repartition unallocated mempool
 %  LocalWords:  stateful decrypted monoid Cardano injectivity
+% LocalWords:  cardinality

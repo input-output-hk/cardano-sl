@@ -26,11 +26,11 @@ module Pos.Util.Mnemonic
        , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
-
+--
        -- * Reexports
-       , ValidMnemonicSentence
-       , ValidChecksumSize
-       , ValidEntropySize
+ --      , ValidMnemonicSentence
+ --      , ValidChecksumSize
+ --      , ValidEntropySize
        ) where
 
 import           Universum

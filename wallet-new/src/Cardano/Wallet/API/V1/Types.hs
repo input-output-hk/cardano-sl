@@ -121,9 +121,7 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic,
-                     MnemonicWords, ValidChecksumSize, ValidEntropySize,
-                     ValidMnemonicSentence)
+import           Pos.Util.Mnemonic (Mnemonic)
 
 -- importing for orphan instances for Coin
 import           Pos.Wallet.Web.ClientTypes.Instances ()
@@ -267,36 +265,36 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
-instance
-    ( n ~ EntropySize mw
-    , mw ~ MnemonicWords n
-    , ValidChecksumSize n csz
-    , ValidEntropySize n
-    , ValidMnemonicSentence mw
-    , Arbitrary (Entropy n)
-    ) => Arbitrary (V1 (Mnemonic mw)) where
-    arbitrary =
-        V1 <$> arbitrary
-
-instance
-    ( n ~ EntropySize mw
-    , mw ~ MnemonicWords n
-    , ValidChecksumSize n csz
-    , ValidEntropySize n
-    , ValidMnemonicSentence mw
-    ) => ToJSON (V1 (Mnemonic mw)) where
-    toJSON =
-        toJSON . unV1
-
-instance
-    ( n ~ EntropySize mw
-    , mw ~ MnemonicWords n
-    , ValidChecksumSize n csz
-    , ValidEntropySize n
-    , ValidMnemonicSentence mw
-    ) => FromJSON (V1 (Mnemonic mw)) where
-    parseJSON =
-        fmap V1 . parseJSON
+-- instance
+--     ( n ~ EntropySize mw
+--     , mw ~ MnemonicWords n
+--     , ValidChecksumSize n csz
+--     , ValidEntropySize n
+--     , ValidMnemonicSentence mw
+--     , Arbitrary (Entropy n)
+--     ) => Arbitrary (V1 (Mnemonic mw)) where
+--     arbitrary =
+--         V1 <$> arbitrary
+--
+-- instance
+--     ( n ~ EntropySize mw
+--     , mw ~ MnemonicWords n
+--     , ValidChecksumSize n csz
+--     , ValidEntropySize n
+--     , ValidMnemonicSentence mw
+--     ) => ToJSON (V1 (Mnemonic mw)) where
+--     toJSON =
+--         toJSON . unV1
+--
+-- instance
+--     ( n ~ EntropySize mw
+--     , mw ~ MnemonicWords n
+--     , ValidChecksumSize n csz
+--     , ValidEntropySize n
+--     , ValidMnemonicSentence mw
+--     ) => FromJSON (V1 (Mnemonic mw)) where
+--     parseJSON =
+--         fmap V1 . parseJSON
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
@@ -1824,13 +1822,11 @@ newtype ShieldedRedemptionCode = ShieldedRedemptionCode
     } deriving (Eq, Show, Generic)
       deriving newtype (ToJSON, FromJSON)
 
--- | TODO: This instance is probably wrong. What does a shielded redemption
--- code look like?
+-- | This instance could probably be improved. A 'ShieldedRedemptionCode' is
+-- a hash of the redemption key.
 instance Arbitrary ShieldedRedemptionCode where
     arbitrary = ShieldedRedemptionCode <$> arbitrary
 
--- | TODO: Given "what does a code look like" can we impose extra
--- requirements here?
 instance ToSchema ShieldedRedemptionCode where
     declareNamedSchema _ =
         pure
@@ -1850,12 +1846,9 @@ data Redemption = Redemption
     -- ^ An optional mnemonic. This mnemonic was included with paper
     -- certificates, and the presence of this field indicates that we're
     -- doing a paper vend.
-    , redemptionSpendingPassword :: Maybe SpendingPassword
-    -- ^ An optional spending password. The original API would use the
-    -- default value if this wasn't provided as a query parameter.
-    --
-    -- TODO: Figure out why it is optional and what it means to provide
-    -- better documentation.
+    , redemptionSpendingPassword :: SpendingPassword
+    -- ^ The user must provide a spending password that matches the wallet that
+    -- will be receiving the redemption funds.
     } deriving (Eq, Show, Generic)
 
 deriveSafeBuildable ''Redemption
@@ -1863,7 +1856,7 @@ instance BuildableSafeGen Redemption where
     buildSafeGen sl r = bprint ("{"
         %" redemptionCode="%buildSafe sl
         %" mnemonic=<mnemonic>"
-        %" spendingPassword="%(buildSafeMaybe mempty sl)
+        %" spendingPassword="%buildSafe sl
         %" }")
         (redemptionRedemptionCode r)
         (redemptionSpendingPassword r)
@@ -1876,12 +1869,12 @@ instance ToSchema Redemption where
             & "redemptionCode"
             --^ "The redemption code associated with the Ada to redeem."
             & "mnemonic"
-            --^ ( "An optional mnemonic. This must be provided for a paper"
-                <> " certificate redemption."
+            --^ ( "An optional mnemonic. This must be provided for a paper "
+                <> "certificate redemption."
                 )
             & "spendingPassword"
-            --^ ( "An optional spending password. If provided, TODO: ???"
-                <> " what does it do? if not provided, what happens?"
+            --^ ( "An optional spending password. This must match the password "
+                <> "for the provided wallet ID and account index."
                 )
         )
 

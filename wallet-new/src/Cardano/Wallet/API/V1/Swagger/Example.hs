@@ -6,18 +6,17 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Data.Default (Default (def))
-import qualified Data.Map.Strict as Map
 import           Node (NodeId (..))
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import qualified Pos.Core.Common as Core
-import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
-
 import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
+
+import qualified Data.Map.Strict as Map
+import qualified Pos.Core.Common as Core
+import qualified Pos.Crypto.Signing as Core
 
 
 class Arbitrary a => Example a where
@@ -64,12 +63,6 @@ instance Example (V1 Address) where
                     [ pure Core.BootstrapEraDistr
                     , Core.SingleKeyDistr <$> arbitrary
                     ]
-
-instance Example (Mnemonic 12)  where
-    example = pure def
-
-instance Example (V1 (Mnemonic 12)) where
-    example = V1 <$> example
 
 instance Example BackupPhrase where
     example = pure (BackupPhrase def)

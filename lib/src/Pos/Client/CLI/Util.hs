@@ -20,9 +20,9 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo,
                      parseLoggerConfig, productionB)
-import           Text.Parsec (parserFail, try)
-import qualified Text.Parsec.Char as P
-import qualified Text.Parsec.Text as P
+import           Text.Megaparsec (try)
+import qualified Text.Megaparsec.Char as P
+import qualified Serokell.Util.Parse as P
 
 import           Pos.Block.Configuration (blockConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
@@ -65,18 +65,18 @@ printInfoOnStart CommonNodeArgs {..} ntpConfig = do
                   (configurationOptions commonArgs)
         ]
 
-attackTypeParser :: P.Parser AttackType
+attackTypeParser :: P.CharParser AttackType
 attackTypeParser = P.string "No" >>
     AttackNoBlocks <$ (P.string "Blocks") <|>
     AttackNoCommitments <$ (P.string "Commitments")
 
-stakeholderIdParser :: P.Parser StakeholderId
+stakeholderIdParser :: P.CharParser StakeholderId
 stakeholderIdParser = do
-    token <- some P.alphaNum
-    either (parserFail . toString) return $
+    token <- some P.alphaNumChar
+    either (fail . toString) return $
         decodeAbstractHash (toText token)
 
-attackTargetParser :: P.Parser AttackTarget
+attackTargetParser :: P.CharParser AttackTarget
 attackTargetParser =
     (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
     (NetworkAddressTarget <$> addrParser)

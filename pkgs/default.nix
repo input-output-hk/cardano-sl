@@ -14749,6 +14749,7 @@ license = stdenv.lib.licenses.bsd3;
 , http-conduit
 , lens
 , log-warper
+, megaparsec
 , memory
 , mmorph
 , monad-control
@@ -14759,7 +14760,6 @@ license = stdenv.lib.licenses.bsd3;
 , network-transport-inmemory
 , network-transport-tcp
 , optparse-applicative
-, parsec
 , pipes
 , pvss
 , QuickCheck
@@ -14852,6 +14852,7 @@ http-client-tls
 http-conduit
 lens
 log-warper
+megaparsec
 memory
 mmorph
 monad-control
@@ -14860,7 +14861,6 @@ neat-interpolation
 network
 network-transport
 optparse-applicative
-parsec
 pipes
 pvss
 QuickCheck

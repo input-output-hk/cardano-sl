@@ -186,6 +186,7 @@ library
                       , http-conduit
                       , lens
                       , log-warper >= 1.1.1
+                      , megaparsec
                       , memory
                       , mmorph
                       , monad-control
@@ -194,7 +195,6 @@ library
                       , network
                       , network-transport
                       , optparse-applicative
-                      , parsec
                       , pipes
                       , pvss
                       , random

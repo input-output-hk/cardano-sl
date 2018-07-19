@@ -18386,8 +18386,8 @@ QuickCheck
 reflection
 resourcet
 retry
-safecopy
 safe-exceptions
+safecopy
 serokell-util
 servant
 servant-client

@@ -85,7 +85,12 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 2: Atomically generate the wallet and the initial internal structure in
     -- an acid-state transaction.
     let newRootId = eskToHdRootId esk
-    res <- createWalletHdRnd pw spendingPassword walletName assuranceLevel esk mempty
+    res <- createWalletHdRnd pw
+                             (spendingPassword /= emptyPassphrase)
+                             walletName
+                             assuranceLevel
+                             esk
+                             mempty
     case res of
          Left e   -> return . Left $ CreateWalletFailed e
          Right hdRoot -> do
@@ -103,17 +108,19 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
 -- In the case of empty utxo, no HdAccounts are created.
 -- Fails with CreateHdWalletError if the HdRootId already exists.
 createWalletHdRnd :: PassiveWallet
-                  -> PassPhrase
+                  -> Bool
+                  -- ^ Whether or not this wallet has a spending password set.
                   -> HD.WalletName
                   -> AssuranceLevel
                   -> EncryptedSecretKey
                   -> Utxo
                   -> IO (Either HD.CreateHdRootError HdRoot)
-createWalletHdRnd pw spendingPassword name assuranceLevel esk utxo = do
+createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk utxo = do
     created <- InDb <$> getCurrentTimestamp
     let rootId  = eskToHdRootId esk
         newRoot = HD.initHdRoot rootId
-                                name (hasSpendingPassword created)
+                                name
+                                (hdSpendingPassword created)
                                 assuranceLevel
                                 created
         utxoByAccount = prefilterUtxo rootId esk utxo
@@ -122,13 +129,10 @@ createWalletHdRnd pw spendingPassword name assuranceLevel esk utxo = do
     return $ case res of
                  Left err -> Left err
                  Right () -> Right newRoot
-
     where
 
-        -- | Whether or not the user decided to set a spending password for
-        -- this wallet.
-        hasSpendingPassword :: InDb Timestamp -> HD.HasSpendingPassword
-        hasSpendingPassword created
-            | spendingPassword == emptyPassphrase = HD.NoSpendingPassword
-            | otherwise = HD.HasSpendingPassword created
+        hdSpendingPassword :: InDb Timestamp -> HD.HasSpendingPassword
+        hdSpendingPassword created =
+            if hasSpendingPassword then HD.HasSpendingPassword created
+                                   else HD.NoSpendingPassword
 

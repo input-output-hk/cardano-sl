@@ -18446,6 +18446,7 @@ acid-state
 aeson
 base
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-block
 cardano-sl-client

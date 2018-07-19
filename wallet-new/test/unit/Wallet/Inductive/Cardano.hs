@@ -24,7 +24,7 @@ import qualified Formatting.Buildable
 
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
-import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
+import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -166,7 +166,7 @@ equivalentT activeWallet esk = \mkWallet w ->
                 -> TranslateT (EquivalenceViolation h) m HD.HdAccountId
     walletBootT ctxt utxo = do
         res <- liftIO $ Kernel.createWalletHdRnd passiveWallet
-                                                 emptyPassphrase
+                                                 False
                                                  walletName
                                                  assuranceLevel
                                                  esk

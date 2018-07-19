@@ -14,7 +14,7 @@ import           Pos.Core.Mockable
 
 
 handlers :: ActiveWalletLayer Production -> Server V1.API
-handlers w =  Addresses.handlers w
+handlers w =  Addresses.handlers passiveWallet
          :<|> Wallets.handlers   passiveWallet
          :<|> accounts
          :<|> Transactions.handlers w

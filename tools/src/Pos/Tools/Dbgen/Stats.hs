@@ -13,8 +13,8 @@ import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Text.Printf (printf)
 
-import           Pos.Tools.Dbgen.Rendering (blankLine, bold, listOf, red, renderAccount,
-                     renderWallet, say)
+import           Pos.Tools.Dbgen.Rendering (blankLine, bold, listOf, red,
+                     renderAccount, renderWallet, say)
 
 {- For reference:
 

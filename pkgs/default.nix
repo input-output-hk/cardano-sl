@@ -18560,6 +18560,7 @@ license = stdenv.lib.licenses.mit;
 , quickcheck-instances
 , random
 , reflection
+, resourcet
 , safe-exceptions
 , safecopy
 , serokell-util
@@ -18657,6 +18658,7 @@ network-transport
 optparse-applicative
 QuickCheck
 reflection
+resourcet
 safe-exceptions
 safecopy
 serokell-util

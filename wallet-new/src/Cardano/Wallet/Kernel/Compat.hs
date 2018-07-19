@@ -2,29 +2,28 @@
 -- dependencies.
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes                 #-}
 
 module Cardano.Wallet.Kernel.Compat
   ( runDBReadT
   ) where
 
-import Universum
-import Control.Monad.Trans.Class (MonadTrans)
-import Control.Monad.Trans.Reader (ReaderT(ReaderT), runReaderT)
-import Control.Monad.Trans.Resource (transResourceT)
-import Data.Conduit (transPipe)
-import Pos.Core (CoreConfiguration, withCoreConfiguration,
-                 GenesisData, withGenesisData,
-                 GenesisHash, withGenesisHash, getGenesisHash,
-                 GeneratedSecrets, withGeneratedSecrets,
-                 BlockVersionData, withGenesisBlockVersionData,
-                 ProtocolConstants, withProtocolConstants)
-import Pos.Core.Configuration (HasConfiguration)
-import Pos.DB.Class (Serialized(Serialized), MonadDBRead(..))
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.Monad.Trans.Reader (ReaderT (ReaderT), runReaderT)
+import           Control.Monad.Trans.Resource (transResourceT)
+import           Data.Conduit (transPipe)
+import           Pos.Core (BlockVersionData, CoreConfiguration,
+                     GeneratedSecrets, GenesisData, GenesisHash,
+                     ProtocolConstants, getGenesisHash, withCoreConfiguration,
+                     withGeneratedSecrets, withGenesisBlockVersionData,
+                     withGenesisData, withGenesisHash, withProtocolConstants)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.DB.Class (MonadDBRead (..), Serialized (Serialized))
+import           Universum
 
-import Pos.DB.Block (getSerializedUndo, getSerializedBlock)
-import Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
-import Pos.DB.Rocks.Types (MonadRealDB, NodeDBs)
+import           Pos.DB.Block (getSerializedBlock, getSerializedUndo)
+import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
+import           Pos.DB.Rocks.Types (MonadRealDB, NodeDBs)
 
 --------------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 module Cardano.Wallet.Kernel.Wallets (
-    createHdWallet
-    -- * Errors
+      createHdWallet
+      -- * Errors
     , CreateWalletError(..)
     -- * Internal & testing use only
     , createWalletHdRnd
@@ -111,7 +111,7 @@ createWalletHdRnd :: PassiveWallet
                   -> IO (Either HD.CreateHdRootError HdRoot)
 createWalletHdRnd pw spendingPassword name assuranceLevel esk utxo = do
     created <- InDb <$> getCurrentTimestamp
-    let rootId        = eskToHdRootId esk
+    let rootId  = eskToHdRootId esk
         newRoot = HD.initHdRoot rootId
                                 name (hasSpendingPassword created)
                                 assuranceLevel
@@ -119,7 +119,9 @@ createWalletHdRnd pw spendingPassword name assuranceLevel esk utxo = do
         utxoByAccount = prefilterUtxo rootId esk utxo
 
     res <- update' (pw ^. wallets) $ CreateHdWallet newRoot utxoByAccount
-    return $ either Left (const (Right newRoot)) res
+    return $ case res of
+                 Left err -> Left err
+                 Right () -> Right newRoot
 
     where
 

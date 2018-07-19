@@ -4,37 +4,25 @@ module Test.Spec.CreateWallet (spec) where
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
+import           Test.Hspec (Spec, describe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Gen, arbitrary, choose, frequency,
-                     withMaxSuccess)
+import           Test.QuickCheck (arbitrary, frequency, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
-import qualified Data.ByteString as B
-import qualified Data.Map.Strict as M
-
-import           Control.Lens (to)
 import           Data.Coerce (coerce)
-import           Formatting (build, sformat)
 import           System.Wlog (Severity)
 
 import           Pos.Crypto (emptyPassphrase)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
-import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
-                     HasSpendingPassword (..), HdAccountId (..),
-                     HdAccountIx (..), HdRootId (..), WalletName (..),
-                     eskToHdRootId, hdAccountIdIx, hdRootId)
+                     WalletName (..), hdRootId)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
-                     (CreateHdRootError (..), initHdRoot)
-import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
-                     (HardeningMode (..), deriveIndex)
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+                     (CreateHdRootError (..))
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Wallets (CreateWalletError (..))
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
@@ -79,33 +67,35 @@ spec = describe "CreateWallet" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                newWallet <- genNewWalletRq
+                request <- genNewWalletRq
                 withLayer $ \layer _ -> do
                     liftIO $ do
-                        res <- (WalletLayer._pwlCreateWallet layer) newWallet
+                        res <- (WalletLayer._pwlCreateWallet layer) request
                         (bimap STB STB res) `shouldSatisfy` isRight
 
         prop "fails if the wallet already exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                newWallet <- genNewWalletRq
+                request <- genNewWalletRq
                 withLayer $ \layer _ -> do
                     liftIO $ do
                         -- The first time it must succeed.
-                        res1 <- (WalletLayer._pwlCreateWallet layer) newWallet
+                        res1 <- (WalletLayer._pwlCreateWallet layer) request
                         (bimap STB STB res1) `shouldSatisfy` isRight
 
                         -- The second time it must not.
-                        res2 <- (WalletLayer._pwlCreateWallet layer) newWallet
+                        res2 <- (WalletLayer._pwlCreateWallet layer) request
                         case res2 of
                              Left (WalletLayer.CreateWalletError (CreateWalletFailed (CreateHdRootExists _))) ->
                                  return ()
+                             Left unexpectedErr ->
+                                 fail $ "expecting different failure than " <> show unexpectedErr
                              Right _ -> fail "expecting wallet not to be created, but it was."
 
         prop "supports Unicode characters" $ withMaxSuccess 1 $ do
             monadicIO $ do
-                newWallet <- genNewWalletRq
+                request <- genNewWalletRq
                 withLayer $ \layer _ -> do
-                    let w' = newWallet { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ" }
+                    let w' = request { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ" }
                     liftIO $ do
                         res <- (WalletLayer._pwlCreateWallet layer) w'
                         (bimap STB STB res) `shouldSatisfy` isRight

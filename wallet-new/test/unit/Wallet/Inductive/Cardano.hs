@@ -28,9 +28,12 @@ import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import qualified Cardano.Wallet.Kernel.Internal as Internal
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 
 import           Cardano.Wallet.Kernel.Util
+import           Util.Buildable
 import           Util.Validated
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)
@@ -168,8 +171,12 @@ equivalentT activeWallet esk = \mkWallet w ->
                                                  assuranceLevel
                                                  esk
                                                  utxo
-
-        either createWalletErr (\_ -> checkWalletAccountState ctxt accountIds) res
+        case res of
+             Left e -> createWalletErr (STB e)
+             Right hdRoot -> do
+                 let keystore = passiveWallet ^. Internal.walletKeystore
+                 liftIO $ Keystore.insert (WalletIdHdRnd $ hdRoot ^. HD.hdRootId) esk keystore
+                 checkWalletAccountState ctxt accountIds
 
         where
             walletName       = HD.WalletName "(test wallet)"
@@ -179,7 +186,8 @@ equivalentT activeWallet esk = \mkWallet w ->
             accountIds    = Map.keys utxoByAccount
             rootId        = HD.eskToHdRootId esk
 
-            createWalletErr _ = error "ERROR: could not create the HdWallet"
+            createWalletErr e =
+                error $ "ERROR: could not create the HdWallet due to " <> show e
 
             checkWalletAccountState ctxt' accountIds' = do
                 let accountId' = pickSingletonAccountId accountIds'

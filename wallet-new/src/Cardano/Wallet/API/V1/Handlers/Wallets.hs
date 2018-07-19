@@ -9,7 +9,7 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
 
-import           Mockable.Production (Production, runProduction)
+import           Pos.Core.Mockable.Production (Production, runProduction)
 import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.

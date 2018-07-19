@@ -1,4 +1,5 @@
 -- | Module for command-line utilites, parsers and convenient handlers.
+{-# OPTIONS_GHC -Wno-redundant-constraints   #-}
 
 module Pos.Client.CLI.Util
        ( printFlags

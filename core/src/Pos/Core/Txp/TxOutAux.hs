@@ -4,6 +4,7 @@ module Pos.Core.Txp.TxOutAux
 
 import           Universum
 
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
@@ -29,3 +30,5 @@ deriveSimpleBi ''TxOutAux [
     ]]
 
 deriveSafeCopySimple 0 'base ''TxOutAux
+
+deriveJSON defaultOptions ''TxOutAux

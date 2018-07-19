@@ -1,5 +1,7 @@
 set term png size 1000, 1000
 set output "rewards.png"
+set key bottom right
+set key invert
 
 min(x,y) = (x+y-abs(x-y))/2
 max(x,y) = (x+y+abs(x-y))/2

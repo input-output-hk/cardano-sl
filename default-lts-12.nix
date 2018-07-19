@@ -130,8 +130,7 @@ let
         else {}));
 
 in with pkgs.haskellPackages;
-with pkgs.haskell.lib;
-pkgs.haskellPackages.override rec {
+let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
   # note: we want `haskellPackages` here, as that is the one
   #       we provide in the overlay(!)
   buildHaskellPackages = pkgs.buildPackages.haskellPackages;
@@ -273,4 +272,52 @@ pkgs.haskellPackages.override rec {
     # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
     libiserv              = super.libiserv.override           { flags = { network = true; }; };
   };
-} // { pkgs-x = pkgs; }
+} // { pkgs-x = pkgs; });
+in ps // {
+    # From the appveyor.yaml script
+    # # We intentionally don't build auxx here, because this build is for installer.
+    #  - scripts\ci\appveyor-retry call stack --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
+    #      -j 3
+    #      --no-terminal
+    #      --local-bin-path %WORK_DIR%
+    #      --no-haddock-deps
+    #      --flag cardano-sl-core:-asserts
+    #      --flag cardano-sl-tools:for-installer
+    #      --flag cardano-sl-wallet:for-installer
+    #      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
+    #      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+    #      --extra-include-dirs="C:\xz_extracted\include"
+    #      --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
+    #      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+    #      --extra-lib-dirs="%WORK_DIR%"
+    #  # Cardano pieces, modulo the frontend
+    #  - mkdir daedalus
+    #    # log config is called `log-config-prod.yaml` just in case, it's the old name
+    #  - copy log-configs\daedalus.yaml daedalus\log-config-prod.yaml
+    #  - copy lib\configuration.yaml daedalus\
+    #  - copy lib\*genesis*.json daedalus\
+    #  - copy cardano-launcher.exe daedalus\
+    #  - copy cardano-node.exe daedalus\
+    #  - copy cardano-x509-certificates.exe daedalus\
+    #  - cd daedalus
+    #  - Echo %APPVEYOR_BUILD_VERSION% > build-id
+    #  - Echo %APPVEYOR_REPO_COMMIT% > commit-id
+    #  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
+    CardanoSL = pkgs.runCommand "CardanoSL.zip" { nativeBuildInputs = [ pkgs.buildPackages.zip ]; } ''
+      mkdir $out
+      cd $out
+
+      mkdir daedalus
+      cp ${./log-configs/daedalus.yaml} daedalus/log-config-prod.yaml
+      cp ${./lib/configuration.yaml}    daedalus/
+      cp ${./lib}/*genesis*.json        daedalus/
+      cp ${ps.cardano-sl-tools}/bin/cardano-launcher.exe          daedalus/
+      cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates.exe daedalus/
+      cp ${ps.cardano-sl-wallet-new}/bin/cardano-node.exe         daedalus/
+      echo "BAD_BUILD_VERSION" >                               daedalus/build-id
+      echo "BAD_REPO_COMMIT"   >                               daedalus/commit-id
+      echo "BAD_CI_URL"        >                               daedalus/ci-url
+      cd daedalus
+      zip $out/CardanoSL.zip *
+    '';
+}

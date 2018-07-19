@@ -2,17 +2,20 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ViewPatterns        #-}
 
-module Lib where
+module Pos.Tools.Dbgen.Lib where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict,
-                     withObject, (.:))
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecodeStrict,
+                     object, withObject, (.:), (.=))
 import qualified Data.ByteString as B
 import           Data.Function (id)
 import qualified Data.List.NonEmpty as NE
@@ -49,9 +52,9 @@ import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate,
                      vectorOf)
 import           Text.Printf (printf)
 
-import           CLI (CLI (..))
-import           Rendering (green, renderAccountId, say)
-import           Types (UberMonad)
+import           Pos.Tools.Dbgen.CLI (CLI (..))
+import           Pos.Tools.Dbgen.Rendering (green, renderAccountId, say)
+import           Pos.Tools.Dbgen.Types (UberMonad)
 
 import           Test.Pos.Core.Arbitrary.Txp ()
 
@@ -65,7 +68,9 @@ _exampleSpec = GenSpec
     { walletSpec = WalletSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
-        , fakeUtxoCoinDistr = RangeDistribution { amount = 1000, range = 100 }
+        , fakeUtxoCoinDistr = RangeDistribution
+            AddressRange { unAddressRange = 100 }
+            DistributionAmount { unDistributionAmount = 1000 }
         , fakeTxsHistory = SimpleTxsHistory 100 3
         }
     , wallets = 1
@@ -103,6 +108,22 @@ data AccountSpec = AccountSpec
 instance FromJSON AccountSpec
 instance ToJSON AccountSpec
 
+newtype AddressRange = AddressRange
+    { unAddressRange :: Integer
+    -- ^ The amount of addresses to distribute coins to.
+    } deriving (Show, Eq, Generic)
+
+instance FromJSON AddressRange
+instance ToJSON AddressRange
+
+newtype DistributionAmount = DistributionAmount
+    { unDistributionAmount :: Integer
+    -- ^ The amount of coins to distribute.
+    } deriving (Show, Eq, Generic)
+
+instance FromJSON DistributionAmount
+instance ToJSON DistributionAmount
+
 -- TODO(ks): The question here is whether we need to support some other
 -- strategies for distributing money, like maybe using a fixed amount
 -- of `toAddress` to cap the distribution - we have examples where we
@@ -112,11 +133,10 @@ data FakeUtxoCoinDistribution
     = NoDistribution
     -- ^ Do not distribute the coins.
     | RangeDistribution
-        { range  :: !Integer
+        AddressRange
         -- ^ Distributes to only XX addresses.
-        , amount :: !Integer
+        DistributionAmount
         -- ^ The amount we want to distribute to those addresses.
-        }
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
 
@@ -132,10 +152,18 @@ instance FromJSON FakeUtxoCoinDistribution where
         distrType <- o .: "type"
         case distrType of
           "none"  -> pure NoDistribution
-          "range" -> RangeDistribution <$> o .: "range" <*> o .: "amount"
+          "range" -> RangeDistribution
+                        <$> (AddressRange <$> o .: "range")
+                        <*> (DistributionAmount <$> o .: "amount")
           _       -> fail ("Unknown type: " ++ distrType)
 
-instance ToJSON FakeUtxoCoinDistribution
+instance ToJSON FakeUtxoCoinDistribution where
+    toJSON NoDistribution = object ["type" .= ("none" :: String)]
+    toJSON (RangeDistribution (AddressRange ar) (DistributionAmount da)) =
+        object [ "type"   .= ("range" :: String)
+               , "range"  .= ar
+               , "amount" .= da
+               ]
 
 type NumOfOutgoingAddresses = Int
 type NumberOfBatches = Int
@@ -162,7 +190,13 @@ instance FromJSON FakeTxsHistory where
           "simple" -> SimpleTxsHistory <$> o .: "txsCount" <*> o .: "numOutgoingAddress"
           _        -> fail ("Unknown type: " ++ distrType)
 
-instance ToJSON FakeTxsHistory
+instance ToJSON FakeTxsHistory where
+    toJSON NoHistory = object ["type" .= ("none" :: String)]
+    toJSON (SimpleTxsHistory txsCount numOutgoingAddress) =
+        object [ "type"               .= ("simple" :: String)
+               , "txsCount"           .= txsCount
+               , "numOutgoingAddress" .= numOutgoingAddress
+               ]
 
 
 --
@@ -340,20 +374,20 @@ generateRealTxHistE outputAddresses = do
 
 
 generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
-generateFakeUtxo NoDistribution _          = pure ()
-generateFakeUtxo RangeDistribution{..} aId = do
+generateFakeUtxo NoDistribution _              = pure ()
+generateFakeUtxo (RangeDistribution ar da) aId = do
 
     db <- askWalletDB
     ws <- getWalletSnapshot db
 
-    let fromAddr = range
+    let fromAddr = unAddressRange ar
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
 
     let generatedAddresses = rights $ map unwrapCAddress genCAddresses
 
     let coinAmount :: Coin
-        coinAmount = mkCoin $ fromIntegral amount
+        coinAmount = mkCoin $ fromIntegral $ unDistributionAmount da
 
     let txsOut :: [TxOutAux]
         txsOut = map (\address -> TxOutAux $ TxOut address coinAmount) generatedAddresses

@@ -1,4 +1,8 @@
-module Rendering where
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+
+module Pos.Tools.Dbgen.Rendering where
 
 import           Universum
 

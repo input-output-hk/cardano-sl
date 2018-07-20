@@ -10,8 +10,8 @@ import           Data.Word (Word32)
 
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, counterexample, 
-                     sized, suchThat, (.&&.), (===))
+import           Test.QuickCheck (Arbitrary (..), Gen, counterexample, sized,
+                     suchThat, (.&&.), (===))
 
 import           Ntp.Packet (NtpOffset (..), NtpPacket (..), clockOffsetPure,
                      ntpToRealMcs, realMcsToNtp)

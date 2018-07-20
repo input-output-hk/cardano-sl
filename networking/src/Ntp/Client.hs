@@ -33,9 +33,9 @@ import           Data.Binary (decodeOrFail)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup (Last (..))
+import           Data.These (These (..))
 import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds,
                      toMicroseconds)
-import           Data.These (These (..))
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import qualified Network.Socket as Socket

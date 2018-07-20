@@ -15003,6 +15003,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
+, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-update
@@ -15121,6 +15122,7 @@ cardano-sl
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
+cardano-sl-networking
 cardano-sl-txp
 cardano-sl-util
 formatting
@@ -17018,6 +17020,7 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , text
+, these
 , time
 , time-units
 , universum
@@ -17064,6 +17067,7 @@ resourcet
 safe-exceptions
 stm
 text
+these
 time
 time-units
 universum
@@ -17125,6 +17129,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
+, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-util
 , cpphs
@@ -17150,6 +17155,7 @@ cardano-sl
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
+cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-util
 log-warper

@@ -12,7 +12,6 @@ import           Universum
 import           Formatting (sformat, (%))
 import           System.Wlog (logInfo)
 
-import           Pos.Communication.Message ()
 import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion

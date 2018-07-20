@@ -19,7 +19,6 @@ import           Pos.Binary.Limit (Limit)
 -- TODO should move these into the Diffusion module subtree.
 import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening,
                      mlMCShares, mlMCVssCertificate)
-import           Pos.Communication.Message ()
 import           Pos.Core (StakeholderId)
 import           Pos.Infra.Communication.Relay (DataMsg, InvOrData,
                      InvReqDataParams (..), MempoolParams (NoMempool),

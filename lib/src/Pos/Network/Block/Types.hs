@@ -17,6 +17,7 @@ import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 import           Universum
 
+import           Node.Message.Class (Message (..))
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Core (HeaderHash)
@@ -58,6 +59,10 @@ instance Buildable MsgGetHeaders where
         bprint ("MsgGetHeaders {from = "%listJson%", to = "%build%"}")
                mghFrom (maybe "<Nothing>" (bprint build) mghTo)
 
+instance Message MsgGetHeaders where
+    messageCode _ = 4
+    formatMessage _ = "GetHeaders"
+
 deriveSimpleBi ''MsgGetHeaders [
     Cons 'MsgGetHeaders [
         Field [| mghFrom :: [HeaderHash]     |],
@@ -74,6 +79,10 @@ instance Buildable MsgGetBlocks where
     build (MsgGetBlocks mgbFrom mgbTo) =
         bprint ("MsgGetBlocks {from = "%build%", to = "%build%"}")
                mgbFrom mgbTo
+
+instance Message MsgGetBlocks where
+    messageCode _ = 6
+    formatMessage _ = "GetBlocks"
 
 deriveSimpleBi ''MsgGetBlocks [
     Cons 'MsgGetBlocks [
@@ -99,6 +108,10 @@ instance Bi MsgHeaders where
             1 -> MsgNoHeaders <$> decode
             t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
+instance Message MsgHeaders where
+    messageCode _ = 5
+    formatMessage _ = "BlockHeaders"
+
 -- | 'Block' message (see protocol specification).
 data MsgBlock
     = MsgBlock Block
@@ -116,6 +129,10 @@ instance Bi MsgBlock where
             0 -> MsgBlock <$> decode
             1 -> MsgNoBlock <$> decode
             t -> cborError $ "MsgBlock wrong tag: " <> show t
+
+instance Message MsgBlock where
+    messageCode _ = 7
+    formatMessage _ = "Block"
 
 -- | 'SerializedBlock' message
 data MsgSerializedBlock
@@ -162,6 +179,10 @@ instance Bi MsgStream where
             1 -> MsgUpdate <$> decode
             t -> cborError $ "MsgStream wrong tag: " <> show t
 
+instance Message MsgStream where
+    messageCode _ = 15
+    formatMessage _ = "Stream"
+
 data MsgStreamBlock
     = MsgStreamBlock Block
     | MsgStreamNoBlock Text
@@ -183,3 +204,7 @@ instance Bi MsgStreamBlock where
                  (_ :: Word8 )<- decode
                  pure MsgStreamEnd
             t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
+
+instance Message MsgStreamBlock where
+    messageCode _ = 16
+    formatMessage _ = "StreamBlock"

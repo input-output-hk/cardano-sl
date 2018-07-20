@@ -36,7 +36,6 @@ import           Pos.Binary.Communication (serializeMsgSerializedBlock,
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
-import           Pos.Communication.Message ()
 import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
                      bvdSlotDuration, difficultyL, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,

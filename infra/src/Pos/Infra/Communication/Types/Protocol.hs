@@ -365,6 +365,10 @@ instance Bi MsgSubscribe where
         43 -> pure MsgSubscribeKeepAlive
         n  -> cborError $ "MsgSubscribe wrong byte: " <> show n
 
+instance Message MsgSubscribe where
+    messageCode _ = 14
+    formatMessage _ = "Subscribe"
+
 -- | Old version of MsgSubscribe.
 data MsgSubscribe1 = MsgSubscribe1
     deriving (Generic, Show, Eq)
@@ -377,6 +381,10 @@ instance Bi MsgSubscribe1 where
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe1
         n  -> cborError $ "MsgSubscribe1 wrong byte:" <> show n
+
+instance Message MsgSubscribe1 where
+    messageCode _ = 13
+    formatMessage _ = "Subscribe1"
 
 mlMsgSubscribe :: Limit MsgSubscribe
 mlMsgSubscribe = 0

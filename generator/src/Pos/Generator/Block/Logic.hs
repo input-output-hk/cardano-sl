@@ -19,7 +19,6 @@ import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Types (Blund)
-import           Pos.Communication.Message ()
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
                      epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Core.Block (Block)

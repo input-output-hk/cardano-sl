@@ -21,8 +21,7 @@ Flag for-installer
 
 library
   hs-source-dirs:     src test
-  exposed-modules:    Pos.Arbitrary.Wallet.Web.ClientTypes
-                      Pos.Wallet
+  exposed-modules:    Pos.Wallet
                       Pos.Wallet.Redirect
                       Pos.Wallet.WalletMode
 
@@ -120,7 +119,6 @@ library
                       , cardano-sl-block
                       , cardano-sl-client
                       , cardano-sl-core
-                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-delegation
                       , cardano-sl-generator
@@ -164,7 +162,6 @@ library
                       , servant-swagger-ui
                       , stm
                       , swagger2
-                      , text
                       , text
                       , formatting
                       , time
@@ -220,6 +217,9 @@ test-suite cardano-wallet-test
   other-modules:
                        -- Standard module with some magic
                        Spec
+
+                       -- Arbitrary Instances
+                       Test.Pos.Wallet.Arbitrary.Web.ClientTypes
 
                        -- Basic QC checks
                        Test.Pos.Util.MnemonicSpec

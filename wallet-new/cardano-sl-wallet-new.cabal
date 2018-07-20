@@ -154,6 +154,7 @@ library
                      , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-wallet
+                     , cardano-sl-wallet-test
                      , conduit
                      , connection
                      , containers

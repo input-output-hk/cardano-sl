@@ -641,64 +641,68 @@ certificate is overridden or revoked.
 #### Updating Local State
 
 **TODO: Update this section, it is probably out of date and assumes a
-  more complicated scheme which we started with.**
+  more complicated scheme which we started with. Possibly, the
+  additional state that we need is simple enough that we do not flesh
+  out how to keep track of it in the design document at
+  all. Nevertheless, I'm leaving the obsolete contents here as
+  comments, as a basis to rewrite this section, if it is needed.**
 
-Each node (that has to verify blocks) will maintain a database with
-valid certificates. In the following, we will describe how that
-database is modified when adding or rolling back blocks.
+<!-- Each node (that has to verify blocks) will maintain a database with -->
+<!-- valid certificates. In the following, we will describe how that -->
+<!-- database is modified when adding or rolling back blocks. -->
 
-Note that there is a general design decision we should consider
-regarding rollbacks. The current status is that a node will record
-information on how to undo a block when it adds it to its chain. The
-new wallet, however, follows a much simpler approach and just keeps
-snapshots of the last $k$ slots[^snapshots]. Rolling back is then as
-simple as setting the state to one of those snapshots. The following
-discussion assumes that we save undo information, as is currently done
-in the core. Changing it to snapshots would simplify the design.
+<!-- Note that there is a general design decision we should consider -->
+<!-- regarding rollbacks. The current status is that a node will record -->
+<!-- information on how to undo a block when it adds it to its chain. The -->
+<!-- new wallet, however, follows a much simpler approach and just keeps -->
+<!-- snapshots of the last $k$ slots[^snapshots]. Rolling back is then as -->
+<!-- simple as setting the state to one of those snapshots. The following -->
+<!-- discussion assumes that we save undo information, as is currently done -->
+<!-- in the core. Changing it to snapshots would simplify the design. -->
 
-[^snapshots]: **TODO**: or is it blocks?
+<!-- [^snapshots]: **TODO**: or is it blocks? -->
 
-Adding a new block
+<!-- Adding a new block -->
 
-: Any heavyweight certificate that is valid is added to the local
-    certificate database.  Those certificates are also added to the
-    undo information, to be deleted when the block is rolled back.
+<!-- : Any heavyweight certificate that is valid is added to the local -->
+<!--     certificate database.  Those certificates are also added to the -->
+<!--     undo information, to be deleted when the block is rolled back. -->
 
-    For each certificate in the new block, we check if there is an
-    older certificate for the same source key.  Those certificates are
-    now invalid.  They are removed from the certificate database, and
-    added to the undo information, so that they can be added again
-    should the block be rolled back.
+<!--     For each certificate in the new block, we check if there is an -->
+<!--     older certificate for the same source key.  Those certificates are -->
+<!--     now invalid.  They are removed from the certificate database, and -->
+<!--     added to the undo information, so that they can be added again -->
+<!--     should the block be rolled back. -->
 
-    Any stakepool registration certificate that is found is added,
-    unless there is already a stakepool registration certificate for
-    the same $vks$ on the blockchain.  Overwriting stakepool
-    registration certificates is not allowed, since that would allow
-    stake pool operators to change their reward sharing policy without
-    consent from their participants.  The certificate is also included
-    in the undo information, so that it can be removed in case the
-    block is rolled back.
+<!--     Any stakepool registration certificate that is found is added, -->
+<!--     unless there is already a stakepool registration certificate for -->
+<!--     the same $vks$ on the blockchain.  Overwriting stakepool -->
+<!--     registration certificates is not allowed, since that would allow -->
+<!--     stake pool operators to change their reward sharing policy without -->
+<!--     consent from their participants.  The certificate is also included -->
+<!--     in the undo information, so that it can be removed in case the -->
+<!--     block is rolled back. -->
 
-    **TODO**: what about removing stake pool registration certificates
-      to retire pools?
+<!--     **TODO**: what about removing stake pool registration certificates -->
+<!--       to retire pools? -->
 
-    Note that there is a natural order on the certificates in a block,
-    induced by the order in which transactions appear in the block,
-    and certificates are processed in this order.  This might be
-    relevant for resolvig conflicts in case there are conflicting
-    certificates within a block.
+<!--     Note that there is a natural order on the certificates in a block, -->
+<!--     induced by the order in which transactions appear in the block, -->
+<!--     and certificates are processed in this order.  This might be -->
+<!--     relevant for resolvig conflicts in case there are conflicting -->
+<!--     certificates within a block. -->
 
-Rolling back a block
+<!-- Rolling back a block -->
 
-:   Certificates that are in the undo information for deletion are
-    deleted from the local certificate database.
+<!-- :   Certificates that are in the undo information for deletion are -->
+<!--     deleted from the local certificate database. -->
 
-    Certificates in the undo information to be added are added to the
-    local certificate database.
+<!--     Certificates in the undo information to be added are added to the -->
+<!--     local certificate database. -->
 
-The certificate database will require resources on each node, so there
-should be incentives for actions that keep it small, such as removing
-certificates that are no longer needed.
+<!-- The certificate database will require resources on each node, so there -->
+<!-- should be incentives for actions that keep it small, such as removing -->
+<!-- certificates that are no longer needed. -->
 
 ## Delegation Scenarios
 

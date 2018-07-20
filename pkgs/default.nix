@@ -18062,7 +18062,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-update
 , cardano-sl-util
 , cardano-sl-util-test
-, cardano-sl-wallet-test
 , containers
 , cpphs
 , cryptonite
@@ -18218,7 +18217,6 @@ cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
-cardano-sl-wallet-test
 containers
 data-default
 deepseq

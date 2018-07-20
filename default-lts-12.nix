@@ -1,5 +1,10 @@
-{ system ? builtins.currentSystem, target ? null }:
+{ system ? builtins.currentSystem, target ? null, n ? 0}:
 let
+  # this is some hack to append spaces to the configureFlags of the
+  # default derivation in GHC.  This allows us to force a rebuild
+  # of all haskell packages.
+  spaces = let repeat = n: c: c + (if n == 0 then "" else repeat (n - 1) c); in repeat n " ";
+  
   stack-pkgs = import ./stack-pkgs.nix;
 
   # We use some customized libiserv/remote-iserv/iserv-proxy
@@ -108,6 +113,7 @@ let
               enableLibraryProfiling = false;
               enableSharedLibraries = false;
               enableSharedExecutables = false;
+              configureFlags = (drv.configureFlags or []) ++ [ spaces ];
             });
           };
         });
@@ -147,9 +153,14 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
       "-L${pkgs.windows.mingw_w64_pthreads}/lib"
     ];
     preBuild = ''
+      # unset the configureFlags.
+      # configure should have run already
+      # without restting it, wine might fail
+      # due to a too large environment.
+      unset configureFlags
       PORT=$((5000 + $RANDOM % 5000))
       echo "---> Starting remote-iserv on port $PORT"
-      WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
+      WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
       sleep 60 # wait for wine to fully boot up...
       echo "---| remote-iserv should have started on $PORT"
       RISERV_PID=$!
@@ -184,21 +195,31 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
     buildFlags = map (opt: "--ghc-option=" + opt) [
       "-fexternal-interpreter"
       "-pgmi" "${buildHaskellPackages.iserv-proxy}/bin/iserv-proxy"
-      "-opti" "127.0.0.1" "-opti" "$PORT" "-opti" "-v" #"-xc" "+RTS" "-Di"
+      "-opti" "127.0.0.1" "-opti" "$PORT" # "-opti" "-v" #"-xc" "+RTS" "-Di"
       # TODO: this should be automatically injected based on the extraLibrary.
       "-L${pkgs.windows.mingw_w64_pthreads}/lib"
     ];
     preBuild = ''
       PORT=$((5000 + $RANDOM % 5000))
+      echo "" | xargs --show-limits echo
+      unset configureFlags
+      echo "" | xargs --show-limits echo
       echo "---> Starting remote-iserv on port $PORT"
-      WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT -v +RTS -Di &
-      sleep 60 # wait for wine to fully boot up...
+      WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT & # -v +RTS -Di &
+      echo "---| called wine ..."
+      for i in {1..5}; do
+        sleep 1 # wait for wine to fully boot up...
+        echo -n "."
+      done
+      echo ""
       echo "---| remote-iserv should have started on $PORT"
       RISERV_PID=$!
     '';
     postBuild = ''
       echo "---> killing remote-iserv..."
       kill $RISERV_PID
+      echo "Sleeping another 600s..."
+#      sleep 600
     ''; in
     appendBuildFlags' buildFlags
      (addBuildDepends' [ self.remote-iserv ]
@@ -256,7 +277,7 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
     cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
     cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
-    cardano-sl-wallet-new = doTemplateHaskell (addGitRev super.cardano-sl-wallet-new);
+    cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
 
     cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
 

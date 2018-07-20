@@ -263,6 +263,3 @@ data FaucetEnv = FaucetEnv {
   }
 
 makeClassy ''FaucetEnv
-
--- |
--- === Metrics functions

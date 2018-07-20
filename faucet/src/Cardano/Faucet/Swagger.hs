@@ -89,12 +89,3 @@ swaggerServer = swaggerSchemaUIServer (mkSwagger compileInfo faucetServerAPI)
 
 faucetHandler :: HasCompileInfo => ServerT FaucetDocAPI M
 faucetHandler = (hoistServer faucetDoc liftToM swaggerServer) :<|> faucetServer
-
-
--- | Combined 'swaggerServer' and 'faucetServer'
--- faucetHandler :: HasCompileInfo => FaucetEnv -> Server FaucetDocAPI
--- faucetHandler env = swaggerServer
---                :<|> hoistServer faucetServerAPI (nat env) faucetServer
---   where
---       nat :: FaucetEnv -> M a -> Handler a
---       nat e = Handler . ExceptT . runM e

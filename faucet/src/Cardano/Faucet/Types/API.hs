@@ -123,15 +123,6 @@ instance ToSchema WithdrawlResult where
     declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
       { constructorTagModifier = map Char.toLower . drop (length ("Withdrawl" :: String)) }
       & mapped.mapped.schema.description ?~ wdDesc
-    -- declareNamedSchema _ = do
-    --     txnSchema <- declareSchemaRef (Proxy :: Proxy Transaction)
-    --     errSchema <- declareSchemaRef (Proxy :: Proxy Char)
-    --     return $ NamedSchema (Just "WithdrawlResult") $ mempty
-    --       & type_ .~ SwaggerObject
-    --       & properties .~ (mempty
-    --            & at "success" ?~ txnSchema
-    --            & at "error" ?~ errSchema)
-    --       & description .~ (Just $ wdDesc)
 
 --------------------------------------------------------------------------------
 -- | A request to deposit ADA back into the wallet __not currently used__

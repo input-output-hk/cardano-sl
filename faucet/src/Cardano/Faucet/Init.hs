@@ -300,15 +300,15 @@ makeInitializedWallet fc client = withSublogger "makeInitializedWallet" $ do
         left = return . Left
 
 --------------------------------------------------------------------------------
--- | Process withdrawls requested from the 'feWithdrawlQ'
+-- | Process withdrawals requested from the 'feWithdrawalQ'
 --
 -- On receiving a 'ProcessorPayload' 'postTransaction' is used to send the
--- 'Payment' and the resulting 'Transaction' is wrapped in a 'WithdrawlResult'
+-- 'Payment' and the resulting 'Transaction' is wrapped in a 'WithdrawalResult'
 -- and put into the provided 'TMVar'
-processWithdrawls :: FaucetEnv -> LoggerNameBox IO ()
-processWithdrawls fEnv = withSublogger "processWithdrawls" $ forever $ do
+processWithdrawals :: FaucetEnv -> LoggerNameBox IO ()
+processWithdrawals fEnv = withSublogger "processWithdrawals" $ forever $ do
     let wc = fEnv ^. feWalletClient
-        pmtQ = fEnv ^. feWithdrawlQ
+        pmtQ = fEnv ^. feWithdrawalQ
     logInfo "Waiting for next payment"
     (ProcessorPayload pmt tVarResult)<- liftIOA $ TBQ.readTBQueue pmtQ
     logInfo "Processing payment"
@@ -319,14 +319,14 @@ processWithdrawls fEnv = withSublogger "processWithdrawls" $ forever $ do
             logError ("Error sending to " <> (showPmt pmt)
                                           <> " error: "
                                           <> txtErr)
-            liftIOA $ putTMVar tVarResult (WithdrawlError txtErr)
+            liftIOA $ putTMVar tVarResult (WithdrawalError txtErr)
         Right withDrawResp -> do
             let txn = wrData withDrawResp
                 amount = unV1 $ txAmount txn
             logInfo ((withDrawResp ^. to (show . wrStatus) . packed)
                     <> " withdrew: "
                     <> (amount ^. to show . packed))
-            liftIOA $ putTMVar tVarResult (WithdrawlSuccess txn)
+            liftIOA $ putTMVar tVarResult (WithdrawalSuccess txn)
     where
       liftIOA = liftIO . atomically
       showPmt = toStrict . encodeToLazyText . pdAddress . NonEmpty.head . pmtDestinations
@@ -339,9 +339,9 @@ initEnv fc store = do
     withSublogger "initEnv" $ logInfo "Initializing environment"
     env <- createEnv
     withSublogger "initEnv" $ logInfo "Created environment"
-    wdTId <- liftLogIO forkIO $ processWithdrawls env
+    wdTId <- liftLogIO forkIO $ processWithdrawals env
     withSublogger "initEnv"
-        $ logInfo ( "Forked thread for processing withdrawls:"
+        $ logInfo ( "Forked thread for processing withdrawals:"
                  <> show wdTId ^. packed)
     monTId <- liftLogIO forkIO $ monitorWalletBalance env
     withSublogger "initEnv"

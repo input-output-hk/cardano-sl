@@ -39,12 +39,12 @@ randomAmount (PaymentDistribution (getCoin -> amt) (getCoin -> var))= do
 --
 -- Simply sends a 'randomAmount' of ADA (units in lovelace )to the supplied
 -- 'Address'
-withdraw :: (MonadFaucet c m) => V1 Address -> m (Either WithdrawlQFull WithdrawlResult)
+withdraw :: (MonadFaucet c m) => V1 Address -> m (Either WithdrawalQFull WithdrawalResult)
 withdraw addr = withSublogger "WalletClient.withdraw" $ do
     paymentSource <- view (feSourceWallet . to cfgToPaymentSource)
     spendingPassword <- view (feSourceWallet . srcSpendingPassword)
     coin <- randomAmount =<< view (feFaucetConfig . fcPaymentDistribution)
-    q <- view feWithdrawlQ
+    q <- view feWithdrawalQ
     let paymentDist = (V1.PaymentDistribution addr coin :| [])
         sp =  spendingPassword <&> view (re utf8 . to hashPwd . to V1)
         payment = Payment paymentSource paymentDist Nothing sp
@@ -60,15 +60,15 @@ withdraw addr = withSublogger "WalletClient.withdraw" $ do
 -- | Sends the 'Payment' to the processor queue
 --
 -- Returns a 'TMVar' to wait on for the response from the node
--- See 'Cardano.Faucet.Init.processWithdrawls'
+-- See 'Cardano.Faucet.Init.processWithdrawals'
 sendToQueue
     :: TBQ.TBQueue ProcessorPayload
     -> Payment
-    -> IO (Either WithdrawlQFull (TMVar WithdrawlResult))
+    -> IO (Either WithdrawalQFull (TMVar WithdrawalResult))
 sendToQueue q payment = atomically $ do
         isFull <- TBQ.isFullTBQueue q
         if isFull
-           then return $ Left WithdrawlQFull
+           then return $ Left WithdrawalQFull
            else do
             resTMVar <- newEmptyTMVar
             TBQ.writeTBQueue q  (ProcessorPayload payment resTMVar)

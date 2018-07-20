@@ -31,6 +31,7 @@ import           Data.Swagger
 import           Data.Text (Text)
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
+import           Test.QuickCheck.Arbitrary.Generic
 import           Web.FormUrlEncoded
 
 import           Cardano.Wallet.API.V1.Types (Transaction, V1 (..))
@@ -39,12 +40,16 @@ import           Pos.Core (Address (..), Coin (..))
 
 --------------------------------------------------------------------------------
 -- | The "g-recaptcha-response" field
-newtype GCaptchaResponse = GCaptchaResponse Text deriving (Show)
+newtype GCaptchaResponse = GCaptchaResponse Text deriving (Eq, Show, Generic)
 
 makeWrapped ''GCaptchaResponse
 
 instance IsString GCaptchaResponse where
     fromString = GCaptchaResponse . fromString
+
+instance Arbitrary GCaptchaResponse where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 --------------------------------------------------------------------------------
 -- | A request to withdraw ADA from the faucet wallet
@@ -53,7 +58,7 @@ data WithdrawalRequest = WithdrawalRequest {
     _wAddress           :: !(V1 Address)
     -- | The "g-recaptcha-response" field sent by the form
   , _gRecaptchaResponse :: !GCaptchaResponse
-  } deriving (Show, Typeable, Generic)
+  } deriving (Eq, Show, Typeable, Generic)
 
 makeLenses ''WithdrawalRequest
 
@@ -82,6 +87,10 @@ instance ToJSON WithdrawalRequest where
         object [ "address" .= w
                , "g-recaptcha-response" .= (g ^. _Wrapped)]
 
+
+instance Arbitrary WithdrawalRequest where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 --------------------------------------------------------------------------------
 data WithdrawalQFull = WithdrawalQFull deriving (Show, Generic, Exception)

@@ -35,12 +35,14 @@ import           Universum
 
 import           Control.Monad.Except (MonadError)
 import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Aeson (encode, toEncoding)
+import           Data.Aeson (FromJSON, ToJSON, Value (..), encode, parseJSON,
+                     toEncoding, (.:))
 import           Data.Aeson.Encoding.Internal (pairStr, pairs)
 import           Data.Aeson.Options (defaultOptions)
-import           Data.Aeson.TH (deriveFromJSON, deriveJSON)
-import           Data.Aeson.Types (ToJSON)
+import           Data.Aeson.TH (deriveJSON)
+import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.HashMap.Strict as HMS
 import qualified Ether
 import           Formatting (sformat)
 import           System.Wlog (WithLogger)
@@ -144,7 +146,7 @@ data InvReqDataFlowLog =
         , invReqReceived :: !Integer
         }
     | InvReqException !Text
-    deriving (Generic, Show)
+    deriving (Eq, Generic, Show)
 
 instance ToJSON InvReqDataFlowLog where
     toEncoding (InvReqAccepted str rece sen closed) =
@@ -160,7 +162,25 @@ instance ToJSON InvReqDataFlowLog where
     toEncoding (InvReqException exception) =
             pairs $ pairStr "invReqException" (toEncoding exception)
 
-$(deriveFromJSON defaultOptions ''InvReqDataFlowLog)
+instance FromJSON InvReqDataFlowLog where
+    parseJSON (Object o)
+        | HMS.member "invReqAccepted" o = do
+            invReqAccO <- o .: "invReqAccepted"
+            str <- invReqAccO .: "reqStart"
+            rece <- invReqAccO .: "reqReceived"
+            sen <- invReqAccO .: "reqSent"
+            closed <- invReqAccO .: "reqClosed"
+            return $ InvReqAccepted str rece sen closed
+        | HMS.member "invReqRejected" o = do
+            invReqRecO <- o .: "invReqRejected"
+            str <- invReqRecO .: "reqStart"
+            rece <- invReqRecO .: "reqReceived"
+            return $ InvReqRejected str rece
+        | HMS.member "invReqException" o =
+            InvReqException <$> (o .: "invReqException")
+        | otherwise = fail "Incorrect JSON encoding for InvReqDataFlowLog"
+    parseJSON invalid = typeMismatch "InvReqDataFlowLog" invalid
+
 $(deriveJSON defaultOptions ''MemPoolModifyReason)
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)

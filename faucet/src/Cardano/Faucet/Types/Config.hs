@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass              #-}
+{-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -48,7 +48,7 @@ import           Cardano.Wallet.API.V1.Types (AccountIndex, Payment,
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 import           Pos.Core (Address (..))
 import           Pos.Util.Mnemonic (Mnemonic)
-import Test.QuickCheck (Arbitrary(..), choose)
+import           Test.QuickCheck (Arbitrary (..), choose)
 import           Test.QuickCheck.Arbitrary.Generic
 
 import           Cardano.Faucet.Types.API
@@ -273,7 +273,7 @@ data FaucetEnv = FaucetEnv {
     -- | Client for communicating with wallet API
   , _feWalletClient  :: !(WalletClient IO)
     -- | Lock to ensure only one withdrawal at a time
-  , _feWithdrawalQ    :: !(TBQueue ProcessorPayload)
+  , _feWithdrawalQ   :: !(TBQueue ProcessorPayload)
   }
 
 makeClassy ''FaucetEnv

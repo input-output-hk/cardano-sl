@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.WalletClient (
     withdraw
@@ -13,7 +12,7 @@ import           Cardano.Wallet.API.V1.Types (Payment (..), V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Concurrent.STM.TMVar (newEmptyTMVar, takeTMVar, TMVar)
+import           Control.Concurrent.STM.TMVar (TMVar, newEmptyTMVar, takeTMVar)
 import           Control.Lens
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader

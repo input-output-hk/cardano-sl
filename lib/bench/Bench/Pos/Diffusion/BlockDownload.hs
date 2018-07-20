@@ -5,7 +5,6 @@
 -- later if need be.
 -- Currently only the batched block requests are wired up. The streaming
 -- definition is not yet available.
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}

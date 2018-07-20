@@ -28,7 +28,7 @@ import           Cardano.Faucet.Types
 import           Pos.Core (Coin (..))
 
 --------------------------------------------------------------------------------
--- | Record a withdrawl
+-- | Record a withdrawal
 --
 -- * Adds to 'feWithDrawn' 'Counter'
 -- * Increments 'feNumWithDrawn' 'Counter'

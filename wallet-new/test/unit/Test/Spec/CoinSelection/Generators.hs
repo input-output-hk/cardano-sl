@@ -6,6 +6,9 @@ module Test.Spec.CoinSelection.Generators (
     , genFiddlyPayees
     , genUtxo
     , genFiddlyUtxo
+    , StakeGenOptions(..)
+    , GenerationTarget(..)
+    , toLovelaces
     , InitialBalance(..)
     , Pay(..)
     , genUniqueChangeAddress

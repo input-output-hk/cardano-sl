@@ -15,12 +15,15 @@ module Cardano.Wallet.Kernel.Util (
   , utxoBalance
   , utxoRestrictToInputs
   , paymentAmount
+    -- * General-utility functions
+  , getCurrentTimestamp
   ) where
 
 import           Universum
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Pos.Core.Chrono
 import qualified Test.QuickCheck as QC
 
@@ -110,3 +113,12 @@ paymentAmount = Core.unsafeIntegerToCoin
 -- | Gets the underlying value (as a 'Coin') from a 'TxOutAux'.
 toCoin :: Core.TxOutAux -> Core.Coin
 toCoin = Core.txOutValue . Core.toaOut
+
+{-------------------------------------------------------------------------------
+  General-utility functions
+-------------------------------------------------------------------------------}
+
+-- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
+getCurrentTimestamp :: IO Core.Timestamp
+getCurrentTimestamp = Core.Timestamp . round . (* 1000000) <$> getPOSIXTime
+

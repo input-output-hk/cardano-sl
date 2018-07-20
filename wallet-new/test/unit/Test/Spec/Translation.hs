@@ -280,11 +280,8 @@ intAndVerifyChain pc = runTranslateT $ do
             (finalUtxo', _) <- runIntT' ctxt $ int dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
-              else return $ Disagreement ledger UnexpectedUtxo {
-                         utxoDsl     = dslUtxo
-                       , utxoCardano = finalUtxo
-                       , utxoInt     = finalUtxo'
-                       }
+              else return . Disagreement ledger
+                  $ UnexpectedUtxo dslUtxo finalUtxo finalUtxo'
 
 {-------------------------------------------------------------------------------
   Chain verification test result
@@ -295,17 +292,17 @@ data ValidationResult h a =
     ExpectedValid
 
     -- | We expected the chain to be invalid; DSL and Cardano both agree
-  | ExpectedInvalid {
-        validationErrorDsl     :: Text
-      , validationErrorCardano :: Cardano.VerifyBlocksException
-      }
+    -- ExpectedInvalid
+    --     validationErrorDsl
+    --     validationErrorCardano
+  | ExpectedInvalid !Text !Cardano.VerifyBlocksException
 
     -- | Variation on 'ExpectedInvalid', where we cannot even /construct/
     -- the Cardano chain, much less validate it.
-  | ExpectedInvalid' {
-        validationErrorDsl :: Text
-      , validationErrorInt :: IntException
-      }
+    -- ExpectedInvalid
+    --     validationErrorDsl
+    --     validationErrorInt
+  | ExpectedInvalid'  !Text !IntException
 
     -- | Disagreement between the DSL and Cardano
     --
@@ -318,10 +315,10 @@ data ValidationResult h a =
     --
     -- We record the error message from Cardano, if Cardano thought the chain
     -- was invalid, as well as the ledger that causes the problem.
-  | Disagreement {
-        validationLedger       :: Ledger h a
-      , validationDisagreement :: Disagreement h a
-      }
+    -- Disagreement
+    --     validationLedger
+    --     validationDisagreement
+  | Disagreement !(Ledger h a) !(Disagreement h a)
 
 -- | Disagreement between Cardano and the DSL
 --
@@ -343,11 +340,8 @@ data Disagreement h a =
 
     -- | Both Cardano and the DSL reported the chain as valid, but they computed
     -- a different UTxO
-  | UnexpectedUtxo {
-        utxoDsl     :: Utxo h a
-      , utxoCardano :: Cardano.Utxo
-      , utxoInt     :: Cardano.Utxo
-      }
+    -- UnexpectedUtxo utxoDsl utxoCardano utxoInt
+  | UnexpectedUtxo !(Utxo h a) !Cardano.Utxo !Cardano.Utxo
 
 expectValid :: ValidationResult h a -> Bool
 expectValid ExpectedValid = True
@@ -363,7 +357,9 @@ expectInvalid _otherwise            = False
 
 instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
   build ExpectedValid = "ExpectedValid"
-  build ExpectedInvalid{..} = bprint
+  build (ExpectedInvalid
+             validationErrorDsl
+             validationErrorCardano) = bprint
       ( "ExpectedInvalid"
       % ", errorDsl:     " % build
       % ", errorCardano: " % build
@@ -371,7 +367,9 @@ instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
       )
       validationErrorDsl
       validationErrorCardano
-  build ExpectedInvalid'{..} = bprint
+  build (ExpectedInvalid'
+             validationErrorDsl
+             validationErrorInt) = bprint
       ( "ExpectedInvalid'"
       % ", errorDsl: " % build
       % ", errorInt: " % build
@@ -379,7 +377,9 @@ instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
       )
       validationErrorDsl
       validationErrorInt
-  build Disagreement{..} = bprint
+  build (Disagreement
+             validationLedger
+             validationDisagreement) = bprint
       ( "Disagreement "
       % "{ ledger: "       % build
       % ", disagreement: " % build
@@ -392,7 +392,7 @@ instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
   build (UnexpectedInvalid e) = bprint ("UnexpectedInvalid " % build) e
   build (UnexpectedError e)   = bprint ("UnexpectedError " % shown) e
   build (UnexpectedValid e)   = bprint ("UnexpectedValid " % shown) e
-  build UnexpectedUtxo{..}    = bprint
+  build (UnexpectedUtxo utxoDsl utxoCardano utxoInt) = bprint
       ( "UnexpectedUtxo"
       % "{ dsl:     " % build
       % ", cardano: " % mapJson

@@ -56,20 +56,12 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
     notChecked :: History h a
                -> InvalidInput h a
                -> InvariantViolation h a
-    notChecked history reason = InvariantNotChecked {
-          invariantNotCheckedName   = name
-        , invariantNotCheckedReason = reason
-        , invariantNotCheckedEvents = history
-        }
+    notChecked history reason = InvariantNotChecked name reason history
 
     violation :: History h a
               -> InvariantViolationEvidence
               -> InvariantViolation h a
-    violation history ev = InvariantViolation {
-          invariantViolationName     = name
-        , invariantViolationEvidence = ev
-        , invariantViolationEvents   = history
-        }
+    violation history ev = InvariantViolation name ev history
 
     p' :: History h a
        -> [Wallet h a]
@@ -82,28 +74,18 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
 -- | Invariant violation
 data InvariantViolation h a =
     -- | Invariance violation
-    InvariantViolation {
-        -- | Name of the invariant
-        invariantViolationName     :: Text
-
-        -- | Evidence that the invariant was violated
-      , invariantViolationEvidence :: InvariantViolationEvidence
-
-        -- | The evens that led to the error
-      , invariantViolationEvents   :: History h a
-      }
+    --       invariantViolationName     =  Name of the invariant
+    --       invariantViolationEvidence = Evidence that the invariant
+    --                                    was violated
+    --       invariantViolationEvents   = The evennts that led to the error
+    InvariantViolation !Text !InvariantViolationEvidence !(History h a)
 
     -- | The invariant was not checked because the input was invalid
-  | InvariantNotChecked {
-        -- | Name of the invariant
-        invariantNotCheckedName   :: Text
-
-        -- | Why did we not check the invariant
-      , invariantNotCheckedReason :: InvalidInput h a
-
-        -- | The events that led to the error
-      , invariantNotCheckedEvents :: History h a
-      }
+    --   InvariantNotChecked
+    --       invariantNotCheckedName   = Name of the invariant
+    --       invariantNotCheckedReason = Why did we not check the invariant
+    --       invariantNotCheckedEvents = The events that led to the error
+  | InvariantNotChecked !Text !(InvalidInput h a) !(History h a)
 
 {-------------------------------------------------------------------------------
   Evidence that an invariant was violated
@@ -288,20 +270,12 @@ walletEquivalent lbl e e' = void .
     notChecked :: History h a
                -> InvalidInput h a
                -> InvariantViolation h a
-    notChecked history reason = InvariantNotChecked {
-          invariantNotCheckedName   = lbl
-        , invariantNotCheckedReason = reason
-        , invariantNotCheckedEvents = history
-        }
+    notChecked history reason = InvariantNotChecked lbl reason history
 
     violation :: History h a
               -> InvariantViolationEvidence
               -> InvariantViolation h a
-    violation history ev = InvariantViolation {
-          invariantViolationName     = lbl
-        , invariantViolationEvidence = ev
-        , invariantViolationEvents   = history
-        }
+    violation history ev = InvariantViolation lbl ev history
 
     p :: History h a
       -> [Wallet h a]
@@ -332,7 +306,10 @@ walletEquivalent lbl e e' = void .
 -------------------------------------------------------------------------------}
 
 instance (Hash h a, Buildable a) => Buildable (InvariantViolation h a) where
-  build InvariantViolation{..} = bprint
+  build (InvariantViolation
+             invariantViolationName
+             invariantViolationEvidence
+             invariantViolationEvents) = bprint
     ( "InvariantViolation "
     % "{ name:     " % build
     % ", evidence: " % build
@@ -342,7 +319,10 @@ instance (Hash h a, Buildable a) => Buildable (InvariantViolation h a) where
     invariantViolationName
     invariantViolationEvidence
     invariantViolationEvents
-  build (InvariantNotChecked{..}) = bprint
+  build (InvariantNotChecked
+             invariantNotCheckedName
+             invariantNotCheckedReason
+             invariantNotCheckedEvents) = bprint
     ( "InvariantNotChecked "
     % "{ name:   " % build
     % ", reason: " % build

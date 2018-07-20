@@ -2,6 +2,7 @@ module Spec
     ( spec
     ) where
 
+import           Prelude
 import           Test.Hspec
 import qualified Test.Pos.Infra.Diffusion.Subscription.StatusSpec (spec)
 import qualified Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec (spec)

@@ -19,7 +19,7 @@ module Pos.Infra.Slotting.Util
          -- * Waiting for system start
        , waitSystemStart
 
-         -- * Re-exported from the Sinbin
+         -- * Re-exported from Core
        , ActionTerminationPolicy (..)
        , OnNewSlotParams (..)
        , defaultOnNewSlotParams
@@ -30,12 +30,12 @@ import           Universum
 
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
-import           Mockable (Async, Delay, Mockable, delay, timeout)
 import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
 
 import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId (..),
                      Timestamp (..), slotIdF)
+import           Pos.Core.Mockable (Async, Delay, Mockable, delay, timeout)
 import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      EpochSlottingData (..), MonadSlotsData,
                      OnNewSlotParams (..), SlottingData, computeSlotStart,
@@ -43,11 +43,11 @@ import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      getCurrentSlotFlat, getEpochSlottingDataM,
                      getSystemStartM, lookupEpochSlottingData)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
+import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
-import           Pos.Sinbin.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Util.Util (maybeThrow)
 
 

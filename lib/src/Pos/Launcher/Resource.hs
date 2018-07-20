@@ -25,7 +25,6 @@ import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
 import qualified Data.Time as Time
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production (..))
 import           System.IO (BufferMode (..), hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
 import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
@@ -42,6 +41,8 @@ import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
 import           Pos.Core (HasConfiguration, Timestamp, gdStartTime,
                      genesisData)
+import           Pos.Core.Mockable (Production (..))
+import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration,
@@ -49,7 +50,6 @@ import           Pos.Delegation (DelegationVar, HasDlgConfiguration,
 import qualified Pos.GState as GS
 import           Pos.Infra.DHT.Real (KademliaParams (..))
 import           Pos.Infra.Network.Types (NetworkConfig (..))
-import           Pos.Infra.Reporting (initializeMisbehaviorMetrics)
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
 import           Pos.Infra.Slotting (SimpleSlottingStateVar,
                      mkSimpleSlottingStateVar)

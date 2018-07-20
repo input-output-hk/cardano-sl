@@ -7,9 +7,9 @@ import           Universum
 
 
 import           Pos.Core (StakeholderId)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..),
                      SecurityParams (..))
-import           Pos.Sinbin.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Util (HasLens (..))
 
 shouldIgnoreAddress

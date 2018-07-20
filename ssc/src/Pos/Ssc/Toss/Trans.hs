@@ -15,8 +15,8 @@ import           Universum hiding (id)
 
 import           Control.Lens (at, (%=), (.=))
 import qualified Ether
-import           Mockable (ChannelT, Promise, SharedAtomicT, ThreadId)
 
+import           Pos.Core.Mockable (ChannelT, Promise, SharedAtomicT, ThreadId)
 import           Pos.Core.Ssc (insertVss)
 import           Pos.Ssc.Base (deleteSignedCommitment, insertSignedCommitment)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),

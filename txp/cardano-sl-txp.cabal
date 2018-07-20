@@ -55,8 +55,6 @@ library
     Pos.Script
     Pos.Script.Examples
 
-    Pos.Aeson.Txp
-
   build-depends:       aeson
                      , aeson-options
                      , base
@@ -65,8 +63,6 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-networking
-                     , cardano-sl-sinbin
                      , cardano-sl-util
                      , conduit
                      , containers

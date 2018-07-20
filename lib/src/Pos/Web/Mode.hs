@@ -10,11 +10,11 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
 
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Mockable (Production)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)

@@ -15,7 +15,7 @@ import           Data.Default (Default (..))
 import qualified Text.Parsec as Parsec
 
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Sinbin.Util.TimeWarp (NetworkAddress, addrParser)
+import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Network attack settings (a part of the behavior config).
@@ -61,8 +61,10 @@ instance A.FromJSON AttackType where
             ", acceptable values are NoBlocks|NoCommitments"
 
 data AttackTarget
-    = NetworkAddressTarget { attNetworkAddr :: NetworkAddress}
-    | PubKeyAddressTarget { attPkAddr :: StakeholderId}
+    -- NetworkAddressTarget attNetworkAddr
+    = NetworkAddressTarget !NetworkAddress
+    -- PubKeyAddressTarget attPkAddr
+    | PubKeyAddressTarget  !StakeholderId
     deriving (Eq, Show)
 
 instance A.FromJSON AttackTarget where

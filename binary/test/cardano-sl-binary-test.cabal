@@ -26,6 +26,8 @@ library
                      , cardano-sl-util-test
                      , cborg
                      , cereal
+                     , cryptonite
+                     , containers
                      , directory
                      , cryptonite
                      , filepath
@@ -37,6 +39,7 @@ library
                      , pretty-show
                      , quickcheck-instances
                      , safecopy
+                     , serokell-util
                      , template-haskell
                      , text
                      , universum

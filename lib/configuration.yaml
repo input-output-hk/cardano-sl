@@ -14820,7 +14820,7 @@ testnet_full: &testnet_full
     genesis:
       src:
         file: testnet-genesis.json
-        hash: 5d30b2fac276907d36ed2ae9b6fe847f18c7457bce6ccb68535aa8b01bc67726
+        hash: 6300910ff7d8ca51a61df661a09dfd1486be756f32eff7f348e1f4e3b6166c54
 
   update: &testnet_full_update
     applicationName: cardano-sl
@@ -14875,15 +14875,20 @@ testnet_launch: &testnet_launch
           testBalance:
             poors:        100
             richmen:      7
-            richmenShare: 0.99
-            totalBalance: 200000000000000000
+            richmenShare: 0.95
+            totalBalance: 42000000000000000 # 42e9 ADA
             useHDAddresses: True
           fakeAvvmBalance:
             count: 100
-            oneBalance: 10000000000000 # 1e7 ADA
+            oneBalance: 20000000000000 # 2e7 ADA
           avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0 # should be overridden using --configuration-seed
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
 
 ##############################################################################
 ##                                                                          ##

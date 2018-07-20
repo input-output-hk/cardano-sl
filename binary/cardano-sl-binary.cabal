@@ -35,12 +35,15 @@ library
                      , formatting
                      , hashable
                      , lens
+                     , micro-recursion-schemes
+                     , mtl
                      , safecopy
                      , safe-exceptions
                      , serokell-util
                      , tagged
                      , template-haskell
                      , text
+                     , text-format
                      , th-utilities
                      , time-units
                      , universum
@@ -86,6 +89,7 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Binary.BiSerialize
+                       Test.Pos.Binary.BiSizeBounds
                        Test.Pos.Binary.Cbor.CborSpec
                        Test.Pos.Binary.Helpers
                        Test.Pos.Binary.Helpers.GoldenRoundTrip
@@ -120,6 +124,7 @@ test-suite test
                      , quickcheck-instances
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , tagged
                      , template-haskell
                      , text
                      , formatting

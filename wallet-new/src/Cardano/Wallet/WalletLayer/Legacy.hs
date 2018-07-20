@@ -99,8 +99,19 @@ bracketActiveWallet
     -> (ActiveWalletLayer m -> n a) -> n a
 bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
-      (return ActiveWalletLayer{..})
+      (return activeWalletLayer)
       (\_ -> return ())
+  where
+    notUsed = "The activeWalletLayer is not used for the legacy handlers, " <>
+              "for historical reasons. However, if you wish to use it, simply " <>
+              "move the concrete implementation of your LegacyHandler(s) into " <>
+              "this function."
+    activeWalletLayer :: ActiveWalletLayer m
+    activeWalletLayer = ActiveWalletLayer {
+          walletPassiveLayer = walletPassiveLayer
+        , pay          = \_ _ _ -> error notUsed
+        , estimateFees = \_ _ _ -> error notUsed
+        }
 
 ------------------------------------------------------------
 -- Wallet

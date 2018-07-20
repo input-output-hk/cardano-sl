@@ -20,14 +20,15 @@ import qualified Control.Monad.Trans.Control as MC
 import qualified Crypto.Random as Rand
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Microsecond)
-import           Mockable (Async, Channel, ChannelT, Concurrently,
+import           System.Wlog (CanLog (..))
+import           UnliftIO (MonadUnliftIO)
+
+import           Pos.Core.Mockable (Async, Channel, ChannelT, Concurrently,
                      CurrentTime (..), Delay (..), Fork, MFunctor' (hoist'),
                      Mockable (..), MyThreadId (..), Production (..), Promise,
                      SharedAtomic (..), SharedAtomicT, SharedExclusive (..),
                      SharedExclusiveT, ThreadId)
-import qualified Mockable.Metrics as Metrics
-import           System.Wlog (CanLog (..))
-import           UnliftIO (MonadUnliftIO)
+import qualified Pos.Core.Mockable.Metrics as Metrics
 
 newtype ClockVar = ClockVar (IORef Microsecond)
 

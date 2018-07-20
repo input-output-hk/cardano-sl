@@ -48,7 +48,7 @@ data AuxxStartMode
 
 data AuxxAction
     = Repl
-    | Cmd { cmd :: !Text }
+    | Cmd !Text
 
 ----------------------------------------------------------------------------
 -- Parse action

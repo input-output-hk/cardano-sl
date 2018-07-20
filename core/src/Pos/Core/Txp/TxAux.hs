@@ -7,6 +7,7 @@ module Pos.Core.Txp.TxAux
 import           Universum
 
 import           Control.Monad.Except (MonadError)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Formatting (Format, bprint, build, later, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJsonIndent)
@@ -45,3 +46,5 @@ deriveSimpleBi ''TxAux [
         Field [| taTx       :: Tx        |],
         Field [| taWitness  :: TxWitness |]
     ]]
+
+deriveJSON defaultOptions ''TxAux

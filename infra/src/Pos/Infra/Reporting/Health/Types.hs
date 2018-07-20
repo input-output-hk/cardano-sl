@@ -1,5 +1,9 @@
+-- | Types relevant to health reporting.
+
 module Pos.Infra.Reporting.Health.Types
-    ( module X
+    ( HealthStatus (..)
     ) where
 
-import           Pos.Sinbin.Reporting.Health.Types as X
+import           Data.Text (Text)
+
+data HealthStatus = HSHealthy Text | HSUnhealthy Text

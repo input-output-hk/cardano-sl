@@ -4,10 +4,11 @@ module Cardano.Wallet.Kernel.Addresses (
     , CreateAddressError(..)
     ) where
 
+import qualified Prelude
 import           Universum
 
 import           Control.Lens (to)
-import           Formatting (bprint, (%))
+import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting as F
 import qualified Formatting.Buildable
 import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
@@ -18,7 +19,6 @@ import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      ShouldCheckPassphrase (..))
 
-import           Cardano.Wallet.Kernel (PassiveWallet, walletKeystore, wallets)
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAddress (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId,
                      HdAccountIx (..), HdAddressId (..), HdAddressIx (..),
@@ -28,6 +28,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
+                     wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 
@@ -64,6 +66,11 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressHdRndGenerationFailed " % F.build) hdAcc
     build (CreateAddressHdRndAddressSpaceSaturated hdAcc) =
         bprint ("CreateAddressHdRndAddressSpaceSaturated " % F.build) hdAcc
+
+instance Show CreateAddressError where
+    show = formatToString build
+
+instance Exception CreateAddressError
 
 -- | Creates a new 'Address' for the input account.
 createAddress :: PassPhrase

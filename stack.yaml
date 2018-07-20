@@ -23,7 +23,6 @@ packages:
 - db
 - lrc
 - lrc/test
-- sinbin
 - infra
 - infra/test
 - ssc
@@ -200,13 +199,6 @@ packages:
   extra-dep: true
 
 
-# use github source, until we can use the 6.3.6 release from
-# hackage, that is, once `cabal update` ran.
-- location:
-    git: https://github.com/chrisdone/formatting.git
-    commit: 444bc8b1190f9c7f94af41b6f538071545392754
-  extra-dep: true
-
 # Need to adjust version bounds on serokell-util.
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
@@ -236,7 +228,7 @@ extra-deps:
 # CI hasn't run cabal update yet.
 # - formatting-6.3.6
 
-# Following 9 are not on stackage.
+# Following 10 are not on stackage.
 - pvss-0.2.0
 - systemd-1.1.2
 - base58-bytestring-0.1.0
@@ -246,6 +238,8 @@ extra-deps:
 - json-sop-0.2.0.3
 - lens-sop-0.2.0.2
 - lzma-clib-5.2.2
+- micro-recursion-schemes-5.0.2.2
+
 # The changelog for directory-1.3.1.1 indicate some potentially important
 # bugfixes over directory-1.3.0.2, which is what's on lts-11.
 - directory-1.3.1.1
@@ -253,6 +247,9 @@ extra-deps:
 - happy-1.19.5
 # Good bug fixes in here.
 - criterion-1.4.0.0
+
+# Fix for a space leak: https://github.com/chrisdone/formatting/pull/44
+- formatting-6.3.6
 
 # Servant stuff not found on stackage
 - servant-multipart-0.11.2
@@ -317,7 +314,6 @@ ghc-options:
   cardano-sl-lrc-test:    -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-sinbin:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-ssc:         -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-txp:         -Werror -Wcompat -fwarn-redundant-constraints

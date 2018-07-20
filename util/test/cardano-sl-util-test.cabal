@@ -43,7 +43,6 @@ library
                      , quickcheck-instances
                      , tagged
                      , template-haskell
-                     , text-format
                      , text
                      , time-units
                      , universum

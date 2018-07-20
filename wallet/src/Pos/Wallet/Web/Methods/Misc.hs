@@ -36,7 +36,6 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Time.Units (Second, toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
-import           Mockable (Delay, LowLevelAsync, Mockables, async, delay)
 import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..),
                      OctetStream)
@@ -47,6 +46,8 @@ import           Ntp.Client (NtpStatus (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
+import           Pos.Core.Mockable (Delay, LowLevelAsync, Mockables, async,
+                     delay)
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)

@@ -22,12 +22,13 @@ import           Universum
 import           Control.Lens (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU as LRU
 import qualified Data.HashMap.Strict as HM
-import           Mockable (CurrentTime, Mockable, currentTime)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize,
                      epochIndexL, headerHash)
+import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
+import           Pos.Core.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -41,7 +42,6 @@ import           Pos.Delegation.Logic.Common (DelegationStateAction,
 import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
 import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Sinbin.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 

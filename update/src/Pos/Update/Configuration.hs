@@ -27,7 +27,6 @@ import           Distribution.System (buildArch, buildOS)
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
-import           Pos.Aeson.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..),
                      SoftwareVersion (..))
 import           Pos.Core.Update (SystemTag (..), archHelper, osHelper)

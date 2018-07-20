@@ -24,19 +24,6 @@ Library
                         Network.Broadcast.OutboundQueue.Demo
 
                         Node
-
-                        Mockable
-                        Mockable.Channel
-                        Mockable.Class
-                        Mockable.Concurrent
-                        Mockable.CurrentTime
-                        Mockable.Instances
-                        Mockable.Monad
-                        Mockable.Production
-                        Mockable.SharedAtomic
-                        Mockable.SharedExclusive
-                        Mockable.Metrics
-
                         Node.Internal
                         Node.Conversation
                         Node.Message.Decoder
@@ -48,11 +35,6 @@ Library
                         Ntp.Client
 
                         Bench.Network.Commons
-
-                        JsonLog
-                        JsonLog.CanJsonLog
-                        JsonLog.Event
-                        JsonLog.JsonLogT
 
   other-modules:        Ntp.Packet
                         Ntp.Util
@@ -152,7 +134,6 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       async
                      , base
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , lens
@@ -184,7 +165,6 @@ executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
   build-depends:       base
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , network-transport-tcp
@@ -211,7 +191,6 @@ executable bench-log-reader
   other-modules:       LogReaderOptions
   build-depends:       base == 4.*
                      , attoparsec
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , conduit-extra

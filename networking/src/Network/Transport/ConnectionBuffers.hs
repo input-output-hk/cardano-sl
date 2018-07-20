@@ -39,8 +39,9 @@ import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TBQueue
 import qualified Data.Set as S
 import           Data.Typeable
-import           Mockable.Class
-import           Mockable.SharedAtomic
+
+import           Pos.Core.Mockable.Class
+import           Pos.Core.Mockable.SharedAtomic
 
 -- This connection-buffers QDisc needs an implementation of a bounded fifo
 -- buffer such that the head can be inspected and modified.

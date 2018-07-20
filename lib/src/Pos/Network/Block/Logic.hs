@@ -23,7 +23,6 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import           Formatting (bprint, build, sformat, shown, stext, (%))
 import qualified Formatting.Buildable as B
-import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
@@ -38,6 +37,10 @@ import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (forConcurrently)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MisbehaviorMetrics (..))
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.Exception (cardanoExceptionFromException,
@@ -46,12 +49,9 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MisbehaviorMetrics (..))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
                      jlAdoptedBlock)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)

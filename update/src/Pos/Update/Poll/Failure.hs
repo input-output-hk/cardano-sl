@@ -14,9 +14,9 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,
                      Coin, EpochIndex, HeaderHash, NumSoftwareVersion,
                      ScriptVersion, StakeholderId, coinF)
+import           Pos.Core.Reporting (MonadReporting, reportError)
 import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
 import           Pos.Crypto (shortHashF)
-import           Pos.Sinbin.Reporting (MonadReporting, reportError)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.

@@ -56,7 +56,6 @@ library
                      , cardano-sl-db
                      , cardano-sl-generator
                      , cardano-sl-infra
-                     , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
@@ -133,7 +132,6 @@ executable cardano-auxx
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-infra
-                     , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
                      , log-warper

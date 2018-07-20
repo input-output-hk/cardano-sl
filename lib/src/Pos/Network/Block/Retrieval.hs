@@ -16,7 +16,6 @@ import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
-import           Mockable (delay)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
@@ -25,13 +24,14 @@ import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
                      isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
+import           Pos.Core.Mockable (delay)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE,
-                     reportOrLogW)
+import           Pos.Infra.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Network.Block.Logic (BlockNetLogicException (..),
                      handleBlocks, triggerRecovery)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,

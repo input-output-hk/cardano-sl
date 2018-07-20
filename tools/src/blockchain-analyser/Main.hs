@@ -4,7 +4,6 @@ module Main where
 
 import           Universum
 
-import           Mockable (Production, runProduction)
 import           System.Directory (canonicalizePath, doesDirectoryExist,
                      getFileSize, listDirectory, withCurrentDirectory)
 
@@ -13,6 +12,7 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Core.Mockable (Production, runProduction)
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
 import qualified Pos.DB.Block.Load as DB

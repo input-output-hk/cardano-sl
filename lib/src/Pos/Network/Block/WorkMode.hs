@@ -10,7 +10,6 @@ module Pos.Network.Block.WorkMode
 import           Universum
 
 import           Data.Default (Default)
-import           Mockable (Delay, Mockables, SharedAtomic)
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
@@ -19,12 +18,13 @@ import           Pos.Block.Lrc (LrcModeFull)
 import           Pos.Block.Slog (HasSlogContext)
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Core.Context (HasPrimaryKey)
+import           Pos.Core.JsonLog (CanJsonLog)
+import           Pos.Core.Mockable (Delay, Mockables, SharedAtomic)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,

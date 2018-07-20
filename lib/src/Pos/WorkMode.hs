@@ -18,7 +18,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub,
@@ -27,6 +26,9 @@ import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Mockable (Production)
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -38,8 +40,7 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
 import           Pos.Delegation.Class (DelegationVar)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                     MonadReporting (..), Reporter (..))
+import           Pos.Infra.Reporting (MonadReporting (..), Reporter (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
@@ -47,7 +48,6 @@ import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt,

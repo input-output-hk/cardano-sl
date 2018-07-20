@@ -15,12 +15,13 @@ import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Data.Time.Units (fromMicroseconds)
-import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
+
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
                      NodeArgs (..), getNodeParams, gtSscParams)
 import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
+import           Pos.Core.Mockable (Production, runProduction)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -42,11 +43,11 @@ import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
-import           CLI (CLI (..))
-import           Lib (generateWalletDB, loadGenSpec)
-import           Rendering (bold, say)
-import           Stats (showStatsAndExit, showStatsData)
-import           Types (UberMonad)
+import           Pos.Tools.Dbgen.CLI (CLI (..))
+import           Pos.Tools.Dbgen.Lib (generateWalletDB, loadGenSpec)
+import           Pos.Tools.Dbgen.Rendering (bold, say)
+import           Pos.Tools.Dbgen.Stats (showStatsAndExit, showStatsData)
+import           Pos.Tools.Dbgen.Types (UberMonad)
 
 defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {

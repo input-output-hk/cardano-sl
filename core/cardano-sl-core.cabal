@@ -31,6 +31,8 @@ library
 
                        Pos.Core.ProtocolConstants
 
+                       Pos.Core.NetworkAddress
+
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis
@@ -53,6 +55,7 @@ library
                        Pos.Core.JsonLog.CanJsonLog
                        Pos.Core.JsonLog.Event
                        Pos.Core.JsonLog.JsonLogT
+                       Pos.Core.JsonLog.LogEvents
 
                        -- Mockable (moved from networking in
                        -- the `sinbin` shuffle). All modules
@@ -70,11 +73,17 @@ library
                        Pos.Core.Mockable.SharedExclusive
                        Pos.Core.Mockable.Metrics
 
+                       Pos.Core.Reporting
+
                        Pos.Core.Script
                        Pos.Core.Slotting
+                       Pos.Core.StateLock
                        Pos.Core.Ssc
                        Pos.Core.Txp
                        Pos.Core.Update
+
+                       Pos.Core.Util.LogSafe
+                       Pos.Core.Util.TimeLimit
 
                        Pos.Data.Attributes
                        Pos.Exception
@@ -158,6 +167,11 @@ library
                        Pos.Core.Slotting.Types
                        Pos.Core.Slotting.Util
 
+                       -- Reporting
+                       Pos.Core.Reporting.MemState
+                       Pos.Core.Reporting.Methods
+                       Pos.Core.Reporting.Metrics
+
                        -- SSC
                        Pos.Core.Ssc.Commitment
                        Pos.Core.Ssc.CommitmentsMap
@@ -205,6 +219,7 @@ library
                      , bytestring
                      , Cabal
                      , canonical-json
+                     , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
                      , cardano-sl-crypto
                      , cardano-sl-util
@@ -216,6 +231,7 @@ library
                      , deepseq
                      , deriving-compat
                      , ekg-core
+                     , ether >= 0.5
                      , exceptions
                      , extra
                      , filepath
@@ -224,6 +240,7 @@ library
                      , hashable
                      , lens
                      , log-warper >= 1.0.3
+                     , parsec
                      , memory
                      , mmorph
                      , monad-control
@@ -325,6 +342,7 @@ test-suite test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cryptonite
                      , deepseq
                      , ed25519
                      , formatting

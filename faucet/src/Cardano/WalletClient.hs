@@ -12,7 +12,7 @@ import           Cardano.Wallet.API.V1.Types (Payment (..), V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Concurrent.STM.TMVar (newEmptyTMVar, takeTMVar)
+import           Control.Concurrent.STM.TMVar (newEmptyTMVar, takeTMVar, TMVar)
 import           Control.Lens
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader
@@ -48,14 +48,7 @@ withdraw addr = withSublogger "WalletClient.withdraw" $ do
     let paymentDist = (V1.PaymentDistribution addr coin :| [])
         sp =  spendingPassword <&> view (re utf8 . to hashPwd . to V1)
         payment = Payment paymentSource paymentDist Nothing sp
-    eRes <- liftIO $ atomically $ do
-        isFull <- TBQ.isFullTBQueue q
-        if isFull
-           then return $ Left WithdrawlQFull
-           else do
-            resTMVar <- newEmptyTMVar
-            TBQ.writeTBQueue q  (ProcessorPayload payment resTMVar)
-            return $ Right resTMVar
+    eRes <- liftIO $ sendToQueue q payment
     case eRes of
         Left e -> do
             logError "Queue is full"
@@ -63,6 +56,23 @@ withdraw addr = withSublogger "WalletClient.withdraw" $ do
         Right tvar -> do
             logInfo "Waiting for processing result"
             liftIO $ (Right <$> atomically (takeTMVar tvar))
+
+-- | Sends the 'Payment' to the processor queue
+--
+-- Returns a 'TMVar' to wait on for the response from the node
+-- See 'Cardano.Faucet.Init.processWithdrawls'
+sendToQueue
+    :: TBQ.TBQueue ProcessorPayload
+    -> Payment
+    -> IO (Either WithdrawlQFull (TMVar WithdrawlResult))
+sendToQueue q payment = atomically $ do
+        isFull <- TBQ.isFullTBQueue q
+        if isFull
+           then return $ Left WithdrawlQFull
+           else do
+            resTMVar <- newEmptyTMVar
+            TBQ.writeTBQueue q  (ProcessorPayload payment resTMVar)
+            return $ Right resTMVar
 
 -- | Hashes bytestring password to the form expected by the wallet API
 hashPwd :: ByteString -> PassPhrase

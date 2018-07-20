@@ -300,6 +300,11 @@ makeInitializedWallet fc client = withSublogger "makeInitializedWallet" $ do
         left = return . Left
 
 --------------------------------------------------------------------------------
+-- | Process withdrawls requested from the 'feWithdrawlQ'
+--
+-- On receiving a 'ProcessorPayload' 'postTransaction' is used to send the
+-- 'Payment' and the resulting 'Transaction' is wrapped in a 'WithdrawlResult'
+-- and put into the provided 'TMVar'
 processWithdrawls :: FaucetEnv -> LoggerNameBox IO ()
 processWithdrawls fEnv = withSublogger "processWithdrawls" $ forever $ do
     let wc = fEnv ^. feWalletClient

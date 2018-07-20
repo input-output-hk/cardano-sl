@@ -29,8 +29,9 @@ import           Pos.Block.Types
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.DB.Class (MonadGState (..))
+import           Pos.DB.Txp (TxpBlock)
 import           Pos.Delegation (DlgUndo (..))
-import           Pos.Txp hiding (tgsVerifyBlocks)
+import           Pos.Txp
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens
@@ -173,14 +174,14 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
      Called by (1).
      I think this only verifies SSC stuff (shared seed computation).
 
-  4. 'Pos.Txp.Settings.Global.tgsVerifyBlocks'
+  4. 'Pos.DB.Txp.Settings.tgsVerifyBlocks'
      Requires 'TxpGlobalVerifyMode'.
      Called by (1).
      This is actually just a record selector for 'TxpGlobalSettings'; see (5).
      Documented as "Verify a chain of payloads from blocks and return txp undos
      for each payload".
 
-  5. 'Pos.Txp.Logic.Global.verifyBlocks'
+  5. 'Pos.DB.Txp.Logic.Global.verifyBlocks'
      Requires 'TxpGlobalVerifyMode'.
      It seems this is the /only/ instantiation of 'tgsVerifyBlocks' (in the core
      libraries at least); thus, also called by (1).
@@ -346,7 +347,7 @@ slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
 
 -- | Verify block transactions
 --
--- Adapted from 'Pos.Txp.Logic.Global.verifyBlocks'.
+-- Adapted from 'Pos.DB.Txp.Logic.Global.verifyBlocks'.
 --
 -- Differences from original:
 --

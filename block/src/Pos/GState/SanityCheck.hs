@@ -11,7 +11,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
-import           Pos.Txp.DB (sanityCheckStakes, sanityCheckUtxo)
+import           Pos.DB.Txp (sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Util.AssertMode (inAssertMode)
 
 sanityCheckDB ::

@@ -132,6 +132,7 @@ executable cardano-auxx
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-txp
                      , cardano-sl-util

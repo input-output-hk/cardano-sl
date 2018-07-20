@@ -32,6 +32,7 @@ import           Pos.Core (Coin, EpochIndex, GenesisData (..),
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Lrc as Lrc
@@ -135,7 +136,7 @@ lrcCorrectnessProp = do
     genAndApplyBlockFixedTxs =<< txsBeforeBoundary
     -- At this point we have applied '8 * k' blocks. The current state
     -- will be used in LRC.
-    stableStakes <- lift GS.getAllPotentiallyHugeStakesMap
+    stableStakes <- lift getAllPotentiallyHugeStakesMap
     -- All further blocks will not be considered by LRC for the 1-st
     -- epoch. So we include some transactions to make sure they are
     -- not considered.

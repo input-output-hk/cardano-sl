@@ -3,7 +3,7 @@
 -- | Logic for global processing of transactions.  Global transaction
 -- is a transaction which has already been added to the blockchain.
 
-module Pos.Txp.Logic.Global
+module Pos.DB.Txp.Logic.Global
        ( txpGlobalSettings
 
        -- * Helpers
@@ -29,15 +29,16 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
-import qualified Pos.DB.GState.Stakes as DB
+import           Pos.DB.GState.Stakes (getRealStake, getRealTotalStake)
+import           Pos.DB.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
+import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund, TxpCommonMode,
+                     TxpGlobalApplyMode, TxpGlobalRollbackMode,
+                     TxpGlobalSettings (..), TxpGlobalVerifyMode)
+import           Pos.DB.Txp.Stakes (StakesOp (..))
+import           Pos.DB.Txp.Utxo (UtxoOp (..))
 import           Pos.Exception (assertionFailed)
 import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
-import qualified Pos.Txp.DB as DB
-import           Pos.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
-import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpCommonMode,
-                     TxpGlobalApplyMode, TxpGlobalRollbackMode,
-                     TxpGlobalSettings (..), TxpGlobalVerifyMode)
 import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..),
                      GlobalToilM, GlobalToilState (..), StakesView (..),
                      ToilVerFailure, Utxo, UtxoM, UtxoModifier, applyToil,
@@ -122,7 +123,7 @@ processBlunds ::
 processBlunds ProcessBlundsSettings {..} blunds = do
     let toBatchOp (gts, extra) =
             globalToilStateToBatch gts <> pbsExtraOperations extra
-    totalStake <- DB.getRealTotalStake -- doesn't change
+    totalStake <- getRealTotalStake -- doesn't change
     -- Note: base utxo also doesn't change, but we build it on each
     -- step (for different sets of transactions), because
     -- 'UtxoModifier' may accumulate some data and it may be more
@@ -152,7 +153,7 @@ processBlunds ProcessBlundsSettings {..} blunds = do
                         , _gteTotalStake = totalStake
                         }
             let env = (gte, extraEnv)
-            runGlobalToilMBase DB.getRealStake . flip execStateT st .
+            runGlobalToilMBase getRealStake . flip execStateT st .
                 usingReaderT env $
                 processSingle
     toBatchOp <$> foldM step (defGlobalToilState, def) blunds
@@ -211,13 +212,13 @@ globalToilStateToBatch GlobalToilState {..} =
   where
     StakesView (HM.toList -> stakes) total = _gtsStakesView
     utxoOps =
-        map DB.DelTxIn (MM.deletions _gtsUtxoModifier) ++
-        map (uncurry DB.AddTxOut) (MM.insertions _gtsUtxoModifier)
-    stakesOps = addTotalStakeOp $ map (uncurry DB.PutFtsStake) stakes
+        map DelTxIn (MM.deletions _gtsUtxoModifier) ++
+        map (uncurry AddTxOut) (MM.insertions _gtsUtxoModifier)
+    stakesOps = addTotalStakeOp $ map (uncurry PutFtsStake) stakes
     addTotalStakeOp =
         case total of
             Nothing -> identity
-            Just x  -> (DB.PutTotalStake x :)
+            Just x  -> (PutTotalStake x :)
 
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: TxpBlund -> [(TxAux, TxUndo)]

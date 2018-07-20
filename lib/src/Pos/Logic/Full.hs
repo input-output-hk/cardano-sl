@@ -31,6 +31,7 @@ import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
                      SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
+import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
 import qualified Pos.GState.BlockExtra as DB (resolveForwardLink, streamBlocks)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)
@@ -57,7 +58,6 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
                      tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (getMemPool, withTxpLocalData)
 import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes,
                      getLocalVote, isProposalNeeded, isVoteNeeded)
 import           Pos.Util.Util (HasLens (..))

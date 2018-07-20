@@ -36,6 +36,9 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     MonadTxpLocal (..), TxpHolderTag, txNormalize,
+                     txProcessTransaction)
 import           Pos.Delegation.Class (DelegationVar)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
@@ -49,9 +52,7 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig, jsonLogDefault)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt,
-                     MonadTxpLocal (..), TxpHolderTag, txNormalize,
-                     txProcessTransaction)
+import           Pos.Txp (HasTxpConfiguration)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)

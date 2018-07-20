@@ -30,10 +30,11 @@ import           Pos.Core (BlockCount, GenesisData (..), HasGenesisData,
 import           Pos.Core.Block (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings,
+                     txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..),
                      MonadBlockGenInit, genBlocks, tgpTxCountRange)
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal,
-                     TxpGlobalSettings, txpGlobalSettings)
+import           Pos.Txp (HasTxpConfiguration)
 import           Pos.Util (HasLens', _neLast)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
                      btcSlotIdL)

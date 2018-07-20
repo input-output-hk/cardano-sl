@@ -3,7 +3,7 @@
 
 -- | Part of GState DB which stores stakes.
 
-module Pos.Txp.DB.Stakes
+module Pos.DB.Txp.Stakes
        (
          -- * Operations
          StakesOp (..)

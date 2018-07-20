@@ -40,6 +40,7 @@ import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
+import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
 import           Pos.Lrc.Consumer (LrcConsumer (..))
@@ -56,7 +57,6 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1,
                      sscCalculateSeed)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
-import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)

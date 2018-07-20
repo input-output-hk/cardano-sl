@@ -4,7 +4,7 @@
 
 -- | Global settings of Txp.
 
-module Pos.Txp.Settings.Global
+module Pos.DB.Txp.Settings
        ( TxpCommonMode
        , TxpGlobalVerifyMode
        , TxpGlobalApplyMode

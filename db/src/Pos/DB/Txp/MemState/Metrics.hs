@@ -1,6 +1,6 @@
 -- | 'StateLockMetrics' for txp.
 
-module Pos.Txp.MemState.Metrics
+module Pos.DB.Txp.MemState.Metrics
     ( recordTxpMetrics
     ) where
 

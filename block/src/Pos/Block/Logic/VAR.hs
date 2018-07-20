@@ -40,11 +40,11 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
+import           Pos.DB.Txp.Settings
+                     (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
-import           Pos.Txp.Settings
-                     (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)

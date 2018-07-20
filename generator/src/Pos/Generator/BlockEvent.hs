@@ -67,10 +67,10 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst, _OldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Hashing (hashHexF)
+import           Pos.DB.Txp (TxpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode,
                      MonadBlockGen, TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
-import           Pos.Txp (TxpGlobalSettings)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util.Util (lensOf')
 

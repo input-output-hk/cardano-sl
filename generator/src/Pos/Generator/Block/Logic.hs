@@ -30,6 +30,7 @@ import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
@@ -41,7 +42,6 @@ import           Pos.Generator.Block.Param (BlockGenParams,
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
 

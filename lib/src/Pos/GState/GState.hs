@@ -10,10 +10,10 @@ import           Pos.Core (GenesisData (..), HeaderHash, genesisData)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
                      setInitialized)
+import           Pos.DB.Txp (initGStateStakes, initGStateUtxo)
 import           Pos.Delegation.DB (initGStateDlg)
 import           Pos.GState.BlockExtra (initGStateBlockExtra)
 import           Pos.Ssc.DB (initSscDB)
-import           Pos.Txp.DB (initGStateStakes, initGStateUtxo)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Update.DB (initGStateUS)
 

@@ -16,6 +16,7 @@ import           Pos.Context (NodeContext (..))
 import           Pos.Core (ConfigurationError, epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
                      topologyDequeuePolicy, topologyEnqueuePolicy,
@@ -24,7 +25,6 @@ import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
                      NodeResources (..), bracketNodeResources, loggerBracket,
                      lpConsoleLog, runNode, runRealMode, withConfigurations)
-import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))

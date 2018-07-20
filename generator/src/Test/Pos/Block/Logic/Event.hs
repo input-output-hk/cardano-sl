@@ -25,13 +25,13 @@ import           Pos.Core (HasConfiguration, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
+import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent,
                      BlockEvent' (..), BlockRollbackFailure (..),
                      BlockRollbackResult (..), BlockScenario,
                      BlockScenario' (..), SnapshotId, SnapshotOperation (..),
                      beaInput, beaOutValid, berInput, berOutValid)
-import           Pos.Txp (MonadTxpLocal)
 import           Pos.Util.Util (eitherToThrow, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,

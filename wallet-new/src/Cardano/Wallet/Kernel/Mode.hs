@@ -22,6 +22,8 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
+import           Pos.DB.Txp.Logic
+import           Pos.DB.Txp.MemState
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Network.Types
 import           Pos.Infra.Reporting
@@ -30,8 +32,6 @@ import           Pos.Infra.Slotting
 import           Pos.Infra.Util.JsonLog.Events
 import           Pos.Launcher
 import           Pos.Txp.Configuration
-import           Pos.Txp.Logic
-import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.WorkMode
 

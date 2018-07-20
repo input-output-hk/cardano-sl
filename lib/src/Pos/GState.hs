@@ -9,7 +9,6 @@ module Pos.GState
        , module Pos.GState.BlockExtra
        , module Pos.GState.Context
        , module Pos.GState.GState
-       , module Pos.Txp.DB
        , module Pos.Update.DB
        ) where
 
@@ -19,5 +18,4 @@ import           Pos.Delegation.DB
 import           Pos.GState.BlockExtra
 import           Pos.GState.Context
 import           Pos.GState.GState
-import           Pos.Txp.DB
 import           Pos.Update.DB

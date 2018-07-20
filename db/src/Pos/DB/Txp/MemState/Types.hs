@@ -1,6 +1,6 @@
 -- | Type stored in the Txp holder.
 
-module Pos.Txp.MemState.Types
+module Pos.DB.Txp.MemState.Types
        ( GenericTxpLocalData (..)
        , TxpLocalData
        ) where

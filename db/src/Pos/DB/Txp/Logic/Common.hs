@@ -1,6 +1,6 @@
 -- | Impure functions which are used by both local and global txp.
 
-module Pos.Txp.Logic.Common
+module Pos.DB.Txp.Logic.Common
        ( buildUtxo
        , buildUtxoForRollback
        ) where
@@ -12,7 +12,7 @@ import qualified Data.Map as M (fromList)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOutAux)
 import           Pos.Crypto (hash)
 import           Pos.DB.Class (MonadDBRead)
-import qualified Pos.Txp.DB as DB
+import           Pos.DB.Txp.Utxo (getTxOut)
 import           Pos.Txp.Toil (Utxo, UtxoModifier)
 import qualified Pos.Util.Modifier as MM
 
@@ -69,6 +69,6 @@ buildUtxoGeneric toInputs utxoModifier txs = concatMapM buildForOne txs
         let tx = taTx txAux
         let utxoLookupM :: TxIn -> m (Maybe (TxIn, TxOutAux))
             utxoLookupM txIn =
-                fmap (txIn, ) <$> MM.lookupM DB.getTxOut txIn utxoModifier
+                fmap (txIn, ) <$> MM.lookupM getTxOut txIn utxoModifier
         resolvedPairs <- mapM utxoLookupM (toInputs tx)
         return $ M.fromList $ catMaybes $ toList resolvedPairs

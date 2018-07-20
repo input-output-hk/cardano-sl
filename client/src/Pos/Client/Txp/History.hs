@@ -46,6 +46,8 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, buildUtxo,
+                     getLocalTxs, txpProcessTx, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType)
 import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
@@ -53,13 +55,11 @@ import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Lrc.Genesis (genesisLeaders)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem,
-                     ToilVerFailure, Tx (..), TxAux (..), TxId, TxOut,
+import           Pos.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId, TxOut,
                      TxOutAux (..), TxWitness, TxpError (..), UtxoLookup,
-                     UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
-                     flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM,
-                     topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo,
-                     utxoGet, utxoToLookup, withTxpLocalData)
+                     UtxoM, UtxoModifier, applyTxToUtxo, evalUtxoM,
+                     flattenTxPayload, genesisUtxo, runUtxoM, topsortTxs,
+                     txOutAddress, unGenesisUtxo, utxoGet, utxoToLookup)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 

@@ -65,6 +65,10 @@ import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Pure (DBPureVar)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
+                     recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
+                     txpMemPool, txpTip)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
@@ -84,10 +88,6 @@ import           Pos.Lrc (LrcContext)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),
-                     TxpGlobalSettings, TxpHolderTag, recordTxpMetrics,
-                     txNormalize, txProcessTransactionNoLock, txpMemPool,
-                     txpTip)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,

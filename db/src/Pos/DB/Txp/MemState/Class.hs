@@ -3,7 +3,7 @@
 -- | Type class necessary for transaction processing (Txp)
 -- and some useful getters and setters.
 
-module Pos.Txp.MemState.Class
+module Pos.DB.Txp.MemState.Class
        ( MonadTxpMem
        , TxpHolderTag
        , withTxpLocalData
@@ -35,8 +35,8 @@ import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
+import           Pos.DB.Txp.MemState.Types (GenericTxpLocalData (..))
 import           Pos.Txp.Configuration (HasTxpConfiguration)
-import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Txp.Toil.Types (MemPool (..), UndoMap, UtxoModifier)
 import           Pos.Util.Util (HasLens (..))

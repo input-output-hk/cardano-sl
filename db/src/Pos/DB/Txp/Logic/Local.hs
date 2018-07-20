@@ -4,7 +4,7 @@
 -- | Logic for local processing of transactions.
 -- Local transaction is a transaction which has not yet been added to the blockchain.
 
-module Pos.Txp.Logic.Local
+module Pos.DB.Txp.Logic.Local
        ( TxpProcessTransactionMode
        , txProcessTransaction
        , txProcessTransactionNoLock
@@ -40,12 +40,12 @@ import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
-import           Pos.Txp.Logic.Common (buildUtxo)
-import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
+import           Pos.DB.Txp.Logic.Common (buildUtxo)
+import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,
                      getLocalUndos, getMemPool, getTxpExtra, getUtxoModifier,
                      setTxpLocalData, withTxpLocalData, withTxpLocalDataLog)
+import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
 import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
                      ToilVerFailure (..), UndoMap, Utxo, UtxoLookup,
                      UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,

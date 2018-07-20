@@ -3,7 +3,7 @@
 
 -- | Part of GState DB which stores unspent transaction outputs.
 
-module Pos.Txp.DB.Utxo
+module Pos.DB.Txp.Utxo
        (
        -- * Getters
          getTxOut

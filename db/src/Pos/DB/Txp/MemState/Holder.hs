@@ -2,7 +2,7 @@
 
 -- | Monad transformer which implements MonadTxpMem based on ReaderT.
 
-module Pos.Txp.MemState.Holder
+module Pos.DB.Txp.MemState.Holder
        ( GenericTxpLocalData
        , mkTxpLocalData
        ) where
@@ -13,7 +13,7 @@ import           Data.Default (Default (def))
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
-import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
+import           Pos.DB.Txp.MemState.Types (GenericTxpLocalData (..))
 
 ----------------------------------------------------------------------------
 -- Holder

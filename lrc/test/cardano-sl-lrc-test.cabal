@@ -1,5 +1,5 @@
 name:                cardano-sl-lrc-test
-version:             1.3.0
+version:             1.3.1
 synopsis:            Testing modules for the Cardano SL lrc package
 description:         Testing modules for the Cardano SL lrc package
 license:             MIT

@@ -58,7 +58,7 @@ data CaptchaResponse = CaptchaResponse {
   , _hostname    :: Maybe Text
     -- | Any errors present
   , _errorCodes  :: [Text]
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 makeLenses ''CaptchaResponse
 

@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -45,8 +46,10 @@ import           System.Remote.Monitoring.Statsd (StatsdOptions (..))
 import           Cardano.Wallet.API.V1.Types (AccountIndex, Payment,
                      PaymentSource (..), V1, WalletId (..))
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
-import           Pos.Core (Address (..), Coin (..))
+import           Pos.Core (Address (..))
 import           Pos.Util.Mnemonic (Mnemonic)
+import Test.QuickCheck (Arbitrary(..), choose)
+import           Test.QuickCheck.Arbitrary.Generic
 
 import           Cardano.Faucet.Types.API
 import           Cardano.Faucet.Types.Recaptcha
@@ -104,16 +107,23 @@ cfgToPaymentSource (SourceWalletConfig wId aIdx _) = PaymentSource wId aIdx
 --   'paymentMean' + randomFloat(-1, 1) * 'paymentScale'
 -- @
 data PaymentDistribution = PaymentDistribution {
-    _mean  :: Coin
-  , _scale :: Coin
-  }
+    _mean  :: Int
+  , _scale :: Int
+  } deriving (Show)
 
 makeLenses ''PaymentDistribution
 
 instance FromJSON PaymentDistribution where
     parseJSON = withObject "PaymentDistibution" $ \v -> PaymentDistribution
-      <$> (Coin <$> v .: "mean")
-      <*> (Coin <$> v .: "scale")
+      <$> (v .: "mean")
+      <*> (v .: "scale")
+
+instance Arbitrary PaymentDistribution where
+    arbitrary = do
+        m <- choose (1000, 10000)
+        s <- choose (0, m)
+        return $ PaymentDistribution m s
+
 
 --------------------------------------------------------------------------------
 -- | Config for the wallet used by the faucet as a source of ADA
@@ -194,7 +204,7 @@ data CreatedWallet = CreatedWallet {
   , _createdAcctIdx  :: AccountIndex
     -- | Sending address within the account in the created wallet
   , _createdAddress  :: Address
-  } deriving (Show, Generic)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON CreatedWallet where
     toJSON (CreatedWallet wId phrase acctIdx addr) =
@@ -210,6 +220,10 @@ instance FromJSON CreatedWallet where
       <*> v .: "recovery-words"
       <*> v .: "account-index"
       <*> v .: "address"
+
+instance Arbitrary CreatedWallet where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 --------------------------------------------------------------------------------
 -- | Sum type for possible errors encountered at faucet startup time

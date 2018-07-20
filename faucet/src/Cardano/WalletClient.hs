@@ -6,6 +6,7 @@
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.WalletClient (
     withdraw
+  , randomAmount
   ) where
 
 import           Cardano.Wallet.API.V1.Types (Payment (..), V1 (..))
@@ -22,7 +23,7 @@ import qualified Data.ByteArray as BA
 import           Data.ByteString (ByteString)
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text.Strict.Lens (utf8)
-import           Pos.Core (Address (..), Coin (..), getCoin)
+import           Pos.Core (Address (..), Coin (..))
 import           Pos.Crypto.Signing (PassPhrase)
 import           System.Random
 import           System.Wlog (logError, logInfo, withSublogger)
@@ -30,10 +31,10 @@ import           System.Wlog (logError, logInfo, withSublogger)
 import           Cardano.Faucet.Types
 
 -- | Computes the amount of ADA (units in lovelace) to send in 'withdraw'
-randomAmount :: (MonadIO m) => PaymentDistribution -> m (V1 Coin)
-randomAmount (PaymentDistribution (getCoin -> amt) (getCoin -> var))= do
+randomAmount :: (MonadIO m) => PaymentDistribution -> m Int
+randomAmount (PaymentDistribution amt var)= do
     (f :: Float) <- liftIO $ randomRIO ((-1), 1)
-    return $ V1 $ Coin $ round $ ((fromIntegral amt) + ((fromIntegral var) * f))
+    return $ round $ ((fromIntegral amt) + ((fromIntegral var) * f))
 
 -- | Client function for the handler for the @/withdraw@ action
 --
@@ -43,7 +44,8 @@ withdraw :: (MonadFaucet c m) => V1 Address -> m (Either WithdrawalQFull Withdra
 withdraw addr = withSublogger "WalletClient.withdraw" $ do
     paymentSource <- view (feSourceWallet . to cfgToPaymentSource)
     spendingPassword <- view (feSourceWallet . srcSpendingPassword)
-    coin <- randomAmount =<< view (feFaucetConfig . fcPaymentDistribution)
+    coin <- V1 . Coin . fromIntegral
+              <$> (randomAmount =<< view (feFaucetConfig . fcPaymentDistribution))
     q <- view feWithdrawalQ
     let paymentDist = (V1.PaymentDistribution addr coin :| [])
         sp =  spendingPassword <&> view (re utf8 . to hashPwd . to V1)

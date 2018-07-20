@@ -16455,6 +16455,8 @@ license = stdenv.lib.licenses.mit;
 , ekg-statsd
 , exceptions
 , filepath
+, generic-arbitrary
+, hspec
 , http-api-data
 , http-client
 , http-client-tls
@@ -16515,6 +16517,7 @@ ekg-core
 ekg-statsd
 exceptions
 filepath
+generic-arbitrary
 http-api-data
 http-client
 http-client-tls
@@ -16570,9 +16573,16 @@ wai-extra
 warp
 ];
 testHaskellDepends = [
+aeson
 base
+bytestring
+cardano-sl-core
 cardano-sl-wallet
+cardano-sl-wallet-new
+hspec
+mtl
 QuickCheck
+time
 ];
 doHaddock = false;
 license = stdenv.lib.licenses.mit;

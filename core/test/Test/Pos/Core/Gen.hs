@@ -60,6 +60,9 @@ module Test.Pos.Core.Gen
         , genGenesisSpec
         , genTestnetBalanceOptions
 
+        -- Pos.Core.JsonLog Generators
+        , genInvReqDataFlowLog
+
         -- Pos.Core.ProtocolConstants
         , genProtocolConstants
         , genVssMaxTTL
@@ -190,6 +193,7 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      GenesisSpec (..), TestnetBalanceOptions (..),
                      mkGenesisDelegation, mkGenesisSpec)
+import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
@@ -587,6 +591,24 @@ genTestnetBalanceOptions =
         <*> Gen.word64 Range.constantBounded
         <*> Gen.double (Range.constant 0 10)
         <*> Gen.bool
+
+----------------------------------------------------------------------------
+-- Pos.Core.JsonLog Generators
+----------------------------------------------------------------------------
+
+genInvReqDataFlowLog :: Gen InvReqDataFlowLog
+genInvReqDataFlowLog = Gen.choice
+    [ InvReqAccepted
+          <$> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+    , InvReqRejected
+          <$> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+    , InvReqException <$> Gen.text (Range.constant 1 20) Gen.alphaNum
+    ]
+
 ----------------------------------------------------------------------------
 -- Pos.Core.ProtocolConstants Generators
 ----------------------------------------------------------------------------

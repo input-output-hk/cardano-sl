@@ -32,8 +32,8 @@ import           Test.Pos.Core.Gen (genBlockVersionData, genByte, genCoin,
                      genCoinPortion, genEpochIndex, genFlatSlotId,
                      genGenesisAvvmBalances, genGenesisConfiguration,
                      genGenesisDelegation, genGenesisInitializer,
-                     genGenesisProtocolConstants, genSharedSeed,
-                     genSoftforkRule, genTxFeePolicy)
+                     genGenesisProtocolConstants, genInvReqDataFlowLog,
+                     genSharedSeed, genSoftforkRule, genTxFeePolicy)
 import           Test.Pos.Crypto.Bi (getBytes)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
@@ -194,6 +194,10 @@ golden_InvReqDataFlowLog_InvReqException =
     goldenTestJSON
         (InvReqException "test")
             "test/golden/InvReqDataFlowLog_InvReqException"
+
+roundTripInvReqDataFlowLog :: Property
+roundTripInvReqDataFlowLog =
+    eachOf 1000 genInvReqDataFlowLog roundTripsAesonShow
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes

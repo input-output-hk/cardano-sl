@@ -15,9 +15,7 @@ import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
 
 
-import           Pos.Core.Mockable.Production (Production, runProduction)
-
-handlers :: PassiveWalletLayer Production -> ServerT Addresses.API Handler
+handlers :: PassiveWalletLayer IO -> ServerT Addresses.API Handler
 handlers w =  listAddresses
          :<|> newAddress w
          :<|> getAddress
@@ -25,11 +23,11 @@ handlers w =  listAddresses
 listAddresses :: RequestParams -> Handler (WalletResponse [WalletAddress])
 listAddresses _params = error "Unimplemented - See [CBR-227]."
 
-newAddress :: PassiveWalletLayer Production
+newAddress :: PassiveWalletLayer IO
            -> NewAddress
            -> Handler (WalletResponse WalletAddress)
 newAddress pwl newAddressRequest = do
-    res <- liftIO $ runProduction $ (_pwlCreateAddress pwl) newAddressRequest
+    res <- liftIO $ (_pwlCreateAddress pwl) newAddressRequest
     case res of
          Left err      -> throwM err
          Right newAddr -> return $ single (WalletAddress (V1 newAddr) False False)

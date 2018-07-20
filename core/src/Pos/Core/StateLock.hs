@@ -38,8 +38,8 @@ import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      usingLoggerName)
 
 import           Pos.Core (HeaderHash)
+import           Pos.Core.Conc (currentTime)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
                      newPriorityLock, withPriorityLock)
@@ -103,7 +103,6 @@ type MonadStateLockBase ctx m
 type MonadStateLock ctx slr m
      = ( MonadStateLockBase ctx m
        , WithLogger m
-       , Mockable CurrentTime m
        , HasLens' ctx (StateLockMetrics slr)
        , CanJsonLog m
        )

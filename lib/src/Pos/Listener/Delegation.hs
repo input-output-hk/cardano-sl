@@ -15,7 +15,6 @@ import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ProxySKHeavy)
-import           Pos.Core.Mockable (CurrentTime, Delay, Mockable)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -39,8 +38,6 @@ type DlgListenerConstraint ctx m
        , MonadUnliftIO m
        , MonadDelegation ctx m
        , MonadMask m
-       , Mockable Delay m
-       , Mockable CurrentTime m
        , MonadGState m
        , MonadBlockDBRead m
        , HasLens' ctx StateLock

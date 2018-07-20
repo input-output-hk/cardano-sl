@@ -10,10 +10,9 @@ import qualified Cardano.Wallet.API.V1.Handlers.Wallets as Wallets
 
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import           Cardano.Wallet.WalletLayer.Types (walletPassiveLayer)
-import           Pos.Core.Mockable
 
 
-handlers :: ActiveWalletLayer Production -> Server V1.API
+handlers :: ActiveWalletLayer IO -> Server V1.API
 handlers w =  Addresses.handlers passiveWallet
          :<|> Wallets.handlers   passiveWallet
          :<|> accounts

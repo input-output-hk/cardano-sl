@@ -21,7 +21,7 @@ import           Formatting (float, int, sformat, (%))
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Core.Mockable (Delay, Mockable, delay)
+import           Pos.Core.Conc (delay)
 import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF,
                      hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -40,7 +40,7 @@ import           Repl (PrintAction, WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       (MonadAuxxMode m, Mockable Delay m)
+       MonadAuxxMode m
     => ProtocolMagic
     -> AuxxOptions
     -> Either WithCommandAction Text
@@ -56,7 +56,6 @@ rawExec ::
        , MonadCatch m
        , CanLog m
        , HasLoggerName m
-       , Mockable Delay m
        )
     => Maybe ProtocolMagic
     -> Maybe (Dict (MonadAuxxMode m))
@@ -74,7 +73,6 @@ runWalletCmd ::
        ( MonadIO m
        , CanLog m
        , HasLoggerName m
-       , Mockable Delay m
        )
     => Maybe ProtocolMagic
     -> Maybe (Dict (MonadAuxxMode m))

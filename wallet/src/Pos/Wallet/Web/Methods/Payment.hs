@@ -19,6 +19,7 @@ import qualified Data.Map as M
 import           Data.Time.Units (Second)
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
@@ -30,8 +31,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..),
                      TxOut (..), getCurrentTimestamp)
-import           Pos.Core.Mockable (Concurrently, Delay, Mockable, concurrently,
-                     delay)
+import           Pos.Core.Conc (concurrently, delay)
 import           Pos.Core.Txp (_txOutputs)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
                      ShouldCheckPassphrase (..), checkPassMatches, hash,
@@ -248,5 +248,5 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
 ----------------------------------------------------------------------------
 
 notFasterThan ::
-       (Mockable Concurrently m, Mockable Delay m) => Second -> m a -> m a
+       (MonadIO m, MonadUnliftIO m) => Second -> m a -> m a
 notFasterThan time action = fst <$> concurrently action (delay time)

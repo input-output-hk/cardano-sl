@@ -17,7 +17,6 @@ import           System.Wlog (WithLogger, logNotice, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ProtocolMagic)
-import           Pos.Core.Mockable (MonadMockable)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
@@ -37,7 +36,6 @@ import           Pos.Util.Util (HasLens (..))
 
 type UpdateMode ctx m
     = ( WithLogger m
-      , MonadMockable m
       , MonadIO m
       , MonadUnliftIO m
       , MonadMask m

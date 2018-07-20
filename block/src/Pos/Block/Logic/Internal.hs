@@ -43,7 +43,6 @@ import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
                      mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
@@ -105,8 +104,6 @@ type MonadBlockApply ctx m
        , MonadMask m
        -- Needed to embed custom logic.
        , MonadBListener m
-       -- Needed for rollback
-       , Mockable CurrentTime m
        )
 
 type MonadMempoolNormalization ctx m
@@ -123,7 +120,6 @@ type MonadMempoolNormalization ctx m
       , MonadReporting m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
-      , Mockable CurrentTime m
       , HasSscConfiguration
       )
 

@@ -35,8 +35,6 @@ import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Core.Mockable (Async, Delay, Mockable, Mockables,
-                     SharedAtomic)
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Infra.Communication.Types.Protocol
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
@@ -170,7 +168,6 @@ type LocalOnNewSlotComm ctx m =
     , MonadReader ctx m
     , MonadSlots ctx m
     , MonadMask m
-    , Mockables m [Async, Delay]
     , MonadReporting m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
@@ -179,7 +176,6 @@ type LocalOnNewSlotComm ctx m =
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , MonadThrow m
-    , Mockable SharedAtomic m
     )
 
 -- FIXME network layer is not concerned with this.

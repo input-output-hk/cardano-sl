@@ -30,7 +30,6 @@ import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId,
                      prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
@@ -501,7 +500,6 @@ dlgNormalizeOnRollback ::
        , MonadUnliftIO m
        , DB.MonadGState m
        , HasLrcContext ctx
-       , Mockable CurrentTime m
        )
     => ProtocolMagic -> m ()
 dlgNormalizeOnRollback pm = do

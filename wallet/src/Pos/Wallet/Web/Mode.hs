@@ -43,7 +43,6 @@ import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
                      isRedeemAddress, largestHDAddressBoot, mkCoin)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (LowLevelAsync, Mockable, Production)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..), Reporter (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -108,7 +107,7 @@ data WalletWebModeContext = WalletWebModeContext
     }
 
 -- It's here because of TH for lens
-type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
+type WalletWebMode = Mtl.ReaderT WalletWebModeContext IO
 
 walletWebModeToRealMode
     :: WalletDB
@@ -227,7 +226,6 @@ type MonadFullWalletWebMode ctx m =
     ( MonadWalletWebMode ctx m
     , MonadWalletWebSockets ctx m
     , MonadReporting m
-    , Mockable LowLevelAsync m
     , HasLens SyncQueue ctx SyncQueue
     )
 

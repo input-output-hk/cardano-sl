@@ -15043,6 +15043,7 @@ license = stdenv.lib.licenses.mit;
 , transformers
 , universum
 , unix
+, unliftio
 , unordered-containers
 , validation
 }:
@@ -15109,6 +15110,7 @@ time-units
 transformers
 universum
 unix
+unliftio
 unordered-containers
 validation
 ];
@@ -15742,6 +15744,7 @@ license = stdenv.lib.licenses.mit;
 , transformers-base
 , transformers-lift
 , universum
+, unliftio
 , unliftio-core
 , unordered-containers
 , vector
@@ -15809,6 +15812,7 @@ transformers
 transformers-base
 transformers-lift
 universum
+unliftio
 unliftio-core
 unordered-containers
 vector
@@ -16704,6 +16708,7 @@ license = stdenv.lib.licenses.mit;
 , time-units
 , universum
 , unix
+, unliftio
 , unordered-containers
 , yaml
 }:
@@ -16768,6 +16773,7 @@ time
 time-units
 universum
 unix
+unliftio
 unordered-containers
 yaml
 ];

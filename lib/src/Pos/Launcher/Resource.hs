@@ -41,7 +41,6 @@ import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
 import           Pos.Core (HasConfiguration, Timestamp, gdStartTime,
                      genesisData)
-import           Pos.Core.Mockable (Production (..))
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
@@ -107,7 +106,7 @@ allocateNodeResources
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> Production (NodeResources ext)
+    -> IO (NodeResources ext)
 allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
     logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
@@ -180,7 +179,7 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       NodeResources ext -> Production ()
+       NodeResources ext -> IO ()
 releaseNodeResources NodeResources {..} = do
     case nrJsonLogConfig of
         JsonLogDisabled -> return ()
@@ -204,8 +203,8 @@ bracketNodeResources :: forall ext a.
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> (HasConfiguration => NodeResources ext -> Production a)
-    -> Production a
+    -> (HasConfiguration => NodeResources ext -> IO a)
+    -> IO a
 bracketNodeResources np sp txp initDB action = do
     let msg = "`NodeResources'"
     bracketWithLogging msg

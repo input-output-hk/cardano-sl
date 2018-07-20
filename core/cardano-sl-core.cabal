@@ -57,6 +57,9 @@ library
                        Pos.Core.JsonLog.JsonLogT
                        Pos.Core.JsonLog.LogEvents
 
+                       -- Concurrency operations, previously
+                       -- in `Mockable`.
+                       Pos.Core.Conc
                        -- Mockable (moved from networking in
                        -- the `sinbin` shuffle). All modules
                        -- must be exposed so that `networking`
@@ -262,6 +265,7 @@ library
                      , transformers-base
                      , transformers-lift
                      , universum
+                     , unliftio
                      , unliftio-core
                      , unordered-containers
                      , vector

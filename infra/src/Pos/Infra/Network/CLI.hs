@@ -41,7 +41,6 @@ import qualified Options.Applicative as Opt
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      logError, logNotice, usingLoggerName)
 
-import           Pos.Core.Mockable.Concurrent ()
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
                      addrParserNoWildcard)
 import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),

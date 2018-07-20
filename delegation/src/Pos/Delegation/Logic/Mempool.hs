@@ -27,7 +27,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize,
                      epochIndexL, headerHash)
-import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
+import           Pos.Core.Conc (currentTime)
 import           Pos.Core.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
@@ -115,7 +115,6 @@ type ProcessHeavyConstraint ctx m =
        , MonadDelegation ctx m
        , MonadReader ctx m
        , HasLrcContext ctx
-       , Mockable CurrentTime m
        )
 
 -- | Processes heavyweight psk. Puts it into the mempool

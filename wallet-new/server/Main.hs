@@ -14,7 +14,6 @@ import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
 import           Pos.Core (epochSlots)
-import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -69,7 +68,7 @@ actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  -> NodeParams
                  -> NtpConfiguration
                  -> WalletBackendParams
-                 -> Production ()
+                 -> IO ()
 actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
@@ -117,7 +116,7 @@ actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     -> SscParams
                     -> NodeParams
                     -> NewWalletBackendParams
-                    -> Production ()
+                    -> IO ()
 actionWithNewWallet pm sscParams nodeParams params =
     bracketNodeResources
         nodeParams
@@ -132,27 +131,26 @@ actionWithNewWallet pm sscParams nodeParams params =
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
           bracketKernelPassiveWallet logMessage' keystore $ \walletLayer passiveWallet -> do
             liftIO $ logMessage' Info "Wallet kernel initialized"
-            runProduction $
-                Kernel.Mode.runWalletMode pm
-                                          nr
-                                          walletLayer
-                                          (mainAction (walletLayer, passiveWallet) nr)
+            Kernel.Mode.runWalletMode pm
+                                      nr
+                                      walletLayer
+                                      (mainAction (walletLayer, passiveWallet) nr)
   where
     mainAction
-        :: (PassiveWalletLayer Production, PassiveWallet)
+        :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
-        :: (PassiveWalletLayer Production, PassiveWallet)
+        :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     runNodeWithInit w nr = runNode pm nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: (PassiveWalletLayer Production, PassiveWallet)
+    plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Plugins.Plugin Kernel.Mode.WalletMode
     plugins w = mconcat [ Plugins.walletBackend pm params w ]
 
@@ -170,7 +168,7 @@ actionWithNewWallet pm sscParams nodeParams params =
 -- | Runs an edge node plus its wallet backend API.
 startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
-              -> Production ()
+              -> IO ()
 startEdgeNode wso =
   withConfigurations blPath conf $ \ntpConfig pm -> do
       (sscParams, nodeParams) <- getParameters ntpConfig
@@ -180,7 +178,7 @@ startEdgeNode wso =
         WalletNew newParams ->
           actionWithNewWallet pm sscParams nodeParams newParams
   where
-    getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
+    getParameters :: HasConfigurations => NtpConfiguration -> IO (SscParams, NodeParams)
     getParameters ntpConfig = do
 
       currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs
@@ -208,6 +206,6 @@ main = withCompileInfo $ do
     cfg <- getWalletNodeOptions
     putText "Wallet is starting..."
     let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)
-    loggerBracket loggingParams . logException "node" . runProduction $ do
+    loggerBracket loggingParams . logException "node" $ do
         logInfo "[Attention] Software is built with the wallet backend"
         startEdgeNode cfg

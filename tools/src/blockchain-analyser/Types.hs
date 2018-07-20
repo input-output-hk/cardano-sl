@@ -20,7 +20,6 @@ import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Core (HasConfiguration, HeaderHash, prevBlockL)
 import           Pos.Core.Block (Block)
-import           Pos.Core.Mockable (Production)
 import           Pos.DB (MonadDBRead (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB
@@ -34,15 +33,15 @@ data BlockchainInspectorContext = BlockchainInspectorContext { bicNodeDBs :: DB.
 
 makeLensesWith postfixLFields ''BlockchainInspectorContext
 
-type BlockchainInspector = ReaderT BlockchainInspectorContext Production
+type BlockchainInspector = ReaderT BlockchainInspectorContext IO
 
-runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a -> Production a
+runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a -> IO a
 runBlockchainInspector = flip Mtl.runReaderT
 
 initBlockchainAnalyser ::
        DB.NodeDBs
     -> BlockchainInspector a
-    -> Production a
+    -> IO a
 initBlockchainAnalyser nodeDBs action = do
     let bicNodeDBs = nodeDBs
     let inspectorCtx = BlockchainInspectorContext {..}

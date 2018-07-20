@@ -12,7 +12,6 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Mockable (Production, runProduction)
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
 import qualified Pos.DB.Block.Load as DB
@@ -85,11 +84,10 @@ analyseBlockchainEagerly cli currentTip = do
 main :: IO ()
 main = do
     args <- getOptions
-    runProduction $ do
-        CLI.printFlags
-        action args
+    CLI.printFlags
+    action args
 
-action :: CLIOptions -> Production ()
+action :: CLIOptions -> IO ()
 action cli@CLIOptions{..} = withConfigurations Nothing conf $ \_ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)

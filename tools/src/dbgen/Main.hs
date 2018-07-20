@@ -21,7 +21,6 @@ import           Options.Generic (getRecord)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
                      NodeArgs (..), getNodeParams, gtSscParams)
 import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
-import           Pos.Core.Mockable (Production, runProduction)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -66,7 +65,7 @@ newRealModeContext
     -> NodeDBs
     -> ConfigurationOptions
     -> FilePath
-    -> Production (RealModeContext ())
+    -> IO (RealModeContext ())
 newRealModeContext pm dbs confOpts secretKeyPath = do
     let nodeArgs = NodeArgs {
       behaviorConfigPath = Nothing
@@ -129,7 +128,7 @@ walletRunner
     -> WalletDB
     -> UberMonad a
     -> IO a
-walletRunner pm confOpts dbs secretKeyPath ws act = runProduction $ do
+walletRunner pm confOpts dbs secretKeyPath ws act = do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
                                  <*> liftIO newTQueueIO
@@ -142,9 +141,11 @@ newWalletState recreate walletPath =
     -- to rebuild the DB, but rather append stuff into it.
     liftIO $ openState (not recreate) walletPath
 
-instance HasLoggerName IO where
-    askLoggerName = pure $ LoggerName "dbgen"
-    modifyLoggerName _ x = x
+-- TODO mhueschen get feedback about usage of this module and whether
+-- the instance from `Pos.Core.Conc` can eclipse this.
+-- instance HasLoggerName IO where
+--     askLoggerName = pure $ LoggerName "dbgen"
+--     modifyLoggerName _ x = x
 
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
 newConfig :: CLI -> ConfigurationOptions

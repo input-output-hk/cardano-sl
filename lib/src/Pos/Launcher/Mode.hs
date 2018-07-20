@@ -28,7 +28,6 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Core (HasConfiguration, Timestamp)
-import           Pos.Core.Mockable.Production (Production)
 import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -57,9 +56,9 @@ data InitModeContext = InitModeContext
 
 makeLensesWith postfixLFields ''InitModeContext
 
-type InitMode = Mtl.ReaderT InitModeContext Production
+type InitMode = Mtl.ReaderT InitModeContext IO
 
-runInitMode :: InitModeContext -> InitMode a -> Production a
+runInitMode :: InitModeContext -> InitMode a -> IO a
 runInitMode = flip Mtl.runReaderT
 
 instance HasLens NodeDBs InitModeContext NodeDBs where

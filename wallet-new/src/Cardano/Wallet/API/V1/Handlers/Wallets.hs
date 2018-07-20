@@ -9,11 +9,10 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
 
-import           Pos.Core.Mockable.Production (Production, runProduction)
 import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
-handlers :: PassiveWalletLayer Production -> ServerT Wallets.API Handler
+handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
 handlers pwl =  newWallet pwl
            :<|> listWallets
            :<|> updatePassword
@@ -25,7 +24,7 @@ handlers pwl =  newWallet pwl
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
 -- wallet in the 'Wallet' type.
-newWallet :: PassiveWalletLayer Production
+newWallet :: PassiveWalletLayer IO
           -> NewWallet
           -> Handler (WalletResponse Wallet)
 newWallet pwl newWalletRequest = do
@@ -34,7 +33,7 @@ newWallet pwl newWalletRequest = do
 
     -- FIXME(adn) Wallet restoration from seed will be provided as part of
     -- CBR-243.
-    res <- liftIO $ runProduction $ (_pwlCreateWallet pwl) newWalletRequest
+    res <- liftIO $ (_pwlCreateWallet pwl) newWalletRequest
     case res of
          Left e  -> throwM e
          Right w -> return $ single w

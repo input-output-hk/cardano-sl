@@ -31,7 +31,7 @@ import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
                      StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,
                      epochSlots, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
-import           Pos.Core.Mockable (forConcurrently)
+import           Pos.Core.Conc (forConcurrently)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Core.Slotting (MonadSlots)

@@ -14,7 +14,6 @@ import qualified Control.Monad.Reader as Mtl
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Mockable (Production)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
@@ -51,7 +50,7 @@ instance HasSscContext (WebModeContext ext) where
 instance HasPrimaryKey (WebModeContext ext) where
     primaryKey = wmcNodeContext_L . primaryKey
 
-type WebMode ext = Mtl.ReaderT (WebModeContext ext) Production
+type WebMode ext = Mtl.ReaderT (WebModeContext ext) IO
 
 instance HasConfiguration => MonadDBRead (WebMode ext) where
     dbGet = dbGetDefault

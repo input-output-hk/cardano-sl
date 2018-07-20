@@ -28,10 +28,10 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
 import           Pos.Core (StakeholderId, Timestamp (..))
+import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                      coreConfiguration, genesisData, prettyGenesisJson)
 import           Pos.Core.Genesis (gdStartTime)
-import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
 import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
@@ -49,7 +49,7 @@ printFlags = do
     inAssertMode $ logInfo "Asserts are ON"
 
 printInfoOnStart ::
-       (HasConfigurations, WithLogger m, Mockable CurrentTime m, MonadIO m)
+       (HasConfigurations, WithLogger m, MonadIO m)
     => CommonNodeArgs
     -> NtpConfiguration
     -> m ()

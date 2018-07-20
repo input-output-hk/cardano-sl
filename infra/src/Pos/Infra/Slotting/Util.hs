@@ -32,10 +32,11 @@ import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
 import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId (..),
                      Timestamp (..), slotIdF)
-import           Pos.Core.Mockable (Async, Delay, Mockable, delay, timeout)
+import           Pos.Core.Conc (delay, timeout)
 import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      EpochSlottingData (..), MonadSlotsData,
                      OnNewSlotParams (..), SlottingData, computeSlotStart,
@@ -99,12 +100,11 @@ getNextEpochSlotDuration =
 -- | Type constraint for `onNewSlot*` workers
 type MonadOnNewSlot ctx m =
     ( MonadIO m
+    , MonadUnliftIO m
     , MonadReader ctx m
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockable Async m
-    , Mockable Delay m
     , MonadReporting m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
@@ -113,6 +113,8 @@ type MonadOnNewSlot ctx m =
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
+-- TODO mhueschen ^ get feedback on what this comment means and what
+-- we should do about it.
 onNewSlot
     :: (MonadOnNewSlot ctx m, HasProtocolConstants)
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()
@@ -200,7 +202,6 @@ logNewSlotWorker =
 -- launched before 0-th epoch starts.
 waitSystemStart
     :: ( MonadSlotsData ctx m
-       , Mockable Delay m
        , WithLogger m
        , MonadSlots ctx m)
     => m ()

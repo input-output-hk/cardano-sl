@@ -38,8 +38,8 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
                      getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Core.Conc (delay)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
                      MetricMonitorState, noReportMonitor, recordValue)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))

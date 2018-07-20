@@ -309,7 +309,7 @@ in ps // {
 
       mkdir daedalus
       cp ${./log-configs/daedalus.yaml} daedalus/log-config-prod.yaml
-      cp ${./lib/configuration.yaml}    daedalus/
+      cp ${./lib/configuration.yaml}    daedalus/configuration.yaml
       cp ${./lib}/*genesis*.json        daedalus/
       cp ${ps.cardano-sl-tools}/bin/cardano-launcher.exe          daedalus/
       cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates.exe daedalus/

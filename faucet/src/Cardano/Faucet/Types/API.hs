@@ -11,12 +11,12 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.Faucet.Types.API (
-   WithdrawlRequest(..), wAddress, gRecaptchaResponse
- , WithdrawlResult(..), _WithdrawlError, _WithdrawlSuccess
+   WithdrawalRequest(..), wAddress, gRecaptchaResponse
+ , WithdrawalResult(..), _WithdrawalError, _WithdrawalSuccess
  , DepositRequest(..), dWalletId, dAmount
  , DepositResult(..)
  , GCaptchaResponse(..)
- , WithdrawlQFull(..)
+ , WithdrawalQFull(..)
   ) where
 
 import           Control.Exception
@@ -48,53 +48,53 @@ instance IsString GCaptchaResponse where
 
 --------------------------------------------------------------------------------
 -- | A request to withdraw ADA from the faucet wallet
-data WithdrawlRequest = WithdrawlRequest {
+data WithdrawalRequest = WithdrawalRequest {
     -- | The address to send the ADA to
     _wAddress           :: !(V1 Address)
     -- | The "g-recaptcha-response" field sent by the form
   , _gRecaptchaResponse :: !GCaptchaResponse
   } deriving (Show, Typeable, Generic)
 
-makeLenses ''WithdrawlRequest
+makeLenses ''WithdrawalRequest
 
-instance FromJSON WithdrawlRequest where
-  parseJSON = withObject "WithdrawlRequest" $ \v -> WithdrawlRequest
+instance FromJSON WithdrawalRequest where
+  parseJSON = withObject "WithdrawalRequest" $ \v -> WithdrawalRequest
     <$> v .: "address"
     <*> (GCaptchaResponse <$> v .: "g-recaptcha-response")
 
-instance FromForm WithdrawlRequest where
-    fromForm f = WithdrawlRequest
+instance FromForm WithdrawalRequest where
+    fromForm f = WithdrawalRequest
       <$> parseUnique "address" f
       <*> (GCaptchaResponse <$> parseUnique "g-recaptcha-response" f)
 
-instance ToSchema WithdrawlRequest where
+instance ToSchema WithdrawalRequest where
     declareNamedSchema _ = do
         addrSchema <- declareSchemaRef (Proxy :: Proxy (V1 Address))
         recaptchaSchema <- declareSchemaRef (Proxy :: Proxy Text)
-        return $ NamedSchema (Just "WithdrawlRequest") $ mempty
+        return $ NamedSchema (Just "WithdrawalRequest") $ mempty
           & type_ .~ SwaggerObject
           & properties .~ (mempty & at "address" ?~ addrSchema
                                   & at "g-recaptcha-response" ?~ recaptchaSchema)
           & required .~ ["address", "g-recaptcha-response"]
 
-instance ToJSON WithdrawlRequest where
-    toJSON (WithdrawlRequest w g) =
+instance ToJSON WithdrawalRequest where
+    toJSON (WithdrawalRequest w g) =
         object [ "address" .= w
                , "g-recaptcha-response" .= (g ^. _Wrapped)]
 
 
 --------------------------------------------------------------------------------
-data WithdrawlQFull = WithdrawlQFull deriving (Show, Generic, Exception)
+data WithdrawalQFull = WithdrawalQFull deriving (Show, Generic, Exception)
 
-instance ToJSON WithdrawlQFull where
+instance ToJSON WithdrawalQFull where
   toJSON _ =
-      object [ "error" .= ("Withdrawl queue is full" :: Text)
+      object [ "error" .= ("Withdrawal queue is full" :: Text)
              , "status" .= ("error" :: Text) ]
 
-instance ToSchema WithdrawlQFull where
+instance ToSchema WithdrawalQFull where
     declareNamedSchema _ = do
         strSchema <- declareSchemaRef (Proxy :: Proxy Text)
-        return $ NamedSchema (Just "WithdrawlQFull") $ mempty
+        return $ NamedSchema (Just "WithdrawalQFull") $ mempty
           & type_ .~ SwaggerObject
           & properties .~ (mempty
               & at "status" ?~ strSchema
@@ -102,26 +102,26 @@ instance ToSchema WithdrawlQFull where
           & required .~ ["status"]
 
 --------------------------------------------------------------------------------
-data WithdrawlResult =
-    WithdrawlError Text   -- ^ Error with http client error
-  | WithdrawlSuccess Transaction -- ^ Success with transaction details
+data WithdrawalResult =
+    WithdrawalError Text   -- ^ Error with http client error
+  | WithdrawalSuccess Transaction -- ^ Success with transaction details
   deriving (Show, Typeable, Generic)
 
-makePrisms ''WithdrawlResult
+makePrisms ''WithdrawalResult
 
-instance ToJSON WithdrawlResult where
-    toJSON (WithdrawlSuccess txn) =
+instance ToJSON WithdrawalResult where
+    toJSON (WithdrawalSuccess txn) =
         object ["success" .= txn]
-    toJSON (WithdrawlError err) =
+    toJSON (WithdrawalError err) =
         object ["error" .= err]
 
 wdDesc :: Text
 wdDesc = "An object with either a success field containing the transaction or "
       <> "an error field containing the ClientError from the wallet as a string"
 
-instance ToSchema WithdrawlResult where
+instance ToSchema WithdrawalResult where
     declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
-      { constructorTagModifier = map Char.toLower . drop (length ("Withdrawl" :: String)) }
+      { constructorTagModifier = map Char.toLower . drop (length ("Withdrawal" :: String)) }
       & mapped.mapped.schema.description ?~ wdDesc
 
 --------------------------------------------------------------------------------

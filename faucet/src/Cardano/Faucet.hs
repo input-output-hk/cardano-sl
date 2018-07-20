@@ -38,8 +38,8 @@ import qualified Cardano.WalletClient as Client
 
 -- | Top level type of the faucet API
 type FaucetAPI = "withdraw" :> Summary "Requests ADA from the faucet"
-                            :> ReqBody '[FormUrlEncoded, JSON] WithdrawlRequest
-                            :> Post '[JSON] WithdrawlResult
+                            :> ReqBody '[FormUrlEncoded, JSON] WithdrawalRequest
+                            :> Post '[JSON] WithdrawalResult
             :<|> "return-address" :> Summary "Get the address to return ADA to"
                                   :> Get '[JSON] (V1 Address)
             :<|> Raw
@@ -48,8 +48,8 @@ type FaucetAPI = "withdraw" :> Summary "Requests ADA from the faucet"
 faucetServerAPI :: Proxy FaucetAPI
 faucetServerAPI = Proxy
 
--- | Handler for the withdrawl of ADA from the faucet
-withdraw :: (MonadFaucet c m) => WithdrawlRequest -> m WithdrawlResult
+-- | Handler for the withdrawal of ADA from the faucet
+withdraw :: (MonadFaucet c m) => WithdrawalRequest -> m WithdrawalResult
 withdraw wr = withSublogger (LoggerName "withdraw") $ do
     logInfo "Attempting to send ADA"
     mCaptchaSecret <- view (feFaucetConfig . fcRecaptchaSecret)
@@ -64,15 +64,15 @@ withdraw wr = withSublogger (LoggerName "withdraw") $ do
     resp <- Client.withdraw (wr ^. wAddress)
     case resp of
         Left _ -> do
-            logError "Withdrawl queue is full"
-            throwError $ err503 { errBody = "Withdrawl queue is full" }
+            logError "Withdrawal queue is full"
+            throwError $ err503 { errBody = "Withdrawal queue is full" }
         Right wdResp -> do
-            for_ (wdResp ^? _WithdrawlSuccess) $ \txn -> do
+            for_ (wdResp ^? _WithdrawalSuccess) $ \txn -> do
               let amount = unV1 $ txAmount txn
               logInfo ((txn ^. to show . packed) <> " withdrew: "
                                                 <> (amount ^. to show . packed))
               incWithDrawn amount
-            for_ (wdResp  ^? _WithdrawlError) $ \err -> do
+            for_ (wdResp  ^? _WithdrawalError) $ \err -> do
                 logError ("Error from wallet: " <> err)
                 throwError $ err503 { errBody = (fromStrict err) ^. re utf8 }
             return wdResp

@@ -151,7 +151,7 @@ data FaucetConfig = FaucetConfig {
   , _fcWalletApiPort       :: !Int
     -- | Port to serve the faucet on
   , _fcPort                :: !Int
-    -- | Distribution for withdrawls (default to 1000 and 500)
+    -- | Distribution for withdrawals (default to 1000 and 500)
   , _fcPaymentDistribution :: !PaymentDistribution
     -- | Statsd server details
   , _fcStatsdOpts          :: !FaucetStatsdOpts
@@ -235,7 +235,7 @@ instance Exception InitFaucetError
 --------------------------------------------------------------------------------
 data ProcessorPayload = ProcessorPayload {
     _ppQueue  :: !Payment
-  , _ppResult :: !(TMVar WithdrawlResult)
+  , _ppResult :: !(TMVar WithdrawalResult)
   }
 
 makeLenses ''ProcessorPayload
@@ -244,7 +244,7 @@ makeLenses ''ProcessorPayload
 data FaucetEnv = FaucetEnv {
     -- | Counter for total amount withdawn from a wallet while faucet is running
     _feWithdrawn     :: !Counter
-    -- | Counter for number of withdrawls made
+    -- | Counter for number of withdrawals made
   , _feNumWithdrawn  :: !Counter
     -- | Gauge for wallet balance
   , _feWalletBalance :: !Gauge
@@ -258,8 +258,8 @@ data FaucetEnv = FaucetEnv {
   , _feFaucetConfig  :: !FaucetConfig
     -- | Client for communicating with wallet API
   , _feWalletClient  :: !(WalletClient IO)
-    -- | Lock to ensure only one withdrawl at a time
-  , _feWithdrawlQ    :: !(TBQueue ProcessorPayload)
+    -- | Lock to ensure only one withdrawal at a time
+  , _feWithdrawalQ    :: !(TBQueue ProcessorPayload)
   }
 
 makeClassy ''FaucetEnv

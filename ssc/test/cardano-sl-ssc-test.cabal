@@ -22,6 +22,7 @@ library
                      , aeson
                      , base
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-core-test

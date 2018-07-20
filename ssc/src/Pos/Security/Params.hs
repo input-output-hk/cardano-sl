@@ -1,5 +1,3 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-
 module Pos.Security.Params
        ( SecurityParams(..)
        , AttackType(..)

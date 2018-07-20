@@ -65,17 +65,34 @@ executable cardano-node-simple
 
 test-suite property-tests
   hs-source-dirs:      test
-  main-is:             test/TODO.hs
+  main-is:             Spec.hs
+  other-modules:       ChainExtension
+                       Translation
+
+                       Chain.Abstract
+                       Chain.Abstract.Translate.FromUTxO
+                       Chain.Policy
+                       Chain.Validation
+                       Chain.Validation.Parameters
+                       Infrastructure.Generator
   default-language:    Haskell2010
   type:                exitcode-stdio-1.0
   build-depends:       base
+                     , containers
+                     , QuickCheck
+                     , cardano-sl-chain
+                     , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-ssc
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cardano-sl
+                     , hspec
+                     , lens
+                     , mtl
+                     , safe-exceptions >= 0.1
                      , universum >= 0.1.11
+                     , utxo
   ghc-options:
                        -threaded
                        -rtsopts

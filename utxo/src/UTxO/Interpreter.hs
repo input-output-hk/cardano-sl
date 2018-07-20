@@ -3,6 +3,8 @@
 {-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE TypeApplications           #-}
 
 -- | Interpreter from the DSL to Cardano types
 module UTxO.Interpreter (
@@ -18,6 +20,7 @@ module UTxO.Interpreter (
   , runIntBoot
   , runIntBoot'
     -- * Interpreter proper
+  , Interpretation(..)
   , Interpret(..)
   , IntRollback(..)
   ) where
@@ -440,63 +443,71 @@ createEpochBoundary ic = do
   <cardano-sl-articles/delegation/pdf/article.pdf>.
 -------------------------------------------------------------------------------}
 
--- | Interpretation of the UTxO DSL
-class Interpret h a where
-  type Interpreted a :: *
+class Interpretation i where
+  type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
 
-  int :: Monad m => a -> IntT h e m (Interpreted a)
+data DSL2Cardano
+
+instance Interpretation DSL2Cardano where
+  type IntCtx DSL2Cardano = IntT
+
+-- | Interpretation of the UTxO DSL
+class Interpretation to => Interpret to h a where
+  type Interpreted to a :: *
+
+  int :: Monad m => a -> IntCtx to h e m (Interpreted to a)
 
 {-------------------------------------------------------------------------------
   Instances that read, but not update, the state
 -------------------------------------------------------------------------------}
 
-instance Interpret h DSL.Value where
-  type Interpreted DSL.Value = Coin
+instance Interpret DSL2Cardano h DSL.Value where
+  type Interpreted DSL2Cardano DSL.Value = Coin
 
   int :: Monad m => DSL.Value -> IntT h e m Coin
   int = return . mkCoin
 
-instance Interpret h Addr where
-  type Interpreted Addr = AddrInfo
+instance Interpret DSL2Cardano h Addr where
+  type Interpreted DSL2Cardano Addr = AddrInfo
 
   int :: Monad m => Addr -> IntT h e m AddrInfo
   int = asks . resolveAddr
 
-instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
-  type Interpreted (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, ResolvedInput)
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Input h Addr) where
+  type Interpreted DSL2Cardano (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, ResolvedInput)
 
   int :: Monad m
       => DSL.Input h Addr -> IntT h e m (TxOwnedInput SomeKeyPair, ResolvedInput)
   int inp@DSL.Input{..} = do
       -- We figure out who must sign the input by looking at the output
       spentOutput   <- inpSpentOutput' inp
-      resolvedInput <- int spentOutput
+      resolvedInput <- (int @DSL2Cardano) spentOutput
       isBootstrap   <- isBootstrapTransaction <$> findHash' inpTrans
 
       if isBootstrap
         then do
-          AddrInfo{..} <- int $ DSL.outAddr spentOutput
+          AddrInfo{..} <- (int @DSL2Cardano) $ DSL.outAddr spentOutput
           -- See explanation at 'bootstrapTransaction'
           return (
                    (addrInfoAddrKey, TxInUtxo (unsafeHash addrInfoCardano) 0)
                  , resolvedInput
                  )
         else do
-          AddrInfo{..} <- int     $ DSL.outAddr spentOutput
+          AddrInfo{..} <- (int @DSL2Cardano) $ DSL.outAddr spentOutput
           inpTrans'    <- intHash $ inpTrans
           return (
                    (addrInfoAddrKey, TxInUtxo inpTrans' inpIndex)
                  , resolvedInput
                  )
 
-instance Interpret h (DSL.Output h Addr) where
-  type Interpreted (DSL.Output h Addr) = TxOutAux
+instance Interpret DSL2Cardano h (DSL.Output h Addr) where
+  type Interpreted DSL2Cardano (DSL.Output h Addr) = TxOutAux
 
   int :: Monad m
       => DSL.Output h Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
-      AddrInfo{..} <- int outAddr
-      outVal'      <- int outVal
+      AddrInfo{..} <- (int @DSL2Cardano) outAddr
+      outVal'      <- (int @DSL2Cardano) outVal
       return TxOutAux {
           toaOut = TxOut {
               txOutAddress = addrInfoCardano
@@ -504,8 +515,8 @@ instance Interpret h (DSL.Output h Addr) where
             }
         }
 
-instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
-  type Interpreted (DSL.Utxo h Addr) = Utxo
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Utxo h Addr) where
+  type Interpreted DSL2Cardano (DSL.Utxo h Addr) = Utxo
 
   int :: forall e m. Monad m
       => DSL.Utxo h Addr -> IntT h e m Utxo
@@ -514,8 +525,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
       aux :: (DSL.Input h Addr, DSL.Output h Addr)
           -> IntT h e m (TxIn, TxOutAux)
       aux (inp, out) = do
-          ((_key, inp'), _) <- int inp
-          out'              <- int out
+          ((_key, inp'), _) <- (int @DSL2Cardano) inp
+          out'              <- (int @DSL2Cardano) out
           return (inp', out')
 
 {-------------------------------------------------------------------------------
@@ -527,14 +538,14 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
 -------------------------------------------------------------------------------}
 
 -- | Interpretation of transactions
-instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
-  type Interpreted (DSL.Transaction h Addr) = RawResolvedTx
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Transaction h Addr) where
+  type Interpreted DSL2Cardano (DSL.Transaction h Addr) = RawResolvedTx
 
   int :: forall e m. Monad m
       => DSL.Transaction h Addr -> IntT h e m RawResolvedTx
   int t = do
-      (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
-      trOuts'                  <-           mapM int (DSL.trOuts t)
+      (trIns', resolvedInputs) <- unzip <$> mapM (int @DSL2Cardano) (DSL.trIns' t)
+      trOuts'                  <-           mapM (int @DSL2Cardano) (DSL.trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
       putTxMeta t $ hash (taTx txAux)
       return $ mkRawResolvedTx txAux (NE.fromList resolvedInputs)
@@ -563,14 +574,14 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
                 (NE.fromList outs)
 
 -- | Interpretation of a block of transactions, oldest first
-instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
   -- The block and the EBB, if any
-  type Interpreted (DSL.Block h Addr) = (RawResolvedBlock, Maybe GenesisBlock)
+  type Interpreted DSL2Cardano (DSL.Block h Addr) = (RawResolvedBlock, Maybe GenesisBlock)
 
   int :: forall e m. Monad m
       => DSL.Block h Addr -> IntT h e m (RawResolvedBlock, Maybe GenesisBlock)
   int (OldestFirst txs) = do
-      (txs', resolvedTxInputs) <- unpack <$> mapM int txs
+      (txs', resolvedTxInputs) <- unpack <$> mapM (int @DSL2Cardano) txs
       pushCheckpoint $ \prev slot -> do
         pc    <- asks constants
         block <- mkBlock
@@ -624,13 +635,13 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
       -- TODO: Get this value from somewhere rather than hardcoding it
       blockSizeLimit = 2 * 1024 * 1024 -- 2 MB
 
-instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
-  type Interpreted (DSL.Chain h Addr) = OldestFirst [] Block
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Chain h Addr) where
+  type Interpreted DSL2Cardano (DSL.Chain h Addr) = OldestFirst [] Block
 
   int :: forall e m. Monad m
       => DSL.Chain h Addr -> IntT h e m (OldestFirst [] Block)
   int (OldestFirst blocks) =
-      OldestFirst . concatMap flatten <$> mapM int blocks
+      OldestFirst . concatMap flatten <$> mapM (int @DSL2Cardano) blocks
     where
       flatten :: (RawResolvedBlock, Maybe GenesisBlock) -> [Block]
       flatten (b, Nothing)  = [Right (rawResolvedBlock b)]
@@ -641,8 +652,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
 -- This makes interpreting DSL blocks and these "pseudo-DSL" rollbacks uniform.
 data IntRollback = IntRollback
 
-instance Interpret h IntRollback where
-  type Interpreted IntRollback = ()
+instance Interpret DSL2Cardano h IntRollback where
+  type Interpreted DSL2Cardano IntRollback = ()
 
   int :: Monad m => IntRollback -> IntT h e m ()
   int IntRollback = popIntCheckpoint

@@ -19,21 +19,33 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
     -- * Estimating fees
   , estimateCardanoFee
+  , dummyAddrAttrSize
+  , dummyTxAttrSize
+    -- * Estimating transaction limits
+  , estimateMaxTxInputs
     -- * Testing & internal use only
   , estimateSize
   ) where
 
 import           Universum hiding (Sum (..))
 
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
+import           Data.Typeable (typeRep)
 
+import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
+                     encode, szSimplify, szWithCtx, toLazyByteString)
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Client.Txp.Util as Core
-import           Pos.Core (TxSizeLinear, calculateTxSizeLinear)
+import           Pos.Core (AddrAttributes, Coin (..), TxAux, TxIn, TxInWitness,
+                     TxOut, TxSigData, TxSizeLinear, calculateTxSizeLinear)
 import qualified Pos.Core as Core
+import           Pos.Crypto (Signature)
 import qualified Pos.Crypto as Core
-import           Serokell.Data.Memory.Units (Byte, fromBytes)
+import           Pos.Data.Attributes (Attributes)
+import qualified Pos.Txp as Core
+import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 import           Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
@@ -377,27 +389,52 @@ largestFirst opts maxInps =
            second 1 is the encoded address type. 30 = size of Blake2b_224
            hash of Address'.
 -}
-estimateSize :: Int      -- ^ Average size of @Attributes AddrAttributes@.
-             -> Int      -- ^ Size of transaction's @Attributes ()@.
+estimateSize :: Byte     -- ^ Average size of @Attributes AddrAttributes@.
+             -> Byte     -- ^ Size of transaction's @Attributes ()@.
              -> Int      -- ^ Number of inputs to the transaction.
              -> [Word64] -- ^ Coin value of each output to the transaction.
              -> Byte     -- ^ Estimated size of the resulting transaction.
-estimateSize saa sta ins outs
-    = fromBytes . fromIntegral $
-      5
-    + 42 * ins
-    + (11 + listSize (32 + (fromIntegral saa))) * length outs
-    + sum (map intSize outs)
-    + fromIntegral sta
-  where
-    intSize s =
-        if | s <= 0x17       -> 1
-           | s <= 0xff       -> 2
-           | s <= 0xffff     -> 3
-           | s <= 0xffffffff -> 5
-           | otherwise       -> 9
+estimateSize saa sta ins outs =
+    case szSimplify (szWithCtx (Map.fromList ctx) (Proxy @TxAux)) of
+        Left  sz    -> error ("Size estimate failed to simplify: " <> pretty sz)
+        Right range -> hi range
 
-    listSize s = s + intSize s
+  where
+    -- Substitutions for certain sizes and lengths in the size estimate:
+    ctx = [ -- Number of outputs
+            (typeRep (Proxy @(LengthOf [TxOut]))    , toSize (length outs))
+
+          -- Average size of an encoded Coin for this transaction.
+          , (typeRep (Proxy @Coin)                  , toSize (avgCoinSize outs))
+
+          -- Number of inputs.
+          , (typeRep (Proxy @(LengthOf [TxIn]))     , toSize ins)
+          , (typeRep (Proxy @(LengthOf (Vector TxInWitness)))
+                                                    , toSize ins)
+
+          -- For this estimate, assume all input witnesses use the
+          -- `PkWitness` constructor.
+          , (typeRep (Proxy @TxInWitness)           , SelectCases ["PkWitness"])
+
+          -- Set attribute sizes to reasonable dummy values.
+          , (typeRep (Proxy @(Attributes AddrAttributes))
+                                                    , toSize (toBytes saa))
+          , (typeRep (Proxy @(Attributes ()))       , toSize (toBytes sta))
+
+          -- The magic number 66 is the encoded size of a `TxSigData` signature:
+          -- 64 bytes for the payload, plus two bytes of ByteString overhead.
+          , (typeRep (Proxy @(Signature TxSigData)) , SizeConstant 66)
+          ]
+
+    avgCoinSize [] = 0
+    avgCoinSize cs = case sum (map encodedCoinSize cs) `quotRem` length cs of
+        (avg, 0) -> avg
+        (avg, _) -> avg + 1
+
+    encodedCoinSize = fromIntegral . LBS.length . toLazyByteString . encode . Coin
+
+    toSize :: Integral a => a -> SizeOverride
+    toSize = SizeConstant . fromIntegral
 
 -- | Estimate the fee for a transaction that has @ins@ inputs
 --   and @length outs@ outputs. The @outs@ lists holds the coin value
@@ -408,4 +445,53 @@ estimateSize saa sta ins outs
 --         here with some (hopefully) realistic values.
 estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
-    = round (calculateTxSizeLinear linearFeePolicy (estimateSize 128 16 ins outs))
+    = round $ calculateTxSizeLinear linearFeePolicy
+            $ estimateSize dummyAddrAttrSize dummyTxAttrSize ins outs
+
+-- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
+--   encoded transaction sizes. The minimum possible value is 2.
+dummyAddrAttrSize :: Byte
+dummyAddrAttrSize = 16
+
+-- | Size to use for a value of type @Attributes ()@ when estimating
+--   encoded transaction sizes. The minimum possible value is 2.
+dummyTxAttrSize :: Byte
+dummyTxAttrSize = 2
+
+-- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
+--   @Attributes ()@, compute the maximum possible number of inputs a transaction
+--   can have. The formula for this value is not linear, so we just do a binary
+--   search here. A decent first guess makes this search relatively quick.
+--
+--   We use a conservative over-estimate for the encoded transaction sizes, so the
+--   number of transaction inputs computed here is a lower bound on the true
+--   maximum.
+estimateMaxTxInputs
+  :: Byte -- ^ Size of @Attributes AddrAttributes@
+  -> Byte -- ^ Size of @Attributes ()@
+  -> Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateMaxTxInputs addrAttrSize txAttrSize maxSize = fromIntegral $
+  case compare (estSize txins0) maxSize of
+      LT -> bsearchUp   estSize txins0 maxSize step0
+      EQ -> txins0
+      GT -> bsearchDown estSize txins0 maxSize step0
+
+  where
+    txins0 = fromIntegral $ maxSize `div` 200
+    estSize txins = estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
+    step0 = 1 + (txins0 `div` 10)
+
+    bsearchUp f x y step =
+      if | f x < y -> bsearchUp f (x + step) y step
+         | f x == y -> x
+         | otherwise -> if step > 1
+                       then let step' = step `div` 2 in bsearchDown f (x - step') y step'
+                       else x - 1
+
+    bsearchDown f x y step =
+      if | f x > y -> bsearchDown f (x - step) y step
+         | f x == y -> x
+         | otherwise -> if step > 1
+                       then let step' = step `div` 2 in bsearchUp f (x + step') y step'
+                       else x

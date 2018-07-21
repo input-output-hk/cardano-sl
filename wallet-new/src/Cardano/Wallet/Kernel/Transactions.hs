@@ -31,7 +31,8 @@ import qualified Data.ByteString as B
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
                      CoinSelFinalResult (..), CoinSelectionOptions,
-                     estimateCardanoFee, mkStdTx)
+                     dummyAddrAttrSize, dummyTxAttrSize, estimateCardanoFee,
+                     estimateMaxTxInputs, mkStdTx)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
@@ -145,9 +146,10 @@ newTransaction :: ActiveWallet
                -> IO (Either NewTransactionError TxAux, Utxo)
 newTransaction ActiveWallet{..} spendingPassword options accountId payees = do
 
-    -- | NOTE(adn) This number was computed out of the work Matt Noonan did
-    -- on the size estimation. See [CBR-318].
-    let maxInputs = 350
+    -- | NOTE(mn) 65536 is the current maximum transaction size, but this can change
+    --   over time. @newTransaction@ should be parameterized over this value, perhaps
+    --   adding it to @CoinSelectionOptions@.
+    let maxInputs = estimateMaxTxInputs dummyAddrAttrSize dummyTxAttrSize 65536
 
     snapshot <- getWalletSnapshot walletPassive
     let availableUtxo = accountAvailableUtxo snapshot accountId

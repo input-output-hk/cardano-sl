@@ -24,6 +24,7 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
 import           Pos.DB.Update (UpdateContext)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
@@ -31,7 +32,6 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders)
-import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Util.Util (HasLens, HasLens')
 

@@ -20,7 +20,8 @@ import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (kademliaDumpInterval)
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfoConstraints,
+                     recoveryCommGuard)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
@@ -38,17 +39,13 @@ type DhtWorkMode ctx m =
     )
 
 dhtWorkers
-    :: ( DhtWorkMode ctx m
-       , HasProtocolConstants
-       )
+    :: DhtWorkMode ctx m
     => KademliaDHTInstance -> [Diffusion m -> m ()]
 dhtWorkers kademliaInst@KademliaDHTInstance {..} =
     [ dumpKademliaStateWorker kademliaInst ]
 
 dumpKademliaStateWorker
-    :: ( DhtWorkMode ctx m
-       , HasProtocolConstants
-       )
+    :: DhtWorkMode ctx m
     => KademliaDHTInstance
     -> Diffusion m
     -> m ()

@@ -86,6 +86,7 @@ library
 
                         -- Recovery
                         Pos.Infra.Recovery.Info
+                        Pos.Infra.Recovery.Types
 
                         -- Pos.Infra.Shutdown
                         Pos.Infra.Shutdown

@@ -31,13 +31,13 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
+import           Pos.Infra.Recovery.Types (RecoveryHeaderTag)
 import           Pos.Infra.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Network.Block.Logic (BlockNetLogicException (..),
                      handleBlocks, triggerRecovery)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,
                      BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
-import           Pos.Recovery.Types (RecoveryHeaderTag)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join

@@ -37,7 +37,6 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Infra.Communication.Types.Protocol
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 
@@ -170,7 +169,6 @@ type LocalOnNewSlotComm ctx m =
     , MonadMask m
     , MonadReporting m
     , HasShutdownContext ctx
-    , MonadRecoveryInfo m
     )
 
 type OnNewSlotComm ctx m =

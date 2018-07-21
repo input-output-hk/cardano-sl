@@ -17519,6 +17519,8 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-crypto
 , cardano-sl
+, cardano-sl-binary
+, cardano-sl-block
 , cardano-sl-chain
 , cardano-sl-client
 , cardano-sl-core
@@ -17666,6 +17668,8 @@ base
 bytestring
 cardano-crypto
 cardano-sl
+cardano-sl-binary
+cardano-sl-block
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core

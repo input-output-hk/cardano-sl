@@ -1,7 +1,7 @@
 -- | We want to store each epoch's seed in the database. This module does
 -- that. It's done so that we'd be able to reuse previous epoch's seed in
 -- case we can't generate a seed for current epoch (see [CSL-50]).
-module Pos.Lrc.DB.Seed
+module Pos.DB.Lrc.Seed
        ( -- * Operations
          getSeed
        , putSeed
@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (EpochIndex (..), SharedSeed, gdFtsSeed, genesisData)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common (getBi, putBi)
+import           Pos.DB.Lrc.Common (getBi, putBi)
 
 getSeed :: MonadDBRead m => EpochIndex -> m (Maybe SharedSeed)
 getSeed epoch = getBi (seedKey epoch)

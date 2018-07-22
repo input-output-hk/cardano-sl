@@ -22,30 +22,12 @@ library
                        Pos.Lrc.Core
                        Pos.Lrc.Genesis
                        Pos.Lrc.RichmenComponent
-                       Pos.Lrc.Context
-                       Pos.Lrc.Mode
-
-                       Pos.Lrc.Consumer
-                       Pos.Lrc.Consumer.Delegation
-                       Pos.Lrc.Consumer.Ssc
-                       Pos.Lrc.Consumer.Update
-                       Pos.Lrc.Consumers
-
-                       Pos.Lrc.DB
-                       Pos.Lrc.DB.Common
-                       Pos.Lrc.DB.Issuers
-                       Pos.Lrc.DB.Leaders
-                       Pos.Lrc.DB.Lrc
-                       Pos.Lrc.DB.Richmen
-                       Pos.Lrc.DB.RichmenBase
-                       Pos.Lrc.DB.Seed
 
   build-depends:       base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-db
                      , cardano-sl-txp
                      , cardano-sl-util
                      , conduit

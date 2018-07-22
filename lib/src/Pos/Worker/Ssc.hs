@@ -40,6 +40,7 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.DB.Class (MonadDB, MonadGState)
+import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Shutdown (HasShutdownContext)
@@ -47,8 +48,6 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
-import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
-import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,

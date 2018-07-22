@@ -2,10 +2,10 @@
 
 -- | Richmen computation for delegation.
 
-module Pos.Lrc.Consumer.Delegation
+module Pos.DB.Lrc.Consumer.Delegation
        (
        -- * The 'RichmenComponent'
-         richmenComponent
+         dlgRichmenComponent
 
        -- * The consumer
        , dlgLrcConsumer
@@ -20,9 +20,10 @@ import           Universum
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
                      bvdHeavyDelThd, genesisBlockVersionData)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
-import           Pos.Lrc.Consumer (LrcConsumer, lrcConsumerFromComponentSimple)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
-import           Pos.Lrc.DB.RichmenBase
+import           Pos.DB.Lrc.Consumer (LrcConsumer,
+                     lrcConsumerFromComponentSimple)
+import           Pos.DB.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.DB.Lrc.RichmenBase
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util.Util (getKeys)
@@ -31,8 +32,8 @@ import           Pos.Util.Util (getKeys)
 -- RichmenComponent
 ----------------------------------------------------------------------------
 
-richmenComponent :: HasGenesisBlockVersionData => RichmenComponent RichmenSet
-richmenComponent = RichmenComponent
+dlgRichmenComponent :: HasGenesisBlockVersionData => RichmenComponent RichmenSet
+dlgRichmenComponent = RichmenComponent
     { rcToData            = getKeys . snd
     , rcTag               = "dlg"
     , rcInitialThreshold  = bvdHeavyDelThd genesisBlockVersionData
@@ -45,7 +46,7 @@ richmenComponent = RichmenComponent
 
 -- | Consumer will be called on every Richmen computation.
 dlgLrcConsumer :: (MonadGState m, MonadDB m) => LrcConsumer m
-dlgLrcConsumer = lrcConsumerFromComponentSimple richmenComponent bvdHeavyDelThd
+dlgLrcConsumer = lrcConsumerFromComponentSimple dlgRichmenComponent bvdHeavyDelThd
 
 ----------------------------------------------------------------------------
 -- Getting richmen
@@ -65,4 +66,4 @@ getDlgRichmen fname epoch = lrcActionOnEpochReason
 
 -- | Like 'getDlgRichmen', but doesn't wait and doesn't fail.
 tryGetDlgRichmen :: MonadDBRead m => EpochIndex -> m (Maybe RichmenSet)
-tryGetDlgRichmen = getRichmen richmenComponent
+tryGetDlgRichmen = getRichmen dlgRichmenComponent

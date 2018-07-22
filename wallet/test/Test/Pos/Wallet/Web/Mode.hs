@@ -64,6 +64,7 @@ import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Pure (DBPureVar)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
@@ -84,7 +85,6 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Lrc (LrcContext)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)

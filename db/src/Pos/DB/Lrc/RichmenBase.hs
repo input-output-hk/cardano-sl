@@ -3,7 +3,7 @@
 
 -- | Richmen part of LRC DB.
 
-module Pos.Lrc.DB.RichmenBase
+module Pos.DB.Lrc.RichmenBase
        (
          -- * Generalization
          RichmenComponent (..)
@@ -20,7 +20,7 @@ import           Universum
 import           Pos.Binary.Class (Bi, serialize')
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common (getBi, putBi)
+import           Pos.DB.Lrc.Common (getBi, putBi)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (FullRichmenData)
 

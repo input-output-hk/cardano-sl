@@ -1,7 +1,7 @@
 
 -- | Common functions used by different parts of LRC DB.
 
-module Pos.Lrc.DB.Common
+module Pos.DB.Lrc.Common
        (
          -- * Getters
          getEpoch

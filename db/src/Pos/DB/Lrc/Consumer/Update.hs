@@ -2,10 +2,10 @@
 
 -- | Richmen computation for the update system.
 
-module Pos.Lrc.Consumer.Update
+module Pos.DB.Lrc.Consumer.Update
        (
        -- * The 'RichmenComponent' instance
-         richmenComponent
+         updateRichmenComponent
 
        -- * The consumer
        , usLrcConsumer
@@ -20,9 +20,10 @@ import           Universum
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
                      bvdUpdateVoteThd, genesisBlockVersionData)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
-import           Pos.Lrc.Consumer (LrcConsumer, lrcConsumerFromComponentSimple)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
-import           Pos.Lrc.DB.RichmenBase
+import           Pos.DB.Lrc.Consumer (LrcConsumer,
+                     lrcConsumerFromComponentSimple)
+import           Pos.DB.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.DB.Lrc.RichmenBase
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (FullRichmenData)
 
@@ -30,9 +31,8 @@ import           Pos.Lrc.Types (FullRichmenData)
 -- RichmenComponent
 ----------------------------------------------------------------------------
 
-richmenComponent
-    :: HasGenesisBlockVersionData => RichmenComponent FullRichmenData
-richmenComponent = RichmenComponent
+updateRichmenComponent :: HasGenesisBlockVersionData => RichmenComponent FullRichmenData
+updateRichmenComponent = RichmenComponent
     { rcToData            = identity
     , rcTag               = "us"
     , rcInitialThreshold  = bvdUpdateVoteThd genesisBlockVersionData
@@ -45,7 +45,7 @@ richmenComponent = RichmenComponent
 
 -- | Consumer will be called on every Richmen computation.
 usLrcConsumer :: (MonadGState m, MonadDB m) => LrcConsumer m
-usLrcConsumer = lrcConsumerFromComponentSimple richmenComponent bvdUpdateVoteThd
+usLrcConsumer = lrcConsumerFromComponentSimple updateRichmenComponent bvdUpdateVoteThd
 
 ----------------------------------------------------------------------------
 -- Getting richmen
@@ -67,4 +67,4 @@ getUSRichmen fname epoch = lrcActionOnEpochReason
 --
 -- Returns a 'Maybe'.
 tryGetUSRichmen :: MonadDBRead m => EpochIndex -> m (Maybe FullRichmenData)
-tryGetUSRichmen = getRichmen richmenComponent
+tryGetUSRichmen = getRichmen updateRichmenComponent

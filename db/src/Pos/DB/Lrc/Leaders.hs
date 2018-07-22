@@ -1,6 +1,6 @@
 -- | Leaders part of LRC DB.
 
-module Pos.Lrc.DB.Leaders
+module Pos.DB.Lrc.Leaders
        (
          -- * Getters
          getLeadersForEpoch
@@ -24,7 +24,7 @@ import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount,
                      flattenSlotId, pcEpochSlots, protocolConstants,
                      unsafeMkLocalSlotIndexExplicit)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi,
+import           Pos.DB.Lrc.Common (dbHasKey, getBi, putBatch, putBatchBi,
                      putBi, toRocksOps)
 import           Pos.Lrc.Genesis (genesisLeaders)
 

@@ -42,7 +42,7 @@ import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal,
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as DB
-import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext (..))
 import qualified Pos.Update.DB as DB

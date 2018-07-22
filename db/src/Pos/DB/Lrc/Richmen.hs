@@ -1,6 +1,6 @@
 -- | Richmen part of LRC DB.
 
-module Pos.Lrc.DB.Richmen
+module Pos.DB.Lrc.Richmen
        (
        -- * Initialization
          prepareLrcRichmen
@@ -33,14 +33,13 @@ import           Pos.Core (Coin, CoinPortion, ProxySKHeavy, StakeholderId,
                      unsafeIntegerToCoin)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
-import           Pos.Lrc.Consumer.Delegation (tryGetDlgRichmen)
-import qualified Pos.Lrc.Consumer.Delegation as Dlg (richmenComponent)
-import           Pos.Lrc.Consumer.Ssc (tryGetSscRichmen)
-import qualified Pos.Lrc.Consumer.Ssc as Ssc (richmenComponent)
-import           Pos.Lrc.Consumer.Update (tryGetUSRichmen)
-import qualified Pos.Lrc.Consumer.Update as Update (richmenComponent)
+import           Pos.DB.Lrc.Consumer.Delegation (dlgRichmenComponent,
+                     tryGetDlgRichmen)
+import           Pos.DB.Lrc.Consumer.Ssc (sscRichmenComponent, tryGetSscRichmen)
+import           Pos.DB.Lrc.Consumer.Update (tryGetUSRichmen,
+                     updateRichmenComponent)
+import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
-import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Txp.GenesisUtxo (genesisStakes)
@@ -51,9 +50,9 @@ import           Pos.Txp.GenesisUtxo (genesisStakes)
 
 prepareLrcRichmen :: MonadDB m => m ()
 prepareLrcRichmen = do
-    prepareLrcRichmenDo Ssc.richmenComponent
-    prepareLrcRichmenDo Update.richmenComponent
-    prepareLrcRichmenDo Dlg.richmenComponent
+    prepareLrcRichmenDo sscRichmenComponent
+    prepareLrcRichmenDo updateRichmenComponent
+    prepareLrcRichmenDo dlgRichmenComponent
 
 prepareLrcRichmenDo
     :: (Bi richmenData, MonadDB m) => RichmenComponent richmenData -> m ()

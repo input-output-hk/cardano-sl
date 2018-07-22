@@ -33,7 +33,7 @@ import           Pos.Core.Slotting (EpochIndex, SlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionData, NumSoftwareVersion,
                      SoftwareVersion (..), UpId, UpdateProposal (..))
-import           Pos.Lrc.DB.Issuers (IssuersStakes)
+import           Pos.DB.Lrc (IssuersStakes)
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.Types (BlockVersionState,

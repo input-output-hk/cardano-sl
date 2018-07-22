@@ -1,6 +1,6 @@
 -- | Higher-level functionality of LRC DB.
 
-module Pos.Lrc.DB.Lrc
+module Pos.DB.Lrc.Lrc
        ( prepareLrcDB
        ) where
 
@@ -9,11 +9,11 @@ import           Universum
 import           Pos.Core (SlotCount)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Error (DBError (..))
-import           Pos.Lrc.DB.Common (prepareLrcCommon)
-import           Pos.Lrc.DB.Issuers (prepareLrcIssuers)
-import           Pos.Lrc.DB.Leaders (prepareLrcLeaders)
-import           Pos.Lrc.DB.Richmen (prepareLrcRichmen, tryGetUSRichmen)
-import           Pos.Lrc.DB.Seed (prepareLrcSeed)
+import           Pos.DB.Lrc.Common (prepareLrcCommon)
+import           Pos.DB.Lrc.Issuers (prepareLrcIssuers)
+import           Pos.DB.Lrc.Leaders (prepareLrcLeaders)
+import           Pos.DB.Lrc.Richmen (prepareLrcRichmen, tryGetUSRichmen)
+import           Pos.DB.Lrc.Seed (prepareLrcSeed)
 
 import           Pos.Util (maybeThrow)
 

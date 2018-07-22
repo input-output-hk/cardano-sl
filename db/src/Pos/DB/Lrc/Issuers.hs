@@ -1,6 +1,6 @@
 -- | Issuers part of LRC DB.
 
-module Pos.Lrc.DB.Issuers
+module Pos.DB.Lrc.Issuers
        ( IssuersStakes
          -- * Getters
        , getIssuersStakes
@@ -19,7 +19,7 @@ import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.DB.Error (DBError (DBMalformed))
-import           Pos.Lrc.DB.Common (getBi, putBi)
+import           Pos.DB.Lrc.Common (getBi, putBi)
 import           Pos.Util.Util (maybeThrow)
 
 -- | The first value here is epoch for which this stake distribution is valid.

@@ -32,6 +32,7 @@ import           Pos.Core (Coin, EpochIndex, GenesisData (..),
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
+import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
@@ -151,7 +152,7 @@ lrcCorrectnessProp = do
                       (InplaceDB True)
     lift $ Lrc.lrcSingleShot dummyProtocolMagic 1
     leaders1 <-
-        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeadersForEpoch 1)
+        maybeStopProperty "No leaders for epoch#1!" =<< lift (LrcDB.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in
@@ -172,9 +173,9 @@ lrcCorrectnessProp = do
 
 checkRichmen :: HasConfigurations => BlockProperty ()
 checkRichmen = do
-    checkRichmenStakes =<< getRichmen (lift . Lrc.tryGetSscRichmen)
-    checkRichmenFull =<< getRichmen (lift . Lrc.tryGetUSRichmen)
-    checkRichmenSet =<< getRichmen (lift . Lrc.tryGetDlgRichmen)
+    checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen)
+    checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen)
+    checkRichmenSet =<< getRichmen (lift . LrcDB.tryGetDlgRichmen)
   where
     toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic) . fromMaybe

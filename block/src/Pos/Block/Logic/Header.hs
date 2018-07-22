@@ -42,9 +42,9 @@ import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.GState.Common as GS (getTip)
+import qualified Pos.DB.Lrc as LrcDB
 import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState.BlockExtra as GS
-import qualified Pos.Lrc.DB as LrcDB
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 
 -- | Result of single (new) header classification.

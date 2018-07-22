@@ -51,10 +51,10 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
                      (CommonOp (PutMaxSeenDifficulty, PutTip),
                      getMaxSeenDifficulty)
+import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
+import qualified Pos.DB.Lrc as LrcDB
 import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
-import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)

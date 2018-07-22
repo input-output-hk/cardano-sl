@@ -40,19 +40,16 @@ import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
+import           Pos.DB.Lrc (IssuersStakes, LrcConsumer (..), LrcContext (..),
+                     LrcMode, LrcSyncData (..), allLrcConsumers, getSeed,
+                     putEpoch, putIssuersStakes, putSeed)
+import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
-import           Pos.Lrc.Consumer (LrcConsumer (..))
-import           Pos.Lrc.Consumers (allLrcConsumers)
-import           Pos.Lrc.Context (LrcContext (lcLrcSync), LrcSyncData (..))
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
-import           Pos.Lrc.DB (IssuersStakes, getSeed, putEpoch, putIssuersStakes,
-                     putSeed)
-import qualified Pos.Lrc.DB as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Lrc.Fts (followTheSatoshiM)
-import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1,
                      sscCalculateSeed)

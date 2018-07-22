@@ -16,11 +16,11 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Block.Slog (HasSlogGState (..), SlogGState,
                      cloneSlogGState)
+import           Pos.DB.Lrc (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.DB.Pure (cloneDBPure)
 import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
                      cloneSlottingVar, slottingVar)
-import           Pos.Lrc.Context (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | This type contains DB and in-memory contexts which basically

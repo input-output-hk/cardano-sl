@@ -17,6 +17,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
+import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Configuration (HasDlgConfiguration)
 import           Pos.Delegation.Logic (PskHeavyVerdict (..),
@@ -24,7 +25,6 @@ import           Pos.Delegation.Logic (PskHeavyVerdict (..),
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Communication.Relay (DataMsg)
 import           Pos.Infra.StateLock (StateLock)
-import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Util (HasLens')
 
 -- Message constraints we need to be defined.

@@ -48,11 +48,11 @@ import           Pos.Core (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
+import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration)

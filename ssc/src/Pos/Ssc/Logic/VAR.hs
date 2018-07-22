@@ -30,9 +30,8 @@ import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
+import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import           Pos.Exception (assertionFailed)
-import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
-import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import qualified Pos.Ssc.DB as DB

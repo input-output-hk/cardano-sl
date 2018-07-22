@@ -1,6 +1,6 @@
 -- | In-memory state of LRC.
 
-module Pos.Lrc.Context
+module Pos.DB.Lrc.Context
        ( LrcSyncData(..)
        , LrcContext(..)
        , HasLrcContext
@@ -19,8 +19,8 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex)
 import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.Lrc.Common (getEpoch)
 import           Pos.Exception (reportFatalError)
-import           Pos.Lrc.DB.Common (getEpoch)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
 import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)

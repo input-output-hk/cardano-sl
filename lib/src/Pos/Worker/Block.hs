@@ -45,6 +45,7 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
+import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
 import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
@@ -61,7 +62,6 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
-import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
 import           Pos.Network.Block.WorkMode (BlockWorkMode)

@@ -31,6 +31,7 @@ import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
+import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
                      TxpHolderTag, mkTxpLocalData)
 import qualified Pos.GState as GS
@@ -38,7 +39,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, SimpleSlottingStateVar,
                      mkSimpleSlottingStateVar)
 import qualified Pos.Infra.Slotting as Slot
-import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
 

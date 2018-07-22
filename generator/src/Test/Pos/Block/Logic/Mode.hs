@@ -78,6 +78,7 @@ import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
+import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Pure (DBPureVar, newDBPureVar)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
@@ -100,7 +101,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Ssc (SscMemTag, SscState, mkSscState)
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)

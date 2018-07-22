@@ -13,8 +13,7 @@ import           Universum
 import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..),
                      vcVssKey)
 import           Pos.DB (MonadDBRead)
-import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
-import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Error (SscSeedError)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)

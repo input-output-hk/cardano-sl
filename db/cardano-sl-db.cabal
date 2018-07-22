@@ -37,6 +37,7 @@ library
                        Pos.DB.Txp.Stakes
                        Pos.DB.Txp.Utxo
 
+                       Pos.DB.Lrc
 
   other-modules:       Pos.DB.Txp.Logic.Common
                        Pos.DB.Txp.Logic.Global
@@ -46,12 +47,29 @@ library
                        Pos.DB.Txp.MemState.Metrics
                        Pos.DB.Txp.MemState.Types
 
+                       Pos.DB.Lrc.Common
+                       Pos.DB.Lrc.Consumer
+                       Pos.DB.Lrc.Consumer.Delegation
+                       Pos.DB.Lrc.Consumer.Ssc
+                       Pos.DB.Lrc.Consumer.Update
+                       Pos.DB.Lrc.Consumer
+                       Pos.DB.Lrc.Consumers
+                       Pos.DB.Lrc.Context
+                       Pos.DB.Lrc.Issuers
+                       Pos.DB.Lrc.Leaders
+                       Pos.DB.Lrc.Lrc
+                       Pos.DB.Lrc.Mode
+                       Pos.DB.Lrc.RichmenBase
+                       Pos.DB.Lrc.Richmen
+                       Pos.DB.Lrc.Seed
+
   build-depends:       aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-util
                      , concurrent-extra

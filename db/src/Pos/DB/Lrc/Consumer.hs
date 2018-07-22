@@ -2,7 +2,7 @@
 
 -- | Consumer of data computed by LRC.
 
-module Pos.Lrc.Consumer
+module Pos.DB.Lrc.Consumer
        ( LrcConsumer (..)
        , lrcConsumerFromComponent
        , lrcConsumerFromComponentSimple
@@ -14,7 +14,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Core (BlockVersionData, Coin, CoinPortion, EpochIndex,
                      applyCoinPortionUp)
 import           Pos.DB.Class (MonadDB, MonadGState, gsAdoptedBVData)
-import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
+import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (RichmenStakes)
 

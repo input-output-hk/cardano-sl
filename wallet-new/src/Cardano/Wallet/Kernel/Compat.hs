@@ -6,10 +6,11 @@
 
 module Cardano.Wallet.Kernel.Compat
   ( DBReadT(DBReadT, unDBReadT)
-  , runDBReadT
+  , withMonadDBRead
   , getCoreConfigurations
   ) where
 
+import           Control.Monad.IO.Unlift (MonadUnliftIO, askUnliftIO, withUnliftIO, UnliftIO(UnliftIO), unliftIO)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.Monad.Trans.Reader (ReaderT (ReaderT), runReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
@@ -35,7 +36,11 @@ import           Pos.DB.Rocks.Types (MonadRealDB, NodeDBs)
 -- | This monad transformer exists solely to provide a 'MonadRealDB' instance,
 -- as required by upstream libraries.
 newtype DBReadT m a = DBReadT { unDBReadT :: ReaderT NodeDBs m a }
-  deriving (Functor, Applicative, Monad, MonadThrow, MonadTrans)
+  deriving (Functor, Applicative, Monad, MonadThrow, MonadTrans, MonadIO)
+
+instance MonadUnliftIO m => MonadUnliftIO (DBReadT m) where
+  askUnliftIO =
+    DBReadT (withUnliftIO (\u -> pure (UnliftIO (unliftIO u . unDBReadT))))
 
 instance (HasConfiguration, MonadThrow (DBReadT m), MonadRealDB NodeDBs (ReaderT NodeDBs m))
     => MonadDBRead (DBReadT m) where
@@ -44,11 +49,11 @@ instance (HasConfiguration, MonadThrow (DBReadT m), MonadRealDB NodeDBs (ReaderT
     dbGetSerBlock hh = DBReadT (fmap Serialized <$> getSerializedBlock hh)
     dbGetSerUndo hh = DBReadT (fmap Serialized <$> getSerializedUndo hh)
 
--- | Runs a 'DBReadT'.
+-- | Obtain a higher rank 'MonadDBRead' context.
 --
 -- This is also a monad morphism from @'DBReadT' m@ to @m@.
-runDBReadT
-  :: (MonadCatch m, MonadIO m)
+withMonadDBRead
+  :: (MonadCatch m, MonadIO m, MonadUnliftIO m)
   => CoreConfiguration
   -> Maybe GeneratedSecrets
   -> GenesisData
@@ -56,9 +61,9 @@ runDBReadT
   -> BlockVersionData -- ^ From genesis block
   -> ProtocolConstants
   -> NodeDBs
-  -> (MonadDBRead (DBReadT m) => DBReadT m a)
+  -> (forall n. (MonadUnliftIO n, MonadDBRead n) => n a)
   -> m a
-runDBReadT cc ygs gd gh bvd pc ndbs act =
+withMonadDBRead cc ygs gd gh bvd pc ndbs act =
   withCoreConfiguration cc $
   withGeneratedSecrets ygs $
   withGenesisData gd $

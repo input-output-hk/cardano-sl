@@ -53,6 +53,7 @@ import           Pos.DB.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.DB.Ssc (mkSscState)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings,
                      TxpHolderTag, mkTxpLocalData)
+import           Pos.DB.Update (UpdateContext, mkUpdateContext)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..),
@@ -64,7 +65,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
 
 

@@ -9,13 +9,13 @@ module Pos.GState
        , module Pos.GState.BlockExtra
        , module Pos.GState.Context
        , module Pos.GState.GState
-       , module Pos.Update.DB
+       , module Pos.DB.Update
        ) where
 
 import           Pos.DB.Delegation
 import           Pos.DB.GState.Common
 import           Pos.DB.GState.Stakes
+import           Pos.DB.Update
 import           Pos.GState.BlockExtra
 import           Pos.GState.Context
 import           Pos.GState.GState
-import           Pos.Update.DB

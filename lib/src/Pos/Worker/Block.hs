@@ -47,6 +47,7 @@ import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
+import           Pos.DB.Update (getAdoptedBVData)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
@@ -64,8 +65,6 @@ import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
-
-import           Pos.Update.DB (getAdoptedBVData)
 
 ----------------------------------------------------------------------------
 -- All workers

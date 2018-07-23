@@ -17,8 +17,6 @@ library
 
   other-modules:
                        Test.Pos.Update.Arbitrary.Core
-                       Test.Pos.Update.Arbitrary.MemState
-                       Test.Pos.Update.Arbitrary.Poll
 
   build-depends:       QuickCheck
                      , base

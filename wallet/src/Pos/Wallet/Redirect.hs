@@ -39,10 +39,10 @@ import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), TxpLocalWorkMode,
                      TxpProcessTransactionMode, getLocalUndos, txNormalize,
                      txProcessTransaction, withTxpLocalData)
+import           Pos.DB.Update (UpdateContext (ucDownloadedUpdate))
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots (..), getNextEpochSlotDuration)
 import           Pos.Txp (ToilVerFailure)
-import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),

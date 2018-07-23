@@ -21,6 +21,7 @@ import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
                      TxpHolderTag)
+import           Pos.DB.Update (UpdateContext)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
@@ -32,7 +33,6 @@ import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
-import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.Util (HasLens, HasLens')
 
 -- | These instances are implemented in @Pos.Binary.Communication@,

@@ -49,6 +49,8 @@ import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Ssc (mkSscState)
 import           Pos.DB.Txp (GenericTxpLocalData (..), TxpGlobalSettings,
                      mkTxpLocalData, recordTxpMetrics)
+import           Pos.DB.Update (mkUpdateContext)
+import qualified Pos.DB.Update as GState
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import qualified Pos.GState as GS
 import           Pos.Infra.DHT.Real (KademliaParams (..))
@@ -64,8 +66,6 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Ssc (SscParams, SscState, createSscContext)
-import           Pos.Update.Context (mkUpdateContext)
-import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithLogging, newInitFuture)
 
 #ifdef linux_HOST_OS

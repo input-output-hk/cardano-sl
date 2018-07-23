@@ -70,6 +70,7 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
                      recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
                      txpMemPool, txpTip)
+import           Pos.DB.Update (UpdateContext)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
@@ -88,7 +89,6 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
-import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)

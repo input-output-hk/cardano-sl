@@ -86,6 +86,7 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
                      mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                      txpGlobalSettings)
+import           Pos.DB.Update (UpdateContext, mkUpdateContext)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
@@ -103,7 +104,6 @@ import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Ssc (SscMemTag, SscState)
-import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,

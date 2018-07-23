@@ -140,6 +140,7 @@ test-suite test
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
+                     , cardano-sl-db-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc-test
                      , cardano-sl-update-test
@@ -188,6 +189,7 @@ benchmark bench-block
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
+                     , cardano-sl-db-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc-test
                      , cardano-sl-update-test

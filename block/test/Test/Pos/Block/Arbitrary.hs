@@ -44,6 +44,7 @@ import           Pos.Data.Attributes (areAttributesKnown)
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.DB.Update.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Ssc.Arbitrary (SscPayloadDependsOnSlot (..),
                      genSscPayload, genSscPayloadForSlot)

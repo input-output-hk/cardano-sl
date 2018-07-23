@@ -41,6 +41,7 @@ library
                        Pos.DB.Delegation
                        Pos.DB.Ssc
                        Pos.DB.Ssc.SecretStorage
+                       Pos.DB.Update
 
   other-modules:       Pos.DB.Txp.Logic.Common
                        Pos.DB.Txp.Logic.Global
@@ -83,6 +84,26 @@ library
                        Pos.DB.Ssc.State.Global
                        Pos.DB.Ssc.State.Local
 
+                       Pos.DB.Update.Context
+                       Pos.DB.Update.GState
+                       Pos.DB.Update.Logic
+                       Pos.DB.Update.MemState
+                       Pos.DB.Update.GState.Misc
+                       Pos.DB.Update.Logic.Global
+                       Pos.DB.Update.Logic.Local
+                       Pos.DB.Update.MemState.Functions
+                       Pos.DB.Update.MemState.Types
+                       Pos.DB.Update.Poll.DBPoll
+                       Pos.DB.Update.Poll.Logic
+                       Pos.DB.Update.Poll.PollState
+                       Pos.DB.Update.Poll.Pure
+                       Pos.DB.Update.Poll.Logic.Apply
+                       Pos.DB.Update.Poll.Logic.Base
+                       Pos.DB.Update.Poll.Logic.Normalize
+                       Pos.DB.Update.Poll.Logic.Rollback
+                       Pos.DB.Update.Poll.Logic.Softfork
+                       Pos.DB.Update.Poll.Logic.Version
+
 
   build-depends:       aeson
                      , base
@@ -94,6 +115,7 @@ library
                      , cardano-sl-lrc
                      , cardano-sl-ssc
                      , cardano-sl-txp
+                     , cardano-sl-update
                      , cardano-sl-util
                      , concurrent-extra
                      , conduit
@@ -116,7 +138,8 @@ library
                      , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
-                     , formatting
+                     , tagged
+                     , time-units
                      , stm
                      , time
                      , transformers

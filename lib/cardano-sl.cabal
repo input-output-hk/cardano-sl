@@ -316,6 +316,7 @@ test-suite cardano-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
+                     , cardano-sl-db-test
                      , cardano-sl-delegation
                      , cardano-sl-delegation-test
                      , cardano-sl-infra

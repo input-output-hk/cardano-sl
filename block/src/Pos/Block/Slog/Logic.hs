@@ -53,11 +53,11 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Update (getAdoptedBVFull)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
-import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 
@@ -133,7 +133,7 @@ slogVerifyBlocks
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocks pm blocks = runExceptT $ do
     curSlot <- getCurrentSlot
-    (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
+    (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     leaders <- lift $

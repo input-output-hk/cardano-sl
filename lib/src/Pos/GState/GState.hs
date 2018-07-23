@@ -13,9 +13,9 @@ import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
                      setInitialized)
 import           Pos.DB.Ssc (initSscDB)
 import           Pos.DB.Txp (initGStateStakes, initGStateUtxo)
+import           Pos.DB.Update (initGStateUS)
 import           Pos.GState.BlockExtra (initGStateBlockExtra)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
-import           Pos.Update.DB (initGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::

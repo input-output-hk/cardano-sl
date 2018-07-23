@@ -17210,12 +17210,17 @@ license = stdenv.lib.licenses.mit;
 , array
 , base
 , bytestring
+, cardano-crypto
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-lrc
 , cardano-sl-util
+, cardano-sl-util-test
 , containers
 , cpphs
 , cryptonite
@@ -17223,6 +17228,8 @@ license = stdenv.lib.licenses.mit;
 , ether
 , exceptions
 , formatting
+, generic-arbitrary
+, hedgehog
 , lens
 , log-warper
 , memory
@@ -17230,6 +17237,7 @@ license = stdenv.lib.licenses.mit;
 , mono-traversable
 , mtl
 , parsec
+, QuickCheck
 , reflection
 , rocksdb-haskell-ng
 , serokell-util
@@ -17291,6 +17299,26 @@ unordered-containers
 libraryToolDepends = [
 cpphs
 ];
+testHaskellDepends = [
+aeson
+base
+bytestring
+cardano-crypto
+cardano-sl-binary-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-util-test
+generic-arbitrary
+hedgehog
+parsec
+QuickCheck
+universum
+];
+testToolDepends = [
+cpphs
+];
 doHaddock = false;
 description = "Cardano SL - shared seed computation";
 license = stdenv.lib.licenses.mit;
@@ -17299,7 +17327,11 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-ssc-test" = callPackage
 ({
   mkDerivation
+, aeson
 , base
+, bytestring
+, cardano-crypto
+, cardano-sl-binary-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
@@ -17307,6 +17339,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-ssc
 , cardano-sl-util-test
 , generic-arbitrary
+, hedgehog
 , QuickCheck
 , stdenv
 , universum
@@ -17317,7 +17350,11 @@ pname = "cardano-sl-ssc-test";
 version = "1.3.0";
 src = ./../ssc/test;
 libraryHaskellDepends = [
+aeson
 base
+bytestring
+cardano-crypto
+cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
@@ -17325,6 +17362,7 @@ cardano-sl-crypto-test
 cardano-sl-ssc
 cardano-sl-util-test
 generic-arbitrary
+hedgehog
 QuickCheck
 universum
 ];

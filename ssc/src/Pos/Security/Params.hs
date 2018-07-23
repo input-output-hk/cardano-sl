@@ -12,6 +12,7 @@ import qualified Data.Aeson as A
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
+import qualified Data.Text as T
 import qualified Text.Parsec as Parsec
 
 import           Pos.Core.Common (StakeholderId)
@@ -66,6 +67,16 @@ data AttackTarget
     -- PubKeyAddressTarget attPkAddr
     | PubKeyAddressTarget  !StakeholderId
     deriving (Eq, Show)
+
+instance A.ToJSON AttackTarget where
+    toJSON = A.object . \case
+                 NetworkAddressTarget attNetworkAddr ->
+                    ["Network" A..=
+                        ((decodeUtf8 @Text $ fst attNetworkAddr)
+                            `T.append` ":"
+                            `T.append` (T.pack . show $ snd attNetworkAddr))
+                    ]
+                 PubKeyAddressTarget attPkAddr -> ["PubKey" A..= attPkAddr]
 
 instance A.FromJSON AttackTarget where
     parseJSON = A.withObject "AttackTarget" $ \o ->

@@ -1524,38 +1524,106 @@ requirement of Cardano. Therefore this constraint should be weakened.
 \section{Delegation in Shelley}
 \label{sec:delegation-shelley}
 
-\newcommand{\enterpriseid}{\mathsf{dev}_\mathsf{null}}
+\newcommand{\entrepriseid}{\mathsf{dev}_\mathsf{null}}
 \newcommand{\distributionslot}{\mathsf{s}_\mathsf{d}}
+\newcommand{\initialpoolst}[1]{p_0(#1)}
+\newcommand{\poolst}[1]{\mathsf{state}_\mathsf{pool}(#1)}
 
 This section describes the changes to the spec required to describe
 the delegation starting with the Shelley release\improvement{Some
   reference to the design document}
 
-A distinguished slot $\distributionslot ∈ ℕ$ is introduced to
-represent the first slot beyond the bootstrap era.
+\begin{itemize}
+\item A distinguished slot $\distributionslot ∈ ℕ$ is introduced to
+  represent the first slot beyond the bootstrap era.
 
-There must be a distinguished agent id to represent enterprise staking
-(\emph{i.e.} opting out of staking): $\enterpriseid ∈ \agentids$.
+\item There must be a distinguished agent id to represent enterprise
+  staking (\emph{i.e.} opting out of staking):
+  $\entrepriseid ∈ \agentids$.
 
-Blocks must contain an additional field\improvement{Define pool certificates}
-\begin{record}
+\item There must be an extra data type: a mining pool certificate is
+  \begin{record}
+  \item[Staging id] An agent id
+  \item[Cost] a natural number
+  \item[Margin] a real number in $[0,1]$
+  \item[Pledge] \improvement{Exactly how this is represented is not
+      settled yet. In the design spec, at time of writing, the pledge
+      is expressed as a set of addresses. But it is not clear when
+      this is converted to actual Adas. (this latter reflection
+      belongs to the reward calculation) }
+  \item[Reward id] An agent id
+  \item[Destination id] An optional agent id
+  \end{record}
+
+\item Blocks must contain an additional field
+  \begin{record}
   \item[Pool certificates] A list of pool certificates
-\end{record}
+  \end{record}
 
-Transaction validation must be modified
-\begin{description}
-\item[Bootstrap era] These rules apply only if the slot $s$ is such that
-  $s<\distributionslot$. \emph{the bootstrap era rules are otherwise
-    unchanged}.
-\item[Distributed era] These rules only apply if the slot $s$ is such
-  that $s > \distributionslot$.
+\item Transaction validation must be modified
   \begin{description}
-  \item[Stake delegation] For every output $o ∈ \outputs{τ}$, the
-    stake is delegated to a single agent id: the support of
-    $\repartition{o}$ has cardinality $1$.
+  \item[Bootstrap era] These rules apply only if the slot $s$ is such
+    that $s<\distributionslot$. \emph{the bootstrap era rules are
+      otherwise unchanged}.
+  \item[Distributed era] These rules only apply if the slot $s$ is
+    such that $s > \distributionslot$.
+    \begin{description}
+    \item[Stake delegation] For every output $o ∈ \outputs{τ}$, the
+      stake is delegated to a single agent id: the support of
+      $\repartition{o}$ has cardinality $1$.
+    \end{description}
+  \end{description}
+\item Block validation has an extra condition
+  \begin{description}
+  \item[Pool certificate] \improvement{TODO: validation rules for pool
+      certificate. At least: no two certificate for the same staging
+      id.}
+  \end{description}
+\item The issuer condition of block validation is changes as follows
+  \begin{description}
+  \item[Issuer] The issuer of $b$ must be the slot leader at the slot
+    of $b$ (defined as in the current rule).
   \end{description}
 
-\end{description}
+\item A pooling state is defined as a function
+  $\agentids ⟶ ℕ×[0,1]×𝒫×\agentids×(\agentids⊎\{⋆\})$.\improvement{Here
+    $𝒫$ is the set of pledges. TODO: define above, and make a macro}
+
+  The initial pooling state function is defined as
+  $$
+  \initialpoolst{a} = (0,0,…,\entrepriseid,⋆)
+  $$
+  \unsure{I'm abusing $\entrepriseid$ here which is usually meant as a
+    stake identifier, but acts here as a payment id. It would act the
+    same: all rewards to $\entrepriseid$ go to waste. Question: are
+    they destroyed? Or do they join a pool of unusuable Adas, which
+    would still count towards total of Adas in existence?}
+  Given a list of certificates $c₁,…,c_n$ of pool certificates, define
+  the pooling state $\poolst{c₁,…,c_n}$:
+  \begin{itemize}
+  \item $\poolst{\emptylist}(a) = \initialpoolst{a}$
+  \item $\poolst{c₁,…,c_{n+1}}(a)$ is
+    $$
+    \left\{
+      \begin{array}{l@{\qquad}l}
+        \poolst{c₁,…,c_{n}}(a)& \mbox{if $a$ isn't the staking id of $c_{n+1}$.}\\
+        (c,m,p,r,d)& \mbox{if $c_{n+1}=(a,c,m,p,r,d)$}
+      \end{array}
+    \right.
+    $$
+  \end{itemize}
+  This is generalised, the usual way, to the pool state of a list of
+  blocks (cut off at last epoch).
+  \begin{implementationhint}
+    There is no certificate retirement in this spec. To issue a
+    retirement certificate for address $a$ is the same as issuing a
+    certificate with the initial value $\initialpoolst{a}$.
+  \end{implementationhint}
+\end{itemize}
+\improvement{TODO: limit the depth of delegation}
+
+\unsure{The richmen formula may need to be changed to remove the
+  delegation graph.}
 
 \improvement{The formula for reward repartition is in the delegation
   design document. They can be copied from there when the details of

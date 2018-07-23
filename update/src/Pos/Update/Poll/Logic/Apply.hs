@@ -118,8 +118,7 @@ verifyHeader lastAdopted header = do
     let versionInHeader = header ^. blockVersionL
     unlessM (canCreateBlockBV lastAdopted versionInHeader) $ do
         throwError
-            PollWrongHeaderBlockVersion
-            {pwhpvGiven = versionInHeader, pwhpvAdopted = lastAdopted}
+            $ PollWrongHeaderBlockVersion versionInHeader lastAdopted
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
 -- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
@@ -130,10 +129,7 @@ resolveVoteStake epoch totalStake vote = do
     let !id = addressHash (uvKey vote)
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
     let threshold = applyCoinPortionUp thresholdPortion totalStake
-    let errNotRichman mbStake = PollNotRichman
-            { pnrStakeholder = id
-            , pnrThreshold   = threshold
-            , pnrStake       = mbStake }
+    let errNotRichman mbStake = PollNotRichman id threshold mbStake
     stake <- note (errNotRichman Nothing) =<< getRichmanStake epoch id
     when (stake < threshold) $
         throwError $ errNotRichman (Just stake)
@@ -173,18 +169,11 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
     when (verifyAllIsKnown && not (areAttributesKnown upAttributes)) $
-        throwError $
-        PollUnknownAttributesInProposal
-        { puapUpId = upId
-        , puapAttrs = upAttributes
-        }
+        throwError
+            $ PollUnknownAttributesInProposal upId upAttributes
     when (proposalSize > proposalSizeLimit) $
-        throwError $
-        PollTooLargeProposal
-        { ptlpUpId = upId
-        , ptlpSize = proposalSize
-        , ptlpLimit = proposalSizeLimit
-        }
+        throwError
+            $ PollTooLargeProposal upId proposalSize proposalSizeLimit
     whenJustM (getProposal upId) $
         const $ throwError $ PollProposalAlreadyActive upId
     -- Here we verify consistency with regards to data from 'BlockVersionState'
@@ -224,11 +213,10 @@ verifyProposalStake totalStake votesAndStakes upId = do
             upId thresholdInt votesSum
     when (votesSum < thresholdInt) $
         throwError
-            PollSmallProposalStake
-            { pspsThreshold = threshold
-            , pspsActual = unsafeIntegerToCoin votesSum
-            , pspsUpId = upId
-            }
+            $ PollSmallProposalStake
+                  threshold
+                  (unsafeIntegerToCoin votesSum)
+                  upId
 
 -- Here we verify votes for proposal which is already active. Each
 -- vote must have enough stake as per distribution from epoch where
@@ -244,12 +232,11 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
     upId = uvProposalId $ NE.head votes
     verifyAndApplyVote vote = do
         let !stakeholderId = addressHash . uvKey $ NE.head votes
-            unknownProposalErr =
-                PollUnknownProposal
-                {pupStakeholder = stakeholderId, pupProposal = upId}
+            unknownProposalErr = PollUnknownProposal stakeholderId upId
         ps <- note unknownProposalErr =<< getProposal upId
         case ps of
-            PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
+            PSDecided _     -> throwError
+                                   $ PollProposalIsDecided upId stakeholderId
             PSUndecided ups -> verifyAndApplyVoteDo cd ups vote
 
 -- Here we actually apply vote to stored undecided proposal.

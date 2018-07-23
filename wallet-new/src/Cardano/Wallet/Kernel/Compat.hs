@@ -10,7 +10,8 @@ module Cardano.Wallet.Kernel.Compat
   , getCoreConfigurations
   ) where
 
-import           Control.Monad.IO.Unlift (MonadUnliftIO, askUnliftIO, withUnliftIO, UnliftIO(UnliftIO), unliftIO)
+import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
+                     askUnliftIO, unliftIO, withUnliftIO)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.Monad.Trans.Reader (ReaderT (ReaderT), runReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)

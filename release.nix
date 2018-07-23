@@ -5,7 +5,8 @@ in
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , nixpkgsArgs ? {
-      config = { allowUnfree = false; inHydra = true; };
+      config = spaces: (import ./config.nix spaces)
+             // { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
     }
   }:
@@ -17,7 +18,7 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 
 let
   iohkPkgs = import ./. { gitrev = cardano.rev; };
-  pkgs = import fixedNixpkgs { config = {}; };
+  pkgs = import fixedNixpkgs { config = _: {}; };
   wrapDockerImage = cluster: let
     images = {
       mainnet = iohkPkgs.dockerImages.mainnet.wallet;

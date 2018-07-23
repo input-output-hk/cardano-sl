@@ -8,5 +8,5 @@
 	path = haskell
 	url = git@github.com:angerman/haskell.nix.git
 [submodule "nixpkgs"]
-	path = nixpkgs
+	path = nixpkgs.git
 	url = git@github.com:angerman/nixpkgs.git

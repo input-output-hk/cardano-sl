@@ -3,7 +3,23 @@ let
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./fetch-nixpkgs.nix;
+    else import ./fetch.nix "nixpkgs";
+
+  fetchHaskell = let try = builtins.tryEval <haskell>;
+    in if try.success
+    then builtins.trace "using host <haskell>" try.value
+    else import ./fetch.nix "haskell";
+
+  fetchHackage = let try = builtins.tryEval <hackage>;
+    in if try.success
+    then builtins.trace "using host <hackage>" try.value
+    else import ./fetch.nix "hackage";
+
+  fetchStackage = let try = builtins.tryEval <stackage>;
+    in if try.success
+    then builtins.trace "using host <stackage>" try.value
+    else import ./fetch.nix "stackage";
+
 
   maybeEnv = env: default:
     let
@@ -37,7 +53,7 @@ let
   pkgs = import fetchNixPkgs {};
   lib = pkgs.lib;
 in lib // (rec {
-  inherit fetchNixPkgs cleanSourceTree;
+  inherit fetchNixPkgs fetchHaskell fetchHackage fetchStackage cleanSourceTree;
   isCardanoSL = lib.hasPrefix "cardano-sl";
   isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 

@@ -1,5 +1,26 @@
 {
-    "rev":            "120b013e0c082d58a5712cde0a7371ae8b25a601",
-    "sha256":         "1hbc3ng4iy4wv0kyr1zc7n4qx3wy5qlank42zq8h87wa8z3zdf14",
-    "sha256unpacked": "0hk4y2vkgm1qadpsm4b0q1vxq889jhxzjx3ragybrlwwg54mzp4f"
+    "nixpkgs": {
+	"account":        "angerman",
+	"project":        "nixpkgs",
+	"rev":            "3e4cd7f6812a3a93ba7894811305e1293a716ba1",
+	"sha256":         "1d88dwv4dk2lmk0hc6fys7nkqww311pr8bvf4pkd96c0nbqx4jj2",
+	"sha256unpacked": "10wyysyr6h41fqadq6ffmvs1n8j521h486wixkidnx5cpybb2z39" },
+    "haskell": {
+	"account":        "angerman",
+	"project":        "haskell.nix",
+	"rev":            "3a6d9e7a6bd560d90475ae71d8b2897dc89000e7",
+	"sha256":         "0bdj5rpx054gqzp07dxhwj57wkzdisc2nq8n0qzynn7902hiwlyq",
+	"sha256unpacked": "1zym8szbinjnvqs6vgwpawrhxq9m2aw449bvwxqq4xphrrvyln1f" },
+    "hackage": {
+	"account":        "angerman",
+	"project":        "hackage.nix",
+	"rev":            "fa1063c22022cd1e16966cfad2608ec11176d82b",
+	"sha256":         "1lpaxnhswamqpv0x2c5014723bvksz7r4iz7cprks0jl52pgvssc",
+	"sha256unpacked": "100xr0gk8h3i5k28xhnm1w3pl2hgy9abz97f13hir6qhzlpn851g" },
+    "stackage": {
+	"account":        "angerman",
+	"project":        "stackage.nix",
+	"rev":            "f7d91393bf2e64277b14526003f2d240d3cf99da",
+	"sha256":         "0jscw8zw18basc90s7jvspi2xnr7na7sghbzs0wz34cgjrgxyvzy",
+	"sha256unpacked": "1p8v0ck69s37bk261axf7gccbhz977pw1qyj650p993532b2psza" }
 }

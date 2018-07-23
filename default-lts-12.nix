@@ -29,9 +29,11 @@ let
   #       that way we could pick the proper `lts-12_0` based
   #       on the stack.yaml file, instead of hand-injecting
   #       it here.
+  hackage = import localLib.fetchHackage;
+  haskell = import localLib.fetchHaskell hackage;
   packageOverlay = self: super: {
     # the lts-XX_Y is essentially the same as what pkgs/default.nix returns.
-    haskellPackages = ((import <stackage> { pkgs = super; }).lts-12_0
+    haskellPackages = ((import localLib.fetchStackage { pkgs = super; inherit hackage haskell; }).lts-12_0
       # ontop of the LTS, inject the extra pacakges and source deps.
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                           // stack-pkgs.packages hsPkgs)
@@ -44,25 +46,25 @@ in
 , config ? import ./config.nix
 , gitrev ? localLib.commitIdFromGitRepo ./.git
 , buildId ? null
+# for what target are we building. Currently the only supported is "win64".
 , target ? null
-,n ? 0 }:
+# the package set
+, n ? 0 }:
 let
   # this is some hack to append spaces to the configureFlags of the
   # default derivation in GHC.  This allows us to force a rebuild
   # of all haskell packages.
   spaces = let repeat = n: c: c + (if n == 0 then "" else repeat (n - 1) c); in repeat n " ";
+  spacedConfig = config spaces;
   
-  # configure out general nix setup.
-  # 
-  config = 
   # Combine the Overlay, and Config to produce
   # our package set.
-  pkgs = import <nixpkgs> ({
+  pkgs = import localLib.fetchNixPkgs ({
     inherit system;
-    overlays = [ jmallocOverlay packageOverlay ];
-    config = config;
+    overlays = [ jemallocOverlay packageOverlay ];
+    config = spacedConfig;
   } // (if target != null
-        then { crossSystem = { win64   = (import <nixpkgs/lib>).systems.examples.mingwW64;
+        then { crossSystem = { win64   = (import localLib.fetchNixPkgs {}).lib.systems.examples.mingwW64;
                                macOS   = abort "macOS target not available";
                                rpi     = abort "Raspberry Pi target not available";
                                ios     = abort "iOS target not available";
@@ -76,90 +78,9 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
   buildHaskellPackages = pkgs.buildPackages.haskellPackages;
   overrides = self: super: rec {
 
-    # Logic to run TH via an external interpreter (64bit windows via wine64)
-  doTemplateHaskellMingw32 = pkg: with pkgs.haskell.lib; let
-    buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
-    buildFlags = map (opt: "--ghc-option=" + opt) [
-      "-fexternal-interpreter"
-      "-pgmi" "${buildHaskellPackages.iserv-proxy}/bin/iserv-proxy"
-      "-opti" "127.0.0.1" "-opti" "$PORT"
-      # TODO: this should be automatically injected based on the extraLibrary.
-      "-L${pkgs.windows.mingw_w64_pthreads}/lib"
-    ];
-    preBuild = ''
-      # unset the configureFlags.
-      # configure should have run already
-      # without restting it, wine might fail
-      # due to a too large environment.
-      unset configureFlags
-      PORT=$((5000 + $RANDOM % 5000))
-      echo "---> Starting remote-iserv on port $PORT"
-      WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
-      echo "---| remote-iserv should have started on $PORT"
-      RISERV_PID=$!
-    '';
-    postBuild = ''
-      echo "---> killing remote-iserv..."
-      kill $RISERV_PID
-    ''; in
-    appendBuildFlags' buildFlags
-     (addBuildDepends' [ self.remote-iserv ]
-      (addExtraLibrary' pkgs.windows.mingw_w64_pthreads
-       (addBuildTools' buildTools
-        (addPreBuild' preBuild
-         (addPostBuild' postBuild pkg)))));
+    inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw;
 
-  # how to perform TH for different host platforms.
-  doTemplateHaskell = pkg:
-    with pkgs.stdenv;
-      if hostPlatform.isWindows
-      then doTemplateHaskellMingw32 pkg
-      else assert buildPlatform == hostPlatform; pkg;
-
-  appendPatchMingw = pkg: p:
-    with pkg.stdenv;
-      if hostPlatform.isWindows
-      then appendPatch pkg p
-      else pkg;
-
-  addGitRev = subject: subject.overrideAttrs (drv: { GITREV = "blahblahblah"; });
-  doTemplateHaskellVerbose = pkg: with pkgs.haskell.lib; let
-    buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
-    buildFlags = map (opt: "--ghc-option=" + opt) [
-      "-fexternal-interpreter"
-      "-pgmi" "${buildHaskellPackages.iserv-proxy}/bin/iserv-proxy"
-      "-opti" "127.0.0.1" "-opti" "$PORT" # "-opti" "-v" #"-xc" "+RTS" "-Di"
-      # TODO: this should be automatically injected based on the extraLibrary.
-      "-L${pkgs.windows.mingw_w64_pthreads}/lib"
-    ];
-    preBuild = ''
-      PORT=$((5000 + $RANDOM % 5000))
-      echo "" | xargs --show-limits echo
-      unset configureFlags
-      echo "" | xargs --show-limits echo
-      echo "---> Starting remote-iserv on port $PORT"
-      WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT & # -v +RTS -Di &
-      echo "---| called wine ..."
-      for i in {1..5}; do
-        sleep 1 # wait for wine to fully boot up...
-        echo -n "."
-      done
-      echo ""
-      echo "---| remote-iserv should have started on $PORT"
-      RISERV_PID=$!
-    '';
-    postBuild = ''
-      echo "---> killing remote-iserv..."
-      kill $RISERV_PID
-      echo "Sleeping another 600s..."
-#      sleep 600
-    ''; in
-    appendBuildFlags' buildFlags
-     (addBuildDepends' [ self.remote-iserv ]
-      (addExtraLibrary' pkgs.windows.mingw_w64_pthreads
-       (addBuildTools' buildTools
-        (addPreBuild' preBuild
-         (addPostBuild' postBuild pkg)))));
+    addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
 
     # TODO: Why is `network` not properly propagated from `libiserv`?
     remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
@@ -225,38 +146,13 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
 
     # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
     libiserv              = super.libiserv.override           { flags = { network = true; }; };
+
+    # This should be stubbed out in <stackage/package-set.nix>; however lts-12 fails to list Win32
+    # as one of the windows packages as such just fails.
+    Win32 = null;
   };
-} // { pkgs-x = pkgs; });
+});
 in ps // {
-    # From the appveyor.yaml script
-    # # We intentionally don't build auxx here, because this build is for installer.
-    #  - scripts\ci\appveyor-retry call stack --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
-    #      -j 3
-    #      --no-terminal
-    #      --local-bin-path %WORK_DIR%
-    #      --no-haddock-deps
-    #      --flag cardano-sl-core:-asserts
-    #      --flag cardano-sl-tools:for-installer
-    #      --flag cardano-sl-wallet:for-installer
-    #      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
-    #      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
-    #      --extra-include-dirs="C:\xz_extracted\include"
-    #      --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
-    #      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
-    #      --extra-lib-dirs="%WORK_DIR%"
-    #  # Cardano pieces, modulo the frontend
-    #  - mkdir daedalus
-    #    # log config is called `log-config-prod.yaml` just in case, it's the old name
-    #  - copy log-configs\daedalus.yaml daedalus\log-config-prod.yaml
-    #  - copy lib\configuration.yaml daedalus\
-    #  - copy lib\*genesis*.json daedalus\
-    #  - copy cardano-launcher.exe daedalus\
-    #  - copy cardano-node.exe daedalus\
-    #  - copy cardano-x509-certificates.exe daedalus\
-    #  - cd daedalus
-    #  - Echo %APPVEYOR_BUILD_VERSION% > build-id
-    #  - Echo %APPVEYOR_REPO_COMMIT% > commit-id
-    #  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
     CardanoSL = pkgs.runCommand "CardanoSL.zip" { nativeBuildInputs = [ pkgs.buildPackages.zip ]; } ''
       mkdir $out
       cd $out
@@ -268,8 +164,10 @@ in ps // {
       cp ${ps.cardano-sl-tools}/bin/cardano-launcher.exe          daedalus/
       cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates.exe daedalus/
       cp ${ps.cardano-sl-wallet-new}/bin/cardano-node.exe         daedalus/
+      #  - Echo %APPVEYOR_BUILD_VERSION% > build-id
       echo "BAD_BUILD_VERSION" >                               daedalus/build-id
-      echo "BAD_REPO_COMMIT"   >                               daedalus/commit-id
+      echo "${gitrev}"         >                               daedalus/commit-id
+      #  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
       echo "BAD_CI_URL"        >                               daedalus/ci-url
       cd daedalus
       zip $out/CardanoSL.zip *

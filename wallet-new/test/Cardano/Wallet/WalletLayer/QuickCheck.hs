@@ -11,7 +11,8 @@ import           Universum
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAccountError (..), PassiveWalletLayer (..))
+                     CreateAccountError (..), GetAccountError (..),
+                     PassiveWalletLayer (..))
 
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 
@@ -86,4 +87,9 @@ instance Arbitrary CreateAccountError where
 instance Arbitrary Kernel.CreateAccountError where
     arbitrary = oneof [ Kernel.CreateAccountUnknownHdRoot <$> arbitrary
                       , Kernel.CreateAccountHdRndAccountSpaceSaturated <$> arbitrary
+                      ]
+
+instance Arbitrary GetAccountError where
+    arbitrary = oneof [ GetAccountError <$> arbitrary
+                      , GetAccountWalletIdDecodingFailed <$> arbitrary
                       ]

@@ -136,3 +136,7 @@ type family IndexToQueryParam resource ix where
         ':$$: 'Text "Perhaps you mismatched a resource and an index?"
         ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
         )
+
+{-----------------------------------------------------------------------------
+      Kernel.Util.IxSet indices in preparation for a full migration
+------------------------------------------------------------------------------}

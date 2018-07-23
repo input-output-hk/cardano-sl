@@ -148,6 +148,10 @@ import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()
 
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet, ixList)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
+import qualified Data.IxSet.Typed as IxSet
+
 -- | Declare generic schema, while documenting properties
 --   For instance:
 --
@@ -849,6 +853,17 @@ data WalletAddress = WalletAddress
     , addrChangeAddress :: !Bool
     } deriving (Show, Eq, Generic, Ord)
 
+instance KernelIxSet.HasPrimKey WalletAddress where
+    type PrimKey WalletAddress = V1 Core.Address
+    primKey = addrId
+
+type SecondaryWalletAddressIxs = '[]
+type instance KernelIxSet.IndicesOf WalletAddress = SecondaryWalletAddressIxs
+
+instance IxSet.Indexable (V1 Core.Address ': SecondaryWalletAddressIxs)
+                         (KernelIxSet.OrdByPrimKey WalletAddress) where
+    indices = ixList
+
 deriveJSON Serokell.defaultOptions ''WalletAddress
 
 instance ToSchema WalletAddress where
@@ -869,7 +884,7 @@ type AccountIndex = Word32
 -- | A wallet 'Account'.
 data Account = Account
     { accIndex     :: !AccountIndex
-    , accAddresses :: ![WalletAddress]
+    , accAddresses :: !(IxSet WalletAddress)
     , accAmount    :: !(V1 Core.Coin)
     , accName      :: !Text
     , accWalletId  :: !WalletId
@@ -905,7 +920,7 @@ instance BuildableSafeGen Account where
     buildSafeGen sl Account{..} = bprint ("{"
         %" index="%buildSafe sl
         %" name="%buildSafe sl
-        %" addresses="%buildSafeList sl
+        %" addresses="%buildSafe sl
         %" amount="%buildSafe sl
         %" walletId="%buildSafe sl
         %" }")

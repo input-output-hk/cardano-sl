@@ -34,6 +34,7 @@ import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
                      WalletClient (..), WalletError (..), getAccounts,
                      getAddressIndex, getTransactionIndex, getWallets,
                      hoistClient)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -162,7 +163,7 @@ runAction wc action = do
                     wallets    <>= [result]
                     walletsPass . at (walId result) ?= newPassword
                     accounts   <>= walletAccounts
-                    addresses  <>= concatMap accAddresses walletAccounts
+                    addresses  <>= concatMap (ixSetToList . accAddresses) walletAccounts
 
                 Left (ClientHttpError (FailureResponse (Response {..})))
                     | "mnemonics" `isInfixOf` show responseBody -> do
@@ -226,7 +227,7 @@ runAction wc action = do
             -- Modify wallet state accordingly.
             wallets  %= filter (\w -> walId wallet /= walId w)
             accounts .= walletAccounts
-            addresses %= filter (`elem` concatMap accAddresses walletAccounts)
+            addresses %= filter (`elem` concatMap (ixSetToList . accAddresses) walletAccounts)
             walletsPass . at (walId wallet) .= Nothing
 
         UpdateWallet -> do
@@ -305,7 +306,7 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             accounts   <>= [result]
-            addresses  <>= accAddresses result
+            addresses  <>= (ixSetToList $ accAddresses result)
           where
             generateNewAccount mpass = do
                 i <- arbitrary
@@ -342,7 +343,7 @@ runAction wc action = do
             let eqOn :: Eq b => (Account -> b) -> Bool
                 eqOn f = f account == f result
             checkInvariant
-                (and [eqOn accIndex, eqOn (length . accAddresses), eqOn accName, eqOn accWalletId])
+                (and [eqOn accIndex, eqOn (IxSet.size . accAddresses), eqOn accName, eqOn accWalletId])
                 (LocalAccountDiffers result account)
 
         DeleteAccount -> do
@@ -372,7 +373,7 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             accounts  .= withoutAccount
-            addresses %= filter (`notElem` accAddresses account)
+            addresses %= filter (`notElem` (ixSetToList $ accAddresses account))
 
         UpdateAccount -> do
             localAccounts <- use accounts
@@ -420,7 +421,7 @@ runAction wc action = do
             -- Modify wallet state accordingly.
             addresses  <>= [result]
             accounts . traverse . filtered (== account) %= \acct ->
-                acct { accAddresses = accAddresses acct <> [result] }
+                acct { accAddresses = IxSet.fromList (ixSetToList (accAddresses acct) <> [result]) }
 
         GetAddresses   -> do
             -- We set the state to be the result of calling the endpoint.
@@ -479,7 +480,7 @@ runAction wc action = do
                         , psAccountIndex = accIndex    accountSource
                         }
 
-            addressDestination <- pickRandomElement $ accAddresses accountDestination
+            addressDestination <- pickRandomElement $ ixSetToList $ accAddresses accountDestination
 
             let paymentDestinations =
                     PaymentDistribution

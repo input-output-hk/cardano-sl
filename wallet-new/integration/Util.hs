@@ -5,7 +5,9 @@ module Util where
 import           Universum hiding ((^?))
 
 import           Cardano.Wallet.Client.Http
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Control.Lens
+import           Data.Aeson
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
@@ -42,8 +44,8 @@ firstAccountAndId wc wallet = do
     toAccts `shouldSatisfy` (not . null)
     let (toAcct : _) = toAccts
 
-    accAddresses toAcct `shouldSatisfy` (not . null)
-    let (toAddr : _) = accAddresses toAcct
+    accAddresses toAcct `shouldSatisfy` (not . IxSet.null)
+    let (Just toAddr) = IxSet.someMember (accAddresses toAcct)
 
     pure (toAcct, toAddr)
 
@@ -103,3 +105,11 @@ shouldPrism_ a b =
     a `shouldSatisfy` has b
 
 infixr 8 `shouldPrism_`
+
+
+-- | Abomination used only in tests for the conveniency of working directly
+-- with a [WalletAddress].
+ixSetToList :: (IxSet.HasPrimKey a, ToJSON a, FromJSON a)
+            => IxSet.IxSet a
+            -> [a]
+ixSetToList = fromMaybe (error "ixSetToList failed.") . decode . encode

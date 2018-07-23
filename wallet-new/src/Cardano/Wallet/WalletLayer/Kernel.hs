@@ -24,9 +24,13 @@ import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
+import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
+                     addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readHdAccount)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
@@ -37,8 +41,8 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError (..), EstimateFeesError (..),
-                     NewPaymentError (..), PassiveWalletLayer (..),
-                     WalletLayerError (..))
+                     GetAccountError (..), NewPaymentError (..),
+                     PassiveWalletLayer (..), WalletLayerError (..))
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
@@ -172,20 +176,41 @@ bracketPassiveWallet logFunction keystore rocksDB f =
                                                   Right V1.Account {
                                                       accIndex     = accountId ^. HD.hdAccountIdIx
                                                                                 . to HD.getHdAccountIx
-                                                    , accAddresses = [
-                                                        V1.WalletAddress {
-                                                           addrId            = V1.V1 addr
-                                                         , addrUsed          = False
-                                                         , addrChangeAddress = False
-                                                        }
-                                                        ]
+                                                    , accAddresses =
+                                                        IxSet.singleton V1.WalletAddress {
+                                                               addrId            = V1.V1 addr
+                                                             , addrUsed          = False
+                                                             , addrChangeAddress = False
+                                                            }
                                                     , accAmount    = V1.V1 (Core.mkCoin 0)
                                                     , accName      = accountName
                                                     , accWalletId  = V1.WalletId wId
                                                     }
                                      Left  err        -> return (Left $ CreateAccountError err)
             , _pwlGetAccounts    = error "Not implemented!"
-            , _pwlGetAccount     = error "Not implemented!"
+            , _pwlGetAccount     =
+                \(V1.WalletId wId) accountIndex -> do
+                        case decodeTextAddress wId of
+                             Left _ ->
+                                 return $ Left (GetAccountWalletIdDecodingFailed wId)
+                             Right rootAddr -> do
+                                db <- liftIO (Kernel.getWalletSnapshot wallet)
+                                let hdRootId = HD.HdRootId . InDb $ rootAddr
+                                    hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
+                                    wallets = Kernel.hdWallets db
+                                    -- NOTE(adn): Perhaps we want the minimum or expected balance here?
+                                    accountAvailableBalance = Kernel.accountAvailableBalance db hdAccountId
+
+                                return $ case readHdAccount hdAccountId wallets of
+                                     Left kernelError -> Left $ GetAccountError kernelError
+                                     Right acc -> Right V1.Account {
+                                                      accIndex     = accountIndex
+                                                    , accAddresses = IxSet.nonMonotonicMap (toWalletAddress db hdAccountId)
+                                                                                           (Kernel.accountAddresses db hdAccountId)
+                                                    , accAmount    = V1 accountAvailableBalance
+                                                    , accName      = acc ^. HD.hdAccountName . to HD.getAccountName
+                                                    , accWalletId  = V1.WalletId wId
+                                                    }
             , _pwlUpdateAccount  = error "Not implemented!"
             , _pwlDeleteAccount  = error "Not implemented!"
 
@@ -307,3 +332,17 @@ setupPayment grouping regulation payment = do
                  <$> (pmtDestinations payment)
 
     return (opts , accountId , payees)
+
+
+toWalletAddress :: Kernel.DB
+                -> HD.HdAccountId
+                -> HD.HdAddress
+                -> V1.WalletAddress
+toWalletAddress db hdAccountId hdAddress =
+    let cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
+    in case Kernel.lookupAddressMeta db hdAccountId cardanoAddress of
+           Nothing -> V1.WalletAddress (V1 cardanoAddress) False False
+           Just addressMeta ->
+               V1.WalletAddress (V1 cardanoAddress)
+                                (addressMeta ^. addressMetaIsUsed)
+                                (addressMeta ^. addressMetaIsChange)

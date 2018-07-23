@@ -94,7 +94,7 @@ instance Buildable WalletName where
     build (WalletName wName) = bprint build wName
 
 -- | Account name
-newtype AccountName = AccountName Text
+newtype AccountName = AccountName { getAccountName :: Text }
 
 instance Buildable AccountName where
     build (AccountName txt) = bprint build txt

@@ -5,7 +5,8 @@
 {-# LANGUAGE RankNTypes                 #-}
 
 module Cardano.Wallet.Kernel.Compat
-  ( runDBReadT
+  ( DBReadT(DBReadT, unDBReadT)
+  , runDBReadT
   , getCoreConfigurations
   ) where
 

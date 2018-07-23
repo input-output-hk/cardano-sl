@@ -73,7 +73,7 @@ library
                     , Cardano.WalletClient
   default-language: Haskell2010
 
-executable faucet
+executable cardano-faucet
   main-is: Main.hs
   hs-source-dirs:
       server

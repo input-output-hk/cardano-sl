@@ -1786,45 +1786,371 @@ In order for his $\frac{k}{2}$ pools to be successful,
 each of these needs to have higher potential than the honest stakeholder
 with the $\frac{k}{2}$-highest potential has. 
 If that honest player has commited stake $\tilde{\lambda}\leq\frac{1}{k}$ and has costs
-$\tilde{c}$ and if our malicious attacker is willing to lie and claim zero
-costs, this means
+$\tilde{c}$ and if our malicious attacker is willing to lie and claim
+lower "dumping" costs $c=r\cdot\tilde{c}$ (for $r\in[0,1)$),
+this means
 $$
 \begin{split}
-    P\left(\frac{2S}{k}, 0\right) > P(\tilde{\lambda}, \tilde{c})
+    P\left(\frac{2S}{k}, c\right) > P(\tilde{\lambda}, \tilde{c})
     &\Longleftrightarrow
-    \left(z_0+a_0\cdot\frac{2S}{k}\right)\cdot\frac{R}{1+a_0} > \left(z_0+a_0\cdot\tilde{\lambda}\right)\cdot\frac{R}{1+a_0}-\tilde{c} \\
+    \left(z_0+a_0\cdot\frac{2S}{k}\right)\cdot\frac{R}{1+a_0}-c > \left(z_0+a_0\cdot\tilde{\lambda}\right)\cdot\frac{R}{1+a_0}-\tilde{c} \\
     &\Longleftrightarrow
-    a_0\cdot\frac{2S}{k}\cdot\frac{R}{1+a_0} > a_0\cdot\tilde{\lambda}\cdot\frac{R}{1+a_0}-\tilde{c} \\
+    a_0\cdot\frac{2S}{k}\cdot\frac{R}{1+a_0}-c > a_0\cdot\tilde{\lambda}\cdot\frac{R}{1+a_0}-\tilde{c} \\
     &\Longleftrightarrow
-    a_0\cdot\left(\frac{2S}{k}-\tilde{\lambda}\right)\cdot\frac{R}{1+a_0} > -\tilde{c} \\
+    a_0\cdot\left(\frac{2S}{k}-\tilde{\lambda}\right)\cdot\frac{R}{1+a_0} > c-\tilde{c}=-(1-r)\cdot\tilde{c} \\
     &\stackrel{a_0>0}{\Longleftrightarrow}
-    \frac{2S}{k}-\tilde{\lambda} > -\frac{\tilde{c}\cdot(1+a_0)}{R\cdot a_0} =
-    \frac{\tilde{c}}{R}\cdot\left(1 + \frac{1}{a_0}\right) \\
+    \frac{2S}{k}-\tilde{\lambda} > -\frac{\tilde{c}\cdot(1-r)\cdot(1+a_0)}{R\cdot a_0} =
+    -\frac{\tilde{c}}{R}\cdot(1-r)\cdot\left(1 + \frac{1}{a_0}\right) \\
     &\Longleftrightarrow
-    S > \frac{k}{2}\cdot\left[\tilde{\lambda}-\frac{\tilde{c}}{R}\cdot\left(1+\frac{1}{a_0}\right)\right] \\
+    S > \frac{k}{2}\cdot\left[\tilde{\lambda}-\frac{\tilde{c}}{R}\cdot(1-r)\cdot\left(1+\frac{1}{a_0}\right)\right] \\
 \end{split}
 $$
 
-So for example, for $k=100$, $\tilde{\lambda}=0.01$, $\tilde{c}=0.001$ and $R=1$, the attacker would need to
-create 50 pools, and his stake $S$ would need to satisfy
-$$
-    S 
-    > 50\cdot\left[0.01-0.001\cdot\left(1+\frac{1}{a_0}\right)\right]
-    = 0.5 - 0.05\cdot\left(1+\frac{1}{a_0}\right)\\
-$$
+In the following tables, we can see how the choice of $a_0$ influences the
+minimal stake $S$ needed for a successful attack for various values of
+$\tilde{\lambda}$, $\tilde{c}$ and $r$:
 
-In the following table, we can see how the choice of $a_0$ influences the
-minimal stake $S$ needed for a successful attack in this example.
+\begin{minipage}[t]{\textwidth}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.01$, $\tilde{c}=0.001$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.010 & 0.0000 \\
+             0.020 & 0.2450 \\
+             0.030 & 0.3283 \\
+             0.040 & 0.3700 \\
+             0.050 & 0.3950 \\
+             0.060 & 0.4117 \\
+             0.070 & 0.4236 \\
+             0.080 & 0.4325 \\
+             0.090 & 0.4394 \\
+             0.100 & 0.4450 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.01$, $\tilde{c}=0.005$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.050 & 0.0000 \\
+             0.100 & 0.2250 \\
+             0.150 & 0.3083 \\
+             0.200 & 0.3500 \\
+             0.250 & 0.3750 \\
+             0.300 & 0.3917 \\
+             0.350 & 0.4036 \\
+             0.400 & 0.4125 \\
+             0.450 & 0.4194 \\
+             0.500 & 0.4250 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.01$, $\tilde{c}=0.01$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.050 & 0.0000 \\
+             0.100 & 0.0000 \\
+             0.150 & 0.1167 \\
+             0.200 & 0.2000 \\
+             0.250 & 0.2500 \\
+             0.300 & 0.2833 \\
+             0.350 & 0.3071 \\
+             0.400 & 0.3250 \\
+             0.450 & 0.3389 \\
+             0.500 & 0.3500 \\
+        \end{tabular}
+    \end{minipage}
+\end{minipage}
 
-\begin{tabular}[t]{rr}
-    $a_0$ & $S$ \\
-    \hline
-    0.115 & 0.0152 \\
-    0.150 & 0.1167 \\
-    0.200 & 0.2000 \\
-    0.250 & 0.2500 \\
-    0.300 & 0.2833 \\
-\end{tabular}
+\begin{minipage}[t]{\textwidth}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.005$, $\tilde{c}=0.001$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.010 & 0.0000 \\
+             0.020 & 0.0000 \\
+             0.030 & 0.0783 \\
+             0.040 & 0.1200 \\
+             0.050 & 0.1450 \\
+             0.060 & 0.1617 \\
+             0.070 & 0.1736 \\
+             0.080 & 0.1825 \\
+             0.090 & 0.1894 \\
+             0.100 & 0.1950 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.005$, $\tilde{c}=0.005$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.050 & 0.0000 \\
+             0.100 & 0.0000 \\
+             0.150 & 0.0583 \\
+             0.200 & 0.1000 \\
+             0.250 & 0.1250 \\
+             0.300 & 0.1417 \\
+             0.350 & 0.1536 \\
+             0.400 & 0.1625 \\
+             0.450 & 0.1694 \\
+             0.500 & 0.1750 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.005$, $\tilde{c}=0.01$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.100 & 0.0000 \\
+             0.200 & 0.0000 \\
+             0.300 & 0.0333 \\
+             0.400 & 0.0750 \\
+             0.500 & 0.1000 \\
+             0.600 & 0.1167 \\
+             0.700 & 0.1286 \\
+             0.800 & 0.1375 \\
+             0.900 & 0.1444 \\
+             1.000 & 0.1500 \\
+        \end{tabular}
+    \end{minipage}
+\end{minipage}
+
+\begin{minipage}[t]{\textwidth}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.001$, $\tilde{c}=0.001$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.100 & 0.0000 \\
+             0.200 & 0.0200 \\
+             0.300 & 0.0283 \\
+             0.400 & 0.0325 \\
+             0.500 & 0.0350 \\
+             0.600 & 0.0367 \\
+             0.700 & 0.0379 \\
+             0.800 & 0.0388 \\
+             0.900 & 0.0394 \\
+             1.000 & 0.0400 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.001$, $\tilde{c}=0.005$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.500 & 0.0000 \\
+             1.000 & 0.0000 \\
+             1.500 & 0.0083 \\
+             2.000 & 0.0125 \\
+             2.500 & 0.0150 \\
+             3.000 & 0.0167 \\
+             3.500 & 0.0179 \\
+             4.000 & 0.0188 \\
+             4.500 & 0.0194 \\
+             5.000 & 0.0200 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.001$, $\tilde{c}=0.01$, $r=0.9$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.100 & 0.0000 \\
+             0.200 & 0.0000 \\
+             0.300 & 0.0000 \\
+             0.400 & 0.0000 \\
+             0.500 & 0.0000 \\
+             0.600 & 0.0000 \\
+             0.700 & 0.0000 \\
+             0.800 & 0.0000 \\
+             0.900 & 0.0000 \\
+             1.000 & 0.0000 \\
+        \end{tabular}
+    \end{minipage}
+\end{minipage}
+
+\begin{minipage}[t]{\textwidth}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.01$, $\tilde{c}=0.001$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.050 & 0.0000 \\
+             0.100 & 0.2250 \\
+             0.150 & 0.3083 \\
+             0.200 & 0.3500 \\
+             0.250 & 0.3750 \\
+             0.300 & 0.3917 \\
+             0.350 & 0.4036 \\
+             0.400 & 0.4125 \\
+             0.450 & 0.4194 \\
+             0.500 & 0.4250 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.01$, $\tilde{c}=0.002$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.050 & 0.0000 \\
+             0.100 & 0.0000 \\
+             0.150 & 0.1167 \\
+             0.200 & 0.2000 \\
+             0.250 & 0.2500 \\
+             0.300 & 0.2833 \\
+             0.350 & 0.3071 \\
+             0.400 & 0.3250 \\
+             0.450 & 0.3389 \\
+             0.500 & 0.3500 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.01$, $\tilde{c}=0.003$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.100 & 0.0000 \\
+             0.200 & 0.0500 \\
+             0.300 & 0.1750 \\
+             0.400 & 0.2375 \\
+             0.500 & 0.2750 \\
+             0.600 & 0.3000 \\
+             0.700 & 0.3179 \\
+             0.800 & 0.3313 \\
+             0.900 & 0.3417 \\
+             1.000 & 0.3500 \\
+        \end{tabular}
+    \end{minipage}
+\end{minipage}
+
+\begin{minipage}[t]{\textwidth}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.005$, $\tilde{c}=0.001$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.050 & 0.0000 \\
+             0.100 & 0.0000 \\
+             0.150 & 0.0583 \\
+             0.200 & 0.1000 \\
+             0.250 & 0.1250 \\
+             0.300 & 0.1417 \\
+             0.350 & 0.1536 \\
+             0.400 & 0.1625 \\
+             0.450 & 0.1694 \\
+             0.500 & 0.1750 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.005$, $\tilde{c}=0.002$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.100 & 0.0000 \\
+             0.200 & 0.0000 \\
+             0.300 & 0.0333 \\
+             0.400 & 0.0750 \\
+             0.500 & 0.1000 \\
+             0.600 & 0.1167 \\
+             0.700 & 0.1286 \\
+             0.800 & 0.1375 \\
+             0.900 & 0.1444 \\
+             1.000 & 0.1500 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.005$, $\tilde{c}=0.003$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.200 & 0.0000 \\
+             0.400 & 0.0000 \\
+             0.600 & 0.0500 \\
+             0.800 & 0.0812 \\
+             1.000 & 0.1000 \\
+             1.200 & 0.1125 \\
+             1.400 & 0.1214 \\
+             1.600 & 0.1281 \\
+             1.800 & 0.1333 \\
+             2.000 & 0.1375 \\
+        \end{tabular}
+    \end{minipage}
+\end{minipage}
+
+\begin{minipage}[t]{\textwidth}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.001$, $\tilde{c}=0.001$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             0.500 & 0.0000 \\
+             1.000 & 0.0000 \\
+             1.500 & 0.0083 \\
+             2.000 & 0.0125 \\
+             2.500 & 0.0150 \\
+             3.000 & 0.0167 \\
+             3.500 & 0.0179 \\
+             4.000 & 0.0188 \\
+             4.500 & 0.0194 \\
+             5.000 & 0.0200 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.001$, $\tilde{c}=0.002$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             5.000 & 0.0000 \\
+            10.000 & 0.0000 \\
+            15.000 & 0.0000 \\
+            20.000 & 0.0000 \\
+            25.000 & 0.0000 \\
+            30.000 & 0.0000 \\
+            35.000 & 0.0000 \\
+            40.000 & 0.0000 \\
+            45.000 & 0.0000 \\
+            50.000 & 0.0000 \\
+        \end{tabular}
+    \end{minipage}
+    \begin{minipage}[t]{0.32\textwidth}
+        \footnotesize
+        \begin{flushleft}$\tilde{\lambda}=0.001$, $\tilde{c}=0.003$, $r=0.5$\end{flushleft}
+        \begin{tabular}[t]{rr}
+            $a_0$ & $S$ \\
+            \hline
+             5.000 & 0.0000 \\
+            10.000 & 0.0000 \\
+            15.000 & 0.0000 \\
+            20.000 & 0.0000 \\
+            25.000 & 0.0000 \\
+            30.000 & 0.0000 \\
+            35.000 & 0.0000 \\
+            40.000 & 0.0000 \\
+            45.000 & 0.0000 \\
+            50.000 & 0.0000 \\
+        \end{tabular}
+    \end{minipage}
+\end{minipage}
 
 ![Effect of different choices for $a_0$\label{figrewards}](rewards.png)
 

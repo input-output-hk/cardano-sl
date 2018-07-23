@@ -53,7 +53,7 @@ instance (HasConfiguration, MonadThrow (DBReadT m), MonadRealDB NodeDBs (ReaderT
 --
 -- This is also a monad morphism from @'DBReadT' m@ to @m@.
 withMonadDBRead
-  :: (MonadCatch m, MonadIO m, MonadUnliftIO m)
+  :: (MonadCatch m, MonadUnliftIO m)
   => CoreConfiguration
   -> Maybe GeneratedSecrets
   -> GenesisData

@@ -15,7 +15,8 @@ import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAddressError (..), PassiveWalletLayer (..))
+                     CreateAddressError (..), CreateWalletError,
+                     PassiveWalletLayer (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -120,7 +121,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 pwlCreateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => NewWallet
-    -> m Wallet
+    -> m (Either CreateWalletError Wallet)
 pwlCreateWallet NewWallet{..} = do
 
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
@@ -137,7 +138,8 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    w <- maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    return $ Right w
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet

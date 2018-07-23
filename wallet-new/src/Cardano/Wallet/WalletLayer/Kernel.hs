@@ -8,10 +8,12 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
+import           Control.Lens (to)
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Maybe (fromJust)
 import           Data.Time.Units (Second)
+import           Formatting (build, sformat)
 import           System.Wlog (Severity (Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
@@ -19,9 +21,10 @@ import           Pos.Block.Types (Blund, Undo (..))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
@@ -30,23 +33,22 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..),
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAddressError (..), EstimateFeesError (..),
-                     NewPaymentError (..), PassiveWalletLayer (..),
-                     WalletLayerError (..))
+                     CreateAddressError (..), CreateWalletError (..),
+                     EstimateFeesError (..), NewPaymentError (..),
+                     PassiveWalletLayer (..), WalletLayerError (..))
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
                      InputGrouping, newOptions)
 
-import           Pos.Core (Address, Coin, decodeTextAddress)
+import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
+import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (safeDeterministicKeyGen)
-import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
-import qualified Data.Map.Strict as Map
+import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (Payment (..),
@@ -75,15 +77,17 @@ bracketPassiveWallet logFunction keystore f =
               $ \invoke -> do
                   -- TODO (temporary): build a sample wallet from a backup phrase
                   _ <- liftIO $ do
-                    let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
-                    Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel esk Map.empty
+                    Kernel.createHdWallet w
+                                          (def @(BIP39.Mnemonic 12))
+                                          emptyPassphrase
+                                          assuranceLevel
+                                          walletName
 
                   f (passiveWalletLayer w invoke) w
 
   where
     -- TODO consider defaults
     walletName       = HD.WalletName "(new wallet)"
-    spendingPassword = HD.NoSpendingPassword
     assuranceLevel   = HD.AssuranceLevelNormal
 
     -- | TODO(ks): Currently not implemented!
@@ -92,7 +96,45 @@ bracketPassiveWallet logFunction keystore f =
                        -> PassiveWalletLayer n
     passiveWalletLayer wallet invoke =
         PassiveWalletLayer
-            { _pwlCreateWallet   = error "Not implemented!"
+            { _pwlCreateWallet   =
+                \(V1.NewWallet (V1 mnemonic) mbSpendingPassword v1AssuranceLevel v1WalletName operation) -> do
+                    liftIO $ limitExecutionTimeTo (30 :: Second) CreateWalletTimeLimitReached $ do
+                        case operation of
+                             V1.RestoreWallet -> error "Not implemented, see [CBR-243]."
+                             V1.CreateWallet  -> do
+                                 let spendingPassword = maybe emptyPassphrase coerce mbSpendingPassword
+                                 let hdAssuranceLevel = case v1AssuranceLevel of
+                                       V1.NormalAssurance -> HD.AssuranceLevelNormal
+                                       V1.StrictAssurance -> HD.AssuranceLevelStrict
+
+                                 res <- liftIO $ Kernel.createHdWallet wallet
+                                                                       mnemonic
+                                                                       spendingPassword
+                                                                       hdAssuranceLevel
+                                                                       (HD.WalletName v1WalletName)
+                                 case res of
+                                      Left kernelError ->
+                                          return (Left $ CreateWalletError kernelError)
+                                      Right hdRoot -> do
+                                          let (hasSpendingPassword, mbLastUpdate) =
+                                                  case hdRoot ^. HD.hdRootHasPassword of
+                                                       HD.NoSpendingPassword -> (False, Nothing)
+                                                       HD.HasSpendingPassword lastUpdate -> (True, Just (lastUpdate ^. fromDb))
+                                          now <- liftIO getCurrentTimestamp
+                                          let lastUpdate = fromMaybe now mbLastUpdate
+                                          let createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
+                                          let walletId = hdRoot ^. HD.hdRootId . to (sformat build . _fromDb . HD.getHdRootId)
+                                          return $ Right V1.Wallet {
+                                              walId                         = (V1.WalletId walletId)
+                                            , walName                       = v1WalletName
+                                            , walBalance                    = V1 (mkCoin 0)
+                                            , walHasSpendingPassword        = hasSpendingPassword
+                                            , walSpendingPasswordLastUpdate = V1 lastUpdate
+                                            , walCreatedAt                  = V1 createdAt
+                                            , walAssuranceLevel             = v1AssuranceLevel
+                                            , walSyncState                  = V1.Synced
+                                          }
+
             , _pwlGetWalletIds   = error "Not implemented!"
             , _pwlGetWallet      = error "Not implemented!"
             , _pwlUpdateWallet   = error "Not implemented!"

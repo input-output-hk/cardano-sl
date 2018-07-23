@@ -44,6 +44,7 @@ library
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.Handlers.Addresses
                        Cardano.Wallet.API.V1.Handlers.Transactions
+                       Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Info
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
@@ -65,6 +66,7 @@ library
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.Addresses
+                       Cardano.Wallet.Kernel.BIP39
                        Cardano.Wallet.Kernel.CoinSelection
                        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                        Cardano.Wallet.Kernel.CoinSelection.Generic
@@ -103,6 +105,7 @@ library
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Kernel.Util
                        Cardano.Wallet.Kernel.Util.StrictStateT
+                       Cardano.Wallet.Kernel.Wallets
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
@@ -383,6 +386,7 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.CreateAddress
+                      Test.Spec.CreateWallet
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models
@@ -447,6 +451,7 @@ test-suite wallet-unit-tests
   build-depends:      acid-state
                     , base
                     , bytestring
+                    , cardano-crypto
                     , cardano-sl
                     , cardano-sl-block
                     , cardano-sl-client

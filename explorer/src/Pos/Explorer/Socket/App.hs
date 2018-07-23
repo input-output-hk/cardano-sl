@@ -40,7 +40,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerName,
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core (addressF, siEpoch)
-import           Pos.Core.Mockable (withAsync)
+import           Pos.Core.Conc (withAsync)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 

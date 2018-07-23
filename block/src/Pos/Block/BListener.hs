@@ -16,7 +16,6 @@ import           Control.Monad.Trans (MonadTrans (..))
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Mockable (SharedAtomicT)
 import           Pos.DB.BatchOp (SomeBatchOp)
 
 class Monad m => MonadBListener m where
@@ -29,8 +28,7 @@ class Monad m => MonadBListener m where
     onRollbackBlocks :: NewestFirst NE Blund -> m SomeBatchOp
 
 instance {-# OVERLAPPABLE #-}
-    ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)
-    , SharedAtomicT m ~ SharedAtomicT (t m) ) =>
+    ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)) =>
         MonadBListener (t m)
   where
     onApplyBlocks = lift . onApplyBlocks

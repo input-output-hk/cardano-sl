@@ -43,7 +43,6 @@ import           Pos.Core.Block (Block, MainBlock, mainBlockSlot,
                      mainBlockTxPayload)
 import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (CurrentTime, Mockable)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
@@ -208,7 +207,6 @@ type TxHistoryEnv ctx m =
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-    , Mockable CurrentTime m
     , HasNodeType ctx
     , CanJsonLog m
     )

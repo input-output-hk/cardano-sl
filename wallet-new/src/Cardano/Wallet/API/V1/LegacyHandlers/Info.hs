@@ -10,7 +10,6 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 
 import           Ntp.Client (NtpStatus)
-import           Pos.Core.Mockable (MonadMockable)
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
@@ -33,7 +32,7 @@ handlers = getInfo
 -- etc.
 getInfo :: ( MonadIO m
            , WithLogger m
-           , MonadMockable m
+           , MonadMask m
            , MonadBlockchainInfo m
            )
         => Diffusion MonadV1

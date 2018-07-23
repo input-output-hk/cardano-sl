@@ -19,8 +19,8 @@ module Pos.Infra.Slotting.Impl.Simple
 
 import           Universum
 
+import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasProtocolConstants)
-import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
 import           Pos.Core.Slotting (MonadSlotsData, SlotId (..), Timestamp (..),
                      getCurrentNextEpochIndexM, unflattenSlotId,
                      waitCurrentEpochEqualsM)
@@ -33,8 +33,7 @@ import           Pos.Util (HasLens (..))
 ----------------------------------------------------------------------------
 
 type SimpleSlottingMode ctx m
-    = ( Mockable CurrentTime m
-      , MonadSlotsData ctx m
+    = ( MonadSlotsData ctx m
       , MonadIO m
       )
 

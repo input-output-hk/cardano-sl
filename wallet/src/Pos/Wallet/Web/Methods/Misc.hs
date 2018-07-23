@@ -40,14 +40,14 @@ import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..),
                      OctetStream)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Ntp.Client (NtpStatus (..))
 
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
-import           Pos.Core.Mockable (Delay, LowLevelAsync, Mockables, async,
-                     delay)
+import           Pos.Core.Conc (async, delay)
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
@@ -141,10 +141,10 @@ applyUpdate = askWalletDB >>= removeNextUpdate
 -- needed in order for http request to succeed.
 requestShutdown ::
        ( MonadIO m
+       , MonadUnliftIO m
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
-       , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
 requestShutdown = NoContent <$ async (delay (1 :: Second) >> triggerShutdown)

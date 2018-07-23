@@ -24,7 +24,6 @@ import           Servant.Server (Handler, hoistServer)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.Mockable (runProduction)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
@@ -32,7 +31,6 @@ import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Mockable ()
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener,
@@ -124,7 +122,7 @@ convertHandler rctx handler =
     in liftIO ioAction `E.catches` excHandlers
   where
     realRunner :: forall t . RealModeE t -> IO t
-    realRunner act = runProduction $ Mtl.runReaderT act rctx
+    realRunner act = Mtl.runReaderT act rctx
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError

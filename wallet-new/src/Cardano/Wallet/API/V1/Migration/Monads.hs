@@ -13,7 +13,6 @@ import           Universum
 import qualified Control.Monad.Catch as Catch
 import           Servant
 
-import           Pos.Core.Mockable (runProduction)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
@@ -32,6 +31,6 @@ lowerV1Monad ctx handler =
   where
 
     hoistHandler :: forall a . MonadV1 a -> IO a
-    hoistHandler = runProduction . flip runReaderT ctx
+    hoistHandler = flip runReaderT ctx
 
     excHandlers = [Catch.Handler throwError]

@@ -17,7 +17,6 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
@@ -39,9 +38,9 @@ actionWithoutWallet
     => ProtocolMagic
     -> SscParams
     -> NodeParams
-    -> Production ()
+    -> IO ()
 actionWithoutWallet pm sscParams nodeParams =
-    Production $ runNodeReal pm nodeParams sscParams [updateTriggerWorker]
+    runNodeReal pm nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations
@@ -50,7 +49,7 @@ action
     => SimpleNodeArgs
     -> NtpConfiguration
     -> ProtocolMagic
-    -> Production ()
+    -> IO ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
     CLI.printInfoOnStart cArgs ntpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
@@ -67,5 +66,5 @@ main = withCompileInfo $ do
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
-    loggerBracket loggingParams . logException "node" . runProduction $
+    loggerBracket loggingParams . logException "node" $
         withConfigurations blPath conf $ action args

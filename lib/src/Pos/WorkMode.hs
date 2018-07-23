@@ -27,7 +27,6 @@ import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (Production)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
@@ -77,7 +76,7 @@ data RealModeContext ext = RealModeContext
 
 type EmptyMempoolExt = ()
 
-type RealMode ext = Mtl.ReaderT (RealModeContext ext) Production
+type RealMode ext = Mtl.ReaderT (RealModeContext ext) IO
 
 makeLensesWith postfixLFields ''RealModeContext
 

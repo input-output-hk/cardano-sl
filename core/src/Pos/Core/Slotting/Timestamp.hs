@@ -22,7 +22,7 @@ import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
 import qualified Formatting.Buildable as Buildable
 import           Numeric.Lens (dividing)
-import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
+import           Pos.Core.Conc (currentTime)
 import qualified Prelude
 
 import           Pos.Binary.Class (Bi (..))
@@ -84,7 +84,7 @@ parseTimestamp t = utcTimeParser <|> timePosixParser
         <$> readMaybe @Double str
 
 -- Get the current time as a timestamp
-getCurrentTimestamp :: Mockable CurrentTime m => m Timestamp
+getCurrentTimestamp :: MonadIO m => m Timestamp
 getCurrentTimestamp = Timestamp <$> currentTime
 
 diffTimestamp :: Timestamp -> Timestamp -> Microsecond

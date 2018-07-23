@@ -48,11 +48,6 @@ import           System.Wlog (CanLog, HasLoggerName (..), WithLogger,
 
 import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.Event (JLTimedEvent, timedIO, toEvent)
-import           Pos.Core.Mockable.Channel (ChannelT)
-import           Pos.Core.Mockable.Concurrent (Promise, ThreadId)
-import           Pos.Core.Mockable.Metrics (Counter, Distribution, Gauge)
-import           Pos.Core.Mockable.SharedAtomic (SharedAtomicT)
-import           Pos.Core.Mockable.SharedExclusive (SharedExclusiveT)
 
 data JsonLogConfig
     = JsonLogDisabled
@@ -79,33 +74,6 @@ instance WithLogger m => HasLoggerName (JsonLogT m) where
     askLoggerName = lift askLoggerName
 
     modifyLoggerName f = hoist (modifyLoggerName f)
-
-
-
-
-
-type instance Gauge (JsonLogT m) = Gauge m
-type instance Counter (JsonLogT m) = Counter m
-type instance Distribution (JsonLogT m) = Distribution m
-type instance ThreadId (JsonLogT m) = ThreadId m
-type instance Promise (JsonLogT m) = Promise m
-type instance SharedAtomicT (JsonLogT m) = SharedAtomicT m
-type instance SharedExclusiveT (JsonLogT m) = SharedExclusiveT m
-type instance ChannelT (JsonLogT m) = ChannelT m
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

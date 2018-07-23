@@ -23,8 +23,8 @@ import           Pos.Configuration (HasNodeConfiguration,
 import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux,
                      difficultyL)
 import           Pos.Core.Chrono (getOldestFirst)
+import           Pos.Core.Conc (delay, forConcurrently)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Mockable (delay, forConcurrently)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)

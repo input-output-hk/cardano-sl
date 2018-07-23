@@ -46,7 +46,6 @@ import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Mockable (Production (runProduction))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.GState as GS
@@ -228,8 +227,7 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs txpData handler =
     liftIO
-        (runProduction $
-         Mtl.runReaderT
+        (Mtl.runReaderT
              handler
              (WebModeContext nodeDBs txpData nc)) `E.catches`
     excHandlers

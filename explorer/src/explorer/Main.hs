@@ -22,7 +22,6 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (epochSlots)
-import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
@@ -52,11 +51,11 @@ main :: IO ()
 main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
-    loggerBracket loggingParams . logException "node" . runProduction $ do
+    loggerBracket loggingParams . logException "node" $ do
         logInfo "[Attention] Software is built with explorer part"
         action args
 
-action :: ExplorerNodeArgs -> Production ()
+action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withConfigurations blPath conf $ \ntpConfig pm ->
     withCompileInfo $ do
@@ -76,7 +75,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         bracketNodeResources currentParams sscParams
             (explorerTxpGlobalSettings pm)
             (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
-                Production (runExplorerRealMode pm nr (runNode pm nr plugins))
+                runExplorerRealMode pm nr (runNode pm nr plugins)
   where
 
     blPath :: Maybe AssetLockPath

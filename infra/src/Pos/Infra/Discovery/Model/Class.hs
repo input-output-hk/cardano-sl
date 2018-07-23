@@ -10,8 +10,7 @@ import           Data.Proxy (Proxy)
 import           Data.Set (Set)
 import qualified Data.Set as Set (toList)
 
-import           Pos.Core.Mockable (Mockable)
-import           Pos.Core.Mockable.Concurrent (Concurrently, forConcurrently)
+import           Pos.Core.Conc (forConcurrently)
 import           Pos.Infra.Communication.Protocol (NodeId)
 
 -- | Provides a set of known peers.
@@ -31,7 +30,6 @@ withPeers which k = fmap k (peers which)
 --   The target monad must be capable of concurrency.
 withPeersConcurrently
     :: ( Discovery which m
-       , Mockable Concurrently m
        )
     => Proxy which
     -> (Set NodeId -> m (NodeId -> m t))

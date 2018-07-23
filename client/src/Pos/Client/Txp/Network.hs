@@ -26,7 +26,6 @@ import           Pos.Communication.Message ()
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
                      unsafeAddCoin)
-import           Pos.Core.Mockable (MonadMockable)
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..), TxOut (..),
                      TxOutAux (..), txaF)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
@@ -41,7 +40,6 @@ type TxMode m
     = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory m
-      , MonadMockable m
       , MonadMask m
       , MonadThrow m
       , TxCreateMode m

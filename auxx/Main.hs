@@ -14,7 +14,6 @@ import           System.Wlog (LoggerName, logInfo)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (ConfigurationError, epochSlots)
-import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -43,12 +42,12 @@ loggerName = "auxx"
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
-correctNodeParams :: AuxxOptions -> NodeParams -> Production (NodeParams, Bool)
+correctNodeParams :: AuxxOptions -> NodeParams -> IO (NodeParams, Bool)
 correctNodeParams AuxxOptions {..} np = do
     (dbPath, isTempDbUsed) <- case npDbPathM np of
         Nothing -> do
-            tempDir <- liftIO $ Temp.getCanonicalTemporaryDirectory
-            dbPath <- liftIO $ Temp.createTempDirectory tempDir "nodedb"
+            tempDir <- Temp.getCanonicalTemporaryDirectory
+            dbPath <- Temp.createTempDirectory tempDir "nodedb"
             logInfo $ sformat ("Temporary db created: "%shown) dbPath
             return (dbPath, True)
         Just dbPath -> do
@@ -81,7 +80,7 @@ runNodeWithSinglePlugin ::
 runNodeWithSinglePlugin pm nr plugin =
     runNode pm nr [plugin]
 
-action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
+action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> IO ()
 action opts@AuxxOptions {..} command = do
     let pa = either printAction (const putText) command
     case aoStartMode of
@@ -95,10 +94,10 @@ action opts@AuxxOptions {..} command = do
         _   -> withConfigurations Nothing conf (runWithConfig pa)
 
   where
-    runWithoutNode :: PrintAction Production -> Production ()
+    runWithoutNode :: PrintAction IO -> IO ()
     runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing opts Nothing command
 
-    runWithConfig :: HasConfigurations => PrintAction Production -> NtpConfiguration -> ProtocolMagic -> Production ()
+    runWithConfig :: HasConfigurations => PrintAction IO -> NtpConfiguration -> ProtocolMagic -> IO ()
     runWithConfig printAction ntpConfig pm = do
         printAction "Mode: with-config"
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
@@ -117,7 +116,7 @@ action opts@AuxxOptions {..} command = do
                               (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
-        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \nr -> Production $
+        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \nr ->
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
                            then runNodeWithSinglePlugin pm nr
@@ -146,7 +145,7 @@ main = withCompileInfo $ do
         loggingParams = disableConsoleLog $
             CLI.loggingParams loggerName (aoCommonNodeArgs opts)
     loggerBracket loggingParams . logException "auxx" $ do
-        let runAction a = runProduction $ action opts a
+        let runAction a = action opts a
         case aoAction opts of
             Repl    -> withAuxxRepl $ \c -> runAction (Left c)
             Cmd cmd -> runAction (Right cmd)

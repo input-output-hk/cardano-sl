@@ -18,7 +18,6 @@ import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block
@@ -44,7 +43,7 @@ import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..),
 -------------------------------------------------------------------------------}
 
 data WalletContext = WalletContext {
-      wcWallet          :: !(PassiveWalletLayer Production)
+      wcWallet          :: !(PassiveWalletLayer IO)
     , wcRealModeContext :: !(RealModeContext EmptyMempoolExt)
     }
 
@@ -52,11 +51,11 @@ data WalletContext = WalletContext {
 --
 -- NOTE: I'd prefer to @newtype@ this but it's just too painful (too many
 -- constraints cannot be derived, there are a /lot/ of them).
-type WalletMode = ReaderT WalletContext Production
+type WalletMode = ReaderT WalletContext IO
 
 makeLensesWith postfixLFields ''WalletContext
 
-getWallet :: WalletMode (PassiveWalletLayer Production)
+getWallet :: WalletMode (PassiveWalletLayer IO)
 getWallet = view wcWallet_L
 
 {-------------------------------------------------------------------------------
@@ -67,7 +66,7 @@ getWallet = view wcWallet_L
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletApplyBlocks :: PassiveWalletLayer Production
+walletApplyBlocks :: PassiveWalletLayer IO
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
@@ -80,7 +79,7 @@ walletApplyBlocks _w _bs = do
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletRollbackBlocks :: PassiveWalletLayer Production
+walletRollbackBlocks :: PassiveWalletLayer IO
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
 walletRollbackBlocks _w _bs = do
@@ -100,14 +99,14 @@ instance MonadBListener WalletMode where
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               => ProtocolMagic
               -> NodeResources ()
-              -> PassiveWalletLayer Production
+              -> PassiveWalletLayer IO
               -> (Diffusion WalletMode -> WalletMode a)
-              -> Production a
+              -> IO a
 runWalletMode pm nr wallet action =
-    Production $ runRealMode pm nr $ \diffusion ->
+    runRealMode pm nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
-walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
+walletModeToRealMode :: forall a. PassiveWalletLayer IO -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
     rmc <- ask
     let env = WalletContext {

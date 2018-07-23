@@ -16,6 +16,7 @@ import           Formatting (build, ords, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
+import           UnliftIO (MonadUnliftIO)
 
 import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
@@ -27,8 +28,8 @@ import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
                      lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
                      slotSecurityParam, vssMaxTTL)
+import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
-import           Pos.Core.Mockable (MonadMockable, currentTime, delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
@@ -77,9 +78,9 @@ type SscMode ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
+      , MonadUnliftIO m
       , Rand.MonadRandom m
       , MonadMask m
-      , MonadMockable m
       , MonadSlots ctx m
       , MonadGState m
       , MonadDB m

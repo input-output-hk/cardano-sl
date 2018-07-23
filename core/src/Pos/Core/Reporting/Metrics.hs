@@ -21,7 +21,7 @@ import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Core.Mockable (CurrentTime, Mockable, currentTime)
+import           Pos.Core.Conc (currentTime)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
@@ -104,7 +104,6 @@ noReportMonitor converter debugFormat st =
 -- this value if it should be reported according to 'MetricMonitor'.
 recordValue ::
        ( MonadIO m
-       , Mockable CurrentTime m
        , WithLogger m
        )
     => MetricMonitor value

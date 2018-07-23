@@ -26,7 +26,6 @@ import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
-import           Pos.Core.Mockable (MonadMockable)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)
@@ -95,7 +94,6 @@ type WorkMode ctx m
 type MinWorkMode m
     = ( WithLogger m
       , CanJsonLog m
-      , MonadMockable m
       , MonadIO m
       , MonadUnliftIO m
       , HasConfiguration

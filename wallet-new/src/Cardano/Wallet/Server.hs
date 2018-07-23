@@ -15,7 +15,6 @@ import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
-import           Pos.Core.Mockable
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
@@ -24,7 +23,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 --
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
-walletServer :: ActiveWalletLayer Production
+walletServer :: ActiveWalletLayer IO
              -> Server WalletAPI
 walletServer w = v0Handler :<|> v1Handler
   where
@@ -36,7 +35,7 @@ walletServer w = v0Handler :<|> v1Handler
     v0Handler    = error "V0 API no longer supported"
     v1Handler    = V1.handlers w
 
-walletDevServer :: ActiveWalletLayer Production
+walletDevServer :: ActiveWalletLayer IO
              -> RunMode
              -> Server WalletDevAPI
 walletDevServer w runMode = devHandler :<|> walletHandler

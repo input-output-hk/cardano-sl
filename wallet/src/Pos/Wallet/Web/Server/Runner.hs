@@ -25,7 +25,6 @@ import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
-import           Pos.Core.Mockable (Production (..), runProduction)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -59,8 +58,8 @@ runWRealMode
     -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
-    -> Production a
-runWRealMode pm db conn syncRequests res action = Production $
+    -> IO a
+runWRealMode pm db conn syncRequests res action =
     runRealMode pm res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
@@ -104,7 +103,7 @@ convertHandler wwmc handler =
   where
 
     walletRunner :: forall a . WalletWebMode a -> IO a
-    walletRunner act = runProduction $
+    walletRunner act =
         Mtl.runReaderT act wwmc
 
     excHandlers = [E.Handler catchServant]

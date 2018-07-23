@@ -20,7 +20,7 @@ import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                      GenesisDelegation (..), GenesisWStakeholders (..),
                      addressHash, gdFtsSeed, genesisData)
-import           Pos.Core.Mockable (mapConcurrently)
+import           Pos.Core.Conc (mapConcurrently)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS

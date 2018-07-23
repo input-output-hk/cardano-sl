@@ -44,7 +44,6 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
                      makePubKeyAddress, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (Production)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -70,7 +69,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
-type AuxxMode = ReaderT AuxxContext Production
+type AuxxMode = ReaderT AuxxContext IO
 
 class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
 instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode

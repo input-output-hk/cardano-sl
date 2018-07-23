@@ -37,8 +37,8 @@ import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
+import           Pos.Core.Conc (forConcurrently)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (forConcurrently)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Crypto (ProtocolMagic, shortHashF)

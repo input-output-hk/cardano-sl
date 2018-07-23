@@ -32,7 +32,6 @@ import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants)
 import           Pos.Core.JsonLog (jsonLog)
-import           Pos.Core.Mockable.Production (Production (..))
 import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
@@ -104,7 +103,7 @@ runRealMode pm nr@NodeResources {..} act = runServer
          in elimRealMode pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
--- resources provided to eliminate the RealMode, yielding a Production (IO).
+-- resources provided to eliminate the RealMode, yielding an IO.
 elimRealMode
     :: forall t ext
      . HasCompileInfo
@@ -113,7 +112,7 @@ elimRealMode
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode pm NodeResources {..} diffusion action = runProduction $ do
+elimRealMode pm NodeResources {..} diffusion action = do
     Mtl.runReaderT action (rmc nrJsonLogConfig)
   where
     NodeContext {..} = nrContext

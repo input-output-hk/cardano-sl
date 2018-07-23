@@ -24,7 +24,7 @@ import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
                      isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
-import           Pos.Core.Mockable (delay)
+import           Pos.Core.Conc (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB

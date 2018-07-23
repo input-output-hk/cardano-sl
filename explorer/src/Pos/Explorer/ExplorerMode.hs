@@ -25,6 +25,7 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Slog (mkSlogGState)
 import           Pos.Core (SlotId, Timestamp (..), epochSlots)
+import           Pos.Core.Conc (currentTime)
 import           Pos.DB (MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
@@ -39,7 +40,6 @@ import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
                      TxpHolderTag, mkTxpLocalData)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.Mockable ()
 import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
@@ -49,7 +49,6 @@ import           Pos.Explorer.Socket.Holder (ConnectionsState)
 import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Mockable (Production, currentTime, runProduction)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -133,10 +132,10 @@ data ExplorerTestInitContext = ExplorerTestInitContext
 
 makeLensesWith postfixLFields ''ExplorerTestInitContext
 
-type ExplorerTestInitMode = ReaderT ExplorerTestInitContext Production
+type ExplorerTestInitMode = ReaderT ExplorerTestInitContext IO
 
 runTestInitMode :: ExplorerTestInitContext -> ExplorerTestInitMode a -> IO a
-runTestInitMode ctx = runProduction . usingReaderT ctx
+runTestInitMode ctx = usingReaderT ctx
 
 initExplorerTestContext
     :: (HasConfigurations, MonadIO m)

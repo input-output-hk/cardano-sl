@@ -66,9 +66,9 @@ import           Pos.Core (BlockVersionData, CoreConfiguration (..),
                      GenesisSpec (..), HasConfiguration, HasProtocolConstants,
                      SlotId, Timestamp (..), epochSlots, genesisSecretKeys,
                      withGenesisSpec)
+import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
-import           Pos.Core.Mockable (Production, currentTime, runProduction)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
@@ -197,10 +197,10 @@ data TestInitModeContext = TestInitModeContext
 
 makeLensesWith postfixLFields ''TestInitModeContext
 
-type TestInitMode = ReaderT TestInitModeContext Production
+type TestInitMode = ReaderT TestInitModeContext IO
 
 runTestInitMode :: TestInitModeContext -> TestInitMode a -> IO a
-runTestInitMode ctx = runProduction . flip runReaderT ctx
+runTestInitMode ctx = flip runReaderT ctx
 
 ----------------------------------------------------------------------------
 -- Main context

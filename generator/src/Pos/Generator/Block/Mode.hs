@@ -39,7 +39,6 @@ import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
                      HasPrimaryKey (..), SlotId (..), Timestamp,
                      epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
-import           Pos.Core.Mockable (MonadMockable, Promise)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Crypto (SecretKey)
@@ -79,8 +78,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , MonadMockable m
-       , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        , HasConfiguration
        , HasUpdateConfiguration
        , HasSscConfiguration

@@ -19,7 +19,6 @@ import           Pos.Block.Slog (HasSlogContext)
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
-import           Pos.Core.Mockable (Delay, Mockables, SharedAtomic)
 import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
@@ -58,7 +57,6 @@ type BlockWorkMode ctx m =
     ( BlockInstancesConstraint
 
     , Default (MempoolExt m)
-    , Mockables m [Delay, SharedAtomic]
 
     , LrcModeFull ctx m
     , MonadRecoveryInfo m

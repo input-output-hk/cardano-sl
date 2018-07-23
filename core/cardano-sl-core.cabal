@@ -57,21 +57,9 @@ library
                        Pos.Core.JsonLog.JsonLogT
                        Pos.Core.JsonLog.LogEvents
 
-                       -- Mockable (moved from networking in
-                       -- the `sinbin` shuffle). All modules
-                       -- must be exposed so that `networking`
-                       -- can import & re-export them.
-                       Pos.Core.Mockable
-                       Pos.Core.Mockable.Channel
-                       Pos.Core.Mockable.Class
-                       Pos.Core.Mockable.Concurrent
-                       Pos.Core.Mockable.CurrentTime
-                       Pos.Core.Mockable.Instances
-                       Pos.Core.Mockable.Monad
-                       Pos.Core.Mockable.Production
-                       Pos.Core.Mockable.SharedAtomic
-                       Pos.Core.Mockable.SharedExclusive
-                       Pos.Core.Mockable.Metrics
+                       -- Concurrency operations, previously
+                       -- in `Mockable`.
+                       Pos.Core.Conc
 
                        Pos.Core.Reporting
 
@@ -262,6 +250,7 @@ library
                      , transformers-base
                      , transformers-lift
                      , universum
+                     , unliftio
                      , unliftio-core
                      , unordered-containers
                      , vector

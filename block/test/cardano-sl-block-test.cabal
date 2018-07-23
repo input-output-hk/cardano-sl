@@ -25,7 +25,6 @@ library
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-db-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc-test
                      , cardano-sl-update-test

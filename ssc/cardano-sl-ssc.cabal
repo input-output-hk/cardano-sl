@@ -48,7 +48,6 @@ library
                      , aeson-options
                      , array
                      , base
-                     , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
@@ -58,7 +57,6 @@ library
                      , cryptonite
                      , data-default
                      , ether
-                     , exceptions
                      , formatting
                      , lens
                      , log-warper
@@ -69,8 +67,6 @@ library
                      , parsec
                      , reflection
                      , serokell-util
-                     , stm
-                     , tagged
                      , text
                      , formatting
                      , time-units

@@ -30,43 +30,27 @@ library
   build-depends:        aeson
                       , aeson-options
                       , base
-                      , bytestring
                       , cardano-sl-binary
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-delegation
-                      , cardano-sl-lrc
                       , cardano-sl-ssc
-                      , cardano-sl-txp
                       , cardano-sl-update
                       , cardano-sl-util
                       , cborg
-                      , conduit
-                      , containers
-                      , cryptonite
-                      , data-default
                       , deepseq
-                      , directory
                       , ekg-core
                       , ether
-                      , exceptions
-                      , filepath
                       , formatting
                       , lens
-                      , log-warper
                       , mtl
                       , reflection
-                      , rocksdb-haskell-ng
                       , safe-exceptions
                       , serokell-util
-                      , stm
                       , text
                       , formatting
                       , time-units
-                      , transformers
                       , universum
-                      , unliftio
-                      , unordered-containers
 
 
   default-extensions:   DeriveDataTypeable
@@ -123,7 +107,6 @@ test-suite test
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-db-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc-test
                      , cardano-sl-update-test
@@ -172,7 +155,6 @@ benchmark bench-block
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
-                     , cardano-sl-db-test
                      , cardano-sl-delegation-test
                      , cardano-sl-ssc-test
                      , cardano-sl-update-test

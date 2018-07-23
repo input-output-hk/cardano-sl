@@ -37,33 +37,24 @@ library
                      , aeson
                      , aeson-options
                      , base
-                     , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-lrc
                      , cardano-sl-util
-                     , conduit
-                     , containers
                      , data-default
                      , deepseq
                      , ether >= 0.5
-                     , exceptions
                      , formatting
                      , hashable
                      , lens
                      , log-warper
                      , mtl
                      , reflection
-                     , resourcet
-                     , rocksdb-haskell-ng
                      , serokell-util
-                     , stm
                      , tagged
                      , time-units
                      , transformers
                      , universum
-                     , unliftio
                      , unordered-containers
 
   default-language:    Haskell2010

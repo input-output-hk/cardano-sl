@@ -153,11 +153,10 @@ library
                      , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
+                     , stm
                      , tagged
                      , text
                      , time-units
-                     , stm
-                     , time
                      , transformers
                      , universum
                      , unliftio

@@ -30,26 +30,18 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-lrc
                      , cardano-sl-util
-                     , conduit
                      , ether
                      , formatting
                      , lens
-                     , log-warper
                      , lrucache
-                     , mmorph
                      , mtl
                      , reflection
-                     , resourcet
-                     , safe-exceptions
-                     , rocksdb-haskell-ng
                      , serokell-util
                      , formatting
                      , time
                      , transformers
                      , universum
-                     , unliftio
                      , unordered-containers
 
   default-extensions:  DeriveDataTypeable

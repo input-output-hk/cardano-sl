@@ -45,11 +45,8 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
-                     , conduit
                      , containers
                      , data-default
-                     , ekg-core
-                     , ether
                      , exceptions
                      , fmt >= 0.4
                      , formatting
@@ -58,22 +55,17 @@ library
                      , lens
                      , log-warper
                      , memory
-                     , mmorph
                      , mtl
                      , neat-interpolation
                      , plutus-prototype
-                     , resourcet
-                     , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
-                     , stm
                      , reflection
                      , template-haskell
                      , text
                      , formatting
                      , transformers
                      , universum
-                     , unliftio
                      , unordered-containers
 
   default-language:    Haskell2010

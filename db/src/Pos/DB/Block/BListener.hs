@@ -4,7 +4,7 @@
 -- | Blockchain listener.
 -- Callbacks on application and rollback.
 
-module Pos.Block.BListener
+module Pos.DB.Block.BListener
        ( MonadBListener (..)
        , onApplyBlocksStub
        , onRollbackBlocksStub

@@ -31,7 +31,6 @@ import           Data.Default (Default)
 import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
@@ -44,8 +43,8 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
-import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
-                     dbPutSerBlundsSumDefault)
+import           Pos.DB.Block (MonadBListener (..), dbGetSerBlockSumDefault,
+                     dbGetSerUndoSumDefault, dbPutSerBlundsSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Delegation (mkDelegationVar)

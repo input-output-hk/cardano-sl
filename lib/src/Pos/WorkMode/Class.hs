@@ -17,7 +17,6 @@ import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
 import           Pos.Block.Types (MonadLastKnownHeader)
@@ -27,6 +26,7 @@ import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
+import           Pos.DB.Block (MonadBListener)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Rocks (MonadRealDB)

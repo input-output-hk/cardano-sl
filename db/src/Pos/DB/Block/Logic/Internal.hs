@@ -6,7 +6,7 @@
 -- requires applying and rolling back blocks, but applying many blocks
 -- requires triggering lrc recalculations.
 
-module Pos.Block.Logic.Internal
+module Pos.DB.Block.Logic.Internal
        (
          -- * Constraints
          MonadBlockBase
@@ -32,10 +32,6 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener)
-import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply,
-                     MonadSlogBase, ShouldCallBListener, slogApplyBlocks,
-                     slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
                      gbHeader, headerHash, mainBlockDlgPayload,
@@ -46,6 +42,11 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
+import           Pos.DB.Block.BListener (MonadBListener)
+import           Pos.DB.Block.GState.SanityCheck (sanityCheckDB)
+import           Pos.DB.Block.Slog.Logic (BypassSecurityCheck (..),
+                     MonadSlogApply, MonadSlogBase, ShouldCallBListener,
+                     slogApplyBlocks, slogRollbackBlocks)
 import           Pos.DB.Delegation (dlgApplyBlocks, dlgNormalizeOnRollback,
                      dlgRollbackBlocks)
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
@@ -59,7 +60,6 @@ import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Exception (assertionFailed)
-import           Pos.GState.SanityCheck (sanityCheckDB)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Types (SscBlock)

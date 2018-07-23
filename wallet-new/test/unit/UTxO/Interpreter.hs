@@ -37,12 +37,12 @@ import           Prelude (Show (..))
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 
-import           Pos.Block.Logic
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Block (mkGenesisBlock)
 import           Pos.Core.Chrono
 import           Pos.Crypto
+import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Pos.Lrc.Fts (followTheSatoshi)
 import           Pos.Ssc (defaultSscPayload)
 import           Pos.Txp.Base (txOutStake)

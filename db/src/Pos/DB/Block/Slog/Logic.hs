@@ -6,7 +6,7 @@
 -- system. On the contrary, modules like 'Pos.Block.Logic.VAR'
 -- unite logic from multiple components into functions.
 
-module Pos.Block.Slog.Logic
+module Pos.DB.Block.Slog.Logic
        ( mustDataBeKnown
 
        , MonadSlogBase
@@ -31,10 +31,8 @@ import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Logic.Integrity (verifyBlocks)
-import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types (HasSlogGState)
+import           Pos.Block.Slog (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
                      difficultyL, epochIndexL, flattenSlotId, headerHash,
@@ -45,7 +43,10 @@ import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
-import           Pos.DB.Block (putBlunds)
+import           Pos.DB.Block.BListener (MonadBListener (..))
+import qualified Pos.DB.Block.GState.BlockExtra as GS
+import           Pos.DB.Block.Load (putBlunds)
+import           Pos.DB.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
@@ -55,7 +56,6 @@ import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull)
 import           Pos.Exception (assertionFailed, reportFatalError)
-import qualified Pos.GState.BlockExtra as GS
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Util (_neHead, _neLast)

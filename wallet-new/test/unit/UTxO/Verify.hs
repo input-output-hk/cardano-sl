@@ -22,12 +22,12 @@ import qualified Data.List.NonEmpty as NE
 import           System.Wlog
 
 import           Pos.Block.Error
-import           Pos.Block.Logic hiding (verifyBlocksPrefix)
-import           Pos.Block.Logic.Integrity (verifyBlocks)
-import           Pos.Block.Slog hiding (slogVerifyBlocks)
+import           Pos.Block.Logic (verifyBlocks)
+import           Pos.Block.Slog
 import           Pos.Block.Types
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
 import           Pos.Delegation (DlgUndo (..))

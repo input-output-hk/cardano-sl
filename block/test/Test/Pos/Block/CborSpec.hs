@@ -9,7 +9,6 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
-import qualified Pos.Block.Types as Block
 import qualified Pos.Core.Block as Core
 import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)
@@ -57,10 +56,3 @@ spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
                   describe "Extra data" $ do
                       binaryTest @Core.MainExtraHeaderData
                       binaryTest @Core.MainExtraBodyData
-
-        describe "Block types defined in the block package" $ do
-            describe "Bi instances" $ do
-                describe "Undo" $ do
-                    binaryTest @Block.SlogUndo
-                    modifyMaxSuccess (min 50) $ do
-                        binaryTest @Block.Undo

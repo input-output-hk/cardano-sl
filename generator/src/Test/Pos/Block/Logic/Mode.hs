@@ -58,9 +58,7 @@ import           Test.QuickCheck.Property (Testable)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
                      mkAllSecretsSimple)
-import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub,
-                     onRollbackBlocksStub)
-import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Core (BlockVersionData, CoreConfiguration (..),
                      GenesisConfiguration (..), GenesisInitializer (..),
                      GenesisSpec (..), HasConfiguration, HasProtocolConstants,
@@ -76,6 +74,8 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBListener (..), mkSlogGState,
+                     onApplyBlocksStub, onRollbackBlocksStub)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Delegation (mkDelegationVar)

@@ -6,12 +6,7 @@
 
 module Pos.DB.Block
        ( getBlock
-       , getUndo
-       , getBlund
-       , putBlunds
        , deleteBlock
-
-       , getTipBlock
 
        , prepareBlockDB
 
@@ -29,6 +24,8 @@ module Pos.DB.Block
        , dbGetSerBlockSumDefault
        , dbGetSerUndoSumDefault
        , dbPutSerBlundsSumDefault
+
+       , module X
        ) where
 
 import           Universum
@@ -46,7 +43,7 @@ import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Block.Types (SlogUndo (..), Undo (..))
 import           Pos.Core (HeaderHash, headerHash)
 import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
@@ -54,9 +51,8 @@ import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..),
                      SerializedBlock, SerializedBlund, SerializedUndo,
-                     getBlock, getDeserialized)
+                     getBlock)
 import           Pos.DB.Error (DBError (..))
-import           Pos.DB.GState.Common (getTipSomething)
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                      pureBlocksStorage)
 import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
@@ -64,36 +60,17 @@ import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
 
-----------------------------------------------------------------------------
--- BlockDB related methods
-----------------------------------------------------------------------------
-
-getUndo :: MonadDBRead m => HeaderHash -> m (Maybe Undo)
-getUndo = getDeserialized dbGetSerUndo
-
--- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
--- read 'Blund'.
---
--- TODO Rewrite to use a single call
-getBlund :: MonadDBRead m => HeaderHash -> m (Maybe (Block, Undo))
-getBlund x =
-    runMaybeT $
-    (,) <$> MaybeT (getBlock x)
-        <*> MaybeT (getUndo x)
-
--- | Store blunds into a single file.
---
---   Notice that this uses an unusual encoding, in order to be able to fetch
---   either the block or the undo independently without re-encoding.
-putBlunds :: MonadDB m => NonEmpty Blund -> m ()
-putBlunds = dbPutSerBlunds
-          . map (\bu@(b,_) -> ( CB.getBlockHeader b
-                              , Serialized . serialize' $ bimap serialize' serialize' bu)
-                )
-
--- | Get 'Block' corresponding to tip.
-getTipBlock :: MonadDBRead m => m Block
-getTipBlock = getTipSomething "block" getBlock
+import           Pos.DB.Block.BListener as X
+import           Pos.DB.Block.GState.BlockExtra as X
+import           Pos.DB.Block.Load as X
+import           Pos.DB.Block.Logic.Creation as X
+import           Pos.DB.Block.Logic.Header as X
+import           Pos.DB.Block.Logic.Internal as X
+import           Pos.DB.Block.Logic.Util as X
+import           Pos.DB.Block.Logic.VAR as X
+import           Pos.DB.Block.Lrc as X
+import           Pos.DB.Block.Slog.Context as X
+import           Pos.DB.Block.Slog.Logic as X
 
 ----------------------------------------------------------------------------
 -- Implementations for 'MonadRealDB'

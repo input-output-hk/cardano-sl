@@ -28,7 +28,6 @@ import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
 import           System.Wlog (HasLoggerName (..))
 
-import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getSecretDefault, modifySecretDefault)
@@ -50,6 +49,7 @@ import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs,
                      gsIsBootstrapEra)
+import           Pos.DB.Block (MonadBListener (..))
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), txNormalize,
                      txProcessTransaction, txProcessTransactionNoLock)

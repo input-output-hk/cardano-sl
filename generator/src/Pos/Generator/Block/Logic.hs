@@ -18,10 +18,6 @@ import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal,
-                     normalizeMempool, verifyBlocksPrefix)
-import           Pos.Block.Lrc (lrcSingleShot)
-import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
@@ -29,6 +25,9 @@ import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
 import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
+import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe,
+                     createMainBlockInternal, lrcSingleShot, normalizeMempool,
+                     verifyBlocksPrefix)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk)
 import           Pos.DB.Lrc (lrcActionOnEpochReason)

@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Test.Pos.DB.Update.Arbitrary
+                       Test.Pos.DB.Block.Arbitrary
 
   other-modules:
                        Test.Pos.DB.Update.Arbitrary.Poll
@@ -22,12 +23,15 @@ library
   build-depends:       QuickCheck
                      , base
                      , cardano-sl-binary
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
+                     , cardano-sl-delegation-test
                      , cardano-sl-util-test
+                     , cardano-sl-ssc-test
                      , cardano-sl-update
                      , cardano-sl-update-test
                      , generic-arbitrary

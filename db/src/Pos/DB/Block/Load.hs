@@ -12,6 +12,11 @@ module Pos.DB.Block.Load
        -- * Load data from tip
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
+
+       , getUndo
+       , getBlund
+       , putBlunds
+       , getTipBlock
        ) where
 
 import           Universum
@@ -19,18 +24,20 @@ import           Universum
 import           Control.Lens (_Wrapped)
 import           Formatting (sformat, (%))
 
-import           Pos.Block.Types (Blund)
+import           Pos.Binary.Class (serialize')
+import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
                      HasGenesisHash, HasPrevBlock (prevBlockL), HeaderHash)
 import           Pos.Core.Block (Block, BlockHeader)
+import qualified Pos.Core.Block as CB
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)
-import           Pos.DB.Block (getBlund)
 import           Pos.DB.BlockIndex (getHeader)
-import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, getBlock)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDB (..), MonadDBRead (..),
+                     Serialized (..), getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
-import           Pos.DB.GState.Common (getTip)
+import           Pos.DB.GState.Common (getTip, getTipSomething)
 import           Pos.Util.Util (maybeThrow)
 
 type LoadHeadersMode m =
@@ -174,3 +181,34 @@ getBlundThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlund hash
   where
     errFmt = "getBlundThrow: no blund with HeaderHash: "%shortHashF
+
+----------------------------------------------------------------------------
+-- BlockDB related methods
+----------------------------------------------------------------------------
+
+getUndo :: MonadDBRead m => HeaderHash -> m (Maybe Undo)
+getUndo = getDeserialized dbGetSerUndo
+
+-- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
+-- read 'Blund'.
+--
+-- TODO Rewrite to use a single call
+getBlund :: MonadDBRead m => HeaderHash -> m (Maybe (Block, Undo))
+getBlund x =
+    runMaybeT $
+    (,) <$> MaybeT (getBlock x)
+        <*> MaybeT (getUndo x)
+
+-- | Store blunds into a single file.
+--
+--   Notice that this uses an unusual encoding, in order to be able to fetch
+--   either the block or the undo independently without re-encoding.
+putBlunds :: MonadDB m => NonEmpty Blund -> m ()
+putBlunds = dbPutSerBlunds
+          . map (\bu@(b,_) -> ( CB.getBlockHeader b
+                              , Serialized . serialize' $ bimap serialize' serialize' bu)
+                )
+
+-- | Get 'Block' corresponding to tip.
+getTipBlock :: MonadDBRead m => m Block
+getTipBlock = getTipSomething "block" getBlock

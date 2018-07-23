@@ -44,7 +44,6 @@ import           Test.QuickCheck.Gen (Gen)
 import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 
 import           Pos.AllSecrets (HasAllSecrets (..))
-import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
@@ -62,6 +61,7 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBListener (..))
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Lrc (LrcContext)

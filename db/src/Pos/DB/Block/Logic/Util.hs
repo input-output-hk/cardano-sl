@@ -4,7 +4,7 @@
 
 -- | Utilities for finding LCA and calculating chain quality.
 
-module Pos.Block.Logic.Util
+module Pos.DB.Block.Logic.Util
        (
          -- * Common/Utils
          lcaWithMainChain
@@ -25,8 +25,7 @@ import           Formatting (int, sformat, (%))
 import           System.Wlog (WithLogger)
 
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
-import           Pos.Block.Slog.Context (slogGetLastSlots)
-import           Pos.Block.Slog.Types (HasSlogGState)
+import           Pos.Block.Slog (HasSlogGState)
 import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
                      HeaderHash, Timestamp (..), difficultyL, flattenSlotId,
                      headerHash, prevBlockL)
@@ -35,10 +34,11 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Slotting (MonadSlots (..), getCurrentSlotFlat,
                      slotFromTimestamp)
+import           Pos.DB.Block.GState.BlockExtra (isBlockInMainChain)
+import           Pos.DB.Block.Slog.Context (slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
-import           Pos.GState.BlockExtra (isBlockInMainChain)
 import           Pos.Util (_neHead)
 
 -- | Find LCA of headers list and main chain, including oldest

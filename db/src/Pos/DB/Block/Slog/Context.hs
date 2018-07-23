@@ -1,6 +1,6 @@
 -- | Functions operation on 'SlogContext' and its subtypes.
 
-module Pos.Block.Slog.Context
+module Pos.DB.Block.Slog.Context
        ( mkSlogGState
        , mkSlogContext
        , cloneSlogGState
@@ -14,12 +14,12 @@ import           Formatting (int, sformat, (%))
 import qualified System.Metrics as Ekg
 
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQSec)
-import           Pos.Block.Slog.Types (HasSlogGState (..), LastBlkSlots,
+import           Pos.Block.Slog (HasSlogGState (..), LastBlkSlots,
                      SlogContext (..), SlogGState (..), sgsLastBlkSlots)
 import           Pos.Core (blkSecurityParam)
 import           Pos.Core.Reporting (MetricMonitorState, mkMetricMonitorState)
+import           Pos.DB.Block.GState.BlockExtra (getLastSlots)
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.GState.BlockExtra (getLastSlots)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | Make new 'SlogGState' using data from DB.

@@ -14,11 +14,11 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Lrc (LrcModeFull)
 import           Pos.Block.Slog (HasSlogContext)
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
+import           Pos.DB.Block (LrcModeFull)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
                      TxpHolderTag)
 import           Pos.DB.Update (UpdateContext)

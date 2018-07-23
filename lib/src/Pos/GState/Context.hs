@@ -14,8 +14,8 @@ import           Universum
 import           Control.Lens (lens, makeClassy)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Slog (HasSlogGState (..), SlogGState,
-                     cloneSlogGState)
+import           Pos.Block.Slog (HasSlogGState (..), SlogGState)
+import           Pos.DB.Block (cloneSlogGState)
 import           Pos.DB.Lrc (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.DB.Pure (cloneDBPure)
 import           Pos.DB.Sum (DBSum (..))

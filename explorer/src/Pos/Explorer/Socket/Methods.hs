@@ -63,7 +63,6 @@ import qualified Data.Set as S
 import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
-import qualified Pos.Block.Logic as DB
 import           Pos.Block.Types (Blund)
 import           Pos.Core (Address, HeaderHash)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
@@ -72,6 +71,7 @@ import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
                      txpTxs)
 import           Pos.Crypto (hash, withHash)
 import           Pos.DB.Block (getBlund)
+import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Txp (getTxOut)
 import           Pos.Explorer.Core (TxExtra (..))

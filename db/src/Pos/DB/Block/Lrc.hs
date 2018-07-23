@@ -5,7 +5,7 @@
 -- reasons.
 -- And actually nowadays there are no workers here.
 
-module Pos.Block.Lrc
+module Pos.DB.Block.Lrc
        ( LrcModeFull
        , lrcSingleShot
        ) where
@@ -24,9 +24,6 @@ import qualified System.Metrics.Counter as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Logic.Internal (BypassSecurityCheck (..),
-                     MonadBlockApply, applyBlocksUnsafe, rollbackBlocksUnsafe)
-import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
                      StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,
                      epochSlots, getEpochOrSlot)
@@ -37,7 +34,11 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Core.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Crypto (ProtocolMagic)
+import qualified Pos.DB.Block.GState.SanityCheck as DB (sanityCheckDB)
 import qualified Pos.DB.Block.Load as DB
+import           Pos.DB.Block.Logic.Internal (BypassSecurityCheck (..),
+                     MonadBlockApply, applyBlocksUnsafe, rollbackBlocksUnsafe)
+import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.DB.Class (MonadDBRead, MonadGState)
 import           Pos.DB.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
@@ -48,7 +49,6 @@ import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getCompetingBVStates)
-import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Lrc.Fts (followTheSatoshiM)

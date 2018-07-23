@@ -31,8 +31,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Block.Slog (SlogUndo)
-import           Pos.Block.Types (Undo (..))
 import           Pos.Core (GenesisHash (..), HasGenesisHash,
                      HasProtocolConstants, HeaderHash, epochSlots, genesisHash)
 import qualified Pos.Core as Core
@@ -44,7 +42,6 @@ import           Pos.Data.Attributes (areAttributesKnown)
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.DB.Update.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Ssc.Arbitrary (SscPayloadDependsOnSlot (..),
                      genSscPayload, genSscPayloadForSlot)
@@ -488,15 +485,3 @@ instance (HasProtocolConstants, HasGenesisHash) =>
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }
         return . HAndP $ (params, header)
-
-------------------------------------------------------------------------
--- Pos.Block.Slog.Types
-------------------------------------------------------------------------
-
-instance Arbitrary SlogUndo where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance HasProtocolConstants => Arbitrary Undo where
-    arbitrary = genericArbitrary
-    shrink = genericShrink

@@ -42,6 +42,7 @@ library
                        Pos.DB.Ssc
                        Pos.DB.Ssc.SecretStorage
                        Pos.DB.Update
+                       Pos.DB.Block
 
   other-modules:       Pos.DB.Txp.Logic.Common
                        Pos.DB.Txp.Logic.Global
@@ -104,11 +105,24 @@ library
                        Pos.DB.Update.Poll.Logic.Softfork
                        Pos.DB.Update.Poll.Logic.Version
 
+                       Pos.DB.Block.BListener
+                       Pos.DB.Block.GState.BlockExtra
+                       Pos.DB.Block.GState.SanityCheck
+                       Pos.DB.Block.Load
+                       Pos.DB.Block.Logic.Creation
+                       Pos.DB.Block.Logic.Header
+                       Pos.DB.Block.Logic.Internal
+                       Pos.DB.Block.Logic.Util
+                       Pos.DB.Block.Logic.VAR
+                       Pos.DB.Block.Lrc
+                       Pos.DB.Block.Slog.Context
+                       Pos.DB.Block.Slog.Logic
 
   build-depends:       aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-delegation
@@ -133,12 +147,14 @@ library
                      , memory
                      , mmorph
                      , mtl
+                     , pipes
                      , reflection
                      , resourcet
                      , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
                      , tagged
+                     , text
                      , time-units
                      , stm
                      , time

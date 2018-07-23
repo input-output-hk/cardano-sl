@@ -11,7 +11,6 @@ module Cardano.Wallet.Kernel.Mode
 import           Control.Lens (makeLensesWith)
 import           Universum
 
-import           Pos.Block.BListener
 import           Pos.Block.Slog
 import           Pos.Block.Types
 import           Pos.Context
@@ -20,7 +19,7 @@ import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
-import           Pos.DB.Block
+import           Pos.DB.Block hiding (applyBlocks, rollbackBlocks)
 import           Pos.DB.DB
 import           Pos.DB.Txp.Logic
 import           Pos.DB.Txp.MemState

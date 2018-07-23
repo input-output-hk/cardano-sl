@@ -20,8 +20,6 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub,
-                     onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
@@ -30,8 +28,9 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
-import           Pos.DB.Block (dbGetSerBlockRealDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
+import           Pos.DB.Block (MonadBListener (..), dbGetSerBlockRealDefault,
+                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault,
+                     onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,

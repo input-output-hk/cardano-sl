@@ -3,7 +3,7 @@
 -- | Functions that validate headers coming from the network and retrieve headers
 -- from the DB.
 
-module Pos.Block.Logic.Header
+module Pos.DB.Block.Logic.Header
        ( ClassifyHeaderRes (..)
        , classifyNewHeader
        , ClassifyHeadersRes (..)
@@ -39,13 +39,13 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB (MonadDBRead)
-import qualified Pos.DB.Block.Load as DB
+import qualified Pos.DB.Block.GState.BlockExtra as GS
+import           Pos.DB.Block.Load (loadHeadersByDepth)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull)
-import qualified Pos.GState.BlockExtra as GS
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -223,7 +223,7 @@ getHeadersOlderExp upto = do
         -- loadHeadersByDepth always returns nonempty list unless you
         -- pass depth 0 (we pass k+1). It throws if upToReal is
         -- absent. So it either throws or returns nonempty.
-        DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
+        loadHeadersByDepth (blkSecurityParam + 1) upToReal
     let toNE = fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
                nonEmpty
     let selectedHashes :: NewestFirst [] HeaderHash

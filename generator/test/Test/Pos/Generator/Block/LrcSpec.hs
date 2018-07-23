@@ -21,9 +21,6 @@ import           Test.QuickCheck (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Block.Logic (applyBlocksUnsafe)
-import qualified Pos.Block.Lrc as Lrc
-import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, GenesisData (..),
                      GenesisInitializer (..), StakeholderId,
                      TestnetBalanceOptions (..), addressHash, blkSecurityParam,
@@ -32,6 +29,8 @@ import           Pos.Core (Coin, EpochIndex, GenesisData (..),
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
+import qualified Pos.DB.Block as Lrc
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
 import qualified Pos.GState as GS

@@ -18,8 +18,6 @@ import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
-                     getHeadersOlderExp)
 import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
                      isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
@@ -27,6 +25,8 @@ import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Core.Conc (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
+import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
+                     getHeadersOlderExp)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)

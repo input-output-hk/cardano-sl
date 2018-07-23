@@ -1,7 +1,7 @@
 -- | Center of where block verification/application/rollback happens.
 -- Unifies VAR for all components (slog, ssc, txp, dlg, us).
 
-module Pos.Block.Logic.VAR
+module Pos.DB.Block.Logic.VAR
        ( verifyBlocksPrefix
 
        , BlockLrcMode
@@ -24,14 +24,6 @@ import           System.Wlog (logDebug)
 
 import           Pos.Block.Error (ApplyBlocksException (..),
                      RollbackException (..), VerifyBlocksException (..))
-import           Pos.Block.Logic.Internal (BypassSecurityCheck (..),
-                     MonadBlockApply, MonadBlockVerify,
-                     MonadMempoolNormalization, applyBlocksUnsafe,
-                     normalizeMempool, rollbackBlocksUnsafe, toSscBlock,
-                     toTxpBlock, toUpdateBlock)
-import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
-import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown,
-                     slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG,
                      prevBlockL)
@@ -39,6 +31,14 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.DB.Block.Logic.Internal (BypassSecurityCheck (..),
+                     MonadBlockApply, MonadBlockVerify,
+                     MonadMempoolNormalization, applyBlocksUnsafe,
+                     normalizeMempool, rollbackBlocksUnsafe, toSscBlock,
+                     toTxpBlock, toUpdateBlock)
+import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
+import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..),
+                     mustDataBeKnown, slogVerifyBlocks)
 import           Pos.DB.Delegation (dlgVerifyBlocks)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.DB.Ssc (sscVerifyBlocks)

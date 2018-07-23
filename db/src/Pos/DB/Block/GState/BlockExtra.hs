@@ -4,7 +4,7 @@
 --   * Slots of the last 'blkSecurityParam' (at most) blocks
 --     (for chain quality check).
 
-module Pos.GState.BlockExtra
+module Pos.DB.Block.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , getLastSlots
@@ -27,7 +27,7 @@ import           Pipes (Producer, yield)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
+import           Pos.Block.Slog (LastBlkSlots, noLastBlkSlots)
 import           Pos.Core (FlatSlotId, HasCoreConfiguration, HasHeaderHash,
                      HasProtocolConstants, HeaderHash, genesisHash, headerHash,
                      slotIdF, unflattenSlotId)

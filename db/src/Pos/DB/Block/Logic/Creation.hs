@@ -4,7 +4,7 @@
 -- | Functions that retrieve payload from context and create genesis/main blocks
 -- with many validations.
 
-module Pos.Block.Logic.Creation
+module Pos.DB.Block.Logic.Creation
        ( createGenesisBlockAndApply
        , createMainBlockAndApply
        , createMainBlockInternal
@@ -24,12 +24,7 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe,
-                     normalizeMempool)
-import           Pos.Block.Logic.Util (calcChainQualityM)
-import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
-import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
-import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
+import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
                      HasProtocolConstants, HeaderHash, SlotId (..),
                      chainQualityThreshold, epochIndexL, epochSlots,
@@ -49,6 +44,12 @@ import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)
+import           Pos.DB.Block.Logic.Internal (MonadBlockApply,
+                     applyBlocksUnsafe, normalizeMempool)
+import           Pos.DB.Block.Logic.Util (calcChainQualityM)
+import           Pos.DB.Block.Logic.VAR (verifyBlocksPrefix)
+import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
+import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Delegation (clearDlgMemPool, getDlgMempool)

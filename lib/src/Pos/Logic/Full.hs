@@ -16,7 +16,6 @@ import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import qualified Pos.Block.Logic as Block
 import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData,
                      HasConfiguration, HeaderHash, ProxySKHeavy, StakeholderId,
@@ -26,6 +25,7 @@ import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)
+import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
@@ -36,7 +36,6 @@ import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
 import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
 import           Pos.DB.Update (getLocalProposalNVotes, getLocalVote,
                      isProposalNeeded, isVoteNeeded)
-import qualified Pos.GState.BlockExtra as DB (resolveForwardLink, streamBlocks)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)
 import           Pos.Listener.Delegation (DlgListenerConstraint)
@@ -109,7 +108,7 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
         getSerializedBlock = DB.dbGetSerBlock
 
         streamBlocks :: HeaderHash -> Producer SerializedBlock m ()
-        streamBlocks = DB.streamBlocks DB.dbGetSerBlock DB.resolveForwardLink
+        streamBlocks = Block.streamBlocks DB.dbGetSerBlock Block.resolveForwardLink
 
         getTip :: m Block
         getTip = DB.getTipBlock

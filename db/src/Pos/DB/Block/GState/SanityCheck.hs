@@ -1,6 +1,6 @@
 -- | Functions for sanity checking the GState DB.
 
-module Pos.GState.SanityCheck
+module Pos.DB.Block.GState.SanityCheck
        ( sanityCheckDB
        ) where
 

@@ -15,31 +15,16 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                         Pos.Block.BHelpers
-                        Pos.Block.BListener
                         Pos.Block.Configuration
                         Pos.Block.Error
                         Pos.Block.Logic
-                        Pos.Block.Lrc
                         Pos.Block.Slog
                         Pos.Block.Types
 
-                        Pos.DB.Block
-                        Pos.DB.Block.Load
-
-                        Pos.GState.BlockExtra
-                        Pos.GState.SanityCheck
-
                         -- Exposed for tests
-                        Pos.Block.Logic.VAR
                         Pos.Block.Logic.Integrity
 
   other-modules:
-                        Pos.Block.Logic.Creation
-                        Pos.Block.Logic.Header
-                        Pos.Block.Logic.Internal
-                        Pos.Block.Logic.Util
-                        Pos.Block.Slog.Context
-                        Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
 
   build-depends:        aeson
@@ -49,7 +34,6 @@ library
                       , cardano-sl-binary
                       , cardano-sl-core
                       , cardano-sl-crypto
-                      , cardano-sl-db
                       , cardano-sl-delegation
                       , cardano-sl-lrc
                       , cardano-sl-ssc
@@ -73,7 +57,6 @@ library
                       , mtl
                       , reflection
                       , rocksdb-haskell-ng
-                      , pipes
                       , safe-exceptions
                       , serokell-util
                       , stm

@@ -1,3 +1,4 @@
+spaces:
 {
     allowUnsupportedSystem = true;
 
@@ -82,4 +83,4 @@
         });
       };
     };
-  };
+  }

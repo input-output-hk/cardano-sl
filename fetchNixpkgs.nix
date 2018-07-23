@@ -1,20 +1,21 @@
 { rev                             # The Git revision of nixpkgs to fetch
+, account ? "NixOS"
+, project ? "nixpkgs"
 , sha256                          # The SHA256 of the downloaded data
 , sha256unpacked
 , system ? builtins.currentSystem # This is overridable if necessary
 }:
-
+let url = "https://github.com/${account}/${project}/archive/${rev}.tar.gz"; in
 if 0 <= builtins.compareVersions builtins.nixVersion "1.12"
 then
   builtins.fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
+    inherit url;
     sha256 = sha256unpacked;
   }
 else
   (rec {
     tarball = import <nix/fetchurl.nix> {
-      url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
-      inherit sha256;
+      inherit url sha256;
     };
 
     builtin-paths = import <nix/config.nix>;
@@ -26,7 +27,7 @@ else
     '';
 
     nixpkgs = builtins.derivation {
-      name = "nixpkgs-${builtins.substring 0 6 rev}";
+      name = "${project}-${builtins.substring 0 6 rev}";
 
       builder = builtins.storePath builtin-paths.shell;
 
@@ -38,4 +39,4 @@ else
       gzip      = builtins.storePath builtin-paths.gzip;
       coreutils = builtins.storePath builtin-paths.coreutils;
     };
-  }).nixpkgs
+  })."${project}"

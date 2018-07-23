@@ -3,7 +3,7 @@
 
 -- | Methods that operate on 'SscGlobalState' and 'VssCertificatesMap'.
 
-module Pos.Ssc.State.Global
+module Pos.DB.Ssc.State.Global
        (
        -- * Certs
          getGlobalCerts
@@ -22,7 +22,7 @@ import           Pos.Core (EpochIndex (..), HasGenesisData,
                      HasProtocolConstants, SlotId (..),
                      VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
-import qualified Pos.Ssc.DB as DB
+import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Ssc.Functions (getStableCertsPure)
 import           Pos.Ssc.Mem (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.Types (SscGlobalState (..), sgsVssCertificates)

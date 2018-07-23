@@ -31,6 +31,8 @@ import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
                      SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
+import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
+                     sscProcessCommitment, sscProcessOpening, sscProcessShares)
 import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
 import qualified Pos.GState.BlockExtra as DB (resolveForwardLink, streamBlocks)
 import           Pos.Infra.Slotting (MonadSlots)
@@ -49,8 +51,6 @@ import qualified Pos.Recovery as Recovery
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Security.Util (shouldIgnorePkAddress)
-import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate,
-                     sscProcessCommitment, sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.Mem (sscRunLocalQuery)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))

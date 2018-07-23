@@ -46,6 +46,7 @@ import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Delegation (mkDelegationVar)
 import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
+import           Pos.DB.Ssc (mkSscState)
 import           Pos.DB.Txp (GenericTxpLocalData (..), TxpGlobalSettings,
                      mkTxpLocalData, recordTxpMetrics)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
@@ -59,11 +60,10 @@ import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (newStateLock)
 import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..),
                      jsonLogConfigFromHandle)
+import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
-import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
-
-import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
+import           Pos.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithLogging, newInitFuture)

@@ -1,4 +1,4 @@
-module Pos.Ssc.SecretStorage
+module Pos.DB.Ssc.SecretStorage
        ( getOurCommitment
        , getOurOpening
        , putOurSecret

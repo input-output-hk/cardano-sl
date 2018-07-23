@@ -2,7 +2,7 @@
 
 -- | Methods that operate on 'SscLocalData'.
 
-module Pos.Ssc.State.Local
+module Pos.DB.Ssc.State.Local
        (
          sscResetLocal
        , sscNewLocalData

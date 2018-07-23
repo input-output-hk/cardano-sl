@@ -1,9 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Ssc.State
+module Pos.DB.Ssc.State
        ( mkSscState
-       , module Pos.Ssc.State.Global
-       , module Pos.Ssc.State.Local
+       , module Pos.DB.Ssc.State.Global
+       , module Pos.DB.Ssc.State.Local
        ) where
 
 import           Universum
@@ -16,8 +16,8 @@ import           Pos.DB (MonadDBRead)
 import           Pos.Ssc.Types (SscState (..))
 
 -- Reexports
-import           Pos.Ssc.State.Global
-import           Pos.Ssc.State.Local
+import           Pos.DB.Ssc.State.Global
+import           Pos.DB.Ssc.State.Local
 
 mkSscState
     :: forall ctx m .

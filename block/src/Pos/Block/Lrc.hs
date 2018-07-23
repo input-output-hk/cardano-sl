@@ -45,14 +45,14 @@ import           Pos.DB.Lrc (IssuersStakes, LrcConsumer (..), LrcContext (..),
                      LrcMode, LrcSyncData (..), allLrcConsumers, getSeed,
                      putEpoch, putIssuersStakes, putSeed)
 import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
+import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Lrc.Fts (followTheSatoshiM)
 import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1,
-                     sscCalculateSeed)
+import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))

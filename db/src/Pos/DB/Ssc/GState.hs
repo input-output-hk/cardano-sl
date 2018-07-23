@@ -1,6 +1,6 @@
 -- | DB operations for storing and dumping SscGlobalState.
 
-module Pos.Ssc.DB
+module Pos.DB.Ssc.GState
        ( getSscGlobalState
        , sscGlobalStateToBatch
        , initSscDB

@@ -54,15 +54,14 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Delegation (clearDlgMemPool, getDlgMempool)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Ssc (sscGetLocalPayload, sscResetLocal)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
-import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Ssc.State (sscResetLocal)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
 import           Pos.Update.Configuration (HasUpdateConfiguration,

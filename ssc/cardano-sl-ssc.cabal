@@ -24,25 +24,14 @@ library
 
     Pos.Ssc.Types
 
-    Pos.Ssc.Logic
-    Pos.Ssc.Logic.Local
-    Pos.Ssc.Logic.Global
-    Pos.Ssc.Logic.VAR
-
-    Pos.Ssc.State
-    Pos.Ssc.State.Local
-    Pos.Ssc.State.Global
-
     Pos.Ssc.Message
     Pos.Ssc.Mem
     Pos.Ssc.Functions
-    Pos.Ssc.SecretStorage
     Pos.Ssc.VssCertData
     Pos.Ssc.Seed
     Pos.Ssc.Configuration
     Pos.Ssc.Behavior
     Pos.Ssc.Shares
-    Pos.Ssc.DB
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -63,7 +52,6 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-db
                      , cardano-sl-lrc
                      , cardano-sl-util
                      , containers
@@ -80,7 +68,6 @@ library
                      , mtl
                      , parsec
                      , reflection
-                     , rocksdb-haskell-ng
                      , serokell-util
                      , stm
                      , tagged

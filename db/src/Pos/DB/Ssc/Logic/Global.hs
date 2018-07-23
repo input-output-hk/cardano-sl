@@ -2,7 +2,7 @@
 
 -- | Thin wrapper around `calculateSeed` used in LRC worker.
 
-module Pos.Ssc.Logic.Global
+module Pos.DB.Ssc.Logic.Global
        (
        -- * Seed
          sscCalculateSeed

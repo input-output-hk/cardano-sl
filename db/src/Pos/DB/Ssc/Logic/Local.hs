@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Pos.Ssc.Logic.Local
+module Pos.DB.Ssc.Logic.Local
        (
          sscGetLocalPayload
        , sscNormalize

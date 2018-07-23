@@ -11,9 +11,9 @@ import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Delegation (initGStateDlg)
 import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
                      setInitialized)
+import           Pos.DB.Ssc (initSscDB)
 import           Pos.DB.Txp (initGStateStakes, initGStateUtxo)
 import           Pos.GState.BlockExtra (initGStateBlockExtra)
-import           Pos.Ssc.DB (initSscDB)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Update.DB (initGStateUS)
 

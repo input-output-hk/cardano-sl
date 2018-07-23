@@ -39,6 +39,8 @@ library
 
                        Pos.DB.Lrc
                        Pos.DB.Delegation
+                       Pos.DB.Ssc
+                       Pos.DB.Ssc.SecretStorage
 
   other-modules:       Pos.DB.Txp.Logic.Common
                        Pos.DB.Txp.Logic.Global
@@ -72,6 +74,16 @@ library
                        Pos.DB.Delegation.Logic.VAR
                        Pos.DB.Delegation.Var
 
+                       Pos.DB.Ssc.GState
+                       Pos.DB.Ssc.Logic
+                       Pos.DB.Ssc.Logic.Global
+                       Pos.DB.Ssc.Logic.Local
+                       Pos.DB.Ssc.Logic.VAR
+                       Pos.DB.Ssc.State
+                       Pos.DB.Ssc.State.Global
+                       Pos.DB.Ssc.State.Local
+
+
   build-depends:       aeson
                      , base
                      , bytestring
@@ -80,11 +92,13 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-delegation
                      , cardano-sl-lrc
+                     , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-util
                      , concurrent-extra
                      , conduit
                      , containers
+                     , cryptonite
                      , data-default
                      , directory
                      , ekg-core

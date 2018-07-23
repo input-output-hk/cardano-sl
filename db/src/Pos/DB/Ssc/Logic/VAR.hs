@@ -2,7 +2,7 @@
 
 -- | Block verification, application, and rollback: processing of SSC-related payload.
 
-module Pos.Ssc.Logic.VAR
+module Pos.DB.Ssc.Logic.VAR
        (
          sscVerifyBlocks
        , sscApplyBlocks
@@ -31,10 +31,10 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
+import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Exception (assertionFailed)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem,
                      sscRunGlobalUpdate)

@@ -141,7 +141,9 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             -> m (Either Block.GetHeadersFromManyToError (NewestFirst NE BlockHeader))
         getBlockHeaders = Block.getHeadersFromManyTo
 
-        getLcaMainChain :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+        getLcaMainChain
+            :: OldestFirst [] HeaderHash
+            -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
         getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()

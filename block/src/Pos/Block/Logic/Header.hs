@@ -176,6 +176,8 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
     -- This filters out invalid/unknown checkpoints also.
     inMainCheckpoints <-
         maybe (throwLocal "no checkpoints are in the main chain") pure =<<
+        -- FIXME wasteful. If we mandated an order on the checkpoints we
+        -- wouldn't have to check them all.
         lift (nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints))
     let inMainCheckpointsHashes = map headerHash inMainCheckpoints
     when (tipHash `elem` inMainCheckpointsHashes) $

@@ -265,37 +265,6 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
--- instance
---     ( n ~ EntropySize mw
---     , mw ~ MnemonicWords n
---     , ValidChecksumSize n csz
---     , ValidEntropySize n
---     , ValidMnemonicSentence mw
---     , Arbitrary (Entropy n)
---     ) => Arbitrary (V1 (Mnemonic mw)) where
---     arbitrary =
---         V1 <$> arbitrary
---
--- instance
---     ( n ~ EntropySize mw
---     , mw ~ MnemonicWords n
---     , ValidChecksumSize n csz
---     , ValidEntropySize n
---     , ValidMnemonicSentence mw
---     ) => ToJSON (V1 (Mnemonic mw)) where
---     toJSON =
---         toJSON . unV1
---
--- instance
---     ( n ~ EntropySize mw
---     , mw ~ MnemonicWords n
---     , ValidChecksumSize n csz
---     , ValidEntropySize n
---     , ValidMnemonicSentence mw
---     ) => FromJSON (V1 (Mnemonic mw)) where
---     parseJSON =
---         fmap V1 . parseJSON
-
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
     case Base16.decode text of

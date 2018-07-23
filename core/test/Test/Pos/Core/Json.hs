@@ -18,6 +18,7 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisAvvmBalances (..), GenesisDelegation (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      GenesisSpec (..), TestnetBalanceOptions (..))
+import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId)
 import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
@@ -31,8 +32,8 @@ import           Test.Pos.Core.Gen (genBlockVersionData, genByte, genCoin,
                      genCoinPortion, genEpochIndex, genFlatSlotId,
                      genGenesisAvvmBalances, genGenesisConfiguration,
                      genGenesisDelegation, genGenesisInitializer,
-                     genGenesisProtocolConstants, genSharedSeed,
-                     genSoftforkRule, genTxFeePolicy)
+                     genGenesisProtocolConstants, genInvReqDataFlowLog,
+                     genSharedSeed, genSoftforkRule, genTxFeePolicy)
 import           Test.Pos.Crypto.Bi (getBytes)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
@@ -47,11 +48,15 @@ import           Universum
 
 golden_GenesisConfiguration_GCSpec :: Property
 golden_GenesisConfiguration_GCSpec =
-    goldenTestJSON exampleGenesisConfiguration_GCSpec "test/golden/GenesisConfiguration_GCSpec"
+    goldenTestJSON
+        exampleGenesisConfiguration_GCSpec
+            "test/golden/GenesisConfiguration_GCSpec"
 
 golden_GenesisConfiguration_GCSrc :: Property
 golden_GenesisConfiguration_GCSrc =
-    goldenTestJSON exampleGenesisConfiguration_GCSrc "test/golden/GenesisConfiguration_GCSrc"
+    goldenTestJSON
+        exampleGenesisConfiguration_GCSrc
+            "test/golden/GenesisConfiguration_GCSrc"
 
 roundTripGenesisConfiguration :: Property
 roundTripGenesisConfiguration =
@@ -99,7 +104,8 @@ roundTripGenesisDelegation =
 --------------------------------------------------------------------------------
 
 roundTripBlockVersionData :: Property
-roundTripBlockVersionData = eachOf 1000 genBlockVersionData roundTripsAesonBuildable
+roundTripBlockVersionData =
+    eachOf 1000 genBlockVersionData roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- Millisecond
@@ -166,6 +172,32 @@ roundTripProtocolConstants =
 roundTripGenesisInitializer :: Property
 roundTripGenesisInitializer =
     eachOf 1000 genGenesisInitializer roundTripsAesonShow
+
+--------------------------------------------------------------------------------
+-- InvReqDataFlowLog
+--------------------------------------------------------------------------------
+
+golden_InvReqDataFlowLog_InvReqAccepted :: Property
+golden_InvReqDataFlowLog_InvReqAccepted =
+    goldenTestJSON
+        (InvReqAccepted 1 2 3 4)
+            "test/golden/InvReqDataFlowLog_InvReqAccepted"
+
+golden_InvReqDataFlowLog_InvReqRejected :: Property
+golden_InvReqDataFlowLog_InvReqRejected =
+    goldenTestJSON
+        (InvReqRejected 1 2)
+            "test/golden/InvReqDataFlowLog_InvReqRejected"
+
+golden_InvReqDataFlowLog_InvReqException :: Property
+golden_InvReqDataFlowLog_InvReqException =
+    goldenTestJSON
+        (InvReqException "test")
+            "test/golden/InvReqDataFlowLog_InvReqException"
+
+roundTripInvReqDataFlowLog :: Property
+roundTripInvReqDataFlowLog =
+    eachOf 1000 genInvReqDataFlowLog roundTripsAesonShow
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes

@@ -126,7 +126,7 @@ library
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
 
   build-depends:       base
                      , QuickCheck

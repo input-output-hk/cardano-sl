@@ -141,12 +141,6 @@ newWalletState recreate walletPath =
     -- to rebuild the DB, but rather append stuff into it.
     liftIO $ openState (not recreate) walletPath
 
--- TODO mhueschen get feedback about usage of this module and whether
--- the instance from `Pos.Core.Conc` can eclipse this.
--- instance HasLoggerName IO where
---     askLoggerName = pure $ LoggerName "dbgen"
---     modifyLoggerName _ x = x
-
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
 newConfig :: CLI -> ConfigurationOptions
 newConfig CLI{..} = defaultConfigurationOptions {

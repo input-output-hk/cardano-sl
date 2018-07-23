@@ -111,10 +111,7 @@ type MonadOnNewSlot ctx m =
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
--- it.  This function uses Mockable and assumes consistency between
--- MonadSlots and Mockable implementations.
--- TODO mhueschen ^ get feedback on what this comment means and what
--- we should do about it.
+-- it.
 onNewSlot
     :: (MonadOnNewSlot ctx m, HasProtocolConstants)
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()

@@ -49,9 +49,8 @@ delay :: (TimeUnit t, MonadIO m)
          -> m ()
 delay time = liftIO (Conc.threadDelay (fromIntegral (toMicroseconds time)))
 
--- | This function is analogous to `System.Timeout.timeout`, it's
--- based on `Race` and `Delay`.
--- TODO mhueschen - make sure this is equivalent to the old method
+-- | This function is analogous to `System.Timeout.timeout`. It's
+-- based on `race` and `delay`.
 timeout :: (TimeUnit t, MonadUnliftIO m) => t -> m a -> m (Maybe a)
 timeout t ma = rightToMaybe <$> race (delay t) ma
 

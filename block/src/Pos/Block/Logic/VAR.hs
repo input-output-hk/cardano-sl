@@ -39,10 +39,10 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.DB.Delegation (dlgVerifyBlocks)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import qualified Pos.Update.DB as GS (getAdoptedBV)

@@ -30,10 +30,10 @@ import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Delegation (getDlgTransPsk)
 import           Pos.DB.Lrc (lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
-import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,

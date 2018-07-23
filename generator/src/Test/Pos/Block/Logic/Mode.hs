@@ -78,14 +78,14 @@ import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
+import           Pos.DB.Delegation (mkDelegationVar)
 import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Pure (DBPureVar, newDBPureVar)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
                      mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                      txpGlobalSettings)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration,
-                     mkDelegationVar)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS

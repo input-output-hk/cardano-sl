@@ -2,7 +2,7 @@
 
 -- | Heavy PSK processing, in-memory state and mempool-related functions.
 
-module Pos.Delegation.Logic.Mempool
+module Pos.DB.Delegation.Logic.Mempool
        (
          -- * Heavyweight psks handling & mempool
          getDlgMempool
@@ -32,14 +32,16 @@ import           Pos.Core.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
+import           Pos.DB.Delegation.Cede.Holders (evalMapCede)
+import           Pos.DB.Delegation.Cede.Logic (CheckForCycle (..),
+                     dlgVerifyPskHeavy)
+import           Pos.DB.Delegation.Logic.Common (DelegationStateAction,
+                     runDelegationStateAction)
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
-import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods,
-                     dlgVerifyPskHeavy, emptyCedeModifier, evalMapCede,
+import           Pos.Delegation.Cede (cmPskMods, emptyCedeModifier,
                      pskToDlgEdgeAction)
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation,
                      dwMessageCache, dwPoolSize, dwProxySKPool, dwTip)
-import           Pos.Delegation.Logic.Common (DelegationStateAction,
-                     runDelegationStateAction)
 import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
 import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))

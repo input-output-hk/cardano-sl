@@ -38,6 +38,7 @@ library
                        Pos.DB.Txp.Utxo
 
                        Pos.DB.Lrc
+                       Pos.DB.Delegation
 
   other-modules:       Pos.DB.Txp.Logic.Common
                        Pos.DB.Txp.Logic.Global
@@ -63,12 +64,21 @@ library
                        Pos.DB.Lrc.Richmen
                        Pos.DB.Lrc.Seed
 
+                       Pos.DB.Delegation.Cede.Holders
+                       Pos.DB.Delegation.Cede.Logic
+                       Pos.DB.Delegation.Core
+                       Pos.DB.Delegation.Logic.Common
+                       Pos.DB.Delegation.Logic.Mempool
+                       Pos.DB.Delegation.Logic.VAR
+                       Pos.DB.Delegation.Var
+
   build-depends:       aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-delegation
                      , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-util
@@ -83,15 +93,18 @@ library
                      , formatting
                      , lens
                      , log-warper
+                     , lrucache
                      , memory
                      , mmorph
                      , mtl
                      , reflection
                      , resourcet
                      , rocksdb-haskell-ng
+                     , safe-exceptions
                      , serokell-util
                      , formatting
                      , stm
+                     , time
                      , transformers
                      , universum
                      , unliftio

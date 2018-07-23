@@ -5,16 +5,16 @@
 module Pos.GState
        ( module Pos.DB.GState.Stakes
        , module Pos.DB.GState.Common
-       , module Pos.Delegation.DB
+       , module Pos.DB.Delegation
        , module Pos.GState.BlockExtra
        , module Pos.GState.Context
        , module Pos.GState.GState
        , module Pos.Update.DB
        ) where
 
+import           Pos.DB.Delegation
 import           Pos.DB.GState.Common
 import           Pos.DB.GState.Stakes
-import           Pos.Delegation.DB
 import           Pos.GState.BlockExtra
 import           Pos.GState.Context
 import           Pos.GState.GState

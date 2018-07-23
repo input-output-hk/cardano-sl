@@ -51,12 +51,13 @@ import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.Delegation (clearDlgMemPool, getDlgMempool)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.Delegation (DelegationVar, DlgPayload (..),
-                     ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
+                     ProxySKBlockInfo)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)

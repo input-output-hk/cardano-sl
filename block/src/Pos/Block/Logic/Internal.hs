@@ -46,14 +46,14 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
+import           Pos.DB.Delegation (dlgApplyBlocks, dlgNormalizeOnRollback,
+                     dlgRollbackBlocks)
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Txp.MemState (MonadTxpLocal (..))
 import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
                      TxpGlobalSettings (..))
 import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback,
-                     dlgRollbackBlocks)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Exception (assertionFailed)
 import           Pos.GState.SanityCheck (sanityCheckDB)

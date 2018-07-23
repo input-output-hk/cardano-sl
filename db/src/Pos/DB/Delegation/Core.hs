@@ -23,7 +23,7 @@
 -- whether stakeholder can post psk (he can't if he had posted this
 -- epoch before).
 
-module Pos.Delegation.DB
+module Pos.DB.Delegation.Core
        (
          -- * Getters and predicates
          getPskByIssuer
@@ -65,7 +65,7 @@ import           Pos.DB (RocksBatchOp (..), dbSerializeValue,
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB,
                      MonadDBRead (..))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
+import           Pos.Delegation.Cede (DlgEdgeAction (..))
 import           Pos.Delegation.Types (isRevokePsk)
 
 ----------------------------------------------------------------------------

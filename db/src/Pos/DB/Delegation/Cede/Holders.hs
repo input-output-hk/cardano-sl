@@ -3,7 +3,7 @@
 -- | This module provides implementations of "MonadCede" based on
 -- either pure DB or DB+hashmap access.
 
-module Pos.Delegation.Cede.Holders
+module Pos.DB.Delegation.Cede.Holders
        ( DBCede
        , runDBCede
 
@@ -23,11 +23,10 @@ import           Data.HashSet as HS
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation.Cede.Class (MonadCede (..), MonadCedeRead (..))
-import           Pos.Delegation.Cede.Types (CedeModifier, DlgEdgeAction (..),
-                     cmHasPostedThisEpoch, cmLookupCache, cmPskMods,
-                     dlgEdgeActionIssuer)
-import qualified Pos.Delegation.DB as DB
+import qualified Pos.DB.Delegation.Core as DB
+import           Pos.Delegation.Cede (CedeModifier, DlgEdgeAction (..),
+                     MonadCede (..), MonadCedeRead (..), cmHasPostedThisEpoch,
+                     cmLookupCache, cmPskMods, dlgEdgeActionIssuer)
 
 ----------------------------------------------------------------------------
 -- Pure database-only holder

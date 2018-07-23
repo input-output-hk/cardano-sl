@@ -3,7 +3,7 @@
 
 -- | Delegation-related verify/apply/rollback part.
 
-module Pos.Delegation.Logic.VAR
+module Pos.DB.Delegation.Logic.VAR
        (
          dlgVerifyBlocks
        , dlgApplyBlocks
@@ -33,20 +33,23 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Delegation.Cede.Holders (MapCede, evalMapCede,
+                     runDBCede)
+import           Pos.DB.Delegation.Cede.Logic (CheckForCycle (..),
+                     detectCycleOnAddition, dlgVerifyHeader, dlgVerifyPskHeavy,
+                     getPskChain)
+import qualified Pos.DB.Delegation.Core as GS
+import           Pos.DB.Delegation.Logic.Common (DelegationError (..),
+                     runDelegationStateAction)
+import           Pos.DB.Delegation.Logic.Mempool (clearDlgMemPoolAction,
+                     deleteFromDlgMemPool, processProxySKHeavyInternal)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
-import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..),
-                     DlgEdgeAction (..), MapCede, MonadCede (..),
-                     MonadCedeRead (..), cmPskMods, detectCycleOnAddition,
-                     dlgEdgeActionIssuer, dlgVerifyHeader, dlgVerifyPskHeavy,
-                     emptyCedeModifier, evalMapCede, getPskChain, getPskPk,
-                     modPsk, pskToDlgEdgeAction, runDBCede)
+import           Pos.Delegation.Cede (CedeModifier (..), DlgEdgeAction (..),
+                     MonadCede (..), MonadCedeRead (..), cmPskMods,
+                     dlgEdgeActionIssuer, emptyCedeModifier, getPskPk, modPsk,
+                     pskToDlgEdgeAction)
 import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
-import qualified Pos.Delegation.DB as GS
-import           Pos.Delegation.Logic.Common (DelegationError (..),
-                     runDelegationStateAction)
-import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
-                     deleteFromDlgMemPool, processProxySKHeavyInternal)
 import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload),
                      DlgUndo (..))
 import           Pos.Lrc.Types (RichmenSet)

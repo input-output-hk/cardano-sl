@@ -43,12 +43,12 @@ import           Pos.Core (HasConfiguration, Timestamp, gdStartTime,
                      genesisData)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
+import           Pos.DB.Delegation (mkDelegationVar)
 import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Txp (GenericTxpLocalData (..), TxpGlobalSettings,
                      mkTxpLocalData, recordTxpMetrics)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration,
-                     mkDelegationVar)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import qualified Pos.GState as GS
 import           Pos.Infra.DHT.Real (KademliaParams (..))
 import           Pos.Infra.Network.Types (NetworkConfig (..))

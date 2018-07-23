@@ -45,9 +45,8 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
-import           Pos.Delegation.DB (getPskByIssuer)
-import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion

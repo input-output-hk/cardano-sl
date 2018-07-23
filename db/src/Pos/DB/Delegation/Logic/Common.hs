@@ -2,7 +2,7 @@
 
 -- | Common methods/datatypes across Delegation.Logic.*
 
-module Pos.Delegation.Logic.Common
+module Pos.DB.Delegation.Logic.Common
        (
        -- * Exceptions
          DelegationError(..)
@@ -25,7 +25,9 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Core (ProxySKHeavy, StakeholderId)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead)
-import           Pos.Delegation.Cede (dlgLastPsk, getPsk, runDBCede)
+import           Pos.DB.Delegation.Cede.Holders (runDBCede)
+import           Pos.DB.Delegation.Cede.Logic (dlgLastPsk)
+import           Pos.Delegation.Cede (getPsk)
 import           Pos.Delegation.Class (DelegationWrap (..), MonadDelegation,
                      askDelegationState)
 import           Pos.Exception (cardanoExceptionFromException,

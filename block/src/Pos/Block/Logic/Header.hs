@@ -41,9 +41,9 @@ import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState.BlockExtra as GS
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 

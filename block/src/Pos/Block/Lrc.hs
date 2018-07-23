@@ -39,13 +39,13 @@ import           Pos.Core.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
+import           Pos.DB.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import           Pos.DB.Lrc (IssuersStakes, LrcConsumer (..), LrcContext (..),
                      LrcMode, LrcSyncData (..), allLrcConsumers, getSeed,
                      putEpoch, putIssuersStakes, putSeed)
 import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import qualified Pos.DB.Txp.Stakes as GS
-import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.Error (LrcError (..))

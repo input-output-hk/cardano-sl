@@ -2,7 +2,7 @@
 
 -- | Different logic depending on "MonadCede".
 
-module Pos.Delegation.Cede.Logic
+module Pos.DB.Delegation.Cede.Logic
        (
          getPskChain
        , detectCycleOnAddition
@@ -27,7 +27,7 @@ import           Pos.Core.Block (BlockSignature (..), MainBlockHeader,
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey,
                      psigPsk, validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
+import           Pos.Delegation.Cede (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Types (DlgMemPool, isRevokePsk)
 import           Pos.Lrc.Types (RichmenSet)
 

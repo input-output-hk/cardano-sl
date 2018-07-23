@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, GADTs, OverloadedStrings #-}
+{-# LANGUAGE CPP, GADTs, OverloadedStrings, LambdaCase #-}
 
 {-
 This is the proxy portion of iserv.
@@ -55,12 +55,14 @@ import Remote.Message
 import Network.Socket
 import Data.IORef
 import Control.Monad
+import Control.Concurrent (threadDelay)
 import System.Environment
 import System.Exit
 import Text.Printf
 import GHC.Fingerprint (getFileHash)
 import System.Directory
 import System.FilePath (isAbsolute)
+import qualified Control.Exception as E
 
 import Data.Binary
 import qualified Data.ByteString as BS
@@ -110,8 +112,12 @@ main = do
 
   when verbose $
     trace ("Trying to connect to " ++ host_ip ++ ":" ++ (show port))
-  out_pipe <- connectTo host_ip port >>= socketToPipe
-
+  out_pipe <- do
+    let go n = E.try (connectTo host_ip port >>= socketToPipe) >>= \case
+          Left e | n == 0 -> E.throw (e :: E.SomeException)
+                 | n >  0 -> threadDelay 500000 >> go (n - 1)
+          Right a -> return a
+      in go 120 -- wait for up to 60seconds (polling every 0.5s).
   trace "Starting proxy"
   proxy verbose in_pipe out_pipe
   trace "Proxy done"
@@ -257,14 +263,19 @@ proxy verbose local remote = loop
 
 connectTo :: String -> PortNumber -> IO Socket
 connectTo host port = do
-  let hints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV]
-                           , addrSocketType = Stream }
-  addr:_ <- getAddrInfo (Just hints) (Just host) (Just (show port))
-  sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
-  trace $ "Created socket for " ++ host ++ ":" ++ show port
-  connect sock (addrAddress addr)
-  trace "connected"
-  return sock
+  addr <- resolve host (show port)
+  open addr
+  where
+    resolve host port = do
+        let hints = defaultHints { addrSocketType = Stream }
+        addr:_ <- getAddrInfo (Just hints) (Just host) (Just port)
+        return addr
+    open addr = do
+        sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
+        trace $ "Created socket for " ++ host ++ ":" ++ show port
+        connect sock $ addrAddress addr
+        trace "connected"
+        return sock
 
 -- | Turn a socket into an unbuffered pipe.
 socketToPipe :: Socket -> IO Pipe

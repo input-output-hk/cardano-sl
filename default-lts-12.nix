@@ -161,7 +161,6 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
       PORT=$((5000 + $RANDOM % 5000))
       echo "---> Starting remote-iserv on port $PORT"
       WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
-      sleep 60 # wait for wine to fully boot up...
       echo "---| remote-iserv should have started on $PORT"
       RISERV_PID=$!
     '';

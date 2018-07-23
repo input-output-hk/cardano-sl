@@ -340,5 +340,7 @@ in ps // {
       echo "BAD_CI_URL"        >                               daedalus/ci-url
       cd daedalus
       zip $out/CardanoSL.zip *
+      cd ..
+      rm -fR daedalus
     '';
 }

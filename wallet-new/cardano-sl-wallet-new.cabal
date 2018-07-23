@@ -99,6 +99,7 @@ library
                        Cardano.Wallet.Kernel.Internal
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
+                       Cardano.Wallet.Kernel.Compat
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Transactions
@@ -128,7 +129,7 @@ library
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
 
   build-depends:       base
                      , QuickCheck
@@ -184,6 +185,7 @@ library
                      , QuickCheck
                      , mwc-random
                      , reflection
+                     , resourcet
                      , retry
                      , safe-exceptions
                      , safecopy

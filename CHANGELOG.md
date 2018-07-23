@@ -1,32 +1,46 @@
 # CHANGELOG
 
+
+## Cardano SL vNext [1.4.0]
+
+### Features
+
+### Fixes
+
+### Improvements
+
+### Specifications
+
+### Documentation
+
+
 ## Cardano SL 1.3.0
 
 ### Features
 
 - #### Cardano wallet API v1 for the exchanges
-  A subset of endpoints from the Cardano wallet API, used by cryptocurrency exchanges, was moved to the new 
-  Cardano REST API v1. The remaining endpoints will move from v0 to v1 in the next iteration of work. 
-  Cryptocurrency exchanges using the API are encouraged to update their integrations and move to API v1 
+  A subset of endpoints from the Cardano wallet API, used by cryptocurrency exchanges, was moved to the new
+  Cardano REST API v1. The remaining endpoints will move from v0 to v1 in the next iteration of work.
+  Cryptocurrency exchanges using the API are encouraged to update their integrations and move to API v1
   because the old API is now regarded as deprecated and will be removed in future versions. (CBR-101)
 
 - #### Subscription status added to node information
   The endpoint that provides information about the node (`/api/v1/node-info`) was expanded to include
-  information about the node subscription status, which can be used to check if the Cardano node is 
+  information about the node subscription status, which can be used to check if the Cardano node is
   connected to the network or not. (CBR-186)
 
 - #### Improved error message for missing charset in API calls
-  The generic message returned from Cardano node endpoint calls when the charset was not specified is replaced with 
+  The generic message returned from Cardano node endpoint calls when the charset was not specified is replaced with
   a more descriptive error message to help users of the API troubleshoot the problem. (Wallet Backend - CBR-223)
 
 - #### Support for sending raw data on the network
-  It is now possible to send raw, CBOR serialized data to the network using the diffusion layer. Previously, the data 
+  It is now possible to send raw, CBOR serialized data to the network using the diffusion layer. Previously, the data
   had to be serialized before sending it to the network, which had a negative impact on performance. (CBR-277)
 
 ### Specifications & documentation
 
 - #### Formal specification for new wallet backend
-  The formal specification of a wallet for Cardano (or any UTXO-based cryptocurrency) has been written and it is 
+  The formal specification of a wallet for Cardano (or any UTXO-based cryptocurrency) has been written and it is
   available [here](https://cardanodocs.com/technical/formal-specification-for-a-cardano-wallet/). (CBR-60)
 
 - Feedback about the current Wallet API has been collected from Exchanges (CBR-104).
@@ -42,28 +56,28 @@
 ### Fixes and improvements
 
 - #### Performance improvements for sending and receiving blocks
-  Sending and receiving blocks on the network now works better because of the following changes. First, 
-  deserialization performance has been improved by optimizing memory usage. Next, blocks are now downloaded 
-  concurrently without batching. Finally, block traversal is optimized by the introduction of 'forward links' which 
+  Sending and receiving blocks on the network now works better because of the following changes. First,
+  deserialization performance has been improved by optimizing memory usage. Next, blocks are now downloaded
+  concurrently without batching. Finally, block traversal is optimized by the introduction of 'forward links' which
   remove the need for header retrieval and serialization. (CDEC-49)
 
 - #### Optimised block storage
-  Block storage is now optimized by consolidating block and undo data in a single file. This change reduces 
-  disk use and improves performance when reading and writing blocks. In later Cardano versions, much greater 
+  Block storage is now optimized by consolidating block and undo data in a single file. This change reduces
+  disk use and improves performance when reading and writing blocks. In later Cardano versions, much greater
   optimizations for the storage of blocks will be introduced, so this is only an interim solution. (CDEC-293)
 
 - #### High (and recurrent) I/O traffic in wallet
   I/O spikes in traffic were being caused by large logs being flushed. This issue has been fixed. (CBR-83)
 
 - #### Failure to reconnect to the network
-  Due to improper handling of DNS failures, Cardano node would sometimes fail to reconnect to the network after an 
+  Due to improper handling of DNS failures, Cardano node would sometimes fail to reconnect to the network after an
   internet connection was interrupted and would need to be restarted. This issue has been fixed. (CDEC-259)
 
-- #### Wrong time difference calculation between user’s computer and the network 
-  The endpoint (`/api/settings/time/difference`) for calculating the time difference between a user’s computer and 
-  Cardano network was returning an incorrect value in some cases. This was because the calculation was not properly 
-  handling the time needed to request current time from NTP servers and to get the response. As a result, some Daedalus 
-  users were prevented from using their wallet since Daedalus cannot be used if there is a time difference of more 
+- #### Wrong time difference calculation between user’s computer and the network
+  The endpoint (`/api/settings/time/difference`) for calculating the time difference between a user’s computer and
+  Cardano network was returning an incorrect value in some cases. This was because the calculation was not properly
+  handling the time needed to request current time from NTP servers and to get the response. As a result, some Daedalus
+  users were prevented from using their wallet since Daedalus cannot be used if there is a time difference of more
   han 15 seconds. This issue has been fixed. (TSD-42)
 
 ### Testing
@@ -98,7 +112,7 @@ Bug fix release.
   image. (DEVOPS-877)
 
 
-## Cardano SL 1.2.0 
+## Cardano SL 1.2.0
 
 These are the most important code changes which were included in release 1.2.0.
 

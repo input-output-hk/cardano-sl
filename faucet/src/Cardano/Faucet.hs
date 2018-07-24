@@ -52,7 +52,7 @@ faucetServerAPI = Proxy
 withdraw :: (MonadFaucet c m) => WithdrawalRequest -> m WithdrawalResult
 withdraw wr = withSublogger (LoggerName "withdraw") $ do
     logInfo "Attempting to send ADA"
-    mCaptchaSecret <- view (feFaucetConfig . fcRecaptchaSecret)
+    mCaptchaSecret <- view feRecaptchaSecret
     forM_ mCaptchaSecret $ \captchaSecret -> do
         let cr = CaptchaRequest captchaSecret (wr ^. gRecaptchaResponse)
         logInfo "Found a secret for recaptcha in config, attempting validation"

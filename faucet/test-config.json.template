@@ -18,5 +18,5 @@
 , "logging-config": "./logging.cfg"
 , "public-certificate": "./tls/ca.crt"
 , "private-key": "./tls/server.key"
-, "recaptcha-secret": "XXX"
+, "recaptcha-secret-file": "recaptcha-secret.txt"
 }

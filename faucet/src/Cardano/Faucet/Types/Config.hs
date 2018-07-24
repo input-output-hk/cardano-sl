@@ -33,7 +33,7 @@ import           Control.Concurrent.STM.TMVar (TMVar)
 import           Control.Exception (Exception)
 import           Control.Lens hiding ((.=))
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
-                     (.:), (.:?), (.=))
+                             (.:), (.:?), (.=))
 import           Data.Int (Int64)
 import           Data.Text (Text)
 import           Data.Typeable (Typeable)
@@ -44,7 +44,8 @@ import           System.Metrics.Gauge (Gauge)
 import           System.Remote.Monitoring.Statsd (StatsdOptions (..))
 
 import           Cardano.Wallet.API.V1.Types (AccountIndex, Payment,
-                     PaymentSource (..), V1, WalletId (..))
+                                              PaymentSource (..), V1,
+                                              WalletId (..))
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 import           Pos.Core (Address (..))
 import           Pos.Util.Mnemonic (Mnemonic)
@@ -173,8 +174,10 @@ data FaucetConfig = FaucetConfig {
   , _fcPubCertFile         :: !FilePath
     -- | TLS private key
   , _fcPrivKeyFile         :: !FilePath
-    -- | Recapctch sectret key. Absence indicates not to use recaptcha
-  , _fcRecaptchaSecret     :: !(Maybe CaptchaSecret)
+    -- | File path containing recapctch sectret key.
+    --
+    -- Absence indicates not to use recaptcha
+  , _fcRecaptchaSecretFile :: !(Maybe FilePath)
   }
 
 makeClassy ''FaucetConfig
@@ -191,7 +194,7 @@ instance FromJSON FaucetConfig where
           <*> v .: "logging-config"
           <*> v .: "public-certificate"
           <*> v .: "private-key"
-          <*> (fmap CaptchaSecret <$> v .:? "recaptcha-secret")
+          <*> v .:? "recaptcha-secret-file"
 
 --------------------------------------------------------------------------------
 -- | Details of a wallet created by the faucet at run time if 'Generate' is used
@@ -257,23 +260,25 @@ makeLenses ''ProcessorPayload
 -- | Run time environment for faucet's reader Monad
 data FaucetEnv = FaucetEnv {
     -- | Counter for total amount withdawn from a wallet while faucet is running
-    _feWithdrawn     :: !Counter
+    _feWithdrawn       :: !Counter
     -- | Counter for number of withdrawals made
-  , _feNumWithdrawn  :: !Counter
+  , _feNumWithdrawn    :: !Counter
     -- | Gauge for wallet balance
-  , _feWalletBalance :: !Gauge
+  , _feWalletBalance   :: !Gauge
     -- | Metrics store
-  , _feStore         :: !Store
+  , _feStore           :: !Store
     -- | Config for source of funds
-  , _feSourceWallet  :: !SourceWalletConfig
+  , _feSourceWallet    :: !SourceWalletConfig
     -- | Return address for sending ADA back to the faucet
-  , _feReturnAddress :: !(V1 Address)
+  , _feReturnAddress   :: !(V1 Address)
     -- | Original static config object
-  , _feFaucetConfig  :: !FaucetConfig
+  , _feFaucetConfig    :: !FaucetConfig
     -- | Client for communicating with wallet API
-  , _feWalletClient  :: !(WalletClient IO)
+  , _feWalletClient    :: !(WalletClient IO)
     -- | Lock to ensure only one withdrawal at a time
-  , _feWithdrawalQ   :: !(TBQueue ProcessorPayload)
+  , _feWithdrawalQ     :: !(TBQueue ProcessorPayload)
+    -- | Recaptcha secret read from 'fcRecaptchaSecretFile'
+  , _feRecaptchaSecret :: !(Maybe CaptchaSecret)
   }
 
 makeClassy ''FaucetEnv

@@ -1,25 +1,30 @@
-module WalletNewJson
-       (tests
-       ) where
+module WalletNewJson where
 
 import           Universum
 
 import           Cardano.Wallet.API.V1.Errors (WalletError (..))
-import           Cardano.Wallet.API.V1.Types (V1 (..), mkSyncPercentage)
+import           Cardano.Wallet.API.V1.Types (SyncProgress (..), V1 (..),
+                     mkEstimatedCompletionTime, mkSyncPercentage,
+                     mkSyncThroughput)
 import           Data.List.NonEmpty (fromList)
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), Address (..), BlockCount (..),
-                     ChainDifficulty (..), Script (..), makeAddress)
+                     Script (..), makeAddress)
 import           Pos.Crypto.HD (HDAddressPayload (..))
-import           Pos.Wallet.Web (SyncProgress (..))
+import           WalletNewGen (genWalletError)
 
-import           Test.Pos.Util.Golden (discoverGolden, goldenTestJSON)
-
+import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
+import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 -------------------------------------------------------------------------------
 -- WalletError
 -------------------------------------------------------------------------------
+
+roundTripWalletError :: Property
+roundTripWalletError =
+    eachOf 5000 genWalletError roundTripsAesonShow
+
 
 golden_WalletError_NotEnoughMoney :: Property
 golden_WalletError_NotEnoughMoney =
@@ -126,13 +131,14 @@ exampleAddress = V1 $ makeAddress (ScriptASD (Script 0 "bytes")) addrAttrib
 exampleSyncProgress :: SyncProgress
 exampleSyncProgress =
     SyncProgress
-            (ChainDifficulty $ BlockCount 64)
-            (Just . ChainDifficulty  $ BlockCount 64)
-            10
+            (mkEstimatedCompletionTime 64)
+            (mkSyncThroughput $ BlockCount 64)
+            (mkSyncPercentage 10)
 
 -----------------------------------------------------------------------
 -- Main test export
 -----------------------------------------------------------------------
 
 tests :: IO Bool
-tests = H.checkSequential $$discoverGolden
+tests = (&&) <$> H.checkSequential $$discoverGolden
+             <*> H.checkParallel $$discoverRoundTrip

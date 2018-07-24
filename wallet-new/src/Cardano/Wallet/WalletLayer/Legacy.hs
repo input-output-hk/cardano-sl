@@ -16,7 +16,7 @@ import           Data.Coerce (coerce)
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
-                     CreateWalletError, GetAccountError,
+                     CreateWalletError, DeleteAccountError, GetAccountError,
                      PassiveWalletLayer (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
@@ -259,10 +259,11 @@ pwlDeleteAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
-    -> m Bool
+    -> m (Either DeleteAccountError ())
 pwlDeleteAccount wId accIdx = do
     accId <- migrate (wId, accIdx)
-    catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
+    _ <- catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
+    return $ Right ()
 
 ------------------------------------------------------------
 -- Address

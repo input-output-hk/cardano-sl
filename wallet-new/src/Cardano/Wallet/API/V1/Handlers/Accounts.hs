@@ -27,8 +27,10 @@ deleteAccount :: PassiveWalletLayer IO
               -> AccountIndex
               -> Handler NoContent
 deleteAccount layer wId accIdx = do
-    _ <- liftIO $ (WalletLayer.deleteAccount layer) wId accIdx
-    error "unimplemented. See [CBR-342]"
+    res <- liftIO $ (WalletLayer.deleteAccount layer) wId accIdx
+    case res of
+         Left e   -> throwM e
+         Right () -> return NoContent
 
 -- | Fetches an 'Account' given its parent 'WalletId' and its index.
 getAccount :: PassiveWalletLayer IO

@@ -9,6 +9,7 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum
 
 import           Control.Lens (to)
+import           Data.Acid (update)
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Maybe (fromJust)
@@ -24,6 +25,7 @@ import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
+import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdAccount (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -32,6 +34,7 @@ import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import qualified Cardano.Wallet.Kernel.Internal as Internal
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedBlock (..), WalletId (..),
@@ -40,9 +43,10 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
-                     CreateWalletError (..), EstimateFeesError (..),
-                     GetAccountError (..), NewPaymentError (..),
-                     PassiveWalletLayer (..), WalletLayerError (..))
+                     CreateWalletError (..), DeleteAccountError (..),
+                     EstimateFeesError (..), GetAccountError (..),
+                     NewPaymentError (..), PassiveWalletLayer (..),
+                     WalletLayerError (..))
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
@@ -212,7 +216,18 @@ bracketPassiveWallet logFunction keystore rocksDB f =
                                                     , accWalletId  = V1.WalletId wId
                                                     }
             , _pwlUpdateAccount  = error "Not implemented!"
-            , _pwlDeleteAccount  = error "Not implemented!"
+            , _pwlDeleteAccount  =
+                \(V1.WalletId wId) accountIndex -> do
+                        case decodeTextAddress wId of
+                             Left _ ->
+                                 return $ Left (DeleteAccountWalletIdDecodingFailed wId)
+                             Right rootAddr -> do
+                                let hdRootId = HD.HdRootId . InDb $ rootAddr
+                                    hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
+                                res <- liftIO $ update (wallet ^. Internal.wallets) (DeleteHdAccount hdAccountId)
+                                return $ case res of
+                                     Left e   -> Left (DeleteAccountError e)
+                                     Right () -> Right ()
 
             , _pwlCreateAddress  =
                 \(V1.NewAddress mbSpendingPassword accIdx (V1.WalletId wId)) -> do

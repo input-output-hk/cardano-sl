@@ -249,7 +249,7 @@ let
       # Generate daedalus-bridge
       mkdir -p $out/bin
       cd $out
-      ${optionalString (buildId != null) "echo ${buildId} > build-id"}
+      ${pkgs.lib.optionalString (buildId != null) "echo ${buildId} > build-id"}
       echo ${gitrev} > commit-id
       echo ${version} > version
 

@@ -5,7 +5,7 @@ steps:
       system: x86_64-linux
 
   - label: 'release.nix'
-    command: 'nix-shell --run scripts/ci/check-hydra.sh'
+    command: 'scripts/ci/check-hydra.sh'
     agents:
       system: x86_64-linux
 

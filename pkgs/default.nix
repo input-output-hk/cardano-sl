@@ -18299,6 +18299,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-crypto
 , cardano-sl
+, cardano-sl-binary-test
 , cardano-sl-block
 , cardano-sl-client
 , cardano-sl-core
@@ -18331,6 +18332,7 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , gauge
 , generics-sop
+, hedgehog
 , hspec
 , http-api-data
 , http-client
@@ -18527,6 +18529,7 @@ base
 bytestring
 cardano-crypto
 cardano-sl
+cardano-sl-binary-test
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
@@ -18549,6 +18552,7 @@ data-default
 directory
 filepath
 formatting
+hedgehog
 hspec
 ixset-typed
 lens

@@ -84,7 +84,7 @@ type LogicWorkMode ctx m =
     , MonadBlockDBRead m
     , MonadDBRead m
     , MonadGState m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadSlots ctx m
     , HasLens RecoveryHeaderTag ctx RecoveryHeader
     , BlockWorkMode ctx m

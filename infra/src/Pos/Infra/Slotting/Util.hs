@@ -34,8 +34,7 @@ import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId (..),
-                     Timestamp (..), slotIdF)
+import           Pos.Core (LocalSlotIndex, SlotId (..), Timestamp (..), slotIdF)
 import           Pos.Core.Conc (delay, timeout)
 import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      EpochSlottingData (..), MonadSlotsData,
@@ -43,8 +42,7 @@ import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      defaultOnNewSlotParams, getCurrentNextEpochSlottingDataM,
                      getCurrentSlotFlat, getEpochSlottingDataM,
                      getSystemStartM, lookupEpochSlottingData)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfoConstraints,
-                     recoveryInProgress)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
 import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
@@ -108,7 +106,7 @@ type MonadOnNewSlot ctx m =
     , WithLogger m
     , MonadReporting m
     , HasShutdownContext ctx
-    , MonadRecoveryInfoConstraints ctx m
+    , MonadRecoveryInfo ctx m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to

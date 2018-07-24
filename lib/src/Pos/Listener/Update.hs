@@ -21,7 +21,7 @@ import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Update (UpdateContext, processProposal, processVote)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfoConstraints)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots)
@@ -48,7 +48,7 @@ type UpdateMode ctx m
       , HasShutdownContext ctx
       , HasUpdateConfiguration
       , MonadReporting m
-      , MonadRecoveryInfoConstraints ctx m
+      , MonadRecoveryInfo ctx m
       , MonadSlots ctx m
       )
 

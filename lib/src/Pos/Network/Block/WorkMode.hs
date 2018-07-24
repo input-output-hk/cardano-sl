@@ -58,7 +58,7 @@ type BlockWorkMode ctx m =
     , Default (MempoolExt m)
 
     , LrcModeFull ctx m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadTxpLocal m
 
     , HasPrimaryKey ctx

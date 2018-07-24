@@ -28,7 +28,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfoConstraints)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots, OnNewSlotParams (..),
@@ -50,7 +50,7 @@ type MonadPendings ctx m =
     ( TxMode m
     , MonadAddresses m
     , MonadDBRead m
-    , MonadRecoveryInfoConstraints ctx m
+    , MonadRecoveryInfo ctx m
     , MonadReporting m
     , HasShutdownContext ctx
     , MonadSlots ctx m

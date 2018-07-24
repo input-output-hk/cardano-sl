@@ -14,14 +14,12 @@ import           System.Wlog (WithLogger, logNotice)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize)
-import           Pos.Core (HasProtocolConstants)
 import           Pos.Core.Slotting (MonadSlots, flattenSlotId, slotIdF)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (kademliaDumpInterval)
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfoConstraints,
-                     recoveryCommGuard)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
@@ -32,7 +30,7 @@ type DhtWorkMode ctx m =
     , MonadIO m
     , MonadUnliftIO m
     , MonadMask m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadReader ctx m
     , MonadReporting m
     , HasShutdownContext ctx

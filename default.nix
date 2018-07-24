@@ -203,7 +203,7 @@ let
     });
     all-cardano-sl = pkgs.buildEnv {
       name = "all-cardano-sl";
-      paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
+      paths = builtins.attrValues (pkgs.lib.filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
       ignoreCollisions = true;
     };
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };

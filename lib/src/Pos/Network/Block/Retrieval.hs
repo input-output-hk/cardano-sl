@@ -159,6 +159,11 @@ retrievalWorker coreConfig txpConfig diffusion = do
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash rHeader)) e
         dropRecoveryHeaderAndRepeat coreConfig diffusion nodeId
+        where
+            errfmt = "handleRecoveryE: error handling nodeId="%build%", header="%headerHashF%": "
+
+            handleIOException :: IOException -> m ()
+            handleIOException _ = logError $ sformat (errfmt%shown) nodeId (headerHash rHeader) e
 
     -- Recovery handling. We assume that header in the recovery variable is
     -- appropriate and just query headers/blocks.

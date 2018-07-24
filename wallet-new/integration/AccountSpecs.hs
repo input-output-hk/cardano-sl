@@ -7,7 +7,6 @@ import           Universum
 
 import           Pos.Core (addrToBase58Text)
 import           Cardano.Wallet.Client.Http
-import           Control.Lens
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
 
@@ -22,16 +21,14 @@ accountSpecs wc = do
             Wallet{..} <- createWalletCheck wc newWallet
 
             -- create an account
-            accResp <- postAccount wc walId (NewAccount Nothing "hello")
-            Account{..} <- wrData <$> accResp `shouldPrism` _Right
+            Account{..} <- fmap wrData $ shouldReturnRight $
+                             postAccount wc walId (NewAccount Nothing "hello")
 
             -- create an address path
-            pathResp <- postAddressPath wc walId accIndex
-            addrPath <- pathResp `mustBe` _OK
+            addrPath <- shouldReturnRight $ postAddressPath wc walId accIndex
 
             -- create another address path
-            pathResp' <- postAddressPath wc walId accIndex
-            addrPath' <- pathResp' `mustBe` _OK
+            addrPath' <- shouldReturnRight $ postAddressPath wc walId accIndex
 
             -- We don't expect a different path unless new addresses have
             -- actually been created
@@ -51,11 +48,10 @@ accountSpecs wc = do
             defaultAccount <- firstAccountInExtWallet wc aWallet
 
             -- store new address
-            storeAddrResp <- postStoreAddress wc
-                                              walId
-                                              (accIndex defaultAccount)
-                                              newAddressAsBase58
-            void $ storeAddrResp `mustBe` _OK
+            _storeAddrResp <- shouldReturnRight $ postStoreAddress wc
+                                                                   walId
+                                                                   (accIndex defaultAccount)
+                                                                   newAddressAsBase58
 
             -- check if that address is presented in the default account
             defaultAccount' <- firstAccountInExtWallet wc aWallet
@@ -78,11 +74,14 @@ accountSpecs wc = do
             defaultAccount <- firstAccountInExtWallet wc aWallet
 
             -- attempt to store invalid address
-            storeAddrResp <- postStoreAddress wc
-                                              walId
-                                              (accIndex defaultAccount)
-                                              invalidAddress
-            void $ storeAddrResp `mustBe` _Failed
+            let action = postStoreAddress wc
+                                          walId
+                                          (accIndex defaultAccount)
+                                          invalidAddress
+
+            void $ action `shouldFailWith` ClientWalletError
+              (InvalidAddressFormat {weMsg = "Invalid base58 representation of address"})
+
   where
     randomAddress :: IO Address
     randomAddress = generate arbitrary

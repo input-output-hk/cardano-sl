@@ -7,8 +7,9 @@
 {-# LANGUAGE TypeApplications           #-}
 
 module Functions
-    ( runActionCheck
+    ( actionDistribution
     , printT
+    , runActionCheck
     ) where
 
 import           Universum hiding (init, uncons)
@@ -714,3 +715,10 @@ walletIdIsNotGenesis walletId = do
     mwallet <- (fmap fst . uncons) . filter ((walletId ==) . walId) <$> use wallets
     whenJust mwallet $ \wal ->
         guard (walName wal /= "Genesis wallet")
+
+
+actionDistribution :: ActionProbabilities
+actionDistribution = do
+    (PostWallet, Weight 2)
+    :| (PostTransaction, Weight 5)
+    : fmap (, Weight 1) [minBound .. maxBound]

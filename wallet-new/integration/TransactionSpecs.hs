@@ -1,6 +1,3 @@
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TupleSections #-}
-
 module TransactionSpecs (transactionSpecs) where
 
 import           Universum
@@ -91,13 +88,11 @@ transactionSpecs wRef wc = do
                     }
                 tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
 
-            etxn <- postTransaction wc payment
-
-            txn <- fmap wrData etxn `mustBe` _OK
+            txn <- fmap wrData $ shouldReturnRight $ postTransaction wc payment
 
             threadDelay 120000000
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
-            resp <- fmap wrData eresp `mustBe` _OK
+            resp <- fmap wrData $ shouldReturnRight $
+                         getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
 
             map txId resp `shouldContain` [txId txn]
             let txnEntry: _ = filter ( \x -> (txId x) == (txId txn)) resp
@@ -191,11 +186,9 @@ transactionSpecs wRef wc = do
                     , pmtSpendingPassword = Nothing
                     }
                 tooMuchCash (V1 c) = V1 (Core.mkCoin (Core.getCoin c * 2))
-            etxn <- postTransaction wc payment
+            shouldFail $ postTransaction wc payment
 
-            void $ etxn `mustBe` _Failed
-
-        it "Payments: genesis wallet -> external wallet -> external wallet" $ do
+        it "Create unsigned transaction and submit it to the blockchain" $ do
             -- Create genesis wallet, it is initial source of money,
             -- we will use it to send money to the source wallet before test payment.
             genesisWallet <- makeGenesisWallet wc
@@ -225,8 +218,7 @@ transactionSpecs wRef wc = do
                                           genesisAccount
                                           srcWalletAddress
                                           initAmountInLovelaces
-            txResponse <- postTransaction wc initPayment
-            void $ txResponse `mustBe` _OK
+            void $ shouldReturnRight $ postTransaction wc initPayment
 
             -- Now source wallet contains some money.
             srcExtWalletBalance <- getWalletBalanceInLovelaces wc srcExtWallet
@@ -241,71 +233,58 @@ transactionSpecs wRef wc = do
             (dstExtWallet, defaultDstAccount) <- makeExternalWalletBasedOn dstWalletRootPK
             storeAddressInWalletAccount dstExtWallet defaultDstAccount dstWalletAddress
 
-            -- Test payment from one external wallet to another one.
-            makePaymentFromExternalWallet 100000000
-                                          srcExtWallet
+            -- Test payment.
+            let testAmountInLovelaces = 100000000
+                testPayment = makePayment srcExtWallet
                                           defaultSrcAccount
-                                          dstExtWallet
                                           dstWalletAddress
-                                          srcWalletChangeAddress
-                                          srcWalletAddress
-                                          srcWalletAddressDerivedSK
-                                          srcWalletAddressDerivedPK
-                                          srcWalletRootPK
+                                          testAmountInLovelaces
+                changeAddressAsBase58 = Core.addrToBase58Text srcWalletChangeAddress
+                testPaymentWithChangeAddress = PaymentWithChangeAddress testPayment changeAddressAsBase58
 
-        it "Payments: genesis wallet -> external wallet -> regular wallet" $ do
-            -- Create genesis wallet, it is initial source of money,
-            -- we will use it to send money to the source wallet before test payment.
-            genesisWallet <- makeGenesisWallet wc
-            (genesisAccount, _) <- getFirstAccountAndAddress wc genesisWallet
+            rawTx <- shouldReturnRight $ postUnsignedTransaction wc testPaymentWithChangeAddress
 
-            -- Create a keys for the source wallet.
-            (srcWalletEncRootSK, srcWalletRootPK) <- makeWalletRootKeys
+            -- Now we have a raw transaction, but it wasn't piblished yet,
+            -- let's sign it (as if Ledger device did it).
+            -- There's only one input for this transaction, so we should provide
+            -- only one proof for this input.
+            let RawTransaction txInHexFormat txSigDataInHexFormat _ = wrData rawTx
+                -- txSigDataInHexFormat is a hash data of this transaction, this
+                -- hash data should be signed by derivedSK.
+                Right txSigDataAsBytes = B16.decode txSigDataInHexFormat
+                protocolMagic = Core.ProtocolMagic 55550001
+                Signature txSignature = signEncoded protocolMagic
+                                                    SignTx
+                                                    srcWalletAddressDerivedSK
+                                                    txSigDataAsBytes
+                rawSignature = CC.unXSignature txSignature
+                txSignatureInHexFormat = B16.encode rawSignature
+                srcWalletRootPKAsBase58 = encodeBase58PublicKey srcWalletRootPK
+                derivedPKAsBase58 = encodeBase58PublicKey srcWalletAddressDerivedPK
+                srcWalletAddressAsBase58 = Core.addrToBase58Text srcWalletAddress
+                inputProof = AddressWithProof srcWalletAddressAsBase58
+                                              txSignatureInHexFormat
+                                              derivedPKAsBase58
+                signedTx = SignedTransaction srcWalletRootPKAsBase58
+                                             txInHexFormat
+                                             [inputProof]
+                addressCreatedFromThisPK = Core.checkPubKeyAddress srcWalletAddressDerivedPK
+                                                                   srcWalletAddress
+                txSignatureIsValid = checkSigRaw protocolMagic
+                                                 (Just SignTx)
+                                                 srcWalletAddressDerivedPK
+                                                 txSigDataAsBytes
+                                                 (Signature txSignature)
 
-            -- Create and store new address for source wallet,
-            -- we need it to send money from genesis wallet, before test payment.
-            ( srcWalletAddress
-              , srcWalletAddressDerivedSK
-              , srcWalletAddressDerivedPK ) <- makeFirstAddress srcWalletEncRootSK
-            -- Create external wallet, the source of test payment.
-            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn srcWalletRootPK
-            storeAddressInWalletAccount srcExtWallet defaultSrcAccount srcWalletAddress
+            addressCreatedFromThisPK `shouldBe` True
+            txSignatureIsValid `shouldBe` True
 
-            -- Most likely that we'll have some change after test payment
-            -- (if test payment's amount is smaller that 'srcExtWallet' balance),
-            -- so we must provide change address for it.
-            srcWalletChangeAddress <- makeAnotherAddress srcWalletEncRootSK defaultSrcAccount
-            storeAddressInWalletAccount srcExtWallet defaultSrcAccount srcWalletChangeAddress
+            -- Now we have signed transaction, let's publish it in the blockchain.
+            void $ shouldReturnRight $ postSignedTransaction wc signedTx
 
-            -- Send some money to source wallet.
-            let initAmountInLovelaces = 1000000000
-                initPayment = makePayment genesisWallet
-                                          genesisAccount
-                                          srcWalletAddress
-                                          initAmountInLovelaces
-            txResponse <- postTransaction wc initPayment
-            void $ txResponse `mustBe` _OK
-
-            -- Now source wallet contains some money.
-            srcExtWalletBalance <- getWalletBalanceInLovelaces wc srcExtWallet
-            srcExtWalletBalance `shouldSatisfy` (> 0)
-
-            -- Create destination regular wallet.
-            newDstRegularWallet <- randomCreateWallet
-            dstRegularWallet <- createWalletCheck wc newDstRegularWallet
-            (_, dstRegularWalletAddress) <- getFirstAccountAndAddress wc dstRegularWallet
-
-            -- Another test payment from one external wallet to the regular one.
-            makePaymentFromExternalWallet 100000000
-                                          srcExtWallet
-                                          defaultSrcAccount
-                                          dstRegularWallet
-                                          (unV1 . addrId $ dstRegularWalletAddress)
-                                          srcWalletChangeAddress
-                                          srcWalletAddress
-                                          srcWalletAddressDerivedSK
-                                          srcWalletAddressDerivedPK
-                                          srcWalletRootPK
+            -- Check current balance of destination wallet.
+            dstExtWalletBalance <- getWalletBalanceInLovelaces wc dstExtWallet
+            dstExtWalletBalance `shouldSatisfy` (> 0)
   where
     makePayment srcWallet srcAccount dstAddress amount = Payment
         { pmtSource = PaymentSource
@@ -356,11 +335,10 @@ transactionSpecs wRef wc = do
     storeAddressInWalletAccount wallet anAccount anAddress = do
         -- Store this HD-address in the wallet's account.
         let anAddressAsBase58 = Core.addrToBase58Text anAddress
-        storeResponse <- postStoreAddress wc
-                                          (walId wallet)
-                                          (accIndex anAccount)
-                                          anAddressAsBase58
-        void $ storeResponse `mustBe` _OK
+        void $ shouldReturnRight $ postStoreAddress wc
+                                                    (walId wallet)
+                                                    (accIndex anAccount)
+                                                    anAddressAsBase58
 
     makeExternalWalletBasedOn publicKey = do
         newExtWallet <- randomExternalWalletWithPublicKey CreateWallet publicKey
@@ -379,69 +357,3 @@ transactionSpecs wRef wc = do
 
     randomAddressIndex :: IO Word32
     randomAddressIndex = generate arbitrary
-
-    makePaymentFromExternalWallet amountInLovelaces
-                                  srcWallet
-                                  srcAccount
-                                  dstWallet
-                                  dstAddress
-                                  changeAddress
-                                  fromAddress
-                                  derivedSK
-                                  derivedPK
-                                  rootPK = do
-        let testPayment = makePayment srcWallet
-                                      srcAccount
-                                      dstAddress
-                                      amountInLovelaces
-            changeAddressAsBase58 = Core.addrToBase58Text changeAddress
-            testPaymentWithChangeAddress = PaymentWithChangeAddress testPayment
-                                                                    changeAddressAsBase58
-
-        rawTxResponse <- postUnsignedTransaction wc testPaymentWithChangeAddress
-        rawTx <- rawTxResponse `mustBe` _OK
-
-        -- Now we have a raw transaction, but it wasn't piblished yet,
-        -- let's sign it (as if Ledger device did it).
-        -- There's only one input for this transaction, so we should provide
-        -- only one proof for this input.
-        let RawTransaction txInHexFormat txSigDataInHexFormat _ = wrData rawTx
-            -- txSigDataInHexFormat is a hash data of this transaction, this
-            -- hash data should be signed by derivedSK.
-            Right txSigDataAsBytes = B16.decode txSigDataInHexFormat
-            -- Value of protocolMagic is taken from lib/configuration.yaml.
-            protocolMagic = Core.ProtocolMagic 55550001
-            Signature txSignature = signEncoded protocolMagic
-                                                SignTx
-                                                derivedSK
-                                                txSigDataAsBytes
-            rawSignature = CC.unXSignature txSignature
-            txSignatureInHexFormat = B16.encode rawSignature
-            srcWalletRootPKAsBase58 = encodeBase58PublicKey rootPK
-            derivedPKAsBase58 = encodeBase58PublicKey derivedPK
-            srcWalletAddressAsBase58 = Core.addrToBase58Text fromAddress
-            inputProof = AddressWithProof srcWalletAddressAsBase58
-                                          txSignatureInHexFormat
-                                          derivedPKAsBase58
-            signedTx = SignedTransaction srcWalletRootPKAsBase58
-                                         txInHexFormat
-                                         [inputProof]
-            addressCreatedFromThisPK = Core.checkPubKeyAddress derivedPK
-                                                               fromAddress
-            txSignatureIsValid = checkSigRaw protocolMagic
-                                             (Just SignTx)
-                                             derivedPK
-                                             txSigDataAsBytes
-                                             (Signature txSignature)
-
-        addressCreatedFromThisPK `shouldBe` True
-        txSignatureIsValid `shouldBe` True
-
-        -- Now we have signed transaction, let's publish it in the blockchain.
-        signedTxResponse <- postSignedTransaction wc signedTx
-        void $ signedTxResponse `mustBe` _OK
-
-        -- Check current balance of destination wallet.
-        dstBalance <- getWalletBalanceInLovelaces wc dstWallet
-        -- Test payment.
-        dstBalance `shouldSatisfy` (> 0)

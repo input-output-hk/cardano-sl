@@ -52,11 +52,10 @@ main = do
 
     printT $ "Initial wallet state: " <> show walletState
 
-    -- some monadic fold or smth similar
-    _ <- runActionCheck
-        walletClient
-        walletState
-        actionDistribution
+    void $ runActionCheck
+                          walletClient
+                          walletState
+                          actionDistribution
 
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef

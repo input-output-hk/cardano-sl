@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TupleSections #-}
 module Util where
@@ -5,15 +6,14 @@ module Util where
 import           Universum hiding ((^?))
 
 import           Cardano.Wallet.Client.Http
-import           Control.Lens
 import           System.IO.Unsafe (unsafePerformIO)
-import           Test.Hspec
+import           Test.Hspec (shouldSatisfy, expectationFailure)
 import           Test.QuickCheck (Gen, arbitrary, generate)
+
 
 import qualified Pos.Core as Core
 import           Pos.Crypto.Signing (PublicKey, encToPublic, encodeBase58PublicKey)
 import           Pos.Util.BackupPhrase (safeKeysFromPhrase)
-
 
 type WalletRef = MVar Wallet
 
@@ -33,7 +33,7 @@ randomCreateWallet = randomWallet CreateWallet
 randomRestoreWallet :: IO NewWallet
 randomRestoreWallet = randomWallet RestoreWallet
 
-randomExternalWallet :: WalletOperation -> IO NewExternalWallet
+randomExternalWallet :: HasCallStack => WalletOperation -> IO NewExternalWallet
 randomExternalWallet walletOp =
     generate $
         NewExternalWallet
@@ -59,35 +59,32 @@ randomExternalWalletWithPublicKey walletOp publicKey =
             <*> pure "External Wallet"
             <*> pure walletOp
 
-createWalletCheck :: WalletClient IO -> NewWallet -> IO Wallet
-createWalletCheck wc newWallet = do
-    response <- fmap wrData <$> postWallet wc newWallet
-    response `mustBe` _OK
+createWalletCheck :: HasCallStack => WalletClient IO -> NewWallet -> IO Wallet
+createWalletCheck wc newWallet
+  = shouldReturnRight $ fmap wrData <$> postWallet wc newWallet
 
-createExternalWalletCheck :: WalletClient IO -> NewExternalWallet -> IO Wallet
-createExternalWalletCheck wc newExtWallet = do
-    response <- fmap wrData <$> postExternalWallet wc newExtWallet
-    response `mustBe` _OK
+createExternalWalletCheck :: HasCallStack => WalletClient IO -> NewExternalWallet -> IO Wallet
+createExternalWalletCheck wc newExtWallet
+    = shouldReturnRight $ fmap wrData <$> postExternalWallet wc newExtWallet
 
-getFirstAccountAndAddress :: WalletClient IO -> Wallet -> IO (Account, WalletAddress)
+getFirstAccountAndAddress :: HasCallStack => WalletClient IO -> Wallet -> IO (Account, WalletAddress)
 getFirstAccountAndAddress wc wallet = do
     accounts <- getAccountsInWallet wc wallet
     let (fstAccount : _) = accounts
         (fstAddress : _) = accAddresses fstAccount
     pure (fstAccount, fstAddress)
 
-firstAccountInExtWallet :: WalletClient IO -> Wallet -> IO Account
+firstAccountInExtWallet :: HasCallStack => WalletClient IO -> Wallet -> IO Account
 firstAccountInExtWallet wc wallet = do
     accounts <- getAccountsInWallet wc wallet
     let (fstAccount : _) = accounts
     pure fstAccount
 
-getAccountsInWallet :: WalletClient IO -> Wallet -> IO [Account]
+getAccountsInWallet :: HasCallStack => WalletClient IO -> Wallet -> IO [Account]
 getAccountsInWallet wc wallet = do
-    etoAccts <- getAccounts wc (walId wallet)
-    toAccts <- fmap wrData etoAccts `shouldPrism` _Right
-    toAccts `shouldSatisfy` (not . null)
-    pure toAccts
+    accounts <- fmap wrData $ shouldReturnRight $ getAccounts wc (walId wallet)
+    accounts `shouldSatisfy` (not . null)
+    return accounts
 
 newWalletRef :: IO WalletRef
 newWalletRef = newEmptyMVar
@@ -130,44 +127,36 @@ lockedWallet =
 
 getWalletBalanceInLovelaces :: WalletClient IO -> Wallet -> IO Word64
 getWalletBalanceInLovelaces wc wallet = do
-    response <- getWallet wc (walId wallet)
-    sameWallet <- response `mustBe` _OK
+    sameWallet <- shouldReturnRight $ getWallet wc (walId wallet)
     pure . Core.getCoin . unV1 . walBalance . wrData $ sameWallet
 
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar
 {-# NOINLINE genesisRef #-}
 
-shouldPrism :: Show s => s -> Prism' s a -> IO a
-shouldPrism a b = do
-    a `shouldSatisfy` has b
-    let Just x = a ^? b
-    pure x
-
-infixr 8 `shouldPrism`
-
-_OK :: Prism (Either c a) (Either c b) a b
-_OK = _Right
-
-_Failed :: Prism (Either a c) (Either b c) a b
-_Failed = _Left
-
-mustBe :: Show s => s -> Prism' s a -> IO a
-mustBe = shouldPrism
-
-infixr 8 `mustBe`
-
-shouldPrism_ :: Show s => s -> Prism' s a -> IO ()
-shouldPrism_ a b =
-    a `shouldSatisfy` has b
-
-infixr 8 `shouldPrism_`
+shouldReturnRight :: (HasCallStack, Show err) => IO (Either err a) -> IO a
+shouldReturnRight a = a >>= \case
+    Right x  -> return x
+    Left err -> do
+      expectationFailure ("expecting Right (..) got :" ++ show err)
+      error "unreachable"
 
 shouldFailWith
-    :: (Show a)
-    => Either ClientError (WalletResponse a)
+    :: HasCallStack
+    => IO (Either ClientError a)
     -> ClientError
     -> IO ()
-shouldFailWith eresp wantErr = do
-    gotErr <- eresp `shouldPrism` _Left
-    gotErr `shouldBe` wantErr
+shouldFailWith action wantErr = action >>= \case
+    Right _  -> expectationFailure errMsg
+    Left err -> do
+      print err
+      if err == wantErr
+        then return ()
+        else expectationFailure errMsg
+   where
+     errMsg = "expecting Left ("++ show wantErr ++ ")"
+
+shouldFail :: HasCallStack => IO (Either ClientError a) -> IO ()
+shouldFail action = action >>= \case
+    Right _  -> expectationFailure "expecting Left (..)"
+    Left _   -> return ()

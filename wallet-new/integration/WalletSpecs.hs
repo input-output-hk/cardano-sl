@@ -8,8 +8,7 @@ import           Universum
 import           Cardano.Wallet.API.V1.Errors
                      (WalletError (WalletAlreadyExists, WalletNotFound))
 import           Cardano.Wallet.Client.Http
-import           Pos.Crypto (SecretKey, encToPublic, noPassEncrypt)
-import           Control.Lens
+import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists, WalletNotFound))
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
 
@@ -23,19 +22,17 @@ walletSpecs _ wc = do
             newWallet <- randomWallet CreateWallet
             Wallet{..} <- createWalletCheck wc newWallet
 
-            eresp <- getWallet wc walId
-            void $ eresp `shouldPrism` _Right
+            void $ shouldReturnRight $ getWallet wc walId
 
         it "Updating a wallet persists the update" $ do
             newWallet <- randomWallet CreateWallet
             wallet <- createWalletCheck wc newWallet
             let newName = "Foobar Bazquux"
                 newAssurance = NormalAssurance
-            eupdatedWallet <- updateWallet wc (walId wallet) WalletUpdate
+            Wallet{..} <- fmap wrData $ shouldReturnRight $ updateWallet wc (walId wallet) WalletUpdate
                 { uwalName = newName
                 , uwalAssuranceLevel = newAssurance
                 }
-            Wallet{..} <- wrData <$> eupdatedWallet `shouldPrism` _Right
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
 
@@ -49,24 +46,22 @@ walletSpecs _ wc = do
             newWallet <- randomWallet CreateWallet
             wallet <- createWalletCheck wc newWallet
 
-            eresp <- updateWallet wc (walId wallet) WalletUpdate
+            void $ shouldReturnRight $ updateWallet wc (walId wallet) WalletUpdate
                 { uwalName = "patate漢patate字patat"
                 , uwalAssuranceLevel = NormalAssurance
                 }
-
-            eresp `shouldPrism_` _Right
 
     describe "External Wallets" $ do
         it "Creating an external wallet makes it available" $ do
             newExtWallet <- randomExternalWallet CreateWallet
             Wallet{..} <- createExternalWalletCheck wc newExtWallet
-            void $ getWallet wc walId >>= (`mustBe` _OK)
+            void $ shouldReturnRight $ getWallet wc walId
 
         it "Creating an external wallet (using prepared public key) makes it available" $ do
             publicKey <- makeWalletKey
             newExtWallet <- randomExternalWalletWithPublicKey CreateWallet publicKey
             Wallet{..} <- createExternalWalletCheck wc newExtWallet
-            void $ getWallet wc walId >>= (`mustBe` _OK)
+            void $ shouldReturnRight $ getWallet wc walId
 
         it "Delete an external wallet removes it and its accounts completely" $ do
             -- By default external wallet has one account _without_ addresses
@@ -75,10 +70,9 @@ walletSpecs _ wc = do
             let pubKeyAsText = newewalExtPubKey newExtWallet
             Wallet{..} <- createExternalWalletCheck wc newExtWallet
 
-            deleteExternalWallet wc pubKeyAsText
-                >>= (`shouldPrism` _Right)
-            getWallet wc walId
-                >>= (`shouldFailWith` (ClientWalletError WalletNotFound))
+            void $ shouldReturnRight $ deleteExternalWallet wc pubKeyAsText
+            getWallet wc walId `shouldFailWith` (ClientWalletError WalletNotFound)
+
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action
@@ -88,12 +82,9 @@ walletSpecs _ wc = do
                         { newwalBackupPhrase = newwalBackupPhrase newWallet1
                         }
             -- First wallet creation/restoration should succeed
-            result <- postWallet wc newWallet1
-            void $ result `shouldPrism` _Right
+            void $ shouldReturnRight $ postWallet wc newWallet1
             -- Second wallet creation/restoration should rise WalletAlreadyExists
-            eresp <- postWallet wc newWallet2
-            clientError <- eresp `shouldPrism` _Left
-            clientError `shouldBe` ClientWalletError WalletAlreadyExists
+            postWallet wc newWallet2 `shouldFailWith` ClientWalletError WalletAlreadyExists
 
     makeWalletKey = do
         secretKey <- (generate arbitrary :: IO SecretKey)

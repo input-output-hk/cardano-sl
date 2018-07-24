@@ -6,7 +6,6 @@ module AddressSpecs (addressSpecs) where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Control.Lens
 import           Test.Hspec
 
 import           Util
@@ -20,29 +19,23 @@ addressSpecs wRef wc = do
             Wallet{..} <- sampleWallet wRef wc
 
             -- create an account
-            accResp <- postAccount wc walId (NewAccount Nothing "hello")
-            acc@Account{..} <- wrData <$> accResp `shouldPrism` _Right
+            acc@Account{..} <- fmap wrData $ shouldReturnRight $
+               postAccount wc walId (NewAccount Nothing "hello")
 
             -- accounts should exist
-            accResp' <- getAccounts wc walId
-            accs <- wrData <$> accResp' `shouldPrism` _Right
+            accs <- fmap wrData $ shouldReturnRight $ getAccounts wc walId
             accs `shouldContain` [acc]
 
             -- create an address
-            addResp <- postAddress wc (NewAddress Nothing accIndex walId)
-            addr <- wrData <$> addResp `shouldPrism` _Right
+            addr <- fmap wrData $ shouldReturnRight $ postAddress wc (NewAddress Nothing accIndex walId)
 
             -- verify that address is in the API
-            idxResp <- getAddressIndex wc
-            addrs <- wrData <$> idxResp `shouldPrism` _Right
+            addrs <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
 
             map addrId addrs `shouldContain` [addrId addr]
 
         it "Index returns real data" $ do
-            addrsResp <- getAddressIndex wc
-            addrs <- wrData <$> addrsResp `shouldPrism` _Right
-
-            addrsResp' <- getAddressIndex wc
-            addrs' <- wrData <$> addrsResp' `shouldPrism` _Right
+            addrs  <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
+            addrs' <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
 
             addrs `shouldBe` addrs'

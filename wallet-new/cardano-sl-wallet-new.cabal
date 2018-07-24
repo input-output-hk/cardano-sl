@@ -648,3 +648,62 @@ benchmark cardano-sl-wallet-new-bench
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+
+test-suite wallet-integration-tests
+  default-language:   Haskell2010
+  ghc-options:        -Wall
+  type:               exitcode-stdio-1.0
+
+  hs-source-dirs:     test/integration
+  main-is:            Main.hs
+
+  -- other-modules:
+
+  default-extensions: BangPatterns
+                      ConstraintKinds
+                      DeriveGeneric
+                      FlexibleContexts
+                      FlexibleInstances
+                      GADTs
+                      InstanceSigs
+                      LambdaCase
+                      MultiParamTypeClasses
+                      MultiWayIf
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      RankNTypes
+                      RecordWildCards
+                      ScopedTypeVariables
+                      StandaloneDeriving
+                      TypeApplications
+                      TypeFamilies
+
+  build-depends:      base
+                    , bytestring
+                    , cardano-sl
+                    , cardano-sl-block
+                    , cardano-sl-client
+                    , cardano-sl-core
+                    , cardano-sl-core-test
+                    , cardano-sl-crypto
+                    , cardano-sl-db
+                    , cardano-sl-delegation
+                    , cardano-sl-lrc
+                    , cardano-sl-networking
+                    , cardano-sl-ssc
+                    , cardano-sl-txp
+                    , cardano-sl-txp-test
+                    , cardano-sl-update
+                    , cardano-sl-util
+                    , cardano-sl-wallet
+                    , cardano-sl-wallet-new
+                    , data-default
+                    , hspec
+                    , lens
+                    , log-warper
+                    , QuickCheck
+                    , quickcheck-instances
+                    , universum
+                    , random
+                    , stm
+                    , time

@@ -133,6 +133,7 @@ library
                       , clock
                       , conduit
                       , containers
+                      , data-default
                       , directory
                       , dns
                       , ekg-core

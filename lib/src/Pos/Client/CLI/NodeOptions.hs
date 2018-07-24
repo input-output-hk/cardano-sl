@@ -15,6 +15,7 @@ module Pos.Client.CLI.NodeOptions
 
 import           Universum
 
+import           Data.Default (Default (..))
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,
@@ -54,6 +55,32 @@ data CommonNodeArgs = CommonNodeArgs
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     , cnaDumpConfiguration   :: !Bool
     } deriving Show
+
+instance Default CommonNodeArgs where
+    def = CommonNodeArgs
+        { dbPath                 = Nothing
+        , rebuildDB              = False
+        , cnaAssetLockPath       = Nothing
+        , devGenesisSecretI      = Nothing
+        , keyfilePath            = "secret.key"
+        , networkConfigOpts      = def
+        , jlPath                 = Nothing
+        , commonArgs             = CommonArgs
+            { logConfig            = Nothing
+            , logPrefix            = Nothing
+            , reportServers        = mempty
+            , updateServers        = mempty
+            , configurationOptions = def
+            }
+        , updateLatestPath       = "update-installer.exe"
+        , updateWithPackage      = False
+        , route53Params          = Nothing
+        , enableMetrics          = False
+        , ekgParams              = Nothing
+        , statsdParams           = Nothing
+        , cnaDumpGenesisDataPath = Nothing
+        , cnaDumpConfiguration   = False
+        }
 
 commonNodeArgsParser :: Parser CommonNodeArgs
 commonNodeArgsParser = do
@@ -123,6 +150,11 @@ data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
 data NodeArgs = NodeArgs
     { behaviorConfigPath :: !(Maybe FilePath)
     } deriving Show
+
+instance Default NodeArgs where
+    def = NodeArgs
+        { behaviorConfigPath = Nothing
+        }
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do

@@ -14,9 +14,9 @@
     "hackage": {
 	"account":        "angerman",
 	"project":        "hackage.nix",
-	"rev":            "fa1063c22022cd1e16966cfad2608ec11176d82b",
-	"sha256":         "1lpaxnhswamqpv0x2c5014723bvksz7r4iz7cprks0jl52pgvssc",
-	"sha256unpacked": "100xr0gk8h3i5k28xhnm1w3pl2hgy9abz97f13hir6qhzlpn851g" },
+	"rev":            "1d896938617c5be6458e9fce0af0271416d7849f",
+	"sha256":         "1fhk27v6vfik7410mm551v8f51cdnh81dgllfcmv9ljyjjgf2pcw",
+	"sha256unpacked": "0aj334qnjrd3q86wyz585zym6c4wirkw3d7gn3i7wbf91gcfb3ff" },
     "stackage": {
 	"account":        "angerman",
 	"project":        "stackage.nix",

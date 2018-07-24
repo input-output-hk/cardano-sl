@@ -143,7 +143,7 @@ while [[ $i -lt $panesCnt ]]; do
   conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
-  x509GenTool=$(find_binary cardano-x509-certificates)
+  x509GenTool=$(find_binary cardano-x509-certificates ${nix})
   if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG

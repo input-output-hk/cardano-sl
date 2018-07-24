@@ -54,6 +54,16 @@ instance ToJSON (CBackupPhrase mw) where
         genericToJSON defaultOptions
 
 
+-- We use a custom parser to support
+-- {
+--   "bpToList": ["squirrel material silly twice direct slush",
+--                "pistol razor", "becomed junk kingdom"]
+-- }
+-- as in addition to
+-- {
+--   "bpToList": ["squirrel", "material", "silly", "twice", "direct", "slush",
+--                "pistol", "razor", "become", "junk", "kingdom"]
+-- }
 instance
     ( n ~ EntropySize mw
     , mw ~ MnemonicWords n

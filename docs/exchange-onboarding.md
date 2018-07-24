@@ -120,19 +120,19 @@ For exchanges we recommend creating the following `custom-wallet-config.nix`:
 
       ## Wallet doc API server.
       #walletDocListen = "127.0.0.1:8091";
-    
+
       ## Runtime metrics server.
       #ekgListen = "127.0.0.1:8000";
-    
+
       ## Directory for the wallet's local state. Must be set BEFORE
       ## running nix-build to have any effect, and it must be enclosed in
       ## double quotes.
       stateDir = "./state-wallet-mainnet";
       topologyFile = ./exchange-topology.yaml;
-    
+
       ## See https://downloads.haskell.org/~ghc/8.0.2/docs/html/users_guide/runtime_control.html#running-a-compiled-program
       #ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T";
-    
+
       ## Primarily used for troubleshooting.
       #additionalNodeArgs = "";
     }
@@ -162,7 +162,7 @@ By default the wallet's local state goes in
 Build the wallet and generate the shell script to connect to
 mainnet (use `connectScripts.staging.wallet` for testnet)
 
-    nix-build -A connectScripts.mainnet.wallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
+    nix-build -A connectScripts.mainnet.wallet -o "./launch_$(date "+%Y-%m-%d")_$(git rev-parse --short HEAD)"
 
 After the build finishes the generated connection script is
 available as a symlink called `./launch_2018-01-30_0d4f79eea`, or

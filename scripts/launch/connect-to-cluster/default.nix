@@ -18,6 +18,7 @@
 , disableClientAuth ? false
 , extraParams ? ""
 , iohkPkgs
+, gitrev # workarround for a minor bug
 }:
 
 with localLib;

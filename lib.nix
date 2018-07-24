@@ -1,24 +1,32 @@
 let
+  todo = builtins.fromJSON (builtins.readFile ./nixpkgs-src.json);
+  fixme = { account, project, rev, sha256, sha256unpacked }:
+    pkgs.fetchFromGitHub {
+      owner = account;
+      repo = project;
+      rev = rev;
+      sha256 = sha256unpacked;
+    };
   # Allow overriding pinned nixpkgs for debugging purposes via cardano_pkgs
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./fetch.nix "nixpkgs";
+    else import ./fetchNixpkgs.nix todo.nixpkgs;
 
   fetchHaskell = let try = builtins.tryEval <haskell>;
     in if try.success
     then builtins.trace "using host <haskell>" try.value
-    else import ./fetch.nix "haskell";
+    else fixme todo.haskell;
 
   fetchHackage = let try = builtins.tryEval <hackage>;
     in if try.success
     then builtins.trace "using host <hackage>" try.value
-    else import ./fetch.nix "hackage";
+    else fixme todo.hackage;
 
   fetchStackage = let try = builtins.tryEval <stackage>;
     in if try.success
     then builtins.trace "using host <stackage>" try.value
-    else import ./fetch.nix "stackage";
+    else fixme todo.stackage;
 
 
   maybeEnv = env: default:

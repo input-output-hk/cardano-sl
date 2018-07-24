@@ -22,87 +22,121 @@ import           Pos.Crypto (shortHashF)
 -- appear in Poll data verification.
 data PollVerFailure
     =
-      -- | 'BlockVersionModifier' for this 'BlockVersion' is already known and
-      -- the one we saw doesn't match it.
-      PollInconsistentBVM { pibExpected :: !BlockVersionModifier
-                          , pibFound    :: !BlockVersionModifier
-                          , pibUpId     :: !UpId}
+    -- | 'BlockVersionModifier' for this 'BlockVersion' is already known and
+    -- the one we saw doesn't match it.
+    -- PollInconsistentBVM
+    --    pibExpected
+    --    pibFound
+    --    pibUpId
+      PollInconsistentBVM !BlockVersionModifier !BlockVersionModifier !UpId
     -- | 'BlockVersion' is already adopted and 'BlockVersionData' associated
     -- with it differs from the one we saw.
-    | PollAlreadyAdoptedDiffers { paadAdopted  :: !BlockVersionData
-                                , paadProposed :: !BlockVersionModifier
-                                , paadUpId     :: !UpId}
+    -- PollAlreadyAdoptedDiffers
+    --     paadAdopted
+    --     paadProposed
+    --     paadUpId
+    | PollAlreadyAdoptedDiffers !BlockVersionData !BlockVersionModifier !UpId
     -- | Proposed script version must be the same as adopted one or
     -- greater by one, but this rule is violated.
-    | PollWrongScriptVersion { pwsvAdopted  :: !ScriptVersion
-                             , pwsvProposed :: !ScriptVersion
-                             , pwsvUpId     :: !UpId}
+    -- PollWrongScriptVersion
+    --    pwsvAdopted
+    --    pwsvProposed
+    --    pwsvUpId
+    | PollWrongScriptVersion !ScriptVersion !ScriptVersion !UpId
     -- | A proposal tried to increase the block size limit more than it was
     -- allowed to
-    | PollLargeMaxBlockSize { plmbsMaxPossible :: !Byte
-                            , plmbsFound       :: !Byte
-                            , plmbsUpId        :: !UpId}
+    -- PollLargeMaxBlockSize
+    --    plmbsMaxPossible
+    --    plmbsFound
+    --    plmbsUpId
+    | PollLargeMaxBlockSize !Byte !Byte !UpId
     -- | A proposal attempted to change the end of the bootstrap era
     -- post factum
-    | PollBootstrapEraInvalidChange { pbeicLast     :: !EpochIndex
-                                    , pbeicAdopted  :: !EpochIndex
-                                    , pbeicProposed :: !EpochIndex
-                                    , pbeicUpId     :: !UpId }
+    -- PollBootstrapEraInvalidChange
+    --     pbeicLast
+    --     pbeicAdopted
+    --     pbeicProposed
+    --     pbeicUpId
+    | PollBootstrapEraInvalidChange !EpochIndex !EpochIndex !EpochIndex !UpId
     | PollNotFoundScriptVersion !BlockVersion
     | PollProposalAlreadyActive !UpId
-    | PollSmallProposalStake { pspsThreshold :: !Coin
-                            ,  pspsActual    :: !Coin
-                            ,  pspsUpId      :: !UpId}
-    | PollNotRichman { pnrStakeholder :: !StakeholderId
-                    ,  pnrThreshold   :: !Coin
-                    ,  pnrStake       :: !(Maybe Coin)}
-    | PollUnknownProposal { pupStakeholder :: !StakeholderId
-                         ,  pupProposal    :: !UpId}
+    -- | PollSmallProposalStake
+    --       pspsThreshold
+    --       pspsActual
+    --       pspsUpId
+    | PollSmallProposalStake !Coin !Coin !UpId
+    -- | PollNotRichman
+    --       pnrStakeholder
+    --       pnrThreshold
+    --       pnrStake
+    | PollNotRichman !StakeholderId !Coin !(Maybe Coin)
+    -- | PollUnknownProposal
+    --       pupStakeholder
+    --       pupProposal
+    | PollUnknownProposal !StakeholderId !UpId
     | PollUnknownStakes !EpochIndex
-    | PollWrongSoftwareVersion { pwsvStored :: !(Maybe NumSoftwareVersion)
-                              ,  pwsvApp    :: !ApplicationName
-                              ,  pwsvGiven  :: !NumSoftwareVersion
-                              ,  pwsvUpId   :: !UpId}
-    | PollProposalIsDecided { ppidUpId        :: !UpId
-                           ,  ppidStakeholder :: !StakeholderId}
-    | PollExtraRevote { perUpId        :: !UpId
-                     ,  perStakeholder :: !StakeholderId
-                     ,  perDecision    :: !Bool}
-    | PollWrongHeaderBlockVersion { pwhpvGiven   :: !BlockVersion
-                                  , pwhpvAdopted :: !BlockVersion}
-    | PollBadBlockVersion { pbpvUpId       :: !UpId
-                            ,  pbpvGiven   :: !BlockVersion
-                            ,  pbpvAdopted :: !BlockVersion}
-    | PollTooLargeProposal { ptlpUpId  :: !UpId
-                           , ptlpSize  :: !Byte
-                           , ptlpLimit :: !Byte
-                           }
-    | PollMoreThanOneProposalPerEpoch { ptopFrom :: !StakeholderId
-                                      , ptopUpId :: !UpId
-                                      }
-    | PollUnknownAttributesInProposal { puapUpId  :: !UpId
-                                      , puapAttrs :: !UpAttributes
-                                      }
-    | PollTipMismatch { ptmTipDB     :: !HeaderHash
-                      , ptmTipMemory :: !HeaderHash
-                      }
+    -- PollWrongSoftwareVersion
+    --    pwsvStored
+    --    pwsvApp
+    --    pwsvGiven
+    --    pwsvUpId
+    | PollWrongSoftwareVersion
+          !(Maybe NumSoftwareVersion)
+          !ApplicationName
+          !NumSoftwareVersion
+          !UpId
+    -- | PollProposalIsDecided
+    --      ppidUpId
+    --      ppidStakeholder
+    | PollProposalIsDecided !UpId !StakeholderId
+    -- | PollExtraRevote
+    --       perUpId
+    --       perStakeholder
+    --       perDecision
+    | PollExtraRevote !UpId !StakeholderId !Bool
+    -- | PollWrongHeaderBlockVersion
+    --       pwhpvGiven
+    --       pwhpvAdopted
+    | PollWrongHeaderBlockVersion !BlockVersion !BlockVersion
+    -- | PollBadBlockVersion
+    --       pbpvUpId
+    --       pbpvGiven
+    --       pbpvAdopted
+    | PollBadBlockVersion !UpId !BlockVersion !BlockVersion
+    -- | PollTooLargeProposal
+    --      ptlpUpId
+    --      ptlpSize
+    --      ptlpLimit
+    | PollTooLargeProposal !UpId !Byte !Byte
+    -- | PollMoreThanOneProposalPerEpoch
+    --      ptopFrom
+    --      ptopUpId
+    | PollMoreThanOneProposalPerEpoch !StakeholderId !UpId
+    -- | PollUnknownAttributesInProposal
+    --       puapUpId
+    --       puapAttrs
+    | PollUnknownAttributesInProposal !UpId !UpAttributes
+    -- | PollTipMismatch
+    --       ptmTipDB
+    --       ptmTipMemory
+    | PollTipMismatch !HeaderHash !HeaderHash
     | PollInvalidUpdatePayload !Text
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
-    build (PollInconsistentBVM {..}) =
+    build (PollInconsistentBVM pibExpected pibFound pibUpId) =
         bprint ("proposal "%shortHashF%" contains block version"%
                 " which is already competing and its"%
                 " BlockVersionModifier is different"%
                 " (expected "%build%", proposed "%build%")")
         pibUpId pibExpected pibFound
-    build (PollAlreadyAdoptedDiffers {..}) =
+    build (PollAlreadyAdoptedDiffers paadAdopted paadProposed paadUpId) =
         bprint ("proposal "%shortHashF%" contains block version"%
                 " which is already adopted and its"%
                 " BlockVersionModifier doesn't correspond to the adopted"%
                 " BlockVersionData (adopted "%build%", proposed "%build%")")
         paadUpId paadAdopted paadProposed
-    build (PollWrongScriptVersion {..}) =
+    build (PollWrongScriptVersion pwsvAdopted pwsvProposed pwsvUpId) =
         bprint ("proposal "%shortHashF%" contains script version"%
                 " which is neither same not greater by one than the"%
                 " adopted one (adopted one is "%int%
@@ -137,40 +171,42 @@ instance Buildable PollVerFailure where
         stakeholder proposal
     build (PollUnknownStakes epoch) =
         bprint ("stake distribution for epoch "%build%" is unknown") epoch
-    build (PollWrongSoftwareVersion {..}) =
+    build (PollWrongSoftwareVersion pwsvStored pwsvApp pwsvGiven pwsvUpId) =
         bprint ("proposal "%build%" has wrong software version for app "%
                 build%" (last known is "%stext%", proposal contains "%int%")")
         pwsvUpId pwsvApp (maybe "unknown" pretty pwsvStored) pwsvGiven
-    build (PollProposalIsDecided {..}) =
+    build (PollProposalIsDecided
+               ppidUpId
+               ppidStakeholder) =
         bprint ("proposal "%build%" is in decided state, but stakeholder "%
                 build%" has voted for it")
         ppidUpId ppidStakeholder
-    build (PollExtraRevote {..}) =
+    build (PollExtraRevote perUpId perStakeholder perDecision) =
         bprint ("stakeholder "%build%" vote "%stext%" proposal "
                 %build%" more than once")
         perStakeholder (bool "against" "for" perDecision) perUpId
-    build (PollWrongHeaderBlockVersion {..}) =
+    build (PollWrongHeaderBlockVersion pwhpvGiven pwhpvAdopted) =
         bprint ("wrong protocol version has been seen in header: "%
                 build%" (current adopted is "%build%"), "%
                 "this version is smaller than last adopted "%
                 "or is not confirmed")
         pwhpvGiven pwhpvAdopted
-    build (PollBadBlockVersion {..}) =
+    build (PollBadBlockVersion pbpvUpId pbpvGiven pbpvAdopted) =
         bprint ("proposal "%build%" has bad protocol version: "%
                 build%" (current adopted is "%build%")")
         pbpvUpId pbpvGiven pbpvAdopted
-    build (PollTooLargeProposal {..}) =
+    build (PollTooLargeProposal ptlpUpId ptlpSize ptlpLimit) =
         bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
-    build (PollMoreThanOneProposalPerEpoch {..}) =
+    build (PollMoreThanOneProposalPerEpoch ptopFrom ptopUpId) =
         bprint ("stakeholder "%shortHashF%
                 " proposed second proposal "%shortHashF%" in epoch")
         ptopFrom ptopUpId
-    build (PollUnknownAttributesInProposal {..}) =
+    build (PollUnknownAttributesInProposal puapUpId puapAttrs) =
         bprint ("proposal "%shortHashF%" has unknown attributes "%build)
         puapUpId puapAttrs
-    build (PollTipMismatch {..}) =
+    build (PollTipMismatch ptmTipMemory ptmTipDB) =
         bprint ("tip we store in US mem-state ("%shortHashF%
                 ") differs from the tip we store in DB ("%build%")")
         ptmTipMemory ptmTipDB

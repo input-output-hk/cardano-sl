@@ -49,19 +49,13 @@ verifyAndApplyProposalBVS upId epoch up =
         -- This block version is adopted, so we check
         -- 'BlockVersionModifier' against the adopted 'BlockVersionData'.
         Just (Left adoptedBVD) -> unless (bvmMatchesBVD proposedBVM adoptedBVD) $
-           throwError PollAlreadyAdoptedDiffers
-                      { paadProposed = proposedBVM
-                      , paadAdopted = adoptedBVD
-                      , paadUpId = upId
-                      }
+           throwError
+               $ PollAlreadyAdoptedDiffers adoptedBVD proposedBVM upId
         -- This block version is competing, so we check that
         -- 'BlockVersionModifier' is the same.
         Just (Right competingBVM) -> unless (competingBVM == proposedBVM) $
-            throwError PollInconsistentBVM
-                       { pibExpected = competingBVM
-                       , pibFound = proposedBVM
-                       , pibUpId = upId
-                       }
+            throwError
+                $ PollInconsistentBVM competingBVM proposedBVM upId
         -- This block version isn't known, so we can add it after doing
         -- checks against the previous known block version state
         Nothing -> do
@@ -168,11 +162,7 @@ verifyBlockVersion upId UnsafeUpdateProposal {..} = do
     lastAdopted <- getAdoptedBV
     unlessM (canBeProposedBV upBlockVersion) $
         throwError
-            PollBadBlockVersion
-            { pbpvUpId = upId
-            , pbpvGiven = upBlockVersion
-            , pbpvAdopted = lastAdopted
-            }
+            $ PollBadBlockVersion upId upBlockVersion lastAdopted
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.
@@ -186,24 +176,14 @@ verifySoftwareVersion upId UnsafeUpdateProposal {..} =
         Nothing | svNumber sv == 0 -> pass
                 | otherwise ->
                   throwError
-                    PollWrongSoftwareVersion
-                    { pwsvStored = Nothing
-                    , pwsvGiven = svNumber sv
-                    , pwsvApp = app
-                    , pwsvUpId = upId
-                    }
+                      $ PollWrongSoftwareVersion Nothing app (svNumber sv) upId
         -- Otherwise we check that version is 1 more than stored
         -- version.
         Just n
             | svNumber sv == n + 1 -> pass
             | otherwise ->
                 throwError
-                    PollWrongSoftwareVersion
-                    { pwsvStored = Just n
-                    , pwsvGiven = svNumber sv
-                    , pwsvApp = app
-                    , pwsvUpId = upId
-                    }
+                    $ PollWrongSoftwareVersion (Just n) app (svNumber sv) upId
   where
     sv = upSoftwareVersion
     app = svAppName sv

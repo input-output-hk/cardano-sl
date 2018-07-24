@@ -2,6 +2,7 @@ let
   fixedNixpkgs = (import ./lib.nix).fetchNixPkgs;
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" "win64" ]
+  , targetSystemsNoCross ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , nixpkgsArgs ? {
@@ -38,8 +39,8 @@ let
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-sl-explorer-frontend = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
-    stack2nix = supportedSystems;
-    purescript = supportedSystems;
+    stack2nix = targetSystemsNoCross;
+    purescript = targetSystemsNoCross;
     daedalus-bridge = supportedSystems;
   };
   platforms' = {

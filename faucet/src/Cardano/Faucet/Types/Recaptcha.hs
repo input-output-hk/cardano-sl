@@ -12,7 +12,9 @@ module Cardano.Faucet.Types.Recaptcha
     ( CaptchaSecret(..)
     , CaptchaRequest(..), secret, response
     , CaptchaResponse(..), success, challengeTS, hostname, errorCodes
-    , captchaRequest) where
+    , readCaptchaSecret
+    , captchaRequest
+    ) where
 
 import           Control.Lens hiding ((.=))
 import           Data.Maybe
@@ -22,6 +24,7 @@ import qualified Network.Wreq as Wreq
 -- import Data.Proxy
 import           Data.Aeson
 import           Data.Text (Text)
+import qualified Data.Text.IO as Text
 import           Data.Time.Clock (UTCTime)
 import           GHC.Generics (Generic)
 
@@ -69,6 +72,9 @@ instance FromJSON CaptchaResponse where
       <*> v .:? "hostname"
       <*> (fromMaybe [] <$> v .:? "error-codes")
 
+-- | Reads a CaptchaSecret out of a file
+readCaptchaSecret :: FilePath -> IO CaptchaSecret
+readCaptchaSecret = fmap CaptchaSecret . Text.readFile
 
 -- | Makes the 'CaptchaRequest' to google
 captchaRequest :: CaptchaRequest -> IO CaptchaResponse

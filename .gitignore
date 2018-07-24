@@ -215,3 +215,4 @@ venv.bak/
 /faucet/generated-wallet-details.json
 /faucet/default.nix
 /faucet/shell.nix
+/faucet/recaptcha-secret.txt

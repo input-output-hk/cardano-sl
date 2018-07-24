@@ -52,11 +52,10 @@ main = do
 
     printT $ "Initial wallet state: " <> show walletState
 
-    -- some monadic fold or smth similar
-    _ <- runActionCheck
-        walletClient
-        walletState
-        actionDistribution
+    void $ runActionCheck
+                          walletClient
+                          walletState
+                          actionDistribution
 
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef
@@ -74,11 +73,6 @@ main = do
     orFail =
         either (fail . ("Error decoding X509 certificates: " <>)) return
 
-    actionDistribution :: ActionProbabilities
-    actionDistribution = do
-        (PostWallet, Weight 2)
-            :| (PostTransaction, Weight 5)
-            : fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do

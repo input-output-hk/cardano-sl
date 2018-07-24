@@ -1,4 +1,7 @@
-{-# LANGUAGE CPP, GADTs, OverloadedStrings, LambdaCase #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 {-
 This is the proxy portion of iserv.
@@ -45,29 +48,29 @@ and object files.
 
 module Main (main) where
 
-import System.IO
-import GHCi.Message
-import GHCi.Utils
-import GHCi.Signals
+import           GHCi.Message
+import           GHCi.Signals
+import           GHCi.Utils
+import           System.IO
 
-import Remote.Message
+import           Remote.Message
 
-import Network.Socket
-import Data.IORef
-import Control.Monad
-import Control.Concurrent (threadDelay)
-import System.Environment
-import System.Exit
-import Text.Printf
-import GHC.Fingerprint (getFileHash)
-import System.Directory
-import System.FilePath (isAbsolute)
+import           Control.Concurrent (threadDelay)
 import qualified Control.Exception as E
+import           Control.Monad
+import           Data.IORef
+import           GHC.Fingerprint (getFileHash)
+import           Network.Socket
+import           System.Directory
+import           System.Environment
+import           System.Exit
+import           System.FilePath (isAbsolute)
+import           Text.Printf
 
-import Data.Binary
+import           Data.Binary
 import qualified Data.ByteString as BS
 
-import Debug.Trace (traceIO)
+import           Debug.Trace (traceIO)
 
 trace :: String -> IO ()
 trace s = getProgName >>= \name -> traceIO ("[" ++ name ++ "] " ++ s)
@@ -191,7 +194,7 @@ fwdLoadCall verbose _ remote msg = do
       writePipe remote (put m)
     loopLoad :: IO ()
     loopLoad = do
-      when verbose $ trace ("fwdLoadCall: reading remote pipe (slave message)") 
+      when verbose $ trace ("fwdLoadCall: reading remote pipe (slave message)")
       SlaveMsg msg' <- readPipe remote getSlaveMessage
       when verbose $
         trace ("| Sl Msg:        proxy <- slave: " ++ show msg')
@@ -215,7 +218,7 @@ proxy verbose local remote = loop
   where
     fwdCall :: (Binary a, Show a) => Message a -> IO a
     fwdCall msg = do
-      when verbose $ trace ("proxy/fwdCall: writing remote pipe") 
+      when verbose $ trace ("proxy/fwdCall: writing remote pipe")
       writePipe remote (putMessage msg)
       when verbose $ trace ("proxy/fwdCall: reading remote pipe")
       readPipe remote get

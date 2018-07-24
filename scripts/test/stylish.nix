@@ -22,7 +22,7 @@ runCommand "cardano-stylish-check" {
   cp -a ${src'} stylish
   chmod -R +w stylish
   cd stylish
-  find . -type f -name "*hs" -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
+  find . -type f -name "*hs" -not -path '.git' -not -path '*.stack-work*' -not -name 'HLint.hs' -not -path '*/libiserv-*/*' -not -path '*/iserv-proxy-*/*' -not -path '*/remote-iserv-*/*' -exec stylish-haskell -i {} \;
   cd ..
   diff --brief --recursive orig stylish > /dev/null
   EXIT_CODE=$?

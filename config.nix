@@ -53,7 +53,7 @@ spaces:
           ghcFlavour = if ps.stdenv.targetPlatform == ps.stdenv.hostPlatform
                        then "perf"
                        else "perf-cross-ncg";
-          enableShared = false;
+          enableShared = ps.stdenv.targetPlatform == ps.stdenv.hostPlatform;
           enableIntegerSimple = false;
         }).overrideAttrs (drv: {
           dontStrip = true;
@@ -66,6 +66,7 @@ spaces:
             ./cabal-exe-ext-8.4.2.patch
             ./dll-loader-8.4.2.patch
             ./outputtable-assert-8.4.2.patch
+            ./0001-Stop-the-linker-panic.patch
           ];
           postPatch = (drv.postPath or "") + ''
           autoreconf
@@ -74,9 +75,19 @@ spaces:
         packages.ghc843 = (ps.haskell.packages.ghc843.override {
           overrides = self: super: rec {
             mkDerivation = drv: super.mkDerivation (drv // {
+              # # fast builds -- the logic is as follows:
+              # #  - test are often broken and we have a curated set
+              # #    thus, let us assume we don't need no tests. (also time consuming)
+              # #  - haddocks are not used, and sometimes fail.  (also time consuming)
+              # #  - The curated set has proper version bounds, so we can just
+              # #    exactConfig globally
               enableLibraryProfiling = false;
-              enableSharedLibraries = false;
+              enableSharedLibraries = ps.stdenv.buildPlatform == ps.stdenv.hostPlatform;
               enableSharedExecutables = false;
+              # enableExecutableProfiling = false;
+              doHaddock = false;
+              doHoogle = false;
+              doCheck = true; #false;
               configureFlags = (drv.configureFlags or []) ++ [ spaces ];
             });
           };

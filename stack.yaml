@@ -211,6 +211,18 @@ packages:
     commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
   extra-dep: true
 
+# LTS-12 doesn't have purescript, we do however build it in CI.
+# See https://github.com/purescript/purescript/pull/3372 for the ghc 8.4 compat
+- location:
+    git: https://github.com/purescript/purescript.git
+    commit: 94327051aa311b369a58214a594eb00109912cd8 # the ghc-8.4.2 branch.
+  extra-dep: true
+
+- location:
+    git: https://github.com/luite/hfsevents.git
+    commit: 25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -228,6 +240,7 @@ extra-deps:
 
 # Serokell-specific utilities not on stackage
 - fmt-0.6
+- ether-0.5.1.0
 
 # Following 10 are not on stackage.
 - pvss-0.2.0
@@ -241,9 +254,6 @@ extra-deps:
 - lzma-clib-5.2.2
 - micro-recursion-schemes-5.0.2.2
 
-# The changelog for directory-1.3.1.1 indicate some potentially important
-# bugfixes over directory-1.3.0.2, which is what's on lts-11.
-- directory-1.3.1.1
 # https://github.com/commercialhaskell/stack/issues/3151
 - happy-1.19.5
 # Good bug fixes in here.
@@ -294,6 +304,18 @@ extra-deps:
 - servant-swagger-ui-core-0.3.1
 - servant-swagger-ui-0.3.0.3.13.2
 - servant-swagger-ui-redoc-0.3.0.1.21.2
+
+# LTS-12 comes with 0.14 against which we can't compile (yet)
+- servant-0.13.0.1
+- servant-client-0.13.0.1
+- servant-client-core-0.13.0.1
+- servant-generic-0.1.0.2
+- servant-server-0.13.0.1
+
+# clock 1.0.0 breaks log-warper.
+- o-clock-0.1.1
+# missing from lgs-12
+- beam-sqlite-0.3.2.2
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

@@ -1,17 +1,20 @@
-{-# LANGUAGE RankNTypes, RecordWildCards, GADTs, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Lib (serv) where
 
-import GHCi.Run
-import GHCi.TH
-import GHCi.Message
+import           GHCi.Message
+import           GHCi.Run
+import           GHCi.TH
 
-import Control.DeepSeq
-import Control.Exception
-import Control.Monad
-import Data.Binary
+import           Control.DeepSeq
+import           Control.Exception
+import           Control.Monad
+import           Data.Binary
 
-import System.Environment (getProgName)
-import Debug.Trace (traceIO)
+import           Debug.Trace (traceIO)
+import           System.Environment (getProgName)
 
 type MessageHook = Msg -> IO Msg
 
@@ -67,7 +70,7 @@ serv verbose hook pipe@Pipe{..} restore = loop
     when verbose $ trace "iserv: showException ..."
     r <- try $ evaluate (force (show (e0::SomeException)))
     case r of
-       Left e -> showException verbose e
+       Left e    -> showException verbose e
        Right str -> return str
 
   -- throw away any pending ^C exceptions while we're not running
@@ -78,5 +81,5 @@ serv verbose hook pipe@Pipe{..} restore = loop
     r <- try $ restore $ return ()
     case r of
       Left UserInterrupt -> return () >> discardCtrlC verbose
-      Left e -> throwIO e
-      _ -> return ()
+      Left e             -> throwIO e
+      _                  -> return ()

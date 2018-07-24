@@ -25,7 +25,7 @@ let
   executables =  {
     integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
   };
-  iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev; };
+  iohkPkgs = import ./../../../.. { inherit system gitrev; };
 in pkgs.writeScript "integration-tests" ''
   #!${pkgs.stdenv.shell}
   export PATH=${pkgs.lib.makeBinPath allDeps}:$PATH

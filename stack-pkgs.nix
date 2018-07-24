@@ -1,6 +1,11 @@
 {
-  extraDeps = hsPkgs: {
+  extraDeps = hsPkgs:
+    {
+      "cryptonite-openssl" = hsPkgs.cryptonite-openssl."0.7";
+      "async" = hsPkgs.async."2.2.1";
+      "lifted-async" = hsPkgs.lifted-async."0.10.0.1";
       "fmt" = hsPkgs.fmt."0.6";
+      "ether" = hsPkgs.ether."0.5.1.0";
       "pvss" = hsPkgs.pvss."0.2.0";
       "systemd" = hsPkgs.systemd."1.1.2";
       "base58-bytestring" = hsPkgs.base58-bytestring."0.1.0";
@@ -11,24 +16,41 @@
       "lens-sop" = hsPkgs.lens-sop."0.2.0.2";
       "lzma-clib" = hsPkgs.lzma-clib."5.2.2";
       "micro-recursion-schemes" = hsPkgs.micro-recursion-schemes."5.0.2.2";
+      "happy" = hsPkgs.happy."1.19.5";
+      "criterion" = hsPkgs.criterion."1.4.0.0";
+      "formatting" = hsPkgs.formatting."6.3.6";
       "servant-multipart" = hsPkgs.servant-multipart."0.11.2";
+      "hspec" = hsPkgs.hspec."2.5.1";
+      "hspec-core" = hsPkgs.hspec-core."2.5.1";
+      "hspec-discover" = hsPkgs.hspec-discover."2.5.1";
       "Chart-diagrams" = hsPkgs.Chart-diagrams."1.8.2";
+      "graphviz" = hsPkgs.graphviz."2999.19.0.0";
+      "diagrams-core" = hsPkgs.diagrams-core."1.4.1.1";
+      "diagrams-lib" = hsPkgs.diagrams-lib."1.4.2";
+      "diagrams-postscript" = hsPkgs.diagrams-postscript."1.4";
+      "diagrams-svg" = hsPkgs.diagrams-svg."1.4.1.1";
+      "diagrams-solve" = hsPkgs.diagrams-solve."0.1.1";
+      "SVGFonts" = hsPkgs.SVGFonts."1.6.0.3";
+      "dual-tree" = hsPkgs.dual-tree."0.2.1";
+      "sqlite-simple-errors" = hsPkgs.sqlite-simple-errors."0.6.1.0";
       "pretty-show" = hsPkgs.pretty-show."1.7";
       "normaldistribution" = hsPkgs.normaldistribution."1.1.0.3";
       "aeson-options" = hsPkgs.aeson-options."0.0.0";
       "tasty-hedgehog" = hsPkgs.tasty-hedgehog."0.2.0.0";
-      "ether" = hsPkgs.ether."0.5.1.0";
-      "beam-sqlite" = hsPkgs.beam-sqlite."0.3.2.2";
-      "o-clock" = hsPkgs.o-clock."0.1.1";
-      "unexceptionalio" = hsPkgs.unexceptionalio."0.3.0";
+      "file-embed-lzma" = hsPkgs.file-embed-lzma."0";
+      "servant-swagger-ui-core" = hsPkgs.servant-swagger-ui-core."0.3.1";
+      "servant-swagger-ui" = hsPkgs.servant-swagger-ui."0.3.0.3.13.2";
       "servant-swagger-ui-redoc" = hsPkgs.servant-swagger-ui-redoc."0.3.0.1.21.2";
       "servant" = hsPkgs.servant."0.13.0.1";
       "servant-client" = hsPkgs.servant-client."0.13.0.1";
       "servant-client-core" = hsPkgs.servant-client-core."0.13.0.1";
       "servant-generic" = hsPkgs.servant-generic."0.1.0.2";
       "servant-server" = hsPkgs.servant-server."0.13.0.1";
+      "o-clock" = hsPkgs.o-clock."0.1.1";
+      "beam-sqlite" = hsPkgs.beam-sqlite."0.3.2.2";
     };
-  packages = hsPkgs: {
+  packages = hsPkgs:
+    {
       cardano-sl-util = ./.stack.nix/cardano-sl-util.nix;
       cardano-sl-util-test = ./.stack.nix/cardano-sl-util-test.nix;
       cardano-sl-networking = ./.stack.nix/cardano-sl-networking.nix;
@@ -39,20 +61,11 @@
       cardano-sl-core = ./.stack.nix/cardano-sl-core.nix;
       cardano-sl-core-test = ./.stack.nix/cardano-sl-core-test.nix;
       cardano-sl-db = ./.stack.nix/cardano-sl-db.nix;
-      cardano-sl-lrc = ./.stack.nix/cardano-sl-lrc.nix;
-      cardano-sl-lrc-test = ./.stack.nix/cardano-sl-lrc-test.nix;
+      cardano-sl-db-test = ./.stack.nix/cardano-sl-db-test.nix;
       cardano-sl-infra = ./.stack.nix/cardano-sl-infra.nix;
       cardano-sl-infra-test = ./.stack.nix/cardano-sl-infra-test.nix;
-      cardano-sl-ssc = ./.stack.nix/cardano-sl-ssc.nix;
-      cardano-sl-ssc-test = ./.stack.nix/cardano-sl-ssc-test.nix;
-      cardano-sl-txp = ./.stack.nix/cardano-sl-txp.nix;
-      cardano-sl-txp-test = ./.stack.nix/cardano-sl-txp-test.nix;
-      cardano-sl-update = ./.stack.nix/cardano-sl-update.nix;
-      cardano-sl-update-test = ./.stack.nix/cardano-sl-update-test.nix;
-      cardano-sl-delegation = ./.stack.nix/cardano-sl-delegation.nix;
-      cardano-sl-delegation-test = ./.stack.nix/cardano-sl-delegation-test.nix;
-      cardano-sl-block = ./.stack.nix/cardano-sl-block.nix;
-      cardano-sl-block-test = ./.stack.nix/cardano-sl-block-test.nix;
+      cardano-sl-chain = ./.stack.nix/cardano-sl-chain.nix;
+      cardano-sl-chain-test = ./.stack.nix/cardano-sl-chain-test.nix;
       cardano-sl = ./.stack.nix/cardano-sl.nix;
       cardano-sl-generator = ./.stack.nix/cardano-sl-generator.nix;
       cardano-sl-client = ./.stack.nix/cardano-sl-client.nix;
@@ -79,6 +92,8 @@
       socket-io = ./.stack.nix/socket-io.nix;
       engine-io = ./.stack.nix/engine-io.nix;
       engine-io-wai = ./.stack.nix/engine-io-wai.nix;
+      canonical-json = ./.stack.nix/canonical-json.nix;
+      clock = ./.stack.nix/clock.nix;
       rocksdb-haskell-ng = ./.stack.nix/rocksdb-haskell-ng.nix;
       log-warper = ./.stack.nix/log-warper.nix;
       hedgehog = ./.stack.nix/hedgehog.nix;
@@ -86,7 +101,6 @@
       stylish-haskell = ./.stack.nix/stylish-haskell.nix;
       universum = ./.stack.nix/universum.nix;
       serokell-util = ./.stack.nix/serokell-util.nix;
-      canonical-json = ./.stack.nix/canonical-json.nix;
-      clock = ./.stack.nix/clock.nix;
+      hfsevents = ./.stack.nix/hfsevents.nix;
     };
 }

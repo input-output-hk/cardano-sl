@@ -1,8 +1,8 @@
 module Main where
 
-import System.Environment (getProgName, getArgs)
-import System.Exit        (die)
-import Remote.Slave       (startSlave')
+import           Remote.Slave (startSlave')
+import           System.Environment (getArgs, getProgName)
+import           System.Exit (die)
 
 main :: IO ()
 main = getArgs >>= startSlave

@@ -31,16 +31,94 @@ let
   #       it here.
   hackage = import localLib.fetchHackage;
   haskell = import localLib.fetchHaskell hackage;
-  packageOverlay = self: super: {
+  packageOverlay = self: super: with self.haskell.lib; {
     # the lts-XX_Y is essentially the same as what pkgs/default.nix returns.
-    haskellPackages = ((import localLib.fetchStackage { pkgs = super; inherit hackage haskell; }).lts-12_2
+    haskellPackages = ((import localLib.fetchStackage { pkgs = self; inherit hackage haskell; }).lts-12_2
       # ontop of the LTS, inject the extra pacakges and source deps.
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                           // stack-pkgs.packages hsPkgs)
                           // iserv-pkgs; }).override
         { overrides = self: super:
           # global overrides (effect haskellPackages, as well as buildHaskellPackages)
-          { libiserv = super.libiserv.override { flags = { network = true; }; }; }; }; };
+          { libiserv = super.libiserv.override { flags = { network = true; }; };
+            # break infinite recursion due to tests depending on packages that use
+            # the test-packages to test themselves.
+            nanospec = dontCheck super.nanospec;
+            test-framework = dontCheck super.test-framework;
+            tasty = dontCheck super.tasty;
+            integer-logarithms = dontCheck super.integer-logarithms;
+            attoparsec = dontCheck super.attoparsec;
+            text = dontCheck super.text;
+            clock = dontCheck super.clock;
+            scientific = dontCheck super.scientific;
+            statistics = dontCheck super.statistics;
+            dlist = dontCheck super.dlist;
+            hspec = super.hspec.override { hsPkgs = { stringbuilder = dontCheck self.stringbuilder; }; };
+            # missing: bytestring-handle, hashable-time
+            aeson = dontCheck super.aeson;
+            mwc-random = dontCheck super.mwc-random;
+            vector-builder = dontCheck super.vector-builder;
+            tar = dontCheck super.tar;
+            system-filepath = dontCheck super.system-filepath;
+            network-transport-inmemory = dontCheck super.network-transport-inmemory;
+            concurrent-extra = dontCheck super.concurrent-extra;
+            xmlgen = dontCheck super.xmlgen;
+            http-date = dontCheck super.http-date;
+            mockery = dontCheck super.mockery;
+            DRBG = dontCheck super.DRBG;
+            math-functions = dontCheck super.math-functions;
+            HTF = dontCheck super.HTF;
+
+            # case sensitivity issue?
+            rocksdb-haskell-ng = dontCheck super.rocksdb-haskell-ng;
+            megaparsec = dontCheck super.megaparsec;
+            
+            Cabal = appendPatches super.Cabal
+              [ # allow a script/application be specified that wraps the test executable that's run.
+                ./Cabal2201-allow-test-wrapper.patch
+                # Cabal is lacking Semigroup-Monoid-Proposal support in the tests/HackageTests.hs
+                ./Cabal2201-SMP-test-fix.patch
+                # as we push a lot of arguments to the `Setup` we might need @file support.
+                ./Cabal2201-response-file-support.patch
+                # > hackage-tests: /homeless-shelter/.cabal/config: openBinaryFile: does not exist (No such file or directory)
+                ./Cabal2201-no-hackage-tests.patch
+              ];
+
+            # requires phantomJS
+            wai-cors = dontCheck super.wai-cors;
+            
+            # These are missing `doctest`
+            network = dontCheck super.network;
+            distributive = dontCheck super.distributive;
+            comonad = dontCheck super.comonad;
+            iproute = dontCheck super.iproute;
+            semigroupoids = dontCheck super.semigroupoids;
+            systemd = dontCheck super.systemd;
+            unix-time = dontCheck super.unix-time;
+            dns = dontCheck super.dns;
+            http-types = dontCheck super.http-types;
+            kademlia = dontCheck super.kademlia;
+            wai-logger = dontCheck super.wai-logger;
+            http-api-data = dontCheck super.http-api-data;
+            vector-algorithms = dontCheck super.vector-algorithms;
+            http2 = dontCheck super.http2;
+            servant = dontCheck super.servant;
+            fmt = dontCheck super.fmt;
+            lens = dontCheck super.lens;
+            servant-server = dontCheck super.servant-server;
+            ed25519 = dontCheck super.ed25519;
+            universum = dontCheck super.universum;
+            o-clock = dontCheck super.o-clock;
+            lens-action = dontCheck super.lens-action;
+            lens-aeson = dontCheck super.lens-aeson;
+            trifecta = dontCheck super.trifecta;
+            swagger2 = dontCheck super.swagger2;
+            servant-swagger = dontCheck super.servant-swagger;
+            aeson-diff = dontCheck super.aeson-diff;
+
+            stm-delay = dontCheck super.stm-delay; # https://hydra.iohk.io/build/193506/nixlog/14
+            hspec-expectations-pretty-diff = dontCheck super.hspec-expectations-pretty-diff; # https://hydra.iohk.io/build/193533/nixlog/1
+          }; }; };
 in
 { system ? builtins.currentSystem
 , config ? import ./config.nix
@@ -70,6 +148,8 @@ let
                                ios     = abort "iOS target not available";
                                android = abort "Android target not available"; }."${target}"; }
         else {}));
+  binSuffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
+  maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
 
 in with pkgs.haskellPackages;
 let iohkPkgs = 
@@ -87,92 +167,95 @@ let
   });
 
   cardanoPkgs = (with pkgs.haskell.lib;
-        pkgs.haskellPackages.override rec {
-    overrides = self: super: rec {
-
-
-    inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw;
-
-    addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
-
-    # TODO: Why is `network` not properly propagated from `libiserv`?
-    remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
-      overrideCabal (addBuildDepends pkg [ pkgs.windows.mingw_w64_pthreads ]) (drv: {
-        postInstall = ''
-          cp ${pkgs.windows.mingw_w64_pthreads}/bin/libwinpthread-1.dll $out/bin/
-        '';
-        buildFlags =  [ "--ghc-option=-debug" ];
-      });
-    streaming-commons     = appendPatchMingw super.streaming-commons  ./streaming-commons-0.2.0.0.patch;
-    cryptonite-openssl    = appendPatchMingw super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
-    # Undo configuration-nix.nix change to hardcode security binary on darwin
-    # This is needed for macOS binary not to fail during update system (using http-client-tls)
-    # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
-
-    x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;#) (drv: { postPatch = ":"; });
-    conduit               = appendPatchMingw super.conduit            ./conduit-1.3.0.2.patch;
-    file-embed-lzma       = appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch;
-    
-    ether                 = doTemplateHaskell super.ether;
-    generics-sop          = doTemplateHaskell super.generics-sop;
-    th-lift-instances     = doTemplateHaskell super.th-lift-instances;
-    math-functions        = doTemplateHaskell super.math-functions;
-    wreq                  = doTemplateHaskell super.wreq;
-    swagger2              = doTemplateHaskell super.swagger2;
-    log-warper            = doTemplateHaskell super.log-warper;
-    th-orphans            = doTemplateHaskell super.th-orphans;
-    wai-app-static        = doTemplateHaskell super.wai-app-static;
-
-    cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
-    cardano-sl-crypto     = doTemplateHaskell super.cardano-sl-crypto;
-    cardano-sl-crypto-test= doTemplateHaskell super.cardano-sl-crypto-test;
-    cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;
-    cardano-sl-core       = doTemplateHaskell super.cardano-sl-core;
-    cardano-sl-core-test  = doTemplateHaskell super.cardano-sl-core-test;
-    
-    cardano-sl-db         = doTemplateHaskell super.cardano-sl-db;
-    cardano-sl-lrc        = doTemplateHaskell super.cardano-sl-lrc;
-    cardano-sl-infra      = doTemplateHaskell super.cardano-sl-infra;
-    cardano-sl-txp        = doTemplateHaskell super.cardano-sl-txp;
-    cardano-sl-delegation = doTemplateHaskell super.cardano-sl-delegation;
-    cardano-sl-update     = doTemplateHaskell super.cardano-sl-update;
-    cardano-sl-ssc        = doTemplateHaskell super.cardano-sl-ssc;
-    cardano-sl-block      = doTemplateHaskell super.cardano-sl-block;
-    cardano-sl            = doTemplateHaskell super.cardano-sl;
-
-    fclabels              = doTemplateHaskell super.fclabels;
-    servant-docs          = doTemplateHaskell super.servant-docs;
-    wai-websockets        = doTemplateHaskell super.wai-websockets;
-    servant-swagger-ui    = doTemplateHaskell super.servant-swagger-ui;
-    servant-swagger-ui-redoc = doTemplateHaskell super.servant-swagger-ui-redoc;
-    cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
-    cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
-    cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
-    cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
-
-    cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
-
-    trifecta              = doTemplateHaskell super.trifecta;
-    cardano-sl-tools      = doTemplateHaskell
-                              (addGitRev
-                                (super.cardano-sl-tools.override { flags = { for-installer = true; }; }));
-    hedgehog              = doTemplateHaskell super.hedgehog;
-
-    cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };
-    time-locale-compat    = super.time-locale-compat.override { flags = { old-locale = false; }; };
-
-    # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
-    libiserv              = super.libiserv.override           { flags = { network = true; }; };
-
-    # This should be stubbed out in <stackage/package-set.nix>; however lts-12 fails to list Win32
-    # as one of the windows packages as such just fails.
-    Win32 = null;
-
-    cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
-    cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
-    cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
-  };
-});
+        pkgs.haskellPackages.override (old:
+        let new_overrides = self: super: rec {
+        
+          inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw;
+      
+          # TODO: Why is `network` not properly propagated from `libiserv`?
+          remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
+            overrideCabal (addBuildDepends pkg [ pkgs.windows.mingw_w64_pthreads ]) (drv: {
+              postInstall = ''
+                cp ${pkgs.windows.mingw_w64_pthreads}/bin/libwinpthread-1.dll $out/bin/
+              '';
+              buildFlags =  [ "--ghc-option=-debug" ];
+            });
+          streaming-commons     = appendPatchMingw super.streaming-commons  ./streaming-commons-0.2.0.0.patch;
+          cryptonite-openssl    = appendPatchMingw super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
+          # Undo configuration-nix.nix change to hardcode security binary on darwin
+          # This is needed for macOS binary not to fail during update system (using http-client-tls)
+          # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
+      
+          x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;#) (drv: { postPatch = ":"; });
+          conduit               = appendPatchMingw super.conduit            ./conduit-1.3.0.2.patch;
+          file-embed-lzma       = appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch;
+          
+          ether                 = doTemplateHaskell super.ether;
+          generics-sop          = doTemplateHaskell super.generics-sop;
+          th-lift-instances     = doTemplateHaskell super.th-lift-instances;
+          math-functions        = doTemplateHaskell super.math-functions;
+          wreq                  = doTemplateHaskell super.wreq;
+          swagger2              = doTemplateHaskell super.swagger2;
+          log-warper            = doTemplateHaskell super.log-warper;
+          th-orphans            = doTemplateHaskell super.th-orphans;
+          wai-app-static        = doTemplateHaskell super.wai-app-static;
+          purescript-bridge     = doTemplateHaskell super.purescript-bridge;
+      
+          cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
+          cardano-sl-auxx       = doTemplateHaskell super.cardano-sl-auxx;
+          cardano-sl-crypto     = doTemplateHaskell super.cardano-sl-crypto;
+          cardano-sl-crypto-test= doTemplateHaskell super.cardano-sl-crypto-test;
+          cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;
+          cardano-sl-core       = doTemplateHaskell super.cardano-sl-core;
+          cardano-sl-core-test  = doTemplateHaskell super.cardano-sl-core-test;
+          
+          cardano-sl-db         = doTemplateHaskell super.cardano-sl-db;
+          cardano-sl-lrc        = doTemplateHaskell super.cardano-sl-lrc;
+          cardano-sl-infra      = doTemplateHaskell super.cardano-sl-infra;
+          cardano-sl-txp        = doTemplateHaskell super.cardano-sl-txp;
+          cardano-sl-delegation = doTemplateHaskell super.cardano-sl-delegation;
+          cardano-sl-update     = doTemplateHaskell super.cardano-sl-update;
+          cardano-sl-ssc        = doTemplateHaskell super.cardano-sl-ssc;
+          cardano-sl            = doTemplateHaskell super.cardano-sl;
+      
+          fclabels              = doTemplateHaskell super.fclabels;
+          servant-docs          = doTemplateHaskell super.servant-docs;
+          wai-websockets        = doTemplateHaskell super.wai-websockets;
+          servant-swagger-ui    = doTemplateHaskell super.servant-swagger-ui;
+          servant-swagger-ui-redoc = doTemplateHaskell super.servant-swagger-ui-redoc;
+          cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
+          cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
+          cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
+      
+          cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
+          cardano-sl-ssc-test   = doTemplateHaskell super.cardano-sl-ssc-test;
+          cardano-sl-infra-test = doTemplateHaskell super.cardano-sl-infra-test;
+          cardano-sl-explorer   = doTemplateHaskell super.cardano-sl-explorer;
+      
+          trifecta              = doTemplateHaskell super.trifecta;
+          cardano-sl-tools      = doTemplateHaskell super.cardano-sl-tools;
+          hedgehog              = doTemplateHaskell super.hedgehog;
+          th-abstraction        = doTemplateHaskell super.th-abstraction;
+      
+          cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };
+          time-locale-compat    = super.time-locale-compat.override { flags = { old-locale = false; }; };
+      
+          # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
+          libiserv              = super.libiserv.override           { flags = { network = true; }; };
+      
+          # This should be stubbed out in <stackage/package-set.nix>; however lts-12 fails to list Win32
+          # as one of the windows packages as such just fails.
+          Win32 = null;
+      
+          cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
+          cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
+          cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
+       }; in {
+         # we need this rather convoluted overriding here to preserve prior overrides.
+         # see https://github.com/NixOS/nixpkgs/issues/26561#issuecomment-397350884
+         overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) new_overrides;
+       })
+  );
   connect = let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
@@ -255,13 +338,18 @@ let
 
       cp --no-preserve=mode -R ${cardano-sl-config}/lib config
       cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
-      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
-      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
-      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher${binSuffix} bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates${binSuffix} bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node${binSuffix} bin
+
+      ${pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isWindows ''
+      cp ${pkgs.rocksdb}/lib/*.dll bin
+      cp ${pkgs.openssl.bin}/bin/*.dll bin
+      ''}
 
       # test that binaries exit with 0
-      ./bin/cardano-node --help > /dev/null
-      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
+      ${maybeViaWine} ./bin/cardano-node${binSuffix} --help > /dev/null
+      HOME=$TMP ${maybeViaWine} ./bin/cardano-launcher${binSuffix} --help > /dev/null
     '';
     CardanoSL = pkgs.runCommand "CardanoSL.zip" { nativeBuildInputs = [ pkgs.buildPackages.zip ]; } ''
       mkdir $out
@@ -271,9 +359,9 @@ let
       cp ${./log-configs/daedalus.yaml} daedalus/log-config-prod.yaml
       cp ${./lib/configuration.yaml}    daedalus/configuration.yaml
       cp ${./lib}/*genesis*.json        daedalus/
-      cp ${ps.cardano-sl-tools}/bin/cardano-launcher.exe          daedalus/
-      cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates.exe daedalus/
-      cp ${ps.cardano-sl-wallet-new}/bin/cardano-node.exe         daedalus/
+      cp ${ps.cardano-sl-tools}/bin/cardano-launcher${binSuffix}          daedalus/
+      cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates${binSuffix} daedalus/
+      cp ${ps.cardano-sl-wallet-new}/bin/cardano-node${binSuffix}         daedalus/
       #  - Echo %APPVEYOR_BUILD_VERSION% > build-id
       echo "BAD_BUILD_VERSION" >                               daedalus/build-id
       echo "${gitrev}"         >                               daedalus/commit-id

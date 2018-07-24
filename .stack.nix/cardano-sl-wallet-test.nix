@@ -6,7 +6,7 @@ let
       package = {
         specVersion = "1.10";
         identifier = {
-          name = "cardano-sl-ssc-test";
+          name = "cardano-sl-wallet-test";
           version = "1.3.0";
         };
         license = "MIT";
@@ -15,29 +15,23 @@ let
         author = "IOHK";
         homepage = "";
         url = "";
-        synopsis = "Cardano SL - shared seed computation (tests)";
-        description = "QuickCheck Arbitrary instances for Cardano SL shared\nseed computation.";
+        synopsis = "Cardano SL - wallet (Arbitrary instances)";
+        description = "QuickCheck Arbitrary instances for the Cardano SL wallet\nfunctionality.";
         buildType = "Simple";
       };
       components = {
-        "cardano-sl-ssc-test" = {
+        "cardano-sl-wallet-test" = {
           depends  = [
             hsPkgs.QuickCheck
-            hsPkgs.aeson
             hsPkgs.base
             hsPkgs.bytestring
-            hsPkgs.cardano-crypto
-            hsPkgs.cardano-sl-binary-test
-            hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-core-test
-            hsPkgs.cardano-sl-crypto
-            hsPkgs.cardano-sl-crypto-test
-            hsPkgs.cardano-sl-ssc
-            hsPkgs.cardano-sl-util-test
-            hsPkgs.generic-arbitrary
-            hsPkgs.hedgehog
+            hsPkgs.cardano-sl-wallet
+            hsPkgs.serokell-util
             hsPkgs.universum
           ];
         };
       };
-    } // rec { src = ../ssc/test; }
+    } // rec {
+      src = ../wallet/test;
+    }

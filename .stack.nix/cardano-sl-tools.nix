@@ -27,12 +27,38 @@ let
           depends  = [
             hsPkgs.aeson
             hsPkgs.base
+            hsPkgs.acid-state-exts
+            hsPkgs.aeson
+            hsPkgs.ansi-terminal
+            hsPkgs.bytestring
+            hsPkgs.cardano-sl
+            hsPkgs.cardano-sl-client
+            hsPkgs.cardano-sl-core
+            hsPkgs.cardano-sl-core-test
+            hsPkgs.cardano-sl-db
+            hsPkgs.cardano-sl-infra
+            hsPkgs.cardano-sl-networking
+            hsPkgs.cardano-sl-txp
+            hsPkgs.cardano-sl-util
+            hsPkgs.cardano-sl-wallet
+            hsPkgs.containers
+            hsPkgs.data-default
             hsPkgs.directory
             hsPkgs.filepath
+            hsPkgs.log-warper
+            hsPkgs.network-transport-tcp
+            hsPkgs.optparse-applicative
+            hsPkgs.optparse-generic
             hsPkgs.parsers
+            hsPkgs.QuickCheck
+            hsPkgs.stm
+            hsPkgs.string-conv
             hsPkgs.text
+            hsPkgs.time
+            hsPkgs.time-units
             hsPkgs.trifecta
             hsPkgs.universum
+            hsPkgs.unordered-containers
           ];
         };
         exes = {
@@ -40,9 +66,6 @@ let
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
               hsPkgs.base
               hsPkgs.acid-state-exts
-              hsPkgs.aeson
-              hsPkgs.ansi-terminal
-              hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
@@ -50,6 +73,7 @@ let
               hsPkgs.cardano-sl-db
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
+              hsPkgs.cardano-sl-tools
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
@@ -57,13 +81,8 @@ let
               hsPkgs.data-default
               hsPkgs.log-warper
               hsPkgs.network-transport-tcp
-              hsPkgs.optparse-applicative
-              hsPkgs.optparse-applicative
               hsPkgs.optparse-generic
-              hsPkgs.optparse-generic
-              hsPkgs.QuickCheck
               hsPkgs.stm
-              hsPkgs.string-conv
               hsPkgs.text
               hsPkgs.time
               hsPkgs.time-units
@@ -224,7 +243,6 @@ let
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-db
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-util
               hsPkgs.directory
               hsPkgs.formatting
@@ -275,12 +293,16 @@ let
         tests = {
           "cardano-sl-tools-test" = {
             depends  = [
-              hsPkgs.base
               hsPkgs.aeson
+              hsPkgs.base
+              hsPkgs.cardano-sl-binary-test
               hsPkgs.cardano-sl-tools
+              hsPkgs.cardano-sl-util-test
               hsPkgs.directory
+              hsPkgs.hedgehog
               hsPkgs.hspec
               hsPkgs.temporary
+              hsPkgs.universum
             ];
             build-tools = [
               hsPkgs.buildPackages.cpphs

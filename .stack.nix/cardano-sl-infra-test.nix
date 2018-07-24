@@ -23,8 +23,11 @@ let
         "cardano-sl-infra-test" = {
           depends  = [
             hsPkgs.QuickCheck
+            hsPkgs.async
             hsPkgs.base
             hsPkgs.bytestring
+            hsPkgs.cardano-sl-binary
+            hsPkgs.cardano-sl-binary-test
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
@@ -37,6 +40,7 @@ let
             hsPkgs.containers
             hsPkgs.generic-arbitrary
             hsPkgs.hedgehog
+            hsPkgs.hspec
             hsPkgs.kademlia
             hsPkgs.universum
           ];

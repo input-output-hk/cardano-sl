@@ -49,6 +49,7 @@ let
             hsPkgs.cardano-sl-update
             hsPkgs.cardano-sl-util
             hsPkgs.cardano-sl-wallet
+            hsPkgs.cardano-sl-wallet-test
             hsPkgs.conduit
             hsPkgs.connection
             hsPkgs.containers
@@ -179,6 +180,7 @@ let
               hsPkgs.acid-state
               hsPkgs.base
               hsPkgs.bytestring
+              hsPkgs.cardano-crypto
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-client

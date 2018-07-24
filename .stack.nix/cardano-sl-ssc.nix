@@ -62,5 +62,30 @@ let
             hsPkgs.buildPackages.cpphs
           ];
         };
+        tests = {
+          "test" = {
+            depends  = [
+              hsPkgs.QuickCheck
+              hsPkgs.aeson
+              hsPkgs.base
+              hsPkgs.bytestring
+              hsPkgs.cardano-crypto
+              hsPkgs.cardano-sl-binary-test
+              hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
+              hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-crypto-test
+              hsPkgs.cardano-sl-ssc
+              hsPkgs.cardano-sl-util-test
+              hsPkgs.generic-arbitrary
+              hsPkgs.hedgehog
+              hsPkgs.parsec
+              hsPkgs.universum
+            ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
+          };
+        };
       };
     } // rec { src = ../ssc; }

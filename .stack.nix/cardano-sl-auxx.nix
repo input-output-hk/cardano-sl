@@ -40,7 +40,6 @@ let
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-generator
             hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-ssc
             hsPkgs.cardano-sl-txp
             hsPkgs.cardano-sl-update
@@ -73,6 +72,7 @@ let
             hsPkgs.time-units
             hsPkgs.transformers
             hsPkgs.universum
+            hsPkgs.unliftio
             hsPkgs.unordered-containers
             hsPkgs.validation
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
@@ -89,7 +89,6 @@ let
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-infra
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.log-warper

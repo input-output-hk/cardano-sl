@@ -61,6 +61,7 @@
       cardano-sl-node = ./.stack.nix/cardano-sl-node.nix;
       cardano-sl-tools = ./.stack.nix/cardano-sl-tools.nix;
       cardano-sl-wallet = ./.stack.nix/cardano-sl-wallet.nix;
+      cardano-sl-wallet-test = ./.stack.nix/cardano-sl-wallet-test.nix;
       cardano-sl-wallet-new = ./.stack.nix/cardano-sl-wallet-new.nix;
       cardano-sl-node-ipc = ./.stack.nix/cardano-sl-node-ipc.nix;
       acid-state-exts = ./.stack.nix/acid-state-exts.nix;

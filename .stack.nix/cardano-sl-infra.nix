@@ -72,6 +72,7 @@ let
             hsPkgs.time-units
             hsPkgs.network-transport
             hsPkgs.universum
+            hsPkgs.unliftio
             hsPkgs.unordered-containers
             hsPkgs.yaml
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
@@ -82,13 +83,27 @@ let
         tests = {
           "test" = {
             depends  = [
+              hsPkgs.QuickCheck
               hsPkgs.async
               hsPkgs.base
+              hsPkgs.bytestring
+              hsPkgs.cardano-sl-binary
+              hsPkgs.cardano-sl-binary-test
+              hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-core-test
+              hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-crypto-test
               hsPkgs.cardano-sl-infra
+              hsPkgs.cardano-sl-ssc
+              hsPkgs.cardano-sl-ssc-test
+              hsPkgs.cardano-sl-update-test
+              hsPkgs.cardano-sl-util-test
               hsPkgs.containers
-              hsPkgs.QuickCheck
+              hsPkgs.generic-arbitrary
+              hsPkgs.hedgehog
               hsPkgs.hspec
+              hsPkgs.kademlia
+              hsPkgs.universum
             ];
           };
         };

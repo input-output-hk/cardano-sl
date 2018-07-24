@@ -76,6 +76,7 @@ let
             hsPkgs.transformers-base
             hsPkgs.transformers-lift
             hsPkgs.universum
+            hsPkgs.unliftio
             hsPkgs.unliftio-core
             hsPkgs.unordered-containers
             hsPkgs.vector

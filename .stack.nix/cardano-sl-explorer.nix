@@ -94,7 +94,6 @@ let
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-explorer
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-util
               hsPkgs.log-warper
               hsPkgs.optparse-applicative

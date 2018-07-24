@@ -91,7 +91,6 @@ let
             depends  = [
               hsPkgs.async
               hsPkgs.base
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-util
               hsPkgs.contravariant
               hsPkgs.lens
@@ -111,7 +110,6 @@ let
           "bench-receiver" = {
             depends  = [
               hsPkgs.base
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-util
               hsPkgs.contravariant
               hsPkgs.network-transport-tcp
@@ -126,7 +124,6 @@ let
             depends  = [
               hsPkgs.base
               hsPkgs.attoparsec
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-util
               hsPkgs.conduit
               hsPkgs.conduit-extra

@@ -38,7 +38,6 @@ let
             hsPkgs.cardano-sl-block
             hsPkgs.cardano-sl-client
             hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-core-test
             hsPkgs.cardano-sl-crypto
             hsPkgs.cardano-sl-delegation
             hsPkgs.cardano-sl-generator
@@ -83,7 +82,6 @@ let
             hsPkgs.stm
             hsPkgs.swagger2
             hsPkgs.text
-            hsPkgs.text
             hsPkgs.formatting
             hsPkgs.time
             hsPkgs.time-units
@@ -121,7 +119,6 @@ let
               hsPkgs.cardano-sl-generator
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-lrc
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-update

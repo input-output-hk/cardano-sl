@@ -24,10 +24,10 @@ let
           "cardano-node-simple" = {
             depends  = [
               hsPkgs.base
+              hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-infra
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl
               hsPkgs.log-warper

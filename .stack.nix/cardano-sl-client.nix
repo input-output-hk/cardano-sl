@@ -30,7 +30,6 @@ let
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-lrc
-            hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-txp
             hsPkgs.cardano-sl-update
             hsPkgs.cardano-sl-util

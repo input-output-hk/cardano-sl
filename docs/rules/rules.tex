@@ -1579,12 +1579,6 @@ the delegation starting with the Shelley release\improvement{Some
       certificate. At least: no two certificate for the same staging
       id.}
   \end{description}
-\item The issuer condition of block validation is changes as follows
-  \begin{description}
-  \item[Issuer] The issuer of $b$ must be the slot leader at the slot
-    of $b$ (defined as in the current rule).
-  \end{description}
-
 \item A pooling state is defined as a function
   $\agentids ⟶ ℕ×[0,1]×𝒫×\agentids×(\agentids⊎\{⋆\})$.\improvement{Here
     $𝒫$ is the set of pledges. TODO: define above, and make a macro}
@@ -1620,10 +1614,16 @@ the delegation starting with the Shelley release\improvement{Some
     certificate with the initial value $\initialpoolst{a}$.
   \end{implementationhint}
 \end{itemize}
-\improvement{TODO: limit the depth of delegation}
+\improvement{TODO: limit the depth of delegation. How?}
 
-\unsure{The richmen formula may need to be changed to remove the
-  delegation graph.}
+\unsure{I [aspiwack] have currently arranged the spec so that
+  heavyweight delegation certificate don't count towards stake
+  delegation (it didn't as far as I understand in
+  bootstrap). Heavyweight certificates are used by the issuer to sign
+  instead of the block leader (like lightweight certificates do). But
+  it has consequences on the slot leader selection, so it's not a
+  transparent choice (the issuers wouldn't be the same if heavyweight
+  certificates were used to affect the stake distribution).}
 
 \improvement{The formula for reward repartition is in the delegation
   design document. They can be copied from there when the details of

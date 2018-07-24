@@ -6,7 +6,6 @@
 , topologyFile ? null
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
-, gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "localhost:8090"
 , walletDocListen ? "localhost:8091"
 , ekgListen ? "localhost:8000"
@@ -18,6 +17,7 @@
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
+, iohkPkgs
 }:
 
 with localLib;
@@ -55,7 +55,6 @@ let
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
-  iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };
   src = ./../../../.;
   topologyFileDefault = pkgs.writeText "topology-${environment}" ''
     wallet:

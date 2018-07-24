@@ -48,7 +48,7 @@ in
 , buildId ? null
 # for what target are we building. Currently the only supported is "win64".
 , target ? null
-# the package set
+, allowCustomConfig ? true
 , n ? 0 }:
 let
   # this is some hack to append spaces to the configureFlags of the
@@ -72,19 +72,24 @@ let
         else {}));
 
 in with pkgs.haskellPackages;
-let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
+let iohkPkgs = 
+let
   # note: we want `haskellPackages` here, as that is the one
   #       we provide in the overlay(!)
   buildHaskellPackages = pkgs.buildPackages.haskellPackages;
-  overrides = self: super: rec {
 
-    justStaticExecutablesGitRev = import ./scripts/set-git-rev {
-      inherit pkgs gitrev;
-      inherit (buildHaskellPackages) ghc;
-    };
-    addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
-      testTarget = "--show-details=streaming";
-    });
+  justStaticExecutablesGitRev = import ./scripts/set-git-rev {
+    inherit pkgs gitrev;
+    inherit (buildHaskellPackages) ghc;
+  };
+  addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
+    testTarget = "--show-details=streaming";
+  });
+
+  cardanoPkgs = (with pkgs.haskell.lib;
+        pkgs.haskellPackages.override rec {
+    overrides = self: super: rec {
+
 
     inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw;
 
@@ -100,7 +105,11 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
       });
     streaming-commons     = appendPatchMingw super.streaming-commons  ./streaming-commons-0.2.0.0.patch;
     cryptonite-openssl    = appendPatchMingw super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
-    x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;
+    # Undo configuration-nix.nix change to hardcode security binary on darwin
+    # This is needed for macOS binary not to fail during update system (using http-client-tls)
+    # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
+
+    x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;#) (drv: { postPatch = ":"; });
     conduit               = appendPatchMingw super.conduit            ./conduit-1.3.0.2.patch;
     file-embed-lzma       = appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch;
     
@@ -158,9 +167,102 @@ let ps = (with pkgs.haskell.lib; pkgs.haskellPackages.override rec {
     # This should be stubbed out in <stackage/package-set.nix>; however lts-12 fails to list Win32
     # as one of the windows packages as such just fails.
     Win32 = null;
+
+    cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
+    cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
+    cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
   };
 });
-in ps // {
+  connect = let
+      walletConfigFile = ./custom-wallet-config.nix;
+      walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
+    in
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit iohkPkgs; } // walletConfig );
+  other = rec {
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
+    validateJson = pkgs.callPackage ./tools/src/validate-json {};
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev;
+      launchGenesis = true;
+      configurationKey = "testnet_full";
+      runWallet = false;
+    };
+    tests = let
+      src = localLib.cleanSourceTree ./.;
+    in {
+      shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { inherit src; };
+      hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
+      stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
+      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+      swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
+    };
+    cardano-sl-explorer-frontend = (import ./explorer/frontend {
+      inherit system config gitrev pkgs;
+      cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
+    });
+    all-cardano-sl = pkgs.buildEnv {
+      name = "all-cardano-sl";
+      paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
+      ignoreCollisions = true;
+    };
+    mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
+    stack2nix = import (pkgs.fetchFromGitHub {
+      owner = "avieth";
+      repo = "stack2nix";
+      rev = "c51db2d31892f7c4e7ff6acebe4504f788c56dca";
+      sha256 = "10jcj33sxpq18gxf3zcck5i09b2y4jm6qjggqdlwd9ss86wg3ksb";
+    }) { inherit pkgs; };
+    inherit (pkgs) purescript;
+    connectScripts = {
+      mainnet = {
+        wallet = connect {};
+        explorer = connect { executable = "explorer"; };
+      };
+      staging = {
+        wallet = connect { environment = "mainnet-staging"; };
+        explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
+      };
+      testnet = {
+        wallet = connect { environment = "testnet"; };
+        explorer = connect { executable = "explorer"; environment = "testnet"; };
+      };
+      demoWallet = connect { environment = "demo"; };
+    };
+    dockerImages = {
+      mainnet.wallet = mkDocker { environment = "mainnet"; };
+      staging.wallet = mkDocker { environment = "mainnet-staging"; };
+      testnet.wallet = mkDocker { environment = "testnet"; };
+    };
+
+    cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''
+      mkdir -p $out/lib
+      cp -R ${./log-configs} $out/log-configs
+      cp ${./lib}/configuration.yaml $out/lib
+      cp ${./lib}/*genesis*.json $out/lib
+    '';
+    daedalus-bridge = let
+      inherit (cardanoPkgs.cardano-sl-node) version;
+    in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
+      inherit version gitrev buildId;
+    } ''
+      # Generate daedalus-bridge
+      mkdir -p $out/bin
+      cd $out
+      ${optionalString (buildId != null) "echo ${buildId} > build-id"}
+      echo ${gitrev} > commit-id
+      echo ${version} > version
+
+      cp --no-preserve=mode -R ${cardano-sl-config}/lib config
+      cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+
+      # test that binaries exit with 0
+      ./bin/cardano-node --help > /dev/null
+      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
+    '';
     CardanoSL = pkgs.runCommand "CardanoSL.zip" { nativeBuildInputs = [ pkgs.buildPackages.zip ]; } ''
       mkdir $out
       cd $out
@@ -182,4 +284,6 @@ in ps // {
       cd ..
       rm -fR daedalus
     '';
-}
+  };
+in cardanoPkgs // other;
+in iohkPkgs

@@ -174,6 +174,8 @@ let
   };
 });
   connect = let
+      binSuffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
+      maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX="$HOME" ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
@@ -255,13 +257,13 @@ let
 
       cp --no-preserve=mode -R ${cardano-sl-config}/lib config
       cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
-      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
-      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
-      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher${binSuffix} bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates${binSuffix} bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node${binSuffix} bin
 
       # test that binaries exit with 0
-      ./bin/cardano-node --help > /dev/null
-      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
+      ${maybeViaWine} ./bin/cardano-node${binSuffix} --help > /dev/null
+      HOME=$TMP ${maybeViaWine} ./bin/cardano-launcher${binSuffix} --help > /dev/null
     '';
     CardanoSL = pkgs.runCommand "CardanoSL.zip" { nativeBuildInputs = [ pkgs.buildPackages.zip ]; } ''
       mkdir $out
@@ -271,9 +273,9 @@ let
       cp ${./log-configs/daedalus.yaml} daedalus/log-config-prod.yaml
       cp ${./lib/configuration.yaml}    daedalus/configuration.yaml
       cp ${./lib}/*genesis*.json        daedalus/
-      cp ${ps.cardano-sl-tools}/bin/cardano-launcher.exe          daedalus/
-      cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates.exe daedalus/
-      cp ${ps.cardano-sl-wallet-new}/bin/cardano-node.exe         daedalus/
+      cp ${ps.cardano-sl-tools}/bin/cardano-launcher${binSuffix}          daedalus/
+      cp ${ps.cardano-sl-tools}/bin/cardano-x509-certificates${binSuffix} daedalus/
+      cp ${ps.cardano-sl-wallet-new}/bin/cardano-node${binSuffix}         daedalus/
       #  - Echo %APPVEYOR_BUILD_VERSION% > build-id
       echo "BAD_BUILD_VERSION" >                               daedalus/build-id
       echo "${gitrev}"         >                               daedalus/commit-id

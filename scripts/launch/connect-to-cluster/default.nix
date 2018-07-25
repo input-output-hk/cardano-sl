@@ -18,7 +18,9 @@
 , disableClientAuth ? false
 , extraParams ? ""
 , iohkPkgs
-, gitrev ? "" # workarround for a minor bug
+# allow this function to be called with more arguments than needed.
+# we sometimes pass gitrev, even though it is not needed.
+, ... 
 }:
 
 with localLib;

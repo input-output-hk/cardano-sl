@@ -71,7 +71,7 @@ let
                                android = abort "Android target not available"; }."${target}"; }
         else {}));
   binSuffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
-  maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX="$HOME" ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
+  maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
 
 in with pkgs.haskellPackages;
 let iohkPkgs = 

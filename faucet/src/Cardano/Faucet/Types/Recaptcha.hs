@@ -90,7 +90,7 @@ readCaptchaSecret fp = do
     file <- Text.readFile fp
     case Text.lines file of
         [rSecret] -> return $ CaptchaSecret rSecret
-        _        -> throwIO $ MoreThanOneLine fp
+        _         -> throwIO $ MoreThanOneLine fp
 
 -- | Makes the 'CaptchaRequest' to google
 captchaRequest :: CaptchaRequest -> IO CaptchaResponse

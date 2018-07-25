@@ -124,6 +124,7 @@ let
     log-warper            = doTemplateHaskell super.log-warper;
     th-orphans            = doTemplateHaskell super.th-orphans;
     wai-app-static        = doTemplateHaskell super.wai-app-static;
+    purescript-bridge     = doTemplateHaskell super.purescript-bridge;
 
     cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
     cardano-sl-auxx       = doTemplateHaskell super.cardano-sl-auxx;

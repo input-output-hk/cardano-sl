@@ -27,6 +27,7 @@ library
                        Pos.Util.AssertMode
                        Pos.Util.Filesystem
                        Pos.Util.Future
+                       Pos.Util.Json.Parse
                        Pos.Util.Justify
                        Pos.Util.Lens
                        Pos.Util.LoggerName
@@ -45,6 +46,7 @@ library
 
   build-depends:       aeson
                      , base
+                     , canonical-json
                      , cborg
                      , cereal
                      , containers

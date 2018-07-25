@@ -15162,6 +15162,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , binary
 , bytestring
+, canonical-json
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
@@ -15217,6 +15218,7 @@ libraryHaskellDepends = [
 base
 binary
 bytestring
+canonical-json
 cardano-sl-util
 cborg
 cereal
@@ -15917,6 +15919,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , binary
 , bytestring
+, canonical-json
 , cardano-crypto
 , cardano-sl-binary
 , cardano-sl-binary-test
@@ -15965,6 +15968,7 @@ aeson
 base
 binary
 bytestring
+canonical-json
 cardano-crypto
 cardano-sl-binary
 cardano-sl-util
@@ -17868,6 +17872,7 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , bytestring
+, canonical-json
 , cborg
 , cereal
 , concurrent-extra
@@ -17926,6 +17931,7 @@ configureFlags = [
 libraryHaskellDepends = [
 aeson
 base
+canonical-json
 cborg
 cereal
 concurrent-extra

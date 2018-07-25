@@ -55,11 +55,16 @@ import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Typeable (typeOf)
-import           Formatting (sformat, shown, (%))
+import           Formatting (formatToString, sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base64 (base64F)
+import qualified Serokell.Util.Base64 as B64
+import           Text.JSON.Canonical (FromJSON (..),
+                     JSValue (..), ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
                      enforceSize, toCborError, withWordSize)
+import           Pos.Util.Json.Parse (tryParseString)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -197,6 +202,12 @@ newtype AsBinary a = AsBinary
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet
     putCopy = contain . safePut . getAsBinary
+
+instance Monad m => ToJSON m (AsBinary smth) where
+    toJSON = pure . JSString . formatToString base64F . getAsBinary
+
+instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
+    fromJSON = fmap AsBinary . tryParseString B64.decode
 
 -- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where

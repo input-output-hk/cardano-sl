@@ -44,6 +44,7 @@ library
                      , base
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-util

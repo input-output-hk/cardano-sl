@@ -14,10 +14,12 @@ import           Control.Monad.Except (MonadError (throwError))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, float, int, sformat, (%))
 import qualified Formatting.Buildable as Buildable
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
 
 import           Pos.Binary.Class (Bi, decode, encode)
-
 import           Pos.Core.Common.Coin
+import           Pos.Core.Genesis.Canonical ()
 
 -- | CoinPortion is some portion of Coin; it is interpreted as a fraction
 -- with denominator of 'coinPortionDenominator'. The numerator must be in the
@@ -36,6 +38,14 @@ newtype CoinPortion = CoinPortion
 instance Bi CoinPortion where
     encode = encode . getCoinPortion
     decode = CoinPortion <$> decode
+
+instance Monad m => ToJSON m CoinPortion where
+    toJSON = toJSON @_ @Word64 . getCoinPortion  -- i. e. String
+
+instance ReportSchemaErrors m => FromJSON m CoinPortion where
+    fromJSON val = do
+        number <- fromJSON val
+        pure $ CoinPortion number
 
 deriveSafeCopySimple 0 'base ''CoinPortion
 

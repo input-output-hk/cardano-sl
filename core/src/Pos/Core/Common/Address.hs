@@ -60,9 +60,13 @@ import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
                      decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Formatting (Format, bprint, build, builder, later, (%))
+import           Formatting (Format, bprint, build, builder, formatToString,
+                     later, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
+import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..),
+                     JSValue (..), ReportSchemaErrors, ToJSON (..),
+                     ToObjectKey (..))
 
 import           Pos.Binary.Class (Bi (..), Encoding, biSize,
                      encodeCrcProtected, encodedCrcProtectedSizeExpr)
@@ -70,6 +74,7 @@ import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Attributes (Attributes (..), attrData, mkAttributes)
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
                      ShouldCheckPassphrase (..), deriveHDPassphrase,
@@ -77,6 +82,7 @@ import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
 import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
+import           Pos.Util.Json.Parse (tryParseString)
 
 import           Pos.Core.Common.AddrAttributes
 import           Pos.Core.Common.AddressHash
@@ -130,7 +136,17 @@ instance Bi Address where
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize
 
-makePrisms ''Address
+instance Monad m => ToObjectKey m Address where
+    toObjectKey = pure . formatToString addressF
+
+instance ReportSchemaErrors m => FromObjectKey m Address where
+    fromObjectKey = fmap Just . tryParseString decodeTextAddress . JSString
+
+instance Monad m => ToJSON m Address where
+    toJSON = fmap JSString . toObjectKey
+
+instance ReportSchemaErrors m => FromJSON m Address where
+    fromJSON = tryParseString decodeTextAddress
 
 ----------------------------------------------------------------------------
 -- Formatting, pretty-printing
@@ -437,6 +453,8 @@ encodeAddr Address {..} =
 
 encodeAddrCRC32 :: Address -> Encoding
 encodeAddrCRC32 Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
+
+makePrisms ''Address
 
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address

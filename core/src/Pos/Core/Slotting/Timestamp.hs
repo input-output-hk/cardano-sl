@@ -11,6 +11,7 @@ module Pos.Core.Slotting.Timestamp
        , timestampToUTCTimeL
        ) where
 
+import qualified Prelude
 import           Universum
 
 import           Control.Lens (Iso', from, iso, makePrisms)
@@ -18,14 +19,16 @@ import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat,
                      parseTimeM)
 import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
                      utcTimeToPOSIXSeconds)
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (Format, build)
 import qualified Formatting.Buildable as Buildable
 import           Numeric.Lens (dividing)
 import           Pos.Core.Conc (currentTime)
-import qualified Prelude
+import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
+                     ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.Genesis.Canonical ()
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
@@ -56,6 +59,17 @@ instance NFData Timestamp where
 instance Bi Timestamp where
     encode (Timestamp ms) = encode . toInteger $ ms
     decode = Timestamp . fromIntegral <$> decode @Integer
+
+-- In genesis we don't need microseconds precision, we represent
+-- timestamps as seconds for convenience.
+instance Monad m => ToJSON m Timestamp where
+    toJSON (Timestamp microsec) =
+        pure $ JSNum $ fromIntegral @Second (convertUnit microsec)
+
+instance ReportSchemaErrors m => FromJSON m Timestamp where
+    fromJSON =
+        fmap (Timestamp . convertUnit @Second . fromIntegral) .
+        fromJSON @_ @Int54
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

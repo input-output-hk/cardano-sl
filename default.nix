@@ -142,6 +142,8 @@ let
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
     });
+    makeFaucetFrontend = pkgs.callPackage ./faucet/frontend;
+
     all-cardano-sl = pkgs.buildEnv {
       name = "all-cardano-sl";
       paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);

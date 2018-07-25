@@ -1,8 +1,5 @@
 module Wallet.Inductive.History (
     History -- opaque
-    -- * "Difference history" (like difference lists)
-  , HistoryD -- opaque
-  , fromHistoryD
     -- * Constructing histories from DSL wallets
   , dslInit
   , dslEvent
@@ -34,38 +31,30 @@ import           Wallet.Inductive
 
 newtype Event = Event [Text]
 
--- | History of interpretation
+-- | History of interpretation (used for debugging)
 --
--- This is very useful for debugging.
+-- We record the history simply as a list of events.
 --
--- We record the history simply as a list of events
-newtype History = History (OldestFirst [] Event)
-
-{-------------------------------------------------------------------------------
-  Difference lists
--------------------------------------------------------------------------------}
-
--- | "Difference history"
-newtype HistoryD = HistoryD (NewestFirst [] Event)
-
-fromHistoryD :: HistoryD -> History
-fromHistoryD (HistoryD events) = History (toOldestFirst events)
+-- Implementation note: we store the events in newest-first order so that we
+-- can efficiently append elements to the history. We then reverse the history
+-- when we pretty-print it.
+newtype History = History (NewestFirst [] Event)
 
 {-------------------------------------------------------------------------------
   Constructing histories from pure wallets
 -------------------------------------------------------------------------------}
 
-dslInit :: [Wallet h a] -> HistoryD
-dslInit ws = HistoryD $
+dslInit :: [Wallet h a] -> History
+dslInit ws = History $
     NewestFirst [Event ("initial" : map dumpState ws)]
 
 -- | Append an action to a history
 dslEvent :: (Hash h a, Buildable a)
-         => HistoryD         -- ^ Previous history
+         => History          -- ^ Previous history
          -> WalletEvent h a  -- ^ Event to append
          -> [Wallet h a]     -- ^ Wallet states after the event
-         -> HistoryD
-dslEvent (HistoryD events) ev ws = HistoryD $
+         -> History
+dslEvent (History events) ev ws = History $
     liftNewestFirst (\es -> Event ("state" : map dumpState ws)
                           : Event ["event", pretty ev]
                           : es)
@@ -78,33 +67,33 @@ dslEvent (HistoryD events) ev ws = HistoryD $
 kernelInit :: Hash h Addr
            => Wallet h Addr  -- ^ Initial pure wallet
            -> IntCtxt h      -- ^ Initial interpretation context
-           -> HistoryD
-kernelInit w ic = HistoryD $
-    NewestFirst [Event ["initial", "<wallet>" {-dumpState w -}, pretty ic]]
+           -> History
+kernelInit w ic = History $
+    NewestFirst [Event ["initial", dumpState w, pretty ic]]
 
 -- | Record that we stepped the wallet
 --
 -- We do /not/ record the new interpretation context yet, as this is a separate
 -- step in the history (see 'kernelInt').
 kernelEvent :: Hash h Addr
-            => HistoryD           -- ^ Previous history
+            => History            -- ^ Previous history
             -> WalletEvent h Addr -- ^ Event to append
             -> Wallet h Addr      -- ^ Pure wallet after the event
-            -> HistoryD
-kernelEvent (HistoryD events) ev w = HistoryD $
-    liftNewestFirst (\es -> Event ["state", "<wallet>" {- dumpState w -}]
+            -> History
+kernelEvent (History events) ev w = History $
+    liftNewestFirst (\es -> Event ["state", dumpState w]
                           : Event ["event", pretty ev]
                           : es)
                     events
 
 -- | Record that we interpreted the event
-kernelInt :: Hash h Addr => HistoryD -> IntCtxt h -> HistoryD
-kernelInt (HistoryD events) ic = HistoryD $
+kernelInt :: Hash h Addr => History -> IntCtxt h -> History
+kernelInt (History events) ic = History $
     liftNewestFirst (\es -> Event ["interpret", pretty ic] : es) events
 
 -- | Record that we rolled back the interpretation state
-kernelRollback :: Hash h Addr => HistoryD -> IntCtxt h -> HistoryD
-kernelRollback (HistoryD events) ic = HistoryD $
+kernelRollback :: Hash h Addr => History -> IntCtxt h -> History
+kernelRollback (History events) ic = History $
     liftNewestFirst (\es -> Event ["rollback", pretty ic] : es) events
 
 {-------------------------------------------------------------------------------
@@ -115,4 +104,4 @@ instance Buildable Event where
   build (Event e) = bprint listJson e
 
 instance Buildable History where
-  build (History events) = bprint listJson events
+  build (History events) = bprint listJson (toOldestFirst events)

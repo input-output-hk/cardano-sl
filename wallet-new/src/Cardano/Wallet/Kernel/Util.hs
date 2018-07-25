@@ -6,8 +6,8 @@ module Cardano.Wallet.Kernel.Util (
   , withoutKeys
   , restrictKeys
     -- * Dealing with OldestFirst/NewestFirst
-  , liftOldestFirst'
-  , liftNewestFirst'
+  , liftOldestFirstF
+  , liftNewestFirstF
   , liftOldestFirst
   , liftNewestFirst
     -- * Probabilities
@@ -62,21 +62,21 @@ m `restrictKeys` s = m `Map.intersection` Map.fromSet (const ()) s
   Dealing with OldestFirst/NewestFirst
 -------------------------------------------------------------------------------}
 
-liftOldestFirst' :: Functor m
+liftOldestFirstF :: Functor m
                  => (f a -> m (f a))
                  -> OldestFirst f a -> m (OldestFirst f a)
-liftOldestFirst' f = fmap OldestFirst . f . getOldestFirst
+liftOldestFirstF f = fmap OldestFirst . f . getOldestFirst
 
-liftNewestFirst' :: Functor m
+liftNewestFirstF :: Functor m
                  => (f a -> m (f a))
                  -> NewestFirst f a -> m (NewestFirst f a)
-liftNewestFirst' f = fmap NewestFirst . f . getNewestFirst
+liftNewestFirstF f = fmap NewestFirst . f . getNewestFirst
 
 liftOldestFirst :: (f a -> f a) -> OldestFirst f a -> OldestFirst f a
-liftOldestFirst f = runIdentity . liftOldestFirst' (Identity . f)
+liftOldestFirst f = runIdentity . liftOldestFirstF (Identity . f)
 
 liftNewestFirst :: (f a -> f a) -> NewestFirst f a -> NewestFirst f a
-liftNewestFirst f = runIdentity . liftNewestFirst' (Identity . f)
+liftNewestFirst f = runIdentity . liftNewestFirstF (Identity . f)
 
 {-------------------------------------------------------------------------------
   Probabilities
@@ -133,4 +133,3 @@ toCoin = Core.txOutValue . Core.toaOut
 -- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
 getCurrentTimestamp :: IO Core.Timestamp
 getCurrentTimestamp = Core.Timestamp . round . (* 1000000) <$> getPOSIXTime
-

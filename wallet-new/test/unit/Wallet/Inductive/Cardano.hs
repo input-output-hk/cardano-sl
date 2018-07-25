@@ -31,7 +31,6 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
-import           Cardano.Wallet.Kernel.Util
 
 import           Util.Buildable
 import           Util.Validated
@@ -108,7 +107,7 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
             hist = kernelInit w' ic
         (utxo', ic') <- int' hist ic $ utxo w'
         let hist'   = kernelInt hist ic'
-            indCtxt = InductiveCtxt (fromHistoryD hist') ic' w'
+            indCtxt = InductiveCtxt hist' ic' w'
         accountId <- withConfig $ walletBootT indCtxt utxo'
         goEvents
           accountId
@@ -119,14 +118,14 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
 
     goEvents :: HD.HdAccountId
              -> IntCtxt h
-             -> HistoryD
+             -> History
              -> Wallet h Addr
              -> [WalletEvent h Addr]
              -> TranslateT e m (Wallet h Addr, IntCtxt h)
     goEvents accountId = go
       where
         go :: IntCtxt h
-           -> HistoryD
+           -> History
            -> Wallet h Addr
            -> [WalletEvent h Addr]
            -> TranslateT e m (Wallet h Addr, IntCtxt h)
@@ -137,7 +136,7 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
                 hist' = kernelEvent hist (ApplyBlock b) w'
             ((b', _mEBB), ic') <- int' hist' ic b
             let hist''  = kernelInt hist' ic'
-                indCtxt = InductiveCtxt (fromHistoryD hist'') ic' w'
+                indCtxt = InductiveCtxt hist'' ic' w'
             -- TODO: Currently we don't pass the EBB to the wallet. Should we?
             withConfig $ walletApplyBlockT indCtxt accountId b'
             go ic' hist'' w' es
@@ -146,7 +145,7 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
                 hist'   = kernelEvent hist (NewPending t) w'
             (t', ic') <- int' hist' ic t
             let hist''  = kernelInt hist' ic'
-                indCtxt = InductiveCtxt (fromHistoryD hist'') ic' w'
+                indCtxt = InductiveCtxt hist'' ic' w'
             withConfig $ walletNewPendingT indCtxt accountId t'
             go ic' hist'' w' es
         go ic hist w (Rollback:es) = do
@@ -154,18 +153,16 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
                 hist'   = kernelEvent hist Rollback w'
             ((), ic') <- int' hist' ic IntRollback
             let hist''  = kernelRollback hist' ic'
-                indCtxt = InductiveCtxt (fromHistoryD hist'') ic' w'
+                indCtxt = InductiveCtxt hist'' ic' w'
             withConfig $ walletRollbackT indCtxt accountId
             go ic' hist'' w' es
 
     int' :: Interpret h a
-         => HistoryD
+         => History
          -> IntCtxt h
          -> a
          -> TranslateT e m (Interpreted a, IntCtxt h)
-    int' history ic x =
-        mapTranslateErrors (injIntEx (fromHistoryD history)) $
-          runIntT' ic $ int x
+    int' hist ic = mapTranslateErrors (injIntEx hist) . runIntT' ic . int
 
 {-------------------------------------------------------------------------------
   Equivalence check between the real implementation and (a) pure wallet

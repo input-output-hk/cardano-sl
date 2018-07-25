@@ -52,8 +52,7 @@ import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
-                     CancelPending (..), CreateHdWallet (..), DB,
-                     NewPending (..), NewPendingError,
+                     CancelPending (..), DB, NewPending (..), NewPendingError,
                      ObservableRollbackUseInTestsOnly (..), Snapshot (..),
                      SwitchToFork (..), defDB)
 import           Cardano.Wallet.Kernel.DB.HdWallet

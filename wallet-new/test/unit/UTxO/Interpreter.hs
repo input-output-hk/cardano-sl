@@ -582,12 +582,15 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
                    txs'
         let raw = mkRawResolvedBlock block resolvedTxInputs
         checkpoint <- mkCheckpoint prev slot raw
-        if siSlot slot == localSlotIndexMaxBound pc
+        if isEpochBoundary pc slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
           else return (checkpoint, (raw, Nothing))
     where
       unpack :: [RawResolvedTx] -> ([TxAux], [ResolvedTxInputs])
       unpack = unzip . map (rawResolvedTx &&& rawResolvedTxInputs)
+
+      isEpochBoundary :: ProtocolConstants -> SlotId -> Bool
+      isEpochBoundary pc slot = siSlot slot == localSlotIndexMaxBound pc
 
       mkBlock :: (HasConfiguration, HasUpdateConfiguration)
               => SlotLeaders

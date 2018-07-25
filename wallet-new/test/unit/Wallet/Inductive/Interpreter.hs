@@ -49,7 +49,7 @@ interpret invalidInput mkWallets p Inductive{..} =
         verify history' acc'
         goEvents history' acc' (getOldestFirst inductiveEvents)
 
-    goEvents :: HistoryD           -- history
+    goEvents :: History            -- history
              -> [Wallet h a]       -- accumulator
              -> [WalletEvent h a]  -- events to process
              -> Validated err [Wallet h a]
@@ -71,17 +71,16 @@ interpret invalidInput mkWallets p Inductive{..} =
         verify history' acc'
         goEvents history' acc' es
 
-    verify :: HistoryD
-           -> [Wallet h a] -> Validated err ()
-    verify history ws = p (fromHistoryD history) ws
+    verify :: History -> [Wallet h a] -> Validated err ()
+    verify history ws = p history ws
 
-    newPending' :: HistoryD
+    newPending' :: History
                 -> Transaction h a
                 -> Wallet h a -> Validated err (Wallet h a)
     newPending' history tx w =
         case newPending w tx of
           Just w' -> return w'
-          Nothing -> throwError . invalidInput (fromHistoryD history)
+          Nothing -> throwError . invalidInput history
                    $ InvalidPending tx (utxo w) (pending w)
 
 -- | We were unable to check the invariant because the input was invalid

@@ -64,6 +64,7 @@ import           Formatting (Format, bprint, build, builder, formatToString,
                      later, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util (listJson)
 import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..),
                      JSValue (..), ReportSchemaErrors, ToJSON (..),
                      ToObjectKey (..))
@@ -132,6 +133,9 @@ instance Bi Address where
         encodedCrcProtectedSizeExpr size ( (,,) <$> (addrRoot       <$> pxy)
                                                 <*> (addrAttributes <$> pxy)
                                                 <*> (addrType       <$> pxy) )
+
+instance Buildable [Address] where
+    build = bprint listJson
 
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize

@@ -17,10 +17,11 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logInfo)
 
-import           Pos.Core (BlockVersion, Coin, EpochIndex, HasProtocolConstants,
-                     HeaderHash, SlotId (..), SoftforkRule (..), StakeholderId,
-                     crucialSlot, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Update (BlockVersionData (..))
+import           Pos.Core (Coin, EpochIndex, HasProtocolConstants, HeaderHash,
+                     SlotId (..), StakeholderId, crucialSlot, sumCoins,
+                     unsafeIntegerToCoin)
+import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
+                     SoftforkRule (..))
 import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
                      adoptBlockVersion, calcSoftforkThreshold, canBeAdoptedBV,
                      updateSlottingData)

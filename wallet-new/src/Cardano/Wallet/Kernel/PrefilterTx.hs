@@ -22,8 +22,8 @@ import           Serokell.Util (listJson, mapJson)
 
 import           Data.SafeCopy (base, deriveSafeCopy)
 
-import           Pos.Core (Address (..), SlotId, TxId)
-import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Core (Address (..), SlotId)
+import           Pos.Core.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp.Toil.Types (Utxo)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))

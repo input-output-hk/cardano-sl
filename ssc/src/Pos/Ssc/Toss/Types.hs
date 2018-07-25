@@ -18,9 +18,9 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
                      deriveSimpleBiCxt)
-import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId,
+import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId)
+import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap,
                      VssCertificatesMap)
-import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap)
 import           Pos.Ssc.Base (isCommitmentId, isCommitmentIdx, isOpeningId,
                      isOpeningIdx, isSharesId, isSharesIdx)
 import           Pos.Util.Util (cborError)

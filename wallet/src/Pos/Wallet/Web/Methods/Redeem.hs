@@ -14,7 +14,8 @@ import qualified Serokell.Util.Base64 as B64
 
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
-import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
+import           Pos.Core (getCurrentTimestamp)
+import           Pos.Core.Txp (TxAux (..), TxOut (..))
 import           Pos.Crypto (PassPhrase, ProtocolMagic, aesDecrypt, hash,
                      redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)

@@ -36,6 +36,7 @@ import           Pos.Core (GenesisHash (..), HasGenesisHash,
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
 import qualified Pos.Core.Block as T
+import qualified Pos.Core.Delegation as Core
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
                      hash, toPublic)
 

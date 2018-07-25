@@ -87,8 +87,9 @@ import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..),
                      logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
-import           Pos.Core (Timestamp, TxId)
+import           Pos.Core (Timestamp)
 import           Pos.Core.Common (Address, Coin)
+import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
 
 ----------------------------------------------------------------------------

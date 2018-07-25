@@ -25,12 +25,11 @@ import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Block.BHelpers as BHelpers
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot,
-                     HasDifficulty (..), HasEpochIndex (..),
-                     HasEpochOrSlot (..), HasHeaderHash (..),
-                     HasProtocolConstants, HeaderHash, SlotId (..),
-                     SlotLeaders, addressHash, gbExtra, gbhExtra, getSlotIndex,
-                     headerSlotL, prevBlockL)
+import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
+                     HasEpochIndex (..), HasEpochOrSlot (..),
+                     HasHeaderHash (..), HasProtocolConstants, HeaderHash,
+                     SlotId (..), SlotLeaders, addressHash, gbExtra, gbhExtra,
+                     getSlotIndex, headerSlotL, prevBlockL)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Block (Block, BlockHeader (..),
                      blockHeaderProtocolMagic, gebAttributes, gehAttributes,
@@ -38,7 +37,8 @@ import           Pos.Core.Block (Block, BlockHeader (..),
                      mebAttributes, mehAttributes)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
+import           Pos.Core.Update (BlockVersionData (..))
+import           Pos.Crypto (ProtocolMagic (..))
 
 ----------------------------------------------------------------------------
 -- Header

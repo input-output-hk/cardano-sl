@@ -18,9 +18,10 @@ import           Pipes (Producer)
 import           Pipes.Internal (unsafeHoist)
 
 import           Pos.Communication (NodeId)
-import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
+import           Pos.Core (HeaderHash, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Txp (TxId, TxMsgContents)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
                      UpdateVote, VoteId)

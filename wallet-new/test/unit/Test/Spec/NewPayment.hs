@@ -19,7 +19,8 @@ import           System.Wlog (Severity)
 import           Test.Pos.Configuration (withDefConfiguration)
 
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
-                     TxOut (..), TxOutAux (..), deriveLvl2KeyPair, mkCoin)
+                     deriveLvl2KeyPair, mkCoin)
+import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      safeDeterministicKeyGen)
 

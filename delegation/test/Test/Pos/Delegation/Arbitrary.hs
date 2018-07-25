@@ -15,7 +15,8 @@ import           Test.QuickCheck (Arbitrary (..), Gen, listOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Core (EpochIndex, HeavyDlgIndex (..))
+import           Pos.Core (EpochIndex)
+import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), createPsk)
 import           Pos.Delegation.Types (DlgPayload (..), DlgUndo (..))
 

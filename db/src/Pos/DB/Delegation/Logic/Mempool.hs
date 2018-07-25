@@ -25,10 +25,11 @@ import qualified Data.HashMap.Strict as HM
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize,
-                     epochIndexL, headerHash)
+import           Pos.Core (addressHash, epochIndexL, headerHash)
 import           Pos.Core.Conc (currentTime)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.StateLock (StateLock, withStateLockNoMetrics)
+import           Pos.Core.Update (bvdMaxBlockSize)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB

@@ -14,19 +14,23 @@ import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import qualified Pos.Block.BHelpers as Verify
-import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body,
-                     BodyProof, CoinPortion (..), ConsensusData, DlgPayload,
-                     EpochIndex (..), ExtraBodyData, ExtraHeaderData,
-                     MainBlock, MainBlockHeader, MainBlockchain,
-                     SoftforkRule (..), SscPayload, Timestamp (..),
-                     TxFeePolicy (..), TxPayload (..), UpdatePayload,
-                     unsafeCoinPortionFromDouble, _gbBody, _gbExtra, _gbHeader,
-                     _gbhBodyProof, _gbhConsensus, _gbhExtra, _mbDlgPayload,
-                     _mbSscPayload, _mbTxPayload, _mbUpdatePayload)
+import           Pos.Core (Block, BlockHeader, Body, BodyProof,
+                     CoinPortion (..), ConsensusData, EpochIndex (..),
+                     ExtraBodyData, ExtraHeaderData, MainBlock,
+                     MainBlockHeader, MainBlockchain, Timestamp (..),
+                     TxFeePolicy (..), unsafeCoinPortionFromDouble, _gbBody,
+                     _gbExtra, _gbHeader, _gbhBodyProof, _gbhConsensus,
+                     _gbhExtra, _mbDlgPayload, _mbSscPayload, _mbTxPayload,
+                     _mbUpdatePayload)
 import           Pos.Core.Block.Main ()
 import           Pos.Core.Common (CoinPortion, SharedSeed (..))
+import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Genesis
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
+import           Pos.Core.Ssc (SscPayload)
+import           Pos.Core.Txp (TxPayload (..))
+import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..),
+                     UpdatePayload)
 import           Pos.Crypto (ProtocolMagic (..))
 
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
@@ -125,7 +129,7 @@ testSubject seed size =
 
 benchMain :: ( ) => Int -> Int -> IO ()
 benchMain seed size = defaultMain
-    [ env (return (testSubject seed size) >>= printSizes) $ \ts -> bgroup "block" $
+    [ env (printSizes (testSubject seed size)) $ \ts -> bgroup "block" $
           [ bgroup "serialize" $
                 [ bench "all" (nf serialize (fst . tsBlock $ ts))
                 , bgroup "header" $

@@ -22,9 +22,10 @@ import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion,
-                     ChainDifficulty, Coin, SlotCount (..), SoftwareVersion,
-                     mkCoin)
+import           Pos.Core (BlockCount (..), ChainDifficulty, Coin,
+                     SlotCount (..), mkCoin)
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     SoftwareVersion)
 import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT

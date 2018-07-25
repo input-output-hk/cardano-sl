@@ -15,6 +15,7 @@ import           Cardano.Wallet.API.V1.Types
 import qualified Data.Text as T
 import           GHC.TypeLits
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun,
@@ -43,7 +44,7 @@ instance ToIndex Wallet (V1 Core.Timestamp) where
     toIndex _ = fmap V1 . Core.parseTimestamp
     accessIx = walCreatedAt
 
-instance ToIndex Transaction (V1 Core.TxId) where
+instance ToIndex Transaction (V1 Txp.TxId) where
     toIndex _ = fmap V1 . rightToMaybe . decodeHash
     accessIx Transaction{..} = txId
 
@@ -82,7 +83,7 @@ type IndexRelation a ix =
 
 -- | The indices for each major resource.
 type WalletIxs        = '[WalletId, Core.Coin, V1 Core.Timestamp]
-type TransactionIxs   = '[V1 Core.TxId, V1 Core.Timestamp]
+type TransactionIxs   = '[V1 Txp.TxId, V1 Core.Timestamp]
 type AccountIxs       = '[AccountIndex]
 type WalletAddressIxs = '[V1 Core.Address]
 
@@ -119,7 +120,7 @@ type family IndexToQueryParam resource ix where
 
     IndexToQueryParam WalletAddress (V1 Core.Address) = "id"
 
-    IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
+    IndexToQueryParam Transaction (V1 Txp.TxId)      = "id"
     IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"
 
     -- | This is the fallback case. It will trigger a type error if you use

@@ -45,6 +45,7 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Core
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto
 import           Pos.Lrc.Genesis
 import           Pos.Txp

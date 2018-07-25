@@ -11,11 +11,12 @@ import           Formatting (bprint, build, int, sformat, stext, (%))
 import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 
-import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,
-                     Coin, EpochIndex, HeaderHash, NumSoftwareVersion,
-                     ScriptVersion, StakeholderId, coinF)
+import           Pos.Core (Coin, EpochIndex, HeaderHash, ScriptVersion,
+                     StakeholderId, coinF)
 import           Pos.Core.Reporting (MonadReporting, reportError)
-import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     BlockVersionData, BlockVersionModifier,
+                     NumSoftwareVersion, UpAttributes, UpId)
 import           Pos.Crypto (shortHashF)
 
 -- | PollVerFailure represents all possible errors which can

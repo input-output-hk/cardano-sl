@@ -20,7 +20,8 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
                      ProtocolMagic, RichSecrets (..), addressHash, ccGenesis,
                      coreConfiguration, generateFakeAvvm, generateRichSecrets,
-                     mkVssCertificate, vcSigningKey, vssMaxTTL)
+                     vssMaxTTL)
+import           Pos.Core.Ssc (mkVssCertificate, vcSigningKey)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)

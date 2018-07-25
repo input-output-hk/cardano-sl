@@ -30,12 +30,12 @@ import qualified Data.List as List (find)
 import qualified Ether
 import           System.Wlog (WithLogger, logWarning)
 
-import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData,
-                     ChainDifficulty, Coin, EpochIndex, NumSoftwareVersion,
-                     SlotId, SoftwareVersion, StakeholderId, addressHash)
+import           Pos.Core (ChainDifficulty, Coin, EpochIndex, SlotId,
+                     StakeholderId, addressHash)
 import           Pos.Core.Slotting (SlottingData)
-import           Pos.Core.Update (SoftwareVersion (..), UpId,
-                     UpdateProposal (..))
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     BlockVersionData, NumSoftwareVersion,
+                     SoftwareVersion (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.BlockVersion (applyBVM)
 import           Pos.Update.Poll.Modifier (PollModifier (..), pmActivePropsL,

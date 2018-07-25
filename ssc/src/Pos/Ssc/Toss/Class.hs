@@ -14,10 +14,11 @@ import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans (MonadTrans)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot,
-                     StakeholderId, VssCertificate, VssCertificatesMap)
+import           Pos.Core (EpochIndex, EpochOrSlot, StakeholderId)
 import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening,
-                     OpeningsMap, SharesMap, SignedCommitment)
+                     OpeningsMap, SharesMap, SignedCommitment, VssCertificate,
+                     VssCertificatesMap)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Lrc.Types (RichmenStakes)
 
 ----------------------------------------------------------------------------

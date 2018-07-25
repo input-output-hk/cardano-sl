@@ -63,8 +63,9 @@ import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 
-import           Pos.Core (ProtocolMagic, TxAux (..))
+import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Core.Txp (TxAux (..))
 import           Pos.Crypto (hash)
 
 

@@ -25,7 +25,9 @@ import           Pos.Binary.Communication ()
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
-import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
+import           Pos.Core (StakeholderId)
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Ssc (VssCertificate)
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)

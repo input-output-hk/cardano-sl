@@ -38,10 +38,9 @@ import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
-import           Pos.Core (BlockVersion (..), Coin, CoinPortion (..),
-                     EpochIndex, HasProtocolConstants, HeaderHash,
-                     IsMainHeader (..), SlotId, SoftforkRule (..),
-                     TimeDiff (..), addressHash, applyCoinPortionUp,
+import           Pos.Core (Coin, CoinPortion (..), EpochIndex,
+                     HasProtocolConstants, HeaderHash, IsMainHeader (..),
+                     SlotId, TimeDiff (..), addressHash, applyCoinPortionUp,
                      coinPortionDenominator, coinToInteger, difficultyL,
                      epochSlots, getCoinPortion, headerHashG, isBootstrapEra,
                      sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
@@ -49,9 +48,9 @@ import           Pos.Core (BlockVersion (..), Coin, CoinPortion (..),
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      addEpochSlottingData, getCurrentEpochIndex,
                      getNextEpochSlottingData)
-import           Pos.Core.Update (BlockVersionData (..),
-                     BlockVersionModifier (..), UpId, UpdateProposal (..),
-                     UpdateVote (..))
+import           Pos.Core.Update (BlockVersion (..), BlockVersionData (..),
+                     BlockVersionModifier (..), SoftforkRule (..), UpId,
+                     UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))

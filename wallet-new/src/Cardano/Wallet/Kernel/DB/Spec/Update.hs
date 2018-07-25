@@ -26,6 +26,7 @@ import qualified Data.Set as Set
 import           Control.Lens (each)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (hash)
 import           Pos.Txp (Utxo)
 
@@ -44,7 +45,7 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 -- | Errors thrown by 'newPending'
 data NewPendingFailed =
     -- | Some inputs are not in the wallet utxo
-    NewPendingInputsUnavailable (Set (InDb Core.TxIn))
+    NewPendingInputsUnavailable (Set (InDb Txp.TxIn))
 
 deriveSafeCopy 1 'base ''NewPendingFailed
 
@@ -79,7 +80,7 @@ instance Arbitrary NewPendingFailed where
 --   a specialized hardware device).
 -- * We do not actually have access to the key storage inside the DB layer
 --   (and do not store private keys) so we cannot actually sign transactions.
-newPending :: InDb Core.TxAux
+newPending :: InDb Txp.TxAux
            -> Update' Checkpoints NewPendingFailed ()
 newPending tx = do
     checkpoints <- get
@@ -95,7 +96,7 @@ newPending tx = do
 
         insertPending :: Checkpoints -> Checkpoints
         insertPending cs = cs & currentPendingTxs %~ Map.insert txId tx'
-            where txId = hash $ Core.taTx tx'
+            where txId = hash $ Txp.taTx tx'
 
         inputUnavailableErr available_ = do
             let unavailableInputs = txAuxInputSet tx' `Set.difference` utxoInputs available_
@@ -103,7 +104,7 @@ newPending tx = do
 
 -- | Cancel the input set of cancelled transactions from @all@ the 'Checkpoints'
 -- of an 'Account'.
-cancelPending :: Set Core.TxId -> Checkpoints -> Checkpoints
+cancelPending :: Set Txp.TxId -> Checkpoints -> Checkpoints
 cancelPending txids checkpoints =
     checkpoints & over each
                 (\ckpoint ->

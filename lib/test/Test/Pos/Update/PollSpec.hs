@@ -15,10 +15,10 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Core (ApplicationName, BlockVersion (..),
-                     BlockVersionData (..), HasConfiguration,
-                     SoftwareVersion (..), StakeholderId, addressHash)
-import           Pos.Core.Update (UpId, UpdateProposal (..))
+import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
+import           Pos.Core.Update (ApplicationName, BlockVersion (..),
+                     BlockVersionData (..), SoftwareVersion (..), UpId,
+                     UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update as Poll
 import           Pos.Infra.Slotting.Types (SlottingData)

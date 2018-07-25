@@ -49,15 +49,14 @@ import           Serokell.Data.Memory.Units (Byte)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty,
-                     HasCoreConfiguration, NumSoftwareVersion, SlotId,
-                     SoftwareVersion (..), StakeholderId, TimeDiff (..),
-                     epochSlots)
+import           Pos.Core (ChainDifficulty, HasCoreConfiguration, SlotId,
+                     StakeholderId, TimeDiff (..), epochSlots)
 import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      createInitSlottingData)
-import           Pos.Core.Update (BlockVersionData (..), UpId,
-                     UpdateProposal (..))
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     BlockVersionData (..), NumSoftwareVersion,
+                     SoftwareVersion (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB,
                      MonadDBRead (..), RocksBatchOp (..), dbSerializeValue,

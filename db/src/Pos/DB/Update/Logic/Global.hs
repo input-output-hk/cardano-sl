@@ -16,16 +16,17 @@ import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..),
-                     HasCoreConfiguration, HasProtocolConstants,
-                     NumSoftwareVersion, ProtocolMagic, SoftwareVersion (..),
-                     StakeholderId, addressHash, blockVersionL, epochIndexL,
-                     headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core (ComponentBlock (..), HasCoreConfiguration,
+                     HasProtocolConstants, ProtocolMagic, StakeholderId,
+                     addressHash, epochIndexL, headerHashG, headerLeaderKeyL,
+                     headerSlotL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlotsData, SlottingData, slottingVar)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     BlockVersionData, NumSoftwareVersion,
+                     SoftwareVersion (..), UpId, UpdatePayload, blockVersionL)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.Lrc (HasLrcContext)

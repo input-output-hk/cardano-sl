@@ -39,9 +39,9 @@ import           Formatting (build, sformat, (%))
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..),
-                     StakeholderId, VssCertificate (..),
-                     VssCertificatesMap (..), deleteVss, getCertId, insertVss,
-                     lookupVss, memberVss)
+                     StakeholderId)
+import           Pos.Core.Ssc (VssCertificate (..), VssCertificatesMap (..),
+                     deleteVss, getCertId, insertVss, lookupVss, memberVss)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.

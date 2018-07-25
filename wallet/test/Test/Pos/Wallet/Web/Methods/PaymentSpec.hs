@@ -24,9 +24,10 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
-import           Pos.Core (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy,
-                     mkCoin, sumCoins, unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, TxFeePolicy (..), mkCoin, sumCoins,
+                     unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
+import           Pos.Core.Update (bvdTxFeePolicy)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)

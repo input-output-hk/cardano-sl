@@ -21,6 +21,10 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, serialize, unsafeDeserialize)
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
+import           Pos.Core.Ssc (VssCertificate)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..))
 
 import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
                      encodeAttributes)

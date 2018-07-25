@@ -12,12 +12,10 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName (..), Block, BlockHeader (..),
-                     BlockVersion (..), BlockVersionData (..), ExtraBodyData,
+import           Pos.Core (Block, BlockHeader (..), ExtraBodyData,
                      ExtraHeaderData, GenericBlock (..),
-                     GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                     SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
-                     unsafeCoinPortionFromDouble)
+                     GenericBlockHeader (..), HeaderHash, StakeholderId,
+                     TxFeePolicy (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..),
                      MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),
@@ -32,7 +30,9 @@ import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..),
                      VssCertificatesMap (..))
 import           Pos.Core.Txp (TxProof (..))
-import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..), UpdatePayload (..), UpdateProof)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),

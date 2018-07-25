@@ -18,9 +18,9 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core (ComponentBlock (..), ProxySKHeavy, StakeholderId)
+import           Pos.Core (ComponentBlock (..), StakeholderId)
 import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo,
-                     checkDlgPayload)
+                     ProxySKHeavy, checkDlgPayload)
 import           Pos.Crypto (ProxySecretKey, PublicKey, isSelfSignedPsk)
 
 -- | Undo for the delegation component.

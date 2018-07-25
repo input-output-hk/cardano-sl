@@ -50,8 +50,9 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation, InputGrouping)
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core (Coin, Tx)
+import           Pos.Core (Coin)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PassPhrase)
 
 

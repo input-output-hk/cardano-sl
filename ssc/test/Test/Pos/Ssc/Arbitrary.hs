@@ -34,16 +34,16 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..),
-                     VssCertificatesMap, mkVssCertificate,
-                     mkVssCertificatesMapLossy)
+import           Pos.Core (EpochIndex, SlotId (..))
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
                      SignedCommitment, SscPayload (..), SscProof (..),
-                     mkCommitmentsMap, randCommitmentAndOpening)
+                     VssCertificate (..), VssCertificatesMap, mkCommitmentsMap,
+                     mkVssCertificate, mkVssCertificatesMapLossy,
+                     randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic,
                      randomNumberInRange, toVssPublicKey, vssKeyGen)
 import           Pos.Ssc.Base (isCommitmentIdExplicit, isOpeningIdExplicit,

@@ -9,7 +9,7 @@ import           Data.Swagger (Swagger)
 import           Options.Applicative
 
 import           Cardano.Wallet.API (devAPI, v0API, v1API)
-import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
+import           Pos.Core.Update (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
                      gitRev)
 

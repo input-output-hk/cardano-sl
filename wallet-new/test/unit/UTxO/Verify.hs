@@ -27,6 +27,7 @@ import           Pos.Block.Slog
 import           Pos.Block.Types
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)

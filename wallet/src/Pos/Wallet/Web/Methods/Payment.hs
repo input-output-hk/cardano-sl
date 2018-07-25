@@ -29,10 +29,9 @@ import           Pos.Client.Txp.Network (prepareMTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
                      runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..),
-                     TxOut (..), getCurrentTimestamp)
+import           Pos.Core (Address, Coin, HasConfiguration, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
-import           Pos.Core.Txp (_txOutputs)
+import           Pos.Core.Txp (TxAux (..), TxOut (..), _txOutputs)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
                      ShouldCheckPassphrase (..), checkPassMatches, hash,
                      withSafeSignerUnsafe)

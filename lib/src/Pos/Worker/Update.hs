@@ -12,8 +12,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
 import           System.Wlog (logDebug, logInfo)
 
-import           Pos.Core (SoftwareVersion (..))
-import           Pos.Core.Update (UpdateProposal (..))
+import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.DB.Update (UpdateContext (..), getConfirmedProposals,
                      processNewSlot)
 import           Pos.Infra.Diffusion.Types (Diffusion)

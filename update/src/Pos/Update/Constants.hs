@@ -7,7 +7,7 @@ module Pos.Update.Constants
 
 import           Universum
 
-import           Pos.Core (ApplicationName (..), BlockVersion (..),
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      SoftwareVersion (..))
 
 ----------------------------------------------------------------------------

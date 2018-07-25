@@ -38,15 +38,16 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      PackingType, PeerData, SendActions, VerInfo (..),
                      bipPacking, convH, createOutSpecs, makeEnqueueMsg,
                      makeSendActions, toOutSpecs)
-import           Pos.Core (BlockVersion, BlockVersionData (..), HeaderHash,
-                     ProtocolConstants (..), ProxySKHeavy, StakeholderId)
+import           Pos.Core (HeaderHash, ProtocolConstants (..), StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
+                     UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation

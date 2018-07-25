@@ -19,8 +19,8 @@ startSlave args0
 	| "--help" `elem` args0 = dieWithUsage
 	| otherwise = do
 		(path, port, rest) <- case args0 of
-			arg0:arg1:rest -> return (arg0, readarg1, rest)
-			_              -> dieWi             thUsage
+			arg0:arg1:rest -> return (arg0, read arg1, rest)
+			_              -> dieWithUsage
 		verbose <- case rest of
 			["-v"] -> return True
 			[]     -> return False

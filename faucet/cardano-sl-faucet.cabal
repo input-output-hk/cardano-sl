@@ -28,6 +28,7 @@ library
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , connection
+                     , containers
                      , cryptonite
                      , data-default
                      , directory
@@ -45,6 +46,7 @@ library
                      , mmorph
                      , mtl
                      , neat-interpolation
+                     , prometheus-client
                      , random
                      , serokell-util
                      , servant
@@ -60,6 +62,8 @@ library
                      , text-format
                      , time
                      , tls
+                     , transformers
+                     , unordered-containers
                      , wreq
   exposed-modules:
                       Cardano.Faucet
@@ -71,6 +75,7 @@ library
                     , Cardano.Faucet.Metrics
                     , Cardano.Faucet.Init
                     , Cardano.WalletClient
+                    , System.Remote.Monitoring.Prometheus
   default-language: Haskell2010
 
 executable cardano-faucet
@@ -89,6 +94,7 @@ executable cardano-faucet
                 , cardano-sl-util
                 , cardano-sl-wallet
                 , cardano-sl-wallet-new
+                , containers
                 , ekg
                 , ekg-core
                 , ekg-statsd
@@ -98,6 +104,7 @@ executable cardano-faucet
                 , mmorph
                 , mtl
                 , optparse-applicative
+                , prometheus-client
                 , servant
                 , servant-client
                 , servant-server
@@ -105,6 +112,7 @@ executable cardano-faucet
                 , wai
                 , wai-cors
                 , wai-extra
+                , wai-middleware-prometheus
                 , warp
   default-language: Haskell2010
 

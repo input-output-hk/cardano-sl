@@ -8,9 +8,9 @@
     "haskell": {
 	"owner":          "angerman",
 	"repo":           "haskell.nix",
-	"rev":            "43f07a3739fa9ba5044f9dba60cdd80b1fed10d3",
-	"sha256":         "020pq10g1194vslnng7nk2k5pwqd5za3z1kr90al0xw3229af1kr",
-	"sha256unpacked": "0kswvj16g3ikh0417w0ji72hnivlc4ykichxc9dqr4xldn0gm4ax" },
+	"rev":            "7deccd5635039240423a5a12876de8a79417cb16",
+	"sha256":         "099aryw1agk1mziy01g622cx90hq3ljvbjpl6n400kyrgsr62hh3",
+	"sha256unpacked": "1xpmyrjmi8lsh46mcyiaivjisp428nzxgjv55wfmpwdlllc54c5v" },
     "hackage": {
 	"owner":          "angerman",
 	"repo":           "hackage.nix",

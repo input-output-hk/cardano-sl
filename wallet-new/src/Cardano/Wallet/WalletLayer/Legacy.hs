@@ -125,7 +125,7 @@ pwlCreateWallet
 pwlCreateWallet NewWallet{..} = do
 
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
-    let backupPhrase     = CBackupPhrase $ coerce newwalBackupPhrase
+    let backupPhrase     = CBackupPhrase $ unBackupPhrase newwalBackupPhrase
 
     initMeta    <- CWalletMeta  <$> pure newwalName
                                 <*> migrate newwalAssuranceLevel

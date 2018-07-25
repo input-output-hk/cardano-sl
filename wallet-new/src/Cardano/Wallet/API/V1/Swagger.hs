@@ -26,7 +26,6 @@ import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
@@ -846,7 +845,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
-    , deMnemonicExample       = decodeUtf8 $ encode (genExample @(Mnemonic 12))
+    , deMnemonicExample       = decodeUtf8 $ encode (genExample @BackupPhrase)
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo

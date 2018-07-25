@@ -152,7 +152,8 @@ let
     cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
     cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
-    cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
+    # `-fexternal-interpreter' to try and work around the `Dynamic linker not initialised' until we have a proper fix.
+    cardano-sl-wallet-new = doTemplateHaskell (addBuildFlags' [ "--ghc-option=-fexternal-interpreter" ] super.cardano-sl-wallet-new);
     cardano-sl-ssc-test   = doTemplateHaskell super.cardano-sl-ssc-test;
     cardano-sl-infra-test = doTemplateHaskell super.cardano-sl-infra-test;
     cardano-sl-explorer   = doTemplateHaskell super.cardano-sl-explorer;

@@ -32,7 +32,10 @@ updateHdRootName rootId name =
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
-                    -> Update' HdWallets UnknownHdAccount ()
+                    -> Update' HdWallets UnknownHdAccount HdAccount
 updateHdAccountName accId name =
-    zoomHdAccountId identity accId $
-      hdAccountName .= name
+    zoomHdAccountId identity accId $ do
+        oldAccount <- get
+        let newAccount = oldAccount & hdAccountName .~ name
+        put newAccount
+        return newAccount

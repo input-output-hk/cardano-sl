@@ -108,7 +108,7 @@ bracketPassiveWallet logFunction keystore rocksDB f =
                 \walletId accountIndex -> do
                     db <- liftIO (Kernel.getWalletSnapshot wallet)
                     Accounts.getAccount db walletId accountIndex
-            , _pwlUpdateAccount  = error "Not implemented!"
+            , _pwlUpdateAccount  = Accounts.updateAccount wallet
             , _pwlDeleteAccount  = Accounts.deleteAccount wallet
 
             , _pwlCreateAddress  = Addresses.createAddress wallet

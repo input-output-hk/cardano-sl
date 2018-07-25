@@ -182,7 +182,7 @@ instance Buildable DeleteAccountError where
         bprint ("DeleteAccountWalletIdDecodingFailed " % build) txt
 
 data UpdateAccountError =
-      UpdateAccountError Kernel.UnknownHdRoot
+      UpdateAccountError Kernel.UnknownHdAccount
     | UpdateAccountWalletIdDecodingFailed Text
     deriving Eq
 

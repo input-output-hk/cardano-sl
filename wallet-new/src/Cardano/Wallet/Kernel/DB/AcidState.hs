@@ -361,9 +361,10 @@ updateHdRootName rootId name = runUpdate' . zoom dbHdWallets $
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
-                    -> Update DB (Either UnknownHdAccount ())
-updateHdAccountName accId name = runUpdate' . zoom dbHdWallets $
-    HD.updateHdAccountName accId name
+                    -> Update DB (Either UnknownHdAccount (DB, HdAccount))
+updateHdAccountName accId name = do
+    a <- runUpdate' . zoom dbHdWallets $ HD.updateHdAccountName accId name
+    get >>= \st' -> return $ bimap identity (st',) a
 
 deleteHdRoot :: HdRootId -> Update DB ()
 deleteHdRoot rootId = runUpdateNoErrors . zoom dbHdWallets $

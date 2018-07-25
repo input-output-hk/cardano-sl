@@ -2,6 +2,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Accounts (
     createAccount
   , getAccount
   , deleteAccount
+  , updateAccount
   ) where
 
 import           Universum
@@ -10,13 +11,14 @@ import           Control.Lens (to)
 import           Data.Acid (update)
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Second)
-
+import           Formatting (build, sformat)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 
-import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdAccount (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdAccount (..),
+                     UpdateHdAccountName (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -28,7 +30,8 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateAccountError (..),
-                     DeleteAccountError (..), GetAccountError (..))
+                     DeleteAccountError (..), GetAccountError (..),
+                     UpdateAccountError (..))
 
 import           Pos.Core (decodeTextAddress)
 import qualified Pos.Core as Core
@@ -95,19 +98,10 @@ getAccount snapshot (V1.WalletId wId) accountIndex = do
             let hdRootId = HD.HdRootId . InDb $ rootAddr
                 hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
                 wallets = Kernel.hdWallets snapshot
-                -- NOTE(adn): Perhaps we want the minimum or expected balance here?
-                accountAvailableBalance = Kernel.accountAvailableBalance snapshot hdAccountId
 
             return $ case readHdAccount hdAccountId wallets of
                  Left kernelError -> Left $ GetAccountError kernelError
-                 Right acc -> Right V1.Account {
-                                  accIndex     = accountIndex
-                                , accAddresses = IxSet.nonMonotonicMap (toWalletAddress snapshot hdAccountId)
-                                                                       (Kernel.accountAddresses snapshot hdAccountId)
-                                , accAmount    = V1 accountAvailableBalance
-                                , accName      = acc ^. HD.hdAccountName . to HD.getAccountName
-                                , accWalletId  = V1.WalletId wId
-                                }
+                 Right acc        -> Right $ toV1Account snapshot acc
 
 deleteAccount :: MonadIO m
               => Kernel.PassiveWallet
@@ -126,16 +120,55 @@ deleteAccount wallet (V1.WalletId wId) accountIndex = do
                  Left e   -> Left (DeleteAccountError e)
                  Right () -> Right ()
 
+updateAccount :: MonadIO m
+              => Kernel.PassiveWallet
+              -> V1.WalletId
+              -> V1.AccountIndex
+              -> V1.AccountUpdate
+              -> m (Either UpdateAccountError V1.Account)
+updateAccount wallet (V1.WalletId wId) accountIndex (V1.AccountUpdate newAccountName) = do
+    case decodeTextAddress wId of
+         Left _ ->
+             return $ Left (UpdateAccountWalletIdDecodingFailed wId)
+         Right rootAddr -> do
+            let hdRootId = HD.HdRootId . InDb $ rootAddr
+                hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
+                accountName = HD.AccountName newAccountName
+            res <- liftIO $ update (wallet ^. Internal.wallets) (UpdateHdAccountName hdAccountId accountName)
+            return $ case res of
+                 Left e                -> Left (UpdateAccountError e)
+                 Right (snapshot, acc) -> Right $ toV1Account snapshot acc
+
 {-----------------------------------------------------------------------------
     Internal utility functions
 ------------------------------------------------------------------------------}
 
+-- | Converts a Kernel 'HdAccount' into a V1 'Account'.
+toV1Account :: Kernel.DB -> HD.HdAccount -> V1.Account
+toV1Account snapshot account =
+    -- NOTE(adn): Perhaps we want the minimum or expected balance here?
+    let accountAvailableBalance = Kernel.accountAvailableBalance snapshot hdAccountId
+        hdAccountId  = account ^. HD.hdAccountId
+        accountIndex = account ^. HD.hdAccountId . HD.hdAccountIdIx . to HD.getHdAccountIx
+        addresses    = IxSet.nonMonotonicMap (toWalletAddress snapshot)
+                                             (Kernel.accountAddresses snapshot hdAccountId)
+        hdRootId     = account ^. HD.hdAccountId . HD.hdAccountIdParent
+    in V1.Account {
+         accIndex     = accountIndex
+       , accAddresses = addresses
+       , accAmount    = V1 accountAvailableBalance
+       , accName      = account ^. HD.hdAccountName . to HD.getAccountName
+       , accWalletId  = V1.WalletId (sformat build (hdRootId ^. to HD.getHdRootId . fromDb))
+       }
+
+
+-- | Converts a Kernel 'HdAddress' into a V1 'WalletAddress'.
 toWalletAddress :: Kernel.DB
-                -> HD.HdAccountId
                 -> HD.HdAddress
                 -> V1.WalletAddress
-toWalletAddress db hdAccountId hdAddress =
+toWalletAddress db hdAddress =
     let cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
+        hdAccountId = hdAddress ^. HD.hdAddressId . HD.hdAddressIdParent
     in case Kernel.lookupAddressMeta db hdAccountId cardanoAddress of
            Nothing -> V1.WalletAddress (V1 cardanoAddress) False False
            Just addressMeta ->

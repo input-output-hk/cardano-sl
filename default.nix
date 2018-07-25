@@ -153,6 +153,7 @@ let
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
     cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
     cardano-sl-ssc-test   = doTemplateHaskell super.cardano-sl-ssc-test;
+    cardano-sl-infra-test = doTemplateHaskell super.cardano-sl-infra-test;
 
     trifecta              = doTemplateHaskell super.trifecta;
     cardano-sl-tools      = doTemplateHaskell

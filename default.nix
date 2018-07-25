@@ -126,6 +126,7 @@ let
     wai-app-static        = doTemplateHaskell super.wai-app-static;
 
     cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
+    cardano-sl-auxx       = doTemplateHaskell super.cardano-sl-auxx;
     cardano-sl-crypto     = doTemplateHaskell super.cardano-sl-crypto;
     cardano-sl-crypto-test= doTemplateHaskell super.cardano-sl-crypto-test;
     cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;

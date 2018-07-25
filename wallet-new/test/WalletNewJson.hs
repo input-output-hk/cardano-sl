@@ -1,4 +1,6 @@
-module WalletNewJson where
+module WalletNewJson
+       ( tests
+       ) where
 
 import           Universum
 
@@ -17,6 +19,7 @@ import           WalletNewGen (genWalletError)
 
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
+
 -------------------------------------------------------------------------------
 -- WalletError
 -------------------------------------------------------------------------------
@@ -24,7 +27,6 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 roundTripWalletError :: Property
 roundTripWalletError =
     eachOf 5000 genWalletError roundTripsAesonShow
-
 
 golden_WalletError_NotEnoughMoney :: Property
 golden_WalletError_NotEnoughMoney =

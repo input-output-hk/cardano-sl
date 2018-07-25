@@ -7,9 +7,13 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
+                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
+                     mkSyncThroughput)
 import           Data.Aeson
 import           Data.Aeson.Encoding (pairStr)
-import           Data.Aeson.Types (Value (..))
+import           Data.Aeson.Types (Value (..), typeMismatch)
+import qualified Data.HashMap.Strict as HMS
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
@@ -20,11 +24,7 @@ import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto.Hashing as Crypto
-
-import           Cardano.Wallet.API.V1.Generic (gparseJsend)
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
-                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
-                     mkSyncThroughput)
+import           Pos.Util.Util (aesonError)
 
 --
 -- Error handling
@@ -89,7 +89,7 @@ data WalletError =
     | NodeIsStillSyncing !SyncPercentage
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
-    deriving (Show, Eq)
+    deriving (Generic, Show, Eq)
 
 convertTxError :: TxError.TxError -> WalletError
 convertTxError err = case err of
@@ -111,7 +111,6 @@ convertTxError err = case err of
 --
 -- Instances for `WalletError`
 
--- deriveWalletErrorJSON ''WalletError
 deriveGeneric ''WalletError
 
 instance ToJSON WalletError where
@@ -175,14 +174,62 @@ instance ToJSON WalletError where
                  (pairs $ pairStr "params" (toEncoding requiredParams))
              <> "message" .= String "MissingRequiredParams"
     toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
-        toEncoding . toJSON
-            $ WalletIsNotReadyToProcessPayments weStillRestoring
+        toEncoding $ toJSON weStillRestoring
     toEncoding (NodeIsStillSyncing wenssStillSyncing) =
-        toEncoding . toJSON $ NodeIsStillSyncing wenssStillSyncing
-    toJSON _ = error ""
+        toEncoding $ toJSON wenssStillSyncing
 
 instance FromJSON WalletError where
-    parseJSON = gparseJsend
+    parseJSON (Object o)
+        | HMS.member "message" o =
+              case HMS.lookup "message" o of
+                Just "NotEnoughMoney"        ->
+                    NotEnoughMoney
+                        <$> ((o .: "diagnostic") >>= (.: "needMore"))
+                Just "OutputIsRedeem"        ->
+                    OutputIsRedeem <$> ((o .: "diagnostic") >>= (.: "address"))
+                Just "MigrationFailed"       ->
+                    MigrationFailed
+                        <$> ((o .: "diagnostic") >>= (.: "description"))
+                Just "JSONValidationFailed"  ->
+                    JSONValidationFailed
+                        <$> ((o .: "diagnostic") >>= (.: "validationError"))
+                Just "UnknownError"          ->
+                    UnknownError <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "InvalidAddressFormat"  ->
+                    InvalidAddressFormat
+                        <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "WalletNotFound"        -> pure WalletNotFound
+                Just "WalletAlreadyExists"   -> pure WalletAlreadyExists
+                Just "AddressNotFound"       -> pure AddressNotFound
+                Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
+                Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
+                Just "TxSafeSignerNotFound"  ->
+                    TxSafeSignerNotFound
+                        <$> ((o .: "diagnostic") >>= (.: "address"))
+                Just "MissingRequiredParams" ->
+                    MissingRequiredParams
+                        <$> ((o .: "diagnostic") >>= (.: "params"))
+                Just _                       ->
+                    fail "Incorrect JSON encoding for WalletError"
+                Nothing                      ->
+                    fail "Incorrect JSON encoding for WalletError"
+        -- WalletIsNotReadyToProcessPayments
+        | HMS.member "estimatedCompletionTime" o = do
+            estCompTO <- (o .: "estimatedCompletionTime")
+            sThroughPO <- (o .: "throughput")
+            prctO <- (o .: "percentage")
+            estCompT <- parseJSON estCompTO
+            sThroughP <- parseJSON sThroughPO
+            prct <- parseJSON prctO
+            return . WalletIsNotReadyToProcessPayments
+                $ SyncProgress estCompT sThroughP prct
+        -- NodeIsStillSyncing
+        | HMS.member "quantity" o = do
+            quantityO <-  o .: "quantity"
+            quantity <- parseJSON quantityO
+            return . NodeIsStillSyncing $ mkSyncPercentage quantity
+        | otherwise = aesonError "Incorrect JSON encoding for WalletError"
+    parseJSON invalid = typeMismatch "WalletError" invalid
 
 instance Exception WalletError where
 

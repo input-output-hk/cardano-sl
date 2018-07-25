@@ -1,5 +1,5 @@
 module WalletNewGen
-       (genWalletError
+       ( genWalletError
        ) where
 
 import           Universum

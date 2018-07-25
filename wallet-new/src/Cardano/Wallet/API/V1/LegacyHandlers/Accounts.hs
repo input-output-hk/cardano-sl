@@ -117,10 +117,9 @@ getAccountAddresses
     -> AccountIndex
     -> RequestParams
     -> FilterOperations WalletAddress
-    -> SortOperations WalletAddress
     -> m (WalletResponse AccountAddresses)
-getAccountAddresses wId accIdx pagination filters sorts = do
-    resp <- respondWith pagination filters sorts (getAddresses <$> getAccount wId accIdx)
+getAccountAddresses wId accIdx pagination filters = do
+    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount wId accIdx)
     return resp { wrData = AccountAddresses . wrData $ resp }
   where
     getAddresses =

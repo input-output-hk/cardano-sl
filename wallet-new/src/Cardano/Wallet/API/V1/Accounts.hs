@@ -45,7 +45,6 @@ type API
           :> Summary "Retrieve only account's addressees."
           :> WalletRequestParams
           :> FilterBy '[V1 Core.Address] WalletAddress
-          :> SortBy '[V1 Core.Address] WalletAddress
           :> Get '[ValidJSON] (WalletResponse AccountAddresses)
     :<|> "wallets" :> CaptureWalletId :> "accounts"
           :> CaptureAccountId :> "amount"

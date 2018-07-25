@@ -16,8 +16,8 @@ import           Data.ByteString.Lazy as BSL
 import           Data.Monoid ((<>))
 import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative (Parser, execParser, fullDesc, header,
-                                      help, helper, info, long, progDesc, short,
-                                      strOption, (<**>))
+                     help, helper, info, long, progDesc, short, strOption,
+                     (<**>))
 
 import           Servant hiding (header)
 import           System.Remote.Monitoring (forkServer, serverMetricStore)

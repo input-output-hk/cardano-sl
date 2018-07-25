@@ -260,7 +260,7 @@ fillInDefaults :: forall p e.
                -> Map HdAccountId p  -- ^ Map with values per account
                -> Update' HdWallets e (Map HdAccountId p)
 fillInDefaults def accs =
-    aux <$> IxSet.toMap <$> use hdWalletsAccounts
+    aux . IxSet.toMap <$> use hdWalletsAccounts
   where
     aux :: Map HdAccountId HdAccount -> Map HdAccountId p
     aux = Map.Merge.merge newAccount needsDefault valueForExistingAcc accs

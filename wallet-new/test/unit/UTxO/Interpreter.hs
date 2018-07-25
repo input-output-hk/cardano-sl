@@ -45,8 +45,7 @@ import           Cardano.Wallet.Kernel.Util (at)
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
-                     MainBlock, gbHeader, genBlockEpoch, genBlockLeaders,
-                     mkGenesisBlock)
+                     MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
 import           Pos.Core.Chrono
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
@@ -631,8 +630,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
 
   int :: forall e m. Monad m
       => DSL.Chain h Addr -> IntT h e m (OldestFirst [] Block)
-  int (OldestFirst blocks) = OldestFirst <$>
-      concatMap flatten <$> mapM int blocks
+  int (OldestFirst blocks) =
+      OldestFirst . concatMap flatten <$> mapM int blocks
     where
       flatten :: (RawResolvedBlock, Maybe GenesisBlock) -> [Block]
       flatten (b, Nothing)  = [Right (rawResolvedBlock b)]

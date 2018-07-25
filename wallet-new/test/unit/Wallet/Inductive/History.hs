@@ -64,8 +64,7 @@ dslEvent (History events) ev ws = History $
   Constructing histories when comparing DSL to kernel
 -------------------------------------------------------------------------------}
 
-kernelInit :: Hash h Addr
-           => Wallet h Addr  -- ^ Initial pure wallet
+kernelInit :: Wallet h Addr  -- ^ Initial pure wallet
            -> IntCtxt h      -- ^ Initial interpretation context
            -> History
 kernelInit w ic = History $
@@ -87,12 +86,12 @@ kernelEvent (History events) ev w = History $
                     events
 
 -- | Record that we interpreted the event
-kernelInt :: Hash h Addr => History -> IntCtxt h -> History
+kernelInt :: History -> IntCtxt h -> History
 kernelInt (History events) ic = History $
     liftNewestFirst (\es -> Event ["interpret", pretty ic] : es) events
 
 -- | Record that we rolled back the interpretation state
-kernelRollback :: Hash h Addr => History -> IntCtxt h -> History
+kernelRollback :: History -> IntCtxt h -> History
 kernelRollback (History events) ic = History $
     liftNewestFirst (\es -> Event ["rollback", pretty ic] : es) events
 

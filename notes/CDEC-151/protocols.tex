@@ -995,6 +995,49 @@ selection rules.
     means that, for any $merge$ expression involving both of these chains, the
     weaker can always be eliminated.\\}
 
+\subsection{Relaying header while downloading body}
+
+When a new block is minted we'd like to diffuse it to the entire network as
+fast as possible, because it's crucial that the next slot leader has it before
+the next slot ends. By relaying the newly announced block \emph{header}
+(comparatively small) before having completely downloaded and verified its
+\emph{body} (compatively large) some latency can be hidden. This is contrary
+to the general rule: \emph{if an honest node announces a header, then it has
+the complete verified chain ending at that header, and the node does not know
+any strictly longer fully verified chain}.
+
+This is an important rule, because without it, an attacker could trivially
+trick honest nodes into ignoring legitimate chains by feeding them valid
+headers without giving the bodies. Even if honest nodes treat these chains as
+tentative, and (necessarily, because there's no body) do not build upon them
+with new blocks, it allows an adversary to induce traffic throughout the
+network by announcing a header for a slot they control with a chosen high
+block count. If it's sufficiently high, honest nodes will relay it, thinking
+it's the new best chain.
+
+Things can be reconciled by relaxing the rule slightly: \emph{if an honest node
+announces a header, then it has the complete verified chain ending at the
+\emph{parent} of that header, that header is valid (signed by the appropriate
+leader), and the node does not know any strictly longer fully verified chain}.
+This gives latency hiding in the case of a new block from an honest leader:
+most peers will have the complete verified chain that the leader extends, and
+will also not know of any better one (else the leader probably would have as
+well and extended that one). It also mitigates the attack. An adversary, by
+sending a header and holding out on the body, can gain only 1 block count on a
+known and fully verified chain. Opportunities to induce a network-wide relay
+are scarce: the adversary must control a slot for which both
+\begin{itemize}
+  \item most nodes have the fully verified chain ending at some block $B$ prior
+    to that slot
+  \item $B$ is sufficiently long that extending it with a new header would
+    cause honest nodes to relay it
+\end{itemize}
+This works when the adversary controls the current slot, but is unlikely to be
+satisfied for prior slots: the honest nodes will have been working on a longer
+chain which makes the second condition fail.
+
+Alternatively, the rule could state that a header is realyed without the
+verified body only for the current slot.
 
 \subsubsection{Raising the difficulty for attackers}
 

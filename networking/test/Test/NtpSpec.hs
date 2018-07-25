@@ -8,8 +8,9 @@ import           Data.Binary (decodeOrFail, encode)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
 import           Data.Word (Word32)
 
-import           Test.Hspec (Spec, describe, it)
-import           Test.QuickCheck (Arbitrary (..), Gen, counterexample, property,
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (Arbitrary (..), Gen, counterexample, 
                      sized, suchThat, (.&&.), (===))
 
 import           Ntp.Packet (NtpOffset (..), NtpPacket (..), clockOffsetPure,
@@ -81,17 +82,19 @@ instance Arbitrary NtpMicrosecond where
 spec :: Spec
 spec = describe "NtpClient" $ do
     describe "clockOffsetPure" $ do
-        it "should return clock offset" $ property $ \(NtpPacketWithOffset {..}) ->
+        prop "should return clock offset" $ \(NtpPacketWithOffset {..}) ->
             let offset = clockOffsetPure npoNtpPacket npoDestinationTime
             in npoOffset === offset
     describe "realMcsToNtp" $ do
-        it "should be right inverse of ntpToRealMcs" $ property $ \(NtpMicrosecond x) ->
+        prop "should be right inverse of ntpToRealMcs" $ \(NtpMicrosecond x) ->
             x === uncurry ntpToRealMcs (realMcsToNtp x)
-        it "should be left inverse of ntpToRealMcs" $ property $ \(NtpTime x@(sec, frac)) ->
+        prop "should be left inverse of ntpToRealMcs"  $ \(NtpTime x@(sec, frac)) ->
             let (sec', frac') = realMcsToNtp (uncurry ntpToRealMcs x)
+            -- Each npt fraction unit correspond to 232 picoseconds, there are
+            -- 4310 of them in a millisecond.
             in sec === sec' .&&. frac `div` 4310 === frac' `div` 4310
     describe "NptPacket" $ do
-        it "should serialize and deserialize" $ property $ \(ArbitraryNtpPacket ntpPacket) ->
+        prop "should serialize and deserialize"  $ \(ArbitraryNtpPacket ntpPacket) ->
             let bs = encode ntpPacket
             in do
                 case decodeOrFail bs of

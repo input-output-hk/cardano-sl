@@ -69,6 +69,7 @@ Library
                       , safe-exceptions
                       , stm
                       , text
+                      , these
                       , formatting
                       , time
                       , time-units

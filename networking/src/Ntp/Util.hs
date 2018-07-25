@@ -19,9 +19,8 @@ module Ntp.Util
     , createAndBindSock
     , udpLocalAddresses
 
-    , EitherOrBoth (..)
-    , foldEitherOrBoth
-    , pairEitherOrBoth
+    , foldThese
+    , pairThese
 
     , ntpTrace
     , logDebug
@@ -41,6 +40,7 @@ import           Data.List (find)
 import           Data.Semigroup (First (..), Last (..), Option (..),
                      Semigroup (..))
 import           Data.Text (Text)
+import           Data.These (These (..))
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo,
                      AddrInfoFlag (AI_ADDRCONFIG, AI_PASSIVE),
@@ -99,70 +99,41 @@ getAddrFamily (WithIPv6 _) = IPv6
 getAddrFamily (WithIPv4 _) = IPv4
 
 -- |
--- Keep either of the two types or both.
-data EitherOrBoth a b
-    = EBFirst  !a
-    | EBSecond !b
-    | EBBoth   !a !b
-    deriving (Show, Eq, Ord)
-
-instance Bifunctor EitherOrBoth where
-    bimap f _ (EBFirst a)  = EBFirst $ f a
-    bimap _ g (EBSecond b) = EBSecond $ g b
-    bimap f g (EBBoth a b) = EBBoth (f a) (g b)
-
--- |
--- @'EitehrOrBoth'@ is an (associative) semigroup whenever both @a@ and @b@ are.
-instance (Semigroup a, Semigroup b) => Semigroup (EitherOrBoth a b) where
-
-    EBFirst  a <> EBFirst  a'  = EBFirst (a <> a')
-    EBFirst  a <> EBSecond b   = EBBoth a b
-    EBFirst  a <> EBBoth a' b  = EBBoth (a <> a') b
-
-    EBSecond b <> EBFirst  a   = EBBoth a b
-    EBSecond b <> EBSecond b'  = EBSecond (b <> b')
-    EBSecond b <> EBBoth a b'  = EBBoth a (b <> b')
-
-    EBBoth a b <> EBFirst a'   = EBBoth (a <> a') b
-    EBBoth a b <> EBSecond b'  = EBBoth a (b <> b')
-    EBBoth a b <> EBBoth a' b' = EBBoth (a <> a') (b <> b')
-
--- |
--- Note that the composition of `foldEitherOrBoth . bimap f g` is a proof that
--- @'EitherOrBoth a b@ is the [free
+-- Note that the composition of `foldThese . bimap f g` is a proof that
+-- @'These a b@ is the [free
 -- product](https://en.wikipedia.org/wiki/Free_product) of two semigroups @a@
 -- and @b@.
-foldEitherOrBoth
+foldThese
     :: Semigroup a
-    => EitherOrBoth a a
+    => These a a
     -> a
-foldEitherOrBoth (EBFirst a)    = a
-foldEitherOrBoth (EBSecond a)   = a
-foldEitherOrBoth (EBBoth a1 a2) = a1 <> a2
+foldThese (This a)      = a
+foldThese (That a)      = a
+foldThese (These a1 a2) = a1 <> a2
 
-pairEitherOrBoth
-    :: EitherOrBoth a b
-    -> EitherOrBoth x y
-    -> Maybe (EitherOrBoth (a, x) (b, y))
-pairEitherOrBoth (EBBoth a b) (EBBoth x y) = Just $ EBBoth (a, x) (b, y)
-pairEitherOrBoth (EBFirst a)  (EBFirst x)  = Just $ EBFirst (a, x)
-pairEitherOrBoth (EBBoth a _) (EBFirst x)  = Just $ EBFirst (a, x)
-pairEitherOrBoth (EBFirst a)  (EBBoth x _) = Just $ EBFirst (a, x)
-pairEitherOrBoth (EBSecond b) (EBSecond y) = Just $ EBSecond (b, y)
-pairEitherOrBoth (EBBoth _ b) (EBSecond y) = Just $ EBSecond (b, y)
-pairEitherOrBoth (EBSecond b) (EBBoth _ y) = Just $ EBSecond (b, y)
-pairEitherOrBoth _            _            = Nothing
+pairThese
+    :: These a b
+    -> These x y
+    -> Maybe (These (a, x) (b, y))
+pairThese (These a b) (These x y) = Just $ These (a, x) (b, y)
+pairThese (This a)    (This x)    = Just $ This (a, x)
+pairThese (These a _) (This x)    = Just $ This (a, x)
+pairThese (This a)    (These x _) = Just $ This (a, x)
+pairThese (That b)    (That y)    = Just $ That (b, y)
+pairThese (These _ b) (That y)    = Just $ That (b, y)
+pairThese (That b)    (These _ y) = Just $ That (b, y)
+pairThese _            _          = Nothing
 
 -- |
 -- Store created sockets.  If system supports IPv6 and IPv4 we create socket for
 -- IPv4 and IPv6.  Otherwise only one.
-type Sockets = EitherOrBoth
+type Sockets = These
     (Last (WithAddrFamily 'IPv6 Socket))
     (Last (WithAddrFamily 'IPv4 Socket))
 
 -- |
 -- A counter part of @'Ntp.Client.Sockets'@ data type.
-type Addresses = EitherOrBoth
+type Addresses = These
     (First (WithAddrFamily 'IPv6 SockAddr))
     (First (WithAddrFamily 'IPv4 SockAddr))
 
@@ -190,7 +161,7 @@ resolveHost host = do
             let g :: First (WithAddrFamily t SockAddr) -> [SockAddr]
                 g (First a) = [runWithAddrFamily a]
                 addrs :: [SockAddr]
-                addrs = foldEitherOrBoth . bimap g g $ addr
+                addrs = foldThese . bimap g g $ addr
             in logInfo $ sformat ("Host "%shown%" is resolved: "%shown)
                     host addrs
     return maddr
@@ -199,9 +170,9 @@ resolveHost host = do
         fn :: AddrInfo -> Option Addresses
         fn addr = case Socket.addrFamily addr of
             Socket.AF_INET6 ->
-                Option $ Just $ EBFirst  $ First $ (WithIPv6 $ Socket.addrAddress addr)
+                Option $ Just $ This $ First $ (WithIPv6 $ Socket.addrAddress addr)
             Socket.AF_INET  ->
-                Option $ Just $ EBSecond $ First $ (WithIPv4 $ Socket.addrAddress addr)
+                Option $ Just $ That $ First $ (WithIPv4 $ Socket.addrAddress addr)
             _               -> mempty
 
 resolveNtpHost :: String -> IO (Maybe Addresses)
@@ -240,8 +211,8 @@ createAndBindSock addressFamily addrs =
             sformat ("Created socket (family/addr): "%shown%"/"%shown)
                     (addrFamily addr) (addrAddress addr)
         case addressFamily of
-            IPv6 -> return $ EBFirst  $ Last $ (WithIPv6 sock)
-            IPv4 -> return $ EBSecond $ Last $ (WithIPv4 sock)
+            IPv6 -> return $ This $ Last $ (WithIPv6 sock)
+            IPv4 -> return $ That $ Last $ (WithIPv4 sock)
 
 udpLocalAddresses :: IO [AddrInfo]
 udpLocalAddresses = do
@@ -268,7 +239,7 @@ sendTo
     -> Addresses
     -- ^ addresses to send to
     -> IO ()
-sendTo sock bs addr = case fmap (foldEitherOrBoth . bimap fn fn) $ pairEitherOrBoth sock addr of
+sendTo sock bs addr = case fmap (foldThese . bimap fn fn) $ pairThese sock addr of
     Just io -> io
     Nothing -> throw NoMatchingSocket
     where
@@ -309,11 +280,11 @@ sendPacket sock packet addrs = do
         case (addr, addressFamily) of
             -- try to send the packet to the other address in case the current
             -- system does not support IPv4/6.
-            (EBBoth _ r, IPv6) -> do
+            (These _ r, IPv6) -> do
                 logDebug $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst r)
-                sendPacket sock packet [EBSecond r]
-            (EBBoth l _, IPv4) -> do
+                sendPacket sock packet [That r]
+            (These l _, IPv4) -> do
                 logDebug $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst l)
-                sendPacket sock packet [EBFirst  l]
+                sendPacket sock packet [This  l]
             _                  ->
                 logDebug "sendPacket: not retrying"

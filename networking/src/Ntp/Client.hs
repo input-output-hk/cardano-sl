@@ -35,6 +35,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup (Last (..))
 import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds,
                      toMicroseconds)
+import           Data.These (These (..))
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import qualified Network.Socket as Socket
@@ -43,11 +44,10 @@ import qualified System.Wlog as Wlog
 
 import           Ntp.Packet (NtpOffset, NtpPacket (..), clockOffset,
                      mkNtpPacket, ntpPacketSize)
-import           Ntp.Util (AddrFamily (..), Addresses, EitherOrBoth (..),
-                     Sockets, WithAddrFamily (..), createAndBindSock,
-                     foldEitherOrBoth, logDebug, logInfo, logWarning, ntpTrace,
-                     resolveNtpHost, runWithAddrFamily, sendPacket,
-                     udpLocalAddresses)
+import           Ntp.Util (AddrFamily (..), Addresses, Sockets,
+                     WithAddrFamily (..), createAndBindSock, foldThese,
+                     logDebug, logInfo, logWarning, ntpTrace, resolveNtpHost,
+                     runWithAddrFamily, sendPacket, udpLocalAddresses)
 import           Pos.Util.Trace (traceWith)
 
 data NtpStatus =
@@ -197,13 +197,13 @@ sendLoop cli addrs = do
 startReceive :: NtpClient -> IO ()
 startReceive cli =
     atomically (readTVar $ ncSockets cli) >>= \case
-        EBBoth (Last (WithIPv6 sock_ipv6)) (Last (WithIPv4 sock_ipv4)) ->
+        These (Last (WithIPv6 sock_ipv6)) (Last (WithIPv4 sock_ipv4)) ->
             loop IPv6 sock_ipv6
             `concurrently_`
             loop IPv4 sock_ipv4
-        EBFirst (Last (WithIPv6 sock_ipv6)) ->
+        This (Last (WithIPv6 sock_ipv6)) ->
             loop IPv6 sock_ipv6
-        EBSecond (Last (WithIPv4 sock_ipv4)) ->
+        That (Last (WithIPv4 sock_ipv4)) ->
             loop IPv4 sock_ipv4
     where
     -- Receive responses from the network and update NTP client state.
@@ -231,11 +231,11 @@ startReceive cli =
             Just sock -> do
                 atomically $ modifyTVar' (ncSockets cli) (\s -> s <> sock)
                 case sock of
-                    EBFirst (Last sock_)
+                    This (Last sock_)
                         -> loop addressFamily $ runWithAddrFamily sock_
-                    EBSecond (Last sock_)
+                    That (Last sock_)
                         -> loop addressFamily $ runWithAddrFamily sock_
-                    EBBoth _ _
+                    These _ _
                         -> error "NtpClient: startReceive: impossible"
 
     -- Compute the clock offset based on current time and record it in the NTP
@@ -274,7 +274,7 @@ spawnNtpClient settings ncStatus = do
     where
     closeSockets :: Sockets -> IO ()
     closeSockets sockets = do
-        foldEitherOrBoth $ bimap fn fn sockets
+        foldThese $ bimap fn fn sockets
         logInfo "stopped"
 
     fn :: Last (WithAddrFamily t Socket.Socket) -> IO ()
@@ -298,7 +298,7 @@ withNtpClient ntpSettings = do
 -- Try to create IPv4 and IPv6 socket.
 mkSockets :: NtpClientSettings -> IO Sockets
 mkSockets settings =
-    (doMkSockets) `catch` handleIOException >>= \case
+    doMkSockets `catch` handleIOException >>= \case
         Option (Just sock) -> pure sock
         Option Nothing     -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
@@ -306,11 +306,10 @@ mkSockets settings =
             mkSockets settings
   where
     doMkSockets :: IO (Option Sockets)
-    doMkSockets =
-        do
-            addrs <- udpLocalAddresses
-            (<>) <$> (Option <$> createAndBindSock IPv4 addrs)
-                 <*> (Option <$> createAndBindSock IPv6 addrs)
+    doMkSockets = do
+        addrs <- udpLocalAddresses
+        (<>) <$> (Option <$> createAndBindSock IPv4 addrs)
+             <*> (Option <$> createAndBindSock IPv6 addrs)
 
     handleIOException :: IOException -> IO (Option Sockets)
     handleIOException e = do

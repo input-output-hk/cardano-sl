@@ -4,12 +4,14 @@ import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (Default (..))
+import           Data.Time.Units (fromMicroseconds)
 import           System.Environment (lookupEnv)
+import           Test.Hspec (describe, hspec, it, shouldBe)
 
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
-import           Pos.Client.CLI.Options (CommonArgs (..))
+-- import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Params (getNodeParams, gtSscParams)
-import           Pos.Core (ProtocolMagic)
+import           Pos.Core (ProtocolMagic, Timestamp (..))
 import           Pos.Core.Configuration (defaultGenesisSpec, epochSlots,
                      withProtocolConstants)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
@@ -35,10 +37,72 @@ import           Pos.WorkMode (RealModeContext (..))
 import           System.Wlog (HasLoggerName (askLoggerName))
 
 
+--      INTEGRATION_TESTS_NODE_PATH   = Path to a valid rocksdb database
+--      INTEGRATION_TESTS_WALLET_PATH = Path to a valid acid-state database
+--      INTEGRATION_TESTS_DB_PATH     = Path to directory with all DBs used by the node
+--      INTEGRATION_TESTS_CONFIG_PATH = Path to the yaml configuration file
+--      INTEGRATION_TESTS_CONFIG_KEY  = Key to use within that config file (e.g.  --      development, test ...)
+main :: IO ()
+main = do
+    nodePath    <- lookupEnvD "../integration_tests/node" "INTEGRATION_TESTS_NODE_PATH"
+    walletPath  <- lookupEnvD "../integration_tests/wallet" "INTEGRATION_TESTS_WALLET_PATH"
+    dbPath      <- lookupEnvD "../integration_tests/db" "INTEGRATION_TESTS_DB_PATH"
+    configPath  <- lookupEnvD "../lib/configuration.yaml" "INTEGRATION_TESTS_CONFIG_PATH"
+    configKey   <- lookupEnvD "test" "INTEGRATION_TESTS_CONFIG_KEY"
+
+    let args =
+            ( def
+                { dbPath    = Just dbPath
+                , rebuildDB = True
+                }
+            , def
+            , ExtraNodeArgs
+                { _nodePath   = nodePath
+                , _walletPath = walletPath
+                , _configPath = configPath
+                , _configKey  = toText configKey
+                }
+            )
+
+    generateInitialState args defaultGenesisSpec
+    hspec $ describe "Integration tests" $ do
+        it "A first test" $
+            True `shouldBe` True
+
+        it "A second test" $
+            False `shouldBe` False
+  where
+    --lookupEnvE :: String -> IO String
+    --lookupEnvE var = do
+    --    let msg = "Missing required ENV var '" <> var <> "'"
+    --    maybe (fail msg) return =<< lookupEnv var
+
+    lookupEnvD :: String -> String -> IO String
+    lookupEnvD d var =
+        fromMaybe d <$> lookupEnv var
+
+
 data ExtraNodeArgs = ExtraNodeArgs
-    { _nodePath   :: FilePath
-    , _walletPath :: FilePath
+    { _nodePath   :: !FilePath
+    , _walletPath :: !FilePath
+    , _configPath :: !FilePath
+    , _configKey  :: !Text
     }
+
+
+-- | Generate an initial state for the integration tests
+--
+-- Example:
+--    import Pos.Core.Configuration(defaultGenesisSpec)
+--
+--    generateInitialState defaultGenesisSpec
+generateInitialState
+    :: (CommonNodeArgs, NodeArgs, ExtraNodeArgs)
+    -> GenesisSpec
+    -> IO ()
+generateInitialState args spec = do
+    let wallets = genesisDataToWalletUserSecrets . genesisSpecToGenesisData $ spec
+    runWalletWebMode args $ forM_ wallets (uncurry importWalletDo)
 
 
 -- | Run a particular wallet action in a default context.
@@ -49,8 +113,15 @@ runWalletWebMode
     :: (CommonNodeArgs, NodeArgs, ExtraNodeArgs)
     -> (HasConfigurations => WalletWebMode a)
     -> IO a
-runWalletWebMode (commonNodeArgs, nodeArgs, ExtraNodeArgs{..}) action =
-    withConfigurations Nothing def
+runWalletWebMode (commonNodeArgs, nodeArgs, ExtraNodeArgs{..}) action = do
+    let configOpts = ConfigurationOptions
+            { cfoFilePath    = _configPath
+            , cfoKey         = _configKey
+            , cfoSystemStart = Just (Timestamp (fromMicroseconds 1512847931))
+            , cfoSeed        = Nothing
+            }
+
+    withConfigurations Nothing configOpts
         $ \_ protocolMagic -> bracket (openState True _walletPath) closeState
         $ \walletState -> bracket (openNodeDBs True _nodePath) closeNodeDBs
         $ \nodeDBs -> do
@@ -112,47 +183,3 @@ genesisDataToWalletUserSecrets genData =
                 }
         in
             (mempty, walUserSecret)
-
-
--- | Generate an initial state for the integration tests
---
--- Example:
---    import Pos.Core.Configuration(defaultGenesisSpec)
---
---    generateInitialState defaultGenesisSpec
-generateInitialState
-    :: (CommonNodeArgs, NodeArgs, ExtraNodeArgs)
-    -> GenesisSpec
-    -> IO ()
-generateInitialState args spec = do
-    let wallets = genesisDataToWalletUserSecrets . genesisSpecToGenesisData $ spec
-    runWalletWebMode args $ forM_ wallets (uncurry importWalletDo)
-
-
---      TEST_INTEGRATION_NODE_PATH   = Path to a valid rocksdb database
---      TEST_INTEGRATION_WALLET_PATH = Path to a valid acid-state database
---      TEST_INTEGRATIoN_DB_PATH     = Path to directory with all DBs used by the node
-main :: IO ()
-main = do
-    nodePath    <- lookupEnvE "INTEGRATION_TESTS_NODE_PATH"
-    walletPath  <- lookupEnvE "INTEGRATION_TESTS_WALLET_PATH"
-    dbPath      <- lookupEnvE "INTEGRATION_TESTS_DB_PATH"
-
-    let args =
-            ( def
-                { dbPath    = Just dbPath
-                , rebuildDB = True
-                }
-            , def
-            , ExtraNodeArgs
-                { _nodePath   = nodePath
-                , _walletPath = walletPath
-                }
-            )
-
-    generateInitialState args defaultGenesisSpec
-  where
-    lookupEnvE :: String -> IO String
-    lookupEnvE var = do
-        let msg = "Missing required ENV var '" <> var <> "'"
-        maybe (fail msg) return =<< lookupEnv var

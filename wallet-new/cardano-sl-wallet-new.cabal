@@ -679,6 +679,7 @@ test-suite wallet-integration-tests
                       TypeFamilies
 
   build-depends:      base
+                    , QuickCheck
                     , bytestring
                     , cardano-sl
                     , cardano-sl-block
@@ -701,9 +702,9 @@ test-suite wallet-integration-tests
                     , hspec
                     , lens
                     , log-warper
-                    , QuickCheck
                     , quickcheck-instances
-                    , universum
                     , random
                     , stm
                     , time
+                    , time-units
+                    , universum

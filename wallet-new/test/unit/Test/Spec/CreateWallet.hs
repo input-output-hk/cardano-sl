@@ -1,16 +1,18 @@
 {-# LANGUAGE DataKinds        #-}
 {-# LANGUAGE TypeApplications #-}
-module Test.Spec.CreateWallet (spec) where
+module Test.Spec.CreateWallet (
+      spec
+    , genNewWalletRq
+    ) where
 
 import           Universum
 
 import           Test.Hspec (Spec, describe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, frequency, withMaxSuccess)
+import           Test.QuickCheck (arbitrary, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Data.Coerce (coerce)
-import           System.Wlog (Severity)
 
 import           Pos.Crypto (emptyPassphrase)
 
@@ -19,14 +21,12 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      WalletName (..), hdRootId)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdRootError (..))
-import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Wallets (CreateWalletError (..))
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 import           Cardano.Wallet.API.V1.Handlers.Wallets as Handlers
@@ -34,27 +34,15 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import           Control.Monad.Except (runExceptT)
 import           Servant.Server
 
+import           Test.Spec.Fixture (genSpendingPassword, withLayer)
 import           Util.Buildable (ShowThroughBuild (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
--- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
-
-withLayer :: MonadIO m
-          => (PassiveWalletLayer m -> PassiveWallet -> IO a)
-          -> PropertyM IO a
-withLayer cc = do
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
-            cc layer wallet
-
-genNewWalletRq :: PropertyM IO V1.NewWallet
-genNewWalletRq = do
+genNewWalletRq :: Maybe V1.SpendingPassword -> PropertyM IO V1.NewWallet
+genNewWalletRq spendingPassword = do
     assuranceLevel   <- pick arbitrary
     walletName       <- pick arbitrary
-    spendingPassword <- pick (frequency [(20, pure Nothing), (80, Just <$> arbitrary)])
     mnemonic <- BIP39.entropyToMnemonic <$> liftIO (BIP39.genEntropy @(BIP39.EntropySize 12))
     return $ V1.NewWallet (V1.BackupPhrase mnemonic)
                           spendingPassword
@@ -68,7 +56,8 @@ spec = describe "CreateWallet" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                request <- genNewWalletRq
+                pwd     <- genSpendingPassword
+                request <- genNewWalletRq pwd
                 withLayer $ \layer _ -> do
                     liftIO $ do
                         res <- (WalletLayer._pwlCreateWallet layer) request
@@ -76,7 +65,8 @@ spec = describe "CreateWallet" $ do
 
         prop "fails if the wallet already exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                request <- genNewWalletRq
+                pwd     <- genSpendingPassword
+                request <- genNewWalletRq pwd
                 withLayer $ \layer _ -> do
                     liftIO $ do
                         -- The first time it must succeed.
@@ -94,7 +84,8 @@ spec = describe "CreateWallet" $ do
 
         prop "supports Unicode characters" $ withMaxSuccess 1 $ do
             monadicIO $ do
-                request <- genNewWalletRq
+                pwd     <- genSpendingPassword
+                request <- genNewWalletRq pwd
                 withLayer $ \layer _ -> do
                     let w' = request { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ 日本" }
                     liftIO $ do
@@ -105,7 +96,8 @@ spec = describe "CreateWallet" $ do
     describe "Wallet creation (kernel)" $ do
         prop "correctly persists the ESK in the keystore" $ withMaxSuccess 50 $
             monadicIO $ do
-                V1.NewWallet{..} <- genNewWalletRq
+                pwd     <- genSpendingPassword
+                V1.NewWallet{..} <- genNewWalletRq pwd
                 withLayer @IO $ \_ wallet -> do
                     liftIO $ do
                         let hdAssuranceLevel = case newwalAssuranceLevel of
@@ -127,7 +119,8 @@ spec = describe "CreateWallet" $ do
     describe "Wallet creation (Servant)" $ do
         prop "works as expected in the happy path scenario" $ do
             monadicIO $ do
-                rq <- genNewWalletRq
+                pwd <- genSpendingPassword
+                rq  <- genNewWalletRq pwd
                 withLayer $ \layer _ -> do
                     liftIO $ do
                         res <- runExceptT . runHandler' $ Handlers.newWallet layer rq

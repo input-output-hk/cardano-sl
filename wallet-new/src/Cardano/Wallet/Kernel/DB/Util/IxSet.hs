@@ -242,7 +242,7 @@ emptyIxSet = WrapIxSet IxSet.empty
 -- You probably want to use this function only at application boundaries, i.e.
 -- before the data gets consumed by the web handlers.
 toList :: IxSet a -> [a]
-toList = map unwrapOrdByPrimKey . IxSet.toList . unwrapIxSet
+toList = coerce . IxSet.toList . unwrapIxSet
 
 {-------------------------------------------------------------------------------
   Other miscellanea instances for IxSet

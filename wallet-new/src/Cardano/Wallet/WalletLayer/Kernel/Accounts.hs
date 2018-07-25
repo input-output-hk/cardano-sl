@@ -18,8 +18,6 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 
-import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdAccount (..),
-                     UpdateHdAccountName (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -155,7 +153,7 @@ deleteAccount wallet (V1.WalletId wId) accountIndex = do
          Right rootAddr -> do
             let hdRootId = HD.HdRootId . InDb $ rootAddr
                 hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
-            res <- liftIO $ update (wallet ^. Internal.wallets) (DeleteHdAccount hdAccountId)
+            res <- liftIO $ Kernel.deleteAccount hdAccountId wallet
             return $ case res of
                  Left e   -> Left (DeleteAccountError e)
                  Right () -> Right ()
@@ -174,7 +172,7 @@ updateAccount wallet (V1.WalletId wId) accountIndex (V1.AccountUpdate newAccount
             let hdRootId = HD.HdRootId . InDb $ rootAddr
                 hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
                 accountName = HD.AccountName newAccountName
-            res <- liftIO $ update (wallet ^. Internal.wallets) (UpdateHdAccountName hdAccountId accountName)
+            res <- liftIO $ Kernel.updateAccount hdAccountId accountName wallet
             return $ case res of
                  Left e                -> Left (UpdateAccountError e)
                  Right (snapshot, acc) -> Right $ toV1Account snapshot acc

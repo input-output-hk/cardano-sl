@@ -15,8 +15,6 @@ import qualified Data.Map.Strict as M
 
 import           Data.Acid (update)
 import           Formatting (build, formatToString, sformat)
-import           System.Wlog (Severity)
-import           Test.Pos.Configuration (withDefConfiguration)
 
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
                      deriveLvl2KeyPair, mkCoin)
@@ -42,10 +40,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
-import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet, PassiveWallet,
                      wallets)
-import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import qualified Cardano.Wallet.Kernel.PrefilterTx as Kernel
@@ -54,24 +50,21 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
+import qualified Test.Spec.Fixture as Fixture
 import           Util.Buildable (ShowThroughBuild (..))
 
 import qualified Cardano.Wallet.API.V1.Handlers.Transactions as Handlers
 import           Control.Monad.Except (runExceptT)
 import           Servant.Server
 
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
--- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 data Fixture = Fixture {
       fixtureHdRootId  :: HdRootId
     , fixtureESK       :: EncryptedSecretKey
     , fixtureAccountId :: AccountId
     , fixturePw        :: PassiveWallet
-    , fixtureAw        :: ActiveWallet
     , fixturePayees    :: NonEmpty (Address, Coin)
     }
 
@@ -80,7 +73,7 @@ data Fixture = Fixture {
 -- scope (after the bracket initialisation).
 prepareFixtures :: InitialBalance
                 -> Pay
-                -> PropertyM IO (Keystore -> ActiveWallet -> IO Fixture)
+                -> Fixture.GenActiveWalletFixture Fixture
 prepareFixtures initialBalance toPay = do
     let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
     let newRootId = eskToHdRootId esk
@@ -118,27 +111,21 @@ prepareFixtures initialBalance toPay = do
                          , fixtureAccountId = AccountIdHdRnd newAccountId
                          , fixtureESK = esk
                          , fixturePw  = pw
-                         , fixtureAw  = aw
                          , fixturePayees = payees
                          }
 
 withFixture :: MonadIO m
             => InitialBalance
             -> Pay
-            -> (Keystore.Keystore -> ActiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
-withFixture initialBalance toPay cc = do
-    generateFixtures <- prepareFixtures initialBalance toPay
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \passiveLayer passiveWallet -> do
-            withDefConfiguration $ \pm -> do
-                WalletLayer.bracketKernelActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
-                    fixtures <- generateFixtures keystore activeWallet
-                    cc keystore activeLayer fixtures
-    where
-        diffusion :: Kernel.WalletDiffusion
-        diffusion =  Kernel.WalletDiffusion {
-            walletSendTx = \_tx -> return False
-          }
+            -> (  Keystore.Keystore
+               -> ActiveWalletLayer m
+               -> ActiveWallet
+               -> Fixture
+               -> IO a
+               )
+            -> PropertyM IO a
+withFixture initialBalance toPay cc =
+    Fixture.withActiveWalletFixture (prepareFixtures initialBalance toPay) cc
 
 -- | A constant fee calculation.
 constantFee :: Int -> NonEmpty Coin -> Coin
@@ -154,7 +141,7 @@ withPayment :: MonadIO n
             -- ^ The action to run.
             -> PropertyM IO ()
 withPayment initialBalance toPay action = do
-    withFixture initialBalance toPay $ \keystore activeLayer Fixture{..} -> do
+    withFixture initialBalance toPay $ \keystore activeLayer _ Fixture{..} -> do
         liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
         let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
         let (HdRootId (InDb rootAddress)) = fixtureHdRootId
@@ -189,13 +176,13 @@ spec = describe "NewPayment" $ do
     describe "Generating a new payment (kernel)" $ do
         prop "newTransaction works (real signer, SenderPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
-                withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ _ Fixture{..} -> do
+                withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \_ _ aw Fixture{..} -> do
                     let opts = (newOptions Kernel.cardanoFee) {
                                csoExpenseRegulation = SenderPaysFee
                              , csoInputGrouping     = IgnoreGrouping
                              }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    (res, _) <- liftIO (Kernel.newTransaction fixtureAw
+                    (res, _) <- liftIO (Kernel.newTransaction aw
                                                               mempty
                                                               opts
                                                               hdAccountId
@@ -205,13 +192,13 @@ spec = describe "NewPayment" $ do
 
         prop "newTransaction works (ReceiverPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
-                withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
                     let opts = (newOptions Kernel.cardanoFee) {
                                csoExpenseRegulation = ReceiverPaysFee
                              , csoInputGrouping     = IgnoreGrouping
                              }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    (res, _) <- liftIO (Kernel.newTransaction fixtureAw
+                    (res, _) <- liftIO (Kernel.newTransaction aw
                                                               mempty
                                                               opts
                                                               hdAccountId
@@ -247,14 +234,14 @@ spec = describe "NewPayment" $ do
         describe "Estimating fees (kernel)" $ do
             prop "estimating fees works (SenderPaysFee)" $ withMaxSuccess 50 $
                 monadicIO $
-                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
                         let opts = (newOptions constantFee) {
                                    csoExpenseRegulation = SenderPaysFee
                                  , csoInputGrouping     = IgnoreGrouping
                                  }
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
-                        res <- liftIO (Kernel.estimateFees fixtureAw
+                        res <- liftIO (Kernel.estimateFees aw
                                                            mempty
                                                            opts
                                                            hdAccountId
@@ -267,14 +254,14 @@ spec = describe "NewPayment" $ do
 
             prop "estimating fees works (kernel, ReceiverPaysFee)" $ withMaxSuccess 50 $
                 monadicIO $
-                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
                         let opts = (newOptions constantFee) {
                                    csoExpenseRegulation = SenderPaysFee
                                  , csoInputGrouping     = IgnoreGrouping
                                  }
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
-                        res <- liftIO (Kernel.estimateFees fixtureAw
+                        res <- liftIO (Kernel.estimateFees aw
                                                            mempty
                                                            opts
                                                            hdAccountId
@@ -287,14 +274,14 @@ spec = describe "NewPayment" $ do
 
             prop "estimating fees works (kernel, SenderPaysFee, cardanoFee)" $ withMaxSuccess 50 $
                 monadicIO $
-                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ Fixture{..} -> do
+                    withFixture @IO (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
                         let opts = (newOptions Kernel.cardanoFee) {
                                    csoExpenseRegulation = SenderPaysFee
                                  , csoInputGrouping     = IgnoreGrouping
                                  }
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
-                        res <- liftIO (Kernel.estimateFees fixtureAw
+                        res <- liftIO (Kernel.estimateFees aw
                                                            mempty
                                                            opts
                                                            hdAccountId

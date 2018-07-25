@@ -1,7 +1,11 @@
 module Cardano.Wallet.Kernel.Accounts (
-    createAccount
+      createAccount
+    , deleteAccount
+    , updateAccount
     -- * Errors
     , CreateAccountError(..)
+    , DeleteAccountError(..)
+    , UpdateAccountError(..)
     ) where
 
 import qualified Prelude
@@ -17,14 +21,19 @@ import           Data.Acid (update)
 import           Pos.Core (mkCoin)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
-import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..), DB,
+                     DeleteHdAccount (..), UpdateHdAccountName (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AccountName (..),
                      HdAccount (..), HdAccountId (..), HdAccountIx (..),
-                     HdRootId, hdAccountName)
+                     HdRootId, hdAccountIdParent, hdAccountName)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAccountError (..), initHdAccount)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Delete
+                     (DeleteHdAccountError (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Update
+                     (UpdateHdAccountError (..))
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.Spec (Checkpoint (..), emptyPending)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
@@ -56,6 +65,47 @@ instance Show CreateAccountError where
     show = formatToString build
 
 instance Exception CreateAccountError
+
+--
+--  Delete-related errors
+--
+
+data DeleteAccountError =
+      DeleteAccountUnknownHdRoot HdRootId
+      -- ^ When trying to delete the 'Account', the parent 'HdRoot' was not
+      -- there.
+    deriving Eq
+
+instance Buildable DeleteAccountError where
+    build (DeleteAccountUnknownHdRoot uRoot) =
+        bprint ("DeleteAccountUnknownHdRoot " % F.build) uRoot
+
+instance Show DeleteAccountError where
+    show = formatToString build
+
+instance Exception DeleteAccountError
+
+--
+-- Update-related errors
+
+data UpdateAccountError =
+      UpdateAccountUnknownHdRoot HdRootId
+      -- ^ When trying to update the 'Account', the parent 'HdRoot' was not
+      -- there.
+    | UpdateAccountUnknownHdAccount HdAccountId
+      -- ^ When trying to update the 'Account', the account was not there.
+    deriving Eq
+
+instance Buildable UpdateAccountError where
+    build (UpdateAccountUnknownHdRoot uRoot) =
+        bprint ("UpdateAccountUnknownHdRoot " % F.build) uRoot
+    build (UpdateAccountUnknownHdAccount uAccount) =
+        bprint ("UpdateAccountUnknownHdAccount " % F.build) uAccount
+
+instance Show UpdateAccountError where
+    show = formatToString build
+
+instance Exception UpdateAccountError
 
 -- | Creates a new 'Account' for the input wallet.
 -- Note: @it does not@ generate a new 'Address' to go in tandem with this
@@ -133,3 +183,27 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
             , _checkpointBlockMeta   = mempty
             }
 
+
+-- | Deletes an HD 'Account' from the data storage.
+deleteAccount :: HdAccountId -> PassiveWallet -> IO (Either DeleteAccountError ())
+deleteAccount hdAccountId pw = do
+    res <- liftIO $ update (pw ^. wallets) (DeleteHdAccount hdAccountId)
+    return $ case res of
+         Left (DeleteHdAccountUnknownRoot _unknownRoot) ->
+             Left (DeleteAccountUnknownHdRoot (hdAccountId ^. hdAccountIdParent))
+         Right () -> Right ()
+
+-- | Updates an HD 'Account'.
+updateAccount :: HdAccountId
+              -> AccountName
+              -- ^ The new name for this account.
+              -> PassiveWallet
+              -> IO (Either UpdateAccountError (DB, HdAccount))
+updateAccount hdAccountId newAccountName pw = do
+    res <- liftIO $ update (pw ^. wallets) (UpdateHdAccountName hdAccountId newAccountName)
+    return $ case res of
+         Left (UpdateHdAccountUnknownRoot _unknownRoot) ->
+             Left (UpdateAccountUnknownHdRoot (hdAccountId ^. hdAccountIdParent))
+         Left (UpdateHdAccountUnknownAccount _unknownAccount) ->
+             Left (UpdateAccountUnknownHdAccount hdAccountId)
+         Right (db, account) -> Right (db, account)

@@ -11,8 +11,9 @@ import           Universum
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAccountError (..), GetAccountError (..),
-                     PassiveWalletLayer (..))
+                     CreateAccountError (..), DeleteAccountError (..),
+                     GetAccountError (..), GetAccountsError (..),
+                     PassiveWalletLayer (..), UpdateAccountError (..))
 
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 
@@ -92,4 +93,28 @@ instance Arbitrary Kernel.CreateAccountError where
 instance Arbitrary GetAccountError where
     arbitrary = oneof [ GetAccountError <$> arbitrary
                       , GetAccountWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary GetAccountsError where
+    arbitrary = oneof [ GetAccountsError <$> arbitrary
+                      , GetAccountsWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary Kernel.UpdateAccountError where
+    arbitrary = oneof [ Kernel.UpdateAccountUnknownHdRoot <$> arbitrary
+                      , Kernel.UpdateAccountUnknownHdAccount <$> arbitrary
+                      ]
+
+instance Arbitrary UpdateAccountError where
+    arbitrary = oneof [ UpdateAccountError <$> arbitrary
+                      , UpdateAccountWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary Kernel.DeleteAccountError where
+    arbitrary = oneof [ Kernel.DeleteAccountUnknownHdRoot <$> arbitrary
+                      ]
+
+instance Arbitrary DeleteAccountError where
+    arbitrary = oneof [ DeleteAccountError <$> arbitrary
+                      , DeleteAccountWalletIdDecodingFailed <$> arbitrary
                       ]

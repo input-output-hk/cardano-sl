@@ -167,7 +167,7 @@ instance Buildable GetAccountError where
         bprint ("GetAccountWalletIdDecodingFailed " % build) txt
 
 data DeleteAccountError =
-      DeleteAccountError Kernel.UnknownHdRoot
+      DeleteAccountError Kernel.DeleteAccountError
     | DeleteAccountWalletIdDecodingFailed Text
     deriving Eq
 
@@ -201,7 +201,7 @@ instance Buildable GetAccountsError where
         bprint ("GetAccountsWalletIdDecodingFailed " % build) txt
 
 data UpdateAccountError =
-      UpdateAccountError Kernel.UnknownHdAccount
+      UpdateAccountError Kernel.UpdateAccountError
     | UpdateAccountWalletIdDecodingFailed Text
     deriving Eq
 

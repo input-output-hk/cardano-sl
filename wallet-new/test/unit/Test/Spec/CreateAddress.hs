@@ -15,7 +15,6 @@ import qualified Data.Map.Strict as M
 import           Control.Lens (to)
 import           Data.Acid (update)
 import           Formatting (build, sformat)
-import           System.Wlog (Severity)
 
 import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
 
@@ -41,13 +40,10 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import           Control.Monad.Except (runExceptT)
 import           Servant.Server
 
+import qualified Test.Spec.Fixture as Fixture
 import           Util.Buildable (ShowThroughBuild (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
--- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
 
 data Fixture = Fixture {
       fixtureHdRootId  :: HdRootId
@@ -59,7 +55,7 @@ data Fixture = Fixture {
 -- | Prepare some fixtures using the 'PropertyM' context to prepare the data,
 -- and execute the 'acid-state' update once the 'PassiveWallet' gets into
 -- scope (after the bracket initialisation).
-prepareFixtures :: PropertyM IO (PassiveWallet -> IO Fixture)
+prepareFixtures :: Fixture.GenPassiveWalletFixture Fixture
 prepareFixtures = do
     let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
     let newRootId = eskToHdRootId esk
@@ -80,13 +76,14 @@ prepareFixtures = do
                          }
 
 withFixture :: MonadIO m
-            => (Keystore.Keystore -> PassiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
-withFixture cc = do
-    generateFixtures <- prepareFixtures
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
-            fixtures <- generateFixtures wallet
-            cc keystore layer fixtures
+            => (  Keystore.Keystore
+               -> PassiveWalletLayer m
+               -> PassiveWallet
+               -> Fixture
+               -> IO a
+               )
+            -> PropertyM IO a
+withFixture = Fixture.withPassiveWalletFixture prepareFixtures
 
 spec :: Spec
 spec = describe "CreateAddress" $ do
@@ -94,7 +91,7 @@ spec = describe "CreateAddress" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 200 $
             monadicIO $ do
-                withFixture $ \keystore layer Fixture{..} -> do
+                withFixture $ \keystore layer _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (HdRootId hdRoot) = fixtureHdRootId
                         (AccountIdHdRnd myAccountId) = fixtureAccountId
@@ -106,14 +103,14 @@ spec = describe "CreateAddress" $ do
     describe "Address creation (kernel)" $ do
         prop "works as expected in the happy path scenario" $ withMaxSuccess 200 $
             monadicIO $ do
-                withFixture @IO $ \keystore _ Fixture{..} -> do
+                withFixture @IO $ \keystore _ _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
                     liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
 
         prop "fails if the account has no associated key in the keystore" $ do
             monadicIO $ do
-                withFixture @IO $ \_ _ Fixture{..} -> do
+                withFixture @IO $ \_ _ _ Fixture{..} -> do
                     res <- liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
                     case res of
                         (Left (Kernel.CreateAddressKeystoreNotFound acc)) | acc == fixtureAccountId -> return ()
@@ -121,7 +118,7 @@ spec = describe "CreateAddress" $ do
 
         prop "fails if the parent account doesn't exist" $ do
             monadicIO $ do
-                withFixture @IO $ \keystore _ Fixture{..} -> do
+                withFixture @IO $ \keystore _ _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
                     void $ liftIO $ update (fixturePw ^. wallets) (DeleteHdAccount hdAccountId)
@@ -133,7 +130,7 @@ spec = describe "CreateAddress" $ do
     describe "Address creation (Servant)" $ do
         prop "works as expected in the happy path scenario" $ do
             monadicIO $
-                withFixture $ \keystore layer Fixture{..} -> do
+                withFixture $ \keystore layer _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (HdRootId hdRoot) = fixtureHdRootId
                         (AccountIdHdRnd myAccountId) = fixtureAccountId
@@ -146,10 +143,10 @@ spec = describe "CreateAddress" $ do
     describe "Address creation (wallet layer & kernel consistency)" $ do
         prop "layer & kernel agrees on the result" $ do
             monadicIO $ do
-                res1 <- withFixture @IO $ \keystore _ Fixture{..} -> do
+                res1 <- withFixture @IO $ \keystore _ _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     liftIO (Kernel.createAddress mempty fixtureAccountId fixturePw)
-                res2 <- withFixture @IO $ \keystore layer Fixture{..} -> do
+                res2 <- withFixture @IO $ \keystore layer _ Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (HdRootId hdRoot) = fixtureHdRootId
                         (AccountIdHdRnd myAccountId) = fixtureAccountId

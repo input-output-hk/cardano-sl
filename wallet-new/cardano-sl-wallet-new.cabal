@@ -124,11 +124,12 @@ library
                        Cardano.Wallet.WalletLayer
                        Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
-
-  other-modules:       Cardano.Wallet.WalletLayer.Kernel
+                       -- * Useful for testing, especially in the fixture side.
                        Cardano.Wallet.WalletLayer.Kernel.Accounts
                        Cardano.Wallet.WalletLayer.Kernel.Addresses
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
+
+  other-modules:       Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new
@@ -387,10 +388,12 @@ test-suite wallet-unit-tests
                       InputSelection.TxStats
                       Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
+                      Test.Spec.Accounts
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.CreateAddress
                       Test.Spec.CreateWallet
+                      Test.Spec.Fixture
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models

@@ -2,9 +2,9 @@
     "nixpkgs": {
 	"owner":          "angerman",
 	"repo":           "nixpkgs",
-	"rev":            "53d94042b95dd4ef51734e8d8bfa72c42087ef37",
-	"sha256":         "1m7lc6kki1gr47y7y5jcpjzlycfcf1z3nv3x1z78hgnh6dg15zn6",
-	"sha256unpacked": "1ac3m5h51kyff9rzw3qpdppf3vba1j8iadsfc6bcf6d8299inz7d" },
+	"rev":            "2773583e5f23d9dca9e60a931c9eb637783749af",
+	"sha256":         "1kppfgj40iaz0d4pxcnzy2z8pi7qb6rjg993af6ll5q7nhx03z6q",
+	"sha256unpacked": "0fgyjlm2nisny5ivlg393s46bvxq7hkqbigxhfaz7jn6n2jiyszx" },
     "haskell": {
 	"owner":          "angerman",
 	"repo":           "haskell.nix",

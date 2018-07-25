@@ -33,8 +33,12 @@ let
       rm -rf "${"$"}${output}"/lib "${"$"}${output}"/nix-support "${"$"}${output}"/share/doc
     '') drvOutOutputs);
 
+  # I (angerman) have questions. So many... but let's start with,
+  # why do we needthe `-liconv` on macOS here? Shouldn't that have
+  # been properly propaged from `ghc` already?  Something smells
+  # rather fishy.
   setGitRev = pkgs.runCommand "set-git-rev" {} ''
-    ${ghc.withPackages (ps: [ps.universum ps.file-embed])}/bin/ghc -o $out ${./set-git-rev.hs}
+    ${ghc.withPackages (ps: [ps.universum ps.file-embed])}/bin/ghc -o $out ${./set-git-rev.hs} ${with pkgs.stdenv; lib.optionalString isDarwin "-liconv"}
   '';
 
   # appends -static to the package name

@@ -39,7 +39,6 @@ let
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-sl-explorer-frontend = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
-    stack2nix = targetSystemsNoCross;
     purescript = targetSystemsNoCross;
     daedalus-bridge = supportedSystems;
   };

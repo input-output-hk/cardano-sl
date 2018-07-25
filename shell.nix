@@ -16,7 +16,7 @@ in
 with pkgs;
 let
   hsPkgs = haskell.packages.ghc822;
-  iohkPkgs = import ./. {inherit config system pkgs; };
+  iohkPkgs = import ./. {inherit system; };
   cardanoSL = haskell.lib.buildStackProject {
      name = "cardano-sl";
      ghc = hsPkgs.ghc;

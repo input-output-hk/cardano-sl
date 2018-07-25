@@ -275,6 +275,9 @@ extra-deps:
 - servant-generic-0.1.0.2
 - servant-server-0.13.0.1
 
+# LTS-12 doesn't have purescript, we do however build it in CI.
+- purescript-0.12.0
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 

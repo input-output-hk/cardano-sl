@@ -1,4 +1,6 @@
-{-# LANGUAGE GADTs, StandaloneDeriving, ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE StandaloneDeriving        #-}
 
 module Remote.Message
   ( SlaveMessage(..)
@@ -7,9 +9,9 @@ module Remote.Message
   , getSlaveMessage )
 where
 
-import GHC.Fingerprint (Fingerprint)
-import Data.Binary
-import Data.ByteString (ByteString)
+import           Data.Binary
+import           Data.ByteString (ByteString)
+import           GHC.Fingerprint (Fingerprint)
 
 -- | A @SlaveMessage a@ is message from the iserv process on the
 -- target, requesting something from the Proxy of with result type @a@.
@@ -23,9 +25,9 @@ deriving instance Show (SlaveMessage a)
 
 putSlaveMessage :: SlaveMessage a -> Put
 putSlaveMessage m = case m of
-  Have path sha  -> putWord8 0 >> put path >> put sha
-  Missing path   -> putWord8 1 >> put path
-  Done           -> putWord8 2
+  Have path sha -> putWord8 0 >> put path >> put sha
+  Missing path  -> putWord8 1 >> put path
+  Done          -> putWord8 2
 
 data SlaveMsg = forall a . (Binary a, Show a) => SlaveMsg (SlaveMessage a)
 

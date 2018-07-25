@@ -1,32 +1,35 @@
-{-# LANGUAGE ForeignFunctionInterface, GADTs, LambdaCase #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE GADTs                    #-}
+{-# LANGUAGE LambdaCase               #-}
 module Remote.Slave where
 
-import Network.Socket
+import           Network.Socket
 
-import Lib (serv)
-import Remote.Message
+import           Lib (serv)
+import           Remote.Message
 
-import System.IO
-import Control.Exception
-import Control.Concurrent
-import Control.Monad (when, forever)
-import System.Directory
-import System.FilePath (takeDirectory, (</>), dropTrailingPathSeparator,
-                        isAbsolute, joinPath, splitPath)
-import GHCi.ResolvedBCO
+import           Control.Concurrent
+import           Control.Exception
+import           Control.Monad (forever, when)
+import           GHCi.ResolvedBCO
+import           System.Directory
+import           System.FilePath (dropTrailingPathSeparator, isAbsolute,
+                     joinPath, splitPath, takeDirectory, (</>))
+import           System.IO
 
-import Data.IORef
-import GHCi.Message (Pipe(..), Msg(..), Message(..), readPipe, writePipe)
+import           Data.IORef
+import           GHCi.Message (Message (..), Msg (..), Pipe (..), readPipe,
+                     writePipe)
 
-import Foreign.C.String
+import           Foreign.C.String
 
-import Data.Binary
-import GHC.Fingerprint (getFileHash)
+import           Data.Binary
+import           GHC.Fingerprint (getFileHash)
 
 import qualified Data.ByteString as BS
 
-import System.Environment (getProgName)
-import Debug.Trace (traceIO)
+import           Debug.Trace (traceIO)
+import           System.Environment (getProgName)
 
 trace :: String -> IO ()
 trace s = getProgName >>= \name -> traceIO ("[" ++ name ++ "] " ++ s)

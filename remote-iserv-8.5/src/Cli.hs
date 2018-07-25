@@ -1,8 +1,8 @@
 module Main where
 
-import System.Environment (getProgName, getArgs)
-import System.Exit        (die)
-import Remote.Slave       (startSlave')
+import           Remote.Slave (startSlave')
+import           System.Environment (getArgs, getProgName)
+import           System.Exit (die)
 
 main :: IO ()
 main = getArgs >>= startSlave
@@ -19,8 +19,8 @@ startSlave args0
 	| "--help" `elem` args0 = dieWithUsage
 	| otherwise = do
 		(path, port, rest) <- case args0 of
-			arg0:arg1:rest -> return (arg0, read arg1, rest)
-			_              -> dieWithUsage
+			arg0:arg1:rest -> return (arg0, readarg1, rest)
+			_              -> dieWi             thUsage
 		verbose <- case rest of
 			["-v"] -> return True
 			[]     -> return False

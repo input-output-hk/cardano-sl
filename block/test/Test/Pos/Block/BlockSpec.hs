@@ -19,23 +19,22 @@ import           Test.QuickCheck (Property, (===), (==>))
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Block.Logic.Integrity as Block
-import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
 import           Pos.Core (BlockHeader (..), BlockSignature (..),
                      EpochIndex (..), GenericBlockHeader (..),
                      GenesisBlockchain, GenesisBody (..),
                      GenesisConsensusData (..), GenesisExtraHeaderData (..),
-                     HeavyDlgIndex (..), LightDlgIndices (..), MainBlockchain,
-                     MainBody (..), MainConsensusData (..),
-                     MainExtraHeaderData (..), MainToSign (..), SlotId (..),
-                     difficultyL, headerHash, mkBodyProof, mkGenericHeader,
-                     mkGenesisHeader)
+                     GenesisHash (..), HasConfiguration, HeavyDlgIndex (..),
+                     LightDlgIndices (..), MainBlockchain, MainBody (..),
+                     MainConsensusData (..), MainExtraHeaderData (..),
+                     MainToSign (..), SlotId (..), difficultyL, genesisHash,
+                     headerHash, mkBodyProof, mkGenericHeader, mkGenesisHeader)
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
                      SecretKey, SignTag (..), createPsk, proxySign, sign,
                      toPublic)
-import           Pos.Data.Attributes (mkAttributes)
 
 import           Test.Pos.Block.Arbitrary as BT
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)

@@ -25,6 +25,7 @@ import           Pos.Core (BlockVersionData, ComponentBlock (..),
                      HasProtocolConstants, HeaderHash, epochIndexL,
                      epochOrSlotG, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -32,7 +33,6 @@ import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
-import           Pos.Exception (assertionFailed)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)

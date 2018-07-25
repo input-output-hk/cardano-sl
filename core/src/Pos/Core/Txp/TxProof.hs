@@ -10,8 +10,8 @@ import           Fmt (genericF)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Core.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 import           Pos.Crypto (Hash, hash)
-import           Pos.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Core.Txp.Tx
 import           Pos.Core.Txp.TxPayload

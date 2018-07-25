@@ -64,13 +64,13 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw,
                      deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy,
                      addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner,
                      SecretKey, SignTag (SignUSVote), Signature, hash,
                      safeSign, safeToPublic, shortHashF, sign, toPublic)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Util.Orphans ()
 
 ----------------------------------------------------------------------------

@@ -68,12 +68,12 @@ import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
                      coinToInteger, integerToCoin, isRedeemAddress, mkCoin,
                      sumCoins, txSizeLinearMinValue, unsafeIntegerToCoin,
                      unsafeSubCoin)
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
                      fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
                      safeToPublic)
-import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Pos.Script (Script)

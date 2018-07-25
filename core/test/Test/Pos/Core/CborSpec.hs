@@ -22,9 +22,9 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
 
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes,
+import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
                      encodeAttributes)
-import           Pos.Merkle (MerkleTree)
+import           Pos.Core.Merkle (MerkleTree)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Core.Arbitrary ()

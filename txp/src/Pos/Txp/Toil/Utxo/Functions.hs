@@ -20,6 +20,8 @@ import           Serokell.Util (allDistinct, enumerate)
 
 import           Pos.Core (AddrType (..), Address (..), integerToCoin,
                      isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core.Attributes (Attributes (attrRemain),
+                     areAttributesKnown)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress,
                      checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..),
@@ -28,8 +30,6 @@ import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..),
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..),
                      checkSig, hash, redeemCheckSig)
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Data.Attributes (Attributes (attrRemain),
-                     areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..),
                      TxOutVerFailure (..), WitnessVerFailure (..))

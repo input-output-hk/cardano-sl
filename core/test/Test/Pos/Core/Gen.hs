@@ -137,7 +137,7 @@ module Test.Pos.Core.Gen
         , genUpsData
         , genVoteId
 
-        -- Pos.Data.Attributes Generators
+        -- Pos.Core.Attributes Generators
         , genAttributes
 
         -- Pos.Merkle Generators
@@ -167,6 +167,7 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (Bi, Raw (..), asBinary)
+import           Pos.Core.Attributes (Attributes (..), mkAttributes)
 import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..),
                      BlockHeaderAttributes, BlockSignature (..),
                      GenesisBlockHeader, GenesisBody (..),
@@ -194,6 +195,8 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisSpec (..), TestnetBalanceOptions (..),
                      mkGenesisDelegation, mkGenesisSpec)
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
+import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
+                     mkMerkleTree, mtRoot)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
@@ -220,9 +223,6 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateVote (..), VoteId, mkUpdateVote)
 import           Pos.Crypto (Hash, ProtocolMagic, decodeHash, deterministic,
                      hash, safeCreatePsk, sign)
-import           Pos.Data.Attributes (Attributes (..), mkAttributes)
-import           Pos.Merkle (MerkleRoot (..), MerkleTree (..), mkMerkleTree,
-                     mtRoot)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
@@ -977,7 +977,7 @@ genVoteId :: ProtocolMagic -> Gen VoteId
 genVoteId pm = (,,) <$> genUpId pm <*> genPublicKey <*> Gen.bool
 
 ----------------------------------------------------------------------------
--- Pos.Data.Attributes Generators
+-- Pos.Core.Attributes Generators
 ----------------------------------------------------------------------------
 
 genAttributes :: Gen a -> Gen (Attributes a)

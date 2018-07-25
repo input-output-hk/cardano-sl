@@ -61,12 +61,12 @@ import qualified Prelude
 import qualified System.Metrics as Monitoring
 import           System.Wlog (LoggerName (..))
 
+import           Pos.Core.Metrics.Constants (cardanoNamespace)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Infra.Network.DnsDomains as DnsDomains
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.System.Metrics.Constants (cardanoNamespace)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 

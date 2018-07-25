@@ -23,12 +23,12 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
                      coinToInteger, difficultyL, epochIndexL, flattenSlotId,
                      headerHashG, headerSlotL, sumCoins, unflattenSlotId,
                      unsafeIntegerToCoin)
+import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
                      UpdatePayload (..), UpdateProposal (..), UpdateVote (..),
                      bvdUpdateProposalThd, checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
-import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
                      canCreateBlockBV, confirmBlockVersion, isDecided,
                      mkTotNegative, mkTotPositive, mkTotSum, putNewProposal,

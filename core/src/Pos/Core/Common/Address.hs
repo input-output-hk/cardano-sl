@@ -69,6 +69,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (Bi (..), Encoding, biSize,
                      encodeCrcProtected, encodedCrcProtectedSizeExpr)
 import qualified Pos.Binary.Class as Bi
+import           Pos.Core.Attributes (Attributes (..), attrData, mkAttributes)
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto.Hashing (hashHexF)
@@ -78,7 +79,6 @@ import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
 import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
-import           Pos.Data.Attributes (Attributes (..), attrData, mkAttributes)
 
 import           Pos.Core.Common.AddrAttributes
 import           Pos.Core.Common.AddressHash

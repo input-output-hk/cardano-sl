@@ -55,16 +55,16 @@ import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
                      mkMultiKeyDistr, mkVssCertificate,
                      mkVssCertificatesMapLossy, unsafeCoinPortionFromDouble,
                      unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      HasProtocolConstants, epochSlots, protocolConstants)
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
+import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Crypto.Arbitrary ()

@@ -42,6 +42,7 @@ import           Pos.Core (BlockVersion, BlockVersionData (..), HeaderHash,
                      ProtocolConstants (..), ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
 import           Pos.Core.Txp (TxAux)
@@ -77,7 +78,6 @@ import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
-import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 import           Pos.Util.Trace (Severity (Error), Trace)

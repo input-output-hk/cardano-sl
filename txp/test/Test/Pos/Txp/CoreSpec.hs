@@ -19,9 +19,9 @@ import           Test.QuickCheck (NonNegative (..), Positive (..), Property,
 import           Test.QuickCheck.Gen (Gen)
 
 import           Pos.Core (mkCoin)
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
 import           Pos.Crypto (hash, whData, withHash)
-import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util (_neHead)
 

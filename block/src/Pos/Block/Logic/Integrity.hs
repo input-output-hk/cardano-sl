@@ -31,6 +31,7 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot,
                      HasProtocolConstants, HeaderHash, SlotId (..),
                      SlotLeaders, addressHash, gbExtra, gbhExtra, getSlotIndex,
                      headerSlotL, prevBlockL)
+import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Block (Block, BlockHeader (..),
                      blockHeaderProtocolMagic, gebAttributes, gehAttributes,
                      genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
@@ -38,7 +39,6 @@ import           Pos.Core.Block (Block, BlockHeader (..),
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
-import           Pos.Data.Attributes (areAttributesKnown)
 
 ----------------------------------------------------------------------------
 -- Header

@@ -42,11 +42,11 @@ import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
                      blockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Core.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
                      ConversationActions (..), EnqueueMsg, ListenerSpec,

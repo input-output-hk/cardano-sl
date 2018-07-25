@@ -34,6 +34,7 @@ import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock,
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
+import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
@@ -62,7 +63,6 @@ import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
 import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
-import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Txp.Base (emptyTxPayload)

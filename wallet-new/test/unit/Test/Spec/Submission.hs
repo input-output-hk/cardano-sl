@@ -27,9 +27,9 @@ import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
 import qualified Pos.Core as Core
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Core.Arbitrary.Txp as Core
 
@@ -93,7 +93,7 @@ genSchedule maxRetries pending (Slot lowerBound) = do
 genWalletSubmissionState :: HdAccountId -> MaxRetries -> Gen WalletSubmissionState
 genWalletSubmissionState accId maxRetries = do
     pending   <- M.singleton accId <$> genPending (Core.ProtocolMagic 0)
-    slot      <- pure (Slot 0) -- Make the layer always start from 0, to make running the specs predictable.
+    let slot  = Slot 0 -- Make the layer always start from 0, to make running the specs predictable.
     scheduler <- genSchedule maxRetries pending slot
     return $ WalletSubmissionState pending scheduler slot
 

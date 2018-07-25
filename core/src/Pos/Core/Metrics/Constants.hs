@@ -1,4 +1,4 @@
-module Pos.System.Metrics.Constants (
+module Pos.Core.Metrics.Constants (
       cardanoNamespace
     , withCardanoNamespace
                                         ) where

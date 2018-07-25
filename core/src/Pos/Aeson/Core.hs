@@ -22,6 +22,7 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Fee ()
 import           Pos.Binary.Class (AsBinary (..))
+import           Pos.Core.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty,
                      Coin, CoinPortion, Script (..), SharedSeed (..), addressF,
@@ -33,7 +34,6 @@ import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex,
 import           Pos.Core.Ssc (VssCertificate)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion,
                      BlockVersionData, SoftforkRule, SoftwareVersion (..))
-import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (toAesonError)
 
 instance ToJSON SharedSeed where

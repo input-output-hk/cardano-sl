@@ -22,6 +22,7 @@ import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..),
                      StakeholderId, addressHash, blockVersionL, epochIndexL,
                      headerHashG, headerLeaderKeyL, headerSlotL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlotsData, SlottingData, slottingVar)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
@@ -35,7 +36,6 @@ import           Pos.DB.Update.Poll.Logic.Base (canCreateBlockBV)
 import           Pos.DB.Update.Poll.Logic.Rollback (rollbackUS)
 import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
-import           Pos.Exception (reportFatalError)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState,

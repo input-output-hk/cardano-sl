@@ -23,6 +23,8 @@ import qualified Formatting.Buildable as B
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ProxySKHeavy, StakeholderId)
+import           Pos.Core.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Delegation.Cede.Holders (runDBCede)
@@ -30,8 +32,6 @@ import           Pos.DB.Delegation.Cede.Logic (dlgLastPsk)
 import           Pos.Delegation.Cede (getPsk)
 import           Pos.Delegation.Class (DelegationWrap (..), MonadDelegation,
                      askDelegationState)
-import           Pos.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
 
 ----------------------------------------------------------------------------
 -- Exceptions

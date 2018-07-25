@@ -34,10 +34,10 @@ import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (GenesisHash (..), HasGenesisHash,
                      HasProtocolConstants, HeaderHash, epochSlots, genesisHash)
 import qualified Pos.Core as Core
+import           Pos.Core.Attributes (areAttributesKnown)
 import qualified Pos.Core.Block as T
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
                      hash, toPublic)
-import           Pos.Data.Attributes (areAttributesKnown)
 
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)

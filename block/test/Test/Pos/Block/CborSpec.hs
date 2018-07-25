@@ -18,7 +18,7 @@ import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
+spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ ->
     describe "Cbor.Bi instances" $ do
         -- These data types are defined in the 'core' package which suggests that
         -- these tests should be there, but they depend on type in eg 'update' so

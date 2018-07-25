@@ -95,7 +95,7 @@ withDefTxpConfiguration :: (HasTxpConfiguration => r) -> r
 withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
 
 withDefConfiguration :: (HasConfiguration => ProtocolMagic -> r) -> r
-withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
+withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf) id
 
 withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
 withStaticConfigurations patak =

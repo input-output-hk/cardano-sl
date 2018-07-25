@@ -25,7 +25,8 @@ import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
                      genesisSecretKeys, slotSecurityParam)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
-                     GenesisInitializer (..), TestnetBalanceOptions (..))
+                     GenesisProtocolConstants (..), GenesisInitializer (..),
+                     TestnetBalanceOptions (..))
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
@@ -97,6 +98,8 @@ data BenchArgs = BenchArgs
     , baRuns       :: Int
     , baApply      :: Bool
     , baBlockCache :: Maybe FilePath
+    , baK          :: Int
+    -- ^ the protocol constant k
     }
 
 configPathP :: Opts.Parser FilePath
@@ -109,7 +112,7 @@ configPathP = Opts.strOption $
 configKeyP :: Opts.Parser String
 configKeyP = Opts.strOption $
        Opts.long "config-key"
-    <> Opts.value "bench-validation"
+    <> Opts.value "test"
     <> Opts.showDefault
     <> Opts.help "configuration key"
 
@@ -139,6 +142,13 @@ blockCacheP = Opts.optional $ Opts.strOption $
        Opts.long "block-cache"
     <> Opts.help "path to block cache (file where generated blocks are written / read from)"
 
+kP :: Opts.Parser Int
+kP = Opts.option Opts.auto $
+       Opts.short 'k'
+    <> Opts.value 5000
+    <> Opts.showDefault
+    <> Opts.help "the security parameter k"
+
 benchArgsParser :: Opts.Parser BenchArgs
 benchArgsParser = BenchArgs
     <$> configPathP
@@ -147,6 +157,7 @@ benchArgsParser = BenchArgs
     <*> runsP
     <*> applyBlocksP
     <*> blockCacheP
+    <*> kP
 
 -- | Write generated blocks to a file.
 writeBlocks :: FilePath -> OldestFirst NE Block -> IO ()
@@ -180,8 +191,10 @@ main = do
             , cfoKey = baConfigKey args
             , cfoSystemStart = Just (Timestamp startTime)
             }
+        fn :: GenesisData -> GenesisData
+        fn gd = gd { gdProtocolConsts = (gdProtocolConsts gd) { gpcK = baK args } }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing cfo $ \_ !pm ->
+        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \_ !pm ->
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
                     , _tpBlockVersionData = genesisBlockVersionData

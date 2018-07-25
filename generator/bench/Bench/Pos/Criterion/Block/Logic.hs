@@ -7,7 +7,7 @@ import           Universum
 import           Control.Monad.Random.Strict (evalRandT, mapRandT)
 import           Criterion.Main (Benchmark, Benchmarkable, bench, bgroup,
                      defaultConfig, defaultMainWith, env, nf, nfIO)
-import           Criterion.Types (Config (..), Verbosity (..))
+import           Criterion.Types (Config (..))
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (convertUnit)
 import           Serokell.Util.Verify (isVerSuccess)
@@ -52,9 +52,6 @@ import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
 config :: Config
 config = defaultConfig
     { reportFile = Just "verification.html"
-    , resamples = 10
-    , timeLimit = 5.0
-    , verbosity = Verbose
     }
 
 genesisInitializer :: GenesisInitializer
@@ -96,8 +93,6 @@ verifyBlocksBenchmark !pm !tp !ctx =
     bgroup "block verification"
         [ env (runBlockTestMode tp (genEnv (BlockCount 100)))
             $ \ ~(vctx, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB vctx blocks)
-        -- `verifyBlocksPrefix` will succeed only on the first block, it
-        -- requires that blocks are applied.
         , env (runBlockTestMode tp (genEnv (BlockCount 1)))
             $ \ ~(vctx, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB vctx blocks)
         ]
@@ -229,7 +224,7 @@ runBenchmark = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo $ \_ pm -> do
+        withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo id $ \_ pm -> do
                 let tp = TestParams
                         { _tpStartTime = Timestamp (convertUnit startTime)
                         , _tpBlockVersionData = genesisBlockVersionData

@@ -42,7 +42,7 @@ import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 -- This tests are quite slow, hence max success is at most 20.
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
+spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ ->
     describe "Block properties" $ modifyMaxSuccess (min 20) $ do
         describe "mkMainHeader" $ do
             prop mainHeaderFormationDesc mainHeaderFormation

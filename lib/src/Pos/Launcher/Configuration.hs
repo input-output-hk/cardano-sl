@@ -38,6 +38,7 @@ import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
 -- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration ()
 import           Pos.Core (Address, decodeTextAddress)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
 
@@ -118,16 +119,19 @@ withConfigurationsM
     => LoggerName
     -> Maybe AssetLockPath
     -> ConfigurationOptions
+    -> (GenesisData -> GenesisData)
+    -- ^ change genesis data; this is useful if some parameters are passed as
+    -- comand line arguments for some tools (profiling executables, benchmarks).
     -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
     -> m r
-withConfigurationsM logName mAssetLockPath cfo act = do
+withConfigurationsM logName mAssetLockPath cfo fn act = do
     logInfo' ("using configurations: " <> show cfo)
     cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
     assetLock <- case mAssetLockPath of
         Nothing -> pure mempty
         Just fp -> liftIO $ readAssetLockedSrcAddrs fp
     let configDir = takeDirectory $ cfoFilePath cfo
-    withCoreConfigurations (ccCore cfg) configDir (cfoSystemStart cfo) (cfoSeed cfo) $
+    withCoreConfigurations (ccCore cfg) fn configDir (cfoSystemStart cfo) (cfoSeed cfo) $
         withUpdateConfiguration (ccUpdate cfg) $
         withSscConfiguration (ccSsc cfg) $
         withDlgConfiguration (ccDlg cfg) $
@@ -147,7 +151,7 @@ withConfigurations
     -> m r
 withConfigurations mAssetLockPath cfo act = do
     loggerName <- askLoggerName
-    withConfigurationsM loggerName mAssetLockPath cfo act
+    withConfigurationsM loggerName mAssetLockPath cfo id act
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
 addAssetLock bset tcfg =

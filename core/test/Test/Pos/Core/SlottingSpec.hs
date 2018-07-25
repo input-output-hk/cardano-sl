@@ -20,7 +20,7 @@ import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..),
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> describe "Slotting" $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ -> describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

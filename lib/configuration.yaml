@@ -185,25 +185,6 @@ default: *dev
 
 ##############################################################################
 ##                                                                          ##
-##   Config for benchmarks of block validation                              ##
-##                                                                          ##
-##############################################################################
-
-bench-validation:
-  <<: *dev
-  core:
-    <<: *dev_core
-    genesis:
-      <<: *dev_core_genesis
-      spec:
-        <<: *dev_core_genesis_spec
-        protocolConstants:
-          <<: *dev_core_genesis_spec_protocolConstants
-          k: 5000
-
-
-##############################################################################
-##                                                                          ##
 ##   Config for tests                                                       ##
 ##   TODO: why is it here, not in code?                                     ##
 ##                                                                          ##

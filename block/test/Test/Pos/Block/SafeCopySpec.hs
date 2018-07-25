@@ -17,7 +17,7 @@ import           Test.Pos.Binary.Helpers (safeCopyTest)
 import           Test.Pos.Block.Arbitrary ()
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> describe "Block types" $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ -> describe "Block types" $ do
     -- These types are defined in 'core' but the 'Arbitrary' instances require
     -- generator components defined in package like 'ssc' and 'update' which
     -- means these tests cannot be moved to 'core'.

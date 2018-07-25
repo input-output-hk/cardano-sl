@@ -115,7 +115,7 @@ instance Bi User where
                             <> encode field_0
                             <> encode field_1
         FullName field_0 field_1 field_2 ->
-            encodeListLen 3 <> encode (1 :: Word8)
+            encodeListLen 4 <> encode (1 :: Word8)
                             <> encode field_0
                             <> encode field_1
                             <> encode field_2

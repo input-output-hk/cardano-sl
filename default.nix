@@ -71,6 +71,8 @@ let
                                ios     = abort "iOS target not available";
                                android = abort "Android target not available"; }."${target}"; }
         else {}));
+  binSuffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
+  maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX="$HOME" ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
 
 in with pkgs.haskellPackages;
 let iohkPkgs = 
@@ -175,8 +177,6 @@ let
   };
 });
   connect = let
-      binSuffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
-      maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX="$HOME" ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in

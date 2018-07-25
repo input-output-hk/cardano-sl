@@ -7,7 +7,6 @@ let
     # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
     # fix it.
     jemalloc = self.callPackage ./nix/jemalloc/jemalloc510.nix {};
-    help2man = null;
   };
 
   stack-pkgs = import ./stack-pkgs.nix;

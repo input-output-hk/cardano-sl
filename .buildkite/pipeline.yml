@@ -1,9 +1,4 @@
 steps:
-  - label: 'stack2nix'
-    command: 'nix-shell -Q -j 4 --run scripts/check-stack2nix.sh'
-    agents:
-      system: x86_64-linux
-
   - label: 'release.nix'
     command: 'nix-shell --run scripts/ci/check-hydra.sh'
     agents:

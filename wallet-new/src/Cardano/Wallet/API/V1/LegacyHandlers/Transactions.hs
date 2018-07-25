@@ -110,9 +110,7 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
             -- TODO: should we use the 'FilterBy' machinery instead? that
             --       let us express RANGE, GT, etc. in addition to EQ. does
             --       that make sense for this dataset?
-            throwM MissingRequiredParams
-                { requiredParams = pure ("wallet_id", "WalletId")
-                }
+            throwM . MissingRequiredParams $ pure ("wallet_id", "WalletId")
 
 estimateFees
     :: (MonadThrow m, V0.MonadFees ctx m)

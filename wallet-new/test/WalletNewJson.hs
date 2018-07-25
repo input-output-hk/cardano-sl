@@ -35,7 +35,7 @@ golden_WalletError_NotEnoughMoney =
 golden_WalletError_OutputIsRedeem :: Property
 golden_WalletError_OutputIsRedeem =
     goldenTestJSON
-        exampleAddress
+        (OutputIsRedeem exampleAddress)
             "test/golden/WalletError_OutputIsRedeem"
 
 golden_WalletError_MigrationFailed :: Property

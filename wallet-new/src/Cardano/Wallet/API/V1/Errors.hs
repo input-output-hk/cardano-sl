@@ -8,6 +8,8 @@ module Cardano.Wallet.API.V1.Errors where
 import           Universum
 
 import           Data.Aeson
+import           Data.Aeson.Encoding (pairStr)
+import           Data.Aeson.Types (Value (..))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
@@ -19,9 +21,7 @@ import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto.Hashing as Crypto
 
-import           Cardano.Wallet.API.Response.JSend
-                     (ResponseStatus (ErrorStatus))
-import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
+import           Cardano.Wallet.API.V1.Generic (gparseJsend)
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
                      V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
                      mkSyncThroughput)
@@ -58,25 +58,35 @@ import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
 --
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
-      NotEnoughMoney { weNeedMore :: !Int }
-    | OutputIsRedeem { weAddress :: !(V1 Core.Address) }
-    | MigrationFailed { weDescription :: !Text }
-    | JSONValidationFailed { weValidationError :: !Text }
-    | UnknownError { weMsg :: !Text }
-    | InvalidAddressFormat { weMsg :: !Text }
+    -- | NotEnoughMoney weNeedMore
+      NotEnoughMoney !Int
+    -- | OutputIsRedeem weAddress
+    | OutputIsRedeem !(V1 Core.Address)
+    -- | MigrationFailed weDescription
+    | MigrationFailed !Text
+    -- | JSONValidationFailed weValidationError
+    | JSONValidationFailed !Text
+    -- | UnknownError weMsg
+    | UnknownError !Text
+    -- | InvalidAddressFormat weMsg
+    | InvalidAddressFormat !Text
     | WalletNotFound
     -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
     | TxRedemptionDepleted
-    | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
-    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
-    | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
+    -- | TxSafeSignerNotFound weAddress
+    | TxSafeSignerNotFound !(V1 Core.Address)
+    -- | MissingRequiredParams requiredParams
+    | MissingRequiredParams !(NonEmpty (Text, Text))
+    -- | WalletIsNotReadyToProcessPayments weStillRestoring
+    | WalletIsNotReadyToProcessPayments !SyncProgress
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
     -- synced (its 'WalletSyncState' indicates it's either syncing or
     -- restoring) and thus cannot accept new @Payment@ requests.
-    | NodeIsStillSyncing { wenssStillSyncing :: SyncPercentage }
+    -- | NodeIsStillSyncing wenssStillSyncing
+    | NodeIsStillSyncing !SyncPercentage
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
     deriving (Show, Eq)
@@ -105,7 +115,71 @@ convertTxError err = case err of
 deriveGeneric ''WalletError
 
 instance ToJSON WalletError where
-    toJSON = gtoJsend ErrorStatus
+    toEncoding (NotEnoughMoney weNeedMore) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "needMore" (toEncoding weNeedMore))
+             <> "message" .= String "NotEnoughMoney"
+    toEncoding (OutputIsRedeem weAddress) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "address" (toEncoding weAddress))
+             <> "message" .= String "OutputIsRedeem"
+    toEncoding (MigrationFailed weDescription) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "description" (toEncoding weDescription))
+             <> "message" .= String "MigrationFailed"
+    toEncoding (JSONValidationFailed weValidationError) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "validationError"
+                     (toEncoding weValidationError))
+             <> "message" .= String "JSONValidationFailed"
+    toEncoding (UnknownError weMsg) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
+             <> "message" .= String "UnknownError"
+    toEncoding (InvalidAddressFormat weMsg) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
+             <> "message" .= String "InvalidAddressFormat"
+    toEncoding (WalletNotFound) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "WalletNotFound"
+    toEncoding (WalletAlreadyExists) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "WalletAlreadyExists"
+    toEncoding (AddressNotFound) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "AddressNotFound"
+    toEncoding (TxFailedToStabilize) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TxFailedToStabilize"
+    toEncoding (TxRedemptionDepleted) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TxRedemptionDepleted"
+    toEncoding (TxSafeSignerNotFound weAddress) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "address" (toEncoding weAddress))
+             <> "message" .= String "TxSafeSignerNotFound"
+    toEncoding (MissingRequiredParams requiredParams) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "params" (toEncoding requiredParams))
+             <> "message" .= String "MissingRequiredParams"
+    toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
+        toEncoding . toJSON
+            $ WalletIsNotReadyToProcessPayments weStillRestoring
+    toEncoding (NodeIsStillSyncing wenssStillSyncing) =
+        toEncoding . toJSON $ NodeIsStillSyncing wenssStillSyncing
+    toJSON _ = error ""
 
 instance FromJSON WalletError where
     parseJSON = gparseJsend

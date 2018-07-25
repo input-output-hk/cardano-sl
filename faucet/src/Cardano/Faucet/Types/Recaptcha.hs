@@ -12,10 +12,12 @@ module Cardano.Faucet.Types.Recaptcha
     ( CaptchaSecret(..)
     , CaptchaRequest(..), secret, response
     , CaptchaResponse(..), success, challengeTS, hostname, errorCodes
+    , ReadRecaptchaSecretError(..)
     , readCaptchaSecret
     , captchaRequest
     ) where
 
+import           Control.Exception (Exception, throwIO)
 import           Control.Lens hiding ((.=))
 import           Data.Maybe
 import           Data.String (IsString)
@@ -24,14 +26,16 @@ import qualified Network.Wreq as Wreq
 -- import Data.Proxy
 import           Data.Aeson
 import           Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import           Data.Time.Clock (UTCTime)
+import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
 
 import           Cardano.Faucet.Types.API
 
 --------------------------------------------------------------------------------
-newtype CaptchaSecret = CaptchaSecret Text deriving (Show, IsString)
+newtype CaptchaSecret = CaptchaSecret Text deriving (Show, Eq, IsString)
 
 makeWrapped ''CaptchaSecret
 
@@ -45,6 +49,14 @@ data CaptchaRequest = CaptchaRequest {
   } deriving (Generic)
 
 makeLenses ''CaptchaRequest
+
+--------------------------------------------------------------------------------
+-- | Error thrown if recaptcha secret isn't a single line in a file
+data ReadRecaptchaSecretError =
+    MoreThanOneLine FilePath
+    deriving (Eq, Show, Typeable)
+
+instance Exception ReadRecaptchaSecretError
 
 --------------------------------------------------------------------------------
 -- | Response from google to being sent a 'CaptchaRequest'
@@ -74,7 +86,11 @@ instance FromJSON CaptchaResponse where
 
 -- | Reads a CaptchaSecret out of a file
 readCaptchaSecret :: FilePath -> IO CaptchaSecret
-readCaptchaSecret = fmap CaptchaSecret . Text.readFile
+readCaptchaSecret fp = do
+    file <- Text.readFile fp
+    case Text.lines file of
+        [rSecret] -> return $ CaptchaSecret rSecret
+        _        -> throwIO $ MoreThanOneLine fp
 
 -- | Makes the 'CaptchaRequest' to google
 captchaRequest :: CaptchaRequest -> IO CaptchaResponse

@@ -26,6 +26,14 @@ main = hspec $ do
         it "WithdrawalRequest" $ property (prop_aeson_id :: WithdrawalRequest -> Bool)
         it "CaptchaResponse decode" $ captchaDecode
 
+    describe "Reading the recaptcha secret from a file" $ do
+        it "Should read from a file that exists" $ do
+            readCaptchaSecret "test/valid-secret.txt" `shouldReturn` CaptchaSecret "test"
+        it "Should throw ReadRecaptchaSecretError if the file doesn't have one line" $ do
+            readCaptchaSecret "test/multi-line-secret.txt"
+            `shouldThrow`
+            (== MoreThanOneLine "test/multi-line-secret.txt")
+
 prop_randomAmount :: PaymentDistribution -> Property
 prop_randomAmount pd = monadicIO $ do
     c <- run (liftIO $ randomAmount pd)

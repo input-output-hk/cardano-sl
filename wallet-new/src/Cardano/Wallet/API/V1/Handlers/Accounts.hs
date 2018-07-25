@@ -73,6 +73,9 @@ updateAccount :: PassiveWalletLayer IO
               -> AccountIndex
               -> AccountUpdate
               -> Handler (WalletResponse Account)
-updateAccount layer wId accIdx accUpdate = do
-    _ <- liftIO $ (WalletLayer.updateAccount layer) wId accIdx accUpdate
-    error "unimplemented see [CBR-342]"
+updateAccount layer wId accIdx updateRequest = do
+    res <- liftIO $ (WalletLayer.updateAccount layer) wId accIdx updateRequest
+    case res of
+         Left e -> throwM e
+         Right updatedAccount ->
+             return $ single updatedAccount

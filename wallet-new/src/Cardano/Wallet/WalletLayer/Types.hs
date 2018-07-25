@@ -27,6 +27,7 @@ module Cardano.Wallet.WalletLayer.Types
     , CreateAccountError(..)
     , GetAccountError(..)
     , DeleteAccountError(..)
+    , UpdateAccountError(..)
     ) where
 
 import qualified Prelude
@@ -180,6 +181,23 @@ instance Buildable DeleteAccountError where
     build (DeleteAccountWalletIdDecodingFailed txt) =
         bprint ("DeleteAccountWalletIdDecodingFailed " % build) txt
 
+data UpdateAccountError =
+      UpdateAccountError Kernel.UnknownHdRoot
+    | UpdateAccountWalletIdDecodingFailed Text
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show UpdateAccountError where
+    show = formatToString build
+
+instance Exception UpdateAccountError
+
+instance Buildable UpdateAccountError where
+    build (UpdateAccountError kernelError) =
+        bprint ("UpdateAccountError " % build) kernelError
+    build (UpdateAccountWalletIdDecodingFailed txt) =
+        bprint ("UpdateAccountWalletIdDecodingFailed " % build) txt
+
 ------------------------------------------------------------
 -- General-purpose errors which may arise when working with
 -- the wallet layer
@@ -206,11 +224,20 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
     , _pwlDeleteWallet   :: WalletId -> m Bool
     -- * accounts
-    , _pwlCreateAccount  :: WalletId -> NewAccount -> m (Either CreateAccountError Account)
+    , _pwlCreateAccount  :: WalletId
+                         -> NewAccount
+                         -> m (Either CreateAccountError Account)
     , _pwlGetAccounts    :: WalletId -> m [Account]
-    , _pwlGetAccount     :: WalletId -> AccountIndex -> m (Either GetAccountError Account)
-    , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> m Account
-    , _pwlDeleteAccount  :: WalletId -> AccountIndex -> m (Either DeleteAccountError ())
+    , _pwlGetAccount     :: WalletId
+                         -> AccountIndex
+                         -> m (Either GetAccountError Account)
+    , _pwlUpdateAccount  :: WalletId
+                         -> AccountIndex
+                         -> AccountUpdate
+                         -> m (Either UpdateAccountError Account)
+    , _pwlDeleteAccount  :: WalletId
+                         -> AccountIndex
+                         -> m (Either DeleteAccountError ())
     -- * addresses
     , _pwlCreateAddress  :: NewAddress -> m (Either CreateAddressError Address)
     , _pwlGetAddresses   :: WalletId -> m [Address]
@@ -258,7 +285,11 @@ getAccount :: forall m. PassiveWalletLayer m
            -> m (Either GetAccountError Account)
 getAccount pwl = pwl ^. pwlGetAccount
 
-updateAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> AccountUpdate -> m Account
+updateAccount :: forall m. PassiveWalletLayer m
+              -> WalletId
+              -> AccountIndex
+              -> AccountUpdate
+              -> m (Either UpdateAccountError Account)
 updateAccount pwl = pwl ^. pwlUpdateAccount
 
 deleteAccount :: forall m. PassiveWalletLayer m

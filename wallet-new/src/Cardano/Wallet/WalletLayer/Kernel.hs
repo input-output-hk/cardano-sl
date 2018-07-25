@@ -8,63 +8,49 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
-import           Control.Lens (to)
-import           Data.Acid (update)
-import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Maybe (fromJust)
 import           Data.Time.Units (Second)
-import           Formatting (build, sformat)
 import           System.Wlog (Severity (Debug))
 
 import           Pos.Chain.Block (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
-import qualified Cardano.Wallet.Kernel.Accounts as Kernel
-import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
+import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
+import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
+import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
-import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdAccount (..))
-import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
-                     addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readHdAccount)
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import qualified Cardano.Wallet.Kernel.Internal as Internal
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import           Cardano.Wallet.Kernel.Types (AccountId (..),
-                     RawResolvedBlock (..), WalletId (..),
+import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAccountError (..), CreateAddressError (..),
-                     CreateWalletError (..), DeleteAccountError (..),
-                     EstimateFeesError (..), GetAccountError (..),
-                     NewPaymentError (..), PassiveWalletLayer (..),
-                     WalletLayerError (..))
+                     EstimateFeesError (..), NewPaymentError (..),
+                     PassiveWalletLayer (..), WalletLayerError (..))
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
                      InputGrouping, newOptions)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
-import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin)
+import           Pos.Core (Address, Coin)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 
-import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
 import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (Payment (..),
-                     PaymentDistribution (..), PaymentSource (..), V1 (..),
+                     PaymentDistribution (..), PaymentSource (..),
                      WalletId (..), unV1)
 
 -- | Initialize the passive wallet.
@@ -109,142 +95,23 @@ bracketPassiveWallet logFunction keystore rocksDB f =
                        -> PassiveWalletLayer n
     passiveWalletLayer wallet invoke =
         PassiveWalletLayer
-            { _pwlCreateWallet   =
-                \(V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword v1AssuranceLevel v1WalletName operation) -> do
-                    liftIO $ limitExecutionTimeTo (30 :: Second) CreateWalletTimeLimitReached $ do
-                        case operation of
-                             V1.RestoreWallet -> error "Not implemented, see [CBR-243]."
-                             V1.CreateWallet  -> do
-                                 let spendingPassword = maybe emptyPassphrase coerce mbSpendingPassword
-                                 let hdAssuranceLevel = case v1AssuranceLevel of
-                                       V1.NormalAssurance -> HD.AssuranceLevelNormal
-                                       V1.StrictAssurance -> HD.AssuranceLevelStrict
-
-                                 res <- liftIO $ Kernel.createHdWallet wallet
-                                                                       mnemonic
-                                                                       spendingPassword
-                                                                       hdAssuranceLevel
-                                                                       (HD.WalletName v1WalletName)
-                                 case res of
-                                      Left kernelError ->
-                                          return (Left $ CreateWalletError kernelError)
-                                      Right hdRoot -> do
-                                          let (hasSpendingPassword, mbLastUpdate) =
-                                                  case hdRoot ^. HD.hdRootHasPassword of
-                                                       HD.NoSpendingPassword -> (False, Nothing)
-                                                       HD.HasSpendingPassword lastUpdate -> (True, Just (lastUpdate ^. fromDb))
-                                          now <- liftIO getCurrentTimestamp
-                                          let lastUpdate = fromMaybe now mbLastUpdate
-                                          let createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
-                                          let walletId = hdRoot ^. HD.hdRootId . to (sformat build . _fromDb . HD.getHdRootId)
-                                          return $ Right V1.Wallet {
-                                              walId                         = (V1.WalletId walletId)
-                                            , walName                       = v1WalletName
-                                            , walBalance                    = V1 (mkCoin 0)
-                                            , walHasSpendingPassword        = hasSpendingPassword
-                                            , walSpendingPasswordLastUpdate = V1 lastUpdate
-                                            , walCreatedAt                  = V1 createdAt
-                                            , walAssuranceLevel             = v1AssuranceLevel
-                                            , walSyncState                  = V1.Synced
-                                          }
+            { _pwlCreateWallet   = Wallets.createWallet wallet
 
             , _pwlGetWalletIds   = error "Not implemented!"
             , _pwlGetWallet      = error "Not implemented!"
             , _pwlUpdateWallet   = error "Not implemented!"
             , _pwlDeleteWallet   = error "Not implemented!"
 
-            , _pwlCreateAccount  =
-                \(V1.WalletId wId) (V1.NewAccount mbSpendingPassword accountName) -> do
-                    liftIO $ limitExecutionTimeTo (30 :: Second) CreateAccountTimeLimitReached $ do
-                        case decodeTextAddress wId of
-                             Left _ ->
-                                 return $ Left (CreateAccountWalletIdDecodingFailed wId)
-                             Right rootAddr -> do
-                                let hdRootId = HD.HdRootId . InDb $ rootAddr
-                                let passPhrase = maybe mempty coerce mbSpendingPassword
-                                res <- liftIO $ Kernel.createAccount passPhrase
-                                                                     (HD.AccountName accountName)
-                                                                     (WalletIdHdRnd hdRootId)
-                                                                     wallet
-                                case res of
-                                     Right newAccount -> do
-                                         -- Create a new address to go in tandem
-                                         -- with this brand-new 'Account'.
-                                         let accountId = newAccount ^. HD.hdAccountId
-                                         newAddrE <- Kernel.createAddress passPhrase
-                                                                          (AccountIdHdRnd accountId)
-                                                                          wallet
-                                         return $ case newAddrE of
-                                              Left e -> Left $ CreateAccountFirstAddressGenerationFailed e
-                                              Right addr ->
-                                                  Right V1.Account {
-                                                      accIndex     = accountId ^. HD.hdAccountIdIx
-                                                                                . to HD.getHdAccountIx
-                                                    , accAddresses =
-                                                        IxSet.singleton V1.WalletAddress {
-                                                               addrId            = V1.V1 addr
-                                                             , addrUsed          = False
-                                                             , addrChangeAddress = False
-                                                            }
-                                                    , accAmount    = V1.V1 (Core.mkCoin 0)
-                                                    , accName      = accountName
-                                                    , accWalletId  = V1.WalletId wId
-                                                    }
-                                     Left  err        -> return (Left $ CreateAccountError err)
-            , _pwlGetAccounts    = error "Not implemented!"
-            , _pwlGetAccount     =
-                \(V1.WalletId wId) accountIndex -> do
-                        case decodeTextAddress wId of
-                             Left _ ->
-                                 return $ Left (GetAccountWalletIdDecodingFailed wId)
-                             Right rootAddr -> do
-                                db <- liftIO (Kernel.getWalletSnapshot wallet)
-                                let hdRootId = HD.HdRootId . InDb $ rootAddr
-                                    hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
-                                    wallets = Kernel.hdWallets db
-                                    -- NOTE(adn): Perhaps we want the minimum or expected balance here?
-                                    accountAvailableBalance = Kernel.accountAvailableBalance db hdAccountId
-
-                                return $ case readHdAccount hdAccountId wallets of
-                                     Left kernelError -> Left $ GetAccountError kernelError
-                                     Right acc -> Right V1.Account {
-                                                      accIndex     = accountIndex
-                                                    , accAddresses = IxSet.nonMonotonicMap (toWalletAddress db hdAccountId)
-                                                                                           (Kernel.accountAddresses db hdAccountId)
-                                                    , accAmount    = V1 accountAvailableBalance
-                                                    , accName      = acc ^. HD.hdAccountName . to HD.getAccountName
-                                                    , accWalletId  = V1.WalletId wId
-                                                    }
+            , _pwlCreateAccount = Accounts.createAccount wallet
+            , _pwlGetAccounts   = error "Not implemented!"
+            , _pwlGetAccount    =
+                \walletId accountIndex -> do
+                    db <- liftIO (Kernel.getWalletSnapshot wallet)
+                    Accounts.getAccount db walletId accountIndex
             , _pwlUpdateAccount  = error "Not implemented!"
-            , _pwlDeleteAccount  =
-                \(V1.WalletId wId) accountIndex -> do
-                        case decodeTextAddress wId of
-                             Left _ ->
-                                 return $ Left (DeleteAccountWalletIdDecodingFailed wId)
-                             Right rootAddr -> do
-                                let hdRootId = HD.HdRootId . InDb $ rootAddr
-                                    hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
-                                res <- liftIO $ update (wallet ^. Internal.wallets) (DeleteHdAccount hdAccountId)
-                                return $ case res of
-                                     Left e   -> Left (DeleteAccountError e)
-                                     Right () -> Right ()
+            , _pwlDeleteAccount  = Accounts.deleteAccount wallet
 
-            , _pwlCreateAddress  =
-                \(V1.NewAddress mbSpendingPassword accIdx (V1.WalletId wId)) -> do
-                    liftIO $ limitExecutionTimeTo (30 :: Second) CreateAddressTimeLimitReached $ do
-                        case decodeTextAddress wId of
-                             Left _ ->
-                                 return $ Left (CreateAddressAddressDecodingFailed wId)
-                             Right rootAddr -> do
-                                let hdRootId = HD.HdRootId . InDb $ rootAddr
-                                let hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accIdx)
-                                let passPhrase = maybe mempty coerce mbSpendingPassword
-                                res <- liftIO $ Kernel.createAddress passPhrase
-                                                                     (AccountIdHdRnd hdAccountId)
-                                                                     wallet
-                                case res of
-                                     Right newAddr -> return (Right newAddr)
-                                     Left  err     -> return (Left $ CreateAddressError err)
+            , _pwlCreateAddress  = Addresses.createAddress wallet
             , _pwlGetAddresses   = error "Not implemented!"
 
             , _pwlApplyBlocks    = liftIO . invoke . Actions.ApplyBlocks
@@ -349,15 +216,3 @@ setupPayment grouping regulation payment = do
     return (opts , accountId , payees)
 
 
-toWalletAddress :: Kernel.DB
-                -> HD.HdAccountId
-                -> HD.HdAddress
-                -> V1.WalletAddress
-toWalletAddress db hdAccountId hdAddress =
-    let cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
-    in case Kernel.lookupAddressMeta db hdAccountId cardanoAddress of
-           Nothing -> V1.WalletAddress (V1 cardanoAddress) False False
-           Just addressMeta ->
-               V1.WalletAddress (V1 cardanoAddress)
-                                (addressMeta ^. addressMetaIsUsed)
-                                (addressMeta ^. addressMetaIsChange)

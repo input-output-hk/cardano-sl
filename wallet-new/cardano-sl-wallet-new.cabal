@@ -126,6 +126,9 @@ library
                        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
   other-modules:       Cardano.Wallet.WalletLayer.Kernel
+                       Cardano.Wallet.WalletLayer.Kernel.Accounts
+                       Cardano.Wallet.WalletLayer.Kernel.Addresses
+                       Cardano.Wallet.WalletLayer.Kernel.Wallets
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new

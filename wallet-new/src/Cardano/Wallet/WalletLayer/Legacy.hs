@@ -17,7 +17,7 @@ import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError, DeleteAccountError, GetAccountError,
-                     PassiveWalletLayer (..))
+                     PassiveWalletLayer (..), UpdateAccountError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -248,12 +248,12 @@ pwlUpdateAccount
     => WalletId
     -> AccountIndex
     -> AccountUpdate
-    -> m Account
+    -> m (Either UpdateAccountError Account)
 pwlUpdateAccount wId accIdx accUpdate = do
     newAccId    <- migrate (wId, accIdx)
     accMeta     <- migrate accUpdate
     cAccount    <- V0.updateAccount newAccId accMeta
-    migrate cAccount
+    Right <$> migrate cAccount
 
 pwlDeleteAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)

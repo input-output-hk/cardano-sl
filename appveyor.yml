@@ -73,7 +73,7 @@ before_test:
 
 # Install rocksdb
 - git clone https://github.com/facebook/rocksdb.git --branch v4.13.5
-- ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
+- ps: Start-FileDownload 'https://s3.eu-central-1.amazonaws.com/ci-static/serokell-rocksdb-haskell-325427fc709183c8fdf777ad5ea09f8d92bf8585.zip' -FileName rocksdb.zip
 - 7z x rocksdb.zip
 
 # CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('lib/'), the 'cardano-text.exe' executable fails on AppVeyor CI.

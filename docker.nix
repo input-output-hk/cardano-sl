@@ -19,6 +19,7 @@ let
     #!/bin/sh
     set -e
     set -o pipefail
+    export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     if [ ! -d /wallet ]; then
       echo '/wallet volume not mounted, you need to create one with `docker volume create` and pass the correct -v flag to `docker run`'
     exit 1

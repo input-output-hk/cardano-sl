@@ -264,6 +264,11 @@ let
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates${binSuffix} bin
       cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node${binSuffix} bin
 
+      ${pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isWindows ''
+      cp ${pkgs.rocksdb}/lib/*.dll bin
+      cp ${pkgs.openssl.bin}/bin/*.dll bin
+      ''}
+
       # test that binaries exit with 0
       ${maybeViaWine} ./bin/cardano-node${binSuffix} --help > /dev/null
       HOME=$TMP ${maybeViaWine} ./bin/cardano-launcher${binSuffix} --help > /dev/null

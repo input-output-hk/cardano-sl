@@ -8,7 +8,7 @@
 with localLib;
 
 let
-  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
+  iohkPkgs = import ./../../.. { inherit system gitrev; };
   generate-swagger-file = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-generate-swagger-file";
   validate-json = "${iohkPkgs.validateJson}/bin/validate_json";
   schema = ./../../../tools/src/validate-json/swagger-meta-2.0.json;

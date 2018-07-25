@@ -20,7 +20,7 @@ let
   executables =  {
     integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
   };
-  iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev; };
+  iohkPkgs = import ./../../../.. { inherit system gitrev; };
 in pkgs.writeScript "integration-tests" ''
   set -e
   source ${demo-cluster}

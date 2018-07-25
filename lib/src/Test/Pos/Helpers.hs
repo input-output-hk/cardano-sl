@@ -1,8 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 module Test.Pos.Helpers
        ( canonicalJsonTest
        ) where

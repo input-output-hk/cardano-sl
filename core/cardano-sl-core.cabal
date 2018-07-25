@@ -240,6 +240,7 @@ library
                      , safecopy
                      , safe-exceptions
                      , serokell-util
+                     , servant >= 0.8.1
                      , stm
                      , template-haskell
                      , text

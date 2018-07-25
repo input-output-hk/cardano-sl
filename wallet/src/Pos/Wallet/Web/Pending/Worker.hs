@@ -50,7 +50,7 @@ type MonadPendings ctx m =
     ( TxMode m
     , MonadAddresses m
     , MonadDBRead m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadReporting m
     , HasShutdownContext ctx
     , MonadSlots ctx m

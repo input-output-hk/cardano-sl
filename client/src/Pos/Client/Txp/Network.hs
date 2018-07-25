@@ -22,7 +22,6 @@ import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy,
                      PendingAddresses (..), TxCreateMode, TxError (..),
                      createMTx, createRedemptionTx)
-import           Pos.Communication.Message ()
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
                      unsafeAddCoin)

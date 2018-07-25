@@ -13,7 +13,6 @@ import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Communication.Limits (mlTxMsgContents)
-import           Pos.Communication.Message ()
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (hash)
 import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,

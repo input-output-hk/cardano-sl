@@ -50,7 +50,6 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Logic.Full (logicFull)
 import           Pos.Logic.Types (Logic, hoistLogic)
-import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
 import           Pos.Update.Configuration (HasUpdateConfiguration,

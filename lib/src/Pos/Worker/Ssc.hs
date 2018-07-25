@@ -83,7 +83,7 @@ type SscMode ctx m
       , MonadGState m
       , MonadDB m
       , MonadSscMem ctx m
-      , MonadRecoveryInfo m
+      , MonadRecoveryInfo ctx m
       , HasShutdownContext ctx
       , MonadReader ctx m
       , HasSscContext ctx

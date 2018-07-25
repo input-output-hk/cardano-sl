@@ -48,7 +48,7 @@ type UpdateMode ctx m
       , HasShutdownContext ctx
       , HasUpdateConfiguration
       , MonadReporting m
-      , MonadRecoveryInfo m
+      , MonadRecoveryInfo ctx m
       , MonadSlots ctx m
       )
 

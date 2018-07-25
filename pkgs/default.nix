@@ -15702,6 +15702,7 @@ license = stdenv.lib.licenses.mit;
 , safe-exceptions
 , safecopy
 , serokell-util
+, servant
 , stdenv
 , stm
 , template-haskell
@@ -15771,6 +15772,7 @@ resourcet
 safe-exceptions
 safecopy
 serokell-util
+servant
 stm
 template-haskell
 text
@@ -17039,6 +17041,7 @@ license = stdenv.lib.licenses.mit;
 , binary
 , bytestring
 , cardano-sl-core
+, cardano-sl-ssc
 , cardano-sl-util
 , containers
 , contravariant
@@ -17093,6 +17096,7 @@ base
 binary
 bytestring
 cardano-sl-core
+cardano-sl-ssc
 cardano-sl-util
 containers
 cryptonite

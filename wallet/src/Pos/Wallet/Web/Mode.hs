@@ -204,7 +204,7 @@ type MonadWalletWebMode ctx m =
     , MonadGState m
     , MonadDBRead m
     , MonadTxpMem WalletMempoolExt ctx m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadBListener m
     , MonadReader ctx m
     , HasLens StateLock ctx StateLock

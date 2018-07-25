@@ -63,7 +63,7 @@ type WorkMode ctx m
       , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
       , MonadSscMem ctx m
-      , MonadRecoveryInfo m
+      , MonadRecoveryInfo ctx m
       , MonadRecoveryHeader ctx m
       , MonadLastKnownHeader ctx m
       , MonadBListener m

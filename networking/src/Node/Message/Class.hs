@@ -24,12 +24,19 @@ module Node.Message.Class
     , MessageCode
     ) where
 
+import           Universum
+
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Proxy (Proxy (..))
 import qualified Data.Text as T
 import           Data.Word (Word16)
 import qualified Formatting as F
+
 import           Node.Message.Decoder (Decoder, hoistDecoder)
+import           Pos.Core.Txp (TxMsgContents)
+import           Pos.Core.Update (UpdateProposal, UpdateVote)
+import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
+                     MCVssCertificate)
 
 -- * Message name
 
@@ -44,6 +51,38 @@ class Message m where
     formatMessage :: m -> T.Text
     default formatMessage :: F.Buildable m => m -> T.Text
     formatMessage = F.sformat F.build
+
+instance Message Void where
+    messageCode _ = 0
+    formatMessage _ = "Void"
+
+instance Message UpdateVote where
+    messageCode _ = 92
+    formatMessage _ = "UpdateVote"
+
+instance Message (UpdateProposal, [UpdateVote]) where
+    messageCode _ = 93
+    formatMessage _ = "UpdateProposal"
+
+instance Message TxMsgContents where
+    messageCode _ = 94
+    formatMessage _ = "TxMsgContents"
+
+instance Message MCCommitment where
+    messageCode _ = 98
+    formatMessage _ = "MCCommitment"
+
+instance Message MCOpening where
+    messageCode _ = 97
+    formatMessage _ = "MCOpening"
+
+instance Message MCShares where
+    messageCode _ = 96
+    formatMessage _ = "MCShares"
+
+instance Message MCVssCertificate where
+    messageCode _ = 95
+    formatMessage _ = "MCVssCertificate"
 
 -- | As `messageName`, but accepts message itself, may be more convinient is most cases.
 messageCode' :: Message m => m -> MessageCode

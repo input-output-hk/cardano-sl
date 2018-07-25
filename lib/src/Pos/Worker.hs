@@ -11,7 +11,6 @@ import           Universum
 
 import           Pos.Worker.Block (blkWorkers)
 -- Message instances.
-import           Pos.Communication.Message ()
 import           Pos.Context (NodeContext (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion)

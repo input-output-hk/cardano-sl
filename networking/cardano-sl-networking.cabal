@@ -45,6 +45,7 @@ Library
                       , attoparsec
                       , base
                       , cardano-sl-core
+                      , cardano-sl-ssc
                       , cardano-sl-util
                       , containers
                       , cryptonite

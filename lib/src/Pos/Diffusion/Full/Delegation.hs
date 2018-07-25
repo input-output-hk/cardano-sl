@@ -14,7 +14,6 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 
 import           Pos.Binary ()
 import           Pos.Communication.Limits (mlHeavyDlgIndex, mlProxySecretKey)
-import           Pos.Communication.Message ()
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
                      MsgType (..), NodeId, OutSpecs)

@@ -129,7 +129,6 @@ handleMempoolL logTrace oq (KeyMempool tagP handleMempool) = pure $ listenerConv
 handleDataOnlyL
     :: forall pack contents.
        ( Bi (DataMsg contents)
-       , Message Void
        , Message (DataMsg contents)
        , Buildable contents
        )
@@ -167,7 +166,6 @@ handleDataDo
        , Message (ReqOrRes key)
        , Bi (InvOrData key contents)
        , Bi (ReqOrRes key)
-       , Message Void
        )
     => Trace IO (Severity, Text)
     -> NodeId
@@ -188,8 +186,7 @@ handleDataDo logTrace provenance mkMsg enqueue contentsToKey handleData dmConten
 
 -- | Synchronously propagate data.
 relayMsg
-    :: ( Message Void )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> EnqueueMsg
     -> PropagationMsg
     -> IO ()
@@ -197,8 +194,7 @@ relayMsg logTrace enqueue pm = void $ propagateData logTrace enqueue pm >>= wait
 
 -- | Asynchronously propagate data.
 propagateData
-    :: ( Message Void )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> EnqueueMsg
     -> PropagationMsg
     -> IO (Map NodeId (IO ()))
@@ -244,8 +240,7 @@ handleInvDo logTrace handleInv imKey =
 
 relayListenersOne
     :: forall pack.
-       ( Message Void )
-    => Trace IO (Severity, Text)
+       Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> Relay
@@ -259,8 +254,7 @@ relayListenersOne logTrace oq enqueue (Data DataParams{..}) =
 
 relayListeners
     :: forall pack.
-       ( Message Void )
-    => Trace IO (Severity, Text)
+       Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> [Relay]
@@ -276,7 +270,6 @@ invDataListener
      , Buildable contents
      , Buildable key
      , Eq key
-     , Message Void
      )
   => Trace IO (Severity, Text)
   -> OQ.OutboundQ pack NodeId Bucket
@@ -305,10 +298,10 @@ invDataListener logTrace oq enqueue InvReqDataParams{..} = listenerConv logTrace
                               -- And check data we are sent is what we expect (currently not)
     in handlingLoop
 
-relayPropagateOut :: Message Void => [Relay] -> OutSpecs
+relayPropagateOut :: [Relay] -> OutSpecs
 relayPropagateOut = mconcat . map propagateOutImpl
 
-propagateOutImpl :: Message Void => Relay -> OutSpecs
+propagateOutImpl :: Relay -> OutSpecs
 propagateOutImpl (InvReqData _ irdp) = toOutSpecs
       [ convH invProxy reqResProxy ]
   where
@@ -374,7 +367,6 @@ dataFlow
        ( Message (DataMsg contents)
        , Bi (DataMsg contents)
        , Buildable contents
-       , Message Void
        )
     => Trace IO (Severity, Text) -> Text -> EnqueueMsg -> Msg -> contents -> IO ()
 dataFlow logTrace what enqueue msg dt = handleAny handleE $ do

@@ -47,10 +47,12 @@ library
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Info
                        Cardano.Wallet.API.V1.Internal
+                       Cardano.Wallet.API.V1.Internal.Update
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
                        Cardano.Wallet.API.V1.LegacyHandlers.Addresses
                        Cardano.Wallet.API.V1.LegacyHandlers.Info
+                       Cardano.Wallet.API.V1.LegacyHandlers.Internal.Update
                        Cardano.Wallet.API.V1.LegacyHandlers.Settings
                        Cardano.Wallet.API.V1.LegacyHandlers.Transactions
                        Cardano.Wallet.API.V1.LegacyHandlers.Wallets

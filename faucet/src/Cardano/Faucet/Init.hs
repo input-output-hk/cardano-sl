@@ -50,7 +50,8 @@ import           System.IO.Error (isDoesNotExistError)
 import           System.Metrics (Store, createCounter, createGauge)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
-                              liftLogIO, logError, logInfo, withSublogger)
+                              liftLogIO, logDebug, logError, logInfo,
+                              withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
                                               AssuranceLevel (NormalAssurance),
@@ -229,7 +230,7 @@ monitorWalletBalance fEnv = do
             Left err -> do
                 logError ("Error reading balance: " <> (Text.pack $ show err))
             Right bal -> do
-                logInfo ("Read wallet balance: " <> (Text.pack $ show bal))
+                logDebug ("Read wallet balance: " <> (Text.pack $ show bal))
                 liftIO $ Gauge.set balGauge bal
 
 --------------------------------------------------------------------------------

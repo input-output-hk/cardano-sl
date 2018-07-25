@@ -40,8 +40,8 @@ import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
 import           Network.TLS (ClientParams (..), credentialLoadX509FromMemory,
-                              defaultParamsClient, onCertificateRequest,
-                              onServerCertificate, supportedCiphers)
+                     defaultParamsClient, onCertificateRequest,
+                     onServerCertificate, supportedCiphers)
 import           Network.TLS.Extra.Cipher (ciphersuite_strong)
 import           Servant.Client.Core (BaseUrl (..), Scheme (..))
 import           System.Directory (createDirectoryIfMissing)
@@ -50,22 +50,17 @@ import           System.IO.Error (isDoesNotExistError)
 import           System.Metrics (Store, createCounter, createGauge)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
-                              liftLogIO, logDebug, logError, logInfo,
-                              withSublogger)
+                     liftLogIO, logDebug, logError, logInfo, withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
-                                              AssuranceLevel (NormalAssurance),
-                                              NewWallet (..), NodeInfo (..),
-                                              Payment (..),
-                                              PaymentDistribution (..),
-                                              PaymentSource (..),
-                                              SyncPercentage, V1 (..),
-                                              Wallet (..), WalletAddress (..),
-                                              WalletId,
-                                              WalletOperation (CreateWallet),
-                                              mkSyncPercentage, txAmount, unV1)
+                     AssuranceLevel (NormalAssurance), NewWallet (..),
+                     NodeInfo (..), Payment (..), PaymentDistribution (..),
+                     PaymentSource (..), SyncPercentage, V1 (..), Wallet (..),
+                     WalletAddress (..), WalletId,
+                     WalletOperation (CreateWallet), mkSyncPercentage,
+                     txAmount, unV1)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
-                                        WalletResponse (..), liftClient)
+                     WalletResponse (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)
 import           Pos.Core (Coin (..))
 import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)

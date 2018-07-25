@@ -153,8 +153,6 @@ let
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
     cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
 
-    cardano-sl-sinbin     = doTemplateHaskell super.cardano-sl-sinbin;
-
     trifecta              = doTemplateHaskell super.trifecta;
     cardano-sl-tools      = doTemplateHaskell
                               (addGitRev

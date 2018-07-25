@@ -1,26 +1,7 @@
 {
-    "nixpkgs": {
-	"owner":          "angerman",
-	"repo":           "nixpkgs",
-	"rev":            "2773583e5f23d9dca9e60a931c9eb637783749af",
-	"sha256":         "1kppfgj40iaz0d4pxcnzy2z8pi7qb6rjg993af6ll5q7nhx03z6q",
-	"sha256unpacked": "0fgyjlm2nisny5ivlg393s46bvxq7hkqbigxhfaz7jn6n2jiyszx" },
-    "haskell": {
-	"owner":          "angerman",
-	"repo":           "haskell.nix",
-	"rev":            "7deccd5635039240423a5a12876de8a79417cb16",
-	"sha256":         "099aryw1agk1mziy01g622cx90hq3ljvbjpl6n400kyrgsr62hh3",
-	"sha256unpacked": "1xpmyrjmi8lsh46mcyiaivjisp428nzxgjv55wfmpwdlllc54c5v" },
-    "hackage": {
-	"owner":          "angerman",
-	"repo":           "hackage.nix",
-	"rev":            "1d896938617c5be6458e9fce0af0271416d7849f",
-	"sha256":         "1fhk27v6vfik7410mm551v8f51cdnh81dgllfcmv9ljyjjgf2pcw",
-	"sha256unpacked": "0aj334qnjrd3q86wyz585zym6c4wirkw3d7gn3i7wbf91gcfb3ff" },
-    "stackage": {
-	"owner":          "angerman",
-	"repo":           "stackage.nix",
-	"rev":            "f7d91393bf2e64277b14526003f2d240d3cf99da",
-	"sha256":         "0jscw8zw18basc90s7jvspi2xnr7na7sghbzs0wz34cgjrgxyvzy",
-	"sha256unpacked": "1p8v0ck69s37bk261axf7gccbhz977pw1qyj650p993532b2psza" }
+  "owner":          "angerman",
+  "repo":           "nixpkgs",
+  "rev":            "2773583e5f23d9dca9e60a931c9eb637783749af",
+  "sha256":         "1kppfgj40iaz0d4pxcnzy2z8pi7qb6rjg993af6ll5q7nhx03z6q",
+  "sha256unpacked": "0fgyjlm2nisny5ivlg393s46bvxq7hkqbigxhfaz7jn6n2jiyszx"
 }

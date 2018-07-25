@@ -1,9 +1,12 @@
 let
-  todo = builtins.fromJSON (builtins.readFile ./nixpkgs-src.json);
-  fixme = { owner, repo, rev, sha256, sha256unpacked }:
+  fixme = override: json: let
+    try = builtins.tryEval (builtins.findFile builtins.nixPath override);
+    cfg = builtins.fromJSON (builtins.readFile json);
+  in if try.success then
+    builtins.trace "using search host <${override}>" try.value
+  else
     pkgs.fetchFromGitHub {
-      inherit owner repo rev;
-      sha256 = sha256unpacked;
+      inherit (cfg) owner repo rev sha256;
     };
   # Allow overriding pinned nixpkgs for debugging purposes via cardano_pkgs
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
@@ -11,28 +14,9 @@ let
     then builtins.trace "using host <cardano_pkgs>" try.value
     else import ./fetch-nixpkgs.nix;
 
-  fetchHaskell = let try = builtins.tryEval <haskell>;
-    in if try.success
-    then builtins.trace "using host <haskell>" try.value
-    else fixme todo.haskell;
-
-  fetchHackage = let try = builtins.tryEval <hackage>;
-    in if try.success
-    then builtins.trace "using host <hackage>" try.value
-    else fixme todo.hackage;
-
-  fetchStackage = let try = builtins.tryEval <stackage>;
-    in if try.success
-    then builtins.trace "using host <stackage>" try.value
-    else fixme todo.stackage;
-
-
-  maybeEnv = env: default:
-    let
-      result = builtins.getEnv env;
-    in if result != ""
-       then result
-       else default;
+  fetchHaskell = fixme "haskell" ./haskell.json;
+  fetchHackage = fixme "hackage" ./hackage.json;
+  fetchStackage = fixme "stackage" ./stackage.json;
 
   # Removes files within a Haskell source tree which won't change the
   # result of building the package.

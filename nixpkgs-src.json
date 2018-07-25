@@ -1,25 +1,25 @@
 {
     "nixpkgs": {
-	"account":        "angerman",
-	"project":        "nixpkgs",
+	"owner":          "angerman",
+	"repo":           "nixpkgs",
 	"rev":            "34daf3e76e07577743bbd9b0cab12bfa7fa64f7c",
 	"sha256":         "0kq8v4qwl5fpp1w6k2w4vc0lq5bryfgwshh9wbxl04kzl72hh253",
 	"sha256unpacked": "0pwr8c7vmihn4482mwsvxrrqplx8lwqaykqzav69akbdpaqpjxf1" },
     "haskell": {
-	"account":        "angerman",
-	"project":        "haskell.nix",
+	"owner":          "angerman",
+	"repo":           "haskell.nix",
 	"rev":            "3a6d9e7a6bd560d90475ae71d8b2897dc89000e7",
 	"sha256":         "0bdj5rpx054gqzp07dxhwj57wkzdisc2nq8n0qzynn7902hiwlyq",
 	"sha256unpacked": "1zym8szbinjnvqs6vgwpawrhxq9m2aw449bvwxqq4xphrrvyln1f" },
     "hackage": {
-	"account":        "angerman",
-	"project":        "hackage.nix",
+	"owner":          "angerman",
+	"repo":           "hackage.nix",
 	"rev":            "1d896938617c5be6458e9fce0af0271416d7849f",
 	"sha256":         "1fhk27v6vfik7410mm551v8f51cdnh81dgllfcmv9ljyjjgf2pcw",
 	"sha256unpacked": "0aj334qnjrd3q86wyz585zym6c4wirkw3d7gn3i7wbf91gcfb3ff" },
     "stackage": {
-	"account":        "angerman",
-	"project":        "stackage.nix",
+	"owner":          "angerman",
+	"repo":           "stackage.nix",
 	"rev":            "f7d91393bf2e64277b14526003f2d240d3cf99da",
 	"sha256":         "0jscw8zw18basc90s7jvspi2xnr7na7sghbzs0wz34cgjrgxyvzy",
 	"sha256unpacked": "1p8v0ck69s37bk261axf7gccbhz977pw1qyj650p993532b2psza" }

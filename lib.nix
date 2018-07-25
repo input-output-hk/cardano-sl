@@ -1,17 +1,15 @@
 let
   todo = builtins.fromJSON (builtins.readFile ./nixpkgs-src.json);
-  fixme = { account, project, rev, sha256, sha256unpacked }:
+  fixme = { owner, repo, rev, sha256, sha256unpacked }:
     pkgs.fetchFromGitHub {
-      owner = account;
-      repo = project;
-      rev = rev;
+      inherit owner repo rev;
       sha256 = sha256unpacked;
     };
   # Allow overriding pinned nixpkgs for debugging purposes via cardano_pkgs
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./fetchNixpkgs.nix todo.nixpkgs;
+    else import ./fetch-nixpkgs.nix;
 
   fetchHaskell = let try = builtins.tryEval <haskell>;
     in if try.success

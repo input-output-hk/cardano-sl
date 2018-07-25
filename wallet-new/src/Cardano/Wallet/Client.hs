@@ -105,7 +105,6 @@ data WalletClient m
          -> Maybe Page
          -> Maybe PerPage
          -> FilterOperations WalletAddress
-         -> SortOperations WalletAddress
          -> Resp m AccountAddresses
     , getAccountBalance
          :: WalletId -> AccountIndex -> Resp m AccountBalance
@@ -221,7 +220,7 @@ hoistClient phi wc = WalletClient
     , updateAccount =
          \x y -> phi . updateAccount wc x y
     , getAccountAddresses =
-         \x y p pp f s -> phi $ getAccountAddresses wc x y p pp f s
+         \x y p pp f -> phi $ getAccountAddresses wc x y p pp f
     , getAccountBalance =
          \x -> phi . getAccountBalance wc x
     , postTransaction =

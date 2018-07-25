@@ -41,7 +41,7 @@ accountSpecs _ wc =
                     ]
 
             forM_ tests $ \PaginationTest{..} -> do
-                eresp <- getAccountAddresses wc walId accIndex page perPage filters sorts
+                eresp <- getAccountAddresses wc walId accIndex page perPage filters
                 expectations . acaAddresses . wrData =<< eresp `shouldPrism` _Right
   where
     filterByAddress :: WalletAddress -> FilterOperations WalletAddress

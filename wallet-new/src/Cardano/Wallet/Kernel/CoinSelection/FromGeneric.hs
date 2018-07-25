@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -367,34 +366,23 @@ largestFirst opts maxInps =
   Cardano-specific fee-estimation.
 -------------------------------------------------------------------------------}
 
--- NOTE(adn): Once https://github.com/input-output-hk/cardano-sl/pull/3232
--- will be merged, we should use the proper formula rather than the unrolled
--- computation below.
-
-{-| Estimate the size of a transaction, in bytes.
-
-     The magic numbers appearing in the formula have the following origins:
-
-       5 = 1 + 2 + 2, where 1 = tag for Tx type, and 2 each to delimit the
-           TxIn and TxOut lists.
-
-      42 = 2 + 1 + 34 + 5, where 2 = tag for TxIn ctor, 1 = tag for pair,
-           34 = size of encoded Blake2b_256 Tx hash, 5 = max size of encoded
-           CRC32 (range is 1..5 bytes, average size is just under 5 bytes).
-
-      11 = 2 + 2 + 2 + 5, where the 2s are: tag for TxOut ctor, tag for Address
-           ctor, and delimiters for encoded address. 5 = max size of CRC32.
-
-      32 = 1 + 30 + 1, where the first 1 is a tag for a tuple length, the
-           second 1 is the encoded address type. 30 = size of Blake2b_224
-           hash of Address'.
--}
+-- | Estimate the size of a transaction, in bytes.
 estimateSize :: Byte     -- ^ Average size of @Attributes AddrAttributes@.
              -> Byte     -- ^ Size of transaction's @Attributes ()@.
              -> Int      -- ^ Number of inputs to the transaction.
              -> [Word64] -- ^ Coin value of each output to the transaction.
              -> Byte     -- ^ Estimated size of the resulting transaction.
 estimateSize saa sta ins outs =
+    -- This error case should not be possible unless the structure of `TxAux` changes
+    -- in such a way that it depends on a new type with no override for `Bi`'s
+    -- `encodedSizeExpr`. In that case, the size expression for `TxAux` will be symbolic,
+    -- and cannot be simplified to a concrete size range. However, the `Bi` unit tests
+    -- in `core` include a test that `TxAux`'s size reduces to a concrete range, and the
+    -- range encloses the correct encoded size.
+    --
+    -- In other words, either the unit test in `core` gives a concrete range and this
+    -- always yields a `Right`, or the unit test gives fails due to a symbolic range
+    -- and this always yields a `Left`.
     case szSimplify (szWithCtx (Map.fromList ctx) (Proxy @TxAux)) of
         Left  sz    -> error ("Size estimate failed to simplify: " <> pretty sz)
         Right range -> hi range
@@ -482,16 +470,16 @@ estimateMaxTxInputs addrAttrSize txAttrSize maxSize = fromIntegral $
     estSize txins = estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
     step0 = 1 + (txins0 `div` 10)
 
-    bsearchUp f x y step =
-      if | f x < y -> bsearchUp f (x + step) y step
-         | f x == y -> x
-         | otherwise -> if step > 1
-                       then let step' = step `div` 2 in bsearchDown f (x - step') y step'
-                       else x - 1
+    bsearchUp f x y step
+        | f x <  y  = bsearchUp f (x + step) y step
+        | f x == y   = x
+        | otherwise = if step > 1
+                      then let step' = step `div` 2 in bsearchDown f (x - step') y step'
+                      else x - 1
 
-    bsearchDown f x y step =
-      if | f x > y -> bsearchDown f (x - step) y step
-         | f x == y -> x
-         | otherwise -> if step > 1
-                       then let step' = step `div` 2 in bsearchUp f (x + step') y step'
-                       else x
+    bsearchDown f x y step
+        | f x >  y  = bsearchDown f (x - step) y step
+        | f x == y   = x
+        | otherwise = if step > 1
+                      then let step' = step `div` 2 in bsearchUp f (x + step') y step'
+                      else x

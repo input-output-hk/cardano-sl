@@ -19,6 +19,7 @@ import           Control.Exception (Exception (..), throwIO)
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Conduit (await, runConduit, (.|))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
@@ -27,7 +28,6 @@ import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Conversation (sendRaw)
-import           Pipes (await, runEffect, (>->))
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Gauge
 
@@ -689,7 +689,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                         Logic.streamBlocks logic lca
                         lift $ send conv MsgStreamEnd
                     consumer = loop nodeId conv window
-                runEffect $ producer >-> consumer
+                runConduit $ producer .| consumer
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")
@@ -703,10 +703,10 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                   MsgUpdate u -> do
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop new window "%shown%" from "%build) u nodeId)
                       loop nodeId conv (msuWindow u)
-    loop nodeId conv window = do
-        b <- await
-        lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
-        loop nodeId conv (window - 1)
+    loop nodeId conv window =
+        whenJustM await $ \b -> do
+            lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
+            loop nodeId conv (window - 1)
 
 ----------------------------------------------------------------------------
 -- Header propagation

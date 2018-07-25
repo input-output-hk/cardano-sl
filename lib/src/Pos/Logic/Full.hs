@@ -36,7 +36,6 @@ import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
 import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
 import           Pos.DB.Update (getLocalProposalNVotes, getLocalVote,
                      isProposalNeeded, isVoteNeeded)
-import qualified Pos.GState.BlockExtra as DB (resolveForwardLink, streamBlocks)
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)

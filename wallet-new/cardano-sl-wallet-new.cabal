@@ -16,11 +16,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.API
-                       Cardano.Wallet.API.Development
-                       Cardano.Wallet.API.Development.Handlers
-                       Cardano.Wallet.API.Development.Helpers
-                       Cardano.Wallet.API.Development.LegacyHandlers
                        Cardano.Wallet.API.Indices
+                       Cardano.Wallet.API.Internal
+                       Cardano.Wallet.API.Internal.Handlers
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Filter
                        Cardano.Wallet.API.Request.Pagination
@@ -46,13 +44,10 @@ library
                        Cardano.Wallet.API.V1.Handlers.Transactions
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Info
-                       Cardano.Wallet.API.V1.Internal
-                       Cardano.Wallet.API.V1.Internal.Update
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
                        Cardano.Wallet.API.V1.LegacyHandlers.Addresses
                        Cardano.Wallet.API.V1.LegacyHandlers.Info
-                       Cardano.Wallet.API.V1.LegacyHandlers.Internal.Update
                        Cardano.Wallet.API.V1.LegacyHandlers.Settings
                        Cardano.Wallet.API.V1.LegacyHandlers.Transactions
                        Cardano.Wallet.API.V1.LegacyHandlers.Wallets
@@ -295,6 +290,7 @@ executable cardano-generate-swagger-file
                      , cardano-sl-core
                      , cardano-sl-wallet-new
                      , optparse-applicative
+                     , servant-server
                      , swagger2
                      , universum >= 0.1.11
 
@@ -305,6 +301,7 @@ executable cardano-generate-swagger-file
                        ScopedTypeVariables
                        FlexibleContexts
                        MonadFailDesugaring
+                       TypeOperators
 
 
 -- Cryptic executable name to mitigate $PATH limitation
@@ -509,7 +506,7 @@ test-suite wallet-new-specs
   hs-source-dirs:   test test/unit
 
   other-modules:    APISpec
-                    DevelopmentSpec
+                    InternalAPISpec
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec

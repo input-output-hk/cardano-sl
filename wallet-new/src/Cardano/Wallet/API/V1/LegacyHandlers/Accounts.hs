@@ -8,7 +8,7 @@ import           Universum
 import qualified Data.IxSet.Typed as IxSet
 import           Servant
 
-import           Pos.Core (TxAux)
+import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.Account as V0

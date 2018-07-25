@@ -26,11 +26,6 @@ module Pos.Util.Mnemonic
        , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
---
-       -- * Reexports
- --      , ValidMnemonicSentence
- --      , ValidChecksumSize
- --      , ValidEntropySize
        ) where
 
 import           Universum
@@ -185,6 +180,7 @@ mnemonicToAesKey
 mnemonicToAesKey =
     AesKey. blake2b . entropyToByteString . mnemonicToEntropy
 
+
 -- | Convert an Entropy to a corresponding Mnemonic Sentence
 entropyToMnemonic
     :: forall mw n csz.
@@ -277,6 +273,7 @@ instance
     ) => Arbitrary (Mnemonic mw) where
     arbitrary =
         entropyToMnemonic <$> arbitrary @(Entropy n)
+
 
 instance Exception MnemonicException
 

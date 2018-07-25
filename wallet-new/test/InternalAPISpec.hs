@@ -12,7 +12,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 -- Spec for testing `development` endpoints
-module DevelopmentSpec (spec) where
+module InternalAPISpec (spec) where
 
 import           Universum
 
@@ -27,8 +27,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 
-import           Cardano.Wallet.API.Development.LegacyHandlers
-                     (deleteSecretKeys)
+import           Cardano.Wallet.API.Internal.Handlers (resetWalletState)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Data.Default (def)
 import           Servant
@@ -49,7 +48,7 @@ deleteAllSecretKeysSpec = do
         assertProperty (not $ null sKeys)
             "Something went wrong: Secret key has not been added."
 
-        _ <- lift $ deleteSecretKeys DebugMode
+        _ <- lift $ resetWalletState DebugMode
         sKeys' <- lift getSecretKeysPlain
         assertProperty (null sKeys')
             "Oooops, secret keys not have been deleted in debug mode"
@@ -59,7 +58,7 @@ deleteAllSecretKeysSpec = do
         sKeys <- lift getSecretKeysPlain
         assertProperty (not $ null sKeys)
             "Something went wrong: Secret key has not been added."
-        _ <- lift $ catch (deleteSecretKeys ProductionMode) (\(_ :: SomeException) -> pure NoContent)
+        _ <- lift $ catch (resetWalletState ProductionMode) (\(_ :: SomeException) -> pure NoContent)
         -- ^ Catch `ServantErr` throwing from `deleteSecretKeys` to not fail the test before end
         sKeys' <- lift getSecretKeysPlain
         assertProperty (not $ null sKeys')

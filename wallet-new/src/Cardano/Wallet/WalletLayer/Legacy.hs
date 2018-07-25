@@ -21,9 +21,9 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, Address, NewAccount (..), NewAddress,
-                     NewWallet (..), V1 (..), Wallet, WalletId,
-                     WalletOperation (..), WalletUpdate)
+                     AccountUpdate, Address, BackupPhrase (..),
+                     NewAccount (..), NewAddress, NewWallet (..), V1 (..),
+                     Wallet, WalletId, WalletOperation (..), WalletUpdate)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
@@ -123,7 +123,6 @@ pwlCreateWallet
     => NewWallet
     -> m (Either CreateWalletError Wallet)
 pwlCreateWallet NewWallet{..} = do
-
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
     let backupPhrase     = CBackupPhrase $ unBackupPhrase newwalBackupPhrase
 

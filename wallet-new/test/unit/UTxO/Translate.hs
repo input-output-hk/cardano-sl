@@ -285,7 +285,9 @@ splitEpochs blocks = case spanEpoch blocks of
     go !acc (Just neRem) = case spanEpoch neRem of
       (Right _, _) -> error "Impossible!"
       (Left ebs@(SuccEpochBlocks ebb _), OldestFirst newRem) -> case neEpoch ebs of
-        Nothing   -> ESREmptyEpoch ebb
+        Nothing   -> if null newRem
+                     then ESRValid genEpoch (OldestFirst $ reverse acc)
+                     else ESREmptyEpoch ebb
         Just ebs' -> go (ebs' :  acc) (OldestFirst <$> nonEmpty newRem)
 
 -- | Span the epoch until the next epoch boundary block.

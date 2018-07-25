@@ -632,25 +632,11 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
   int :: forall e m. Monad m
       => DSL.Chain h Addr -> IntT h e m (OldestFirst [] Block)
   int (OldestFirst blocks) = OldestFirst <$>
-      stripFinalEbb . concatMap flatten <$> mapM int blocks
+      concatMap flatten <$> mapM int blocks
     where
       flatten :: (RawResolvedBlock, Maybe GenesisBlock) -> [Block]
       flatten (b, Nothing)  = [Right (rawResolvedBlock b)]
       flatten (b, Just ebb) = [Right (rawResolvedBlock b), Left ebb]
-
-      -- The Cardano verifier has a curious pecularity that we are not allowed to
-      -- have an EBB marking the end of an epoch if the next epoch doesn't have
-      -- at least one block. Not sure why, but here we just strip out the last EBB
-      -- in one linear scan.
-      stripFinalEbb :: [Block] -> [Block]
-      stripFinalEbb = \case
-                         []   -> []
-                         b:bs -> go b bs
-        where
-          go :: Block -> [Block] -> [Block]
-          go      (Left _ebb) []     = []
-          go prev@(Right _)   []     = [prev]
-          go prev             (b:bs) = prev : go b bs
 
 -- | For convenience, we provide an event that corresponds to rollback
 --
@@ -676,7 +662,7 @@ mustBeLeft (Right b) = absurd b
 -------------------------------------------------------------------------------}
 
 -- | NOTE: This is only for debugging. We print only a small subset.
-instance DSL.Hash h Addr => Buildable (IntCtxt h) where
+instance Buildable (IntCtxt h) where
   build IntCtxt{..} = bprint
     ( "IntCtxt {"
     % "  checkpoints: " % listJson

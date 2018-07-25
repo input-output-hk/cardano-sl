@@ -72,12 +72,13 @@ createAccount wallet (V1.WalletId wId) (V1.NewAccount mbSpendingPassword account
                                   Right V1.Account {
                                       accIndex     = accountId ^. HD.hdAccountIdIx
                                                                 . to HD.getHdAccountIx
-                                    , accAddresses =
-                                        IxSet.singleton V1.WalletAddress {
+                                    , accAddresses = [
+                                        V1.WalletAddress {
                                                addrId            = V1.V1 addr
                                              , addrUsed          = False
                                              , addrChangeAddress = False
                                             }
+                                    ]
                                     , accAmount    = V1.V1 (Core.mkCoin 0)
                                     , accName      = accountName
                                     , accWalletId  = V1.WalletId wId
@@ -150,12 +151,12 @@ toV1Account snapshot account =
     let accountAvailableBalance = Kernel.accountAvailableBalance snapshot hdAccountId
         hdAccountId  = account ^. HD.hdAccountId
         accountIndex = account ^. HD.hdAccountId . HD.hdAccountIdIx . to HD.getHdAccountIx
-        addresses    = IxSet.nonMonotonicMap (toWalletAddress snapshot)
-                                             (Kernel.accountAddresses snapshot hdAccountId)
+        hdAddresses  = Kernel.accountAddresses snapshot hdAccountId
+        addresses    = IxSet.toList hdAddresses
         hdRootId     = account ^. HD.hdAccountId . HD.hdAccountIdParent
     in V1.Account {
          accIndex     = accountIndex
-       , accAddresses = addresses
+       , accAddresses = map (toWalletAddress snapshot) addresses
        , accAmount    = V1 accountAvailableBalance
        , accName      = account ^. HD.hdAccountName . to HD.getAccountName
        , accWalletId  = V1.WalletId (sformat build (hdRootId ^. to HD.getHdRootId . fromDb))

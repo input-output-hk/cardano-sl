@@ -172,7 +172,7 @@ instance Migrate V0.CAccount V1.Account where
     eitherMigrate V0.CAccount{..} =
         V1.Account <$> eitherMigrate caId
                    -- ^ accId
-                   <*> (bimap identity IxSet.fromList $ mapM eitherMigrate caAddresses)
+                   <*> mapM eitherMigrate caAddresses
                    -- ^ accAddresses
                    <*> eitherMigrate caAmount
                    -- ^ accAmount

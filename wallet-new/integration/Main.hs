@@ -21,7 +21,7 @@ import           Functions
 import qualified QuickCheckSpecs as QuickCheck
 import           TransactionSpecs (transactionSpecs)
 import           Types
-import           Util (WalletRef, ixSetToList, newWalletRef)
+import           Util (WalletRef, newWalletRef)
 import           WalletSpecs (walletSpecs)
 
 -- | Here we want to run main when the (local) nodes
@@ -88,7 +88,7 @@ initialWalletState wc = do
     -- Lets set all wallet passwords for initial wallets (genesis) to default (emptyPassphrase)
     let _lastAction       = NoOp
         _walletsPass      = fromList $ map ((, V1 mempty) . walId) _wallets
-        _addresses        = concatMap (ixSetToList . accAddresses) _accounts
+        _addresses        = concatMap accAddresses _accounts
         -- TODO(akegalj): I am not sure does importing a genesis wallet (which we do prior launching integration tests) creates a transaction
         -- If it does, we should add this transaction to the list
         _transactions     = mempty

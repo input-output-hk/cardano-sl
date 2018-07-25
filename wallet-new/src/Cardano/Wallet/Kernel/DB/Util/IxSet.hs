@@ -24,15 +24,14 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , fromList
   , singleton
   , omap
-  , nonMonotonicMap
   , otraverse
   , emptyIxSet
-  -- * Testing only
-  , someMember
+    -- * Destruction
+  , toList
   ) where
 
 import qualified Prelude
-import           Universum hiding (Foldable, null)
+import           Universum hiding (Foldable, null, toList)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
@@ -45,10 +44,6 @@ import qualified Data.Set as Set
 import qualified Data.Traversable
 
 -- Imports needed for the various instances
-import           Data.Aeson
-import           Data.Swagger.Internal.Schema (unnamed)
-import           Data.Swagger.Schema (ToSchema (..), declareNamedSchema,
-                     declareSchema)
 import           Formatting (bprint, build)
 import qualified Formatting.Buildable
 import           Pos.Core.Util.LogSafe (BuildableSafe, SecureLog, buildSafeList,
@@ -225,14 +220,6 @@ omap f =
     . IxSet.toSet
     . unwrapIxSet
 
-nonMonotonicMap :: forall a b. Indexable b
-                => (a -> b) -> IxSet a -> IxSet b
-nonMonotonicMap f = WrapIxSet
-                  . IxSet.fromSet
-                  . Set.map (coerce f)
-                  . IxSet.toSet
-                  . unwrapIxSet
-
 -- | Monomorphic traversal over an 'IxSet'
 --
 -- NOTE: This rebuilds the entire 'IxSet'. Potentially expensive.
@@ -246,36 +233,20 @@ emptyIxSet :: forall a.
 emptyIxSet = WrapIxSet IxSet.empty
 
 {-------------------------------------------------------------------------------
-  Testing functions
+  Destruction
 -------------------------------------------------------------------------------}
 
--- | Retrieves @some@ element of the input 'IxSet', if any.
--- This function is still useful for things like integration tests.
---
--- The returned first element is literally the first entry in the underlying
--- storage, in no particular order and as such no ordering should be assumed.
-someMember :: IxSet a -> Maybe a
-someMember (WrapIxSet ixs) =
-    case IxSet.toList ixs of
-         []    -> Nothing
-         (x:_) -> Just (unwrapOrdByPrimKey x)
+-- | Converts the 'IxSet' back into a plain list. You need to use this function
+-- with care as unwrapping the 'IxSet' means losing the performance advantages
+-- of using it in the first place.
+-- You probably want to use this function only at application boundaries, i.e.
+-- before the data gets consumed by the web handlers.
+toList :: IxSet a -> [a]
+toList = map unwrapOrdByPrimKey . IxSet.toList . unwrapIxSet
 
 {-------------------------------------------------------------------------------
   Other miscellanea instances for IxSet
 -------------------------------------------------------------------------------}
-
-instance (Indexable a, FromJSON a) => FromJSON (IxSet a) where
-    parseJSON = fmap fromList . parseJSON
-
-instance (HasPrimKey a, ToJSON a) => ToJSON (IxSet a) where
-    toJSON = toJSON . map unwrapOrdByPrimKey
-                    . IxSet.toList
-                    . unwrapIxSet
-
-instance ToSchema a => ToSchema (IxSet a) where
-  declareNamedSchema _ = do
-    schema <- declareSchema (Proxy :: Proxy (Set a))
-    return $ unnamed $ schema
 
 instance (Indexable a, Arbitrary a) => Arbitrary (IxSet a) where
     arbitrary = fromList <$> arbitrary

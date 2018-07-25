@@ -18,7 +18,7 @@ import           Serokell.Util (pairF)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..))
 import           Pos.Core (BlockCount, GenesisWStakeholders)
-import           Pos.Txp (TxpGlobalSettings)
+import           Pos.DB.Txp (TxpGlobalSettings)
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams

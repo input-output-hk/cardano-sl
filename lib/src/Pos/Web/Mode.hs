@@ -20,7 +20,7 @@ import           Pos.DB.Block (dbGetSerBlockRealDefault,
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
 

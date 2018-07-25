@@ -20,10 +20,10 @@ import           Universum
 
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (ProtocolMagic, hash)
+import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
+                     txpProcessTx)
 import qualified Pos.Infra.Communication.Relay as Relay
 import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
-import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
-                     txpProcessTx)
 
 -- Real tx processing
 -- CHECK: @handleTxDo

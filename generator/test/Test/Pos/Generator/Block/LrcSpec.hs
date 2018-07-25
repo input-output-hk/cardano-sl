@@ -21,9 +21,6 @@ import           Test.QuickCheck (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Block.Logic (applyBlocksUnsafe)
-import qualified Pos.Block.Lrc as Lrc
-import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, GenesisData (..),
                      GenesisInitializer (..), StakeholderId,
                      TestnetBalanceOptions (..), addressHash, blkSecurityParam,
@@ -32,6 +29,10 @@ import           Pos.Core (Coin, EpochIndex, GenesisData (..),
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
+import qualified Pos.DB.Block as Lrc
+import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Lrc as Lrc
@@ -135,7 +136,7 @@ lrcCorrectnessProp = do
     genAndApplyBlockFixedTxs =<< txsBeforeBoundary
     -- At this point we have applied '8 * k' blocks. The current state
     -- will be used in LRC.
-    stableStakes <- lift GS.getAllPotentiallyHugeStakesMap
+    stableStakes <- lift getAllPotentiallyHugeStakesMap
     -- All further blocks will not be considered by LRC for the 1-st
     -- epoch. So we include some transactions to make sure they are
     -- not considered.
@@ -150,7 +151,7 @@ lrcCorrectnessProp = do
                       (InplaceDB True)
     lift $ Lrc.lrcSingleShot dummyProtocolMagic 1
     leaders1 <-
-        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeadersForEpoch 1)
+        maybeStopProperty "No leaders for epoch#1!" =<< lift (LrcDB.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in
@@ -171,9 +172,9 @@ lrcCorrectnessProp = do
 
 checkRichmen :: HasConfigurations => BlockProperty ()
 checkRichmen = do
-    checkRichmenStakes =<< getRichmen (lift . Lrc.tryGetSscRichmen)
-    checkRichmenFull =<< getRichmen (lift . Lrc.tryGetUSRichmen)
-    checkRichmenSet =<< getRichmen (lift . Lrc.tryGetDlgRichmen)
+    checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen)
+    checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen)
+    checkRichmenSet =<< getRichmen (lift . LrcDB.tryGetDlgRichmen)
   where
     toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic) . fromMaybe

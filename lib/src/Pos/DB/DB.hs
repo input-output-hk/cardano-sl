@@ -16,10 +16,10 @@ import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))
+import           Pos.DB.Lrc (prepareLrcDB)
+import           Pos.DB.Update (getAdoptedBVData)
 import           Pos.GState.GState (prepareGStateDB)
-import           Pos.Lrc.DB (prepareLrcDB)
 import           Pos.Lrc.Genesis (genesisLeaders)
-import           Pos.Update.DB (getAdoptedBVData)
 
 -- | Initialize DBs if necessary.
 initNodeDBs

@@ -44,7 +44,6 @@ import           Test.QuickCheck.Gen (Gen)
 import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 
 import           Pos.AllSecrets (HasAllSecrets (..))
-import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
@@ -62,9 +61,16 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBListener (..))
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Pure (DBPureVar)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
+                     recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
+                     txpMemPool, txpTip)
+import           Pos.DB.Update (UpdateContext)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
@@ -80,15 +86,9 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Lrc (LrcContext)
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),
-                     TxpGlobalSettings, TxpHolderTag, recordTxpMetrics,
-                     txNormalize, txProcessTransactionNoLock, txpMemPool,
-                     txpTip)
-import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)

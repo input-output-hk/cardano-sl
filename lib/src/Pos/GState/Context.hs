@@ -14,13 +14,13 @@ import           Universum
 import           Control.Lens (lens, makeClassy)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Slog (HasSlogGState (..), SlogGState,
-                     cloneSlogGState)
+import           Pos.Block.Slog (HasSlogGState (..), SlogGState)
+import           Pos.DB.Block (cloneSlogGState)
+import           Pos.DB.Lrc (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.DB.Pure (cloneDBPure)
 import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
                      cloneSlottingVar, slottingVar)
-import           Pos.Lrc.Context (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | This type contains DB and in-memory contexts which basically

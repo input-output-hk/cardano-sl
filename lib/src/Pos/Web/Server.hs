@@ -48,13 +48,13 @@ import           Pos.Core (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
+import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
-import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs,
-                     withTxpLocalData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
@@ -285,7 +285,7 @@ getLeaders maybeEpoch = do
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
 getUtxo :: HasConfiguration => WebMode ext [TxOut]
-getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
+getUtxo = map toaOut . toList <$> getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: Default ext => WebMode ext Word
 getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs

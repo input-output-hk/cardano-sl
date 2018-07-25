@@ -19,7 +19,8 @@ import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin,
                      unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
 import           Pos.Core.Ssc (SharesDistribution)
-import           Pos.Lrc (RichmenStakes, RichmenType (RTUsual), findRichmenPure)
+import           Pos.DB.Lrc (RichmenType (..), findRichmenPure)
+import           Pos.Lrc (RichmenStakes)
 import           Pos.Ssc (SscVerifyError, computeSharesDistrPure,
                      isDistrInaccuracyAcceptable, sharesDistrMaxSumDistr)
 

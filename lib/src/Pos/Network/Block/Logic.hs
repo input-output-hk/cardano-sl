@@ -28,9 +28,6 @@ import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.Error (ApplyBlocksException)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader,
-                     lcaWithMainChain, verifyAndApplyBlocks)
-import qualified Pos.Block.Logic as L
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
                      headerHashG, isMoreDifficult, prevBlockL)
@@ -42,7 +39,10 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Crypto (ProtocolMagic, shortHashF)
-import qualified Pos.DB.Block.Load as DB
+import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
+                     lcaWithMainChain, verifyAndApplyBlocks)
+import qualified Pos.DB.Block as L
+import qualified Pos.DB.Block as DB
 import           Pos.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
 import           Pos.Infra.Communication.Protocol (NodeId)

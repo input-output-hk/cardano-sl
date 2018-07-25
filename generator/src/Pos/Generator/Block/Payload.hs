@@ -32,14 +32,13 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
                      TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..),
                      fakeSigner, hash, toPublic)
+import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
                      MonadBlockGenBase)
 import           Pos.Generator.Block.Param (HasBlockGenParams (..),
                      HasTxGenParams (..))
-import qualified Pos.GState as DB
-import           Pos.Txp.MemState.Class (MonadTxpLocal (..))
-import           Pos.Txp.Toil (Utxo, execUtxoM, utxoToLookup)
+import           Pos.Txp (Utxo, execUtxoM, utxoToLookup)
 import qualified Pos.Txp.Toil.Utxo as Utxo
 import qualified Pos.Util.Modifier as Modifier
 
@@ -130,7 +129,7 @@ genTxPayload pm = do
     -- 'invAddrSpendingData' so 'GenTxData' is consistent.
     let knowSecret (toaOut -> txOut) =
             txOutAddress txOut `HM.member` invAddrSpendingData
-    utxo <- M.filter knowSecret <$> lift DB.getAllPotentiallyHugeUtxo
+    utxo <- M.filter knowSecret <$> lift getAllPotentiallyHugeUtxo
     let gtd = GenTxData utxo (V.fromList $ M.keys utxo)
     flip evalStateT gtd $ do
         (a,d) <- lift $ view tgpTxCountRange

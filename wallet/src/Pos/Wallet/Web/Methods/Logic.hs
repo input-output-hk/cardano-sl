@@ -47,10 +47,10 @@ import           Pos.Core (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches,
                      emptyPassphrase)
-import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Txp (GenericTxpLocalData, MonadTxpMem, TxAux, TxId,
-                     UndoMap, applyUtxoModToAddrCoinMap, getLocalTxs,
+import           Pos.DB.Txp (GenericTxpLocalData, MonadTxpMem, getLocalTxs,
                      getLocalUndos, withTxpLocalData)
+import           Pos.Infra.Slotting (MonadSlots)
+import           Pos.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Util (maybeThrow)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
@@ -360,7 +360,7 @@ changeWalletPassphrase wid oldPass newPass = do
 ----------------------------------------------------------------------------
 
 -- | Get local transactions and undos from the mempool.
---   We define this function here rather than in 'Pos.Txp.MemState.Class'
+--   We define this function here rather than in 'Pos.DB.Txp.MemState.Class'
 --   because it is less composable than the functions defined there - it
 --   obfuscates the underlying structure. But hlint complains if we refuse
 --   to unroll each of the uses in this module.

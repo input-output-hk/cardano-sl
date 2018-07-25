@@ -15,11 +15,11 @@ import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Core (gdBootStakeholders, genesisData)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
+import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
                      tgpTxCountRange)
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Lang.Value (GenBlocksParams (..))

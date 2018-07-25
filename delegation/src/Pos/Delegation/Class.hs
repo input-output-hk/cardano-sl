@@ -13,7 +13,6 @@ module Pos.Delegation.Class
        , dwTip
 
        , DelegationVar
-       , mkDelegationVar
 
        , MonadDelegation
        , askDelegationState
@@ -26,11 +25,7 @@ import qualified Data.Cache.LRU as LRU
 import           Data.Time.Clock (UTCTime)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core (HeaderHash, ProxySKHeavy, headerHash)
-import           Pos.DB (MonadBlockDBRead)
-import           Pos.DB.BlockIndex (getTipHeader)
-import           Pos.Delegation.Configuration (HasDlgConfiguration,
-                     dlgCacheParam)
+import           Pos.Core (HeaderHash, ProxySKHeavy)
 import           Pos.Delegation.Types (DlgMemPool)
 import           Pos.Util.Util (HasLens (..))
 
@@ -63,25 +58,6 @@ makeLenses ''DelegationWrap
 -- 'StateLock' for thread communication, this is used mostly as
 -- 'IORef' with atomic updates.
 type DelegationVar = TVar DelegationWrap
-
--- | Make a new 'DelegationVar' and initialize it. Accepts
--- 'dlgCacheParam' as input parameter. It's supposed to be passed from
--- configuration.
---
--- * Sets '_dwEpochId' to epoch of tip.
--- * Initializes mempools/LRU caches.
-mkDelegationVar ::
-       (MonadIO m, MonadBlockDBRead m, HasDlgConfiguration)
-    => m DelegationVar
-mkDelegationVar = do
-    tip <- getTipHeader
-    newTVarIO
-        DelegationWrap
-        { _dwMessageCache = LRU.newLRU (Just dlgCacheParam)
-        , _dwProxySKPool = mempty
-        , _dwPoolSize = 1 -- approximate size of the empty mempool.
-        , _dwTip = headerHash tip
-        }
 
 ----------------------------------------------------------------------------
 -- Class definition

@@ -13,16 +13,15 @@ import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 import           System.Wlog (logInfo)
 
-import           Pos.Block.Logic (BypassSecurityCheck (..),
-                     rollbackBlocksUnsafe)
-import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
-import qualified Pos.DB.Block.Load as DB
+import           Pos.DB.Block (BypassSecurityCheck (..),
+                     ShouldCallBListener (..), rollbackBlocksUnsafe)
+import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))

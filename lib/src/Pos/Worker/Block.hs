@@ -23,14 +23,10 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ,
                      criticalCQBootstrap, fixedTimeCQSec, networkDiameter,
                      nonCriticalCQ, nonCriticalCQBootstrap)
-import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
-                     calcOverallChainQuality, createGenesisBlockAndApply,
-                     createMainBlockAndApply)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
-                     scGlobalSlotMonitorState, scLocalSlotMonitorState,
-                     slogGetLastSlots)
+                     scGlobalSlotMonitorState, scLocalSlotMonitorState)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
                      HasProtocolConstants, SlotId (..), Timestamp (Timestamp),
                      addressHash, blkSecurityParam, difficultyL,
@@ -44,9 +40,13 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
                      MetricMonitorState, noReportMonitor, recordValue)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
+import           Pos.DB.Block (calcChainQualityFixedTime, calcChainQualityM,
+                     calcOverallChainQuality, createGenesisBlockAndApply,
+                     createMainBlockAndApply, slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Delegation.DB (getPskByIssuer)
-import           Pos.Delegation.Logic (getDlgTransPsk)
+import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
+import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
+import           Pos.DB.Update (getAdoptedBVData)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
@@ -61,12 +61,9 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
-import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
-
-import           Pos.Update.DB (getAdoptedBVData)
 
 ----------------------------------------------------------------------------
 -- All workers

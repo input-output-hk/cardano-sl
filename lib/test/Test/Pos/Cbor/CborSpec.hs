@@ -46,6 +46,7 @@ import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.DB.Update.Arbitrary ()
 import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Communication ()

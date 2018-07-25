@@ -18,10 +18,10 @@ import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
                      sublistOf, suchThat, vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
+import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))

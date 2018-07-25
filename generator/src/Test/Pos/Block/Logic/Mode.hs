@@ -58,9 +58,7 @@ import           Test.QuickCheck.Property (Testable)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
                      mkAllSecretsSimple)
-import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub,
-                     onRollbackBlocksStub)
-import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Core (BlockVersionData, CoreConfiguration (..),
                      GenesisConfiguration (..), GenesisInitializer (..),
                      GenesisSpec (..), HasConfiguration, HasProtocolConstants,
@@ -76,11 +74,20 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBListener (..), mkSlogGState,
+                     onApplyBlocksStub, onRollbackBlocksStub)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
+import           Pos.DB.Delegation (mkDelegationVar)
+import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Pure (DBPureVar, newDBPureVar)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration,
-                     mkDelegationVar)
+import           Pos.DB.Ssc (mkSscState)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
+                     mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
+                     txpGlobalSettings)
+import           Pos.DB.Update (UpdateContext, mkUpdateContext)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
@@ -96,13 +103,7 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
-import           Pos.Ssc (SscMemTag, SscState, mkSscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),
-                     TxpGlobalSettings, TxpHolderTag, mkTxpLocalData,
-                     txNormalize, txProcessTransactionNoLock,
-                     txpGlobalSettings)
-import           Pos.Update.Context (UpdateContext, mkUpdateContext)
+import           Pos.Ssc (SscMemTag, SscState)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,

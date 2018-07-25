@@ -79,8 +79,8 @@ import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload,
 import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
                      txpTxs, _txOutputs)
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
+import qualified Pos.DB.Lrc as LrcDB (getLeader)
 import qualified Pos.GState as GS
-import qualified Pos.Lrc as Lrc (getLeader)
 import           Pos.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Explorer.Core (TxExtra (..))
@@ -216,7 +216,7 @@ toBlockEntry (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- Lrc.getLeader $ SlotId epochIndex slotIndex
+    epochSlotLeader   <- LrcDB.getLeader $ SlotId epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex

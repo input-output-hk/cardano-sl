@@ -40,6 +40,12 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.DB.Class (MonadDB, MonadGState)
+import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
+import           Pos.DB.Ssc (getGlobalCerts, getStableCerts,
+                     sscGarbageCollectLocalData, sscGetGlobalState,
+                     sscProcessCertificate, sscProcessCommitment,
+                     sscProcessOpening, sscProcessShares)
+import qualified Pos.DB.Ssc.SecretStorage as SS
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Shutdown (HasShutdownContext)
@@ -47,8 +53,6 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
-import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
-import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
@@ -58,15 +62,9 @@ import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..),
 import           Pos.Ssc.Configuration (HasSscConfiguration, mpcSendInterval)
 import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares,
                      vssThreshold)
-import           Pos.Ssc.Logic (sscGarbageCollectLocalData,
-                     sscProcessCertificate, sscProcessCommitment,
-                     sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Message (SscTag (..))
-import qualified Pos.Ssc.SecretStorage as SS
 import           Pos.Ssc.Shares (getOurShares)
-import           Pos.Ssc.State (getGlobalCerts, getStableCerts,
-                     sscGetGlobalState)
 import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
 import           Pos.Ssc.Types (HasSscContext (..), scBehavior,
                      scParticipateSsc, scVssKeyPair, sgsCommitments)

@@ -72,13 +72,13 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault,
                      dbGetDefault, dbIterSourceDefault, dbPutDefault,
                      dbWriteBatchDefault, openNodeDBs)
+import           Pos.DB.Update (affirmUpdateInstalled)
 import           Pos.Infra.Reporting.Http (sendReport)
 import           Pos.Infra.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 import           Pos.Network.Update.Download (installerHash)
 import           Pos.ReportServer.Report (ReportType (..))
-import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException,
                      postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo,

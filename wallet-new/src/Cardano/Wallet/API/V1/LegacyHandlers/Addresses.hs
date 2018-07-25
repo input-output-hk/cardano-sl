@@ -14,7 +14,7 @@ import           Servant
 
 import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase)
-import qualified Pos.Txp as V0 (withTxpLocalData)
+import qualified Pos.DB.Txp as V0 (withTxpLocalData)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes as V0
 import           Pos.Wallet.Web.ClientTypes.Types (CAccount (..))

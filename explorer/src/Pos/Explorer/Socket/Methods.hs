@@ -63,7 +63,6 @@ import qualified Data.Set as S
 import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
-import qualified Pos.Block.Logic as DB
 import           Pos.Block.Types (Blund)
 import           Pos.Core (Address, HeaderHash)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
@@ -72,10 +71,11 @@ import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
                      txpTxs)
 import           Pos.Crypto (hash, withHash)
 import           Pos.DB.Block (getBlund)
+import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.Txp (getTxOut)
 import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
-import qualified Pos.GState as DB
 import           Pos.Util (maybeThrow)
 import           System.Wlog (WithLogger, logDebug, logWarning,
                      modifyLoggerName)
@@ -373,7 +373,7 @@ addrsTouchedByTx
 addrsTouchedByTx tx = do
       -- for each transaction, get its OutTx
       -- and transactions from InTx
-      inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+      inTxs <- forM (_txInputs tx) $ getTxOut >=> \case
       -- inTxs :: NonEmpty [TxOut]
           -- TODO [CSM-153]: lookup mempool as well
           Nothing       -> return mempty

@@ -28,7 +28,6 @@ import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
 import           System.Wlog (HasLoggerName (..))
 
-import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getSecretDefault, modifySecretDefault)
@@ -50,7 +49,11 @@ import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs,
                      gsIsBootstrapEra)
+import           Pos.DB.Block (MonadBListener (..))
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), txNormalize,
+                     txProcessTransaction, txProcessTransactionNoLock)
+import           Pos.DB.Txp.Utxo (getFilteredUtxo)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
@@ -59,10 +62,7 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
-                     txNormalize, txProcessTransaction,
-                     txProcessTransactionNoLock)
-import           Pos.Txp.DB.Utxo (getFilteredUtxo)
+import           Pos.Txp (HasTxpConfiguration)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..))

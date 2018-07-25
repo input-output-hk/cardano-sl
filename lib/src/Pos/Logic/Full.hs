@@ -16,7 +16,6 @@ import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import qualified Pos.Block.Logic as Block
 import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData,
                      HasConfiguration, HeaderHash, ProxySKHeavy, StakeholderId,
@@ -26,20 +25,24 @@ import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)
+import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
                      SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
-import qualified Pos.GState.BlockExtra as DB (resolveForwardLink, streamBlocks)
+import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
+                     sscProcessCommitment, sscProcessOpening, sscProcessShares)
+import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
+import           Pos.DB.Update (getLocalProposalNVotes, getLocalVote,
+                     isProposalNeeded, isVoteNeeded)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)
 import           Pos.Listener.Delegation (DlgListenerConstraint)
 import qualified Pos.Listener.Delegation as Delegation (handlePsk)
 import           Pos.Listener.Txp (TxpMode)
 import qualified Pos.Listener.Txp as Txp (handleTxDo)
-import           Pos.Listener.Update (UpdateMode)
-import qualified Pos.Listener.Update as Update (handleProposal, handleVote)
+import           Pos.Listener.Update (UpdateMode, handleProposal, handleVote)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 import qualified Pos.Network.Block.Logic as Block
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
@@ -48,8 +51,6 @@ import qualified Pos.Recovery as Recovery
 import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Security.Util (shouldIgnorePkAddress)
-import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate,
-                     sscProcessCommitment, sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.Mem (sscRunLocalQuery)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
@@ -57,9 +58,6 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
                      tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (getMemPool, withTxpLocalData)
-import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes,
-                     getLocalVote, isProposalNeeded, isVoteNeeded)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
@@ -110,7 +108,7 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
         getSerializedBlock = DB.dbGetSerBlock
 
         streamBlocks :: HeaderHash -> Producer SerializedBlock m ()
-        streamBlocks = DB.streamBlocks DB.dbGetSerBlock DB.resolveForwardLink
+        streamBlocks = Block.streamBlocks DB.dbGetSerBlock Block.resolveForwardLink
 
         getTip :: m Block
         getTip = DB.getTipBlock
@@ -161,18 +159,18 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
-            , handleInv = Update.isProposalNeeded . unTagged
-            , handleReq = Update.getLocalProposalNVotes . unTagged
-            , handleData = Update.handleProposal pm
+            , handleInv = isProposalNeeded . unTagged
+            , handleReq = getLocalProposalNVotes . unTagged
+            , handleData = handleProposal pm
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
 
         postVote = KeyVal
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
-            , handleInv = \(Tagged (id, pk, dec)) -> Update.isVoteNeeded id pk dec
-            , handleReq = \(Tagged (id, pk, dec)) -> Update.getLocalVote id pk dec
-            , handleData = Update.handleVote pm
+            , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
+            , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
+            , handleData = handleVote pm
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)

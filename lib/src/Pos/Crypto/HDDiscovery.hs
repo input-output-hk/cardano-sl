@@ -18,7 +18,7 @@ import           Pos.Core.Txp (toaOut, txOutAddress)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
                      unpackHDAddressAttr)
 import           Pos.DB.Class (DBTag (GStateDB), MonadDBRead, dbIterSource)
-import           Pos.Txp.DB (UtxoIter)
+import           Pos.DB.Txp (UtxoIter)
 
 discoverHDAddress ::
        (MonadDBRead m, MonadUnliftIO m)

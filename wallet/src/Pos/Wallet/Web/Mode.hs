@@ -54,6 +54,9 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
+                     getUtxoModifier, withTxpLocalData)
+import qualified Pos.DB.Txp as DB
 import           Pos.Infra.Network.Types (HasNodeType (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
@@ -67,11 +70,8 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
 import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
-                     MonadTxpMem, Utxo, addrBelongsToSet,
-                     applyUtxoModToAddrCoinMap, getUtxoModifier,
-                     withTxpLocalData)
-import qualified Pos.Txp.DB as DB
+import           Pos.Txp (HasTxpConfiguration, Utxo, addrBelongsToSet,
+                     applyUtxoModToAddrCoinMap)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)

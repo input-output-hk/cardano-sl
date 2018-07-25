@@ -14717,6 +14717,7 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
+, cardano-sl-db-test
 , cardano-sl-delegation
 , cardano-sl-delegation-test
 , cardano-sl-infra
@@ -14907,12 +14908,14 @@ bytestring
 cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
+cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
+cardano-sl-db-test
 cardano-sl-delegation
 cardano-sl-delegation-test
 cardano-sl-infra
@@ -15122,6 +15125,7 @@ base
 cardano-sl
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-db
 cardano-sl-infra
 cardano-sl-txp
 cardano-sl-util
@@ -15368,50 +15372,33 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-delegation-test
-, cardano-sl-lrc
 , cardano-sl-ssc
 , cardano-sl-ssc-test
-, cardano-sl-txp
 , cardano-sl-update
 , cardano-sl-update-test
 , cardano-sl-util
 , cborg
-, conduit
-, containers
 , cpphs
 , criterion
-, cryptonite
-, data-default
 , deepseq
-, directory
 , ekg-core
 , ether
-, exceptions
-, filepath
 , formatting
 , generic-arbitrary
 , hspec
 , lens
-, log-warper
 , mtl
-, pipes
 , QuickCheck
 , random
 , reflection
-, rocksdb-haskell-ng
 , safe-exceptions
 , serokell-util
 , stdenv
-, stm
 , text
 , time-units
-, transformers
 , universum
-, unliftio
-, unordered-containers
 }:
 mkDerivation {
 
@@ -15427,44 +15414,26 @@ libraryHaskellDepends = [
 aeson
 aeson-options
 base
-bytestring
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
 cardano-sl-delegation
-cardano-sl-lrc
 cardano-sl-ssc
-cardano-sl-txp
 cardano-sl-update
 cardano-sl-util
 cborg
-conduit
-containers
-cryptonite
-data-default
 deepseq
-directory
 ekg-core
 ether
-exceptions
-filepath
 formatting
 lens
-log-warper
 mtl
-pipes
 reflection
-rocksdb-haskell-ng
 safe-exceptions
 serokell-util
-stm
 text
 time-units
-transformers
 universum
-unliftio
-unordered-containers
 ];
 libraryToolDepends = [
 cpphs
@@ -16101,30 +16070,51 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-db" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , bytestring
 , cardano-sl-binary
+, cardano-sl-block
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-delegation
+, cardano-sl-lrc
+, cardano-sl-ssc
+, cardano-sl-txp
+, cardano-sl-update
 , cardano-sl-util
 , concurrent-extra
 , conduit
 , containers
 , cpphs
+, cryptonite
 , data-default
 , directory
+, ekg-core
 , ether
 , filepath
 , formatting
 , lens
+, log-warper
+, lrucache
 , memory
+, mmorph
 , mtl
+, pipes
+, reflection
 , resourcet
 , rocksdb-haskell-ng
+, safe-exceptions
 , serokell-util
 , stdenv
+, stm
+, tagged
+, text
+, time-units
 , transformers
 , universum
+, unliftio
+, unordered-containers
 }:
 mkDerivation {
 
@@ -16137,34 +16127,107 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 base
 bytestring
 cardano-sl-binary
+cardano-sl-block
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-delegation
+cardano-sl-lrc
+cardano-sl-ssc
+cardano-sl-txp
+cardano-sl-update
 cardano-sl-util
 concurrent-extra
 conduit
 containers
+cryptonite
 data-default
 directory
+ekg-core
 ether
 filepath
 formatting
 lens
+log-warper
+lrucache
 memory
+mmorph
 mtl
+pipes
+reflection
 resourcet
 rocksdb-haskell-ng
+safe-exceptions
 serokell-util
+stm
+tagged
+text
+time-units
 transformers
 universum
+unliftio
+unordered-containers
 ];
 libraryToolDepends = [
 cpphs
 ];
 doHaddock = false;
 description = "Cardano SL - basic DB interfaces";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-db-test" = callPackage
+({
+  mkDerivation
+, base
+, cardano-sl-binary
+, cardano-sl-block
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-crypto-test
+, cardano-sl-db
+, cardano-sl-delegation-test
+, cardano-sl-update
+, cardano-sl-update-test
+, cardano-sl-util-test
+, generic-arbitrary
+, QuickCheck
+, stdenv
+, universum
+, unordered-containers
+}:
+mkDerivation {
+
+pname = "cardano-sl-db-test";
+version = "1.3.0";
+src = ./../db/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+base
+cardano-sl-binary
+cardano-sl-block
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto-test
+cardano-sl-db
+cardano-sl-delegation-test
+cardano-sl-update
+cardano-sl-update-test
+cardano-sl-util-test
+generic-arbitrary
+QuickCheck
+universum
+unordered-containers
+];
+doHaddock = false;
+description = "Cardano SL - arbitrary instances for cardano-sl-db";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -16177,28 +16240,19 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-core
 , cardano-sl-crypto
-, cardano-sl-db
-, cardano-sl-lrc
 , cardano-sl-util
-, conduit
 , cpphs
 , ether
 , formatting
 , lens
-, log-warper
 , lrucache
-, mmorph
 , mtl
 , reflection
-, resourcet
-, rocksdb-haskell-ng
-, safe-exceptions
 , serokell-util
 , stdenv
 , time
 , transformers
 , universum
-, unliftio
 , unordered-containers
 }:
 mkDerivation {
@@ -16218,26 +16272,17 @@ base
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
-cardano-sl-lrc
 cardano-sl-util
-conduit
 ether
 formatting
 lens
-log-warper
 lrucache
-mmorph
 mtl
 reflection
-resourcet
-rocksdb-haskell-ng
-safe-exceptions
 serokell-util
 time
 transformers
 universum
-unliftio
 unordered-containers
 ];
 libraryToolDepends = [
@@ -16875,7 +16920,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
-, cardano-sl-db
 , cardano-sl-txp
 , cardano-sl-util
 , cardano-sl-util-test
@@ -16910,7 +16954,6 @@ bytestring
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
 cardano-sl-txp
 cardano-sl-util
 conduit
@@ -17223,7 +17266,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-db
 , cardano-sl-lrc
 , cardano-sl-util
 , cardano-sl-util-test
@@ -17232,7 +17274,6 @@ license = stdenv.lib.licenses.mit;
 , cryptonite
 , data-default
 , ether
-, exceptions
 , formatting
 , generic-arbitrary
 , hedgehog
@@ -17245,11 +17286,8 @@ license = stdenv.lib.licenses.mit;
 , parsec
 , QuickCheck
 , reflection
-, rocksdb-haskell-ng
 , serokell-util
 , stdenv
-, stm
-, tagged
 , text
 , time-units
 , transformers
@@ -17271,18 +17309,15 @@ aeson
 aeson-options
 array
 base
-bytestring
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
 cardano-sl-lrc
 cardano-sl-util
 containers
 cryptonite
 data-default
 ether
-exceptions
 formatting
 lens
 log-warper
@@ -17292,10 +17327,7 @@ mono-traversable
 mtl
 parsec
 reflection
-rocksdb-haskell-ng
 serokell-util
-stm
-tagged
 text
 time-units
 transformers
@@ -17599,15 +17631,11 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
-, cardano-sl-db
 , cardano-sl-util
 , cardano-sl-util-test
-, conduit
 , containers
 , cpphs
 , data-default
-, ekg-core
-, ether
 , exceptions
 , fmt
 , formatting
@@ -17617,23 +17645,18 @@ license = stdenv.lib.licenses.mit;
 , lens
 , log-warper
 , memory
-, mmorph
 , mtl
 , neat-interpolation
 , plutus-prototype
 , QuickCheck
 , reflection
-, resourcet
-, rocksdb-haskell-ng
 , safe-exceptions
 , serokell-util
 , stdenv
-, stm
 , template-haskell
 , text
 , transformers
 , universum
-, unliftio
 , unordered-containers
 , vector
 }:
@@ -17655,13 +17678,9 @@ bytestring
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
 cardano-sl-util
-conduit
 containers
 data-default
-ekg-core
-ether
 exceptions
 fmt
 formatting
@@ -17670,21 +17689,16 @@ hashable
 lens
 log-warper
 memory
-mmorph
 mtl
 neat-interpolation
 plutus-prototype
 reflection
-resourcet
-rocksdb-haskell-ng
 safe-exceptions
 serokell-util
-stm
 template-haskell
 text
 transformers
 universum
-unliftio
 unordered-containers
 ];
 libraryToolDepends = [
@@ -17740,37 +17754,27 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , aeson-options
 , base
-, bytestring
 , Cabal
 , cardano-sl-binary
 , cardano-sl-core
 , cardano-sl-crypto
-, cardano-sl-db
-, cardano-sl-lrc
 , cardano-sl-util
-, conduit
-, containers
 , cpphs
 , data-default
 , deepseq
 , ether
-, exceptions
 , formatting
 , hashable
 , lens
 , log-warper
 , mtl
 , reflection
-, resourcet
-, rocksdb-haskell-ng
 , serokell-util
 , stdenv
-, stm
 , tagged
 , time-units
 , transformers
 , universum
-, unliftio
 , unordered-containers
 }:
 mkDerivation {
@@ -17787,35 +17791,25 @@ libraryHaskellDepends = [
 aeson
 aeson-options
 base
-bytestring
 Cabal
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
-cardano-sl-lrc
 cardano-sl-util
-conduit
-containers
 data-default
 deepseq
 ether
-exceptions
 formatting
 hashable
 lens
 log-warper
 mtl
 reflection
-resourcet
-rocksdb-haskell-ng
 serokell-util
-stm
 tagged
 time-units
 transformers
 universum
-unliftio
 unordered-containers
 ];
 libraryToolDepends = [
@@ -17830,13 +17824,11 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
-, cardano-sl-binary
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-update
-, cardano-sl-util-test
 , generic-arbitrary
 , QuickCheck
 , stdenv
@@ -17850,13 +17842,11 @@ version = "1.3.0";
 src = ./../update/test;
 libraryHaskellDepends = [
 base
-cardano-sl-binary
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-update
-cardano-sl-util-test
 generic-arbitrary
 QuickCheck
 universum
@@ -18497,6 +18487,7 @@ bytestring
 cardano-sl
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-ssc
@@ -18586,6 +18577,7 @@ base
 bytestring
 cardano-sl-client
 cardano-sl-core
+cardano-sl-db
 cardano-sl-wallet
 cassava
 connection

@@ -19,6 +19,7 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (HasConfiguration, SlotId (..), blkSecurityParam,
                      genesisBlockVersionData, pcEpochSlots, protocolConstants,
@@ -29,7 +30,6 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)

@@ -57,7 +57,6 @@ library
                      , cardano-sl-db
                      , cardano-sl-generator
                      , cardano-sl-infra
-                     , cardano-sl-update
                      , cardano-sl-util
                      , conduit
                      , constraints

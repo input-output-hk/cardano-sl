@@ -21,8 +21,8 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
+import           Pos.Chain.Update ()
 import qualified Pos.Core as Core
-import           Pos.Update.Configuration ()
 
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0

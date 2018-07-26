@@ -26,8 +26,6 @@ packages:
 - infra/test
 - chain
 - chain/test
-- update
-- update/test
 - block
 - block/test
 - lib
@@ -295,6 +293,8 @@ ghc-options:
   cardano-sl-binary-test: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-block:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-block-test:  -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain:       -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-client:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core-test:   -Werror -Wcompat -fwarn-redundant-constraints
@@ -308,9 +308,6 @@ ghc-options:
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-chain:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-chain-test:  -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-update:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util-test:   -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-wallet:      -Werror -Wcompat -fwarn-redundant-constraints

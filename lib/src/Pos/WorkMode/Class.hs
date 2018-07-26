@@ -23,6 +23,7 @@ import           Pos.Block.Types (MonadLastKnownHeader)
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem)
+import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
@@ -43,8 +44,6 @@ import           Pos.Infra.Slotting.Class (MonadSlots)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Recovery.Types (MonadRecoveryHeader)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Params (UpdateParams)
 import           Pos.Util (HasLens, HasLens')
 
 -- | Bunch of constraints to perform work for real world distributed system.

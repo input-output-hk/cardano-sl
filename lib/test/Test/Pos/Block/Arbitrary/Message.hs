@@ -17,7 +17,7 @@ import qualified Pos.Network.Block.Types as T
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
 -- import           Test.Pos.Chain.Ssc.Arbitrary ()
-import           Test.Pos.Update.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 
 ------------------------------------------------------------------------------------------
 -- Block network types

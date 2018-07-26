@@ -17,6 +17,8 @@ import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Chain.Txp (HasTxpConfiguration, bootDustThreshold)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (addressHash, genesisData)
 import           Pos.Core.Conc (mapConcurrently)
@@ -30,8 +32,6 @@ import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (waitSystemStart)
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion, lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Worker (allWorkers)

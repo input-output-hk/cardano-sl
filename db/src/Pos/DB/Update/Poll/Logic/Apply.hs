@@ -16,6 +16,11 @@ import           Formatting (build, builder, int, sformat, (%))
 import           System.Wlog (logDebug, logInfo, logNotice)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Update (ConfirmedProposalState (..),
+                     DecidedProposalState (..), DpsExtra (..), MonadPoll (..),
+                     MonadPollRead (..), PollVerFailure (..),
+                     ProposalState (..), UndecidedProposalState (..),
+                     UpsExtra (..), psProposal)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
                      HasProtocolConstants, ProtocolMagic, SlotId (..),
                      addressHash, applyCoinPortionUp, coinToInteger,
@@ -36,12 +41,6 @@ import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
                      voteToUProposalState)
 import           Pos.DB.Update.Poll.Logic.Version (verifyAndApplyProposalBVS,
                      verifyBlockVersion, verifySoftwareVersion)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..),
-                     DecidedProposalState (..), DpsExtra (..),
-                     ProposalState (..), UndecidedProposalState (..),
-                     UpsExtra (..), psProposal)
 import           Pos.Util.Some (Some (..))
 
 type ApplyMode m =

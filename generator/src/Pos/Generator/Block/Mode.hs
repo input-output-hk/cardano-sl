@@ -34,6 +34,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
@@ -63,7 +64,6 @@ import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
 
 

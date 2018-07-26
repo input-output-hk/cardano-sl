@@ -15,15 +15,14 @@ module Pos.DB.Update.Poll.Logic.Version
 import           Control.Monad.Except (MonadError, throwError)
 import           Universum
 
+import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
+                     MonadPollRead (..), PollVerFailure (..))
 import           Pos.Core (EpochIndex)
 import           Pos.Core.Update (BlockVersionData (..),
                      BlockVersionModifier (..), SoftwareVersion (..), UpId,
                      UpdateProposal (..))
 import           Pos.DB.Update.Poll.Logic.Base (canBeProposedBV,
                      verifyNextBVMod)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..))
 
 
 -- Here we add check that block version data from proposal is consistent

@@ -16,6 +16,7 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logNotice, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
@@ -26,8 +27,6 @@ import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.StateLock (StateLock)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Params (UpdateParams)
 import           Pos.Util.Util (HasLens (..))
 
 

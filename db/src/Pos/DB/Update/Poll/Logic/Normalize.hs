@@ -16,6 +16,9 @@ import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 import           System.Wlog (logWarning)
 
+import           Pos.Chain.Update (DecidedProposalState (..), LocalVotes,
+                     MonadPoll (..), MonadPollRead (..), PollVerFailure (..),
+                     ProposalState (..), UndecidedProposalState (..))
 import           Pos.Core (Coin, EpochIndex, SlotId (siEpoch), addressHash,
                      applyCoinPortionUp, mkCoin, unsafeAddCoin)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateProposals,
@@ -23,10 +26,6 @@ import           Pos.Core.Update (UpId, UpdateProposal, UpdateProposals,
 import           Pos.Crypto (PublicKey, hash)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyProposal,
                      verifyAndApplyVoteDo)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (DecidedProposalState (..), LocalVotes,
-                     ProposalState (..), UndecidedProposalState (..))
 import           Pos.Util.Util (getKeys, sortWithMDesc)
 
 -- | Normalize given proposals and votes with respect to current Poll

@@ -7,10 +7,10 @@ module Test.Pos.Update.Identity.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
-import qualified Pos.Update as U
+import qualified Pos.Chain.Update as U
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
-import           Test.Pos.Update.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 
 spec :: Spec
 spec = describe "Update system" $ do

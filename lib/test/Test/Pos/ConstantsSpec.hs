@@ -6,8 +6,8 @@ module Test.Pos.ConstantsSpec
 
 import           Universum
 
+import           Pos.Chain.Update (HasUpdateConfiguration, ourSystemTag)
 import           Pos.Core.Update (SystemTag (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration, ourSystemTag)
 
 import           Test.Hspec (Expectation, Spec, describe, it, shouldSatisfy)
 import           Test.Pos.Configuration (withDefUpdateConfiguration)

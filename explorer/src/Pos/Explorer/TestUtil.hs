@@ -35,6 +35,7 @@ import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), GenesisHash (..), HasConfiguration,
@@ -53,7 +54,6 @@ import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      convertToPagedMap)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)

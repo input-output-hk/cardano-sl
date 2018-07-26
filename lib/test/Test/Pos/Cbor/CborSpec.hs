@@ -25,6 +25,7 @@ import           Pos.Binary.Communication ()
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo)
 import qualified Pos.Chain.Ssc as Ssc
 import qualified Pos.Chain.Txp as T
+import qualified Pos.Chain.Update as U
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
@@ -40,13 +41,13 @@ import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
-import qualified Pos.Update as U
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
 import           Test.Pos.Chain.Delegation.Arbitrary ()
 import           Test.Pos.Chain.Ssc.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
@@ -56,7 +57,6 @@ import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
 import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Infra.Arbitrary.Update ()
-import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId

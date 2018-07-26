@@ -16,17 +16,17 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
+import           Pos.Chain.Update (BlockVersionState (..),
+                     ConfirmedProposalState (..), DecidedProposalState (..),
+                     DpsExtra (..), PollModifier (..), PrevValue,
+                     ProposalState (..), USUndo, UndecidedProposalState (..),
+                     UpsExtra (..))
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.DB.Update (PollState (..), psActivePropsIdx)
-import           Pos.Update.Poll.Modifier (PollModifier (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..),
-                     ConfirmedProposalState (..), DecidedProposalState (..),
-                     DpsExtra (..), PrevValue, ProposalState (..), USUndo,
-                     UndecidedProposalState (..), UpsExtra (..))
 
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Arbitrary.Slotting ()
-import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.Modifier ()
 
 instance Arbitrary UpsExtra where

@@ -23,9 +23,9 @@ import           Control.Lens (makePrisms)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 
-import           Pos.Core (StakeholderId, VssCertificate, addressHash,
-                     getCertId)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment)
+import           Pos.Core (StakeholderId, addressHash)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate, getCertId)
 import           Pos.Ssc.Toss.Types (SscTag (..))
 
 class HasSscTag a where

@@ -26,7 +26,7 @@ import           GHC.Generics (Generic)
 
 import           Pos.Client.Txp (TxHistoryEntry (..))
 import           Pos.Core (Address, Coin, mkCoin)
-import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.Infra.StateLock (StateLock (..))
 import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))

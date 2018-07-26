@@ -10,7 +10,6 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core.Configuration ()
 import           Pos.Core.StateLock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import           Pos.Core.Update (UpdatePayload (..), UpdateVote (..))

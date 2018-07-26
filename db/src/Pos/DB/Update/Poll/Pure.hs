@@ -15,8 +15,7 @@ import qualified Data.HashSet as HS
 import           System.Wlog (CanLog, HasLoggerName (..), LogEvent,
                      NamedPureLogger, logDebug, logWarning, runNamedPureLog)
 
-import           Pos.Core (SoftwareVersion (..))
-import           Pos.Core.Update (UpdateProposal (..))
+import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update.Poll.PollState as Poll
 import           Pos.Update.BlockVersion (applyBVM)

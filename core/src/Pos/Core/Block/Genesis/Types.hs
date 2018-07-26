@@ -19,10 +19,10 @@ import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown)
 import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (Hash)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 -- [CSL-199]: maybe we should use ADS.
 -- | Proof of GenesisBody is just a hash of slot leaders list.

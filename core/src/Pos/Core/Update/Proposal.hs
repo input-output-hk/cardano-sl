@@ -21,10 +21,10 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner,
                      SignTag (SignUSProposal), Signature, checkSig, hash,
                      safeSign, safeToPublic)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 import           Pos.Core.Update.BlockVersion
 import           Pos.Core.Update.BlockVersionModifier

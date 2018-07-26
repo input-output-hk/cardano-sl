@@ -25,7 +25,8 @@ import qualified Formatting.Buildable as B
 
 import           Node.Message.Class (Message (..))
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
-import           Pos.Core (ProxySKHeavy, StakeholderId)
+import           Pos.Core (StakeholderId)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Core.Update (UpdateProposal, UpdateVote, uvProposalId)
 import           Pos.Crypto (hash)

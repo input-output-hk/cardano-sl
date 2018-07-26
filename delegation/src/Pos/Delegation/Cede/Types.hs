@@ -18,7 +18,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Universum
 
-import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Core (StakeholderId, addressHash)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (pskIssuerPk)
 import           Pos.Delegation.Types (isRevokePsk)
 

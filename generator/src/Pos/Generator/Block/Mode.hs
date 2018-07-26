@@ -38,6 +38,7 @@ import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
                      HasPrimaryKey (..), SlotId (..), Timestamp,
                      epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
+import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Crypto (SecretKey)
@@ -54,7 +55,6 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings,
                      TxpHolderTag, mkTxpLocalData)
 import           Pos.DB.Update (UpdateContext, mkUpdateContext)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
-import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..),
                      HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState as GS

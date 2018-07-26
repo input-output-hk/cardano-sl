@@ -20,19 +20,19 @@ import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Core (BlockVersionData, ComponentBlock (..),
-                     HasCoreConfiguration, HasGenesisData,
-                     HasProtocolConstants, HeaderHash, epochIndexL,
-                     epochOrSlotG, headerHash)
+import           Pos.Core (ComponentBlock (..), HasCoreConfiguration,
+                     HasGenesisData, HasProtocolConstants, HeaderHash,
+                     epochIndexL, epochOrSlotG, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
 import           Pos.Core.Ssc (SscPayload (..))
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
-import           Pos.Exception (assertionFailed)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)

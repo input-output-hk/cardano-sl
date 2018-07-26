@@ -21,7 +21,7 @@ import           System.Metrics.Counter (Counter)
 import           System.Metrics.Gauge (Gauge)
 import           Universum
 
-import           Pos.System.Metrics.Constants (withCardanoNamespace)
+import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 
 -- | EKG metric values for misbehaviors
 data MisbehaviorMetrics = MisbehaviorMetrics

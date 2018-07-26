@@ -18,7 +18,8 @@ module Pos.DB.Lrc.Consumer.Delegation
 import           Universum
 
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
-                     bvdHeavyDelThd, genesisBlockVersionData)
+                     genesisBlockVersionData)
+import           Pos.Core.Update (bvdHeavyDelThd)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.DB.Lrc.Consumer (LrcConsumer,
                      lrcConsumerFromComponentSimple)

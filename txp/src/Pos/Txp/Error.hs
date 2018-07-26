@@ -9,7 +9,7 @@ import           Formatting (bprint, stext, (%))
 import qualified Formatting.Buildable
 import           Universum
 
-import           Pos.Exception (cardanoExceptionFromException,
+import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
 
 data TxpError

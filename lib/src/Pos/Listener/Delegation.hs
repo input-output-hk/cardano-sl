@@ -14,7 +14,7 @@ import           Formatting (build, sformat, shown, (%))
 import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.DB.Delegation (PskHeavyVerdict (..), processProxySKHeavy)

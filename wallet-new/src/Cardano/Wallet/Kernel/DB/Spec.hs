@@ -38,6 +38,7 @@ import           Formatting.Buildable (build)
 import           Serokell.Util.Text (listJsonIndent)
 
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 import qualified Pos.Txp as Core
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
@@ -49,7 +50,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 
 type Balance = Integer
 
-type PendingTxs = Map Core.TxId Core.TxAux
+type PendingTxs = Map Txp.TxId Txp.TxAux
 
 -- | Pending transactions
 data Pending = Pending {
@@ -62,7 +63,7 @@ emptyPending :: Pending
 emptyPending = Pending . InDb $ mempty
 
 -- | Returns a new, empty 'Pending' set.
-singletonPending :: Core.TxId -> Core.TxAux -> Pending
+singletonPending :: Txp.TxId -> Txp.TxAux -> Pending
 singletonPending txId txAux = Pending . InDb $ M.singleton txId txAux
 
 -- | Computes the union between two 'Pending' sets.
@@ -71,7 +72,7 @@ unionPending (Pending new) (Pending old) =
     Pending (M.union <$> new <*> old)
 
 -- | Computes the difference between two 'Pending' sets.
-removePending :: Set Core.TxId -> Pending -> Pending
+removePending :: Set Txp.TxId -> Pending -> Pending
 removePending ids (Pending (InDb old)) = Pending (InDb $ old `withoutKeys` ids)
     where
         withoutKeys :: Ord k => Map k a -> Set k -> Map k a

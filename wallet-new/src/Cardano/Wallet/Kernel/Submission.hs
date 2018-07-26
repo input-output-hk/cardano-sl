@@ -71,7 +71,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
                      pendingTransactions, removePending, unionPending)
-import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 
 -- | Wallet Submission Layer
 --
@@ -138,13 +138,13 @@ data Schedule = Schedule {
 
 -- | A type representing an item (in this context, a transaction) scheduled
 -- to be regularly sent in a given slot (computed by a given 'RetryPolicy').
-data ScheduleSend = ScheduleSend HdAccountId Core.TxId Core.TxAux SubmissionCount deriving Eq
+data ScheduleSend = ScheduleSend HdAccountId Txp.TxId Txp.TxAux SubmissionCount deriving Eq
 
 -- | A type representing an item (in this context, a transaction @ID@) which
 -- needs to be checked against the blockchain for inclusion. In other terms,
 -- we need to confirm that indeed the transaction identified by the given 'TxId' has
 -- been adopted, i.e. it's not in the local pending set anymore.
-data ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed HdAccountId Core.TxId deriving Eq
+data ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed HdAccountId Txp.TxId deriving Eq
 
 -- | All the events we can schedule for a given 'Slot', partitioned into
 -- 'ScheduleSend' and 'ScheduleEvictIfNotConfirmed'.
@@ -221,7 +221,7 @@ instance Buildable SubmissionCount where
 
 -- | The 'Cancelled' map represents the transactions which needs to be
 -- pruned from the local (and wallet) 'Pending' map.
-type Cancelled = M.Map HdAccountId (Set Core.TxId)
+type Cancelled = M.Map HdAccountId (Set Txp.TxId)
 
 -- | A 'ResubmissionFunction' (@rho@ in the spec), parametrised by an
 -- arbitrary @m@.
@@ -233,7 +233,7 @@ type ResubmissionFunction =  Slot
                           -- ^ Transactions which are due to be sent this 'Slot'.
                           -> Schedule
                           -- ^ The original 'Schedule'.
-                          -> (Schedule, [Core.TxAux])
+                          -> (Schedule, [Txp.TxAux])
                           -- ^ The new 'Schedule' together with the txs to
                           -- send.
 
@@ -297,8 +297,8 @@ addPending accId newPending ws =
                         (unionPending newPending)
     in schedulePending accId newPending ws'
 
--- | Removes the input set of 'Core.TxId' from the local 'WalletSubmission' pending set.
-remPending :: Map HdAccountId (Set Core.TxId)
+-- | Removes the input set of 'Txp.TxId' from the local 'WalletSubmission' pending set.
+remPending :: Map HdAccountId (Set Txp.TxId)
            -> WalletSubmission
            -> WalletSubmission
 remPending pendingMap ws =
@@ -307,7 +307,7 @@ remPending pendingMap ws =
                     ) ws pendingMap
 
 remPendingById :: HdAccountId
-               -> Set Core.TxId
+               -> Set Txp.TxId
                -> WalletSubmission
                -> WalletSubmission
 remPendingById accId ids ws =
@@ -321,7 +321,7 @@ remPendingById accId ids ws =
 -- local 'Pending' set, so it's not necessary to call 'remPending' afterwards.
 tick :: WalletSubmission
      -- ^ The current 'WalletSubmission'.
-     -> (Cancelled, [Core.TxAux], WalletSubmission)
+     -> (Cancelled, [Txp.TxAux], WalletSubmission)
      -- ^ The set of transactions upper layers will need to drop, the
      -- transactions to be sent and the new 'WalletSubmission'.
 tick ws =
@@ -352,7 +352,7 @@ tick ws =
                  Just _  -> M.alter (alterFn txId) accId acc
                  Nothing -> acc
 
-        alterFn :: Core.TxId -> Maybe (Set Core.TxId) -> Maybe (Set Core.TxId)
+        alterFn :: Txp.TxId -> Maybe (Set Txp.TxId) -> Maybe (Set Txp.TxId)
         alterFn txId Nothing  = Just (Set.singleton txId)
         alterFn txId (Just s) = Just (Set.insert txId s)
 
@@ -416,10 +416,10 @@ tickSlot currentSlot ws =
         nursery :: Schedule -> [ScheduleSend]
         nursery (Schedule _ n) = n
 
-        toTx :: ScheduleSend -> WithHash Core.Tx
-        toTx (ScheduleSend _ txId txAux _) =  WithHash (Core.taTx txAux) txId
+        toTx :: ScheduleSend -> WithHash Txp.Tx
+        toTx (ScheduleSend _ txId txAux _) =  WithHash (Txp.taTx txAux) txId
 
-        pendingTxs :: HdAccountId -> M.Map Core.TxId Core.TxAux
+        pendingTxs :: HdAccountId -> M.Map Txp.TxId Txp.TxAux
         pendingTxs accId = ws ^. pendingByAccId accId . pendingTransactions . fromDb
 
         -- Filter the transactions not appearing in the local pending set
@@ -443,7 +443,7 @@ partitionSendable pendingSets xs =
     go xs ((Set.empty, mempty), mempty)
     where
         go :: [ScheduleSend]
-           -> ((Set Core.TxId, [ScheduleSend]), [ScheduleSend])
+           -> ((Set Txp.TxId, [ScheduleSend]), [ScheduleSend])
            -> ([ScheduleSend], [ScheduleSend])
         go [] acc = bimap (reverse . snd) reverse acc
         go (l : ls) ((accCanSendIds, accCanSend), accCannotSend) =
@@ -454,22 +454,22 @@ partitionSendable pendingSets xs =
         -- | A 'ScheduleEvent' is @not@ independent and should not be sent
         -- over the wire if any of the inputs it consumes are mentioned in
         -- the 'Pending' set.
-        dependsOnFutureTx :: Set Core.TxId -> ScheduleSend -> Bool
+        dependsOnFutureTx :: Set Txp.TxId -> ScheduleSend -> Bool
         dependsOnFutureTx canSendIds (ScheduleSend accId _ txAux _) =
-            let inputs = List.foldl' updateFn mempty $ (Core.taTx txAux) ^. Core.txInputs . to NonEmpty.toList
+            let inputs = List.foldl' updateFn mempty $ (Txp.taTx txAux) ^. Txp.txInputs . to NonEmpty.toList
             in any (\tid -> isJust (lookupTx tid accId) && not (tid `Set.member` canSendIds)) inputs
 
-        getTxId :: ScheduleSend -> Core.TxId
+        getTxId :: ScheduleSend -> Txp.TxId
         getTxId (ScheduleSend _ txId _ _) = txId
 
-        lookupTx :: Core.TxId -> HdAccountId -> Maybe Core.TxAux
+        lookupTx :: Txp.TxId -> HdAccountId -> Maybe Txp.TxAux
         lookupTx tid accId =
             M.lookup accId pendingSets >>=
             M.lookup tid . (view (pendingTransactions . fromDb))
 
-        updateFn :: [Core.TxId] -> Core.TxIn -> [Core.TxId]
-        updateFn !acc (Core.TxInUnknown _ _)   = acc
-        updateFn !acc (Core.TxInUtxo txHash _) = txHash : acc
+        updateFn :: [Txp.TxId] -> Txp.TxIn -> [Txp.TxId]
+        updateFn !acc (Txp.TxInUnknown _ _)   = acc
+        updateFn !acc (Txp.TxInUtxo txHash _) = txHash : acc
 
 -- | Extends the 'Schedule' with an extra set of [ScheduleSend] and
 -- [ScheduleEvictIfNotConfirmed]. Useful to force dispatching in tests or simply as
@@ -497,7 +497,7 @@ schedulePending accId pending ws =
     let currentSlot = ws ^. wsState . wssCurrentSlot
     in addToSchedule ws (mapSlot succ currentSlot) toSend mempty
     where
-        toEntry :: (Core.TxId, Core.TxAux) -> ScheduleSend
+        toEntry :: (Txp.TxId, Txp.TxAux) -> ScheduleSend
         toEntry (txId, txAux) = ScheduleSend accId txId txAux (SubmissionCount 0)
 
         toSend :: [ScheduleSend]

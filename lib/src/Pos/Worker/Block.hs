@@ -27,17 +27,17 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId,
-                     HasProtocolConstants, SlotId (..), Timestamp (Timestamp),
-                     addressHash, blkSecurityParam, difficultyL,
-                     epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
-                     getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF,
-                     unflattenSlotId)
+import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
+                     SlotId (..), Timestamp (Timestamp), addressHash,
+                     blkSecurityParam, difficultyL, epochOrSlotToSlot,
+                     epochSlots, flattenSlotId, gbHeader, getEpochOrSlot,
+                     getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
                      MetricMonitorState, noReportMonitor, recordValue)
+import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import           Pos.DB.Block (calcChainQualityFixedTime, calcChainQualityM,

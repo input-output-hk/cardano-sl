@@ -50,9 +50,9 @@ import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
                      walletKeystore)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 
-import           Pos.Core (Address, Coin, Tx (..), TxAux (..), TxOut (..),
-                     TxOutAux (..), unsafeSubCoin)
+import           Pos.Core (Address, Coin, unsafeSubCoin)
 import qualified Pos.Core as Core
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
 
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
                      ShouldCheckPassphrase (..), hash)

@@ -18,13 +18,14 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (AddrStakeDistribution (..), Address,
-                     HeavyDlgIndex (..), SoftwareVersion (..), StakeholderId,
+import           Pos.Core (AddrStakeDistribution (..), Address, StakeholderId,
                      addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
+import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Txp (TxOut (..))
+import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase,
                      encToPublic, fullPublicKeyF, hashHexF, noPassEncrypt,
                      safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)

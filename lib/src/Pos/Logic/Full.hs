@@ -17,13 +17,14 @@ import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Communication (NodeId)
-import           Pos.Core (Block, BlockHeader, BlockVersionData,
-                     HasConfiguration, HeaderHash, ProxySKHeavy, StakeholderId,
-                     TxAux (..), addressHash, getCertId, lookupVss)
+import           Pos.Core (Block, BlockHeader, HasConfiguration, HeaderHash,
+                     StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Ssc (getCommitmentsMap)
-import           Pos.Core.Txp (TxMsgContents (..))
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
+import           Pos.Core.Txp (TxAux (..), TxMsgContents (..))
+import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
+                     UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)

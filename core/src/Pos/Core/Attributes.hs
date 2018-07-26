@@ -4,7 +4,7 @@
 -- Needed primarily for partial serialization. Values are either
 -- parsed and put to some constructor or left as unparsed.
 
-module Pos.Data.Attributes
+module Pos.Core.Attributes
        ( UnparsedFields(..)
        , Attributes (..)
        , areAttributesKnown

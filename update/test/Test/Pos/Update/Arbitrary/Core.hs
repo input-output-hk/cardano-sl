@@ -19,12 +19,12 @@ import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..),
                      UpdateData (..), UpdatePayload (..), UpdateProposal,
                      UpdateProposalToSign (..), UpdateVote (..),
                      mkUpdateProposalWSign, mkUpdateVote)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
-import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
 import           Test.Pos.Core.Arbitrary ()

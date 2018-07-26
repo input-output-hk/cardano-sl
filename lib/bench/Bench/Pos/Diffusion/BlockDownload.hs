@@ -33,9 +33,10 @@ import qualified Node
 import           Pipes (each)
 
 import           Pos.Binary (serialize, serialize')
-import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash)
+import           Pos.Core (Block, BlockHeader, HeaderHash)
 import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
+import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)

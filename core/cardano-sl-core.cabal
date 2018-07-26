@@ -73,11 +73,11 @@ library
                        Pos.Core.Util.LogSafe
                        Pos.Core.Util.TimeLimit
 
-                       Pos.Data.Attributes
-                       Pos.Exception
-                       Pos.Merkle
+                       Pos.Core.Attributes
+                       Pos.Core.Exception
+                       Pos.Core.Merkle
 
-                       Pos.System.Metrics.Constants
+                       Pos.Core.Metrics.Constants
 
   other-modules:
                        -- Binary

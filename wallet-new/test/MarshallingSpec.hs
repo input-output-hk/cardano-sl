@@ -20,6 +20,7 @@ import qualified Test.QuickCheck.Property as Property
 import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Core as Core
+import qualified Pos.Core.Update as Core
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.V1.Errors (WalletError)

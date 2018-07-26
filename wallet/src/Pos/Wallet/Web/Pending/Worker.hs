@@ -20,11 +20,11 @@ import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (HasNodeConfiguration,
                      pendingTxResubmitionPeriod, walletTxCreationDisabled)
-import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux,
-                     difficultyL)
+import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Conc (delay, forConcurrently)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)

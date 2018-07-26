@@ -23,11 +23,10 @@ import           Serokell.Util.Verify (isVerSuccess)
 
 import           Pos.Core (EpochIndex (..), HasGenesisData,
                      HasProtocolConstants, IsMainHeader, SlotId (..),
-                     StakeholderId, VssCertificatesMap, genesisVssCerts,
-                     headerSlotL)
+                     StakeholderId, genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting (crucialSlot)
-import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap),
-                     SscPayload (..))
+import           Pos.Core.Ssc (CommitmentsMap (..), SscPayload (..),
+                     VssCertificatesMap)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId,
                      isSharesId, verifySignedCommitment, vssThreshold)

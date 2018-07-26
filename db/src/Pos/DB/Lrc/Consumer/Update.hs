@@ -18,7 +18,8 @@ module Pos.DB.Lrc.Consumer.Update
 import           Universum
 
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
-                     bvdUpdateVoteThd, genesisBlockVersionData)
+                     genesisBlockVersionData)
+import           Pos.Core.Update (bvdUpdateVoteThd)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.DB.Lrc.Consumer (LrcConsumer,
                      lrcConsumerFromComponentSimple)

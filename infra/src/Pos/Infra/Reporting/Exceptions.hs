@@ -14,7 +14,7 @@ import           Control.Exception.Safe (Exception (..))
 import           Formatting (bprint, shown, stext, string, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Exception (cardanoExceptionFromException,
+import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
 
 data ReportingError

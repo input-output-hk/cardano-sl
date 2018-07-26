@@ -76,12 +76,12 @@ import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
                      unsafeGetCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload,
                      mcdSlot)
+import           Pos.Core.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
                      txpTxs, _txOutputs)
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.DB.Lrc as LrcDB (getLeader)
 import qualified Pos.GState as GS
-import           Pos.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)

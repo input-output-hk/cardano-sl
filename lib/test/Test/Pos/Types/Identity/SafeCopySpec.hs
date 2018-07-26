@@ -9,6 +9,7 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 
 import qualified Pos.Core as Core
+import qualified Pos.Core.Ssc as Ssc
 import qualified Pos.Core.Txp as Txp
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
@@ -26,7 +27,7 @@ spec = withDefConfiguration $ \_ -> describe "Types" $ do
         safeCopyTest @Core.Address
         safeCopyTest @Core.SharedSeed
         safeCopyTest @Core.ChainDifficulty
-        safeCopyTest @Core.VssCertificate
+        safeCopyTest @Ssc.VssCertificate
 
         safeCopyTest @Txp.TxInWitness
         safeCopyTest @Txp.TxIn

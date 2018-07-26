@@ -20,12 +20,13 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
 
 import           Pos.Binary (AsBinary)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
-                     StakeholderId, VssCertificate (..),
-                     VssCertificatesMap (..), addressHash, crucialSlot,
-                     genesisBlockVersionData, insertVss, mkCoin, _vcVssKey)
+                     StakeholderId, addressHash, crucialSlot,
+                     genesisBlockVersionData, mkCoin)
 import           Pos.Core.Ssc (Commitment, CommitmentSignature,
                      CommitmentsMap (..), InnerSharesMap, Opening, OpeningsMap,
-                     SharesMap, SignedCommitment, mkCommitmentsMapUnsafe)
+                     SharesMap, SignedCommitment, VssCertificate (..),
+                     VssCertificatesMap (..), insertVss,
+                     mkCommitmentsMapUnsafe, _vcVssKey)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey,
                      SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types (RichmenStakes)

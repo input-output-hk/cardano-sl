@@ -16,8 +16,8 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
+import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto.Hashing as Crypto
-import qualified Pos.Data.Attributes as Core
 
 import           Cardano.Wallet.API.Response.JSend
                      (ResponseStatus (ErrorStatus))

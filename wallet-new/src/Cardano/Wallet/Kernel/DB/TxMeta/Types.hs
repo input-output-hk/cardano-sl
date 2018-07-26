@@ -47,6 +47,7 @@ import           Serokell.Util.Text (listJsonIndent, mapBuilder)
 import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)
 
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 
 import           Test.Pos.Core.Arbitrary ()
 
@@ -61,7 +62,7 @@ import           Test.Pos.Core.Arbitrary ()
 -- does not need a 'SafeCopy' instance), because this will grow without bound.
 data TxMeta = TxMeta {
       -- | Transaction ID
-      _txMetaId         :: Core.TxId
+      _txMetaId         :: Txp.TxId
 
       -- | Total amount
       --
@@ -122,16 +123,16 @@ isomorphicTo t1 t2 =
 
 
 data InvariantViolation =
-        DuplicatedTransactionWithDifferentHash Core.TxId
-        -- ^ When attempting to insert a new 'MetaTx', the 'Core.TxId'
+        DuplicatedTransactionWithDifferentHash Txp.TxId
+        -- ^ When attempting to insert a new 'MetaTx', the 'Txp.TxId'
         -- identifying this transaction was already present in the storage,
         -- but when computing the 'Hash' of two 'TxMeta', these values were not
         -- the same, meaning somebody is trying to re-insert the same 'Tx' in
         -- the storage with different values (i.e. different inputs/outputs etc)
         -- and this is effectively an invariant violation.
-      | DuplicatedInputIn  Core.TxId
-      | DuplicatedOutputIn Core.TxId
-      | UndisputableLookupFailed Text Core.TxId
+      | DuplicatedInputIn  Txp.TxId
+      | DuplicatedOutputIn Txp.TxId
+      | UndisputableLookupFailed Text Txp.TxId
         -- ^ When looking up a transaction which the storage claims to be
         -- already present as a duplicate, such lookup failed. This is an
         -- invariant violation because a 'TxMeta' storage is append-only,
@@ -209,7 +210,7 @@ data SortCriteria =
 data MetaDBHandle = MetaDBHandle {
       closeMetaDB   :: IO ()
     , migrateMetaDB :: IO ()
-    , getTxMeta     :: Core.TxId -> IO (Maybe TxMeta)
+    , getTxMeta     :: Txp.TxId -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
     , getTxMetas    :: Offset -> Limit -> Maybe Sorting -> IO [TxMeta]
     }

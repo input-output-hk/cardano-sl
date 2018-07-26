@@ -14,7 +14,8 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 
-import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Core (StakeholderId, addressHash)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (PublicKey)
 import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
 

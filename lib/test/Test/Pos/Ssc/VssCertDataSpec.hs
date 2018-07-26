@@ -18,11 +18,11 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose,
                      (==>))
 
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration,
-                     SlotId (..), VssCertificate (..), getCertId,
-                     getVssCertificatesMap, mkVssCertificate,
-                     slotSecurityParam)
+                     SlotId (..), slotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Core.Ssc (VssCertificate (..), getCertId,
+                     getVssCertificatesMap, mkVssCertificate)
 import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty,
                      expiryEoS, filter, insert, keys, lookup, member,
                      rollbackSsc, runPureToss, setLastKnownSlot,

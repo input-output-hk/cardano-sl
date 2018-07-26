@@ -34,13 +34,15 @@ import           System.Wlog (WithLogger)
 import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
-                     difficultyL, epochIndexL, flattenSlotId, headerHash,
-                     headerHashG, prevBlockL)
+import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
+                     epochIndexL, flattenSlotId, headerHash, headerHashG,
+                     prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
+import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
@@ -55,7 +57,6 @@ import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull)
-import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Util (_neHead, _neLast)

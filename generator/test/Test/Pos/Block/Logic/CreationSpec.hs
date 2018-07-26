@@ -18,14 +18,13 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
 
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Communication ()
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration,
-                     SlotId (..), blkSecurityParam, genesisBlockVersionData,
-                     mkVssCertificatesMapLossy, pcEpochSlots,
-                     protocolConstants, unsafeMkLocalSlotIndexExplicit)
+import           Pos.Core (HasConfiguration, SlotId (..), blkSecurityParam,
+                     genesisBlockVersionData, pcEpochSlots, protocolConstants,
+                     unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Block (BlockHeader, MainBlock)
-import           Pos.Core.Ssc (SscPayload (..))
+import           Pos.Core.Ssc (SscPayload (..), mkVssCertificatesMapLossy)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Core.Update (UpdatePayload (..))
+import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Pos.Delegation (DlgPayload, ProxySKBlockInfo)

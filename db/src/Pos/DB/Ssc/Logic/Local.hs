@@ -28,13 +28,13 @@ import           Serokell.Util (magnify')
 import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (BlockVersionData (..), EpochIndex, HasGenesisData,
-                     HasProtocolConstants, SlotId (..), StakeholderId,
-                     VssCertificate, epochIndexL,
-                     mkVssCertificatesMapSingleton)
+import           Pos.Core (EpochIndex, HasGenesisData, HasProtocolConstants,
+                     SlotId (..), StakeholderId, epochIndexL)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     SscPayload (..), mkCommitmentsMap)
+                     SscPayload (..), VssCertificate, mkCommitmentsMap,
+                     mkVssCertificatesMapSingleton)
+import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))

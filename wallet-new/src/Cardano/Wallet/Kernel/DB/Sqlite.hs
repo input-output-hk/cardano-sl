@@ -60,6 +60,7 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types (Limit (..), Offset (..),
                      SortCriteria (..), SortDirection (..), Sorting (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
 
@@ -79,11 +80,11 @@ instance Database Sqlite MetaDB
 
 | tx_meta_id | tx_meta_amount | tx_meta_created_at | tx_meta_is_local | tx_meta_is_outgoing |
 |------------+----------------+--------------------+------------------+---------------------|
-| Core.TxId  | Core.Coin      | Core.Timestamp     | Bool             | Bool                |
+| Txp.TxId  | Core.Coin      | Core.Timestamp     | Bool             | Bool                |
 
 --}
 data TxMetaT f = TxMeta {
-      _txMetaTableId         :: Beam.Columnar f Core.TxId
+      _txMetaTableId         :: Beam.Columnar f Txp.TxId
     , _txMetaTableAmount     :: Beam.Columnar f Core.Coin
     , _txMetaTableCreatedAt  :: Beam.Columnar f Core.Timestamp
     , _txMetaTableIsLocal    :: Beam.Columnar f Bool
@@ -108,7 +109,7 @@ mkTxMeta txMeta = TxMeta {
 instance Beamable TxMetaT
 
 instance Table TxMetaT where
-    data PrimaryKey TxMetaT f = TxIdPrimKey (Beam.Columnar f Core.TxId) deriving Generic
+    data PrimaryKey TxMetaT f = TxIdPrimKey (Beam.Columnar f Txp.TxId) deriving Generic
     primaryKey = TxIdPrimKey . _txMetaTableId
 
 instance Beamable (PrimaryKey TxMetaT)
@@ -121,7 +122,7 @@ instance Beamable (PrimaryKey TxMetaT)
 
 | tx_meta_input_address | tx_meta_coin | tx_meta_id |
 |-----------------------+--------------+------------|
-| Core.Address          | Core.Coin    | Core.TxId  |
+| Core.Address          | Core.Coin    | Txp.TxId  |
 
 ** Table 3: ~tx_meta_outputs~
 ** Primary Index: ~tx_meta_output_address~
@@ -129,7 +130,7 @@ instance Beamable (PrimaryKey TxMetaT)
 
 | tx_meta_output_address | tx_meta_coin | tx_meta_id |
 |------------------------+--------------+------------|
-| Core.Address           | Core.Coin    | Core.TxId  |
+| Core.Address           | Core.Coin    | Txp.TxId  |
 
 --}
 
@@ -168,7 +169,7 @@ mkCoinDistribution txMeta getter builder =
         txid          = txMeta ^. Kernel.txMetaId
     in fmap (mk txid) distribution
   where
-      mk :: Core.TxId -> (Core.Address, Core.Coin) -> a
+      mk :: Txp.TxId -> (Core.Address, Core.Coin) -> a
       mk tid (addr, amount) = builder (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
 
 -- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
@@ -197,7 +198,7 @@ mkOutputs txMeta = mkCoinDistribution txMeta Kernel.txMetaOutputs TxOutput
 
 -- Orphans & other boilerplate
 
-instance HasSqlValueSyntax SqliteValueSyntax Core.TxId where
+instance HasSqlValueSyntax SqliteValueSyntax Txp.TxId where
     sqlValueSyntax txid = sqlValueSyntax (sformat hashHexF txid)
 
 instance HasSqlValueSyntax SqliteValueSyntax Core.Coin where
@@ -220,16 +221,16 @@ instance HasSqlValueSyntax SqliteValueSyntax Core.Address where
     sqlValueSyntax addr = sqlValueSyntax (sformat Core.addressF addr)
 
 
-instance HasSqlEqualityCheck SqliteExpressionSyntax Core.TxId
+instance HasSqlEqualityCheck SqliteExpressionSyntax Txp.TxId
 
-instance FromField Core.TxId where
+instance FromField Txp.TxId where
     fromField f = do
         h <- decodeAbstractHash <$> fromField f
         case h of
              Left _     -> returnError Sqlite.ConversionFailed f "not a valid hex hash"
              Right txid -> pure txid
 
-instance FromBackendRow Sqlite Core.TxId
+instance FromBackendRow Sqlite Txp.TxId
 
 instance FromField Core.Coin where
     fromField f = Core.Coin <$> fromField f
@@ -266,9 +267,9 @@ address = DataType (varCharType Nothing Nothing)
 timestamp :: DataType SqliteDataTypeSyntax Core.Timestamp
 timestamp = DataType sqliteBigIntType
 
--- | 'DataType' declaration to convince @Beam@ treating 'Core.TxId(s) as
+-- | 'DataType' declaration to convince @Beam@ treating 'Txp.TxId(s) as
 -- varchars of arbitrary length.
-txId :: IsSql92DataTypeSyntax syntax => DataType syntax Core.TxId
+txId :: IsSql92DataTypeSyntax syntax => DataType syntax Txp.TxId
 txId = DataType (varCharType Nothing Nothing)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Coin(s) as
@@ -400,8 +401,8 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
         reify coinDistr = (,) (_txCoinDistributionTableAddress coinDistr)
                               (_txCoinDistributionTableCoin coinDistr)
 
--- | Fetches a 'Kernel.TxMeta' from the database, given its 'Core.TxId'.
-getTxMeta :: Sqlite.Connection -> Core.TxId -> IO (Maybe Kernel.TxMeta)
+-- | Fetches a 'Kernel.TxMeta' from the database, given its 'Txp.TxId'.
+getTxMeta :: Sqlite.Connection -> Txp.TxId -> IO (Maybe Kernel.TxMeta)
 getTxMeta conn txid = do
     res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
         metas <- SQL.runSelectReturningList txMetaById

@@ -27,10 +27,10 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (Coin, CoinPortion, ProxySKHeavy, StakeholderId,
-                     addressHash, applyCoinPortionUp, gdHeavyDelegation,
-                     genesisData, sumCoins, unGenesisDelegation,
-                     unsafeIntegerToCoin)
+import           Pos.Core (Coin, CoinPortion, StakeholderId, addressHash,
+                     applyCoinPortionUp, gdHeavyDelegation, genesisData,
+                     sumCoins, unGenesisDelegation, unsafeIntegerToCoin)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Lrc.Consumer.Delegation (dlgRichmenComponent,

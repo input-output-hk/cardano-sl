@@ -12,9 +12,10 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (BlockVersionData, EpochIndex, Timestamp)
+import           Pos.Core (EpochIndex, Timestamp)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
                      txProcessTransactionAbstract)

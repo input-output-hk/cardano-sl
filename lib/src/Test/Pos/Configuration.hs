@@ -27,10 +27,11 @@ import qualified Data.Aeson as J
 import           Pos.Block.Configuration (HasBlockConfiguration,
                      withBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
-import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
+import           Pos.Core (HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..),
                      GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)

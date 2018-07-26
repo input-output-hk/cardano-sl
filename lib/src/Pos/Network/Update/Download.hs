@@ -27,11 +27,11 @@ import           System.Directory (doesFileExist)
 import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
+import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
                      UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.DB.Update (UpdateContext (..), isUpdateInstalled)
-import           Pos.Exception (reportFatalError)
 import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Listener.Update (UpdateMode)
 import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)

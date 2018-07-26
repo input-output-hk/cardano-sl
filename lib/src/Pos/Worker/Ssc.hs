@@ -23,17 +23,18 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
-                     StakeholderId, Timestamp (..), VssCertificate (..),
-                     VssCertificatesMap (..), blkSecurityParam, bvdMpcThd,
+                     StakeholderId, Timestamp (..), blkSecurityParam,
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
-                     lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
-                     slotSecurityParam, vssMaxTTL)
+                     mkLocalSlotIndex, slotSecurityParam, vssMaxTTL)
 import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     getCommitmentsMap, randCommitmentAndOpening)
+                     VssCertificate (..), VssCertificatesMap (..),
+                     getCommitmentsMap, lookupVss, memberVss, mkVssCertificate,
+                     randCommitmentAndOpening)
+import           Pos.Core.Update (bvdMpcThd)
 import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
                      randomNumber, randomNumberInRange, runSecureRandom,
                      vssKeyGen)

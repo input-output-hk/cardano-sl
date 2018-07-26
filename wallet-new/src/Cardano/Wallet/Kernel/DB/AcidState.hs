@@ -43,8 +43,8 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
-import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import qualified Pos.Core.Txp as Txp
 import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
@@ -112,7 +112,7 @@ instance Buildable NewPendingError where
         bprint ("NewPendingFailed " % build) npf
 
 newPending :: HdAccountId
-           -> InDb Core.TxAux
+           -> InDb Txp.TxAux
            -> Update DB (Either NewPendingError ())
 newPending accountId tx = runUpdate' . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
@@ -126,7 +126,7 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
 -- is because the submission layer doesn't have the notion of \"which HdWallet
 -- is this transaction associated with?\", but it merely dispatch and cancels
 -- transactions for all the wallets managed by this edge node.
-cancelPending :: Map HdAccountId (InDb (Set Core.TxId)) -> Update DB ()
+cancelPending :: Map HdAccountId (InDb (Set Txp.TxId)) -> Update DB ()
 cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
     forM_ (Map.toList cancelled) $ \(accountId, InDb txids) ->
         -- Here we are deliberately swallowing the possible exception

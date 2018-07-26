@@ -26,6 +26,7 @@ import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic,
                      epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
@@ -36,7 +37,6 @@ import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund, TxpCommonMode,
                      TxpGlobalSettings (..), TxpGlobalVerifyMode)
 import           Pos.DB.Txp.Stakes (StakesOp (..))
 import           Pos.DB.Txp.Utxo (UtxoOp (..))
-import           Pos.Exception (assertionFailed)
 import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
 import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..),

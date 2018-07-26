@@ -22,12 +22,12 @@ import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
                      defaultCoreConfiguration, makePubKeyAddressBoot,
                      makeScriptAddress, mkCoin, sumCoins, withGenesisSpec)
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
                      TxOut (..), TxOutAux (..), TxSigData (..), TxWitness,
                      isTxInUnknown)
 import           Pos.Crypto (ProtocolMagic, SignTag (SignTx), checkSig,
                      fakeSigner, hash, toPublic, unsafeHash, withHash)
-import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script (PlutusError (..), Script)
 import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer,
                      goodIntRedeemer, goodIntRedeemerWithBlah,

@@ -3,7 +3,7 @@
 -- | Merkle tree implementation.
 --
 -- See <https://tools.ietf.org/html/rfc6962>.
-module Pos.Merkle
+module Pos.Core.Merkle
        ( MerkleRoot(..)
        , MerkleTree (..)
        , mtRoot

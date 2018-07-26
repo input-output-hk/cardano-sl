@@ -64,16 +64,16 @@ import           Serokell.Util (listJson)
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
-                     TxSizeLinear (..), bvdTxFeePolicy, calculateTxSizeLinear,
-                     coinToInteger, integerToCoin, isRedeemAddress, mkCoin,
-                     sumCoins, txSizeLinearMinValue, unsafeIntegerToCoin,
-                     unsafeSubCoin)
+                     TxSizeLinear (..), calculateTxSizeLinear, coinToInteger,
+                     integerToCoin, isRedeemAddress, mkCoin, sumCoins,
+                     txSizeLinearMinValue, unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Update (bvdTxFeePolicy)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
                      fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
                      safeToPublic)
-import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Pos.Script (Script)

@@ -59,10 +59,10 @@ import           Test.QuickCheck.Property (Testable)
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
                      mkAllSecretsSimple)
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Core (BlockVersionData, CoreConfiguration (..),
-                     GenesisConfiguration (..), GenesisInitializer (..),
-                     GenesisSpec (..), HasConfiguration, HasProtocolConstants,
-                     SlotId, Timestamp (..), epochSlots, genesisSecretKeys,
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
+                     GenesisInitializer (..), GenesisSpec (..),
+                     HasConfiguration, HasProtocolConstants, SlotId,
+                     Timestamp (..), epochSlots, genesisSecretKeys,
                      withGenesisSpec)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
@@ -70,6 +70,7 @@ import           Pos.Core.Configuration (HasGenesisBlockVersionData,
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))

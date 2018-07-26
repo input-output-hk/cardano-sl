@@ -15,9 +15,10 @@ module Pos.DB.Update.Poll.Logic.Version
 import           Control.Monad.Except (MonadError, throwError)
 import           Universum
 
-import           Pos.Core (EpochIndex, SoftwareVersion (..))
+import           Pos.Core (EpochIndex)
 import           Pos.Core.Update (BlockVersionData (..),
-                     BlockVersionModifier (..), UpId, UpdateProposal (..))
+                     BlockVersionModifier (..), SoftwareVersion (..), UpId,
+                     UpdateProposal (..))
 import           Pos.DB.Update.Poll.Logic.Base (canBeProposedBV,
                      verifyNextBVMod)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))

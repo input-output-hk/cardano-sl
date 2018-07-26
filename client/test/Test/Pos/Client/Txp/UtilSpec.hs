@@ -24,12 +24,12 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      TxOutputs, TxWithSpendings, createMTx, createRedemptionTx,
                      isNotEnoughMoneyTxError)
-import           Pos.Core (Address, BlockVersionData (..), Coeff (..),
-                     TxFeePolicy (..), TxSizeLinear (..),
-                     makePubKeyAddressBoot, makeRedeemAddress,
-                     unsafeIntegerToCoin)
+import           Pos.Core (Address, Coeff (..), TxFeePolicy (..),
+                     TxSizeLinear (..), makePubKeyAddressBoot,
+                     makeRedeemAddress, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
+import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                      fakeSigner, redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)

@@ -18,17 +18,17 @@ import           System.Wlog (logDebug, logInfo, logNotice)
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
                      HasProtocolConstants, HeaderHash, IsMainHeader (..),
-                     ProtocolMagic, SlotId (siEpoch), SoftwareVersion (..),
-                     addressHash, applyCoinPortionUp, blockVersionL,
-                     coinToInteger, difficultyL, epochIndexL, flattenSlotId,
-                     headerHashG, headerSlotL, sumCoins, unflattenSlotId,
-                     unsafeIntegerToCoin)
+                     ProtocolMagic, SlotId (siEpoch), addressHash,
+                     applyCoinPortionUp, coinToInteger, difficultyL,
+                     epochIndexL, flattenSlotId, headerHashG, headerSlotL,
+                     sumCoins, unflattenSlotId, unsafeIntegerToCoin)
+import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Configuration (blkSecurityParam)
-import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
-                     UpdatePayload (..), UpdateProposal (..), UpdateVote (..),
+import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
+                     SoftwareVersion (..), UpId, UpdatePayload (..),
+                     UpdateProposal (..), UpdateVote (..), blockVersionL,
                      bvdUpdateProposalThd, checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
-import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
                      canCreateBlockBV, confirmBlockVersion, isDecided,
                      mkTotNegative, mkTotPositive, mkTotSum, putNewProposal,

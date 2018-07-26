@@ -2,7 +2,7 @@
 
 -- | Exceptions hierarchy in cardano-sl.
 
-module Pos.Exception
+module Pos.Core.Exception
        ( CardanoException (..)
        , cardanoExceptionToException
        , cardanoExceptionFromException

@@ -22,6 +22,7 @@ import           Formatting.Buildable
 import           Serokell.Util (listJson, mapJson)
 
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 import qualified Pos.Txp as Core
 
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -44,7 +45,7 @@ type ResolvedInput = Core.TxOutAux
 -- represented here.
 data ResolvedTx = ResolvedTx {
       -- | Transaction inputs
-      _rtxInputs  :: InDb (NonEmpty (Core.TxIn, ResolvedInput))
+      _rtxInputs  :: InDb (NonEmpty (Txp.TxIn, ResolvedInput))
 
       -- | Transaction outputs
     , _rtxOutputs :: InDb Core.Utxo

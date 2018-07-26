@@ -10,8 +10,8 @@ module Pos.DB.Ssc.Logic.Global
 
 import           Universum
 
-import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..),
-                     vcVssKey)
+import           Pos.Core (EpochIndex (..), SharedSeed)
+import           Pos.Core.Ssc (VssCertificatesMap (..), vcVssKey)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)

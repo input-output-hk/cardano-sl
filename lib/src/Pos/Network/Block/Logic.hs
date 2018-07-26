@@ -35,6 +35,8 @@ import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)
+import           Pos.Core.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
@@ -43,8 +45,6 @@ import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.DB.Block as L
 import qualified Pos.DB.Block as DB
-import           Pos.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion

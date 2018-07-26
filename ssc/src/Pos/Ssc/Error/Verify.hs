@@ -12,7 +12,8 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 import           Universum
 
-import           Pos.Core (EpochIndex, SlotId, StakeholderId, VssCertificate)
+import           Pos.Core (EpochIndex, SlotId, StakeholderId)
+import           Pos.Core.Ssc (VssCertificate)
 
 instance Buildable (StakeholderId, VssCertificate) where
     build (a, b) = bprint ("(id: "%build%" , cert: "%build%")") a b

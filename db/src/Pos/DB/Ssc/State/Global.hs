@@ -19,8 +19,8 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Core (EpochIndex (..), HasGenesisData,
-                     HasProtocolConstants, SlotId (..),
-                     VssCertificatesMap (..))
+                     HasProtocolConstants, SlotId (..))
+import           Pos.Core.Ssc (VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Ssc.Functions (getStableCertsPure)

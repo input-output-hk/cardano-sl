@@ -128,6 +128,8 @@ import           Pos.Aeson.Core ()
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
+import qualified Pos.Core.Update as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
@@ -1186,25 +1188,25 @@ instance BuildableSafeGen Payment where
 ----------------------------------------------------------------------------
 -- TxId
 ----------------------------------------------------------------------------
-instance Arbitrary (V1 Core.TxId) where
+instance Arbitrary (V1 Txp.TxId) where
   arbitrary = V1 <$> arbitrary
 
-instance ToJSON (V1 Core.TxId) where
+instance ToJSON (V1 Txp.TxId) where
   toJSON (V1 t) = String (sformat hashHexF t)
 
-instance FromJSON (V1 Core.TxId) where
+instance FromJSON (V1 Txp.TxId) where
     parseJSON = withText "TxId" $ \t -> do
        case decodeHash t of
            Left err -> fail $ "Failed to parse transaction ID: " <> toString err
            Right a  -> pure (V1 a)
 
-instance FromHttpApiData (V1 Core.TxId) where
+instance FromHttpApiData (V1 Txp.TxId) where
     parseQueryParam = fmap (fmap V1) decodeHash
 
-instance ToHttpApiData (V1 Core.TxId) where
+instance ToHttpApiData (V1 Txp.TxId) where
     toQueryParam (V1 txId) = sformat hashHexF txId
 
-instance ToSchema (V1 Core.TxId) where
+instance ToSchema (V1 Txp.TxId) where
     declareNamedSchema _ = declareNamedSchema (Proxy @Text)
 
 ----------------------------------------------------------------------------
@@ -1342,7 +1344,7 @@ instance BuildableSafeGen TransactionDirection where
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
-  { txId            :: !(V1 Core.TxId)
+  { txId            :: !(V1 Txp.TxId)
   , txConfirmations :: !Word
   , txAmount        :: !(V1 Core.Coin)
   , txInputs        :: !(NonEmpty PaymentDistribution)

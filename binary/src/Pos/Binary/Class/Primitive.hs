@@ -59,8 +59,8 @@ import           Formatting (formatToString, sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base64 (base64F)
 import qualified Serokell.Util.Base64 as B64
-import           Text.JSON.Canonical (FromJSON (..),
-                     JSValue (..), ReportSchemaErrors, ToJSON (..))
+import           Text.JSON.Canonical (FromJSON (..), JSValue (..),
+                     ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
                      enforceSize, toCborError, withWordSize)

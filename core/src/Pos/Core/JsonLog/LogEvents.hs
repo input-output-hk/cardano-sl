@@ -52,7 +52,7 @@ import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
 import           Pos.Core.Block (Block, HeaderHash, gbHeader, gbhPrevBlock,
                      headerHash, headerHashF, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis (genBlockEpoch)
-import           Pos.Core.Block.Main (mainBlockSlot)
+import           Pos.Core.Block.Union (mainBlockSlot)
 import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog)
 import           Pos.Core.JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified Pos.Core.JsonLog.JsonLogT as JL

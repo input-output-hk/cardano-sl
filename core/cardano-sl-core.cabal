@@ -87,10 +87,9 @@ library
                        Pos.Core.Block.Genesis.Lens
                        Pos.Core.Block.Genesis.Instances
                        Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Lens
                        Pos.Core.Block.Main.Instances
                        Pos.Core.Block.Main.Types
-                       Pos.Core.Block.Union.Instances
+                       Pos.Core.Block.Union.ComponentBlock
                        Pos.Core.Block.Union.Types
 
                        -- Common

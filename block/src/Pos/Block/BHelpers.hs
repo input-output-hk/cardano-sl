@@ -26,7 +26,8 @@ import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..),
-                     MainProof, mainBlockEBDataProof)
+                     MainProof)
+import           Pos.Core.Block.Union (mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
@@ -69,7 +70,6 @@ verifyGenesisBlock UnsafeGenericBlock {..} =
 
 verifyMainBlock
     :: ( MonadError Text m
-       , Bi BlockHeader
        , Bi MainProof
        , HasProtocolConstants
        )

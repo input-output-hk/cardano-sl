@@ -26,7 +26,7 @@ import           System.Wlog (LoggerNameBox, launchFromFile, usingLoggerName)
 import           Universum
 
 import           Pos.Infra.Statistics.Ekg
-import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.CompileInfo (retrieveCompileTimeInfo, withCompileInfo)
 
 import           Cardano.Faucet
 
@@ -41,7 +41,7 @@ options :: Parser (FilePath, EkgParams)
 options = (,) <$> configOption <*> ekgParamsOption
 
 main :: IO ()
-main = withCompileInfo $ do
+main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     (cfgFile, (EkgParams eHost ePort)) <- execParser opts
     ekg <- forkServer eHost ePort
     config <- do

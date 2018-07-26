@@ -32,7 +32,8 @@ import           Control.Concurrent.STM.TMVar (TMVar)
 import           Control.Exception.Safe (Exception)
 import           Control.Lens hiding ((.=))
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
-                     (.:), (.:?), (.=))
+                     (.:), (.:?), (.=), Value(..))
+import           Data.Aeson.Types (typeMismatch)
 import           Data.Int (Int64)
 import           Data.Text (Text)
 import           Data.Typeable (Typeable)
@@ -46,7 +47,8 @@ import           Cardano.Wallet.API.V1.Types (AccountIndex, Payment,
                      PaymentSource (..), V1, WalletId (..))
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 import           Pos.Core (Address (..))
-import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Util.Mnemonics (Mnemonic) -- rename when merging to develop branch
+import           Pos.Util.BackupPhrase             (BackupPhrase (..)) -- only for release/1.3.1
 import           Test.QuickCheck (Arbitrary (..), choose)
 import           Test.QuickCheck.Arbitrary.Generic
 import           Universum
@@ -204,7 +206,7 @@ data CreatedWallet = CreatedWallet {
     -- | ID of the created wallet
     _createdWalletId :: WalletId
     -- | 12 word recovery mnemonic
-  , _createdPhrase   :: Mnemonic 12
+  , _createdPhrase   :: BackupPhrase -- "Mnemonic 12" in develop branch
     -- | Index of the account present in the created wallet
   , _createdAcctIdx  :: AccountIndex
     -- | Sending address within the account in the created wallet
@@ -225,6 +227,15 @@ instance FromJSON CreatedWallet where
       <*> v .: "recovery-words"
       <*> v .: "account-index"
       <*> v .: "address"
+
+-- Orphan instance just for release/1.3.1 branch -- remove when merging back
+instance ToJSON BackupPhrase where
+    toJSON (BackupPhrase wrds) = toJSON wrds
+
+-- Orphan instance just for release/1.3.1 branch -- remove when merging back
+instance FromJSON BackupPhrase where
+    parseJSON (Array wrds) = BackupPhrase . toList <$> traverse parseJSON wrds
+    parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
 
 instance Arbitrary CreatedWallet where
     arbitrary = genericArbitrary

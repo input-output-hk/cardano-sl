@@ -17,12 +17,12 @@ module Cardano.Faucet.Metrics (
  , setWalletBalance
  ) where
 
-import           Control.Lens hiding ((.=))
 import           Control.Monad.Except
 import           Control.Monad.Reader
 -- import           Data.Text (Text)
 import qualified System.Metrics.Counter as Counter
 import qualified System.Metrics.Gauge as Gauge
+import           Universum
 
 import           Cardano.Faucet.Types
 import           Pos.Core (Coin (..))

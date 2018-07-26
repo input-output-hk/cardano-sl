@@ -14,19 +14,20 @@ module Cardano.Faucet (
   , module Cardano.Faucet.Init
   ) where
 
+import           Cardano.Faucet.Endpoints
 import           Data.Tagged (retag)
 import           Network.HTTP.Types (hContentType, hLocation, status301)
 import           Network.Wai (responseLBS)
 import           Network.Wai.Application.Static
+import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Servant
+import           Universum
 import           WaiAppStatic.Types (unsafeToPiece)
 
-import           Pos.Util.CompileInfo (HasCompileInfo)
-
-import           Cardano.Faucet.Endpoints
 import           Cardano.Faucet.Init
 import           Cardano.Faucet.Swagger
 import           Cardano.Faucet.Types
+
 
 -- | Combined swagger UI, Faucet API, and home page.
 type FaucetAppAPI = FaucetDoc :<|> FaucetAPI :<|> Raw

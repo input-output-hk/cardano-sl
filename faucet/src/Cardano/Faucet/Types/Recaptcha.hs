@@ -18,19 +18,18 @@ module Cardano.Faucet.Types.Recaptcha
     ) where
 
 import           Control.Exception (Exception, throwIO)
-import           Control.Lens hiding ((.=))
-import           Data.Maybe
+import           Control.Lens (makeLenses, makeWrapped, _Wrapped)
 import           Data.String (IsString)
 import           Network.Wreq (FormParam (..))
 import qualified Network.Wreq as Wreq
 -- import Data.Proxy
 import           Data.Aeson
-import           Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import           Data.Time.Clock (UTCTime)
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
+import           Universum
 
 import           Cardano.Faucet.Types.API
 

@@ -23,7 +23,8 @@ import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader
 import           Servant (Handler (..), ServantErr)
 import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
-                     WithLogger)
+                              WithLogger)
+import           Universum
 
 import           Cardano.Faucet.Types.API
 import           Cardano.Faucet.Types.Config

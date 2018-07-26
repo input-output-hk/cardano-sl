@@ -10,7 +10,7 @@ module Cardano.Faucet.Swagger
     , faucetDoc
     ) where
 
-import           Control.Lens
+import           Control.Lens ((?~))
 import           Control.Monad.Except
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty (encodePretty)
@@ -23,6 +23,7 @@ import           NeatInterpolation
 import           Servant
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI)
+import           Universum
 
 import           Cardano.Wallet.API.V1.Swagger
 import           Pos.Core.Update (SoftwareVersion)

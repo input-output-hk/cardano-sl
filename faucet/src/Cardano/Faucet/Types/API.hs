@@ -20,11 +20,11 @@ module Cardano.Faucet.Types.API (
   ) where
 
 import           Control.Exception
-import           Control.Lens hiding ((.=))
+import           Control.Lens (at, makeLenses, makePrisms, makeWrapped, mapped,
+                               (?~), _Wrapped)
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
-                     (.:), (.=))
+                             (.:), (.=))
 import qualified Data.Char as Char
-import           Data.Monoid ((<>))
 import           Data.Proxy
 import           Data.String (IsString (..))
 import           Data.Swagger
@@ -32,6 +32,7 @@ import           Data.Text (Text)
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
 import           Test.QuickCheck.Arbitrary.Generic
+import           Universum
 import           Web.FormUrlEncoded
 
 import           Cardano.Wallet.API.V1.Types (Transaction, V1 (..))

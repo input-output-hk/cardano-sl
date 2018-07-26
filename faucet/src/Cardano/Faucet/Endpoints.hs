@@ -12,18 +12,16 @@ module Cardano.Faucet.Endpoints (
   , faucetServerAPI
   ) where
 
-import           Control.Lens
-import           Control.Monad (forM_, unless)
+import           Control.Lens (re, to)
+import           Control.Monad (unless)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.ByteString.Lens (packedChars)
-import           Data.Foldable (for_)
-import           Data.Monoid ((<>))
 import           Data.Text.Lazy (fromStrict)
 import           Data.Text.Lazy.Lens (utf8)
 import           Data.Text.Lens
 import           Servant
 import           System.Wlog (LoggerName (..), logError, logInfo, withSublogger)
-
+import Universum
 
 import           Cardano.Wallet.API.V1.Types (Transaction (..), V1, unV1)
 import           Pos.Core (Address (..))
@@ -49,7 +47,7 @@ withdraw :: (MonadFaucet c m) => WithdrawalRequest -> m WithdrawalResult
 withdraw wr = withSublogger (LoggerName "withdraw") $ do
     logInfo "Attempting to send ADA"
     mCaptchaSecret <- view feRecaptchaSecret
-    forM_ mCaptchaSecret $ \captchaSecret -> do
+    whenJust mCaptchaSecret $ \captchaSecret -> do
         let cr = CaptchaRequest captchaSecret (wr ^. gRecaptchaResponse)
         logInfo "Found a secret for recaptcha in config, attempting validation"
         captchaResp <- liftIO $ captchaRequest cr
@@ -63,12 +61,12 @@ withdraw wr = withSublogger (LoggerName "withdraw") $ do
             logError "Withdrawal queue is full"
             throwError $ err503 { errBody = "Withdrawal queue is full" }
         Right wdResp -> do
-            for_ (wdResp ^? _WithdrawalSuccess) $ \txn -> do
+            whenJust (wdResp ^? _WithdrawalSuccess) $ \txn -> do
               let amount = unV1 $ txAmount txn
               logInfo ((txn ^. to show . packed) <> " withdrew: "
                                                 <> (amount ^. to show . packed))
               incWithDrawn amount
-            for_ (wdResp  ^? _WithdrawalError) $ \err -> do
+            whenJust (wdResp  ^? _WithdrawalError) $ \err -> do
                 logError ("Error from wallet: " <> err)
                 throwError $ err503 { errBody = (fromStrict err) ^. re utf8 }
             return wdResp

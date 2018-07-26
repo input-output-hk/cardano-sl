@@ -10,10 +10,9 @@ module Cardano.WalletClient (
 
 import           Cardano.Wallet.API.V1.Types (Payment (..), V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Concurrent.STM.TMVar (TMVar, newEmptyTMVar, takeTMVar)
-import           Control.Lens
+import           Control.Lens (re, to)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader
 import           Crypto.Hash (Blake2b_256, Digest)
@@ -26,6 +25,8 @@ import           Pos.Core (Address (..), Coin (..))
 import           Pos.Crypto.Signing (PassPhrase)
 import           System.Random
 import           System.Wlog (logError, logInfo, withSublogger)
+import           Universum
+
 
 import           Cardano.Faucet.Types
 

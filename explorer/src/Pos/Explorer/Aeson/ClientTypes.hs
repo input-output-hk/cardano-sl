@@ -17,9 +17,11 @@ import           Data.Fixed (showFixed)
 
 import           Pos.Explorer.Web.ClientTypes (CAda (..), CAddress,
                      CAddressSummary, CAddressType, CBlockEntry, CBlockSummary,
-                     CCoin, CGenesisAddressInfo, CGenesisSummary, CHash,
-                     CNetworkAddress, CTxBrief, CTxEntry, CTxId, CTxSummary)
+                     CByteString (..), CCoin, CGenesisAddressInfo,
+                     CGenesisSummary, CHash, CNetworkAddress, CTxBrief,
+                     CTxEntry, CTxId, CTxSummary, CUtxo)
 import           Pos.Explorer.Web.Error (ExplorerError)
+import           Pos.Txp ()
 
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CAddress
@@ -37,6 +39,10 @@ deriveToJSON defaultOptions ''CNetworkAddress
 deriveToJSON defaultOptions ''CTxSummary
 deriveToJSON defaultOptions ''CGenesisSummary
 deriveToJSON defaultOptions ''CGenesisAddressInfo
+deriveToJSON defaultOptions ''CUtxo
+
+instance ToJSON CByteString where
+    toJSON (CByteString bs) = (toJSON.toString) bs
 
 instance ToJSON CAda where
     -- https://github.com/bos/aeson/issues/227#issuecomment-245400284

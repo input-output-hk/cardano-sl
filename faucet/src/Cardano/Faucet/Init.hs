@@ -51,6 +51,7 @@ import           System.Metrics (Store, createCounter, createGauge)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
                      liftLogIO, logDebug, logError, logInfo, withSublogger)
+                     liftLogIO, logDebug, logError, logInfo, withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
                      AssuranceLevel (NormalAssurance), NewWallet (..),

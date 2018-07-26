@@ -1,10 +1,10 @@
-{-# LANGUAGE ConstraintKinds   #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TypeOperators         #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.Faucet (
     FaucetAppAPI
@@ -15,10 +15,10 @@ module Cardano.Faucet (
   ) where
 
 import           Data.Tagged (retag)
-import           Servant
-import           Network.HTTP.Types (status301, hContentType, hLocation)
+import           Network.HTTP.Types (hContentType, hLocation, status301)
 import           Network.Wai (responseLBS)
 import           Network.Wai.Application.Static
+import           Servant
 import           WaiAppStatic.Types (unsafeToPiece)
 
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -44,7 +44,7 @@ faucetHandler home =      (hoistServer faucetDoc liftToM swaggerServer)
 -- frontend.
 serveHomePage :: Maybe FilePath -> Tagged M Application
 serveHomePage (Just home) = retag $ serveDirectoryWebApp' home
-serveHomePage Nothing = Tagged redirectDocs
+serveHomePage Nothing     = Tagged redirectDocs
 
 -- | Same as serveDirectoryWebApp, except with index.html as the index
 -- page.

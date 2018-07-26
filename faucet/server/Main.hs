@@ -28,7 +28,6 @@ import           Pos.Infra.Statistics.Ekg
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Cardano.Faucet
-import           Cardano.Faucet.Swagger
 
 configOption :: Parser FilePath
 configOption = strOption (
@@ -49,9 +48,9 @@ main = withCompileInfo $ do
         either (error . ("Error decoding: " ++)) return ecfg
     runLogger config $ do
       fEnv <- initEnv config (serverMetricStore ekg)
-      let server = hoistServer faucetDocAPI (nat fEnv) faucetHandler
+      let server = hoistServer faucetAppAPI (nat fEnv) (faucetHandler (config ^. fcHomePage))
       _statsd <- liftIO $ forkStatsd (config ^. fcStatsdOpts . _Wrapped') (fEnv ^. feStore)
-      liftIO $ run (config ^. fcPort) (serve faucetDocAPI server)
+      liftIO $ run (config ^. fcPort) (serve faucetAppAPI server)
   where
     opts = info (options <**> helper) (fullDesc <> progDesc "Run the faucet server" <> header "cardano-faucet - A component for requesting ADA")
     runLogger :: FaucetConfig -> LoggerNameBox IO a -> IO a

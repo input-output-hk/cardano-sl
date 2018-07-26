@@ -7,8 +7,7 @@
 module Cardano.Faucet.Swagger
     ( FaucetDoc
     , swaggerServer
-    , faucetDocAPI
-    , faucetHandler
+    , faucetDoc
     ) where
 
 import           Control.Lens
@@ -32,7 +31,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration,
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
                      compileInfo)
 
-import           Cardano.Faucet
+import           Cardano.Faucet.Endpoints
 import           Cardano.Faucet.Types
 import           Servant
 
@@ -40,14 +39,8 @@ import           Servant
 -- | Swagger UI type
 type FaucetDoc = SwaggerSchemaUI "docs" "swagger.json"
 
--- | Combined swagger UI and 'FaucetAPI'
-type FaucetDocAPI = FaucetDoc :<|> FaucetAPI
-
 faucetDoc :: Proxy FaucetDoc
 faucetDoc = Proxy
-
-faucetDocAPI :: Proxy FaucetDocAPI
-faucetDocAPI = Proxy
 
 --------------------------------------------------------------------------------
 -- | Snippet for current cardano version
@@ -85,7 +78,3 @@ mkSwagger compileInfo walletAPI = toSwagger walletAPI
 -- | Server for the swagger UI
 swaggerServer :: (HasCompileInfo) => Server FaucetDoc
 swaggerServer = swaggerSchemaUIServer (mkSwagger compileInfo faucetServerAPI)
-
-
-faucetHandler :: HasCompileInfo => ServerT FaucetDocAPI M
-faucetHandler = (hoistServer faucetDoc liftToM swaggerServer) :<|> faucetServer

@@ -53,8 +53,9 @@ go faster.
 
     sudo mkdir -p /etc/nix
     cat <<EOF | sudo tee /etc/nix/nix.conf
-    binary-caches            = https://cache.nixos.org https://hydra.iohk.io
-    binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+    substituters = https://hydra.iohk.io https://cache.nixos.org/
+    trusted-substituters =
+    trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
     EOF
 
 ## Miscellaneous Utilities

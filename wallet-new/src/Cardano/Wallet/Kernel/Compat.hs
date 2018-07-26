@@ -5,8 +5,7 @@
 {-# LANGUAGE RankNTypes                 #-}
 
 module Cardano.Wallet.Kernel.Compat
-  ( DBReadT(DBReadT, unDBReadT)
-  , withMonadDBRead
+  ( withMonadDBRead
   , getCoreConfigurations
   ) where
 
@@ -43,7 +42,7 @@ instance MonadUnliftIO m => MonadUnliftIO (DBReadT m) where
   askUnliftIO =
     DBReadT (withUnliftIO (\u -> pure (UnliftIO (unliftIO u . unDBReadT))))
 
-instance (HasConfiguration, MonadThrow (DBReadT m), MonadRealDB NodeDBs (ReaderT NodeDBs m))
+instance (HasConfiguration, MonadThrow m, MonadRealDB NodeDBs (ReaderT NodeDBs m))
     => MonadDBRead (DBReadT m) where
     dbGet tag bs = DBReadT (dbGetDefault tag bs)
     dbIterSource tag p = transPipe (transResourceT DBReadT) (dbIterSourceDefault tag p)
@@ -51,8 +50,6 @@ instance (HasConfiguration, MonadThrow (DBReadT m), MonadRealDB NodeDBs (ReaderT
     dbGetSerUndo hh = DBReadT (fmap Serialized <$> getSerializedUndo hh)
 
 -- | Obtain a higher rank 'MonadDBRead' context.
---
--- This is also a monad morphism from @'DBReadT' m@ to @m@.
 withMonadDBRead
   :: (MonadCatch m, MonadUnliftIO m)
   => CoreConfiguration

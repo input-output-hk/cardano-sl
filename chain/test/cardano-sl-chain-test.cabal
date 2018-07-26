@@ -13,12 +13,21 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Test.Pos.Chain.Lrc.Arbitrary
+                       Test.Pos.Chain.Ssc.Arbitrary
+                       Test.Pos.Chain.Ssc.Gen
+                       Test.Pos.Chain.Ssc.Json
 
   build-depends:       base
+                     , bytestring
+                     , cardano-crypto
                      , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-core-test
+                     , cardano-sl-crypto
+                     , cardano-sl-crypto-test
+                     , cardano-sl-util-test
                      , generic-arbitrary
+                     , hedgehog
                      , QuickCheck
                      , reflection
                      , universum

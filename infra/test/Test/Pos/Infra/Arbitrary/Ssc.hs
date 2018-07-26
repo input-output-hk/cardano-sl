@@ -19,11 +19,11 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 
-import           Test.Pos.Ssc.Arbitrary ()
+import           Test.Pos.Chain.Ssc.Arbitrary ()
 
 ------------------------------------------------------------------------------------------
 -- Message types

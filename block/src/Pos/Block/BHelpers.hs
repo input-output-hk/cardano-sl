@@ -21,6 +21,7 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Chain.Ssc (verifySscPayload)
 import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
                      MainConsensusData (..), MainToSign (..))
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
@@ -37,7 +38,6 @@ import           Pos.Core.Txp (checkTxPayload)
 import           Pos.Core.Update (checkSoftwareVersion, checkUpdatePayload)
 import           Pos.Crypto (ProtocolMagic, ProxySignature (..), SignTag (..),
                      checkSig, hash, isSelfSignedPsk, proxyVerify)
-import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
 
 -- | Verify a BlockHeader in isolation. There is nothing to be done for

@@ -172,7 +172,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
      Called by (1) and calls 'Pos.Block.Logic.Integrity.verifyBlocks'.
      Doesn't seem to do any additional verification itself.
 
-  3. 'Pos.Ssc.Logic.VAR.sscVerifyBlocks'
+  3. 'Pos.Chain.Ssc.Logic.VAR.sscVerifyBlocks'
      Requires 'SscGlobalVerifyMode'.
      Called by (1).
      I think this only verifies SSC stuff (shared seed computation).

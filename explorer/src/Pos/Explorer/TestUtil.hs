@@ -32,6 +32,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable,
                      suchThat)
 
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Ssc (defaultSscPayload)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), GenesisHash (..), HasConfiguration,
@@ -51,7 +52,6 @@ import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      convertToPagedMap)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
-import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 import           Test.Pos.Block.Arbitrary ()

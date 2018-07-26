@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Specification of Pos.Ssc.Toss.Base.computeSharesdistr
+-- | Specification of Pos.Chain.Ssc.computeSharesdistr
 
 module Test.Pos.Ssc.ComputeSharesSpec
        ( spec
@@ -15,14 +15,14 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, (.&&.), (===))
 
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc (SscVerifyError, computeSharesDistrPure,
+                     isDistrInaccuracyAcceptable, sharesDistrMaxSumDistr)
 import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin,
                      unsafeAddressHash, unsafeCoinPortionFromDouble,
                      unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
 import           Pos.Core.Ssc (SharesDistribution)
 import           Pos.DB.Lrc (RichmenType (..), findRichmenPure)
-import           Pos.Ssc (SscVerifyError, computeSharesDistrPure,
-                     isDistrInaccuracyAcceptable, sharesDistrMaxSumDistr)
 
 import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
                      InvalidRichmenStakes (..), ValidRichmenStakes (..))

@@ -33,10 +33,10 @@ import           Data.Word (Word16)
 import qualified Formatting as F
 
 import           Node.Message.Decoder (Decoder, hoistDecoder)
+import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
+                     MCVssCertificate)
 import           Pos.Core.Txp (TxMsgContents)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
-import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
-                     MCVssCertificate)
 
 -- * Message name
 

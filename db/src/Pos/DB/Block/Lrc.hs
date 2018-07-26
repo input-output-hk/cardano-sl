@@ -27,6 +27,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      findDelegationStakes, findRichmenStakes,
                      followTheSatoshiM)
+import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
                      StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,

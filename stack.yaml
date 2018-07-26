@@ -24,8 +24,6 @@ packages:
 - db/test
 - infra
 - infra/test
-- ssc
-- ssc/test
 - chain
 - chain/test
 - update
@@ -312,7 +310,6 @@ ghc-options:
   cardano-sl-infra:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-ssc:         -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-chain:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-chain-test:  -Werror -Wcompat -fwarn-redundant-constraints

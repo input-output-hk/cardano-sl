@@ -64,7 +64,7 @@ import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
                      MsgStreamBlock (..), MsgStreamStart (..),
                      MsgStreamUpdate (..))
 -- Dubious having this security stuff in here.
-import           Pos.Security.Params (AttackTarget (..), AttackType (..),
+import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
                      NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Timer (Timer, startTimer)
@@ -476,7 +476,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
         -- TODO figure out what this security stuff is doing and judge whether
         -- it needs to change / be removed.
         let sparams = Logic.securityParams logic
-        -- Copied from Pos.Security.Util but made pure. The existing
+        -- Copied from Pos.Chain.Security but made pure. The existing
         -- implementation was tied to a reader rather than taking a
         -- SecurityParams value as a function argument.
             shouldIgnoreAddress :: NetworkAddress -> Bool

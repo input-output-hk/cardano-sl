@@ -17,6 +17,7 @@ module Pos.Explorer.Web.ClientTypes
        , CAddressType (..)
        , CAddressSummary (..)
        , CTxBrief (..)
+       , CUtxo  (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
        , CGenesisSummary (..)
@@ -29,6 +30,7 @@ module Pos.Explorer.Web.ClientTypes
        , LocalSlotIndex (..)
        , StakeholderId
        , Byte
+       , CByteString (..)
        , mkCCoin
        , mkCCoinMB
        , toCHash
@@ -87,6 +89,8 @@ import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..))
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
+
+
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------
@@ -308,6 +312,18 @@ data CTxBrief = CTxBrief
     , ctbOutputSum  :: !CCoin
     } deriving (Show, Generic)
 
+data CUtxo = CUtxo
+    { cuId       :: !CTxId
+    , cuOutIndex :: !Int
+    , cuAddress  :: !CAddress
+    , cuCoins    :: !CCoin
+    }
+    | CUtxoUnknown
+    { cuTag  :: !Int
+      , cuBs :: !CByteString
+    }
+    deriving (Show, Generic)
+
 newtype CNetworkAddress = CNetworkAddress Text
     deriving (Show, Generic)
 
@@ -430,6 +446,12 @@ sumCoinOfInputsOutputs addressListMB
             addressCoinList = addressCoins <$> addressList
         mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
     | otherwise = mkCCoinMB Nothing
+
+newtype CByteString = CByteString ByteString
+    deriving (Generic)
+
+instance Show CByteString where
+    show (CByteString bs) = (show . toString) bs
 
 --------------------------------------------------------------------------------
 -- Arbitrary instances

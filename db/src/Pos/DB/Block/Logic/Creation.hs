@@ -28,7 +28,7 @@ import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
-import           Pos.Chain.Txp (emptyTxPayload)
+import           Pos.Chain.Txp (TxpConfiguration, emptyTxPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
@@ -121,11 +121,12 @@ createGenesisBlockAndApply ::
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> EpochIndex
     -> m (Maybe GenesisBlock)
 -- Genesis block for 0-th epoch is hardcoded.
-createGenesisBlockAndApply _ 0 = pure Nothing
-createGenesisBlockAndApply pm epoch = do
+createGenesisBlockAndApply _ _ 0 = pure Nothing
+createGenesisBlockAndApply pm txpConfig epoch = do
     tipHeader <- DB.getTipHeader
     -- preliminary check outside the lock,
     -- must be repeated inside the lock
@@ -134,7 +135,7 @@ createGenesisBlockAndApply pm epoch = do
         then modifyStateLock
                  HighPriority
                  ApplyBlock
-                 (\_ -> createGenesisBlockDo pm epoch)
+                 (\_ -> createGenesisBlockDo pm txpConfig epoch)
         else return Nothing
 
 createGenesisBlockDo
@@ -143,9 +144,10 @@ createGenesisBlockDo
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
-createGenesisBlockDo pm epoch = do
+createGenesisBlockDo pm txpConfig epoch = do
     tipHeader <- DB.getTipHeader
     logDebug $ sformat msgTryingFmt epoch tipHeader
     needCreateGenesisBlock epoch tipHeader >>= \case
@@ -173,7 +175,7 @@ createGenesisBlockDo pm epoch = do
                     (ShouldCallBListener True)
                     (one (Left blk, undo))
                     (Just pollModifier)
-                normalizeMempool pm
+                normalizeMempool pm txpConfig
                 pure (newTip, Just blk)
     logShouldNot =
         logDebug
@@ -227,16 +229,17 @@ createMainBlockAndApply ::
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
-createMainBlockAndApply pm sId pske =
+createMainBlockAndApply pm txpConfig sId pske =
     modifyStateLock HighPriority ApplyBlock createAndApply
   where
     createAndApply tip =
         createMainBlockInternal pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)
-            Right blk -> convertRes <$> applyCreatedBlock pm pske blk
+            Right blk -> convertRes <$> applyCreatedBlock pm txpConfig pske blk
     convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
 
 ----------------------------------------------------------------------------
@@ -358,10 +361,11 @@ applyCreatedBlock ::
     , MonadCreateBlock ctx m
     )
     => ProtocolMagic
+    -> TxpConfiguration
     -> ProxySKBlockInfo
     -> MainBlock
     -> m MainBlock
-applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
+applyCreatedBlock pm txpConfig pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
@@ -380,7 +384,7 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
-                normalizeMempool pm
+                normalizeMempool pm txpConfig
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do

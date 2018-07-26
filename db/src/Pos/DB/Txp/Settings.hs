@@ -18,7 +18,7 @@ import           Universum
 
 import           System.Wlog (WithLogger)
 
-import           Pos.Chain.Txp (HasTxpConfiguration, ToilVerFailure)
+import           Pos.Chain.Txp (ToilVerFailure)
 import           Pos.Core.Block (ComponentBlock)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Slotting (MonadSlots)
@@ -32,13 +32,11 @@ type TxpCommonMode m =
     )
 
 type TxpGlobalVerifyMode m =
-    ( HasTxpConfiguration
-    , TxpCommonMode m
+    ( TxpCommonMode m
     )
 
 type TxpGlobalApplyMode ctx m =
-    ( HasTxpConfiguration
-    , TxpCommonMode m
+    ( TxpCommonMode m
     , MonadSlots ctx m  -- TODO: I don't like it (@gromak)
     )
 

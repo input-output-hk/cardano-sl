@@ -23,6 +23,7 @@ module Test.Pos.Configuration
 import           Universum
 
 import qualified Data.Aeson as J
+import qualified Data.Set as Set
 
 import           Ntp.Client (NtpConfiguration)
 
@@ -30,7 +31,7 @@ import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Chain.Delegation (HasDlgConfiguration,
                      withDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
-import           Pos.Chain.Txp (HasTxpConfiguration, withTxpConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
@@ -70,7 +71,6 @@ type HasStaticConfigurations =
     , HasBlockConfiguration
     , HasNodeConfiguration
     , HasDlgConfiguration
-    , HasTxpConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
@@ -91,23 +91,19 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
-withDefTxpConfiguration :: (HasTxpConfiguration => r) -> r
-withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
-
 withDefConfiguration :: (HasConfiguration => ProtocolMagic -> r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf) id
 
-withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
+withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
 withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
     withDefBlockConfiguration $
     withDefDlgConfiguration $
-    withDefTxpConfiguration $
-    withDefNtpConfiguration patak
+    withDefNtpConfiguration (patak $ TxpConfiguration 200 Set.empty)
 
 withDefConfigurations
-    :: (HasConfigurations => NtpConfiguration -> ProtocolMagic -> r) -> r
+    :: (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> r) -> r
 withDefConfigurations bardaq =
-    withDefConfiguration $ withStaticConfigurations bardaq
+    withDefConfiguration $ \pm -> withStaticConfigurations (bardaq pm)

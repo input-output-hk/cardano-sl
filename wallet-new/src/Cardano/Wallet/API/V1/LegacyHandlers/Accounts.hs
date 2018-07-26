@@ -8,6 +8,7 @@ import           Universum
 import qualified Data.IxSet.Typed as IxSet
 import           Servant
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.Util.Servant as V0
@@ -25,15 +26,16 @@ import           Cardano.Wallet.API.V1.Types
 handlers
     :: HasConfigurations
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> ServerT Accounts.API MonadV1
-handlers pm submitTx =
+handlers pm txpConfig submitTx =
          deleteAccount
     :<|> getAccount
     :<|> listAccounts
     :<|> newAccount
     :<|> updateAccount
-    :<|> redeemAda pm submitTx
+    :<|> redeemAda pm txpConfig submitTx
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -80,12 +82,13 @@ updateAccount wId accIdx accUpdate = do
 redeemAda
     :: HasConfigurations
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> WalletId
     -> AccountIndex
     -> Redemption
     -> MonadV1 (WalletResponse Transaction)
-redeemAda pm submitTx walletId accountIndex r = do
+redeemAda pm txpConfig submitTx walletId accountIndex r = do
     let ShieldedRedemptionCode seed = redemptionRedemptionCode r
         V1 spendingPassword = redemptionSpendingPassword r
     accountId <- migrate (walletId, accountIndex)
@@ -98,10 +101,10 @@ redeemAda pm submitTx walletId accountIndex r = do
                     , V0.pvSeed = seed
                     , V0.pvBackupPhrase = phrase
                     }
-            V0.redeemAdaPaperVend pm submitTx spendingPassword cpaperRedeem
+            V0.redeemAdaPaperVend pm txpConfig submitTx spendingPassword cpaperRedeem
         Nothing -> do
             let cwalletRedeem = V0.CWalletRedeem
                     { V0.crWalletId = caccountId
                     , V0.crSeed = seed
                     }
-            V0.redeemAda pm submitTx spendingPassword cwalletRedeem
+            V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem

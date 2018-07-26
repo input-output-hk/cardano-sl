@@ -26,7 +26,7 @@ import           System.Wlog (logDebug)
 import           Pos.Chain.Block (ApplyBlocksException (..), Blund,
                      RollbackException (..), Undo (..),
                      VerifyBlocksException (..))
-import           Pos.Chain.Txp (HasTxpConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Block (Block, HeaderHash, headerHashG, prevBlockL)
@@ -73,8 +73,7 @@ import           Pos.Util.Util (HasLens (..))
 -- 4.  Return all undos.
 verifyBlocksPrefix
     :: forall ctx m.
-       ( HasTxpConfiguration
-       , MonadBlockVerify ctx m
+       ( MonadBlockVerify ctx m
        )
     => ProtocolMagic
     -> VerifyBlocksContext
@@ -136,17 +135,18 @@ verifyAndApplyBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> VerifyBlocksContext
     -> Bool
     -> OldestFirst NE Block
     -> m (Either ApplyBlocksException (HeaderHash, NewestFirst [] Blund))
-verifyAndApplyBlocks pm ctx rollback blocks = runExceptT $ do
+verifyAndApplyBlocks pm txpConfig ctx rollback blocks = runExceptT $ do
     tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
     hh <- rollingVerifyAndApply [] (spanEpoch blocks)
-    lift $ normalizeMempool pm
+    lift $ normalizeMempool pm txpConfig
     pure hh
   where
     -- Spans input into @(a, b)@ where @a@ is either a single genesis
@@ -301,10 +301,11 @@ applyWithRollback
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> NewestFirst NE Blund        -- ^ Blocks to rollbck
     -> OldestFirst NE Block        -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
-applyWithRollback pm toRollback toApply = runExceptT $ do
+applyWithRollback pm txpConfig toRollback toApply = runExceptT $ do
     tip <- lift GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
@@ -333,6 +334,6 @@ applyWithRollback pm toRollback toApply = runExceptT $ do
 
     onGoodRollback = do
         ctx <- getVerifyBlocksContext
-        verifyAndApplyBlocks pm ctx True toApply >>= \case
+        verifyAndApplyBlocks pm txpConfig ctx True toApply >>= \case
             Left err           -> applyBack $> Left err
             Right (tipHash, _) -> pure (Right tipHash)

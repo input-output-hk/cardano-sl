@@ -21,7 +21,7 @@ import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Txp (TxFee (..), Utxo)
+import           Pos.Chain.Txp (TxFee (..), TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
@@ -62,6 +62,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 newPayment
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> AccountId
@@ -69,7 +70,7 @@ newPayment
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
+newPayment pm txpConfig submitTx passphrase srcAccount dstAddress coin policy =
     -- This is done for two reasons:
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
@@ -77,6 +78,7 @@ newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
     notFasterThan (6 :: Second) $ do
       sendMoney
           pm
+          txpConfig
           submitTx
           passphrase
           (AccountMoneySource srcAccount)
@@ -86,15 +88,17 @@ newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
 newPaymentBatch
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch pm submitTx passphrase NewBatchPayment {..} = do
+newPaymentBatch pm txpConfig submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       sendMoney
           pm
+          txpConfig
           submitTx
           passphrase
           (AccountMoneySource src)
@@ -173,13 +177,14 @@ getMoneySourceUtxo ws =
 sendMoney
     :: (MonadWalletTxFull ctx m)
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney pm submitTx passphrase moneySource dstDistr policy = do
+sendMoney pm txpConfig submitTx passphrase moneySource dstDistr policy = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
@@ -230,7 +235,7 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ptx <- mkPendingTx ws srcWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx pm db submitTx ptx
+        th <$ submitAndSaveNewPtx pm txpConfig db submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

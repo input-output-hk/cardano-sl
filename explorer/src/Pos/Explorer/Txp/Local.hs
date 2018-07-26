@@ -12,7 +12,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Chain.Txp (ToilVerFailure (..), Utxo)
+import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration, Utxo)
 import           Pos.Core (EpochIndex, Timestamp)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
@@ -48,17 +48,19 @@ eTxProcessTransaction ::
        , CanJsonLog m
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransaction pm itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock pm itw
+eTxProcessTransaction pm txpConfig itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock pm txpConfig itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock pm itw = getCurrentSlot >>= \case
+eTxProcessTransactionNoLock pm txpConfig itw = getCurrentSlot >>= \case
     Nothing   -> pure $ Left ToilSlotUnknown
     Just slot -> do
         -- First get the current @SlotId@ so we can calculate the time.
@@ -76,14 +78,17 @@ eTxProcessTransactionNoLock pm itw = getCurrentSlot >>= \case
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure ELocalToilM ()
     processTx' mTxTimestamp bvd epoch tx =
-        eProcessTx pm bvd epoch tx (TxExtra Nothing mTxTimestamp)
+        eProcessTx pm txpConfig bvd epoch tx (TxExtra Nothing mTxTimestamp)
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
-    :: forall ctx m . (ETxpLocalWorkMode ctx m) => ProtocolMagic -> m ()
-eTxNormalize pm = do
+    :: forall ctx m . (ETxpLocalWorkMode ctx m)
+    => ProtocolMagic
+    -> TxpConfiguration
+    -> m ()
+eTxNormalize pm txpConfig = do
     extras <- MM.insertionsMap . view eemLocalTxsExtra <$> withTxpLocalData getTxpExtra
     txNormalizeAbstract buildExplorerExtraLookup (normalizeToil' extras)
   where
@@ -95,4 +100,4 @@ eTxNormalize pm = do
         -> ELocalToilM ()
     normalizeToil' extras bvd epoch txs =
         let toNormalize = HM.toList $ HM.intersectionWith (,) txs extras
-        in eNormalizeToil pm bvd epoch toNormalize
+        in eNormalizeToil pm txpConfig bvd epoch toNormalize

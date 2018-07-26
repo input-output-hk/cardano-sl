@@ -16375,9 +16375,11 @@ aeson
 base
 bytestring
 cardano-sl
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
+cardano-sl-networking
 cardano-sl-util
 lens
 log-warper
@@ -16589,6 +16591,7 @@ cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-util
 cardano-sl-util-test
+containers
 data-default
 formatting
 hspec

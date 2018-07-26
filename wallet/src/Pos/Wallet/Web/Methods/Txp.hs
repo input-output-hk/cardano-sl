@@ -18,6 +18,7 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, stext, (%))
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
@@ -74,12 +75,13 @@ coinDistrToOutputs distr = do
 submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PendingTx
     -> m ()
-submitAndSaveNewPtx pm db submit =
-    submitAndSavePtx pm db submit ptxFirstSubmissionHandler
+submitAndSaveNewPtx pm txpConfig db submit =
+    submitAndSavePtx pm txpConfig db submit ptxFirstSubmissionHandler
 
 gatherPendingTxsSummary :: MonadWalletWebMode ctx m => m [PendingTxsSummary]
 gatherPendingTxsSummary =

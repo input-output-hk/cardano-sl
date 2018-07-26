@@ -27,8 +27,7 @@ import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      ToilVerFailure, TxpConfiguration (..), Utxo, UtxoM,
                      UtxoModifier, applyToil, defGlobalToilState,
                      flattenTxPayload, gtsUtxoModifier, rollbackToil,
-                     runGlobalToilMBase, runUtxoM, txpConfiguration,
-                     utxoToLookup, verifyToil)
+                     runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic,
                      epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
@@ -53,11 +52,11 @@ import qualified Pos.Util.Modifier as MM
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
-txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpGlobalSettings
-txpGlobalSettings pm =
+txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpConfiguration -> TxpGlobalSettings
+txpGlobalSettings pm txpConfig =
     TxpGlobalSettings
-    { tgsVerifyBlocks = verifyBlocks pm
-    , tgsApplyBlocks = applyBlocksWith pm (processBlundsSettings False applyToil)
+    { tgsVerifyBlocks = verifyBlocks pm txpConfig
+    , tgsApplyBlocks = applyBlocksWith pm txpConfig (processBlundsSettings False applyToil)
     , tgsRollbackBlocks = rollbackBlocks
     }
 
@@ -68,14 +67,15 @@ txpGlobalSettings pm =
 verifyBlocks ::
        forall m. (TxpGlobalVerifyMode m)
     => ProtocolMagic
+    -> TxpConfiguration
     -> Bool
     -> OldestFirst NE TxpBlock
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
-verifyBlocks pm verifyAllIsKnown newChain = runExceptT $ do
+verifyBlocks pm txpConfig verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
     let verifyPure :: [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
         verifyPure = runExceptT
-            . verifyToil pm bvd (tcAssetLockedSrcAddrs txpConfiguration) epoch verifyAllIsKnown
+            . verifyToil pm bvd (tcAssetLockedSrcAddrs txpConfig) epoch verifyAllIsKnown
         foldStep ::
                (UtxoModifier, [TxpUndo])
             -> TxpBlock
@@ -166,13 +166,14 @@ applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
     => ProtocolMagic
+    -> TxpConfiguration
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith pm settings blunds = do
+applyBlocksWith pm txpConfig settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- verifyBlocks pm False blocks
+        verdict <- verifyBlocks pm txpConfig False blocks
         whenLeft verdict $
             assertionFailed .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)

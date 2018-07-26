@@ -3,10 +3,7 @@
 -- | Configuration for the txp package.
 
 module Pos.Chain.Txp.Configuration
-       ( HasTxpConfiguration
-       , withTxpConfiguration
-       , txpConfiguration
-       , TxpConfiguration(..)
+       ( TxpConfiguration(..)
        , memPoolLimitTx
        ) where
 
@@ -15,18 +12,9 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
                      genericToJSON)
 import           Data.Aeson.Options (defaultOptions)
-import           Data.Reflection (Given (..), give)
 import           Pos.Aeson.Core ()
 import           Pos.Core (Address)
 
-
-type HasTxpConfiguration = Given TxpConfiguration
-
-withTxpConfiguration :: TxpConfiguration -> (HasTxpConfiguration => r) -> r
-withTxpConfiguration = give
-
-txpConfiguration :: HasTxpConfiguration => TxpConfiguration
-txpConfiguration = given
 
 -- | Delegation configruation part.
 data TxpConfiguration = TxpConfiguration
@@ -51,5 +39,5 @@ instance FromJSON TxpConfiguration where
 
 -- | Limint on the number of transactions that can be stored in
 -- the mem pool.
-memPoolLimitTx :: (HasTxpConfiguration, Integral i) => i
-memPoolLimitTx = fromIntegral . ccMemPoolLimitTx $ txpConfiguration
+memPoolLimitTx :: Integral i => TxpConfiguration -> i
+memPoolLimitTx txpConfig = fromIntegral . ccMemPoolLimitTx $ txpConfig

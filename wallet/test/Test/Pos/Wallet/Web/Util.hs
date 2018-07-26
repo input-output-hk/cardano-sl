@@ -37,7 +37,7 @@ import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
 import           Pos.Chain.Block (Blund, LastKnownHeaderTag)
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
@@ -77,15 +77,16 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 wpGenBlocks
     :: HasConfigurations
     => ProtocolMagic
+    -> TxpConfiguration
     -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty (OldestFirst [] Blund)
-wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
+wpGenBlocks pm txpConfig blkCnt enTxPayload inplaceDB = do
     params <- genBlockGenParams pm blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
-        blunds <- OldestFirst <$> evalRandT (genBlocks pm params maybeToList) g
+        blunds <- OldestFirst <$> evalRandT (genBlocks pm txpConfig params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
@@ -97,10 +98,11 @@ wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
 wpGenBlock
     :: HasConfigurations
     => ProtocolMagic
+    -> TxpConfiguration
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty Blund
-wpGenBlock pm = fmap (Data.List.head . toList) ... wpGenBlocks pm (Just 1)
+wpGenBlock pm txpConfig = fmap (Data.List.head . toList) ... wpGenBlocks pm txpConfig (Just 1)
 
 ----------------------------------------------------------------------------
 -- Wallet test helpers

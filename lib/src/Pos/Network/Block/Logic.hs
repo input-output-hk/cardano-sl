@@ -29,6 +29,7 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Chain.Block (ApplyBlocksException, Blund,
                      LastKnownHeaderTag)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (isMoreDifficult)
 import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash, blockHeader, gbHeader, headerHashG,
@@ -226,10 +227,11 @@ handleBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks pm blocks diffusion = do
+handleBlocks pm txpConfig blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -247,8 +249,8 @@ handleBlocks pm blocks diffusion = do
         logDebug $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-        maybe (applyWithoutRollback pm diffusion blocks)
-              (applyWithRollback pm diffusion blocks lcaHash)
+        maybe (applyWithoutRollback pm txpConfig diffusion blocks)
+              (applyWithRollback pm txpConfig diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
@@ -257,10 +259,11 @@ applyWithoutRollback
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> m ()
-applyWithoutRollback pm diffusion blocks = do
+applyWithoutRollback pm txpConfig diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
@@ -290,7 +293,7 @@ applyWithoutRollback pm diffusion blocks = do
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
         ctx <- L.getVerifyBlocksContext
-        res <- fmap fst <$> verifyAndApplyBlocks pm ctx False blocks
+        res <- fmap fst <$> verifyAndApplyBlocks pm txpConfig ctx False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
@@ -300,17 +303,18 @@ applyWithRollback
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback pm diffusion toApply lca toRollback = do
+applyWithRollback pm txpConfig diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
-        res <- L.applyWithRollback pm toRollback toApplyAfterLca
+        res <- L.applyWithRollback pm txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->

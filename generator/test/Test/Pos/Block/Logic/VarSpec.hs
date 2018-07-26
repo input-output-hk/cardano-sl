@@ -24,6 +24,7 @@ import           Test.QuickCheck.Monadic (assert, pick, pre, run)
 import           Test.QuickCheck.Random (QCGen)
 
 import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
                      genesisData)
 import           Pos.Core.Block (headerHash)
@@ -62,28 +63,30 @@ import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks,
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = withStaticConfigurations $ \_ ->
+spec = withStaticConfigurations $ \txpConfig _ ->
     describe "Block.Logic.VAR" $ modifyMaxSuccess (min 4) $ do
-        describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
-        describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
+        describe "verifyBlocksPrefix" $ verifyBlocksPrefixSpec txpConfig
+        describe "verifyAndApplyBlocks" $ verifyAndApplyBlocksSpec txpConfig
         describe "applyBlocks" applyBlocksSpec
         describe "Block.Event" $ do
-            describe "Successful sequence" $ blockEventSuccessSpec
-            describe "Apply through epoch" $ applyThroughEpochSpec 0
-            describe "Apply through epoch" $ applyThroughEpochSpec 4
-            describe "Fork - short" $ singleForkSpec ForkShort
-            describe "Fork - medium" $ singleForkSpec ForkMedium
-            describe "Fork - deep" $ singleForkSpec ForkDeep
+            describe "Successful sequence" $ blockEventSuccessSpec txpConfig
+            describe "Apply through epoch" $ applyThroughEpochSpec txpConfig 0
+            describe "Apply through epoch" $ applyThroughEpochSpec txpConfig 4
+            describe "Fork - short" $ singleForkSpec txpConfig ForkShort
+            describe "Fork - medium" $ singleForkSpec txpConfig ForkMedium
+            describe "Fork - deep" $ singleForkSpec txpConfig ForkDeep
 
 ----------------------------------------------------------------------------
 -- verifyBlocksPrefix
 ----------------------------------------------------------------------------
 
 verifyBlocksPrefixSpec
-    :: HasStaticConfigurations => Spec
-verifyBlocksPrefixSpec = do
-    blockPropertySpec verifyEmptyMainBlockDesc verifyEmptyMainBlock
-    blockPropertySpec verifyValidBlocksDesc verifyValidBlocks
+    :: HasStaticConfigurations
+    => TxpConfiguration
+    -> Spec
+verifyBlocksPrefixSpec txpConfig = do
+    blockPropertySpec verifyEmptyMainBlockDesc (verifyEmptyMainBlock txpConfig)
+    blockPropertySpec verifyValidBlocksDesc (verifyValidBlocks txpConfig)
   where
     verifyEmptyMainBlockDesc =
         "verification of consistent empty main block " <>
@@ -95,9 +98,12 @@ verifyBlocksPrefixSpec = do
         "always succeeds for GState for which these blocks where generated " <>
         "as long as all these blocks are from the same epoch"
 
-verifyEmptyMainBlock :: HasConfigurations => BlockProperty ()
-verifyEmptyMainBlock = do
+verifyEmptyMainBlock :: HasConfigurations
+                     => TxpConfiguration
+                     -> BlockProperty ()
+verifyEmptyMainBlock txpConfig = do
     emptyBlock <- fst <$> bpGenBlock dummyProtocolMagic
+                                     txpConfig
                                      (EnableTxPayload False)
                                      (InplaceDB False)
     ctx <- run $ getVerifyBlocksContext' (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot $ emptyBlock)
@@ -106,10 +112,13 @@ verifyEmptyMainBlock = do
         . pretty
 
 verifyValidBlocks
-    :: HasConfigurations => BlockProperty ()
-verifyValidBlocks = do
+    :: HasConfigurations
+    => TxpConfiguration
+    -> BlockProperty ()
+verifyValidBlocks txpConfig = do
     bpGoToArbitraryState
     blocks <- map fst . toList <$> bpGenBlocks dummyProtocolMagic
+                                               txpConfig
                                                Nothing
                                                (EnableTxPayload True)
                                                (InplaceDB False)
@@ -132,9 +141,11 @@ verifyValidBlocks = do
 -- verifyAndApplyBlocks
 ----------------------------------------------------------------------------
 
-verifyAndApplyBlocksSpec :: HasStaticConfigurations => Spec
-verifyAndApplyBlocksSpec =
-    blockPropertySpec applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
+verifyAndApplyBlocksSpec :: HasStaticConfigurations
+                         => TxpConfiguration
+                         -> Spec
+verifyAndApplyBlocksSpec txpConfig =
+    blockPropertySpec applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce txpConfig applier)
   where
     applier :: HasConfiguration => OldestFirst NE Blund -> BlockTestMode ()
     applier blunds = do
@@ -143,7 +154,7 @@ verifyAndApplyBlocksSpec =
         satisfySlotCheck blocks $
            -- we don't check current SlotId, because the applier is run twice
            -- and the check will fail the verification
-           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic ctx True blocks) throwM
+           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic txpConfig ctx True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>
@@ -172,11 +183,13 @@ applyBlocksSpec = pass
 
 applyByOneOrAllAtOnce
     :: HasConfigurations
-    => (OldestFirst NE Blund -> BlockTestMode ())
+    => TxpConfiguration
+    -> (OldestFirst NE Blund -> BlockTestMode ())
     -> BlockProperty ()
-applyByOneOrAllAtOnce applier = do
+applyByOneOrAllAtOnce txpConfig applier = do
     bpGoToArbitraryState
     blunds <- getOldestFirst <$> bpGenBlocks dummyProtocolMagic
+                                             txpConfig
                                              Nothing
                                              (EnableTxPayload True)
                                              (InplaceDB False)
@@ -203,9 +216,11 @@ applyByOneOrAllAtOnce applier = do
 -- Block events
 ----------------------------------------------------------------------------
 
-blockEventSuccessSpec :: HasStaticConfigurations => Spec
-blockEventSuccessSpec =
-    blockPropertySpec blockEventSuccessDesc blockEventSuccessProp
+blockEventSuccessSpec :: HasStaticConfigurations
+                      => TxpConfiguration
+                      -> Spec
+blockEventSuccessSpec txpConfig =
+    blockPropertySpec blockEventSuccessDesc (blockEventSuccessProp txpConfig)
   where
     blockEventSuccessDesc =
         "a sequence of interleaved block applications and rollbacks " <>
@@ -285,13 +300,15 @@ genSuccessWithForks = do
 
 blockPropertyScenarioGen
     :: HasConfigurations
-    => BlockEventGenT QCGen BlockTestMode ()
+    => TxpConfiguration
+    -> BlockEventGenT QCGen BlockTestMode ()
     -> BlockProperty BlockScenario
-blockPropertyScenarioGen m = do
+blockPropertyScenarioGen txpConfig m = do
     allSecrets <- getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ flip evalRandT g $ runBlockEventGenT dummyProtocolMagic
+                                                txpConfig
                                                 allSecrets
                                                 genStakeholders
                                                 m
@@ -299,19 +316,22 @@ blockPropertyScenarioGen m = do
 prettyScenario :: BlockScenario -> Text
 prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)
 
-blockEventSuccessProp :: HasConfigurations => BlockProperty ()
-blockEventSuccessProp = do
-    scenario <- blockPropertyScenarioGen genSuccessWithForks
+blockEventSuccessProp :: HasConfigurations => TxpConfiguration -> BlockProperty ()
+blockEventSuccessProp txpConfig = do
+    scenario <- blockPropertyScenarioGen txpConfig genSuccessWithForks
     let (scenario', checkCount) = enrichWithSnapshotChecking scenario
     when (checkCount <= 0) $ stopProperty $
         "No checks were generated, this is a bug in the test suite: " <>
         prettyScenario scenario'
-    runBlockScenarioAndVerify scenario'
+    runBlockScenarioAndVerify txpConfig scenario'
 
 runBlockScenarioAndVerify
-    :: HasConfigurations => BlockScenario -> BlockProperty ()
-runBlockScenarioAndVerify bs =
-    verifyBlockScenarioResult =<< lift (runBlockScenario bs)
+    :: HasConfigurations
+    => TxpConfiguration
+    -> BlockScenario
+    -> BlockProperty ()
+runBlockScenarioAndVerify txpConfig bs =
+    verifyBlockScenarioResult =<< lift (runBlockScenario txpConfig bs)
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case
@@ -334,17 +354,23 @@ verifyBlockScenarioResult = \case
 
 -- Input: the amount of blocks after crossing.
 applyThroughEpochSpec
-    :: HasStaticConfigurations => Int -> Spec
-applyThroughEpochSpec afterCross = do
-    blockPropertySpec applyThroughEpochDesc (applyThroughEpochProp afterCross)
+    :: HasStaticConfigurations
+    => TxpConfiguration
+    -> Int
+    -> Spec
+applyThroughEpochSpec txpConfig afterCross = do
+    blockPropertySpec applyThroughEpochDesc (applyThroughEpochProp txpConfig afterCross)
   where
     applyThroughEpochDesc =
       "apply a sequence of blocks that spans through epochs (additional blocks after crossing: " ++
       show afterCross ++ ")"
 
-applyThroughEpochProp :: HasConfigurations => Int -> BlockProperty ()
-applyThroughEpochProp afterCross = do
-    scenario <- blockPropertyScenarioGen $ do
+applyThroughEpochProp :: HasConfigurations
+                      => TxpConfiguration
+                      -> Int
+                      -> BlockProperty ()
+applyThroughEpochProp txpConfig afterCross = do
+    scenario <- blockPropertyScenarioGen txpConfig $ do
         let
             approachEpochEdge =
                 pathSequence mempty . OldestFirst . NE.fromList $
@@ -357,24 +383,30 @@ applyThroughEpochProp afterCross = do
                 replicate (afterCross + 2) "x"
         emitBlockApply BlockApplySuccess approachEpochEdge
         emitBlockApply BlockApplySuccess crossEpochEdge
-    runBlockScenarioAndVerify scenario
+    runBlockScenarioAndVerify txpConfig scenario
 
 ----------------------------------------------------------------------------
 -- Forks
 ----------------------------------------------------------------------------
 
-singleForkSpec :: HasStaticConfigurations => ForkDepth -> Spec
-singleForkSpec fd = do
-    blockPropertySpec singleForkDesc (singleForkProp fd)
+singleForkSpec :: HasStaticConfigurations
+               => TxpConfiguration
+               -> ForkDepth
+               -> Spec
+singleForkSpec txpConfig fd = do
+    blockPropertySpec singleForkDesc (singleForkProp txpConfig fd)
   where
     singleForkDesc =
       "a blockchain of length q<=(9.5*k) blocks can switch to a fork " <>
       "of length j>i with a common prefix i, rollback depth d=q-i"
 
-singleForkProp :: HasConfigurations => ForkDepth -> BlockProperty ()
-singleForkProp fd = do
-    scenario <- blockPropertyScenarioGen $ genSingleFork fd
-    runBlockScenarioAndVerify scenario
+singleForkProp :: HasConfigurations
+               => TxpConfiguration
+               -> ForkDepth
+               -> BlockProperty ()
+singleForkProp txpConfig fd = do
+    scenario <- blockPropertyScenarioGen txpConfig $ genSingleFork fd
+    runBlockScenarioAndVerify txpConfig scenario
 
 data ForkDepth = ForkShort | ForkMedium | ForkDeep
 

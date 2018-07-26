@@ -75,7 +75,6 @@ type HasConfigurations =
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
-    , HasTxpConfiguration
     , HasDlgConfiguration
     , HasNodeConfiguration
     )
@@ -123,7 +122,7 @@ withConfigurationsM
     -> (GenesisData -> GenesisData)
     -- ^ change genesis data; this is useful if some parameters are passed as
     -- comand line arguments for some tools (profiling executables, benchmarks).
-    -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
+    -> (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurationsM logName mAssetLockPath cfo fn act = do
     logInfo' ("using configurations: " <> show cfo)
@@ -136,9 +135,8 @@ withConfigurationsM logName mAssetLockPath cfo fn act = do
         withUpdateConfiguration (ccUpdate cfg) $
         withSscConfiguration (ccSsc cfg) $
         withDlgConfiguration (ccDlg cfg) $
-        withTxpConfiguration (addAssetLock assetLock $ ccTxp cfg) $
         withBlockConfiguration (ccBlock cfg) $
-        withNodeConfiguration (ccNode cfg) $ act (ccNtp cfg)
+        withNodeConfiguration (ccNode cfg) $ \ pm -> act pm (addAssetLock assetLock $ ccTxp cfg) (ccNtp cfg)
 
     where
     logInfo' :: Text -> m ()
@@ -148,7 +146,7 @@ withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
     => Maybe AssetLockPath
     -> ConfigurationOptions
-    -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
+    -> (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurations mAssetLockPath cfo act = do
     loggerName <- askLoggerName

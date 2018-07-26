@@ -17,6 +17,7 @@ import           System.Wlog (LoggerName, logInfo)
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                      getExplorerNodeOptions)
 import           Pos.Binary ()
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      getNodeParams)
 import qualified Pos.Client.CLI as CLI
@@ -57,9 +58,9 @@ main = do
 
 action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath conf $ \ntpConfig pm ->
+    withConfigurations blPath conf $ \pm txpConfig ntpConfig ->
     withCompileInfo $ do
-        CLI.printInfoOnStart cArgs ntpConfig
+        CLI.printInfoOnStart cArgs ntpConfig txpConfig
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
 
@@ -73,9 +74,9 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , updateTriggerWorker
                 ]
         bracketNodeResources currentParams sscParams
-            (explorerTxpGlobalSettings pm)
+            (explorerTxpGlobalSettings pm txpConfig)
             (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
-                runExplorerRealMode pm nr (runNode pm nr plugins)
+                runExplorerRealMode pm txpConfig nr (runNode pm txpConfig nr plugins)
   where
 
     blPath :: Maybe AssetLockPath
@@ -87,14 +88,15 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
         => ProtocolMagic
+        -> TxpConfiguration
         -> NodeResources ExplorerExtraModifier
         -> (Diffusion ExplorerProd -> ExplorerProd ())
         -> IO ()
-    runExplorerRealMode pm nr@NodeResources{..} go =
+    runExplorerRealMode pm txpConfig nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
-         in runRealMode pm nr $ \diffusion ->
+         in runRealMode pm txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
 
     nodeArgs :: NodeArgs

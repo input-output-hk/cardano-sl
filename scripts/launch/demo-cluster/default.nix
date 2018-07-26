@@ -39,7 +39,7 @@ let
   } else {
     environment = "demo";
   };
-  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; debug = false; } // walletEnvironment // walletConfig);
+  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit iohkPkgs gitrev; debug = false; } // walletEnvironment // walletConfig);
   ifWallet = localLib.optionalString (runWallet);
   ifKeepAlive = localLib.optionalString (keepAlive);
   iohkPkgs = import ./../../.. { inherit system gitrev; };

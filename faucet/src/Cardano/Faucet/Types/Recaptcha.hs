@@ -17,7 +17,7 @@ module Cardano.Faucet.Types.Recaptcha
     , captchaRequest
     ) where
 
-import           Control.Exception (Exception, throwIO)
+import           Control.Exception.Safe (Exception, throwIO)
 import           Control.Lens (makeLenses, makeWrapped, _Wrapped)
 import           Data.String (IsString)
 import           Network.Wreq (FormParam (..))

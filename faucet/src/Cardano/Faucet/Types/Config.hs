@@ -29,7 +29,7 @@ module Cardano.Faucet.Types.Config (
 
 import           Control.Concurrent.STM.TBQueue (TBQueue)
 import           Control.Concurrent.STM.TMVar (TMVar)
-import           Control.Exception (Exception)
+import           Control.Exception.Safe (Exception)
 import           Control.Lens hiding ((.=))
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
                              (.:), (.:?), (.=))

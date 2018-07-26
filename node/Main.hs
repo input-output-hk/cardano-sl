@@ -14,6 +14,7 @@ import           Data.Maybe (fromJust)
 import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
+import           Pos.Chain.Ssc (SscParams)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
@@ -22,7 +23,6 @@ import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
                      loggerBracket, runNodeReal, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
-import           Pos.Ssc.Types (SscParams)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)

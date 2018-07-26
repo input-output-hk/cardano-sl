@@ -1,4 +1,4 @@
--- | Specification of Pos.Ssc.Toss.Base
+-- | Specification of Pos.Chain.Ssc
 
 module Test.Pos.Ssc.Toss.BaseSpec
        ( spec
@@ -20,6 +20,14 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
 
 import           Pos.Binary (AsBinary)
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc (MultiRichmenStakes, PureTossWithEnv,
+                     SscGlobalState (..), SscVerifyError (..),
+                     VssCertData (..), checkCertificatesPayload,
+                     checkCommitmentsPayload, checkOpeningsPayload,
+                     checkSharesPayload, deleteSignedCommitment, runPureToss,
+                     sgsCommitments, sgsOpenings, sgsShares,
+                     sgsVssCertificates, supplyPureTossEnv, verifyCommitment,
+                     verifyCommitmentSignature, verifyOpening)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
                      StakeholderId, addressHash, crucialSlot,
                      genesisBlockVersionData, mkCoin)
@@ -30,23 +38,14 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature,
                      mkCommitmentsMapUnsafe, _vcVssKey)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey,
                      SignTag (SignCommitment), sign, toPublic)
-import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv,
-                     SscGlobalState (..), SscVerifyError (..),
-                     VssCertData (..), checkCertificatesPayload,
-                     checkCommitmentsPayload, checkOpeningsPayload,
-                     checkSharesPayload, runPureToss, sgsCommitments,
-                     sgsOpenings, sgsShares, sgsVssCertificates,
-                     supplyPureTossEnv)
-import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment,
-                     verifyCommitmentSignature, verifyOpening)
 import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
                      ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
+import           Test.Pos.Chain.Ssc.Arbitrary (BadCommAndOpening (..),
+                     BadSignedCommitment (..), CommitmentOpening (..))
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Ssc.Arbitrary (BadCommAndOpening (..),
-                     BadSignedCommitment (..), CommitmentOpening (..))
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Ssc.Base" $ do

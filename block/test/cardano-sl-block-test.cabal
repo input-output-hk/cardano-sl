@@ -21,12 +21,12 @@ library
                      , base
                      , cardano-sl-binary
                      , cardano-sl-block
+                     , cardano-sl-chain-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-delegation-test
-                     , cardano-sl-ssc-test
                      , cardano-sl-update-test
                      , formatting
                      , generic-arbitrary

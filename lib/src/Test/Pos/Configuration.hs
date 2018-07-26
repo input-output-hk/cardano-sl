@@ -26,6 +26,7 @@ import qualified Data.Aeson as J
 
 import           Pos.Block.Configuration (HasBlockConfiguration,
                      withBlockConfiguration)
+import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
 import           Pos.Chain.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
@@ -38,8 +39,6 @@ import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Ssc.Configuration (HasSscConfiguration,
-                     withSscConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)

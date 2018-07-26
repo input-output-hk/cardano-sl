@@ -32,6 +32,8 @@ import qualified System.Metrics as Monitoring
 
 import           System.Random (newStdGen)
 
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      InvOrDataTK, Listener, MkListeners (..), Msg,
                      MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
@@ -78,8 +80,6 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 import           Pos.Util.Trace (Severity (Error), Trace)

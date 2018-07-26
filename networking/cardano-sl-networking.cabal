@@ -44,8 +44,8 @@ Library
                       , async
                       , attoparsec
                       , base
+                      , cardano-sl-chain
                       , cardano-sl-core
-                      , cardano-sl-ssc
                       , cardano-sl-util
                       , containers
                       , cryptonite

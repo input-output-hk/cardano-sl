@@ -11,6 +11,7 @@ import           Universum
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)
 import           Ntp.Client (NtpStatus, withNtpClient)
+import           Pos.Chain.Ssc (SscParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
 import           Pos.Core (epochSlots)
@@ -25,7 +26,6 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..),
                      lpDefaultName, runNode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
                      ConfigurationOptions, HasConfigurations)
-import           Pos.Ssc.Types (SscParams)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)

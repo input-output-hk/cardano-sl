@@ -29,6 +29,7 @@ import           System.Wlog (LoggerConfig)
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..),
                      SlogContext (..))
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Ssc (HasSscContext (..), SscContext)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -49,7 +50,6 @@ import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
-import           Pos.Ssc.Types (HasSscContext (..), SscContext)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))

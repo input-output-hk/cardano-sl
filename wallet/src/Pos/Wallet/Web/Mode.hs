@@ -32,6 +32,7 @@ import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Chain.Txp (HasTxpConfiguration, Utxo, addrBelongsToSet,
                      applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
@@ -71,7 +72,6 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
-import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)

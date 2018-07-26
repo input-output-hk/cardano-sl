@@ -34,6 +34,7 @@ import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
@@ -65,7 +66,6 @@ import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..),
 import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
-import           Pos.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Util (bracketWithLogging, newInitFuture)
 
 #ifdef linux_HOST_OS

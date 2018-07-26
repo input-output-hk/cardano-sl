@@ -16,9 +16,11 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Pos.Chain.Lrc
-                       Pos.Chain.Txp
+                       Pos.Chain.Security
+                       Pos.Chain.Ssc
                        Pos.Chain.Script
                        Pos.Chain.Script.Examples
+                       Pos.Chain.Txp
 
   other-modules:
                        Pos.Chain.Txp.Configuration
@@ -43,8 +45,34 @@ library
                        Pos.Chain.Lrc.Genesis
                        Pos.Chain.Lrc.RichmenComponent
 
+                       Pos.Chain.Security.Params
+                       Pos.Chain.Security.Util
+
+                       Pos.Chain.Ssc.Base
+                       Pos.Chain.Ssc.Error
+                       Pos.Chain.Ssc.Error.Seed
+                       Pos.Chain.Ssc.Error.Verify
+                       Pos.Chain.Ssc.Types
+                       Pos.Chain.Ssc.Message
+                       Pos.Chain.Ssc.Mem
+                       Pos.Chain.Ssc.Functions
+                       Pos.Chain.Ssc.VssCertData
+                       Pos.Chain.Ssc.Seed
+                       Pos.Chain.Ssc.Configuration
+                       Pos.Chain.Ssc.Behavior
+                       Pos.Chain.Ssc.Shares
+                       Pos.Chain.Ssc.Toss
+                       Pos.Chain.Ssc.Toss.Logic
+                       Pos.Chain.Ssc.Toss.Pure
+                       Pos.Chain.Ssc.Toss.Base
+                       Pos.Chain.Ssc.Toss.Class
+                       Pos.Chain.Ssc.Toss.Trans
+                       Pos.Chain.Ssc.Toss.Types
+
+
   build-depends:       aeson
                      , aeson-options
+                     , array
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -53,7 +81,9 @@ library
                      , cardano-sl-util
                      , conduit
                      , containers
+                     , cryptonite
                      , data-default
+                     , ether
                      , exceptions
                      , fmt >= 0.4
                      , formatting
@@ -63,13 +93,17 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , mmorph
+                     , mono-traversable
                      , neat-interpolation
+                     , parsec
                      , plutus-prototype
                      , safe-exceptions
                      , serokell-util
                      , reflection
                      , template-haskell
                      , text
+                     , time-units
                      , formatting
                      , transformers
                      , universum
@@ -110,13 +144,19 @@ library
 test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Test.hs
+  main-is:             test.hs
 
-  other-modules:       Test.Pos.Chain.Txp.CoreSpec
+  other-modules:       Spec
+                       Test.Pos.Chain.Txp.CoreSpec
                        Test.Pos.Chain.Txp.Toil.UtxoSpec
                        Test.Pos.Chain.Lrc.FtsSpec
+                       Test.Pos.Chain.Ssc.Gen
+                       Test.Pos.Chain.Ssc.Json
 
   build-depends:       base
+                     , bytestring
+                     , cardano-crypto
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
@@ -125,6 +165,7 @@ test-suite test
                      , cardano-sl-util-test
                      , containers
                      , fmt
+                     , hedgehog
                      , hspec
                      , lens
                      , mtl

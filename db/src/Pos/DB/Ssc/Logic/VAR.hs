@@ -21,6 +21,13 @@ import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
+                     MultiRichmenStakes, PureToss, SscBlock,
+                     SscGlobalState (..), SscGlobalUpdate, SscVerifyError (..),
+                     applyGenesisBlock, askSscMem, rollbackSsc,
+                     runPureTossWithLogger, sscGlobal,
+                     sscIsCriticalVerifyError, sscRunGlobalUpdate,
+                     supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Core (HasCoreConfiguration, HasGenesisData,
                      HasProtocolConstants, epochIndexL, epochOrSlotG)
 import           Pos.Core.Block (ComponentBlock (..), HeaderHash, headerHash)
@@ -34,14 +41,6 @@ import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
-import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem,
-                     sscRunGlobalUpdate)
-import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock,
-                     rollbackSsc, runPureTossWithLogger, supplyPureTossEnv,
-                     verifyAndApplySscPayload)
-import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
 

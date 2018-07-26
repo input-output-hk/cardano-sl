@@ -17,6 +17,7 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
 
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Ssc (defaultSscPayload)
 import qualified Pos.Communication ()
 import           Pos.Core (HasConfiguration, SlotId (..), blkSecurityParam,
                      genesisBlockVersionData, pcEpochSlots, protocolConstants,
@@ -28,17 +29,16 @@ import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Pos.Delegation (DlgPayload, ProxySKBlockInfo)
-import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Ssc.Arbitrary (commitmentMapEpochGen,
+                     vssCertificateEpochGen)
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
 import           Test.Pos.Core.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
-import           Test.Pos.Ssc.Arbitrary (commitmentMapEpochGen,
-                     vssCertificateEpochGen)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec

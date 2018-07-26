@@ -43,6 +43,7 @@ import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
 
 import           Pos.Chain.Lrc (followTheSatoshi)
+import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (Utxo, txOutStake)
 import           Pos.Client.Txp
 import           Pos.Core
@@ -57,7 +58,6 @@ import           Pos.Core.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
 import           Pos.Crypto
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-import           Pos.Ssc (defaultSscPayload)
 import           Pos.Update
 
 import           UTxO.Bootstrap

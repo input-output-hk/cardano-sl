@@ -100,13 +100,12 @@ test-suite cardano-client-test
                        base
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-ssc
-                     , cardano-sl-chain
                      , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test

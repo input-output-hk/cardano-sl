@@ -23,6 +23,15 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Security (SecurityParams)
+import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
+                     MonadSscMem, SscBehavior (..), SscOpeningParams (..),
+                     SscSharesParams (..), SscTag (..), computeParticipants,
+                     computeSharesDistrPure, getOurShares, hasCommitment,
+                     hasOpening, hasShares, isCommitmentIdx, isOpeningIdx,
+                     isSharesIdx, mkSignedCommitment, mpcSendInterval,
+                     scBehavior, scParticipateSsc, scVssKeyPair,
+                     sgsCommitments, vssThreshold)
 import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), blkSecurityParam,
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
@@ -55,20 +64,6 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
-                     mkSignedCommitment)
-import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..),
-                     SscSharesParams (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration, mpcSendInterval)
-import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares,
-                     vssThreshold)
-import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Ssc.Message (SscTag (..))
-import           Pos.Ssc.Shares (getOurShares)
-import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
-import           Pos.Ssc.Types (HasSscContext (..), scBehavior,
-                     scParticipateSsc, scVssKeyPair, sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (HasLens (..), getKeys, leftToPanic)
 

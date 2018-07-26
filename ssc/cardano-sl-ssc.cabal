@@ -16,33 +16,6 @@ library
   exposed-modules:
     Pos.Ssc
 
-    Pos.Ssc.Base
-
-    Pos.Ssc.Error
-    Pos.Ssc.Error.Seed
-    Pos.Ssc.Error.Verify
-
-    Pos.Ssc.Types
-
-    Pos.Ssc.Message
-    Pos.Ssc.Mem
-    Pos.Ssc.Functions
-    Pos.Ssc.VssCertData
-    Pos.Ssc.Seed
-    Pos.Ssc.Configuration
-    Pos.Ssc.Behavior
-    Pos.Ssc.Shares
-
-    Pos.Ssc.Toss
-    Pos.Ssc.Toss.Logic
-    Pos.Ssc.Toss.Pure
-    Pos.Ssc.Toss.Base
-    Pos.Ssc.Toss.Class
-    Pos.Ssc.Toss.Trans
-    Pos.Ssc.Toss.Types
-
-    Pos.Security.Params
-    Pos.Security.Util
 
   build-depends:       aeson
                      , aeson-options

@@ -27,6 +27,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      findDelegationStakes, findRichmenStakes,
                      followTheSatoshiM)
+import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
                      StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,
@@ -53,7 +54,6 @@ import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getCompetingBVStates)
-import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..))

@@ -13,13 +13,13 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
+import           Pos.Chain.Ssc (SscGlobalState (..))
+import qualified Pos.Chain.Ssc as VCD
 import           Pos.Core (HasCoreConfiguration, genesisVssCerts)
 import           Pos.DB (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Functions (dbSerializeValue)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
-import           Pos.Ssc.Types (SscGlobalState (..))
-import qualified Pos.Ssc.VssCertData as VCD
 import           Pos.Util.Util (maybeThrow)
 
 getSscGlobalState :: (MonadDBRead m) => m SscGlobalState

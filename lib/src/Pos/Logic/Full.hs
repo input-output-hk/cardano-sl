@@ -16,6 +16,11 @@ import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..), SscTag (..),
+                     TossModifier, ldModifier, sscRunLocalQuery,
+                     tmCertificates, tmCommitments, tmOpenings, tmShares)
 import           Pos.Chain.Txp (MemPool (..))
 import           Pos.Communication (NodeId)
 import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
@@ -51,14 +56,6 @@ import qualified Pos.Network.Block.Logic as Block
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Security.Util (shouldIgnorePkAddress)
-import           Pos.Ssc.Mem (sscRunLocalQuery)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
-import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
-                     tmCommitments, tmOpenings, tmShares)
-import           Pos.Ssc.Types (ldModifier)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic

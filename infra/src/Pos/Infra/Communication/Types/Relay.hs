@@ -25,13 +25,13 @@ import qualified Formatting.Buildable as B
 
 import           Node.Message.Class (Message (..))
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
 import           Pos.Core (StakeholderId)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Core.Update (UpdateProposal, UpdateVote, uvProposalId)
 import           Pos.Crypto (hash)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
 import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have

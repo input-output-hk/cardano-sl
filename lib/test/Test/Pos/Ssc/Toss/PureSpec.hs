@@ -1,4 +1,4 @@
--- | Specification for Pos.Ssc.GodTossing.Toss.Pure
+-- | Specification for Pos.Chain.Ssc.GodTossing.Toss.Pure
 
 module Test.Pos.Ssc.Toss.PureSpec
        ( spec
@@ -15,13 +15,11 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
+import qualified Pos.Chain.Ssc as Toss
 import           Pos.Core (EpochOrSlot, HasConfiguration, StakeholderId,
                      addressHash)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate (..))
-import qualified Pos.Ssc.Toss.Class as Toss
-import qualified Pos.Ssc.Toss.Pure as Toss
-import qualified Pos.Ssc.Types as Toss
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()

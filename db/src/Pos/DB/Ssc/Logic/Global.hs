@@ -11,16 +11,14 @@ module Pos.DB.Ssc.Logic.Global
 import           Universum
 
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc (MonadSscMem, SscGlobalQuery, SscSeedError,
+                     calculateSeed, sgsCommitments, sgsOpenings, sgsShares,
+                     sgsVssCertificates, sscRunGlobalQuery)
+import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), SharedSeed)
 import           Pos.Core.Ssc (VssCertificatesMap (..), vcVssKey)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
-import           Pos.Ssc.Error (SscSeedError)
-import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)
-import           Pos.Ssc.Seed (calculateSeed)
-import           Pos.Ssc.Types (sgsCommitments, sgsOpenings, sgsShares,
-                     sgsVssCertificates)
-import qualified Pos.Ssc.VssCertData as VCD
 
 ----------------------------------------------------------------------------
 -- Seed
@@ -50,7 +48,7 @@ sscCalculateSeedQ
 sscCalculateSeedQ richmen =
     calculateSeed
     <$> view sgsCommitments
-    <*> (map vcVssKey . getVssCertificatesMap . VCD.certs <$>
+    <*> (map vcVssKey . getVssCertificatesMap . Ssc.certs <$>
          view sgsVssCertificates)
     <*> view sgsOpenings
     <*> view sgsShares

@@ -29,9 +29,8 @@ import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, Timestamp (..),
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DB (getTipHeader)
-import           Pos.DB.Block (VerifyBlocksContext,
-                     getVerifyBlocksContext', rollbackBlocks,
-                     verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.DB.Block (VerifyBlocksContext, getVerifyBlocksContext',
+                     rollbackBlocks, verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.DB.DB (initNodeDBs)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (txpGlobalSettings)

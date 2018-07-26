@@ -21,13 +21,13 @@ import qualified Data.Text as T
 import qualified GHC.Exts as IL
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Block (Block, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Exception (CardanoFatalError (..))
-import           Pos.DB.Block (BlockLrcMode, rollbackBlocks,
-                     getVerifyBlocksContext', verifyAndApplyBlocks)
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
+import           Pos.DB.Block (BlockLrcMode, getVerifyBlocksContext',
+                     rollbackBlocks, verifyAndApplyBlocks)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
 import           Pos.DB.Txp (MonadTxpLocal)

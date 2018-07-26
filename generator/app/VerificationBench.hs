@@ -25,13 +25,13 @@ import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
                      genesisSecretKeys, slotSecurityParam)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
-                     GenesisProtocolConstants (..), GenesisInitializer (..),
+                     GenesisInitializer (..), GenesisProtocolConstants (..),
                      TestnetBalanceOptions (..))
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Block (getVerifyBlocksContext', rollbackBlocks,
                      verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp.Logic (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlocks)

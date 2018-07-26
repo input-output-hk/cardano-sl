@@ -27,11 +27,11 @@ import           Pos.Block.Types (Blund)
 import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
                      genesisData)
 import           Pos.Core.Block (headerHash)
-import           Pos.Core.Slotting (EpochOrSlot (..), getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
                      splitAtNewestFirst, toNewestFirst, _NewestFirst)
 import           Pos.Core.Genesis (GenesisData (..))
+import           Pos.Core.Slotting (EpochOrSlot (..), getEpochOrSlot)
 import           Pos.DB.Block (getVerifyBlocksContext', verifyAndApplyBlocks,
                      verifyBlocksPrefix)
 import           Pos.DB.Pure (dbPureDump)

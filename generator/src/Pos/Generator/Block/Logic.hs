@@ -27,10 +27,9 @@ import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import           Pos.DB.Block (ShouldCallBListener (..),
                      VerifyBlocksContext (..), applyBlocksUnsafe,
-                     createMainBlockInternal, lrcSingleShot,
-                     getVerifyBlocksContext, getVerifyBlocksContext',
-                     normalizeMempool, verifyBlocksPrefix)
-import           Pos.DB.Block ()
+                     createMainBlockInternal, getVerifyBlocksContext,
+                     getVerifyBlocksContext', lrcSingleShot, normalizeMempool,
+                     verifyBlocksPrefix)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk)
 import           Pos.DB.Lrc (lrcActionOnEpochReason)

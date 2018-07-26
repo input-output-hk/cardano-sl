@@ -47,10 +47,10 @@ import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)
 import           Pos.DB.Block.Logic.Internal (MonadBlockApply,
                      applyBlocksUnsafe, normalizeMempool)
-import           Pos.DB.Block.Logic.Util (calcChainQualityM)
-import           Pos.DB.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.DB.Block.Logic.Types (VerifyBlocksContext (..),
                      getVerifyBlocksContext)
+import           Pos.DB.Block.Logic.Util (calcChainQualityM)
+import           Pos.DB.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..))
 import qualified Pos.DB.BlockIndex as DB

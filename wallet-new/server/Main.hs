@@ -42,6 +42,7 @@ import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage,
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor
                      (newMonadDBReadAdaptor)
@@ -133,7 +134,7 @@ actionWithNewWallet pm sscParams nodeParams params =
       let rocksDB = newMonadDBReadAdaptor (nrDBs nr)
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
           bracketKernelPassiveWallet logMessage' keystore rocksDB $ \walletLayer passiveWallet -> do
-            liftIO $ logMessage' Info "Wallet kernel initialized"
+            Kernel.init passiveWallet
             Kernel.Mode.runWalletMode pm
                                       nr
                                       walletLayer

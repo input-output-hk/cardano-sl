@@ -14,6 +14,8 @@ import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
+import qualified Data.IxSet.Typed as IxSet
 
 handlers :: PassiveWalletLayer IO -> ServerT Accounts.API Handler
 handlers w =  deleteAccount w
@@ -47,16 +49,18 @@ listAccounts :: PassiveWalletLayer IO
              -> WalletId
              -> RequestParams
              -> Handler (WalletResponse [Account])
-listAccounts layer wId _params = do
-    _ <- liftIO $ (WalletLayer.getAccounts layer) wId
-    error "unimplemented. See [CBR-342]"
-    -- case res of
-    --      Left e         -> throwM e
-    --      Right accounts ->
-    --         respondWith params
-    --             (NoFilters :: FilterOperations Account)
-    --             (NoSorts :: SortOperations Account)
-    --             (pure accounts)
+listAccounts layer wId params = do
+    res <- liftIO $ (WalletLayer.getAccounts layer) wId
+    case res of
+         Left e         -> throwM e
+         Right accounts ->
+            respondWith params
+                (NoFilters :: FilterOperations Account)
+                (NoSorts :: SortOperations Account)
+                -- FIXME(adn) [CBR-347] We need to unify these two IxSet
+                -- wrappers, but for now let's pay the full conversion price
+                -- to get the feature shipped.
+                (pure $ IxSet.fromList . KernelIxSet.toList $ accounts)
 
 newAccount :: PassiveWalletLayer IO
            -> WalletId

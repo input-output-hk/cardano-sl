@@ -17,7 +17,8 @@ import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError, DeleteAccountError, GetAccountError,
-                     PassiveWalletLayer (..), UpdateAccountError)
+                     GetAccountsError, PassiveWalletLayer (..),
+                     UpdateAccountError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -25,6 +26,9 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
                      NewAccount (..), NewAddress, NewWallet (..), V1 (..),
                      Wallet, WalletId, WalletOperation (..), WalletUpdate)
+                     , NewAddress, V1 (..), Wallet, WalletId)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
@@ -227,11 +231,11 @@ pwlCreateAccount wId newAcc@NewAccount{..} = do
 pwlGetAccounts
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m [Account]
+    -> m (Either GetAccountsError (IxSet Account))
 pwlGetAccounts wId = do
     cWId        <- migrate wId
     cAccounts   <- V0.getAccounts $ Just cWId
-    migrate cAccounts
+    Right . IxSet.fromList <$> migrate cAccounts
 
 pwlGetAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)

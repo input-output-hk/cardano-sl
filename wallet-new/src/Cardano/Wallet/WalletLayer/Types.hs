@@ -26,6 +26,7 @@ module Cardano.Wallet.WalletLayer.Types
     , CreateAddressError(..)
     , CreateAccountError(..)
     , GetAccountError(..)
+    , GetAccountsError(..)
     , DeleteAccountError(..)
     , UpdateAccountError(..)
     ) where
@@ -45,6 +46,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
@@ -181,6 +183,23 @@ instance Buildable DeleteAccountError where
     build (DeleteAccountWalletIdDecodingFailed txt) =
         bprint ("DeleteAccountWalletIdDecodingFailed " % build) txt
 
+data GetAccountsError =
+      GetAccountsError Kernel.UnknownHdRoot
+    | GetAccountsWalletIdDecodingFailed Text
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show GetAccountsError where
+    show = formatToString build
+
+instance Exception GetAccountsError
+
+instance Buildable GetAccountsError where
+    build (GetAccountsError kernelError) =
+        bprint ("GetAccountsError " % build) kernelError
+    build (GetAccountsWalletIdDecodingFailed txt) =
+        bprint ("GetAccountsWalletIdDecodingFailed " % build) txt
+
 data UpdateAccountError =
       UpdateAccountError Kernel.UnknownHdAccount
     | UpdateAccountWalletIdDecodingFailed Text
@@ -227,7 +246,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlCreateAccount  :: WalletId
                          -> NewAccount
                          -> m (Either CreateAccountError Account)
-    , _pwlGetAccounts    :: WalletId -> m [Account]
+    , _pwlGetAccounts    :: WalletId -> m (Either GetAccountsError (IxSet Account))
     , _pwlGetAccount     :: WalletId
                          -> AccountIndex
                          -> m (Either GetAccountError Account)
@@ -276,7 +295,9 @@ createAccount :: forall m. PassiveWalletLayer m
               -> m (Either CreateAccountError Account)
 createAccount pwl = pwl ^. pwlCreateAccount
 
-getAccounts :: forall m. PassiveWalletLayer m -> WalletId -> m [Account]
+getAccounts :: forall m. PassiveWalletLayer m
+            -> WalletId
+            -> m (Either GetAccountsError (IxSet Account))
 getAccounts pwl = pwl ^. pwlGetAccounts
 
 getAccount :: forall m. PassiveWalletLayer m

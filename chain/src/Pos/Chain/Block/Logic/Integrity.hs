@@ -3,7 +3,7 @@
 -- | Verification of headers and blocks, also chain integrity
 -- checks. Almost pure (requires leaders to be explicitly passed).
 
-module Pos.Block.Logic.Integrity
+module Pos.Chain.Block.Logic.Integrity
        (
          -- * Header
          VerifyHeaderParams (..)
@@ -24,7 +24,7 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
 import qualified Pos.Binary.Class as Bi
-import qualified Pos.Block.BHelpers as BHelpers
+import qualified Pos.Chain.Block.BHelpers as BHelpers
 import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
                      HasEpochIndex (..), HasEpochOrSlot (..),
                      HasProtocolConstants, SlotId (..), SlotLeaders,

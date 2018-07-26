@@ -1,7 +1,7 @@
 -- | Types describing runtime errors related to Block processing.
 {-# LANGUAGE DeriveGeneric #-}
 
-module Pos.Block.Error
+module Pos.Chain.Block.Error
        ( RollbackException(..)
        , ApplyBlocksException(..)
        , VerifyBlocksException(..)

@@ -26,7 +26,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Time.Units (Millisecond)
 import           System.Wlog (WithLogger, logWarning)
 
-import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
+import           Pos.Chain.Block (LastKnownHeaderTag, MonadLastKnownHeader)
 import           Pos.Chain.Txp (ToilVerFailure)
 import           Pos.Chain.Update (ConfirmedProposalState)
 import qualified Pos.Context as PC

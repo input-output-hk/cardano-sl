@@ -48,7 +48,6 @@ library
                      , bytestring
                      , canonical-json
                      , cardano-sl
-                     , cardano-sl-block
                      , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core

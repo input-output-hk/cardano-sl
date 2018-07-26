@@ -15,7 +15,7 @@ import           Formatting (build, sformat, (%))
 import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),

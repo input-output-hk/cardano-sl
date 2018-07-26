@@ -26,8 +26,6 @@ packages:
 - infra/test
 - chain
 - chain/test
-- block
-- block/test
 - lib
 - generator
 - client
@@ -291,8 +289,6 @@ ghc-options:
   cardano-sl-auxx:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary-test: -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-block:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-block-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-chain:       -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-chain-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-client:      -Werror -Wcompat -fwarn-redundant-constraints

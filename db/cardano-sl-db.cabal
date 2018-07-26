@@ -122,7 +122,6 @@ library
                      , base
                      , bytestring
                      , cardano-sl-binary
-                     , cardano-sl-block
                      , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto

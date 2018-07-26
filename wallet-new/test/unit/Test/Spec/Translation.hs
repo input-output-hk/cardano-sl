@@ -11,7 +11,7 @@ import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
 
-import qualified Pos.Block.Error as Cardano
+import qualified Pos.Chain.Block as Cardano
 import qualified Pos.Chain.Txp as Cardano
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 

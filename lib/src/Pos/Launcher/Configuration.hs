@@ -41,7 +41,7 @@ import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
 
-import           Pos.Block.Configuration
+import           Pos.Chain.Block
 import           Pos.Chain.Delegation
 import           Pos.Chain.Ssc hiding (filter)
 import           Pos.Chain.Txp

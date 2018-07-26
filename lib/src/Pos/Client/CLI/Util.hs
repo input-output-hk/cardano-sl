@@ -23,7 +23,7 @@ import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
-import           Pos.Block.Configuration (blockConfiguration)
+import           Pos.Chain.Block (blockConfiguration)
 import           Pos.Chain.Delegation (dlgConfiguration)
 import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
 import           Pos.Chain.Ssc (sscConfiguration)

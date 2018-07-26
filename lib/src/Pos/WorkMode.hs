@@ -20,7 +20,7 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (HasTxpConfiguration)

@@ -33,7 +33,7 @@ import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
 
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)

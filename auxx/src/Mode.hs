@@ -28,7 +28,7 @@ import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
 import           System.Wlog (HasLoggerName (..))
 
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),

@@ -47,7 +47,7 @@ import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (wlogTrace)
-import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
 -- when trying to resolve it.

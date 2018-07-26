@@ -17,9 +17,8 @@ import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
-import           Pos.Block.Types (MonadLastKnownHeader)
+import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
+                     HasSlogGState, MonadLastKnownHeader)
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem)

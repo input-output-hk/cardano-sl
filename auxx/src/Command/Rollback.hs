@@ -13,7 +13,7 @@ import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 import           System.Wlog (logInfo)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (flattenTxPayload)
 import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)

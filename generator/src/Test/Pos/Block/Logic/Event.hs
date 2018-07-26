@@ -18,7 +18,7 @@ import           Control.Exception.Safe (fromException)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)

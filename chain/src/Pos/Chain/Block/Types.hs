@@ -1,6 +1,6 @@
 -- | Types used for block processing: most importantly, 'Undo' and 'Blund'.
 
-module Pos.Block.Types
+module Pos.Chain.Block.Types
        ( SlogUndo (..)
        , Undo (..)
        , Blund
@@ -17,7 +17,7 @@ import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Block.Slog.Types (SlogUndo (..))
+import           Pos.Chain.Block.Slog.Types (SlogUndo (..))
 import           Pos.Chain.Delegation (DlgUndo)
 import           Pos.Chain.Update (USUndo)
 import           Pos.Core (HasConfiguration, HasDifficulty (..))

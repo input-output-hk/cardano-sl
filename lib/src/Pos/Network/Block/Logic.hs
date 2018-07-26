@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
--- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
+-- nodes. Also see "Pos.Chain.Block.Network.Retrieval" for retrieval worker
 -- loop logic.
 module Pos.Network.Block.Logic
        (
@@ -27,8 +27,8 @@ import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Block.Error (ApplyBlocksException)
-import           Pos.Block.Types (Blund, LastKnownHeaderTag)
+import           Pos.Chain.Block (ApplyBlocksException, Blund,
+                     LastKnownHeaderTag)
 import           Pos.Core (isMoreDifficult)
 import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash, blockHeader, gbHeader, headerHashG,

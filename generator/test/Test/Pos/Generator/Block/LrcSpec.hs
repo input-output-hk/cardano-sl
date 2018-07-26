@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Specification of 'Pos.Block.Lrc' (actually only
+-- | Specification of 'Pos.Chain.Block.Lrc' (actually only
 -- 'lrcSingleShotNoLock' which probably shouldn't be there, but it
 -- doesn't matter now).
 

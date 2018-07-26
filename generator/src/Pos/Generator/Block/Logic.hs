@@ -18,7 +18,7 @@ import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,

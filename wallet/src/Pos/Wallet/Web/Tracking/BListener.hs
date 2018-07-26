@@ -19,7 +19,7 @@ import           Data.Time.Units (convertUnit)
 import           Formatting (build, sformat, (%))
 import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
-import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Chain.Block (Blund, undoTx)
 import           Pos.Chain.Txp (flattenTxPayload)
 import           Pos.Core (Timestamp, difficultyL)
 import           Pos.Core.Block (BlockHeader (..), HeaderHash, blockHeader,

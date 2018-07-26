@@ -116,7 +116,6 @@ library
                       , bytestring
                       , cardano-crypto
                       , cardano-sl
-                      , cardano-sl-block
                       , cardano-sl-chain
                       , cardano-sl-client
                       , cardano-sl-core
@@ -243,7 +242,6 @@ test-suite cardano-wallet-test
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
-                     , cardano-sl-block
                      , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core

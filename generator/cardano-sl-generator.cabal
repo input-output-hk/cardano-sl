@@ -38,7 +38,6 @@ library
                      , base
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-block
                      , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
@@ -122,8 +121,6 @@ test-suite cardano-generator-test
                      , bytestring
                      , cardano-sl
                      , cardano-sl-binary
-                     , cardano-sl-block
-                     , cardano-sl-block-test
                      , cardano-sl-chain
                      , cardano-sl-chain-test
                      , cardano-sl-core

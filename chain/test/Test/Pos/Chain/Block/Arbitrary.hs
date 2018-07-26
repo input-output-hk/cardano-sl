@@ -8,7 +8,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Test.Pos.Block.Arbitrary
+module Test.Pos.Chain.Block.Arbitrary
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
 
@@ -30,7 +30,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Binary.Class (biSize)
-import qualified Pos.Block.Logic.Integrity as Block
+import qualified Pos.Chain.Block as Block
 import           Pos.Core (GenesisHash (..), HasGenesisHash,
                      HasProtocolConstants, epochSlots, genesisHash)
 import qualified Pos.Core as Core

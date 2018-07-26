@@ -27,7 +27,7 @@ import           Pipes (Producer, yield)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Block.Slog (LastBlkSlots, noLastBlkSlots)
+import           Pos.Chain.Block (LastBlkSlots, noLastBlkSlots)
 import           Pos.Core (FlatSlotId, HasCoreConfiguration,
                      HasProtocolConstants, genesisHash, slotIdF,
                      unflattenSlotId)

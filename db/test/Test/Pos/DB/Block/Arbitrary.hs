@@ -8,8 +8,7 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Block.Slog (SlogUndo)
-import           Pos.Block.Types (Undo (..))
+import           Pos.Chain.Block (SlogUndo, Undo (..))
 import           Pos.Core (HasProtocolConstants)
 
 import           Test.Pos.Chain.Delegation.Arbitrary ()

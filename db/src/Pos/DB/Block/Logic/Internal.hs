@@ -32,7 +32,7 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
+import           Pos.Chain.Block (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Chain.Delegation (DlgBlock, DlgBlund, MonadDelegation)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (HasTxpConfiguration)

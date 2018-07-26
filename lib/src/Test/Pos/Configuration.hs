@@ -24,8 +24,7 @@ import           Universum
 
 import qualified Data.Aeson as J
 
-import           Pos.Block.Configuration (HasBlockConfiguration,
-                     withBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Chain.Delegation (HasDlgConfiguration,
                      withDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)

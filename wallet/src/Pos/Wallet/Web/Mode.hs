@@ -31,7 +31,7 @@ import qualified Data.Map.Strict as M
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Chain.Txp (HasTxpConfiguration, Utxo, addrBelongsToSet,
                      applyUtxoModToAddrCoinMap)

@@ -2,7 +2,7 @@
 
 -- | Configuration part of block processing.
 
-module Pos.Block.Configuration
+module Pos.Chain.Block.Configuration
     ( BlockConfiguration (..)
     , HasBlockConfiguration
     , blockConfiguration

@@ -2,7 +2,7 @@
 
 -- | This module tests SafeCopy instances for Block types.
 
-module Test.Pos.Block.SafeCopySpec
+module Test.Pos.Chain.Block.SafeCopySpec
        ( spec
        ) where
 
@@ -14,7 +14,7 @@ import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 
 spec :: Spec
 spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> describe "Block types" $ do

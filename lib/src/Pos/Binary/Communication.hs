@@ -13,7 +13,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
 import           Pos.Binary.Class (serialize, serialize')
-import           Pos.Block.BHelpers ()
+import           Pos.Chain.Block ()
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..), MsgStreamBlock (..))

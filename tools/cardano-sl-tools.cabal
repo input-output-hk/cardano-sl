@@ -204,7 +204,6 @@ executable cardano-launcher
                      , bytestring
                      , cardano-report-server >= 0.2.1
                      , cardano-sl
-                     , cardano-sl-block
                      , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-db
@@ -363,7 +362,7 @@ executable cardano-post-mortem
                        , base
                        , bytestring
                        , cardano-sl
-                       , cardano-sl-block
+                       , cardano-sl-chain
                        , cardano-sl-core
                        , cardano-sl-infra
                        , cardano-sl-chain
@@ -431,7 +430,7 @@ executable cardano-blockchain-analyser
                      , base
                      , cardano-sl
                      , cardano-sl-binary
-                     , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db

@@ -29,7 +29,7 @@ import qualified Ether
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (topsortTxs)
 import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
                      difficultyL, epochIndexL, getChainDifficulty)

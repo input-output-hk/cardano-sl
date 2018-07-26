@@ -15,6 +15,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
+                       Pos.Chain.Lrc
                        Pos.Chain.Txp
                        Pos.Chain.Script
                        Pos.Chain.Script.Examples
@@ -35,6 +36,12 @@ library
                        Pos.Chain.Txp.Toil.Utxo.Functions
                        Pos.Chain.Txp.Toil.Utxo.Util
 
+                       Pos.Chain.Lrc.Fts
+                       Pos.Chain.Lrc.Types
+                       Pos.Chain.Lrc.Error
+                       Pos.Chain.Lrc.Core
+                       Pos.Chain.Lrc.Genesis
+                       Pos.Chain.Lrc.RichmenComponent
 
   build-depends:       aeson
                      , aeson-options
@@ -44,6 +51,7 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , conduit
                      , containers
                      , data-default
                      , exceptions
@@ -103,8 +111,11 @@ test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Test.hs
+
   other-modules:       Test.Pos.Chain.Txp.CoreSpec
                        Test.Pos.Chain.Txp.Toil.UtxoSpec
+                       Test.Pos.Chain.Lrc.FtsSpec
+
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl-core-test

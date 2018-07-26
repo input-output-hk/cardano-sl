@@ -12,9 +12,17 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:
+  exposed-modules:     Test.Pos.Chain.Lrc.Arbitrary
 
-  build-depends:
+  build-depends:       base
+                     , cardano-sl-chain
+                     , cardano-sl-core
+                     , cardano-sl-core-test
+                     , generic-arbitrary
+                     , QuickCheck
+                     , reflection
+                     , universum
+                     , unordered-containers
 
   default-language:    Haskell2010
 

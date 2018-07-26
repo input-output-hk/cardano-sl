@@ -19,6 +19,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
                      vector, (.&&.), (===), (==>))
 
 import           Pos.Binary (AsBinary)
+import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
                      StakeholderId, addressHash, crucialSlot,
                      genesisBlockVersionData, mkCoin)
@@ -29,7 +30,6 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature,
                      mkCommitmentsMapUnsafe, _vcVssKey)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey,
                      SignTag (SignCommitment), sign, toPublic)
-import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv,
                      SscGlobalState (..), SscVerifyError (..),
                      VssCertData (..), checkCertificatesPayload,
@@ -39,7 +39,8 @@ import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv,
                      supplyPureTossEnv)
 import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment,
                      verifyCommitmentSignature, verifyOpening)
-import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, ValidRichmenStakes (..))
+import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
+                     ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)

@@ -28,6 +28,7 @@ import           Serokell.Util (magnify')
 import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core (EpochIndex, HasGenesisData, HasProtocolConstants,
                      SlotId (..), StakeholderId, epochIndexL)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
@@ -40,7 +41,6 @@ import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen, tryGetSscRichmen)
-import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))

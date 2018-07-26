@@ -1,7 +1,7 @@
 
 -- | Base part of /follow-the-satoshi/ procedure.
 
-module Pos.Lrc.Fts
+module Pos.Chain.Lrc.Fts
        ( followTheSatoshi
        , followTheSatoshiM
        ) where

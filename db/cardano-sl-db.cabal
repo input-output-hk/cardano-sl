@@ -123,12 +123,11 @@ library
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-delegation
-                     , cardano-sl-lrc
                      , cardano-sl-ssc
-                     , cardano-sl-chain
                      , cardano-sl-update
                      , cardano-sl-util
                      , concurrent-extra

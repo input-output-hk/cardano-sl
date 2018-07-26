@@ -20,6 +20,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
+import           Pos.Chain.Lrc (RichmenSet)
 import           Pos.Core (EpochIndex, StakeholderId, addressHash)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader,
                      gbhConsensus, mainHeaderLeaderKey, mcdSignature)
@@ -29,7 +30,6 @@ import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey,
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Types (DlgMemPool, isRevokePsk)
-import           Pos.Lrc.Types (RichmenSet)
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of sequential db reads so

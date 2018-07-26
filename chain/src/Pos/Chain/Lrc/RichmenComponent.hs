@@ -1,11 +1,11 @@
-module Pos.Lrc.RichmenComponent
+module Pos.Chain.Lrc.RichmenComponent
        ( RichmenComponent (..)
        ) where
 
 import           Universum
 
+import           Pos.Chain.Lrc.Types (FullRichmenData)
 import           Pos.Core.Common (CoinPortion)
-import           Pos.Lrc.Types (FullRichmenData)
 
 data RichmenComponent richmenData = RichmenComponent
     { rcToData            :: FullRichmenData -> richmenData

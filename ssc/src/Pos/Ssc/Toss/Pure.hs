@@ -20,10 +20,10 @@ import           System.Wlog (CanLog, HasLoggerName (..), LogEvent,
                      NamedPureLogger (..), WithLogger, dispatchEvents,
                      runNamedPureLog)
 
+import           Pos.Chain.Lrc (RichmenSet, RichmenStakes)
 import           Pos.Core (EpochIndex, HasGenesisData, HasProtocolConstants,
                      crucialSlot, genesisVssCerts)
 import           Pos.Core.Update (BlockVersionData)
-import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Ssc.Base (deleteSignedCommitment, insertSignedCommitment)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
                      MonadTossRead (..))

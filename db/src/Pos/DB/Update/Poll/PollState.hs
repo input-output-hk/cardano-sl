@@ -28,13 +28,13 @@ import           Control.Lens (makeLenses)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
+import           Pos.Chain.Lrc (FullRichmenData)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Slotting (EpochIndex, SlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionData, NumSoftwareVersion,
                      SoftwareVersion (..), UpId, UpdateProposal (..))
 import           Pos.DB.Lrc (IssuersStakes)
-import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.Types (BlockVersionState,
                      ConfirmedProposalState, ProposalState, psProposal)

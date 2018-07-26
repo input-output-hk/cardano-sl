@@ -16,12 +16,12 @@ import qualified Ether
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Lrc (FullRichmenData)
 import           Pos.Core (Coin, HasGenesisBlockVersionData)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getIssuersStakes,
                      lrcActionOnEpochReason, tryGetUSRichmen)
 import qualified Pos.DB.Update.GState as GS
-import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Poll.Class (MonadPollRead (..))
 

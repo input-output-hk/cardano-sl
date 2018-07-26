@@ -1,6 +1,6 @@
 -- | Computation of LRC genesis data.
 
-module Pos.Lrc.Genesis
+module Pos.Chain.Lrc.Genesis
     ( genesisLeaders
     ) where
 
@@ -8,12 +8,12 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Lrc.Fts (followTheSatoshi)
 import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, genesisUtxo,
                      utxoToStakes)
 import           Pos.Core (HasGenesisData, SharedSeed (..), SlotCount,
                      SlotLeaders, genesisData)
 import           Pos.Core.Genesis (GenesisData (..))
-import           Pos.Lrc.Fts (followTheSatoshi)
 
 
 -- | Compute leaders of the 0-th epoch from initial shared seed and stake distribution.

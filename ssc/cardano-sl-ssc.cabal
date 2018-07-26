@@ -51,7 +51,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-lrc
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , containers
                      , cryptonite

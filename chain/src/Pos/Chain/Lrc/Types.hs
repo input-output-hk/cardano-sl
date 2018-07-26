@@ -1,6 +1,6 @@
 -- | Types used in LRC.
 
-module Pos.Lrc.Types
+module Pos.Chain.Lrc.Types
        ( RichmenSet
        , RichmenStakes
        , FullRichmenData

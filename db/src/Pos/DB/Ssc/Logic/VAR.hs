@@ -20,6 +20,7 @@ import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
+import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core (HasCoreConfiguration, HasGenesisData,
                      HasProtocolConstants, epochIndexL, epochOrSlotG)
 import           Pos.Core.Block (ComponentBlock (..), HeaderHash, headerHash)
@@ -32,7 +33,6 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
-import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem,

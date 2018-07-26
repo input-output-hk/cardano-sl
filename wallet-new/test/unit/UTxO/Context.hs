@@ -45,6 +45,7 @@ import           Serokell.Util (listJson, mapJson, pairF)
 import           Serokell.Util.Base16 (base16F)
 import           Universum
 
+import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
 import           Pos.Core
 import           Pos.Core.Block (BlockHeader (..), GenesisBlock, HeaderHash,
@@ -53,7 +54,6 @@ import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis (GeneratedSecrets (..), GenesisData (..),
                      GenesisDelegation (..), PoorSecret (..), RichSecrets (..))
 import           Pos.Crypto
-import           Pos.Lrc.Genesis
 
 import           UTxO.Crypto
 

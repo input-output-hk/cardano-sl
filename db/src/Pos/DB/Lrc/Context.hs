@@ -17,11 +17,11 @@ import           Universum
 import           Control.Lens (views)
 import           System.Wlog (WithLogger)
 
+import           Pos.Chain.Lrc (LrcError (..))
 import           Pos.Core (EpochIndex)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc.Common (getEpoch)
-import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
 import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)
 

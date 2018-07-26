@@ -124,7 +124,6 @@ library
                       , cardano-sl-generator
                       , cardano-sl-db
                       , cardano-sl-infra
-                      , cardano-sl-lrc
                       , cardano-sl-ssc
                       , cardano-sl-chain
                       , cardano-sl-networking
@@ -248,6 +247,7 @@ test-suite cardano-wallet-test
                      , cardano-crypto
                      , cardano-sl
                      , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -257,9 +257,7 @@ test-suite cardano-wallet-test
                      , cardano-sl-delegation
                      , cardano-sl-generator
                      , cardano-sl-infra
-                     , cardano-sl-lrc
                      , cardano-sl-ssc
-                     , cardano-sl-chain
                      , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test

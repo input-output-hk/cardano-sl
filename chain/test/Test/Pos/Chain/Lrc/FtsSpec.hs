@@ -1,7 +1,7 @@
--- | Specification of Pos.Lrc.FtsPure (which is basically a pure
--- version of 'Pos.Lrc.Fts').
+-- | Specification of Pos.Chain.LrcPure (which is basically a pure
+-- version of 'Pos.Chain.Lrc').
 
-module Test.Pos.Lrc.FtsSpec
+module Test.Pos.Chain.Lrc.FtsSpec
        ( spec
        ) where
 
@@ -14,11 +14,11 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose,
                      infiniteListOf, suchThat, (===))
 
+import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Core (BlockCount, Coin, SharedSeed, SlotCount,
                      StakeholderId, StakesList, addressHash, mkCoin, sumCoins,
                      unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto (PublicKey)
-import           Pos.Lrc.Fts (followTheSatoshi)
 
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
@@ -39,7 +39,7 @@ numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
 spec :: Spec
 spec = do
   let smaller = modifyMaxSuccess (const 1)
-  describe "Pos.Lrc.FtsPure" $ do
+  describe "Pos.Chain.LrcPure" $ do
     describe "followTheSatoshi" $ do
       describe "deterministic" $ do
         prop description_ftsListLength ftsListLength

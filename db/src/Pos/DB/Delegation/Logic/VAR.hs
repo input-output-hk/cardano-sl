@@ -25,6 +25,7 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Lrc (RichmenSet)
 import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
                      epochIndexL, siEpoch)
 import           Pos.Core.Block (Block, ComponentBlock (..), gbHeader,
@@ -53,7 +54,6 @@ import           Pos.Delegation.Cede (CedeModifier (..), DlgEdgeAction (..),
 import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
 import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload),
                      DlgUndo (..))
-import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
 
 

@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Lrc types.
 
-module Test.Pos.Lrc.Arbitrary
+module Test.Pos.Chain.Lrc.Arbitrary
        ( GenesisMpcThd
        , InvalidRichmenStakes (..)
        , ValidRichmenStakes (..)
@@ -13,12 +13,12 @@ import           Data.Reflection (Reifies (..))
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
+import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble,
                      mkCoin, unsafeAddCoin, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
-import           Pos.Lrc.Types (RichmenStakes)
 
 import           Test.Pos.Core.Arbitrary ()
 

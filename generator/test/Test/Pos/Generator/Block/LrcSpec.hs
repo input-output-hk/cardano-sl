@@ -21,6 +21,7 @@ import           Test.QuickCheck (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic (pick, run)
 
 import           Pos.Binary.Class (serialize')
+import qualified Pos.Chain.Lrc as Lrc
 import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash,
                      blkSecurityParam, coinF, epochSlots, genesisData,
                      genesisSecretKeysPoor, genesisSecretKeysRich)
@@ -36,7 +37,6 @@ import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
 import           Pos.DB.Update (getAdoptedBVFull)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
-import qualified Pos.Lrc as Lrc
 import           Pos.Util.Util (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),

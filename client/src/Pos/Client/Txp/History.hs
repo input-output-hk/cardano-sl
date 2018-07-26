@@ -36,6 +36,7 @@ import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
+import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      TxOut, TxOutAux (..), TxWitness, TxpError (..),
                      UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, evalUtxoM,
@@ -59,7 +60,6 @@ import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
                      getSystemStartM)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
-import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 

@@ -86,6 +86,7 @@ library
                       , cardano-sl-binary
                       , cardano-sl-block
                       , cardano-sl-block-test
+                      , cardano-sl-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
@@ -93,10 +94,8 @@ library
                       , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-infra
-                      , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
-                      , cardano-sl-chain
                       , cardano-sl-update
                       , cardano-sl-util
 

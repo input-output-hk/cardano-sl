@@ -47,6 +47,7 @@ import           Formatting (ords, sformat, (%))
 import           System.Wlog (logWarning)
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
+import           Pos.Chain.Lrc (RichmenSet, RichmenStakes)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, addressHash,
                      coinPortionDenominator, getCoinPortion, unsafeGetCoin)
 import           Pos.Core.Ssc (Commitment (..),
@@ -57,7 +58,6 @@ import           Pos.Core.Ssc (Commitment (..),
                      lookupVss, memberVss, spVss, vcSigningKey, vcVssKey)
 import           Pos.Core.Update (bvdMpcThd)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
-import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Ssc.Base (verifyOpening, vssThreshold)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),

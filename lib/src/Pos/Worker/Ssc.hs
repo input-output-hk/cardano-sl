@@ -22,6 +22,7 @@ import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
+import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), blkSecurityParam,
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
@@ -54,7 +55,6 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
-import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
                      mkSignedCommitment)

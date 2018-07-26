@@ -1,4 +1,4 @@
-module Pos.Lrc.Error
+module Pos.Chain.Lrc.Error
        (
          LrcError (..)
        ) where

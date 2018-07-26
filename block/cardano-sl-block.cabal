@@ -34,7 +34,6 @@ library
                       , cardano-sl-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
-                      , cardano-sl-update
                       , cardano-sl-util
                       , cborg
                       , deepseq
@@ -107,7 +106,6 @@ test-suite test
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-update-test
                      , formatting
                      , generic-arbitrary
                      , hspec
@@ -154,7 +152,6 @@ benchmark bench-block
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
-                     , cardano-sl-update-test
                      , deepseq
                      , formatting
                      , generic-arbitrary

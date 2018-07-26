@@ -17,6 +17,9 @@ library
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
+                       Test.Pos.Chain.Update.Arbitrary
+
+  other-modules:       Test.Pos.Chain.Update.Arbitrary.Core
 
   build-depends:       base
                      , bytestring

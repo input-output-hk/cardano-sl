@@ -18,9 +18,9 @@ import           Servant.Generic (AsServerT, GenericProduct, ToServant,
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
+import           Pos.Chain.Update (curSoftwareVersion)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)

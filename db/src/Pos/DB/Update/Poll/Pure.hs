@@ -15,14 +15,13 @@ import qualified Data.HashSet as HS
 import           System.Wlog (CanLog, HasLoggerName (..), LogEvent,
                      NamedPureLogger, logDebug, logWarning, runNamedPureLog)
 
+import           Pos.Chain.Update (BlockVersionState (..),
+                     DecidedProposalState (..), MonadPoll (..),
+                     MonadPollRead (..), UndecidedProposalState (..), applyBVM,
+                     cpsSoftwareVersion, propStateToEither, psProposal)
 import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update.Poll.PollState as Poll
-import           Pos.Update.BlockVersion (applyBVM)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..),
-                     DecidedProposalState (..), UndecidedProposalState (..),
-                     cpsSoftwareVersion, propStateToEither, psProposal)
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: StateT Poll.PollState (NamedPureLogger Identity) a

@@ -15,8 +15,8 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Pos.Binary.Class (biSize)
 import qualified Pos.DB.Update as Upd
 
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.Update.Arbitrary ()
 
 instance Arbitrary Upd.MemPool where
     arbitrary = do

@@ -44,10 +44,10 @@ import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Chain.Ssc.Arbitrary (SscPayloadDependsOnSlot (..),
                      genSscPayload, genSscPayloadForSlot)
+import           Test.Pos.Chain.Update.Arbitrary (genUpdatePayload)
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Update.Arbitrary (genUpdatePayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (Block.Body b)

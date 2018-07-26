@@ -27,6 +27,7 @@ import           Pos.Block.Slog
 import           Pos.Block.Types
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Txp
+import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Block (Block, ComponentBlock (..), HeaderHash,
                      genBlockLeaders, mainBlockSlot, prevBlockL)
@@ -35,7 +36,6 @@ import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
-import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM

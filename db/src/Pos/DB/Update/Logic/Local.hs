@@ -33,6 +33,12 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     MonadPoll (deactivateProposal),
+                     MonadPollRead (getProposal), PollModifier,
+                     PollVerFailure (..), canCombineVotes, evalPollT,
+                     execPollT, getAdoptedBV, modifyPollModifier, psVotes,
+                     reportUnexpectedError, runPollT)
 import           Pos.Core (ProtocolMagic, SlotId (..), slotIdF)
 import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting)
@@ -52,12 +58,6 @@ import           Pos.DB.Update.Poll.DBPoll (runDBPoll)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyUSPayload)
 import           Pos.DB.Update.Poll.Logic.Normalize (filterProposalsByThd,
                      normalizePoll, refreshPoll)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Poll (MonadPoll (deactivateProposal),
-                     MonadPollRead (getProposal), PollModifier,
-                     PollVerFailure (..), evalPollT, execPollT, getAdoptedBV,
-                     modifyPollModifier, reportUnexpectedError, runPollT)
-import           Pos.Update.Poll.Types (canCombineVotes, psVotes)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 type USLocalLogicMode ctx m =

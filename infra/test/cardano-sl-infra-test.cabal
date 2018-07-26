@@ -37,7 +37,6 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-infra
-                     , cardano-sl-update-test
                      , cardano-sl-util-test
                      , containers
                      , generic-arbitrary

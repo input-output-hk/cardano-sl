@@ -34,6 +34,8 @@ import           System.Wlog (WithLogger)
 import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
 import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
                      epochIndexL, flattenSlotId)
 import           Pos.Core.Block (Block, genBlockLeaders, headerHash,
@@ -57,8 +59,6 @@ import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 

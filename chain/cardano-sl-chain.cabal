@@ -22,6 +22,7 @@ library
                        Pos.Chain.Script
                        Pos.Chain.Script.Examples
                        Pos.Chain.Txp
+                       Pos.Chain.Update
 
   other-modules:
                        Pos.Chain.Delegation.Cede
@@ -77,8 +78,18 @@ library
                        Pos.Chain.Ssc.Toss.Trans
                        Pos.Chain.Ssc.Toss.Types
 
+                       Pos.Chain.Update.BlockVersion
+                       Pos.Chain.Update.Configuration
+                       Pos.Chain.Update.Constants
+                       Pos.Chain.Update.Poll
+                       Pos.Chain.Update.Poll.Class
+                       Pos.Chain.Update.Poll.Modifier
+                       Pos.Chain.Update.Poll.Types
+                       Pos.Chain.Update.Poll.Failure
+                       Pos.Chain.Update.Params
 
-  build-depends:       aeson
+  build-depends:       Cabal
+                     , aeson
                      , aeson-options
                      , array
                      , base
@@ -91,6 +102,7 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , deepseq
                      , ether
                      , exceptions
                      , fmt >= 0.4

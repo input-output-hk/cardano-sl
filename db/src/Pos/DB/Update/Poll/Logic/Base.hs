@@ -38,6 +38,13 @@ import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
+import           Pos.Chain.Update (BlockVersionState (..),
+                     ConfirmedProposalState (..), DecidedProposalState (..),
+                     DpsExtra (..), MonadPoll (..), MonadPollRead (..),
+                     PollVerFailure (..), ProposalState (..),
+                     UndecidedProposalState (..), UpsExtra (..),
+                     bvsIsConfirmed, combineVotes, cpsBlockVersion,
+                     isPositiveVote, newVoteState)
 import           Pos.Core (Coin, CoinPortion (..), EpochIndex,
                      HasProtocolConstants, SlotId, TimeDiff (..), addressHash,
                      applyCoinPortionUp, coinPortionDenominator, coinToInteger,
@@ -52,14 +59,6 @@ import           Pos.Core.Update (BlockVersion (..), BlockVersionData (..),
                      BlockVersionModifier (..), SoftforkRule (..), UpId,
                      UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..),
-                     ConfirmedProposalState (..), DecidedProposalState (..),
-                     DpsExtra (..), ProposalState (..),
-                     UndecidedProposalState (..), UpsExtra (..),
-                     bvsIsConfirmed, combineVotes, cpsBlockVersion,
-                     isPositiveVote, newVoteState)
 
 
 

@@ -28,6 +28,7 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
 import           Pos.Chain.Txp (ToilVerFailure)
+import           Pos.Chain.Update (ConfirmedProposalState)
 import qualified Pos.Context as PC
 import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp,
                      difficultyL, getCurrentTimestamp)
@@ -43,7 +44,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), TxpLocalWorkMode,
 import           Pos.DB.Update (UpdateContext (ucDownloadedUpdate))
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots (..), getNextEpochSlotDuration)
-import           Pos.Update.Poll.Types (ConfirmedProposalState)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      MonadUpdates (..))

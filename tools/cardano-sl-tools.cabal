@@ -205,11 +205,11 @@ executable cardano-launcher
                      , cardano-report-server >= 0.2.1
                      , cardano-sl
                      , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-tools
-                     , cardano-sl-update
                      , cardano-sl-util
                      , directory
                      , filepath

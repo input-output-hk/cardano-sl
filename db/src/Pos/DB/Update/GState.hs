@@ -49,6 +49,14 @@ import           Serokell.Data.Memory.Units (Byte)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Update (BlockVersionState (..),
+                     ConfirmedProposalState (..),
+                     DecidedProposalState (dpsDifficulty),
+                     HasUpdateConfiguration, ProposalState (..),
+                     UndecidedProposalState (upsSlot), bvsIsConfirmed,
+                     cpsSoftwareVersion, genesisBlockVersion,
+                     genesisSoftwareVersions, ourAppName, ourSystemTag,
+                     psProposal)
 import           Pos.Core (ChainDifficulty, HasCoreConfiguration, SlotId,
                      StakeholderId, TimeDiff (..), epochSlots)
 import           Pos.Core.Configuration (genesisBlockVersionData)
@@ -63,15 +71,6 @@ import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB,
                      encodeWithKeyPrefix)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Update.Configuration (HasUpdateConfiguration, ourAppName,
-                     ourSystemTag)
-import           Pos.Update.Constants (genesisBlockVersion,
-                     genesisSoftwareVersions)
-import           Pos.Update.Poll.Types (BlockVersionState (..),
-                     ConfirmedProposalState (..),
-                     DecidedProposalState (dpsDifficulty), ProposalState (..),
-                     UndecidedProposalState (upsSlot), bvsIsConfirmed,
-                     cpsSoftwareVersion, psProposal)
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------

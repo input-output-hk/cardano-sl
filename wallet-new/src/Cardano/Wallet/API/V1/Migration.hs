@@ -15,8 +15,8 @@ import           Cardano.Wallet.API.V1.Migration.Monads as Exports
 import           Cardano.Wallet.API.V1.Migration.Types as Exports
 
 import           Pos.Chain.Ssc (HasSscConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)

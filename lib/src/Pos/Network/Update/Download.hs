@@ -27,6 +27,8 @@ import           System.Directory (doesFileExist)
 import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
+import           Pos.Chain.Update (ConfirmedProposalState (..),
+                     UpdateParams (..), curSoftwareVersion, ourSystemTag)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
                      UpdateProposal (..))
@@ -34,9 +36,6 @@ import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.DB.Update (UpdateContext (..), isUpdateInstalled)
 import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Listener.Update (UpdateMode)
-import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
-import           Pos.Update.Params (UpdateParams (..))
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Concurrent (withMVar)
 import           Pos.Util.Util (HasLens (..), (<//>))
 

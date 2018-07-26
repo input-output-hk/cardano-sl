@@ -30,6 +30,8 @@ import           Pos.Chain.Delegation (HasDlgConfiguration,
                      withDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
 import           Pos.Chain.Txp (HasTxpConfiguration, withTxpConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..),
@@ -40,8 +42,6 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)
 
 -- | This configuration is embedded into binary and is used by default

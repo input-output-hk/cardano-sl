@@ -29,6 +29,8 @@ import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
 import           Pos.Chain.Txp (emptyTxPayload)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     lastKnownBlockVersion)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
                      SlotId (..), chainQualityThreshold, epochIndexL,
                      epochSlots, flattenSlotId, getEpochOrSlot)
@@ -65,8 +67,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
 

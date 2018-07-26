@@ -19,7 +19,7 @@ module Cardano.Faucet.Types.API (
  , WithdrawalQFull(..)
   ) where
 
-import           Control.Exception
+import           Control.Exception.Safe
 import           Control.Lens (at, makeLenses, makePrisms, makeWrapped, mapped,
                                (?~), _Wrapped)
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,

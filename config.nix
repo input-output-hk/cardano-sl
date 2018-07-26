@@ -77,7 +77,7 @@ spaces:
               enableLibraryProfiling = false;
               enableSharedLibraries = false;
               enableSharedExecutables = false;
-              configureFlags = (drv.configureFlags or []) ++ [ spaces ];
+              configureFlags = (drv.configureFlags or []) ++ [ "--ghc-options=-fexternal-interpreter" spaces ];
             });
           };
         });

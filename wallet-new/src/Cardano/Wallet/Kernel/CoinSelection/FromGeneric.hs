@@ -28,11 +28,11 @@ import           Universum hiding (Sum (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 
+import qualified Pos.Chain.Txp as Core
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (TxSizeLinear, calculateTxSizeLinear)
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
-import qualified Pos.Txp as Core
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic

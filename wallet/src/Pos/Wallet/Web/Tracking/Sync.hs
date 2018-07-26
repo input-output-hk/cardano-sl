@@ -54,6 +54,8 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
+                     _txOutputs)
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
@@ -75,7 +77,6 @@ import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP,
                      logInfoSP, logWarningSP, secretOnlyF, secure)
-import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)

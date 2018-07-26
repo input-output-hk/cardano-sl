@@ -62,8 +62,8 @@ import qualified Data.Set as Set
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
+import           Pos.Chain.Txp (topsortTxs)
 import           Pos.Crypto.Hashing (WithHash (..))
-import           Pos.Txp.Topsort (topsortTxs)
 import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF, tripleF)
 import           Test.QuickCheck
 

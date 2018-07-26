@@ -1,0 +1,149 @@
+name:                cardano-sl-chain
+version:             1.3.0
+synopsis:            Cardano SL - transaction processing
+description:         Cardano SL - transaction processing
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:
+                       Pos.Chain.Txp
+                       Pos.Chain.Script
+                       Pos.Chain.Script.Examples
+
+  other-modules:
+                       Pos.Chain.Txp.Configuration
+                       Pos.Chain.Txp.Base
+                       Pos.Chain.Txp.Error
+                       Pos.Chain.Txp.Topsort
+                       Pos.Chain.Txp.GenesisUtxo
+                       Pos.Chain.Txp.Toil
+                       Pos.Chain.Txp.Toil.Failure
+                       Pos.Chain.Txp.Toil.Logic
+                       Pos.Chain.Txp.Toil.Monad
+                       Pos.Chain.Txp.Toil.Stakes
+                       Pos.Chain.Txp.Toil.Types
+                       Pos.Chain.Txp.Toil.Utxo
+                       Pos.Chain.Txp.Toil.Utxo.Functions
+                       Pos.Chain.Txp.Toil.Utxo.Util
+
+
+  build-depends:       aeson
+                     , aeson-options
+                     , base
+                     , bytestring
+                     , cardano-sl-binary
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-util
+                     , containers
+                     , data-default
+                     , exceptions
+                     , fmt >= 0.4
+                     , formatting
+                     , free
+                     , hashable
+                     , lens
+                     , log-warper
+                     , memory
+                     , mtl
+                     , neat-interpolation
+                     , plutus-prototype
+                     , safe-exceptions
+                     , serokell-util
+                     , reflection
+                     , template-haskell
+                     , text
+                     , formatting
+                     , transformers
+                     , universum
+                     , unordered-containers
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+                       MonadFailDesugaring
+
+  ghc-options:         -Wall
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.hs
+  other-modules:       Test.Pos.Chain.Txp.CoreSpec
+                       Test.Pos.Chain.Txp.Toil.UtxoSpec
+  build-depends:       base
+                     , cardano-sl-core
+                     , cardano-sl-core-test
+                     , cardano-sl-crypto
+                     , cardano-sl-chain
+                     , cardano-sl-util
+                     , cardano-sl-util-test
+                     , containers
+                     , fmt
+                     , hspec
+                     , lens
+                     , mtl
+                     , QuickCheck
+                     , serokell-util
+                     , formatting
+                     , universum
+                     , unordered-containers
+                     , vector
+  default-language:    Haskell2010
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+                       MonadFailDesugaring

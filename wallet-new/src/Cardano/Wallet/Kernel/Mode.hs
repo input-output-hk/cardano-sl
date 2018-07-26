@@ -13,6 +13,7 @@ import           Universum
 
 import           Pos.Block.Slog
 import           Pos.Block.Types
+import           Pos.Chain.Txp
 import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
@@ -30,7 +31,6 @@ import           Pos.Infra.Shutdown
 import           Pos.Infra.Slotting
 import           Pos.Infra.Util.JsonLog.Events
 import           Pos.Launcher
-import           Pos.Txp.Configuration
 import           Pos.Util
 import           Pos.WorkMode
 

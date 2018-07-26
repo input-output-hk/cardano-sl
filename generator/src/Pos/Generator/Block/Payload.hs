@@ -23,6 +23,8 @@ import           System.Random (RandomGen (..))
 
 import           Pos.AllSecrets (asSecretKeys, asSpendingData,
                      unInvAddrSpendingData, unInvSecretsMap)
+import           Pos.Chain.Txp (Utxo, execUtxoM, utxoToLookup)
+import qualified Pos.Chain.Txp as Utxo
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      createGenericTx, makeMPubKeyTxAddrs)
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
@@ -38,8 +40,6 @@ import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
                      MonadBlockGenBase)
 import           Pos.Generator.Block.Param (HasBlockGenParams (..),
                      HasTxGenParams (..))
-import           Pos.Txp (Utxo, execUtxoM, utxoToLookup)
-import qualified Pos.Txp.Toil.Utxo as Utxo
 import qualified Pos.Util.Modifier as Modifier
 
 ----------------------------------------------------------------------------
@@ -114,7 +114,7 @@ data GenTxData = GenTxData
 
 makeLenses ''GenTxData
 
--- TODO: move to txp, think how to unite it with 'Test.Pos.Txp.Arbitrary'.
+-- TODO: move to txp, think how to unite it with 'Test.Pos.Chain.Txp.Arbitrary'.
 -- | Generate valid 'TxPayload' using current global state.
 genTxPayload
     :: forall ext g m

@@ -26,13 +26,13 @@ import           Data.DList (DList)
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson, listJsonIndent)
 
+import           Pos.Chain.Txp (UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address)
 import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Txp (TxId)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
                      deriveSafeBuildable, secretOnlyF, secureListF)
-import           Pos.Txp.Toil (UtxoModifier)
 import           Pos.Util.Modifier (MapModifier)
 import qualified Pos.Util.Modifier as MM
 

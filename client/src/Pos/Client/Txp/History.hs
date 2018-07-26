@@ -36,6 +36,11 @@ import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
+import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
+                     TxOut, TxOutAux (..), TxWitness, TxpError (..),
+                     UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, evalUtxoM,
+                     flattenTxPayload, genesisUtxo, runUtxoM, topsortTxs,
+                     txOutAddress, unGenesisUtxo, utxoGet, utxoToLookup)
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
                      HasConfiguration, Timestamp (..), difficultyL, epochSlots,
                      genesisHash)
@@ -55,11 +60,6 @@ import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Lrc.Genesis (genesisLeaders)
-import           Pos.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId, TxOut,
-                     TxOutAux (..), TxWitness, TxpError (..), UtxoLookup,
-                     UtxoM, UtxoModifier, applyTxToUtxo, evalUtxoM,
-                     flattenTxPayload, genesisUtxo, runUtxoM, topsortTxs,
-                     txOutAddress, unGenesisUtxo, utxoGet, utxoToLookup)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 

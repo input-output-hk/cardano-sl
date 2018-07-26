@@ -25,6 +25,7 @@ import           System.Wlog (logDebug)
 import           Pos.Block.Error (ApplyBlocksException (..),
                      RollbackException (..), VerifyBlocksException (..))
 import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Block (Block, HeaderHash, headerHashG, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
@@ -45,7 +46,6 @@ import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import           Pos.DB.Update (getAdoptedBV, usVerifyBlocks)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))

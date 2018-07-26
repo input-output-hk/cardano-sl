@@ -24,6 +24,7 @@ import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
+import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (BlockCount, HasGenesisData, HasProtocolConstants,
                      SlotId (..), epochIndexL, genesisData)
 import           Pos.Core.Block (Block)
@@ -34,7 +35,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings,
                      txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..),
                      MonadBlockGenInit, genBlocks, tgpTxCountRange)
-import           Pos.Txp (HasTxpConfiguration)
 import           Pos.Util (HasLens', _neLast)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
                      btcSlotIdL)

@@ -7,9 +7,9 @@ import           Data.Aeson
 import           Data.Time (UTCTime (..), fromGregorian)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
+import qualified Pos.Chain.Txp as V0
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
-import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
 import           Test.Hspec.QuickCheck

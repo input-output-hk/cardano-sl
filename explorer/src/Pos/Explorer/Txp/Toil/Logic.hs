@@ -19,6 +19,9 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           System.Wlog (logError)
 
+import           Pos.Chain.Txp (HasTxpConfiguration, ToilVerFailure (..),
+                     extendGlobalToilM, extendLocalToilM, topsortTxs)
+import qualified Pos.Chain.Txp as Txp
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
                      Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Block (HeaderHash)
@@ -33,11 +36,6 @@ import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
                      explorerExtraMToEGlobalToilM, explorerExtraMToELocalToilM,
                      getAddrBalance, getAddrHistory, getTxExtra, getUtxoSum,
                      putAddrBalance, putTxExtra, putUtxoSum, updateAddrHistory)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
-import           Pos.Txp.Toil (ToilVerFailure (..), extendGlobalToilM,
-                     extendLocalToilM)
-import qualified Pos.Txp.Toil as Txp
-import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Util (Sign (..))
 
 ----------------------------------------------------------------------------

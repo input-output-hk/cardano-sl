@@ -34,6 +34,7 @@ import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Txp (topsortTxAuxes)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
@@ -51,7 +52,6 @@ import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,
                      encToPublic, fakeSigner, hash, safeToPublic, toPublic,
                      withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Txp (topsortTxAuxes)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 

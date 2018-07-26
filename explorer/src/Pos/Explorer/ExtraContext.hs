@@ -32,11 +32,12 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
                      getPageBlocks)
 
+import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo,
+                     utxoToAddressCoinPairs)
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
                      SlotId (..), SlotLeaders, Timestamp, isRedeemAddress)
 import           Pos.DB.Lrc (getLeadersForEpoch)
 import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
-import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 
 
 -------------------------------------------------------------------------------------

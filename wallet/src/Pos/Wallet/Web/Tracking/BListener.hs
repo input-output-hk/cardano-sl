@@ -20,6 +20,7 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Chain.Txp (flattenTxPayload)
 import           Pos.Core (Timestamp, difficultyL)
 import           Pos.Core.Block (BlockHeader (..), HeaderHash, blockHeader,
                      getBlockHeader, headerSlotL, mainBlockTxPayload,
@@ -37,7 +38,6 @@ import           Pos.Infra.Slotting (MonadSlots, MonadSlotsData,
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF, secure)
 import           Pos.Infra.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
-import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)

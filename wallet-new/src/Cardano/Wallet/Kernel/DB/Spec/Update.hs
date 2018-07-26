@@ -26,11 +26,11 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 
 import           Control.Lens (each)
+import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (hash)
-import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..))
 

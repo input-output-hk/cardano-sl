@@ -22,6 +22,13 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
+import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
+                     GlobalToilM, GlobalToilState (..), StakesView (..),
+                     ToilVerFailure, TxpConfiguration (..), Utxo, UtxoM,
+                     UtxoModifier, applyToil, defGlobalToilState,
+                     flattenTxPayload, gtsUtxoModifier, rollbackToil,
+                     runGlobalToilMBase, runUtxoM, txpConfiguration,
+                     utxoToLookup, verifyToil)
 import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic,
                      epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
@@ -37,13 +44,6 @@ import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund, TxpCommonMode,
                      TxpGlobalSettings (..), TxpGlobalVerifyMode)
 import           Pos.DB.Txp.Stakes (StakesOp (..))
 import           Pos.DB.Txp.Utxo (UtxoOp (..))
-import           Pos.Txp.Base (flattenTxPayload)
-import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
-import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..),
-                     GlobalToilM, GlobalToilState (..), StakesView (..),
-                     ToilVerFailure, Utxo, UtxoM, UtxoModifier, applyToil,
-                     defGlobalToilState, gtsUtxoModifier, rollbackToil,
-                     runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
 

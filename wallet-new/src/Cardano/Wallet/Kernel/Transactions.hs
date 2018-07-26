@@ -54,9 +54,9 @@ import           Pos.Core (Address, Coin, unsafeSubCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
                      ShouldCheckPassphrase (..), hash)
-import           Pos.Txp (Utxo)
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees

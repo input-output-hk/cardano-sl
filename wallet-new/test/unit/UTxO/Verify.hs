@@ -25,6 +25,7 @@ import           Pos.Block.Error
 import           Pos.Block.Logic (verifyBlocks)
 import           Pos.Block.Slog
 import           Pos.Block.Types
+import           Pos.Chain.Txp
 import           Pos.Core
 import           Pos.Core.Block (Block, ComponentBlock (..), HeaderHash,
                      genBlockLeaders, mainBlockSlot, prevBlockL)
@@ -34,7 +35,6 @@ import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
 import           Pos.Delegation (DlgUndo (..))
-import           Pos.Txp
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens

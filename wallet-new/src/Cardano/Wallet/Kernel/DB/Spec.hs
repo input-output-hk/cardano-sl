@@ -35,9 +35,9 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 
+import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
-import qualified Pos.Txp as Core
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb

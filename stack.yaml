@@ -28,8 +28,8 @@ packages:
 - infra/test
 - ssc
 - ssc/test
-- txp
-- txp/test
+- chain
+- chain/test
 - update
 - update/test
 - delegation
@@ -318,8 +318,8 @@ ghc-options:
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-ssc:         -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-txp:         -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-txp-test:    -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain:       -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-update:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util-test:   -Werror -Wcompat -fwarn-redundant-constraints

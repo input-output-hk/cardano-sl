@@ -42,12 +42,12 @@ import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
 
 import           Pos.Block.Configuration
+import           Pos.Chain.Txp
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Delegation.Configuration
 import           Pos.Infra.Ntp.Configuration
 import           Pos.Ssc.Configuration
-import           Pos.Txp.Configuration
 import           Pos.Update.Configuration
 
 -- | Product of all configurations required to run a node.

@@ -128,7 +128,7 @@ library
                      , cardano-sl-delegation
                      , cardano-sl-lrc
                      , cardano-sl-ssc
-                     , cardano-sl-txp
+                     , cardano-sl-chain
                      , cardano-sl-update
                      , cardano-sl-util
                      , concurrent-extra

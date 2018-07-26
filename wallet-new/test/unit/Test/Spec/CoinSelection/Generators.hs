@@ -25,10 +25,10 @@ import           Test.QuickCheck (Gen, arbitrary, choose, suchThat)
 
 import qualified Formatting as F
 
+import qualified Pos.Chain.Txp as Core
 import           Pos.Core ()
 import qualified Pos.Core as Core
 import           Pos.Crypto ()
-import qualified Pos.Txp as Core
 
 import           Util.Buildable ()
 

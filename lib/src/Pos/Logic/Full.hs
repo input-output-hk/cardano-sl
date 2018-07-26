@@ -16,6 +16,7 @@ import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Txp (MemPool (..))
 import           Pos.Communication (NodeId)
 import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
 import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
@@ -58,7 +59,6 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
 import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
                      tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.Types (ldModifier)
-import           Pos.Txp (MemPool (..))
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic

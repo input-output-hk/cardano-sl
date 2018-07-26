@@ -2,7 +2,6 @@
 {-# OPTIONS_GHC -Wall #-}
 module Main where
 
-import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Time.Clock (UTCTime)
@@ -10,6 +9,7 @@ import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
+import           Universum
 
 import           Cardano.Faucet.Types
 import           Cardano.Faucet.Types.Recaptcha

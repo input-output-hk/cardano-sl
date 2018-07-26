@@ -27,13 +27,12 @@ module Cardano.Faucet.Types.Config (
  , InitFaucetError(..)
   ) where
 
-import           Control.Applicative ((<|>))
 import           Control.Concurrent.STM.TBQueue (TBQueue)
 import           Control.Concurrent.STM.TMVar (TMVar)
 import           Control.Exception (Exception)
 import           Control.Lens hiding ((.=))
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
-                     (.:), (.:?), (.=))
+                             (.:), (.:?), (.=))
 import           Data.Int (Int64)
 import           Data.Text (Text)
 import           Data.Typeable (Typeable)
@@ -44,12 +43,14 @@ import           System.Metrics.Gauge (Gauge)
 import           System.Remote.Monitoring.Statsd (StatsdOptions (..))
 
 import           Cardano.Wallet.API.V1.Types (AccountIndex, Payment,
-                     PaymentSource (..), V1, WalletId (..))
+                                              PaymentSource (..), V1,
+                                              WalletId (..))
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 import           Pos.Core (Address (..))
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Test.QuickCheck (Arbitrary (..), choose)
 import           Test.QuickCheck.Arbitrary.Generic
+import           Universum
 
 import           Cardano.Faucet.Types.API
 import           Cardano.Faucet.Types.Recaptcha

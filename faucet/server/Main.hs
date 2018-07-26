@@ -9,11 +9,11 @@
 
 module Main where
 
-import           Control.Lens
+import           Control.Lens (_Wrapped')
 import           Control.Monad.Except
 import           Data.Aeson (eitherDecode)
+import qualified Data.Text as Text
 import           Data.ByteString.Lazy as BSL
-import           Data.Monoid ((<>))
 import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative (Parser, execParser, fullDesc, header,
                      help, helper, info, long, progDesc, short, strOption,
@@ -23,6 +23,7 @@ import           Servant hiding (header)
 import           System.Remote.Monitoring (forkServer, serverMetricStore)
 import           System.Remote.Monitoring.Statsd (forkStatsd)
 import           System.Wlog (LoggerNameBox, launchFromFile, usingLoggerName)
+import           Universum
 
 import           Pos.Infra.Statistics.Ekg
 import           Pos.Util.CompileInfo (withCompileInfo)
@@ -45,7 +46,7 @@ main = withCompileInfo $ do
     ekg <- forkServer eHost ePort
     config <- do
         ecfg <- eitherDecode <$> BSL.readFile cfgFile
-        either (error . ("Error decoding: " ++)) return ecfg
+        either (error . Text.pack . ("Error decoding: " <>)) return ecfg
     runLogger config $ do
       fEnv <- initEnv config (serverMetricStore ekg)
       let server = hoistServer faucetAppAPI (nat fEnv) (faucetHandler (config ^. fcHomePage))

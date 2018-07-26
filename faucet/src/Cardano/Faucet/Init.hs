@@ -16,11 +16,10 @@
 module Cardano.Faucet.Init (initEnv) where
 
 import           Control.Concurrent (forkIO, threadDelay)
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Concurrent.STM.TMVar (putTMVar)
-import           Control.Exception (catch, throw)
-import           Control.Lens hiding ((.=))
+import           Control.Exception.Safe
+import           Control.Lens (to)
 import           Control.Monad.Except
 import           Data.Aeson (FromJSON, eitherDecode)
 import           Data.Aeson.Text (encodeToLazyText)
@@ -30,8 +29,6 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Int (Int64)
 import           Data.List.NonEmpty as NonEmpty
-import           Data.Monoid ((<>))
-import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Text.Lazy (toStrict)
 import qualified Data.Text.Lazy.IO as Text
@@ -40,31 +37,36 @@ import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
 import           Network.TLS (ClientParams (..), credentialLoadX509FromMemory,
-                     defaultParamsClient, onCertificateRequest,
-                     onServerCertificate, supportedCiphers)
+                              defaultParamsClient, onCertificateRequest,
+                              onServerCertificate, supportedCiphers)
 import           Network.TLS.Extra.Cipher (ciphersuite_strong)
 import           Servant.Client.Core (BaseUrl (..), Scheme (..))
 import           System.Directory (createDirectoryIfMissing)
-import           System.FilePath (takeDirectory)
-import           System.IO.Error (isDoesNotExistError)
+import           System.FilePath (FilePath, takeDirectory)
+import           System.IO.Error (IOError, isDoesNotExistError)
 import           System.Metrics (Store, createCounter, createGauge)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
-                     liftLogIO, logDebug, logError, logInfo, withSublogger)
-                     liftLogIO, logDebug, logError, logInfo, withSublogger)
+                              liftLogIO, logDebug, logError, logInfo,
+                              withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
-                     AssuranceLevel (NormalAssurance), NewWallet (..),
-                     NodeInfo (..), Payment (..), PaymentDistribution (..),
-                     PaymentSource (..), SyncPercentage, V1 (..), Wallet (..),
-                     WalletAddress (..), WalletId,
-                     WalletOperation (CreateWallet), mkSyncPercentage,
-                     txAmount, unV1)
+                                              AssuranceLevel (NormalAssurance),
+                                              NewWallet (..), NodeInfo (..),
+                                              Payment (..),
+                                              PaymentDistribution (..),
+                                              PaymentSource (..),
+                                              SyncPercentage, V1 (..),
+                                              Wallet (..), WalletAddress (..),
+                                              WalletId,
+                                              WalletOperation (CreateWallet),
+                                              mkSyncPercentage, txAmount, unV1)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
-                     WalletResponse (..), liftClient)
+                                        WalletResponse (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)
 import           Pos.Core (Coin (..))
 import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
+import           Universum
 
 import           Cardano.Faucet.Types
 import           Cardano.Faucet.Types.Recaptcha
@@ -289,7 +291,7 @@ makeInitializedWallet fc client = withSublogger "makeInitializedWallet" $ do
                 Left FileNotPresentError -> do
                     logInfo "File specified in generate-to doesn't exist. Creating wallet"
                     createdWallet <- createWallet client
-                    forM_ createdWallet $ \cw -> liftIO $ writeCreatedWalletInfo fp cw
+                    whenRight createdWallet $ \cw -> liftIO $ writeCreatedWalletInfo fp cw
                     return createdWallet
                 Right cw -> do
                     logInfo "Wallet read from file specified in generate-to."

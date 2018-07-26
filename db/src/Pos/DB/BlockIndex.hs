@@ -12,7 +12,8 @@ import           Universum
 import           Data.ByteArray (convert)
 
 import qualified Database.RocksDB as Rocks
-import           Pos.Core (BlockHeader, HeaderHash, headerHash)
+
+import           Pos.Core.Block (BlockHeader, HeaderHash, headerHash)
 import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead,
                      MonadDB (..))
 import           Pos.DB.Functions (dbGetBi, dbSerializeValue)

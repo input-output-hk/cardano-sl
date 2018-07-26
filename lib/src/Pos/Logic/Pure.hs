@@ -12,12 +12,12 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Block, BlockHeader (..), ExtraBodyData,
-                     ExtraHeaderData, GenericBlock (..),
-                     GenericBlockHeader (..), HeaderHash, StakeholderId,
-                     TxFeePolicy (..), unsafeCoinPortionFromDouble)
+import           Pos.Core (StakeholderId, TxFeePolicy (..),
+                     unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..),
+import           Pos.Core.Block (Block, BlockHeader (..), BlockHeaderAttributes,
+                     BlockSignature (..), ExtraBodyData, ExtraHeaderData,
+                     GenericBlock (..), GenericBlockHeader (..), HeaderHash,
                      MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),
                      MainConsensusData (..), MainExtraBodyData (..),
                      MainExtraHeaderData (..), MainProof (..))

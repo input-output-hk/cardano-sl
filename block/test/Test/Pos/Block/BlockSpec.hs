@@ -19,16 +19,16 @@ import           Test.QuickCheck (Property, (===), (==>))
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Block.Logic.Integrity as Block
-import           Pos.Core (BlockHeader (..), BlockSignature (..),
-                     EpochIndex (..), GenericBlockHeader (..),
-                     GenesisBlockchain, GenesisBody (..),
-                     GenesisConsensusData (..), GenesisExtraHeaderData (..),
-                     GenesisHash (..), HasConfiguration, MainBlockchain,
-                     MainBody (..), MainConsensusData (..),
-                     MainExtraHeaderData (..), MainToSign (..), SlotId (..),
-                     difficultyL, genesisHash, headerHash, mkBodyProof,
-                     mkGenericHeader, mkGenesisHeader)
+import           Pos.Core (EpochIndex (..), GenesisHash (..), HasConfiguration,
+                     SlotId (..), difficultyL, genesisHash)
 import           Pos.Core.Attributes (mkAttributes)
+import           Pos.Core.Block (BlockHeader (..), BlockSignature (..),
+                     GenericBlockHeader (..), GenesisBlockchain,
+                     GenesisBody (..), GenesisConsensusData (..),
+                     GenesisExtraHeaderData (..), MainBlockchain,
+                     MainBody (..), MainConsensusData (..),
+                     MainExtraHeaderData (..), MainToSign (..), headerHash,
+                     mkBodyProof, mkGenericHeader, mkGenesisHeader)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)

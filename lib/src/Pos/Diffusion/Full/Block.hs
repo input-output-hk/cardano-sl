@@ -36,10 +36,9 @@ import           Pos.Binary.Communication (serializeMsgSerializedBlock,
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
-import           Pos.Core (HeaderHash, ProtocolConstants (..), difficultyL,
-                     headerHash, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
-                     blockHeader)
+import           Pos.Core (ProtocolConstants (..), difficultyL)
+import           Pos.Core.Block (Block, BlockHeader (..), HeaderHash,
+                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Exception (cardanoExceptionFromException,

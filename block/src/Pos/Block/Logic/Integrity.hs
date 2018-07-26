@@ -27,14 +27,14 @@ import qualified Pos.Binary.Class as Bi
 import qualified Pos.Block.BHelpers as BHelpers
 import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
                      HasEpochIndex (..), HasEpochOrSlot (..),
-                     HasHeaderHash (..), HasProtocolConstants, HeaderHash,
-                     SlotId (..), SlotLeaders, addressHash, gbExtra, gbhExtra,
-                     getSlotIndex, headerSlotL, prevBlockL)
+                     HasProtocolConstants, SlotId (..), SlotLeaders,
+                     addressHash, getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
-import           Pos.Core.Block (Block, BlockHeader (..),
-                     blockHeaderProtocolMagic, gebAttributes, gehAttributes,
-                     genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
-                     mebAttributes, mehAttributes)
+import           Pos.Core.Block (Block, BlockHeader (..), HasHeaderHash (..),
+                     HeaderHash, blockHeaderProtocolMagic, gbExtra, gbhExtra,
+                     gebAttributes, gehAttributes, genBlockLeaders,
+                     getBlockHeader, headerSlotL, mainHeaderLeaderKey,
+                     mebAttributes, mehAttributes, prevBlockL)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Update (BlockVersionData (..))

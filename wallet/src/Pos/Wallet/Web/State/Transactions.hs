@@ -19,8 +19,8 @@ import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (Address, ChainDifficulty, HeaderHash,
-                     ProtocolConstants)
+import           Pos.Core (Address, ChainDifficulty, ProtocolConstants)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Txp (TxId, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId,

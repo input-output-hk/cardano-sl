@@ -26,6 +26,8 @@ import           Pos.Block.Logic (verifyBlocks)
 import           Pos.Block.Slog
 import           Pos.Block.Types
 import           Pos.Core
+import           Pos.Core.Block (Block, ComponentBlock (..), HeaderHash,
+                     genBlockLeaders, mainBlockSlot, prevBlockL)
 import           Pos.Core.Chrono
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)

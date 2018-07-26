@@ -20,9 +20,9 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (EpochIndex, StakeholderId, addressHash, gbhConsensus)
+import           Pos.Core (EpochIndex, StakeholderId, addressHash)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader,
-                     mainHeaderLeaderKey, mcdSignature)
+                     gbhConsensus, mainHeaderLeaderKey, mcdSignature)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey,
                      psigPsk, validateProxySecretKey)

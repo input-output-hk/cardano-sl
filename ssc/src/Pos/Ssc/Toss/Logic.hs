@@ -17,10 +17,10 @@ import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
-                     IsMainHeader, LocalSlotIndex, SlotCount, SlotId (siSlot),
-                     StakeholderId, epochIndexL, epochOrSlot, getEpochOrSlot,
-                     headerSlotL, mkCoin, slotSecurityParam)
-
+                     LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
+                     epochIndexL, epochOrSlot, getEpochOrSlot, mkCoin,
+                     slotSecurityParam)
+import           Pos.Core.Block (IsMainHeader, headerSlotL)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
                      SignedCommitment, SscPayload (..), VssCertificate,

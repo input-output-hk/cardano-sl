@@ -11,8 +11,9 @@ import           Test.QuickCheck (arbitrary)
 import qualified Test.QuickCheck.Gen as QC
 import qualified Test.QuickCheck.Random as QC
 
-import           Pos.Core (HasGenesisHash, HasProtocolConstants, MainBlock,
+import           Pos.Core (HasGenesisHash, HasProtocolConstants,
                      ProtocolConstants, ProtocolMagic)
+import           Pos.Core.Block (MainBlock)
 
 -- Also brings in the 'Arbitrary' instance for 'MainBlock'.
 import           Test.Pos.Block.Arbitrary (genMainBlock)

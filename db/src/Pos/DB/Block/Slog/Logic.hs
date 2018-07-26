@@ -35,9 +35,9 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
-                     epochIndexL, flattenSlotId, headerHash, headerHashG,
-                     prevBlockL)
-import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
+                     epochIndexL, flattenSlotId)
+import           Pos.Core.Block (Block, genBlockLeaders, headerHash,
+                     headerHashG, mainBlockSlot, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)

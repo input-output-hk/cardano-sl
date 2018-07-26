@@ -60,13 +60,13 @@ import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
                      mkAllSecretsSimple)
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
-                     GenesisInitializer (..), GenesisSpec (..),
                      HasConfiguration, HasProtocolConstants, SlotId,
                      Timestamp (..), epochSlots, genesisSecretKeys,
                      withGenesisSpec)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
+import           Pos.Core.Genesis (GenesisInitializer (..), GenesisSpec (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)

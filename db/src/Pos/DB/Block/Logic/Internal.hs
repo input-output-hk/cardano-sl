@@ -33,11 +33,11 @@ import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
-                     gbHeader, headerHash, mainBlockDlgPayload,
-                     mainBlockSscPayload, mainBlockTxPayload,
-                     mainBlockUpdatePayload)
-import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
+import           Pos.Core (epochIndexL)
+import           Pos.Core.Block (Block, ComponentBlock (..), GenesisBlock,
+                     IsGenesisHeader, MainBlock, gbHeader, headerHash,
+                     mainBlockDlgPayload, mainBlockSscPayload,
+                     mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting)

@@ -43,7 +43,8 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration,
-                     HeaderHash, SlotCount, coinToInteger, unsafeAddCoin)
+                     SlotCount, coinToInteger, unsafeAddCoin)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic)

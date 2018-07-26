@@ -16,9 +16,9 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug)
 
-import           Pos.Core (GenesisData (gdBootStakeholders), HasGenesisData,
-                     StakesList, coinToInteger, genesisData, mkCoin, sumCoins,
-                     unsafeIntegerToCoin)
+import           Pos.Core (HasGenesisData, StakesList, coinToInteger,
+                     genesisData, mkCoin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Txp.Base (txOutStake)
 import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,

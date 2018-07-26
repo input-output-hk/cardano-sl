@@ -34,9 +34,9 @@ import           Control.Monad.Random.Strict (RandT, mapRandT)
 import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
-import           Pos.Core (GenesisWStakeholders)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst)
+import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Generator.Block (BlockTxpGenMode, MonadBlockGen)
 import           Pos.Generator.BlockEvent (BlockApplyResult (..),

@@ -25,8 +25,8 @@ import           System.Wlog (logDebug)
 import           Pos.Block.Error (ApplyBlocksException (..),
                      RollbackException (..), VerifyBlocksException (..))
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG,
-                     prevBlockL)
+import           Pos.Core (epochIndexL)
+import           Pos.Core.Block (Block, HeaderHash, headerHashG, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)

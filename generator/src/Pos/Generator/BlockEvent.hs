@@ -61,10 +61,10 @@ import           Serokell.Util (listJson)
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (GenesisWStakeholders, HeaderHash, headerHash,
-                     prevBlockL)
+import           Pos.Core.Block (HeaderHash, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst, _OldestFirst)
+import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.DB.Txp (TxpGlobalSettings)

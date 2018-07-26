@@ -25,10 +25,11 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId,
-                     addressHash, epochIndexL, gbHeader, headerHash,
-                     prevBlockL, siEpoch)
-import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
+import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
+                     epochIndexL, siEpoch)
+import           Pos.Core.Block (Block, ComponentBlock (..), gbHeader,
+                     headerHash, mainBlockDlgPayload, mainBlockSlot,
+                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))

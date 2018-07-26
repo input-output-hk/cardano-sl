@@ -20,8 +20,7 @@ import           Universum
 import           Node.Message.Class (Message (..))
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
-import           Pos.Core (HeaderHash)
-import           Pos.Core.Block (Block, BlockHeader (..))
+import           Pos.Core.Block (Block, BlockHeader (..), HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..))
 import           Pos.DB.Class (SerializedBlock)
 import           Pos.Util.Util (cborError)

@@ -39,9 +39,14 @@ import           Cardano.Wallet.Kernel.Types
 
 import           Pos.Client.Txp
 import           Pos.Core
-import           Pos.Core.Block (mkGenesisBlock)
+import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
+                     MainBlock, gbHeader, genBlockEpoch, genBlockLeaders,
+                     mkGenesisBlock)
 import           Pos.Core.Chrono
 import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
+                     gdProtocolConsts,
+                     genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
 import           Pos.Crypto

@@ -9,8 +9,8 @@ import           System.Directory (canonicalizePath, doesDirectoryExist,
 
 import           Pos.Block.Types (Undo)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
-import           Pos.Core.Block (Block)
+import           Pos.Core (HasConfiguration)
+import           Pos.Core.Block (Block, HeaderHash, headerHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)

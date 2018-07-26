@@ -47,10 +47,10 @@ import qualified Ether
 import           Formatting (sformat)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash,
-                     SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
-                     headerHash, headerHashF, mkLocalSlotIndex)
-import           Pos.Core.Block (Block, mainBlockTxPayload)
+import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
+                     getSlotIndex, mkLocalSlotIndex)
+import           Pos.Core.Block (Block, HeaderHash, gbHeader, gbhPrevBlock,
+                     headerHash, headerHashF, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)
 import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog)

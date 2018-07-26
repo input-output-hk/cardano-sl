@@ -15,8 +15,8 @@ import           Data.Map.Strict (Map)
 import           Formatting (Format, stext)
 import           System.Metrics.Gauge (Gauge)
 
-import           Pos.Core (HeaderHash)
-import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash,
+                     MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,

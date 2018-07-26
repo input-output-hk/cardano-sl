@@ -18,9 +18,9 @@ import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL,
-                     isMoreDifficult)
-import           Pos.Core.Block (BlockHeader)
+import           Pos.Core (difficultyL, isMoreDifficult)
+import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
+                     HeaderHash)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Core.Conc (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)

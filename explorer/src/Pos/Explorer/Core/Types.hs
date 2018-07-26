@@ -8,7 +8,8 @@ module Pos.Explorer.Core.Types
 import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core (HeaderHash, Timestamp)
+import           Pos.Core (Timestamp)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NewestFirst)
 import           Pos.Core.Txp (TxId, TxUndo)
 

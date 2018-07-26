@@ -26,7 +26,7 @@ import qualified Data.Map.Strict as Map
 import           Data.Word (Word32)
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Core (GenesisBlock, MainBlock, gbBody, mainBlockSlot,
+import           Pos.Core.Block (GenesisBlock, MainBlock, gbBody, mainBlockSlot,
                      mbTxs, mbWitnesses)
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), TxOut,
                      TxOutAux (..), txInputs, txOutputs)

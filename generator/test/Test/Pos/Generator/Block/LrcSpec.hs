@@ -21,12 +21,12 @@ import           Test.QuickCheck (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Coin, EpochIndex, GenesisData (..),
-                     GenesisInitializer (..), StakeholderId,
-                     TestnetBalanceOptions (..), addressHash, blkSecurityParam,
-                     coinF, epochSlots, genesisData, genesisSecretKeysPoor,
-                     genesisSecretKeysRich)
+import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash,
+                     blkSecurityParam, coinF, epochSlots, genesisData,
+                     genesisSecretKeysPoor, genesisSecretKeysRich)
 import           Pos.Core.Block (mainBlockTxPayload)
+import           Pos.Core.Genesis (GenesisData (..), GenesisInitializer (..),
+                     TestnetBalanceOptions (..))
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)

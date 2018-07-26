@@ -38,8 +38,8 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
                      HasConfiguration, Timestamp (..), difficultyL, epochSlots,
-                     genesisHash, headerHash)
-import           Pos.Core.Block (Block, MainBlock, mainBlockSlot,
+                     genesisHash)
+import           Pos.Core.Block (Block, MainBlock, headerHash, mainBlockSlot,
                      mainBlockTxPayload)
 import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Core.JsonLog (CanJsonLog (..))

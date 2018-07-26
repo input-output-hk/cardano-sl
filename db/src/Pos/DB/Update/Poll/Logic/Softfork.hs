@@ -17,9 +17,9 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logInfo)
 
-import           Pos.Core (Coin, EpochIndex, HasProtocolConstants, HeaderHash,
-                     SlotId (..), StakeholderId, crucialSlot, sumCoins,
-                     unsafeIntegerToCoin)
+import           Pos.Core (Coin, EpochIndex, HasProtocolConstants, SlotId (..),
+                     StakeholderId, crucialSlot, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
                      SoftforkRule (..))
 import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,

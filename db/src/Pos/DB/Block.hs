@@ -25,6 +25,10 @@ module Pos.DB.Block
        , dbGetSerUndoSumDefault
        , dbPutSerBlundsSumDefault
 
+       -- * Low-level API
+       , getSerializedBlock
+       , getSerializedUndo
+
        , module X
        ) where
 

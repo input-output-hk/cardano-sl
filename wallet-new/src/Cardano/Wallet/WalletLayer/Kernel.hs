@@ -48,6 +48,7 @@ import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
 import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 import           Pos.Crypto.Signing
 
@@ -61,9 +62,10 @@ bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
     => (Severity -> Text -> IO ())
     -> Keystore
+    -> MonadDBReadAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore f =
-    Kernel.bracketPassiveWallet logFunction keystore $ \w -> do
+bracketPassiveWallet logFunction keystore rocksDB f =
+    Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
 
       -- Create the wallet worker and its communication endpoint `invoke`.
       bracket (liftIO $ Actions.forkWalletWorker $ Actions.WalletActionInterp

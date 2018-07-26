@@ -22,6 +22,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Wallets (CreateWalletError (..))
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
@@ -46,7 +47,7 @@ withLayer :: MonadIO m
           -> PropertyM IO a
 withLayer cc = do
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore $ \layer wallet -> do
+        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
             cc layer wallet
 
 genNewWalletRq :: PropertyM IO V1.NewWallet

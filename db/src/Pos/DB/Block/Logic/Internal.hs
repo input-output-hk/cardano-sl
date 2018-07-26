@@ -33,6 +33,7 @@ import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
+import           Pos.Chain.Delegation (DlgBlock, DlgBlund, MonadDelegation)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (epochIndexL)
@@ -60,8 +61,6 @@ import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
                      TxpGlobalSettings (..))
 import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
                      usNormalize, usRollbackBlocks)
-import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Util (HasLens', lensOf)

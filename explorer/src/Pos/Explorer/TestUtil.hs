@@ -32,6 +32,8 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable,
                      suchThat)
 
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
+                     ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
@@ -47,7 +49,6 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      convertToPagedMap)

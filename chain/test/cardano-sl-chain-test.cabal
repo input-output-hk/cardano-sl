@@ -12,7 +12,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Test.Pos.Chain.Lrc.Arbitrary
+  exposed-modules:     Test.Pos.Chain.Delegation.Arbitrary
+                       Test.Pos.Chain.Lrc.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json

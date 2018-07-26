@@ -11,8 +11,8 @@ import           Universum
 import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 
+import           Pos.Chain.Delegation (HasDlgConfiguration)
 import           Pos.Core (HasConfiguration)
-import           Pos.Delegation (HasDlgConfiguration)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty,
                      blockPropertyTestable)

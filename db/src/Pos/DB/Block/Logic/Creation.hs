@@ -25,6 +25,8 @@ import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
+                     ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
 import           Pos.Chain.Txp (emptyTxPayload)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
@@ -63,8 +65,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
-import           Pos.Delegation (DelegationVar, DlgPayload (..),
-                     ProxySKBlockInfo)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Util (_neHead)

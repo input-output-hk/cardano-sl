@@ -26,7 +26,6 @@ library
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-delegation-test
                      , cardano-sl-update-test
                      , formatting
                      , generic-arbitrary

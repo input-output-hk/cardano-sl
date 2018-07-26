@@ -42,11 +42,11 @@ import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
 
 import           Pos.Block.Configuration
+import           Pos.Chain.Delegation
 import           Pos.Chain.Ssc hiding (filter)
 import           Pos.Chain.Txp
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Delegation.Configuration
 import           Pos.Infra.Ntp.Configuration
 import           Pos.Update.Configuration
 

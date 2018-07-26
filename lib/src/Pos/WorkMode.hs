@@ -21,6 +21,7 @@ import qualified Control.Monad.Reader as Mtl
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
@@ -40,7 +41,6 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpHolderTag, txNormalize,
                      txProcessTransaction)
-import           Pos.Delegation.Class (DelegationVar)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
 import           Pos.Infra.Reporting (MonadReporting (..), Reporter (..))

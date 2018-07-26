@@ -126,7 +126,6 @@ library
                      , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-delegation
                      , cardano-sl-update
                      , cardano-sl-util
                      , concurrent-extra

@@ -32,6 +32,7 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
@@ -55,7 +56,6 @@ import           Pos.DB.Ssc (mkSscState)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings,
                      TxpHolderTag, mkTxpLocalData)
 import           Pos.DB.Update (UpdateContext, mkUpdateContext)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block.Param (BlockGenParams (..),
                      HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState as GS

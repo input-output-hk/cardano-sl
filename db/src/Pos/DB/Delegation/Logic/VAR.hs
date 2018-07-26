@@ -25,6 +25,12 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Delegation (CedeModifier (..), DlgBlund,
+                     DlgEdgeAction (..), DlgPayload (getDlgPayload),
+                     DlgUndo (..), MonadCede (..), MonadCedeRead (..),
+                     MonadDelegation, cmPskMods, dlgEdgeActionIssuer,
+                     dwProxySKPool, dwTip, emptyCedeModifier, getPskPk, modPsk,
+                     pskToDlgEdgeAction)
 import           Pos.Chain.Lrc (RichmenSet)
 import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
                      epochIndexL, siEpoch)
@@ -47,13 +53,6 @@ import           Pos.DB.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                      deleteFromDlgMemPool, processProxySKHeavyInternal)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
-import           Pos.Delegation.Cede (CedeModifier (..), DlgEdgeAction (..),
-                     MonadCede (..), MonadCedeRead (..), cmPskMods,
-                     dlgEdgeActionIssuer, emptyCedeModifier, getPskPk, modPsk,
-                     pskToDlgEdgeAction)
-import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
-import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload),
-                     DlgUndo (..))
 import           Pos.Util (getKeys, _neHead)
 
 

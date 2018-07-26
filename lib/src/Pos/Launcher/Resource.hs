@@ -34,6 +34,7 @@ import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
@@ -52,7 +53,6 @@ import           Pos.DB.Txp (GenericTxpLocalData (..), TxpGlobalSettings,
                      mkTxpLocalData, recordTxpMetrics)
 import           Pos.DB.Update (mkUpdateContext)
 import qualified Pos.DB.Update as GState
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import qualified Pos.GState as GS
 import           Pos.Infra.DHT.Real (KademliaParams (..))
 import           Pos.Infra.Network.Types (NetworkConfig (..))

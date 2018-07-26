@@ -43,7 +43,7 @@ executable dbgen
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-tools
-                     , cardano-sl-txp
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , containers
@@ -366,7 +366,7 @@ executable cardano-post-mortem
                        , cardano-sl-block
                        , cardano-sl-core
                        , cardano-sl-infra
-                       , cardano-sl-txp
+                       , cardano-sl-chain
                        , cardano-sl-util
                        , containers
                        , cassava
@@ -558,7 +558,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-networking
-                     , cardano-sl-txp
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , containers

@@ -21,13 +21,13 @@ import           Formatting (sformat)
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Pos.Chain.Txp as V0
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
-import qualified Pos.Txp.Toil.Types as V0
 import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()

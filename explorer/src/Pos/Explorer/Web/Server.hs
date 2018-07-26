@@ -56,6 +56,7 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
+import           Pos.Chain.Txp (TxMap, mpLocalTxs, topsortTxs)
 import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
                      Timestamp, coinToInteger, difficultyL, getChainDifficulty,
                      isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot,
@@ -69,7 +70,6 @@ import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx,
 import           Pos.DB.Txp (MonadTxpMem, getLocalTxs, getMemPool,
                      withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
-import           Pos.Txp (TxMap, mpLocalTxs, topsortTxs)
 import           Pos.Util (divRoundUp, maybeThrow)
 import           Pos.Web (serveImpl)
 

@@ -44,6 +44,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Ntp.Client (NtpStatus (..))
 
+import           Pos.Chain.Txp (TxId, TxIn, TxOut)
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration, SlotId)
@@ -53,7 +54,6 @@ import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
-import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      curSoftwareVersion)
 import           Pos.Util (maybeThrow)

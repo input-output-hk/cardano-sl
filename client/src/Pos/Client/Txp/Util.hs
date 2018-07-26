@@ -62,6 +62,11 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 
 import           Pos.Binary (biSize)
+import           Pos.Chain.Script (Script)
+import           Pos.Chain.Script.Examples (multisigRedeemer, multisigValidator)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
+                     TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxSigData (..), Utxo)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
                      TxSizeLinear (..), calculateTxSizeLinear, coinToInteger,
@@ -76,11 +81,6 @@ import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      safeToPublic)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
-import           Pos.Script (Script)
-import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
-import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
-                     TxInWitness (..), TxOut (..), TxOutAux (..),
-                     TxSigData (..), Utxo)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import           Data.Semigroup (Semigroup)

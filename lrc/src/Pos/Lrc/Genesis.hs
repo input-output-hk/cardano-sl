@@ -8,12 +8,12 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, genesisUtxo,
+                     utxoToStakes)
 import           Pos.Core (HasGenesisData, SharedSeed (..), SlotCount,
                      SlotLeaders, genesisData)
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Lrc.Fts (followTheSatoshi)
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
-import           Pos.Txp.Toil (GenesisUtxo (..), Utxo, utxoToStakes)
 
 
 -- | Compute leaders of the 0-th epoch from initial shared seed and stake distribution.

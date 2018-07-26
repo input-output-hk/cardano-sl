@@ -61,6 +61,7 @@ import           Serokell.Util (listJson)
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Block.Types (Blund)
+import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core.Block (HeaderHash, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst, _OldestFirst)
@@ -71,7 +72,6 @@ import           Pos.DB.Txp (TxpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode,
                      MonadBlockGen, TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util.Util (lensOf')
 
 ----------------------------------------------------------------------------

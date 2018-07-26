@@ -21,6 +21,7 @@ import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Txp (TxFee (..), Utxo)
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
@@ -36,7 +37,6 @@ import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
                      ShouldCheckPassphrase (..), checkPassMatches, hash,
                      withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
-import           Pos.Txp (TxFee (..), Utxo)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson.ClientTypes ()

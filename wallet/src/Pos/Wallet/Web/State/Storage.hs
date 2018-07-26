@@ -122,14 +122,14 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
 import qualified Formatting.Buildable
+import           Pos.Chain.Txp (AddrCoinMap, Utxo, UtxoModifier,
+                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
                      VssMinTTL (..))
 import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier,
-                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
@@ -309,7 +309,7 @@ makeLenses ''WalletInfo
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap Address HeaderHash
 
--- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
+-- | Alias for 'Pos.Chain.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
 type WalBalancesAndUtxo = (WalletBalances, Utxo)
 

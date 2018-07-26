@@ -28,6 +28,7 @@ import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Block.Configuration (HasBlockConfiguration,
                      withBlockConfiguration)
+import           Pos.Chain.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..),
@@ -40,7 +41,6 @@ import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Ssc.Configuration (HasSscConfiguration,
                      withSscConfiguration)
-import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)

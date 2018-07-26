@@ -7,8 +7,8 @@ module Pos.DB.Txp.MemState.Types
 
 import           Universum
 
+import           Pos.Chain.Txp (MemPool, UndoMap, UtxoModifier)
 import           Pos.Core.Block (HeaderHash)
-import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data

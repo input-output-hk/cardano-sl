@@ -42,6 +42,8 @@ import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo, utxoF,
+                     utxoToAddressCoinPairs)
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration,
                      SlotCount, coinToInteger, unsafeAddCoin)
 import           Pos.Core.Block (HeaderHash)
@@ -55,8 +57,6 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Txp (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
-import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
 import           Pos.Util.Util (maybeThrow)
 
 

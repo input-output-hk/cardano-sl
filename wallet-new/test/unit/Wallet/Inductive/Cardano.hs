@@ -22,10 +22,10 @@ import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
+import           Pos.Chain.Txp (Utxo, formatUtxo)
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal

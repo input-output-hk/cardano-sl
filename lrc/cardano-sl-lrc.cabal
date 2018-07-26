@@ -28,14 +28,13 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-txp
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , conduit
                      , ether
                      , formatting
                      , lens
                      , log-warper
-                     , rocksdb-haskell-ng
                      , formatting
                      , universum
                      , unliftio

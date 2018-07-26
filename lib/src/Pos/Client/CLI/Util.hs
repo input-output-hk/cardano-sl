@@ -26,6 +26,7 @@ import qualified Text.Parsec.Text as P
 import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Block.Configuration (blockConfiguration)
+import           Pos.Chain.Txp (txpConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
@@ -41,7 +42,6 @@ import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)
-import           Pos.Txp.Configuration (txpConfiguration)
 import           Pos.Update.Configuration (updateConfiguration)
 import           Pos.Util.AssertMode (inAssertMode)
 

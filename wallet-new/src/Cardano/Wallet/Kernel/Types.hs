@@ -26,12 +26,12 @@ import qualified Data.Map.Strict as Map
 import           Data.Word (Word32)
 import           Formatting.Buildable (Buildable (..))
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
                      mbWitnesses)
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), TxOut,
                      TxOutAux (..), txInputs, txOutputs)
 import           Pos.Crypto.Hashing (hash)
-import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
 
 import           Formatting (bprint, (%))

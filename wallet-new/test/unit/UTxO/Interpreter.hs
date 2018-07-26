@@ -42,6 +42,7 @@ import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
 
+import           Pos.Chain.Txp (Utxo, txOutStake)
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
@@ -57,8 +58,6 @@ import           Pos.Crypto
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Pos.Lrc.Fts (followTheSatoshi)
 import           Pos.Ssc (defaultSscPayload)
-import           Pos.Txp.Base (txOutStake)
-import           Pos.Txp.Toil
 import           Pos.Update
 
 import           UTxO.Bootstrap

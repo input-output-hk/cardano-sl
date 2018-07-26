@@ -10,12 +10,12 @@ import           Universum hiding (keys)
 import           Control.Lens (at, non)
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Address, Coin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), toaOut, txOutAddress)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.Explorer.DB as ExDB
-import           Pos.Txp.Toil (Utxo)
 
 import           Pos.Explorer.Core (AddrHistory)
 import           Pos.Explorer.Txp.Toil (ExplorerExtraLookup (..))

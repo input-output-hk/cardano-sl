@@ -1,4 +1,4 @@
--- Pos.Txp.Memstate
+-- Pos.Chain.Txp.Memstate
 module Pos.DB.Txp.MemState
        ( module Pos.DB.Txp.MemState.Class
        , module Pos.DB.Txp.MemState.Holder

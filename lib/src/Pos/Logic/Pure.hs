@@ -12,6 +12,7 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Txp (emptyTxPayload)
 import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
@@ -38,7 +39,6 @@ import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
                      Signature (..), deterministicKeyGen, signRaw)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Txp.Base (emptyTxPayload)
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 

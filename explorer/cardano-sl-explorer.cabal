@@ -96,7 +96,7 @@ library
                       , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
-                      , cardano-sl-txp
+                      , cardano-sl-chain
                       , cardano-sl-update
                       , cardano-sl-util
 
@@ -350,7 +350,7 @@ test-suite cardano-explorer-test
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-explorer
-                     , cardano-sl-txp
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , containers
                      , cryptonite

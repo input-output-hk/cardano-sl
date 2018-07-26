@@ -34,6 +34,7 @@ import           Control.Monad.Random.Strict (RandT, mapRandT)
 import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
+import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst)
 import           Pos.Core.Genesis (GenesisWStakeholders)
@@ -47,7 +48,6 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..),
                      PathSegment, SnapshotId, SnapshotOperation (..), byChance,
                      enrichWithSnapshotChecking, genBlocksInStructure,
                      pathSequence)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
 
 data BlockEventGenState = BlockEventGenState
     { _begsEvents      :: !(NewestFirst [] (BlockEvent' Path))

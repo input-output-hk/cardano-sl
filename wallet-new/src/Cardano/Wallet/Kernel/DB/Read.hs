@@ -11,8 +11,8 @@ import           Universum
 import           Formatting (build, sformat)
 import           Formatting.Buildable (Buildable)
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Coin)
-import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdWallets)

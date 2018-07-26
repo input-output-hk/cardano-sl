@@ -28,6 +28,11 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
                      logDebug, logError, logWarning)
 
+import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
+                     MemPool, ToilVerFailure (..), UndoMap, Utxo, UtxoLookup,
+                     UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
+                     processTx, tcAssetLockedSrcAddrs, topsortTxs,
+                     txpConfiguration, utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
 import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.JsonLog (CanJsonLog (..))
@@ -46,12 +51,6 @@ import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,
                      getLocalUndos, getMemPool, getTxpExtra, getUtxoModifier,
                      setTxpLocalData, withTxpLocalData, withTxpLocalDataLog)
-import           Pos.Txp.Configuration (tcAssetLockedSrcAddrs, txpConfiguration)
-import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
-                     ToilVerFailure (..), UndoMap, Utxo, UtxoLookup,
-                     UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
-                     processTx, utxoToLookup)
-import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Util (HasLens')
 
 type TxpProcessTransactionMode ctx m =

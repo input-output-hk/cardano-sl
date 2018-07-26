@@ -55,9 +55,6 @@ import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getAdoptedBVFull, getCompetingBVStates)
-import           Pos.Chain.Lrc (findDelegationStakes, findRichmenStakes, LrcError (..), followTheSatoshiM, RichmenStakes)
-import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
-import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..))
 

@@ -1,6 +1,6 @@
 -- | Slog-related types.
 
-module Pos.Block.Slog.Types
+module Pos.Chain.Block.Slog.Types
        ( LastBlkSlots
        , noLastBlkSlots
 

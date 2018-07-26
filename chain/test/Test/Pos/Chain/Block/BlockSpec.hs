@@ -4,9 +4,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns     #-}
 
--- | Specification of Pos.Block and Pos.Block.Pure.
+-- | Specification of Pos.Chain.Block and Pos.Chain.Block.Pure.
 
-module Test.Pos.Block.BlockSpec
+module Test.Pos.Chain.Block.BlockSpec
        ( spec
        ) where
 
@@ -18,7 +18,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, (===), (==>))
 
 import           Pos.Binary.Class (Bi)
-import qualified Pos.Block.Logic.Integrity as Block
+import qualified Pos.Chain.Block as Block
 import           Pos.Core (EpochIndex (..), GenesisHash (..), HasConfiguration,
                      SlotId (..), difficultyL, genesisHash)
 import           Pos.Core.Attributes (mkAttributes)
@@ -37,7 +37,7 @@ import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
                      SecretKey, SignTag (..), createPsk, proxySign, sign,
                      toPublic)
 
-import           Test.Pos.Block.Arbitrary as BT
+import           Test.Pos.Chain.Block.Arbitrary as BT
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 -- This tests are quite slow, hence max success is at most 20.

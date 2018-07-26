@@ -23,8 +23,8 @@ import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration,
-                     recoveryHeadersMessage, streamWindow)
+import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
+                     streamWindow)
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Configuration (HasNodeConfiguration,

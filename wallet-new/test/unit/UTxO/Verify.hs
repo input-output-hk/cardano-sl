@@ -21,10 +21,7 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           System.Wlog
 
-import           Pos.Block.Error
-import           Pos.Block.Logic (verifyBlocks)
-import           Pos.Block.Slog
-import           Pos.Block.Types
+import           Pos.Chain.Block
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
@@ -159,17 +156,17 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
   Block verification
 
   There appears to be only a single "pure" block verification function
-  (requiring only HasConfiguration): 'Pos.Block.Logic.Integrity.verifyBlocks'.
+  (requiring only HasConfiguration): 'Pos.Chain.Block.verifyBlocks'.
   Unfortunately, it seems this really only verifies the block envelope (maximum
   block size, unknown attributes, that sort of thing), not the transactions
   contained within. There is also
 
-  1. 'Pos.Block.Logic.VAR.verifyBlocksPrefix'
+  1. 'Pos.Chain.Block.VAR.verifyBlocksPrefix'
      Requires 'MonadBlockVerify'.
 
-  2. 'Pos.Block.Slog.Logic.slogVerifyBlocks'
+  2. 'Pos.Chain.Block.slogVerifyBlocks'
      Requires 'MonadSlogVerify'.
-     Called by (1) and calls 'Pos.Block.Logic.Integrity.verifyBlocks'.
+     Called by (1) and calls 'Pos.Chain.Block.verifyBlocks'.
      Doesn't seem to do any additional verification itself.
 
   3. 'Pos.Chain.Ssc.Logic.VAR.sscVerifyBlocks'
@@ -205,7 +202,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 --
 -- LRC must be already performed for the epoch from which blocks are.
 --
--- Adapted from 'Pos.Block.Logic.VAR.verifyBlocksPrefix'.
+-- Adapted from 'Pos.Chain.Block.VAR.verifyBlocksPrefix'.
 --
 -- Differences from original:
 --
@@ -287,7 +284,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
 --
--- Adapted from 'Pos.Block.Slog.Logic.slogVerifyBlocks'.
+-- Adapted from 'Pos.Chain.Block.slogVerifyBlocks'.
 --
 -- Differences from original:
 --

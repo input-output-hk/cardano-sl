@@ -38,7 +38,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerName,
                      NamedPureLogger, WithLogger, askLoggerName, logDebug,
                      logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Core (addressF, siEpoch)
 import           Pos.Core.Conc (withAsync)
 import qualified Pos.GState as DB

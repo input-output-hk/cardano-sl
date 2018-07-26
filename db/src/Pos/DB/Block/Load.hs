@@ -25,7 +25,7 @@ import           Control.Lens (_Wrapped)
 import           Formatting (sformat, (%))
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Chain.Block (Blund, Undo (..))
 import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
                      HasGenesisHash)
 import           Pos.Core.Block (Block, BlockHeader, HasPrevBlock (..),

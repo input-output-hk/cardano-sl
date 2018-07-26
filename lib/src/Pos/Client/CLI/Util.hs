@@ -24,8 +24,7 @@ import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
 import           Ntp.Client (NtpConfiguration)
-
-import           Pos.Block.Configuration (blockConfiguration)
+import           Pos.Chain.Block (blockConfiguration)
 import           Pos.Chain.Delegation (dlgConfiguration)
 import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
 import           Pos.Chain.Ssc (sscConfiguration)
@@ -41,7 +40,6 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.AssertMode (inAssertMode)

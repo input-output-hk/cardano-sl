@@ -23,7 +23,6 @@ library
   build-depends:       QuickCheck
                      , base
                      , cardano-sl-binary
-                     , cardano-sl-block
                      , cardano-sl-chain
                      , cardano-sl-chain-test
                      , cardano-sl-core

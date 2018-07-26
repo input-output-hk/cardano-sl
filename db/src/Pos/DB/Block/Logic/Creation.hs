@@ -24,7 +24,7 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)

@@ -6,33 +6,23 @@ import           Universum
 import           Control.DeepSeq (NFData (..), deepseq)
 import           Criterion
 import           Criterion.Main
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Formatting (build, sformat, shown)
 import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
-import qualified Pos.Block.BHelpers as Verify
-import           Pos.Core (CoinPortion (..), EpochIndex (..), Timestamp (..),
-                     TxFeePolicy (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Block (Block, BlockHeader, Body, BodyProof,
-                     ConsensusData, ExtraBodyData, ExtraHeaderData, MainBlock,
-                     MainBlockHeader, MainBlockchain, _gbBody, _gbExtra,
-                     _gbHeader, _gbhBodyProof, _gbhConsensus, _gbhExtra,
-                     _mbDlgPayload, _mbSscPayload, _mbTxPayload,
-                     _mbUpdatePayload)
-import           Pos.Core.Common (CoinPortion, SharedSeed (..))
+import           Pos.Core.Block (Body, BodyProof, ConsensusData, ExtraBodyData,
+                     ExtraHeaderData, MainBlock, MainBlockHeader,
+                     MainBlockchain, _gbBody, _gbExtra, _gbHeader,
+                     _gbhBodyProof, _gbhConsensus, _gbhExtra, _mbDlgPayload,
+                     _mbSscPayload, _mbTxPayload, _mbUpdatePayload)
 import           Pos.Core.Delegation (DlgPayload)
-import           Pos.Core.Genesis
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxPayload (..))
-import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..),
-                     UpdatePayload)
+import           Pos.Core.Update (UpdatePayload)
 import           Pos.Crypto (ProtocolMagic (..))
 
-import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- We need 'ProtocolMagic' and 'ProtocolConstants' in order to generate a
 -- 'MainBlock'.

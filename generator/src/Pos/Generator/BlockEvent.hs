@@ -60,7 +60,7 @@ import qualified Prelude
 import           Serokell.Util (listJson)
 
 import           Pos.AllSecrets (AllSecrets)
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core.Block (HeaderHash, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),

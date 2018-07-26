@@ -21,7 +21,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Servant.Server (Handler, hoistServer)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)

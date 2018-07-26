@@ -1,4 +1,4 @@
--- | Specification of 'Pos.Block.Logic.Creation' module.
+-- | Specification of 'Pos.Chain.Block.Creation' module.
 
 module Test.Pos.Block.Logic.CreationSpec
        ( spec
@@ -31,7 +31,7 @@ import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Chain.Ssc.Arbitrary (commitmentMapEpochGen,
                      vssCertificateEpochGen)

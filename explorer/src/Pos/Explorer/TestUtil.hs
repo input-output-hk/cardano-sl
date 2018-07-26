@@ -31,7 +31,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable,
                      choose, counterexample, forAll, generate, property,
                      suchThat)
 
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Block (Blund, SlogUndo (..), Undo (..))
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
@@ -55,7 +55,7 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      convertToPagedMap)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
 
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
@@ -155,7 +155,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 -- need to add quite a bit of logic to it. For now, it's good enough, since we are
 -- testing just the "sunny day" scenario, and we don't worry about rollbacks. There
 -- are already tests that cover a lot of rollback logic.
--- For a more realistic @Undo@, check @Pos.Block.Logic.VAR.verifyBlocksPrefix@.
+-- For a more realistic @Undo@, check @Pos.Chain.Block.VAR.verifyBlocksPrefix@.
 createEmptyUndo :: Undo
 createEmptyUndo = Undo
     { undoTx = mempty

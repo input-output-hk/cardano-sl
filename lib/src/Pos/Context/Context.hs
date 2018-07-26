@@ -26,9 +26,8 @@ import           Control.Lens (lens, makeLensesWith)
 import           Data.Time.Clock (UTCTime)
 import           System.Wlog (LoggerConfig)
 
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..),
-                     SlogContext (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..),
+                     LastKnownHeader, LastKnownHeaderTag, SlogContext (..))
 import           Pos.Chain.Ssc (HasSscContext (..), SscContext)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)

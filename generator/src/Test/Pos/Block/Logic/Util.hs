@@ -23,7 +23,7 @@ import           Test.QuickCheck.Gen (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (BlockCount, HasGenesisData, HasProtocolConstants,
                      SlotId (..), epochIndexL, genesisData)

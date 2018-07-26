@@ -31,7 +31,7 @@ import           Data.Default (Default)
 import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
 import           Pos.Chain.Update (HasUpdateConfiguration)

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Test.Pos.Block.CborSpec
+module Test.Pos.Chain.Block.CborSpec
        ( spec
        ) where
 
@@ -14,7 +14,7 @@ import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 spec :: Spec

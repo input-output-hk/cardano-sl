@@ -36,7 +36,7 @@ import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf,
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund, LastKnownHeaderTag)
+import           Pos.Chain.Block (Blund, LastKnownHeaderTag)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)

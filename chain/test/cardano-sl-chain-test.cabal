@@ -12,7 +12,9 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Test.Pos.Chain.Delegation.Arbitrary
+  exposed-modules:     Test.Pos.Chain.Block.Arbitrary
+                       Test.Pos.Chain.Block.Arbitrary.Generate
+                       Test.Pos.Chain.Delegation.Arbitrary
                        Test.Pos.Chain.Lrc.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Gen
@@ -24,15 +26,18 @@ library
   build-depends:       base
                      , bytestring
                      , cardano-crypto
+                     , cardano-sl-binary
                      , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-util-test
+                     , formatting
                      , generic-arbitrary
                      , hedgehog
                      , QuickCheck
+                     , random
                      , reflection
                      , universum
                      , unordered-containers

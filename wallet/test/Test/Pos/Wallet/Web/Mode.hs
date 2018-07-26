@@ -44,8 +44,8 @@ import           Test.QuickCheck.Gen (Gen)
 import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 
 import           Pos.AllSecrets (HasAllSecrets (..))
-import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Block (HasSlogGState (..), LastKnownHeader,
+                     LastKnownHeaderTag)
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),

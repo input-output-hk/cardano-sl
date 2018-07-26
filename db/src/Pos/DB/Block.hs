@@ -46,8 +46,7 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class (decodeFull', serialize')
-import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (SlogUndo (..), Undo (..))
+import           Pos.Chain.Block (SlogUndo (..), Undo (..))
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Core.Block (Block, GenesisBlock, HeaderHash, headerHash)
 import qualified Pos.Core.Block as CB

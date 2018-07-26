@@ -5,7 +5,7 @@
 --
 -- FIXME rename this module to something to do with verification.
 
-module Pos.Block.BHelpers
+module Pos.Chain.Block.BHelpers
        ( verifyBlockHeader
        , verifyBlock
        , verifyGenesisBlock
@@ -28,8 +28,8 @@ import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..),
                      MainProof)
-import           Pos.Core.Block.Union (mainBlockEBDataProof)
-import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
+import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..),
+                     mainBlockEBDataProof)
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))

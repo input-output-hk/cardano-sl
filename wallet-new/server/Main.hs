@@ -12,7 +12,6 @@ import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)
 import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
                      withNtpClient)
-import           Ntp.Client (NtpStatus, withNtpClient)
 import           Pos.Chain.Ssc (SscParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)

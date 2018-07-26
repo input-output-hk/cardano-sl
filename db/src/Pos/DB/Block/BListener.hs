@@ -14,7 +14,7 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans (..))
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.DB.BatchOp (SomeBatchOp)
 

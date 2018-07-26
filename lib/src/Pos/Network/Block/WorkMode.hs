@@ -13,9 +13,8 @@ import           Data.Default (Default)
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Slog (HasSlogContext)
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
+                     LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)

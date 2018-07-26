@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import           Formatting hiding (bytes)
 import           Options (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Types (Undo)
+import           Pos.Chain.Block (Undo)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
                      SlotId (..), getEpochIndex, getEpochOrSlot)
 import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash,

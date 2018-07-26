@@ -11,8 +11,7 @@ module Cardano.Wallet.Kernel.Mode
 import           Control.Lens (makeLensesWith)
 import           Universum
 
-import           Pos.Block.Slog
-import           Pos.Block.Types
+import           Pos.Chain.Block
 import           Pos.Chain.Txp
 import           Pos.Context
 import           Pos.Core

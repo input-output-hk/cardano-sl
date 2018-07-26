@@ -25,7 +25,7 @@ import qualified Data.Vector as V
 import qualified Ether
 
 import           Data.Default (Default (..), def)
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Core.Block (Block, HeaderHash)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)

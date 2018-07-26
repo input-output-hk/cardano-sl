@@ -108,13 +108,8 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
   where
     application :: WalletWebMode Application
     application = do
-        let app =
-                if isDebugMode walletRunMode then
-                    Servant.serve API.walletDevDocAPI LegacyServer.walletDevDocServer
-                else
-                    Servant.serve API.walletDocAPI LegacyServer.walletDocServer
+        let app = Servant.serve API.walletDocAPI LegacyServer.walletDocServer
         return $ withMiddleware walletRunMode app
-
     tls =
         if isDebugMode walletRunMode then Nothing else walletTLSParams
 
@@ -146,25 +141,19 @@ legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion ->
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
     getApplication diffusion = do
-      logInfo "Wallet Web API has STARTED!"
-      wsConn <- getWalletWebSockets
-      ctx <- V0.walletWebModeContext
-      let app = upgradeApplicationWS wsConn $
-            if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer
+        logInfo "Wallet Web API has STARTED!"
+        wsConn <- getWalletWebSockets
+        ctx <- V0.walletWebModeContext
+        return
+            $ withMiddleware walletRunMode
+            $ upgradeApplicationWS wsConn
+            $ Servant.serve API.walletAPI
+            $ LegacyServer.walletServer
                 (V0.convertHandler ctx)
                 pm
                 diffusion
                 ntpStatus
                 walletRunMode
-            else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer
-                (V0.convertHandler ctx)
-                pm
-                diffusion
-                ntpStatus
-
-      return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
     exceptionHandler se =
@@ -228,10 +217,7 @@ walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (pa
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $
-        if isDebugMode walletRunMode then
-          Servant.serve API.walletDevAPI $ Server.walletDevServer active walletRunMode
-        else
-          Servant.serve API.walletAPI $ Server.walletServer active
+        Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env IO a -> IO a
     lower env m = runReaderT m env

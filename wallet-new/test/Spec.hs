@@ -13,7 +13,7 @@ import           Test.QuickCheck
 import           Cardano.Wallet.API.V1.Types
 
 import qualified APISpec as API
-import qualified DevelopmentSpec as Dev
+import qualified InternalAPISpec as InternalAPI
 import qualified MarshallingSpec as Marshalling
 import qualified RequestSpec as ReqSpec
 import qualified SwaggerSpec as Swagger
@@ -22,7 +22,7 @@ import qualified WalletHandlersSpec as WalletHandlers
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
 main :: IO ()
 main = hspec $ do
-    Dev.spec
+    InternalAPI.spec
     Marshalling.spec
     API.spec
     Swagger.spec

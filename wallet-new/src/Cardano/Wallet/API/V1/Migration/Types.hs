@@ -3,8 +3,8 @@
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Cardano.Wallet.API.V1.Migration.Types (
-      Migrate(..)
+module Cardano.Wallet.API.V1.Migration.Types
+    ( Migrate(..)
     , migrate
     ) where
 
@@ -28,6 +28,7 @@ import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
 import qualified Pos.Txp.Toil.Types as V0
+import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -121,7 +122,11 @@ instance Migrate V0.CCoin (V1 Core.Coin) where
 instance Migrate (V1 Core.Coin) V0.CCoin where
     eitherMigrate (V1 c) = pure (V0.encodeCType c)
 
---
+instance (n ~ m, n ~ 12)
+    => Migrate (Mnemonic n) (V0.CBackupPhrase m) where
+    eitherMigrate =
+        Right . V0.CBackupPhrase
+
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
 

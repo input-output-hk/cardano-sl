@@ -97,7 +97,7 @@ bracketPassiveWallet logFunction keystore f =
     passiveWalletLayer wallet invoke =
         PassiveWalletLayer
             { _pwlCreateWallet   =
-                \(V1.NewWallet (V1 mnemonic) mbSpendingPassword v1AssuranceLevel v1WalletName operation) -> do
+                \(V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword v1AssuranceLevel v1WalletName operation) -> do
                     liftIO $ limitExecutionTimeTo (30 :: Second) CreateWalletTimeLimitReached $ do
                         case operation of
                              V1.RestoreWallet -> error "Not implemented, see [CBR-243]."

@@ -55,7 +55,7 @@ genNewWalletRq = do
     walletName       <- pick arbitrary
     spendingPassword <- pick (frequency [(20, pure Nothing), (80, Just <$> arbitrary)])
     mnemonic <- BIP39.entropyToMnemonic <$> liftIO (BIP39.genEntropy @(BIP39.EntropySize 12))
-    return $ V1.NewWallet (V1.V1 mnemonic)
+    return $ V1.NewWallet (V1.BackupPhrase mnemonic)
                           spendingPassword
                           assuranceLevel
                           walletName
@@ -111,7 +111,7 @@ spec = describe "CreateWallet" $ do
                                                     V1.NormalAssurance -> AssuranceLevelNormal
                                                     V1.StrictAssurance -> AssuranceLevelStrict
                         res <- Kernel.createHdWallet wallet
-                                                     (coerce newwalBackupPhrase)
+                                                     (V1.unBackupPhrase newwalBackupPhrase)
                                                      (maybe emptyPassphrase coerce newwalSpendingPassword)
                                                      hdAssuranceLevel
                                                      (WalletName newwalName)

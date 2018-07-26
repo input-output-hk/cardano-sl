@@ -1,11 +1,13 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE ExplicitNamespaces         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
@@ -72,6 +74,10 @@ module Cardano.Wallet.API.V1.Types (
   , NodeInfo (..)
   , TimeInfo(..)
   , SubscriptionStatus(..)
+  , Redemption(..)
+  , RedemptionMnemonic(..)
+  , BackupPhrase(..)
+  , ShieldedRedemptionCode(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -259,23 +265,6 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
-instance Arbitrary (V1 (Mnemonic 12)) where
-    arbitrary =
-        V1 <$> arbitrary
-
-instance ToJSON (V1 (Mnemonic 12)) where
-    toJSON =
-        toJSON . unV1
-
-instance FromJSON (V1 (Mnemonic 12)) where
-    parseJSON =
-        fmap V1 . parseJSON
-
-instance ToSchema (V1 (Mnemonic 12)) where
-    declareNamedSchema _ = do
-        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
-        return $ NamedSchema (Just "V1BackupPhrase") schm
-
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
     case Base16.decode text of
@@ -405,7 +394,6 @@ instance Monoid (V1 Core.PassPhrase) where
 
 type WalletName = Text
 
-
 -- | Wallet's Assurance Level
 data AssuranceLevel =
     NormalAssurance
@@ -481,9 +469,25 @@ instance BuildableSafeGen WalletOperation where
     buildSafeGen _ RestoreWallet = "restore"
 
 
+newtype BackupPhrase = BackupPhrase
+    { unBackupPhrase :: Mnemonic 12
+    }
+    deriving stock (Eq, Show)
+    deriving newtype (ToJSON, FromJSON, Arbitrary)
+
+deriveSafeBuildable ''BackupPhrase
+instance BuildableSafeGen BackupPhrase where
+    buildSafeGen _ _  = "<backup phrase>"
+
+instance ToSchema BackupPhrase where
+    declareNamedSchema _ =
+        pure
+            . NamedSchema (Just "V1BackupPhrase")
+            $ toSchema (Proxy @(Mnemonic 12))
+
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !(V1 (Mnemonic 12))
+      newwalBackupPhrase     :: !BackupPhrase
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName
@@ -1770,6 +1774,81 @@ instance BuildableSafeGen NodeInfo where
         nfoLocalTimeInformation
         (Map.toList nfoSubscriptionStatus)
 
+-- | A redemption mnemonic.
+newtype RedemptionMnemonic = RedemptionMnemonic
+    { unRedemptionMnemonic :: Mnemonic 9
+    }
+    deriving stock (Eq, Show, Generic)
+    deriving newtype (ToJSON, FromJSON, Arbitrary)
+
+instance ToSchema RedemptionMnemonic where
+    declareNamedSchema _ = pure $
+        NamedSchema (Just "RedemptionMnemonic") (toSchema (Proxy @(Mnemonic 9)))
+
+-- | A shielded redemption code.
+newtype ShieldedRedemptionCode = ShieldedRedemptionCode
+    { unShieldedRedemptionCode :: Text
+    } deriving (Eq, Show, Generic)
+      deriving newtype (ToJSON, FromJSON)
+
+-- | This instance could probably be improved. A 'ShieldedRedemptionCode' is
+-- a hash of the redemption key.
+instance Arbitrary ShieldedRedemptionCode where
+    arbitrary = ShieldedRedemptionCode <$> arbitrary
+
+instance ToSchema ShieldedRedemptionCode where
+    declareNamedSchema _ =
+        pure
+            $ NamedSchema (Just "ShieldedRedemptionCode") $ mempty
+            & type_ .~ SwaggerString
+
+deriveSafeBuildable ''ShieldedRedemptionCode
+instance BuildableSafeGen ShieldedRedemptionCode where
+    buildSafeGen _ _ =
+        bprint "<shielded redemption code>"
+
+-- | The request body for redeeming some Ada.
+data Redemption = Redemption
+    { redemptionRedemptionCode   :: ShieldedRedemptionCode
+    -- ^ The redemption code associated with the Ada to redeem.
+    , redemptionMnemonic         :: Maybe RedemptionMnemonic
+    -- ^ An optional mnemonic. This mnemonic was included with paper
+    -- certificates, and the presence of this field indicates that we're
+    -- doing a paper vend.
+    , redemptionSpendingPassword :: SpendingPassword
+    -- ^ The user must provide a spending password that matches the wallet that
+    -- will be receiving the redemption funds.
+    } deriving (Eq, Show, Generic)
+
+deriveSafeBuildable ''Redemption
+instance BuildableSafeGen Redemption where
+    buildSafeGen sl r = bprint ("{"
+        %" redemptionCode="%buildSafe sl
+        %" mnemonic=<mnemonic>"
+        %" spendingPassword="%buildSafe sl
+        %" }")
+        (redemptionRedemptionCode r)
+        (redemptionSpendingPassword r)
+
+deriveJSON Serokell.defaultOptions  ''Redemption
+
+instance ToSchema Redemption where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "redemption" (\(--^) props -> props
+            & "redemptionCode"
+            --^ "The redemption code associated with the Ada to redeem."
+            & "mnemonic"
+            --^ ( "An optional mnemonic. This must be provided for a paper "
+                <> "certificate redemption."
+                )
+            & "spendingPassword"
+            --^ ( "An optional spending password. This must match the password "
+                <> "for the provided wallet ID and account index."
+                )
+        )
+
+instance Arbitrary Redemption where
+    arbitrary = Redemption <$> arbitrary <*> arbitrary <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

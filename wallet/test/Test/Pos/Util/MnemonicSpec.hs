@@ -27,12 +27,25 @@ instance Eq CC.XPrv where
     (==) = (==) `on` CC.unXPrv
 
 type TestVector =
-    ( BL.ByteString             -- ^ Raw JSON encoding (V1)
-    , BL.ByteString             -- ^ Precursor to legacy (V0) JSON encoding
-    , Entropy (EntropySize 12)  -- ^ Corresponding Entropy
-    , Mnemonic 12               -- ^ Corresponding Mnemonic
-    , ByteString                -- ^ Corresponding Seed
-    , AesKey                    -- ^ Corresponding AESKey
+    (
+      -- | Raw JSON encoding (V1)
+      BL.ByteString
+
+      -- | Precursor to legacy (V0) JSON encoding.
+      -- Applying 'jsonV0Compat' to this element should produce valid V0 JSON.
+    , BL.ByteString
+
+      -- | Corresponding Entropy
+    , Entropy (EntropySize 12)
+
+      -- | Corresponding Mnemonic
+    , Mnemonic 12
+
+      -- | Corresponding Seed
+    , ByteString
+
+      -- | Corresponding AESKey
+    , AesKey
     )
 
 

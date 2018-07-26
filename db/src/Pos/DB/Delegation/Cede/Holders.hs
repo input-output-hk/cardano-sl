@@ -22,11 +22,11 @@ import qualified Data.HashMap.Strict as HM
 import           Data.HashSet as HS
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.DB.Class (MonadDBRead)
-import qualified Pos.DB.Delegation.Core as DB
-import           Pos.Delegation.Cede (CedeModifier, DlgEdgeAction (..),
+import           Pos.Chain.Delegation (CedeModifier, DlgEdgeAction (..),
                      MonadCede (..), MonadCedeRead (..), cmHasPostedThisEpoch,
                      cmLookupCache, cmPskMods, dlgEdgeActionIssuer)
+import           Pos.DB.Class (MonadDBRead)
+import qualified Pos.DB.Delegation.Core as DB
 
 ----------------------------------------------------------------------------
 -- Pure database-only holder

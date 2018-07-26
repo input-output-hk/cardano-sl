@@ -24,11 +24,11 @@ library
                      , base
                      , cardano-sl-binary
                      , cardano-sl-block
+                     , cardano-sl-chain-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-delegation-test
                      , cardano-sl-util-test
                      , cardano-sl-update
                      , cardano-sl-update-test

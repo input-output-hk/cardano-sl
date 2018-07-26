@@ -28,8 +28,6 @@ packages:
 - chain/test
 - update
 - update/test
-- delegation
-- delegation/test
 - block
 - block/test
 - lib
@@ -304,7 +302,6 @@ ghc-options:
   cardano-sl-crypto-test: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-db:          -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-db-test:     -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-delegation:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-explorer:    -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-generator:   -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-infra:       -Werror -Wcompat -fwarn-redundant-constraints

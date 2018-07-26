@@ -15,6 +15,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
+                       Pos.Chain.Delegation
                        Pos.Chain.Lrc
                        Pos.Chain.Security
                        Pos.Chain.Ssc
@@ -23,6 +24,13 @@ library
                        Pos.Chain.Txp
 
   other-modules:
+                       Pos.Chain.Delegation.Cede
+                       Pos.Chain.Delegation.Cede.Class
+                       Pos.Chain.Delegation.Cede.Types
+                       Pos.Chain.Delegation.Class
+                       Pos.Chain.Delegation.Configuration
+                       Pos.Chain.Delegation.Types
+
                        Pos.Chain.Txp.Configuration
                        Pos.Chain.Txp.Base
                        Pos.Chain.Txp.Error
@@ -91,6 +99,7 @@ library
                      , hashable
                      , lens
                      , log-warper
+                     , lrucache
                      , memory
                      , mtl
                      , mmorph
@@ -103,6 +112,7 @@ library
                      , reflection
                      , template-haskell
                      , text
+                     , time
                      , time-units
                      , formatting
                      , transformers

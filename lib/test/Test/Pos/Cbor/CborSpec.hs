@@ -22,6 +22,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary.Communication ()
+import           Pos.Chain.Delegation (DlgPayload, DlgUndo)
 import qualified Pos.Chain.Ssc as Ssc
 import qualified Pos.Chain.Txp as T
 import qualified Pos.Communication as C
@@ -33,7 +34,6 @@ import           Pos.Core.Ssc (VssCertificate)
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
-import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
@@ -45,12 +45,12 @@ import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
+import           Test.Pos.Chain.Delegation.Arbitrary ()
 import           Test.Pos.Chain.Ssc.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.DB.Update.Arbitrary ()
-import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()

@@ -27,6 +27,7 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
+import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
                      SlotId (..), Timestamp (Timestamp), addressHash,
                      blkSecurityParam, difficultyL, epochOrSlotToSlot,
@@ -48,7 +49,6 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
 import           Pos.DB.Update (getAdoptedBVData)
-import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader))

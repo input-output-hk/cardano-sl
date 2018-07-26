@@ -25,6 +25,7 @@ import           Pos.Block.Error
 import           Pos.Block.Logic (verifyBlocks)
 import           Pos.Block.Slog
 import           Pos.Block.Types
+import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Txp
 import           Pos.Core
 import           Pos.Core.Block (Block, ComponentBlock (..), HeaderHash,
@@ -34,7 +35,6 @@ import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
-import           Pos.Delegation (DlgUndo (..))
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens
@@ -189,7 +189,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
      It seems this is the /only/ instantiation of 'tgsVerifyBlocks' (in the core
      libraries at least); thus, also called by (1).
 
-  6. 'Pos.Delegation.Logic.VAR.dlgVerifyBlocks'
+  6. 'Pos.Chain.Delegation.Logic.VAR.dlgVerifyBlocks'
       No constraint synonym, but requires 'MonadDBRead' and 'MonadIO'.
       According to its header comment, verifies delegation logic.
 

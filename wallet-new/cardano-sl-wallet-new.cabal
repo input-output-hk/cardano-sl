@@ -462,7 +462,6 @@ test-suite wallet-unit-tests
                     , cardano-sl-core-test
                     , cardano-sl-crypto
                     , cardano-sl-db
-                    , cardano-sl-delegation
                     , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet-new

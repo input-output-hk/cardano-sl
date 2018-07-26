@@ -95,8 +95,6 @@ let
 
     inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw;
 
-    addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
-
     # TODO: Why is `network` not properly propagated from `libiserv`?
     remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
       overrideCabal (addBuildDepends pkg [ pkgs.windows.mingw_w64_pthreads ]) (drv: {
@@ -159,9 +157,7 @@ let
     cardano-sl-explorer   = doTemplateHaskell super.cardano-sl-explorer;
 
     trifecta              = doTemplateHaskell super.trifecta;
-    cardano-sl-tools      = doTemplateHaskell
-                              (addGitRev
-                                (super.cardano-sl-tools.override { flags = { for-installer = true; }; }));
+    cardano-sl-tools      = doTemplateHaskell (super.cardano-sl-tools.override { flags = { for-installer = true; }; });
     hedgehog              = doTemplateHaskell super.hedgehog;
 
     cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };

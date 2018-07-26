@@ -7,6 +7,8 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
   , cancelPending
   , applyBlock
   , switchToFork
+    -- * Testing
+  , observableRollbackUseInTestsOnly
   ) where
 
 import           Universum
@@ -121,7 +123,6 @@ applyBlock prefBlock checkpoints
           _checkpointUtxo           = InDb utxo''
         , _checkpointUtxoBalance    = InDb balance''
         , _checkpointPending        = Pending . InDb $ pending''
-        , _checkpointExpected       = InDb expected''
         , _checkpointBlockMeta      = blockMeta''
         } NE.<| checkpoints
     where
@@ -131,9 +132,6 @@ applyBlock prefBlock checkpoints
         (utxo'', balance'') = updateUtxo      prefBlock (utxo', utxoBalance')
         pending''           = updatePending   prefBlock (checkpoints ^. currentPendingTxs)
         blockMeta''         = updateBlockMeta prefBlock (checkpoints ^. currentBlockMeta)
-        -- TODO(@uroboros/ryan) applyBlock.updateExpected
-        -- (as part of CBR-150 Extend pure data layer to support rollback)
-        expected''          = checkpoints ^. currentExpected
 
 updateBlockMeta :: PrefilteredBlock -> BlockMeta -> BlockMeta
 updateBlockMeta PrefilteredBlock{..} meta
@@ -159,9 +157,25 @@ updatePending PrefilteredBlock{..} =
 
 -- | Rollback
 --
+-- For the base case, see section "Rollback -- Omitting checkpoints" in the
+-- formal specification.
+--
 -- This is an internal function only, and not exported. See 'switchToFork'.
 rollback :: Checkpoints -> Checkpoints
-rollback = error "rollback"
+rollback (c :| [])      = c :| []
+rollback (c :| c' : cs) = Checkpoint {
+      _checkpointUtxo        = c' ^. checkpointUtxo
+    , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
+    , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
+    , _checkpointPending     = unionPending (c  ^. checkpointPending)
+                                            (c' ^. checkpointPending)
+    } :| cs
+
+-- | Observable rollback, used in testing only
+--
+-- See 'switchToFork' for production use.
+observableRollbackUseInTestsOnly :: Checkpoints -> Checkpoints
+observableRollbackUseInTestsOnly = rollback
 
 -- | Switch to a fork
 switchToFork :: Int  -- ^ Number of blocks to rollback

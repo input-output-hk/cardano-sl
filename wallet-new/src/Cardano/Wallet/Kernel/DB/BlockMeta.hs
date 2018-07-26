@@ -16,6 +16,9 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
                      safeGet, safePut)
+import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
+import           Serokell.Util (mapJson)
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
@@ -81,3 +84,27 @@ instance Monoid BlockMeta where
           _blockMetaAddressMeta = InDb Map.empty
       }
   mappend = (<>)
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable AddressMeta where
+    build AddressMeta{..} = bprint
+        ( "AddressMeta"
+        % "{ isUsed:   " % build
+        % ", isChange: " % build
+        % "}"
+        )
+        _addressMetaIsUsed
+        _addressMetaIsChange
+
+instance Buildable BlockMeta where
+    build BlockMeta{..} = bprint
+        ( "BlockMeta"
+        % "{ slotId:      " % mapJson
+        % ", addressMeta: " % mapJson
+        % "}"
+        )
+        (_fromDb _blockMetaSlotId)
+        (_fromDb _blockMetaAddressMeta)

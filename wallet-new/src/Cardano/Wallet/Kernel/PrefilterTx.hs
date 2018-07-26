@@ -4,6 +4,7 @@
 
 module Cardano.Wallet.Kernel.PrefilterTx
        ( PrefilteredBlock(..)
+       , emptyPrefilteredBlock
        , AddrWithId
        , prefilterBlock
        , prefilterUtxo
@@ -66,6 +67,19 @@ data PrefilteredBlock = PrefilteredBlock {
     }
 
 deriveSafeCopy 1 'base ''PrefilteredBlock
+
+-- | Empty prefiltered block
+--
+-- An empty prefiltered block is what we get when we filter a block for a
+-- particular account and there is nothing in the block that is of
+-- relevance to that account
+emptyPrefilteredBlock :: PrefilteredBlock
+emptyPrefilteredBlock = PrefilteredBlock {
+      pfbInputs  = Set.empty
+    , pfbOutputs = Map.empty
+    , pfbAddrs   = []
+    , pfbMeta    = mempty
+    }
 
 type WalletKey = (WalletId, WalletDecrCredentials)
 

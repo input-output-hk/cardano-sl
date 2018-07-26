@@ -177,6 +177,8 @@ data FaucetConfig = FaucetConfig {
     --
     -- Absence indicates not to use recaptcha
   , _fcRecaptchaSecretFile :: !(Maybe FilePath)
+    -- | Optional path to HTML to serve from /
+  , _fcHomePage            :: !(Maybe FilePath)
   }
 
 makeClassy ''FaucetConfig
@@ -194,6 +196,7 @@ instance FromJSON FaucetConfig where
           <*> v .: "public-certificate"
           <*> v .: "private-key"
           <*> v .:? "recaptcha-secret-file"
+          <*> v .:? "home-page"
 
 --------------------------------------------------------------------------------
 -- | Details of a wallet created by the faucet at run time if 'Generate' is used

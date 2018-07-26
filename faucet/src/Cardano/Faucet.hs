@@ -2,94 +2,59 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.Faucet (
-    FaucetAPI
-  , faucetServer
-  , faucetServerAPI
+    FaucetAppAPI
+  , faucetAppAPI
+  , faucetHandler
   , module Cardano.Faucet.Types
   , module Cardano.Faucet.Init
   ) where
 
-import           Control.Lens
-import           Control.Monad (forM_, unless)
-import           Control.Monad.IO.Class (liftIO)
-import           Data.ByteString.Lens (packedChars)
-import           Data.Foldable (for_)
-import           Data.Monoid ((<>))
 import           Data.Tagged (retag)
-import           Data.Text.Lazy (fromStrict)
-import           Data.Text.Lazy.Lens (utf8)
-import           Data.Text.Lens
 import           Servant
-import           System.Wlog (LoggerName (..), logError, logInfo, withSublogger)
+import           Network.HTTP.Types (status301, hContentType, hLocation)
+import           Network.Wai (responseLBS)
+import           Network.Wai.Application.Static
+import           WaiAppStatic.Types (unsafeToPiece)
 
+import           Pos.Util.CompileInfo (HasCompileInfo)
 
-import           Cardano.Wallet.API.V1.Types (Transaction (..), V1, unV1)
-import           Pos.Core (Address (..))
-
-
+import           Cardano.Faucet.Endpoints
 import           Cardano.Faucet.Init
-import           Cardano.Faucet.Metrics
+import           Cardano.Faucet.Swagger
 import           Cardano.Faucet.Types
-import           Cardano.Faucet.Types.Recaptcha
-import qualified Cardano.WalletClient as Client
 
--- | Top level type of the faucet API
-type FaucetAPI = "withdraw" :> Summary "Requests ADA from the faucet"
-                            :> ReqBody '[FormUrlEncoded, JSON] WithdrawalRequest
-                            :> Post '[JSON] WithdrawalResult
-            :<|> "return-address" :> Summary "Get the address to return ADA to"
-                                  :> Get '[JSON] (V1 Address)
-            :<|> Raw
-         -- :<|> "_deposit" :> ReqBody '[JSON] DepositRequest :> Post '[JSON] DepositResult
+-- | Combined swagger UI, Faucet API, and home page.
+type FaucetAppAPI = FaucetDoc :<|> FaucetAPI :<|> Raw
 
-faucetServerAPI :: Proxy FaucetAPI
-faucetServerAPI = Proxy
+faucetAppAPI :: Proxy FaucetAppAPI
+faucetAppAPI = Proxy
 
--- | Handler for the withdrawal of ADA from the faucet
-withdraw :: (MonadFaucet c m) => WithdrawalRequest -> m WithdrawalResult
-withdraw wr = withSublogger (LoggerName "withdraw") $ do
-    logInfo "Attempting to send ADA"
-    mCaptchaSecret <- view feRecaptchaSecret
-    forM_ mCaptchaSecret $ \captchaSecret -> do
-        let cr = CaptchaRequest captchaSecret (wr ^. gRecaptchaResponse)
-        logInfo "Found a secret for recaptcha in config, attempting validation"
-        captchaResp <- liftIO $ captchaRequest cr
-        logInfo ("Recaptcha result: " <> (captchaResp ^. to show . packed))
-        unless (captchaResp ^. success) $ do
-            let captchaErrs = captchaResp ^. errorCodes . to show . packedChars
-            throwError $ err400 { errBody = "Recaptcha had errors: " <> captchaErrs }
-    resp <- Client.withdraw (wr ^. wAddress)
-    case resp of
-        Left _ -> do
-            logError "Withdrawal queue is full"
-            throwError $ err503 { errBody = "Withdrawal queue is full" }
-        Right wdResp -> do
-            for_ (wdResp ^? _WithdrawalSuccess) $ \txn -> do
-              let amount = unV1 $ txAmount txn
-              logInfo ((txn ^. to show . packed) <> " withdrew: "
-                                                <> (amount ^. to show . packed))
-              incWithDrawn amount
-            for_ (wdResp  ^? _WithdrawalError) $ \err -> do
-                logError ("Error from wallet: " <> err)
-                throwError $ err503 { errBody = (fromStrict err) ^. re utf8 }
-            return wdResp
+faucetHandler :: HasCompileInfo => Maybe FilePath -> ServerT FaucetAppAPI M
+faucetHandler home =      (hoistServer faucetDoc liftToM swaggerServer)
+                     :<|> faucetServer
+                     :<|> (serveHomePage home)
 
--- | Get the address to return ADA to
-returnAddress :: (MonadFaucet c m) => m (V1 Address)
-returnAddress = view feReturnAddress
+-- | Depending on the config, either redirect to swagger docs, or
+-- serve up a directory of HTML which contains a home page or demo
+-- frontend.
+serveHomePage :: Maybe FilePath -> Tagged M Application
+serveHomePage (Just home) = retag $ serveDirectoryWebApp' home
+serveHomePage Nothing = Tagged redirectDocs
 
--- | Function to _deposit funds back into the faucet /not implemented/
-_deposit :: (MonadFaucet c m) => DepositRequest -> m DepositResult
-_deposit dr = withSublogger (LoggerName "_deposit") $ do
-    -- decrWithDrawn (dr ^. dAmount)
-    logInfo ((dr ^. to show . packed) <> " deposited")
-    return DepositResult
+-- | Same as serveDirectoryWebApp, except with index.html as the index
+-- page.
+serveDirectoryWebApp' :: FilePath -> Server Raw
+serveDirectoryWebApp' = serveDirectoryWith . withIndex . defaultWebAppSettings
+  where withIndex ss = ss { ssIndices = [unsafeToPiece "index.html"] }
 
--- | Serve the api, faucet form end point and a Raw endpoint for the html form
---
--- TODO: Get the server path from the config
-faucetServer :: ServerT FaucetAPI M
-faucetServer = withdraw :<|> returnAddress :<|> (retag $ serveDirectoryWebApp ".")
+-- | Simple WAI application which always redirects to the swagger UI.
+redirectDocs :: Application
+redirectDocs _ respond = respond $ responseLBS status301 hdrs "Redirecting"
+  where
+    hdrs = [(hContentType, "text/plain"), (hLocation, docs)]
+    docs = "/docs/"

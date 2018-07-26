@@ -39,6 +39,7 @@ library
                      , http-api-data
                      , http-client
                      , http-client-tls
+                     , http-types
                      , lens
                      , log-warper
                      , memory
@@ -60,10 +61,13 @@ library
                      , text-format
                      , time
                      , tls
+                     , wai
+                     , wai-app-static
                      , wreq
   exposed-modules:
                       Cardano.Faucet
-                      Cardano.Faucet.Swagger
+                    , Cardano.Faucet.Endpoints
+                    , Cardano.Faucet.Swagger
                     , Cardano.Faucet.Types.Config
                     , Cardano.Faucet.Types.API
                     , Cardano.Faucet.Types.Recaptcha

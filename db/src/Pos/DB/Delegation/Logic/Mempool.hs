@@ -25,7 +25,8 @@ import qualified Data.HashMap.Strict as HM
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (addressHash, epochIndexL, headerHash)
+import           Pos.Core (addressHash, epochIndexL)
+import           Pos.Core.Block (headerHash)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.StateLock (StateLock, withStateLockNoMetrics)

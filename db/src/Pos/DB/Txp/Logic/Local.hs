@@ -28,7 +28,8 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
                      logDebug, logError, logWarning)
 
-import           Pos.Core (EpochIndex, HeaderHash, ProtocolMagic, siEpoch)
+import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)

@@ -98,7 +98,8 @@ import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
 import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants,
-                     HeaderHash, SlotId, protocolConstants)
+                     SlotId, protocolConstants)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)

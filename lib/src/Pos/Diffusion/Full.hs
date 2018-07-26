@@ -38,8 +38,9 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      PackingType, PeerData, SendActions, VerInfo (..),
                      bipPacking, convH, createOutSpecs, makeEnqueueMsg,
                      makeSendActions, toOutSpecs)
-import           Pos.Core (HeaderHash, ProtocolConstants (..), StakeholderId)
-import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
+import           Pos.Core (ProtocolConstants (..), StakeholderId)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash,
+                     MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)

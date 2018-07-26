@@ -17,12 +17,13 @@ import           System.Wlog (logDebug, logInfo, logNotice)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
-                     HasProtocolConstants, HeaderHash, IsMainHeader (..),
-                     ProtocolMagic, SlotId (siEpoch), addressHash,
-                     applyCoinPortionUp, coinToInteger, difficultyL,
-                     epochIndexL, flattenSlotId, headerHashG, headerSlotL,
-                     sumCoins, unflattenSlotId, unsafeIntegerToCoin)
+                     HasProtocolConstants, ProtocolMagic, SlotId (..),
+                     addressHash, applyCoinPortionUp, coinToInteger,
+                     difficultyL, epochIndexL, flattenSlotId, sumCoins,
+                     unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Attributes (areAttributesKnown)
+import           Pos.Core.Block (HeaderHash, IsMainHeader (..), headerHashG,
+                     headerSlotL)
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
                      SoftwareVersion (..), UpId, UpdatePayload (..),

@@ -47,7 +47,8 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
                      deriveSimpleBiCxt)
-import           Pos.Core (ComponentBlock (..), EpochIndex)
+import           Pos.Core (EpochIndex)
+import           Pos.Core.Block (ComponentBlock (..))
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening,
                      OpeningsMap, SharesMap, SignedCommitment, SscPayload)
 import           Pos.Crypto (VssKeyPair)

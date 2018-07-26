@@ -29,9 +29,10 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
-                     headerHashG, isMoreDifficult, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader, blockHeader)
+import           Pos.Core (isMoreDifficult)
+import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
+                     HeaderHash, blockHeader, gbHeader, headerHashG,
+                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)

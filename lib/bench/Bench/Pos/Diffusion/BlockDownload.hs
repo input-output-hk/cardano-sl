@@ -33,8 +33,8 @@ import qualified Node
 import           Pipes (each)
 
 import           Pos.Binary (serialize, serialize')
-import           Pos.Core (Block, BlockHeader, HeaderHash)
-import qualified Pos.Core as Core (getBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
+import qualified Pos.Core.Block as Block (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic (..))
@@ -114,11 +114,11 @@ serverLogic
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
-    , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
+    , getBlockHeader = const (pure (Just (Block.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
+    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
           each $ map serializedBlock bs
@@ -298,7 +298,7 @@ runBenchmark = do
         size = 4
         !arbitraryBlock = force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
         !arbitraryHashes = force $ someHash :| replicate 2199 someHash
-        !arbitraryHeader = force $ Core.getBlockHeader arbitraryBlock
+        !arbitraryHeader = force $ Block.getBlockHeader arbitraryBlock
         !arbitraryHeaders = force $ arbitraryHeader :| replicate 2199 arbitraryHeader
         blockSize = LBS.length $ serialize arbitraryBlock
         setStreamIORef = \n -> writeIORef streamIORef (replicate n arbitraryBlock)

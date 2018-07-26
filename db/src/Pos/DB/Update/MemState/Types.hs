@@ -15,7 +15,8 @@ import           Universum
 import           Data.Default (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core (HeaderHash, SlotId (..))
+import           Pos.Core (SlotId (..))
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Update (UpdateProposals)
 import           Pos.DB.Class (MonadDBRead)

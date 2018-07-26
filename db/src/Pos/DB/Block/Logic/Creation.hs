@@ -25,12 +25,12 @@ import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
-                     HasProtocolConstants, HeaderHash, SlotId (..),
-                     chainQualityThreshold, epochIndexL, epochSlots,
-                     flattenSlotId, getEpochOrSlot, headerHash)
-import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock,
-                     MainBlockchain)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
+                     SlotId (..), chainQualityThreshold, epochIndexL,
+                     epochSlots, flattenSlotId, getEpochOrSlot)
+import           Pos.Core.Block (BlockHeader (..), Blockchain (..),
+                     GenesisBlock, HeaderHash, MainBlock, MainBlockchain,
+                     headerHash)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)

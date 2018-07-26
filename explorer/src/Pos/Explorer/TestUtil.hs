@@ -35,11 +35,11 @@ import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), GenesisHash (..), HasConfiguration,
-                     HeaderHash, LocalSlotIndex (..), SlotId (..), SlotLeaders,
-                     StakeholderId, difficultyL, genesisHash, headerHash,
+                     LocalSlotIndex (..), SlotId (..), SlotLeaders,
+                     StakeholderId, difficultyL, genesisHash,
                      makePubKeyAddressBoot)
-import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock,
-                     getBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, HeaderHash,
+                     MainBlock, getBlockHeader, headerHash)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)

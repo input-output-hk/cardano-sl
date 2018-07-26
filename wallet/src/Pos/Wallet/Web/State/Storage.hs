@@ -124,10 +124,9 @@ import qualified Formatting as F
 import qualified Formatting.Buildable
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     HeaderHash, ProtocolConstants (..), SlotId, Timestamp,
-                     VssMaxTTL (..), VssMinTTL (..))
--- import           Pos.Binary.SafeCopy ()
-import           Pos.Core.Binary ()
+                     ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
+                     VssMinTTL (..))
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier,
                      applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)

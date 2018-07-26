@@ -14,15 +14,14 @@ import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import qualified Pos.Block.BHelpers as Verify
-import           Pos.Core (Block, BlockHeader, Body, BodyProof,
-                     CoinPortion (..), ConsensusData, EpochIndex (..),
-                     ExtraBodyData, ExtraHeaderData, MainBlock,
-                     MainBlockHeader, MainBlockchain, Timestamp (..),
-                     TxFeePolicy (..), unsafeCoinPortionFromDouble, _gbBody,
-                     _gbExtra, _gbHeader, _gbhBodyProof, _gbhConsensus,
-                     _gbhExtra, _mbDlgPayload, _mbSscPayload, _mbTxPayload,
+import           Pos.Core (CoinPortion (..), EpochIndex (..), Timestamp (..),
+                     TxFeePolicy (..), unsafeCoinPortionFromDouble)
+import           Pos.Core.Block (Block, BlockHeader, Body, BodyProof,
+                     ConsensusData, ExtraBodyData, ExtraHeaderData, MainBlock,
+                     MainBlockHeader, MainBlockchain, _gbBody, _gbExtra,
+                     _gbHeader, _gbhBodyProof, _gbhConsensus, _gbhExtra,
+                     _mbDlgPayload, _mbSscPayload, _mbTxPayload,
                      _mbUpdatePayload)
-import           Pos.Core.Block.Main ()
 import           Pos.Core.Common (CoinPortion, SharedSeed (..))
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Genesis

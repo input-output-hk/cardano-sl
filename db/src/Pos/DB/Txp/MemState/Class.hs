@@ -29,7 +29,7 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (HeaderHash)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.Core.Txp (TxAux, TxId)

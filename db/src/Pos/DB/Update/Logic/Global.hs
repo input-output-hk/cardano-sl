@@ -16,10 +16,10 @@ import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), HasCoreConfiguration,
-                     HasProtocolConstants, ProtocolMagic, StakeholderId,
-                     addressHash, epochIndexL, headerHashG, headerLeaderKeyL,
-                     headerSlotL)
+import           Pos.Core (HasCoreConfiguration, HasProtocolConstants,
+                     ProtocolMagic, StakeholderId, addressHash, epochIndexL)
+import           Pos.Core.Block (ComponentBlock (..), headerHashG,
+                     headerLeaderKeyL, headerSlotL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)

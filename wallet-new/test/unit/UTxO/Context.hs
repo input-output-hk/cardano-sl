@@ -45,7 +45,11 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Core
+import           Pos.Core.Block (BlockHeader (..), GenesisBlock, HeaderHash,
+                     blockHeaderHash, genesisBlock0, _gbHeader)
 import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Genesis (GeneratedSecrets (..), GenesisData (..),
+                     GenesisDelegation (..), PoorSecret (..), RichSecrets (..))
 import           Pos.Crypto
 import           Pos.Lrc.Genesis
 import           Pos.Txp

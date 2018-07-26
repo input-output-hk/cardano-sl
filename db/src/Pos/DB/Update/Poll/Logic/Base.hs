@@ -39,12 +39,12 @@ import           Formatting (build, int, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Core (Coin, CoinPortion (..), EpochIndex,
-                     HasProtocolConstants, HeaderHash, IsMainHeader (..),
-                     SlotId, TimeDiff (..), addressHash, applyCoinPortionUp,
-                     coinPortionDenominator, coinToInteger, difficultyL,
-                     epochSlots, getCoinPortion, headerHashG, isBootstrapEra,
+                     HasProtocolConstants, SlotId, TimeDiff (..), addressHash,
+                     applyCoinPortionUp, coinPortionDenominator, coinToInteger,
+                     difficultyL, epochSlots, getCoinPortion, isBootstrapEra,
                      sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                      unsafeSubCoin)
+import           Pos.Core.Block (HeaderHash, IsMainHeader (..), headerHashG)
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      addEpochSlottingData, getCurrentEpochIndex,
                      getNextEpochSlottingData)

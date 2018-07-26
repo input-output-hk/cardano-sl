@@ -30,8 +30,9 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
 import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
                      SlotId (..), Timestamp (Timestamp), addressHash,
                      blkSecurityParam, difficultyL, epochOrSlotToSlot,
-                     epochSlots, flattenSlotId, gbHeader, getEpochOrSlot,
+                     epochSlots, flattenSlotId, getEpochOrSlot,
                      getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
+import           Pos.Core.Block (gbHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Core.JsonLog (CanJsonLog (..))

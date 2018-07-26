@@ -20,9 +20,9 @@ import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Core (ComponentBlock (..), HasCoreConfiguration,
-                     HasGenesisData, HasProtocolConstants, HeaderHash,
-                     epochIndexL, epochOrSlotG, headerHash)
+import           Pos.Core (HasCoreConfiguration, HasGenesisData,
+                     HasProtocolConstants, epochIndexL, epochOrSlotG)
+import           Pos.Core.Block (ComponentBlock (..), HeaderHash, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)

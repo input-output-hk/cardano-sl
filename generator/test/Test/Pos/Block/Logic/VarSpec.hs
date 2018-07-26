@@ -23,11 +23,13 @@ import           Test.QuickCheck.Monadic (assert, pick, pre)
 import           Test.QuickCheck.Random (QCGen)
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core (GenesisData (..), HasConfiguration, blkSecurityParam,
-                     epochSlots, genesisData, headerHash)
+import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
+                     genesisData)
+import           Pos.Core.Block (headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
                      splitAtNewestFirst, toNewestFirst, _NewestFirst)
+import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.DB.Block (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.DB.Pure (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),

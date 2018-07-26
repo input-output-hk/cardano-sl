@@ -19,7 +19,8 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core (HasConfiguration)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (CardanoFatalError (..))
 import           Pos.DB.Block (BlockLrcMode, rollbackBlocks,

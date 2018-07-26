@@ -27,9 +27,9 @@ import           System.Wlog (WithLogger)
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
 import           Pos.Block.Slog (HasSlogGState)
 import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
-                     HeaderHash, Timestamp (..), difficultyL, flattenSlotId,
-                     headerHash, prevBlockL)
-import           Pos.Core.Block (BlockHeader)
+                     Timestamp (..), difficultyL, flattenSlotId)
+import           Pos.Core.Block (BlockHeader, HeaderHash, headerHash,
+                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Exception (reportFatalError)

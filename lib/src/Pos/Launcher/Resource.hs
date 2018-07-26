@@ -38,8 +38,8 @@ import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, gdStartTime,
-                     genesisData)
+import           Pos.Core (HasConfiguration, Timestamp, genesisData)
+import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Block (mkSlogContext)

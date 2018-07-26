@@ -56,8 +56,9 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      decodeListLenCanonical, deriveIndexedBi, deriveSimpleBi,
                      encodeListLen)
-import           Pos.Core (ChainDifficulty, Coin, HeaderHash, ScriptVersion,
-                     StakeholderId, mkCoin)
+import           Pos.Core (ChainDifficulty, Coin, ScriptVersion, StakeholderId,
+                     mkCoin)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Slotting (EpochIndex, SlotId, SlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionModifier (..), NumSoftwareVersion,

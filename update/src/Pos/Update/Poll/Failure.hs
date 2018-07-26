@@ -11,8 +11,9 @@ import           Formatting (bprint, build, int, sformat, stext, (%))
 import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 
-import           Pos.Core (Coin, EpochIndex, HeaderHash, ScriptVersion,
-                     StakeholderId, coinF)
+import           Pos.Core (Coin, EpochIndex, ScriptVersion, StakeholderId,
+                     coinF)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting, reportError)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      BlockVersionData, BlockVersionModifier,

@@ -34,11 +34,11 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
-                     HasPrimaryKey (..), SlotId (..), Timestamp,
-                     epochOrSlotToSlot, getEpochOrSlot,
+import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
+                     SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
 import           Pos.Core.Exception (reportFatalError)
+import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Crypto (SecretKey)

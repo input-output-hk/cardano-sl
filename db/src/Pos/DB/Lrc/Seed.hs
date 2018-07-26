@@ -13,7 +13,8 @@ module Pos.DB.Lrc.Seed
 import           Universum
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (EpochIndex (..), SharedSeed, gdFtsSeed, genesisData)
+import           Pos.Core (EpochIndex (..), SharedSeed, genesisData)
+import           Pos.Core.Genesis (gdFtsSeed)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.DB.Lrc.Common (getBi, putBi)
 

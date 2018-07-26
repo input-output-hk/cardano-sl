@@ -33,7 +33,8 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (HeaderHash, ProtocolMagic, SlotId (..), slotIdF)
+import           Pos.Core (ProtocolMagic, SlotId (..), slotIdF)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.StateLock (StateLock)
 import           Pos.Core.Update (BlockVersionData (..), UpId,

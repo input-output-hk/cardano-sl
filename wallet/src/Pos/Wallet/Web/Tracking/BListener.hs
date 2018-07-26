@@ -20,10 +20,10 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HeaderHash, Timestamp, difficultyL, headerSlotL,
+import           Pos.Core (Timestamp, difficultyL)
+import           Pos.Core.Block (BlockHeader (..), HeaderHash, blockHeader,
+                     getBlockHeader, headerSlotL, mainBlockTxPayload,
                      prevBlockL)
-import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader,
-                     mainBlockTxPayload)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)

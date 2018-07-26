@@ -26,8 +26,9 @@ import qualified Node
 import           Pipes (each)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Block, BlockHeader, HeaderHash, blockHeaderHash)
-import qualified Pos.Core as Core (getBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash,
+                     blockHeaderHash)
+import qualified Pos.Core.Block as Block (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic (..))
@@ -90,7 +91,7 @@ serverLogic
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
-    , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
+    , getBlockHeader = const (pure (Just (Block.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
       -- 'pureLogic' always gives an empty first component list, meaning all
@@ -100,7 +101,7 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getLcaMainChain = \(OldestFirst headers) ->
           pure (NewestFirst (reverse headers), OldestFirst [])
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
+    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
           each $ map serializedBlock bs
@@ -243,7 +244,7 @@ streamSimple streamWindow blocks = do
     streamIORef <- newIORef []
     resultIORef <- newIORef False
     let arbitraryBlocks = generateBlocks (blocks - 1)
-        arbitraryHeaders = NE.map Core.getBlockHeader arbitraryBlocks
+        arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         !arbitraryBlock = NE.head arbitraryBlocks
         tipHash = NE.head arbitraryHashes
@@ -260,7 +261,7 @@ batchSimple :: Int -> IO Bool
 batchSimple blocks = do
     streamIORef <- newIORef []
     let arbitraryBlocks = generateBlocks (blocks - 1)
-        arbitraryHeaders = NE.map Core.getBlockHeader arbitraryBlocks
+        arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         arbitraryBlock = NE.head arbitraryBlocks
         !checkPoints = if blocks == 1 then [someHash]

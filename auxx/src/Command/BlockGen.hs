@@ -13,7 +13,8 @@ import           System.Wlog (logInfo)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Core (gdBootStakeholders, genesisData)
+import           Pos.Core (genesisData)
+import           Pos.Core.Genesis (gdBootStakeholders)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks,

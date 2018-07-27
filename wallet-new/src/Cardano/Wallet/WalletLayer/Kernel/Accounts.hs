@@ -9,7 +9,6 @@ module Cardano.Wallet.WalletLayer.Kernel.Accounts (
 import           Universum
 
 import           Control.Lens (to)
-import           Data.Acid (update)
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
@@ -26,7 +25,6 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAccountsByRootId,
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import qualified Cardano.Wallet.Kernel.Internal as Internal
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)

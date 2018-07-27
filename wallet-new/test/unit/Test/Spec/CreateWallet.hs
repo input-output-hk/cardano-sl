@@ -23,7 +23,6 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdRootError (..))
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Wallets (CreateWalletError (..))
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel

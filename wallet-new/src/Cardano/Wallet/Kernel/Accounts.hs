@@ -178,7 +178,6 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         genesisCheckpoint = Checkpoint {
               _checkpointUtxo        = InDb mempty
             , _checkpointUtxoBalance = InDb (mkCoin 0)
-            , _checkpointExpected    = InDb mempty
             , _checkpointPending     = emptyPending
             , _checkpointBlockMeta   = mempty
             }

@@ -46,7 +46,6 @@ import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
-import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (Payment (..),

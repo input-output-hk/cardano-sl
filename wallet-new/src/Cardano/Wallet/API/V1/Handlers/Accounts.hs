@@ -23,6 +23,7 @@ handlers w =  deleteAccount w
          :<|> listAccounts w
          :<|> newAccount w
          :<|> updateAccount w
+         :<|> redeemAda w
 
 deleteAccount :: PassiveWalletLayer IO
               -> WalletId
@@ -83,3 +84,11 @@ updateAccount layer wId accIdx updateRequest = do
          Left e -> throwM e
          Right updatedAccount ->
              return $ single updatedAccount
+
+redeemAda :: PassiveWalletLayer IO
+          -> WalletId
+          -> AccountIndex
+          -> Redemption
+          -> Handler (WalletResponse Transaction)
+redeemAda _layer _wId _accIdx _redemption =
+    error "unimplemented, see [CBR-349]"

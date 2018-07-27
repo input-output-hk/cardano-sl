@@ -34,6 +34,7 @@ import           Test.Spec.Fixture (GenPassiveWalletFixture,
                      genSpendingPassword, withLayer, withPassiveWalletFixture)
 import           Util.Buildable (ShowThroughBuild (..))
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 data Fixture = Fixture {
       fixtureSpendingPassword :: Maybe V1.SpendingPassword

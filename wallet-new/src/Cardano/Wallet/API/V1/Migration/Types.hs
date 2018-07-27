@@ -22,7 +22,6 @@ import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Chain.Txp as V0
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core

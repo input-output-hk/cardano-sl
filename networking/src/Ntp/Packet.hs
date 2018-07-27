@@ -13,7 +13,6 @@ module Ntp.Packet
     ) where
 
 
-import           Control.Lens (each, (^..))
 import           Control.Monad (replicateM_)
 import           Data.Binary (Binary (..))
 import           Data.Binary.Get (getInt8, getWord32be, getWord8, skip)
@@ -41,9 +40,17 @@ instance Binary NtpPacket where
 
         replicateM_ 5 $ putWord32be 0
 
-        mapM_ putWord32be $ realMcsToNtp ntpOriginTime ^.. each
-        mapM_ putWord32be $ realMcsToNtp ntpReceivedTime ^.. each
-        mapM_ putWord32be $ realMcsToNtp ntpTransmitTime ^.. each
+        let (osec, ofrac) = realMcsToNtp ntpOriginTime
+        putWord32be osec
+        putWord32be ofrac
+
+        let (rsec, rfrac) = realMcsToNtp ntpReceivedTime
+        putWord32be rsec
+        putWord32be rfrac
+
+        let (tsec, tfrac) = realMcsToNtp ntpTransmitTime
+        putWord32be tsec
+        putWord32be tfrac
 
     get = do
         ntpParams <- getWord8
@@ -84,7 +91,9 @@ ntpToRealMcs sec frac =
     let -- microseconds
         secMicro :: Integer
         secMicro = (fromIntegral sec - ntpTimestampDelta) * 1000000
-        -- Each fraction resolves to 232 pico seconds (`232 ≈ 10000000/4294`)
+        -- We divide 1 second into 2 ^ 32 parts, giving 2.3283064365386963e-10
+        -- as the quantum. A picosecond is 10e-12 of a second, so this is 232
+        -- picoseconds or `1/4294` of a millisecond.
         -- ref: https://tools.ietf.org/html/rfc5905#section-6
         fracMicro :: Integer
         fracMicro = (fromIntegral frac) `div` 4294

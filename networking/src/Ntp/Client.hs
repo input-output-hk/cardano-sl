@@ -268,6 +268,10 @@ spawnNtpClient settings ncStatus = do
 
         addrs <- catMaybes <$> traverse resolveNtpHost (ntpServers settings)
         when (null addrs) $ throwM NoHostResolved
+        -- TODO
+        -- we should start listening for requests when we send something, since
+        -- we're not expecting anything to come unless we send something.  This
+        -- way we could simplify the client and remove `ncState` mutable cell.
         startReceive cli
             `concurrently_` sendLoop cli addrs
             `concurrently_` logInfo "started"

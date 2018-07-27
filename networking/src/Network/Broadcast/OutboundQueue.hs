@@ -89,6 +89,9 @@ import           Control.Exception (Exception, SomeException, catch,
                      displayException, finally, mask_, throwIO)
 import           Control.Lens
 import           Control.Monad
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Encoding.Internal as A
+import qualified Data.Aeson.Types as A
 import           Data.Either (rights)
 import           Data.Foldable (fold)
 import           Data.List (intercalate, sortOn)
@@ -96,6 +99,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import           Data.Monoid ((<>))
+import           Data.Scientific
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Text (Text)
@@ -103,6 +107,7 @@ import qualified Data.Text as T
 import           Data.Time
 import           Data.Typeable (typeOf)
 import           Formatting (Format, sformat, shown, string, (%))
+import           GHC.Generics hiding (prec)
 import qualified System.Metrics as Monitoring
 import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
@@ -1341,7 +1346,26 @@ flush OutQ{..} = do
 
 -- | Maximum size for a bucket (if limited)
 data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
-  deriving (Show, Eq)
+  deriving (Show, Generic, Eq)
+
+instance A.ToJSON MaxBucketSize where
+  toEncoding BucketSizeUnlimited   = A.null_
+    --A.pairs $ A.pairStr "maxSubscrs" A.null_
+  toEncoding (BucketSizeMax bSize) = A.int bSize
+    --A.pairs $ A.pairStr "maxSubscrs" (A.int bSize)
+
+instance A.FromJSON MaxBucketSize where
+  parseJSON (A.Null) = pure BucketSizeUnlimited
+  parseJSON (A.Number sNum) =
+    case toBoundedInteger sNum of
+        Just int -> pure $ BucketSizeMax int
+        Nothing  -> error "Please provide an integer for MaxBucketSize"
+
+  parseJSON invalid = A.typeMismatch "MaxBucketSize" invalid
+
+--maybeBucketSize :: Maybe Int -> MaxBucketSize
+--maybeBucketSize Nothing  = BucketSizeUnlimited
+--maybeBucketSize (Just n) = BucketSizeMax n
 
 exceedsBucketSize :: Int -> MaxBucketSize -> Bool
 exceedsBucketSize _ BucketSizeUnlimited = False

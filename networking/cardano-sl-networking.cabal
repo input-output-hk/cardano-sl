@@ -67,7 +67,9 @@ Library
                       , random
                       , resourcet
                       , universum
+                      , unordered-containers
                       , safe-exceptions
+                      , scientific
                       , stm
                       , text
                       , these

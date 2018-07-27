@@ -164,6 +164,7 @@ library
                       , universum
                       , unliftio
                       , unordered-containers
+                      , vector
                       , yaml
 
   if !os(windows)
@@ -220,8 +221,10 @@ test-suite test
                     Test.Pos.Infra.Diffusion.Subscription.StatusSpec
                     Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
                     Test.Pos.Infra.Gen
+                    Test.Pos.Infra.Json
 
   build-depends:    QuickCheck
+                  , aeson
                   , async
                   , base
                   , bytestring
@@ -234,11 +237,14 @@ test-suite test
                   , cardano-sl-crypto
                   , cardano-sl-crypto-test
                   , cardano-sl-infra
+                  , cardano-sl-networking
                   , cardano-sl-util-test
                   , containers
+                  , dns
                   , generic-arbitrary
                   , hedgehog
                   , hspec
+                  , iproute
                   , kademlia
                   , universum
 

@@ -32,16 +32,16 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?),
                      (.=))
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Aeson.Types as A
-import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.HashMap.Lazy as HM
-import           Data.IP (IP)
 import qualified Data.Map.Strict as M
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS as DNS
 
-import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..),
+                     extractNodeAddr)
 import           Pos.Infra.Network.Types (Fallbacks, NodeName (..), Valency)
 import           Pos.Util.Util (aesonError, toAesonError)
 
@@ -80,10 +80,10 @@ newtype AllStaticallyKnownPeers = AllStaticallyKnownPeers
     } deriving (Show)
 
 newtype NodeRegion = NodeRegion Text
-    deriving (Show, Ord, Eq, IsString)
+    deriving (Show, Generic, Ord, Eq, IsString)
 
 newtype NodeRoutes = NodeRoutes [[NodeName]]
-    deriving (Show)
+    deriving (Eq, Generic, Show)
 
 data NodeMetadata = NodeMetadata
     { -- | Node type
@@ -115,7 +115,7 @@ data NodeMetadata = NodeMetadata
       -- | Maximum number of subscribers (only relevant for relays)
     , nmMaxSubscrs :: !OQ.MaxBucketSize
     }
-    deriving (Show)
+    deriving (Eq, Generic, Show)
 
 type RunKademlia = Bool
 type InPublicDNS = Bool
@@ -187,25 +187,26 @@ instance ToJSON KademliaAddress where
         ]
 
 ----------------------------------------------------------------------------
--- FromJSON instances
+-- JSON instances
 ----------------------------------------------------------------------------
+
+instance ToJSON NodeRegion where
+    toEncoding (NodeRegion text) = A.text text
 
 instance FromJSON NodeRegion where
     parseJSON = fmap NodeRegion . parseJSON
 
+instance ToJSON NodeName where
+    toEncoding (NodeName name) = A.text name
+
 instance FromJSON NodeName where
     parseJSON = fmap NodeName . parseJSON
 
+instance ToJSON NodeRoutes where
+    toEncoding (NodeRoutes nameList) = A.list toEncoding nameList
+
 instance FromJSON NodeRoutes where
     parseJSON = fmap NodeRoutes . parseJSON
-
-instance FromJSON NodeType where
-    parseJSON = A.withText "NodeType" $ \typ -> do
-        toAesonError $ case toString typ of
-          "core"     -> Right NodeCore
-          "edge"     -> Right NodeEdge
-          "relay"    -> Right NodeRelay
-          _otherwise -> Left $ "Invalid NodeType " <> show typ
 
 instance FromJSON OQ.Precedence where
     parseJSON = A.withText "Precedence" $ \typ -> do
@@ -217,46 +218,80 @@ instance FromJSON OQ.Precedence where
           "highest"  -> Right OQ.PHighest
           _otherwise -> Left $ "Invalid Precedence" <> show typ
 
-instance FromJSON (DnsDomains DNS.Domain) where
-    parseJSON = fmap DnsDomains . parseJSON
-
-instance FromJSON (NodeAddr DNS.Domain) where
-    parseJSON = A.withObject "NodeAddr" $ extractNodeAddr (toAesonError . aux)
-      where
-        aux :: Maybe DNS.Domain -> Either Text DNS.Domain
-        aux Nothing    = Left "Missing domain name or address"
-        aux (Just dom) = Right dom
-
--- Useful when we have a 'NodeAddr' as part of a larger object
-extractNodeAddr :: forall a. (Maybe DNS.Domain -> A.Parser a)
-                -> A.Object
-                -> A.Parser (NodeAddr a)
-extractNodeAddr mkA obj = do
-    mAddr <- obj .:? "addr"
-    mHost <- obj .:? "host"
-    mPort <- obj .:? "port"
-    case (mAddr, mHost) of
-      (Just ipAddr, Nothing) -> do
-          -- Make sure `addr` is a proper IP address
-          toAesonError $ case readMaybe ipAddr of
-              Nothing   -> Left "The value specified in 'addr' is not a valid IP address."
-              Just addr -> Right $ NodeAddrExact addr mPort
-      (Nothing,  _)        -> do
-          -- Make sure 'host' is not a valid IP address (which is disallowed)
-          case mHost of
-              Nothing  -> mkNodeAddrDNS mHost mPort -- User didn't specify a 'host', proceed normally.
-              Just mbH -> case readMaybe @IP mbH of
-                  Nothing -> mkNodeAddrDNS mHost mPort -- mHost is not an IP, allow it.
-                  Just _  -> aesonError "The value specified in 'host' is not a valid hostname, but an IP."
-      (Just _, Just _)    -> aesonError "Cannot use both 'addr' and 'host'"
-  where
-    aux :: String -> DNS.Domain
-    aux = BS.C8.pack
-
-    mkNodeAddrDNS :: Maybe String -> Maybe Word16 -> A.Parser (NodeAddr a)
-    mkNodeAddrDNS mHost mPort = do
-          a <- mkA (aux <$> mHost)
-          return $ NodeAddrDNS a mPort
+instance ToJSON NodeMetadata where
+    toEncoding
+        (NodeMetadata
+            nmType
+            nmRegion
+            nmRoutes
+            nmSubscribe
+            nmValency
+            nmFallbacks
+            nmAddress
+            nmKademlia
+            nmPublicDNS
+            nmMaxSubscrs) = do
+                case nmAddress of
+                    NodeAddrExact ip (Just port) ->
+                        A.pairs $
+                             A.pairStr "type" (toEncoding nmType)
+                         <>  A.pairStr "region" (toEncoding nmRegion)
+                         <>  A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <>  A.pairStr
+                                "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <>  A.pairStr "valency" (toEncoding nmValency)
+                         <>  A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <>  A.pairStr "addr" (toEncoding ip)
+                         <>  A.pairStr "port" (toEncoding port)
+                         <>  A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <>  A.pairStr "public" (toEncoding nmPublicDNS)
+                         <>  A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrExact ip Nothing ->
+                        A.pairs $
+                            A.pairStr "type" (toEncoding nmType)
+                         <> A.pairStr "region" (toEncoding nmRegion)
+                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <> A.pairStr
+                                "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <> A.pairStr "valency" (toEncoding nmValency)
+                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <> A.pairStr "addr" (toEncoding ip)
+                         <> A.pairStr "port" (A.string "3000")
+                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <> A.pairStr "public" (toEncoding nmPublicDNS)
+                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrDNS (Just host) (Just port) -> do
+                        let converted = decodeUtf8 @Text @ByteString host
+                        A.pairs $
+                            A.pairStr "type" (toEncoding nmType)
+                         <> A.pairStr "region" (toEncoding nmRegion)
+                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <> A.pairStr
+                                "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <> A.pairStr "valency" (toEncoding nmValency)
+                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <> A.pairStr "host" (toEncoding converted)
+                         <> A.pairStr "port" (toEncoding port)
+                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <> A.pairStr "public" (toEncoding nmPublicDNS)
+                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrDNS (Just host) Nothing -> do
+                        let converted = decodeUtf8 @Text @ByteString host
+                        A.pairs $
+                            A.pairStr "type" (toEncoding nmType)
+                         <> A.pairStr "region" (toEncoding nmRegion)
+                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <> A.pairStr
+                            "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <> A.pairStr "valency" (toEncoding nmValency)
+                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <> A.pairStr "host" (toEncoding converted)
+                         <> A.pairStr "port" (A.string "3000")
+                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <> A.pairStr "public" (toEncoding nmPublicDNS)
+                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrDNS Nothing _ ->
+                        error "Please enter a hostname"
 
 instance FromJSON NodeMetadata where
     parseJSON = A.withObject "NodeMetadata" $ \obj -> do

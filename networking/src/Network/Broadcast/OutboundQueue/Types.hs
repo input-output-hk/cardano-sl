@@ -29,9 +29,13 @@ module Network.Broadcast.OutboundQueue.Types
 import           Universum
 
 import           Control.Lens (makeLenses)
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting
+
+import           Pos.Util.Util (toAesonError)
 
 -- | Node types
 data NodeType =
@@ -61,7 +65,20 @@ data NodeType =
     -- * never create currency transactions
     -- * can communicate with core nodes
   | NodeRelay
-  deriving (Show, Eq, Ord, Bounded, Enum)
+  deriving (Show, Eq, Generic, Ord, Bounded, Enum)
+
+instance A.ToJSON NodeType where
+    toEncoding (NodeCore)  = A.text "core"
+    toEncoding (NodeEdge)  = A.text "edge"
+    toEncoding (NodeRelay) = A.text "relay"
+
+instance A.FromJSON NodeType where
+    parseJSON = A.withText "NodeType" $ \typ -> do
+        toAesonError $ case toString typ of
+          "core"     -> Right NodeCore
+          "edge"     -> Right NodeEdge
+          "relay"    -> Right NodeRelay
+          _otherwise -> Left $ "Invalid NodeType " <> show typ
 
 {-------------------------------------------------------------------------------
   Known peers

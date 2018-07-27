@@ -75,7 +75,7 @@ import           Pos.Util.Util (HasLens', lensOf)
 -------------------------------------------------------------------------------}
 
 newtype NodeName = NodeName Text
-    deriving (Show, Ord, Eq, IsString)
+    deriving (Show, Generic, Ord, Eq, IsString)
 
 instance ToString NodeName where
     toString (NodeName txt) = toString txt

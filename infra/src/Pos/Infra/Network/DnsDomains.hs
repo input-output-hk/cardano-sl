@@ -1,15 +1,30 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Infra.Network.DnsDomains
        ( DnsDomains(..)
        , NodeAddr(..)
        , resolveDnsDomains
+       , extractNodeAddr
        ) where
 
 
+import qualified Prelude
 import           Universum
 
+import           Data.Aeson (FromJSON (..), ToJSON (..), (.:), (.:?), (.=))
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Encoding.Internal as A
+import qualified Data.Aeson.Types as A
 import qualified Data.ByteString.Char8 as BS.C8
-import           Data.IP (IP, IPv4)
+import qualified Data.HashMap.Strict as HMS
+import           Data.IP (IP (..), IPv4)
+import           Data.IP.Internal (IPv4 (..), IPv6 (..))
+import qualified Data.Text as T
+import qualified Data.Vector as V
 import           Network.Broadcast.OutboundQueue.Types (AllOf, Alts)
+import qualified Network.DNS as DNS
+
+import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | DNS domains for relay discovery
 --
@@ -24,7 +39,16 @@ import           Network.Broadcast.OutboundQueue.Types (AllOf, Alts)
 data DnsDomains a = DnsDomains {
       dnsDomains :: !(AllOf (Alts (NodeAddr a)))
     }
-  deriving (Show)
+  deriving (Show, Eq, Generic)
+
+instance A.ToJSON (DnsDomains DNS.Domain) where
+    toEncoding (DnsDomains addrsList) = A.list toEncoding addrsList
+
+instance A.FromJSON (DnsDomains DNS.Domain) where
+    parseJSON (A.Array vec) = do
+        final <- mapM A.parseJSON (V.toList vec)
+        return $ DnsDomains final
+    parseJSON invalid = A.typeMismatch "DnsDomains DNS.Domain" invalid
 
 -- | Node address
 data NodeAddr a =
@@ -38,7 +62,111 @@ data NodeAddr a =
     -- If domain unspecified, use the node's name
     -- If port unspecified, use the default.
   | NodeAddrDNS a (Maybe Word16)
-  deriving (Show)
+  deriving (Eq, Generic, Show)
+
+instance ToJSON (NodeAddr (Maybe DNS.Domain)) where
+    toJSON =
+        A.object . \case
+            (NodeAddrExact ip mWord) ->
+                case (ip, mWord) of
+                    (IPv4 (IP4 ip4), Just port) ->
+                        [ "addr" .= (A.String . show $ IPv4 (IP4 ip4))
+                        , "port" .= (toJSON port)
+                        ]
+                    (IPv4 (IP4 ip4), Nothing)   ->
+                        [ "addr" .= (A.String . show $ IPv4 (IP4 ip4))
+                        , "port" .= (toJSON (Prelude.read "3000" :: Word16))
+                        ]
+                    (IPv6 (IP6 ip6), Just port) ->
+                        [ "addr" .= (A.String . show $ IPv6 (IP6 ip6))
+                        , "port" .= (toJSON port)
+                        ]
+                    (IPv6 (IP6 ip6), Nothing)   ->
+                        [ "addr" .= (A.String . show $ IPv6 (IP6 ip6))
+                        , "port" .= (toJSON (Prelude.read "3000" :: Word16))
+                        ]
+            (NodeAddrDNS nHost mWord) ->
+                case (nHost, mWord) of
+                    (Just host, Just port) ->
+                        [ "host" .= (toJSON $ decodeUtf8 @Text host)
+                        , "port" .= (toJSON port)
+                        ]
+                    (Just host, Nothing)   ->
+                        [ "host" .= (toJSON $ decodeUtf8 @Text host)
+                        , "port" .= (toJSON (Prelude.read "3000" :: Word16))
+                        ]
+                    (Nothing, _)      -> error "Please enter hostname"
+
+instance FromJSON (NodeAddr (Maybe DNS.Domain)) where
+    parseJSON (A.Object o)
+        | (HMS.member "addr" o) && (HMS.member "port" o) = do
+              addrV <- o .: "addr"
+              addr <- parseJSON addrV
+              portV <- o .: "port"
+              port <- parseJSON portV
+              return $ NodeAddrExact addr port
+        | (HMS.member "host" o) && (HMS.member "port" o) = do
+              portV <- o .: "port"
+              port <- parseJSON portV
+              hostV <- o .: "host"
+              case hostV of
+                  A.String text -> do
+                      let host = encodeUtf8 @Text @ByteString text
+                      return $ NodeAddrDNS (Just host) port
+                  _             -> fail "Incorrect JSON encoding for hostname"
+        | otherwise =
+            error "Incorrect JSON encoding for NodeAddr (Maybe DNS.Domain)"
+    parseJSON invalid = A.typeMismatch "NodeAddr (Maybe DNS.Domain)" invalid
+
+-- | Orphan instance; lifted from aeson-iproute
+instance ToJSON IP where
+    toJSON = A.String . T.pack . show
+
+-- | Orphan instance; lifted from aeson-iproute
+instance FromJSON IP where
+    parseJSON (A.String s)
+        | Just r <- readMaybe (T.unpack s) = pure r
+        | otherwise = fail "Unable to parse IP"
+    parseJSON v = A.typeMismatch "IP" v
+
+instance A.ToJSON (NodeAddr DNS.Domain) where
+    toJSON =
+        A.object . \case
+            (NodeAddrExact ip mWord) ->
+                 case (ip, mWord) of
+                     (IPv4 (IP4 ip4), Just port) ->
+                         [ "addr" .= (A.String . show $ IPv4 (IP4 ip4))
+                         , "port" .= (toJSON port)
+                         ]
+                     (IPv4 (IP4 ip4), Nothing)   ->
+                         [ "addr" .= (A.String . show $ IPv4 (IP4 ip4))
+                         , "port" .= (toJSON (Prelude.read "3000" :: Word16))
+                         ]
+                     (IPv6 (IP6 ip6), Just port) ->
+                         [ "addr" .= (A.String . show $ IPv6 (IP6 ip6))
+                         , "port" .= (toJSON port)
+                         ]
+                     (IPv6 (IP6 ip6), Nothing)   ->
+                         [ "addr" .= (A.String . show $ IPv6 (IP6 ip6))
+                         , "port" .= (toJSON (Prelude.read "3000" :: Word16))
+                         ]
+            (NodeAddrDNS nHost mWord) ->
+                 case (nHost, mWord) of
+                     (host, Just port) ->
+                         [ "host" .= (toJSON $ decodeUtf8 @Text host)
+                         , "port" .= (toJSON port)
+                         ]
+                     (host, Nothing)   ->
+                         [ "host" .= (toJSON $ decodeUtf8 @Text host)
+                         , "port" .= (toJSON (Prelude.read "3000" :: Word16))
+                         ]
+
+instance A.FromJSON (NodeAddr DNS.Domain) where
+    parseJSON = A.withObject "NodeAddr" $ extractNodeAddr (toAesonError . aux)
+      where
+        aux :: Maybe DNS.Domain -> Either Text DNS.Domain
+        aux Nothing    = Left "Missing domain name or address"
+        aux (Just dom) = Right dom
 
 -- | Resolve a list of 'NodeAddr', possibly using DNS.
 --
@@ -65,3 +193,40 @@ resolveDnsDomains resolve defaultPort dnsDomains =
         let port = fromMaybe defaultPort mPort
             ipBS = encodeUtf8 @String . show $ ip
         pure $ Right [(ipBS, port)]
+
+-- Useful when we have a 'NodeAddr' as part of a larger object
+extractNodeAddr :: forall a. (Maybe DNS.Domain -> A.Parser a)
+                -> A.Object
+                -> A.Parser (NodeAddr a)
+extractNodeAddr mkA obj = do
+    mAddr <- obj .:? "addr"
+    mHost <- obj .:? "host"
+    mPort <- obj .:? "port"
+    case (mAddr, mHost) of
+      (Just ipAddr, Nothing) -> do
+          -- Make sure `addr` is a proper IP address
+          toAesonError $ case readMaybe ipAddr of
+              Nothing   ->
+                Left "The value specified in 'addr' is not a valid IP address."
+              Just addr -> Right $ NodeAddrExact addr mPort
+      (Nothing,  _)        -> do
+          -- Make sure 'host' is not a valid IP address (which is disallowed)
+          case mHost of
+              Nothing  ->
+                -- User didn't specify a 'host', proceed normally.
+                mkNodeAddrDNS mHost mPort
+              Just mbH -> case readMaybe @IP mbH of
+                  Nothing ->
+                    mkNodeAddrDNS mHost mPort -- mHost is not an IP, allow it.
+                  Just _  ->
+                    aesonError "The value specified in 'host' is not a valid\
+                                \hostname, but an IP."
+      (Just _, Just _)    -> aesonError "Cannot use both 'addr' and 'host'"
+  where
+    aux :: String -> DNS.Domain
+    aux = BS.C8.pack
+
+    mkNodeAddrDNS :: Maybe String -> Maybe Word16 -> A.Parser (NodeAddr a)
+    mkNodeAddrDNS mHost mPort = do
+          a <- mkA (aux <$> mHost)
+          return $ NodeAddrDNS a mPort

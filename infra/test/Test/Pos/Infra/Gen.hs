@@ -18,22 +18,42 @@ module Test.Pos.Infra.Gen
 
         -- Pos.Infra.Communication Generators
         , genHandlerSpec
+
+        -- Pos.Infra.Network Generators
+        , genDnsDomains
+        , genDomain
+        , genMaxBucketSize
+        , genNodeAddr
+        , genNodeAddrMaybe
+        , genNodeMetaData
+        , genNodeName
+        , genNodeType
+        , genNodeRoutes
+        , genNodeRegion
         ) where
 
 import           Universum
 
+import           Data.IP
 import qualified Data.Map as DM
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Network.Kademlia.HashNodeId (genNonce, hashAddress)
 
+import           Network.Broadcast.OutboundQueue (MaxBucketSize (..))
+import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
+import qualified Network.DNS as DNS
 import           Pos.Core (EpochIndex (..))
 import           Pos.Crypto.Random (deterministic)
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..))
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      MempoolMsg (..), ReqMsg (..), ResMsg (..))
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
+import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Infra.Network.Types (NodeName (..))
+import           Pos.Infra.Network.Yaml (NodeMetadata (..), NodeRegion (..),
+                     NodeRoutes (..))
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
                      createSlottingDataUnsafe)
 
@@ -111,3 +131,100 @@ genHandlerSpec = Gen.choice [ ConvHandler <$> genWord16
                                   <$> Gen.word8 (Range.constant 1 255)
                                   <*> gen32Bytes
                             ]
+
+----------------------------------------------------------------------------
+-- Pos.Infra.Network Generators
+----------------------------------------------------------------------------
+
+genDomain :: Gen DNS.Domain
+genDomain = Gen.utf8 (Range.constant 1 127) Gen.alpha
+
+genDnsDomains :: Gen (DnsDomains DNS.Domain)
+genDnsDomains = DnsDomains <$> Gen.list (Range.constant 1 10) singletonNA
+  where
+    singletonNA = Gen.list (Range.singleton 1) (genNodeAddr genDomain)
+
+genMaxBucketSize :: Gen MaxBucketSize
+genMaxBucketSize = Gen.choice
+    [ pure BucketSizeUnlimited
+    , BucketSizeMax <$> Gen.int (Range.constant 1 100)
+    ]
+
+genNodeAddr :: (Gen a) -> Gen (NodeAddr a)
+genNodeAddr genA = Gen.choice
+    [ NodeAddrExact <$> genIP <*> (Just <$> (Gen.word16 Range.constantBounded))
+    , NodeAddrDNS <$> genA <*> (Just <$> (Gen.word16 Range.constantBounded))
+    ]
+  where
+    genIP =
+        Gen.choice
+            [ IPv4 .toIPv4 <$> Gen.list
+                                   (Range.singleton 4)
+                                   (Gen.int (Range.constant 1 300))
+            , IPv6 .toIPv6 <$> Gen.list
+                                   (Range.singleton 8)
+                                   (Gen.int (Range.constant 1 300))
+            ]
+
+-- | NodeAddrDNS constructor's serialization will error if no
+-- hostname is given, therefore we only generate Just values for
+-- Maybe DNS.Domain. See ToJSON instance of NodeAddr (Maybe DNS.Domain).
+
+genNodeAddrMaybe :: Gen (NodeAddr (Maybe DNS.Domain))
+genNodeAddrMaybe = genNodeAddr (Just <$> genDomain)
+
+genNodeMetaData :: Gen NodeMetadata
+genNodeMetaData = do
+    nmType'       <- genNodeType
+    nmRegion'     <- genNodeRegion
+    nmValency'    <- Gen.int (Range.constant 1 10)
+    nmFallbacks'  <- Gen.int (Range.constant 1 10)
+    nmAddress'    <- genNodeAddr (Just <$> genDomain)
+    nmKademlia'   <- Gen.bool
+    nmPublicDNS'  <- Gen.bool
+    nmMaxSubscrs' <- genMaxBucketSize
+    choiceInt <- Gen.int8 (Range.constant 1 10)
+    if (choiceInt <= 5)
+        then do
+            nmRoutes' <- genNodeRoutes
+            pure $ NodeMetadata
+                       nmType'
+                       nmRegion'
+                       nmRoutes'
+                       (DnsDomains [])
+                       nmValency'
+                       nmFallbacks'
+                       nmAddress'
+                       nmKademlia'
+                       nmPublicDNS'
+                       nmMaxSubscrs'
+        else do
+            nmSubscribe' <- genDnsDomains
+            pure $ NodeMetadata
+                       nmType'
+                       nmRegion'
+                       (NodeRoutes [])
+                       nmSubscribe'
+                       nmValency'
+                       nmFallbacks'
+                       nmAddress'
+                       nmKademlia'
+                       nmPublicDNS'
+                       nmMaxSubscrs'
+
+genNodeName :: Gen NodeName
+genNodeName = NodeName <$> Gen.text (Range.constant 0 10) Gen.alphaNum
+
+genNodeType :: Gen NodeType
+genNodeType = Gen.choice [ pure NodeCore
+                         , pure NodeEdge
+                         , pure NodeRelay
+                         ]
+
+genNodeRoutes :: Gen NodeRoutes
+genNodeRoutes = NodeRoutes <$> Gen.list (Range.constant 1 10) singletonNN
+  where
+    singletonNN = Gen.list (Range.singleton 1) genNodeName
+
+genNodeRegion :: Gen NodeRegion
+genNodeRegion = NodeRegion <$> Gen.text (Range.constant 1 10) Gen.alphaNum

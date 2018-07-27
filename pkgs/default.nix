@@ -16703,6 +16703,7 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unliftio
 , unordered-containers
+, vector
 , yaml
 }:
 mkDerivation {
@@ -16767,12 +16768,14 @@ universum
 unix
 unliftio
 unordered-containers
+vector
 yaml
 ];
 libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 async
 base
 bytestring
@@ -16784,11 +16787,20 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
+<<<<<<< HEAD
+=======
+cardano-sl-networking
+cardano-sl-ssc
+cardano-sl-ssc-test
+cardano-sl-update-test
+>>>>>>> [CDEC-474] Add rountrip test for `NodeMetadata` and its subtypes
 cardano-sl-util-test
 containers
+dns
 generic-arbitrary
 hedgehog
 hspec
+iproute
 kademlia
 QuickCheck
 universum
@@ -16801,6 +16813,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-infra-test" = callPackage
 ({
   mkDerivation
+, aeson
 , async
 , base
 , bytestring
@@ -16813,11 +16826,20 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
+<<<<<<< HEAD
+=======
+, cardano-sl-networking
+, cardano-sl-ssc
+, cardano-sl-ssc-test
+, cardano-sl-update-test
+>>>>>>> [CDEC-474] Add rountrip test for `NodeMetadata` and its subtypes
 , cardano-sl-util-test
 , containers
+, dns
 , generic-arbitrary
 , hedgehog
 , hspec
+, iproute
 , kademlia
 , QuickCheck
 , stdenv
@@ -16829,6 +16851,7 @@ pname = "cardano-sl-infra-test";
 version = "1.3.0";
 src = ./../infra/test;
 libraryHaskellDepends = [
+aeson
 async
 base
 bytestring
@@ -16841,11 +16864,17 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
+cardano-sl-networking
+cardano-sl-ssc
+cardano-sl-ssc-test
+cardano-sl-update-test
 cardano-sl-util-test
 containers
+dns
 generic-arbitrary
 hedgehog
 hspec
+iproute
 kademlia
 QuickCheck
 universum
@@ -16891,6 +16920,7 @@ license = stdenv.lib.licenses.mit;
 , random
 , resourcet
 , safe-exceptions
+, scientific
 , serokell-util
 , statistics
 , stdenv
@@ -16900,6 +16930,7 @@ license = stdenv.lib.licenses.mit;
 , time
 , time-units
 , universum
+, unordered-containers
 , vector
 }:
 mkDerivation {
@@ -16942,12 +16973,14 @@ network-transport-tcp
 random
 resourcet
 safe-exceptions
+scientific
 stm
 text
 these
 time
 time-units
 universum
+unordered-containers
 ];
 executableHaskellDepends = [
 async

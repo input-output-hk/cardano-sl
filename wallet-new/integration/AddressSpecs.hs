@@ -1,6 +1,3 @@
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TupleSections #-}
-
 module AddressSpecs (addressSpecs) where
 
 import           Universum
@@ -11,12 +8,11 @@ import           Test.Hspec
 import           Util
 
 
-addressSpecs :: WalletRef -> WalletClient IO -> Spec
-addressSpecs wRef wc = do
-    describe "Addresses" $ do
-        it "Creating an address makes it available" $ do
-            -- create a wallet
-            Wallet{..} <- sampleWallet wRef wc
+addressSpecs :: WalletClient IO -> Spec
+addressSpecs wc = describe "Addresses" $ do
+    before (createRandomSampleWallet wc) $ do
+        it "Creating an address makes it available" $ \someWallet -> do
+            let Wallet{..} = someWallet
 
             -- create an account
             acc@Account{..} <- fmap wrData $ shouldReturnRight $
@@ -34,8 +30,8 @@ addressSpecs wRef wc = do
 
             map addrId addrs `shouldContain` [addrId addr]
 
-        it "Index returns real data" $ do
-            addrs  <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
-            addrs' <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
+    it "Index returns real data" $ do
+        addrs  <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
+        addrs' <- fmap wrData $ shouldReturnRight $ getAddressIndex wc
 
-            addrs `shouldBe` addrs'
+        addrs `shouldBe` addrs'

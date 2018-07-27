@@ -7,6 +7,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors
                      (WalletError (WalletAlreadyExists, WalletNotFound))
+import           Pos.Crypto (SecretKey, encToPublic, noPassEncrypt)
 import           Cardano.Wallet.Client.Http
 import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists, WalletNotFound))
 import           Test.Hspec
@@ -72,7 +73,6 @@ walletSpecs _ wc = do
 
             void $ shouldReturnRight $ deleteExternalWallet wc pubKeyAsText
             getWallet wc walId `shouldFailWith` (ClientWalletError WalletNotFound)
-
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

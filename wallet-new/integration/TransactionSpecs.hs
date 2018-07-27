@@ -7,9 +7,9 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
 import qualified Pos.Core as Core
-import           Pos.Crypto (SecretKey, SignTag (..), Signature (..), emptyPassphrase,
+import           Pos.Crypto (SignTag (..), Signature (..), emptyPassphrase,
                              encToPublic, encToSecret, encodeBase58PublicKey,
-                             noPassEncrypt, signEncoded, checkSigRaw)
+                             signEncoded, checkSigRaw)
 import           Pos.Crypto.HD (ShouldCheckPassphrase (..))
 
 import           Test.Hspec
@@ -195,7 +195,7 @@ transactionSpecs wRef wc = do
             (genesisAccount, _) <- getFirstAccountAndAddress wc genesisWallet
 
             -- Create a keys for the source wallet.
-            (srcWalletEncRootSK, srcWalletRootPK) <- makeWalletRootKeys
+            let (srcWalletEncRootSK, srcWalletRootPK) = makeWalletRootKeys FirstSK
 
             -- Create and store new address for source wallet,
             -- we need it to send money from genesis wallet, before test payment.
@@ -203,7 +203,7 @@ transactionSpecs wRef wc = do
               , srcWalletAddressDerivedSK
               , srcWalletAddressDerivedPK ) <- makeFirstAddress srcWalletEncRootSK
             -- Create external wallet, the source of test payment.
-            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn srcWalletRootPK
+            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn wc srcWalletRootPK
             storeAddressInWalletAccount srcExtWallet defaultSrcAccount srcWalletAddress
 
             -- Most likely that we'll have some change after test payment
@@ -225,12 +225,12 @@ transactionSpecs wRef wc = do
             srcExtWalletBalance `shouldSatisfy` (> 0)
 
             -- Create another external wallet, the destination of test payment.
-            (dstWalletEncRootSK, dstWalletRootPK) <- makeWalletRootKeys
+            let (dstWalletEncRootSK, dstWalletRootPK) = makeWalletRootKeys SecondSK
 
             -- Create and store new address for destination wallet,
             -- we need it to send money from source wallet.
             (dstWalletAddress, _, _) <- makeFirstAddress dstWalletEncRootSK
-            (dstExtWallet, defaultDstAccount) <- makeExternalWalletBasedOn dstWalletRootPK
+            (dstExtWallet, defaultDstAccount) <- makeExternalWalletBasedOn wc dstWalletRootPK
             storeAddressInWalletAccount dstExtWallet defaultDstAccount dstWalletAddress
 
             -- Test payment from one external wallet to another one.
@@ -252,7 +252,7 @@ transactionSpecs wRef wc = do
             (genesisAccount, _) <- getFirstAccountAndAddress wc genesisWallet
 
             -- Create a keys for the source wallet.
-            (srcWalletEncRootSK, srcWalletRootPK) <- makeWalletRootKeys
+            let (srcWalletEncRootSK, srcWalletRootPK) = makeWalletRootKeys ThirdSK
 
             -- Create and store new address for source wallet,
             -- we need it to send money from genesis wallet, before test payment.
@@ -260,7 +260,7 @@ transactionSpecs wRef wc = do
               , srcWalletAddressDerivedSK
               , srcWalletAddressDerivedPK ) <- makeFirstAddress srcWalletEncRootSK
             -- Create external wallet, the source of test payment.
-            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn srcWalletRootPK
+            (srcExtWallet, defaultSrcAccount) <- makeExternalWalletBasedOn wc srcWalletRootPK
             storeAddressInWalletAccount srcExtWallet defaultSrcAccount srcWalletAddress
 
             -- Most likely that we'll have some change after test payment
@@ -351,21 +351,6 @@ transactionSpecs wRef wc = do
                                                     (walId wallet)
                                                     (accIndex anAccount)
                                                     anAddressAsBase58
-
-    makeExternalWalletBasedOn publicKey = do
-        newExtWallet <- randomExternalWalletWithPublicKey CreateWallet publicKey
-        extWallet <- createExternalWalletCheck wc newExtWallet
-        defaultAccount <- firstAccountInExtWallet wc extWallet
-        pure (extWallet, defaultAccount)
-
-    makeWalletRootKeys = do
-        rootSK <- randomSK
-        let encRootSK = noPassEncrypt rootSK
-            rootPK    = encToPublic encRootSK
-        pure (encRootSK, rootPK)
-
-    randomSK :: IO SecretKey
-    randomSK = generate arbitrary
 
     randomAddressIndex :: IO Word32
     randomAddressIndex = generate arbitrary

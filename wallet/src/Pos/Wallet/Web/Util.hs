@@ -12,6 +12,8 @@ module Pos.Wallet.Web.Util
     , decodeCTypeOrFail
     , getWalletAssuredDepth
     , testOnlyEndpoint
+    , walletRootPKToId
+    , walletRootPKToIdText
     ) where
 
 import           Universum
@@ -21,8 +23,9 @@ import           Formatting (build, sformat, (%))
 import           Servant.Server (err405, errReasonPhrase)
 
 import           Pos.Configuration (HasNodeConfiguration, walletProductionApi)
-import           Pos.Core (Address, BlockCount)
-import           Pos.Util.Servant (FromCType (..), OriginType)
+import           Pos.Core (Address, BlockCount, makePubKeyAddressBoot)
+import           Pos.Crypto (PublicKey)
+import           Pos.Util.Servant (FromCType (..), OriginType, encodeCType)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Assurance (AssuranceLevel (HighAssurance),
                      assuredBlockDepth)
@@ -96,3 +99,10 @@ testOnlyEndpoint action
   where
     errReason = "Disabled in production, switch 'walletProductionApi' \
                 \parameter in config if you want to use this endpoint"
+
+walletRootPKToId :: PublicKey -> CId Wal
+walletRootPKToId = encodeCType . makePubKeyAddressBoot
+
+-- | For testing purpose.
+walletRootPKToIdText :: PublicKey -> Text
+walletRootPKToIdText = sformat build . walletRootPKToId

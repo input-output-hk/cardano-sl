@@ -53,7 +53,7 @@ spaces:
           ghcFlavour = if ps.stdenv.targetPlatform == ps.stdenv.hostPlatform
                        then "perf"
                        else "perf-cross-ncg";
-          enableShared = false;
+          enableShared = ps.stdenv.targetPlatform == ps.stdenv.hostPlatform;
           enableIntegerSimple = false;
         }).overrideAttrs (drv: {
           dontStrip = true;
@@ -66,6 +66,7 @@ spaces:
             ./cabal-exe-ext-8.4.2.patch
             ./dll-loader-8.4.2.patch
             ./outputtable-assert-8.4.2.patch
+            ./0001-Stop-the-linker-panic.patch
           ];
           postPatch = (drv.postPath or "") + ''
           autoreconf
@@ -75,9 +76,9 @@ spaces:
           overrides = self: super: rec {
             mkDerivation = drv: super.mkDerivation (drv // {
               enableLibraryProfiling = false;
-              enableSharedLibraries = false;
+              enableSharedLibraries = ps.stdenv.targetPlatform == ps.stdenv.hostPlatform;
               enableSharedExecutables = false;
-              configureFlags = (drv.configureFlags or []) ++ [ "--ghc-options=-fexternal-interpreter" spaces ];
+              configureFlags = (drv.configureFlags or []) ++ [ spaces ];
             });
           };
         });

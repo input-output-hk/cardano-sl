@@ -51,6 +51,7 @@ import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
                      prefilterBlock)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
+import           Cardano.Wallet.Kernel.ChainState (getChainState)
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), DB, NewPending (..), NewPendingError,
                      ObservableRollbackUseInTestsOnly (..), Snapshot (..),
@@ -116,7 +117,18 @@ initPassiveWallet :: (Severity -> Text -> IO ())
                   -> MonadDBReadAdaptor IO
                   -> IO PassiveWallet
 initPassiveWallet logMessage keystore db rocksDB = do
-    return $ PassiveWallet logMessage keystore db rocksDB
+    -- TODO: This is a placeholder only. We should update the chain state
+    --
+    -- 1. Whenever we get a new block
+    -- 2. At some point during catch-up
+    -- 3. At some point during restoration
+    --
+    -- We decided to just stick with a single value for the time being until
+    -- catch-up and restoration are better understood so that we better know
+    -- the flow of data.
+    chainState <- getChainState rocksDB
+    chainStateMVar <- newMVar chainState
+    return $ PassiveWallet logMessage keystore db rocksDB chainStateMVar
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -125,8 +137,12 @@ initPassiveWallet logMessage keystore db rocksDB = do
 init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
     tip <- withMonadDBRead _walletRocksDB $ getTipHeader
-    _walletLogMessage Info $ "Passive Wallet kernel initialized. Current tip: "
-                          <> pretty tip
+    cs  <- readMVar _walletChainState
+    _walletLogMessage Info $ mconcat [
+        "Passive Wallet kernel initialized.\n"
+      , "Current tip: " <> pretty tip <> ".\n"
+      , "Chain state: " <> pretty cs <> ".\n"
+      ]
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation

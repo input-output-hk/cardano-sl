@@ -21,6 +21,7 @@ import           Pos.DB.Block (getSerializedBlock, getSerializedUndo)
 import           Pos.DB.Class (MonadDBRead (..), Serialized (Serialized))
 import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 -- | @WithMonadDBRead m@ is a monad in which we have a 'MonadDBRead' instance
 -- available (as well as a whole bunch of other instances).
@@ -55,7 +56,7 @@ instance ( HasConfiguration -- silly superclass constraint in core, cannot avoid
 -- | Adaptor for running 'WithMonadDBRead' actions. See 'newMonadBDReadAdaptor'
 newtype MonadDBReadAdaptor m = Adaptor {
       withMonadDBRead :: forall a.
-                         (HasConfiguration => WithMonadDBRead m a)
+                         ((HasConfiguration, HasUpdateConfiguration) => WithMonadDBRead m a)
                       -> m a
     }
 
@@ -64,7 +65,8 @@ newtype MonadDBReadAdaptor m = Adaptor {
 -- NOTE: This captures the 'HasConfiguration' constraint in the closure so
 -- that the adaptor can be used in a place where this constraint is not
 -- available.
-newMonadDBReadAdaptor :: HasConfiguration => NodeDBs -> MonadDBReadAdaptor m
+newMonadDBReadAdaptor :: (HasConfiguration, HasUpdateConfiguration)
+                      => NodeDBs -> MonadDBReadAdaptor m
 newMonadDBReadAdaptor ndbs = Adaptor $ \act -> runReaderT (unwrap act) ndbs
 
 -- | Drop-in replacement for the 'MonadDBReadAdaptor' for when rocks DB is

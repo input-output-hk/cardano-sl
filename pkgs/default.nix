@@ -15006,6 +15006,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
+, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-update
@@ -15127,6 +15128,7 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
+cardano-sl-networking
 cardano-sl-txp
 cardano-sl-util
 formatting
@@ -16795,7 +16797,6 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
-, aeson-options
 , async
 , base
 , base64-bytestring
@@ -16872,7 +16873,6 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 aeson
-aeson-options
 async
 base
 base64-bytestring
@@ -17136,6 +17136,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
+, aeson-options
 , async
 , attoparsec
 , base
@@ -17172,6 +17173,7 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , text
+, these
 , time
 , time-units
 , universum
@@ -17191,6 +17193,7 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 aeson
+aeson-options
 async
 attoparsec
 base
@@ -17218,6 +17221,7 @@ resourcet
 safe-exceptions
 stm
 text
+these
 time
 time-units
 universum
@@ -17279,6 +17283,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
+, cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-util
 , cpphs
@@ -17304,6 +17309,7 @@ cardano-sl
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
+cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-util
 log-warper

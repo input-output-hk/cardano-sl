@@ -24,6 +24,8 @@ import           Universum
 
 import qualified Data.Aeson as J
 
+import           Ntp.Client (NtpConfiguration)
+
 import           Pos.Block.Configuration (HasBlockConfiguration,
                      withBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
@@ -34,7 +36,6 @@ import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Ssc.Configuration (HasSscConfiguration,

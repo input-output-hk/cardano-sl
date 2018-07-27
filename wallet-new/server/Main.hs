@@ -10,7 +10,8 @@ import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)
-import           Ntp.Client (NtpStatus, withNtpClient)
+import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
+                     withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
 import           Pos.Core (epochSlots)
@@ -18,8 +19,6 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration,
-                     ntpClientSettings)
 import           Pos.Launcher (NodeParams (..), NodeResources (..),
                      bpLoggingParams, bracketNodeResources, loggerBracket,
                      lpDefaultName, runNode, withConfigurations)

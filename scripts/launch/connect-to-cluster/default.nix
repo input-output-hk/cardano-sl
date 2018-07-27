@@ -99,7 +99,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   fi
   ''}
 
-  ${executables.${executable}}                                     \
+  exec ${executables.${executable}}                                     \
     --configuration-file ${configFiles}/lib/configuration.yaml \
     --configuration-key ${environments.${environment}.confKey}     \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \

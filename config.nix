@@ -82,7 +82,7 @@ spaces:
               # #  - The curated set has proper version bounds, so we can just
               # #    exactConfig globally
               enableLibraryProfiling = false;
-              enableSharedLibraries = ps.stdenv.targetPlatform == ps.stdenv.hostPlatform;
+              enableSharedLibraries = ps.stdenv.buildPlatform == ps.stdenv.hostPlatform;
               enableSharedExecutables = false;
               # enableExecutableProfiling = false;
               doHaddock = false;

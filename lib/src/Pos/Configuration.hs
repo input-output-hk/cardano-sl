@@ -106,3 +106,4 @@ walletTxCreationDisabled = ccWalletTxCreationDisabled $ nodeConfiguration
 -- WARNING Those endpoints are potentially expensive!
 explorerExtendedApi :: HasNodeConfiguration => Bool
 explorerExtendedApi = ccExplorerExtendedApi $ nodeConfiguration
+

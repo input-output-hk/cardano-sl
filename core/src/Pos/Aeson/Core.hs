@@ -12,7 +12,7 @@ import           Data.Aeson (FromJSON (..), FromJSONKey (..),
                      FromJSONKeyFunction (..), ToJSON (toJSON), ToJSONKey (..),
                      object, withObject, (.:), (.=))
 import qualified Data.Aeson.Options as S (defaultOptions)
-import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
@@ -21,48 +21,20 @@ import           Formatting (sformat)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Fee ()
-import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Core.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty,
-                     Coin, CoinPortion, Script (..), SharedSeed (..), addressF,
-                     coinPortionToDouble, decodeTextAddress, mkCoin,
-                     unsafeCoinPortionFromDouble, unsafeGetCoin)
-import           Pos.Core.Delegation (HeavyDlgIndex (..))
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex,
+                     Script (..), addressF,
+                     decodeTextAddress)
+import           Pos.Core.Slotting (LocalSlotIndex,
                      SlotCount (..), SlotId, Timestamp (..))
-import           Pos.Core.Ssc (VssCertificate)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion,
-                     BlockVersionData, SoftforkRule, SoftwareVersion (..))
 import           Pos.Util.Util (toAesonError)
-
-instance ToJSON SharedSeed where
-    toJSON = toJSON . JsonByteString . getSharedSeed
-
-instance FromJSON SharedSeed where
-    parseJSON v = SharedSeed . getJsonByteString <$> parseJSON v
-
-instance ToJSON (AsBinary w) where
-    toJSON = toJSON . JsonByteString . getAsBinary
-
-instance FromJSON (AsBinary w) where
-    parseJSON v = AsBinary . getJsonByteString <$> parseJSON v
 
 deriving instance ToJSON SlotCount
 
-instance FromJSON CoinPortion where
-    parseJSON v = unsafeCoinPortionFromDouble <$> parseJSON v
-
-instance ToJSON CoinPortion where
-    toJSON = toJSON . coinPortionToDouble
-
-deriveJSON S.defaultOptions ''VssCertificate
 deriveJSON S.defaultOptions ''Millisecond
 deriveJSON S.defaultOptions ''Microsecond
 deriveJSON S.defaultOptions ''Second
-deriveJSON S.defaultOptions ''SoftforkRule
-deriveJSON S.defaultOptions ''BlockVersionData
-deriveJSON defaultOptions ''SoftwareVersion
 
 deriving instance FromJSON Timestamp
 deriving instance ToJSON Timestamp
@@ -106,28 +78,6 @@ instance ToJSON Address where
 
 deriveJSON defaultOptions ''BlockCount
 
-instance FromJSON ApplicationName where
-    -- FIXME does the defaultOptions derived JSON encode directly as text? Or
-    -- as an object with a single key?
-    parseJSON v = ApplicationName <$> parseJSON v
-
-deriveToJSON defaultOptions ''ApplicationName
-
 deriveJSON defaultOptions ''ChainDifficulty
 deriveJSON defaultOptions ''SlotId
 deriveJSON defaultOptions ''LocalSlotIndex
-deriveJSON defaultOptions ''BlockVersion
-
-instance FromJSON Coin where
-    parseJSON v = mkCoin <$> parseJSON v
-instance ToJSON Coin where
-    toJSON = toJSON . unsafeGetCoin
-
-deriving instance FromJSON EpochIndex
-deriving instance ToJSON EpochIndex
-
-instance FromJSON HeavyDlgIndex where
-    parseJSON v = HeavyDlgIndex <$> parseJSON v
-
-instance ToJSON HeavyDlgIndex where
-    toJSON = toJSON . getHeavyDlgIndex

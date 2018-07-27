@@ -24,7 +24,8 @@ library
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.TH
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
                      , binary
                      , bytestring
                      , canonical-json

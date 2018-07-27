@@ -11,6 +11,7 @@ module Pos.Core.Common.CoinPortion
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, float, int, sformat, (%))
 import qualified Formatting.Buildable as Buildable
@@ -47,7 +48,11 @@ instance ReportSchemaErrors m => FromJSON m CoinPortion where
         number <- fromJSON val
         pure $ CoinPortion number
 
-deriveSafeCopySimple 0 'base ''CoinPortion
+instance Aeson.FromJSON CoinPortion where
+    parseJSON v = unsafeCoinPortionFromDouble <$> Aeson.parseJSON v
+
+instance Aeson.ToJSON CoinPortion where
+    toJSON = Aeson.toJSON . coinPortionToDouble
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64
@@ -114,3 +119,5 @@ applyCoinPortionUp (getCoinPortion -> p) (unsafeGetCoin -> c) =
                         (toInteger coinPortionDenominator)
     in if m > 0 then Coin (fromInteger (d + 1))
                 else Coin (fromInteger d)
+
+deriveSafeCopySimple 0 'base ''CoinPortion

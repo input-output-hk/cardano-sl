@@ -13,7 +13,6 @@ import           Data.Aeson.Types (typeMismatch)
 import qualified Data.HashMap.Strict as HMS
 import           Data.Monoid ((<>))
 import           Pos.Aeson.Core ()
-import           Pos.Aeson.Genesis ()
 import           Pos.Core.Configuration.Core (CoreConfiguration (..),
                      GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisAvvmBalances (..),

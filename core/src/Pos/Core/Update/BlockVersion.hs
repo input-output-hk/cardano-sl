@@ -5,6 +5,7 @@ module Pos.Core.Update.BlockVersion
 
 import           Universum
 
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, shown)
 import qualified Formatting.Buildable as Buildable
@@ -36,6 +37,8 @@ class HasBlockVersion a where
 
 instance HasBlockVersion (Some HasBlockVersion) where
     blockVersionL = liftLensSome blockVersionL
+
+deriveJSON defaultOptions ''BlockVersion
 
 deriveSimpleBi ''BlockVersion [
     Cons 'BlockVersion [

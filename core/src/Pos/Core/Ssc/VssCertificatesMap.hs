@@ -19,6 +19,7 @@ import           Universum hiding (id)
 
 import           Control.Lens (makeWrapped)
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List.Extra (nubOrdOn)
@@ -35,7 +36,7 @@ import           Pos.Core.Ssc.VssCertificate (VssCertificate (..),
                      checkVssCertificate, getCertId, toCertPair)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Json.Parse (wrapConstructor)
-import           Pos.Util.Util (cborError)
+import           Pos.Util.Util (cborError, toAesonError)
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
@@ -72,6 +73,13 @@ instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
     fromJSON val = do
         m <- UnsafeVssCertificatesMap <$> fromJSON val
         wrapConstructor (validateVssCertificatesMap m)
+
+instance Aeson.ToJSON VssCertificatesMap where
+    toJSON = Aeson.toJSON . getVssCertificatesMap
+
+instance Aeson.FromJSON VssCertificatesMap where
+    parseJSON = Aeson.parseJSON >=>
+        toAesonError . validateVssCertificatesMap . UnsafeVssCertificatesMap
 
 -- | Construct a 'VssCertificatesMap' from a list of certs by making a
 -- hashmap on certificate identifiers.

@@ -7,6 +7,7 @@ module Pos.Core.Delegation.HeavyDlgIndex
 
 import           Universum
 
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (bprint, build)
 import qualified Formatting.Buildable
@@ -38,6 +39,12 @@ instance Bi HeavyDlgIndex where
 instance SafeCopy HeavyDlgIndex where
     getCopy = contain $ HeavyDlgIndex <$> safeGet
     putCopy x = contain $ safePut $ getHeavyDlgIndex x
+
+instance Aeson.FromJSON HeavyDlgIndex where
+    parseJSON v = HeavyDlgIndex <$> Aeson.parseJSON v
+
+instance Aeson.ToJSON HeavyDlgIndex where
+    toJSON = Aeson.toJSON . getHeavyDlgIndex
 
 -- | Simple proxy signature without ttl/epoch index constraints.
 type ProxySigHeavy a = ProxySignature HeavyDlgIndex a

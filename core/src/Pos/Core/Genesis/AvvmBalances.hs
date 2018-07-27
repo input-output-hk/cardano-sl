@@ -4,7 +4,8 @@ module Pos.Core.Genesis.AvvmBalances
 
 import           Universum
 
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
+import qualified Text.JSON.Canonical as Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
 import           Pos.Core.Common (Coin)
@@ -16,8 +17,11 @@ newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
     } deriving (Show, Eq, Semigroup, Monoid, Container)
 
-instance Monad m => ToJSON m GenesisAvvmBalances where
-    toJSON = toJSON . getGenesisAvvmBalances
+instance Monad m => Canonical.ToJSON m GenesisAvvmBalances where
+    toJSON = Canonical.toJSON . getGenesisAvvmBalances
 
-instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
-    fromJSON = fmap GenesisAvvmBalances . fromJSON
+instance Canonical.ReportSchemaErrors m => Canonical.FromJSON m GenesisAvvmBalances where
+    fromJSON = fmap GenesisAvvmBalances . Canonical.fromJSON
+
+deriving instance Aeson.ToJSON GenesisAvvmBalances
+deriving instance Aeson.FromJSON GenesisAvvmBalances

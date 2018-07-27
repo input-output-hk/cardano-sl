@@ -5,8 +5,9 @@ module Pos.Core.Genesis.Delegation
        , recreateGenesisDelegation
        ) where
 
-import           Universum
+import           Universum hiding (elems)
 
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Control.Lens (at)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
@@ -19,6 +20,7 @@ import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
 import           Pos.Util.Json.Parse (wrapConstructor)
+import           Pos.Util.Util (toAesonError)
 
 -- | This type contains genesis state of heavyweight delegation. It
 -- wraps a map where keys are issuers (i. e. stakeholders who
@@ -39,6 +41,14 @@ instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
     fromJSON val = do
         psks <- fromJSON val
         wrapConstructor $ recreateGenesisDelegation psks
+
+instance Aeson.ToJSON GenesisDelegation where
+    toJSON = Aeson.toJSON . unGenesisDelegation
+
+instance Aeson.FromJSON GenesisDelegation where
+    parseJSON = Aeson.parseJSON >=> \v -> do
+        (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM Aeson.parseJSON v
+        toAesonError $ recreateGenesisDelegation elems
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation

@@ -22,7 +22,6 @@ library
                        Pos.Aeson.Core
                        Pos.Aeson.Core.Configuration
                        Pos.Aeson.Fee
-                       Pos.Aeson.Genesis
 
                        Pos.Core
                        Pos.Core.Binary

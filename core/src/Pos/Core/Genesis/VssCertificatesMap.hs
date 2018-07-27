@@ -5,6 +5,7 @@ module Pos.Core.Genesis.VssCertificatesMap
 
 import           Universum
 
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Semigroup (Semigroup)
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
@@ -30,3 +31,9 @@ instance Buildable GenesisVssCertificatesMap where
 
 instance Monad m => ToJSON m GenesisVssCertificatesMap where
     toJSON = toJSON . getGenesisVssCertificatesMap
+
+instance Aeson.ToJSON GenesisVssCertificatesMap where
+    toJSON = Aeson.toJSON . getGenesisVssCertificatesMap
+
+instance Aeson.FromJSON GenesisVssCertificatesMap where
+    parseJSON val = GenesisVssCertificatesMap <$> Aeson.parseJSON val

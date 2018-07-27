@@ -7,6 +7,7 @@ module Pos.Core.Update.SoftwareVersion
 
 import           Universum
 
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Control.Monad.Except (MonadError)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, stext, (%))
@@ -49,6 +50,8 @@ class HasSoftwareVersion a where
 
 instance HasSoftwareVersion (Some HasSoftwareVersion) where
     softwareVersionL = liftLensSome softwareVersionL
+
+deriveJSON defaultOptions ''SoftwareVersion
 
 deriveSimpleBi ''SoftwareVersion [
     Cons 'SoftwareVersion [

@@ -27,11 +27,12 @@ module Pos.Core.Common.Coin
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Data (Data)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, int, (%))
 import qualified Formatting.Buildable
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+import qualified Text.JSON.Canonical as Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
@@ -55,11 +56,17 @@ instance Bi Coin where
     decode = Coin <$> decode
     encodedSizeExpr size pxy = size (unsafeGetCoin <$> pxy)
 
-instance Monad m => ToJSON m Coin where
-    toJSON = toJSON @_ @Word64 . unsafeGetCoin  -- i. e. String
+instance Monad m => Canonical.ToJSON m Coin where
+    toJSON = Canonical.toJSON @_ @Word64 . unsafeGetCoin  -- i. e. String
 
-instance ReportSchemaErrors m => FromJSON m Coin where
-    fromJSON = fmap Coin . fromJSON
+instance Canonical.ReportSchemaErrors m => Canonical.FromJSON m Coin where
+    fromJSON = fmap Coin . Canonical.fromJSON
+
+instance Aeson.FromJSON Coin where
+    parseJSON v = mkCoin <$> Aeson.parseJSON v
+
+instance Aeson.ToJSON Coin where
+    toJSON = Aeson.toJSON . unsafeGetCoin
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64

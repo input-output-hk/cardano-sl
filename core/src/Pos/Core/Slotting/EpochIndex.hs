@@ -7,6 +7,7 @@ module Pos.Core.Slotting.EpochIndex
 import           Universum
 
 import           Control.Lens (choosing)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Ix (Ix)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
@@ -33,6 +34,15 @@ instance Bi EpochIndex where
 
 deriving instance FromHttpApiData EpochIndex
 
+-- Note that it will be encoded as string, because 'EpochIndex'
+-- doesn't necessary fit into JS number.
+instance Monad m => ToJSON m EpochIndex where
+    toJSON = toJSON . getEpochIndex
+
+deriving instance Aeson.FromJSON EpochIndex
+
+deriving instance Aeson.ToJSON EpochIndex
+
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
@@ -43,10 +53,7 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
 
--- Note that it will be encoded as string, because 'EpochIndex'
--- doesn't necessary fit into JS number.
-instance Monad m => ToJSON m EpochIndex where
-    toJSON = toJSON . getEpochIndex
+
 
 instance ReportSchemaErrors m => FromJSON m EpochIndex where
     fromJSON = fmap EpochIndex . fromJSON

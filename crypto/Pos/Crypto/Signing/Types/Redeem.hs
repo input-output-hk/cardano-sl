@@ -15,6 +15,10 @@ import           Universum
 import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (_Left)
 import qualified Crypto.Sign.Ed25519 as Ed25519
+import           Data.Aeson (FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSONKey (..),
+                     ToJSONKeyFunction (..))
+import           Data.Aeson.Encoding (text)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
@@ -23,7 +27,7 @@ import           Data.SafeCopy (SafeCopy (..), base, contain,
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Formatting (Format, bprint, fitLeft, formatToString, later,
-                     (%), (%.))
+                     sformat, (%), (%.))
 import qualified Formatting.Buildable as B
 import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
@@ -33,6 +37,7 @@ import           Text.JSON.Canonical (FromObjectKey (..), JSValue (..),
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto.Orphans ()
 import           Pos.Util.Json.Parse (tryParseString)
+import           Pos.Util.Util (toAesonError)
 
 ----------------------------------------------------------------------------
 -- PK/SK and formatters
@@ -50,6 +55,15 @@ instance ReportSchemaErrors m => FromObjectKey m RedeemPublicKey where
         fmap Just .
         tryParseString (over _Left pretty . fromAvvmPk) .
         JSString
+
+instance ToJSONKey RedeemPublicKey where
+    toJSONKey = ToJSONKeyText render (text . render)
+      where
+        render = sformat redeemPkB64UrlF
+
+instance FromJSONKey RedeemPublicKey where
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . over _Left pretty . fromAvvmPk)
+    fromJSONKeyList = FromJSONKeyTextParser (toAesonError . bimap pretty pure . fromAvvmPk)
 
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype RedeemSecretKey = RedeemSecretKey Ed25519.SecretKey

@@ -1,18 +1,21 @@
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns  #-}
 module Test.Spec.CoinSelection (
     spec
   ) where
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, Property, arbitrary, conjoin,
+import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
                      counterexample, forAll)
 
 import           Formatting (bprint, sformat, (%))
@@ -20,10 +23,14 @@ import qualified Formatting as F
 import           Formatting.Buildable (Buildable (..))
 import qualified Text.Tabl as Tabl
 
+import           Pos.Binary.Class (Bi (encode), toLazyByteString)
 import qualified Pos.Chain.Txp as Core
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import qualified Pos.Core as Core
 import           Pos.Crypto (SecretKey)
+import           Pos.Data.Attributes (mkAttributes)
+import qualified Pos.Txp as Core
+import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable
@@ -34,7 +41,7 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
                      InputGrouping (..), largestFirst, mkStdTx, newOptions,
                      random)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (estimateCardanoFee)
+                     (estimateCardanoFee, estimateMaxTxInputs)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
@@ -388,6 +395,37 @@ errorWas predicate _ _ (STB hardErr) =
     failIf "This is not the error type we were expecting!" predicate hardErr
 
 {-------------------------------------------------------------------------------
+  Generator for transactions with as many inputs as possible.
+-------------------------------------------------------------------------------}
+
+-- | Generate a random maximum transaction size, then create a transaction with
+--   as many inputs as possible. The @slop@ parameter is the number of additional
+--   inputs to add, beyond the maximum computed by @estimateMaxTxInputs@.
+genMaxInputTx :: Int -> Gen (Either Text (Byte, Byte))
+genMaxInputTx slop = do
+    -- Generate the output and compute the attribute sizes.
+    let genOut = Core.TxOutAux <$> (Core.TxOut <$> arbitrary <*> arbitrary)
+        genIn  = Core.TxInUtxo <$> arbitrary <*> pure maxBound
+        encodedSize :: Bi a => a -> Byte
+        encodedSize = fromBytes . fromIntegral . LBS.length . toLazyByteString . encode
+        txAttrSize = encodedSize (mkAttributes ())
+
+    output <- genOut
+    let addrAttrSize = encodedSize (Core.addrAttributes $ Core.txOutAddress $ Core.toaOut output)
+
+    -- Select the maximum transaction size and compute the number of inputs.
+    maxTxSize <- fromBytes <$> choose (65536, 65536) -- (4000, 100000)
+    let maxInputs = fromIntegral (estimateMaxTxInputs addrAttrSize txAttrSize maxTxSize)
+
+    -- Now build the transaction, attempting to make the encoded size of the transaction
+    -- as large as possible.
+    bimap pretty ((,maxTxSize) . encodedSize) <$> (
+        withDefConfiguration $ \pm -> do
+            key    <- arbitrary
+            inputs <- replicateM (maxInputs + slop) ((,) <$> genIn <*> genOut)
+            mkTx pm key (NE.fromList inputs) (NE.fromList [output]) [])
+
+{-------------------------------------------------------------------------------
   Combinators to assemble properties easily
 -------------------------------------------------------------------------------}
 
@@ -654,3 +692,20 @@ spec =
                 pay (genGroupedUtxo 1) genPayee freeLunch ignoreGrouping (InitialLovelace 1000) (PayLovelace 10) random
                 ) $ \(utxo, payee, res) -> do
                   paymentSucceededWith utxo payee res [utxoWasNotDepleted]
+
+        describe "Estimating the maximum number of inputs" $ do
+            prop "esimateMaxTxInputs yields a lower bound." $
+                forAll (genMaxInputTx 0) $ \case
+                    Left _err        -> False
+                    Right (lhs, rhs) -> lhs <= rhs
+
+            prop "esimateMaxTxInputs yields a relatively tight bound." $
+                -- This tests that if we add *two* more inputs, the transaction will
+                -- exceed the maximum size. Why two instead of one? It seems that some
+                -- small but nontrivial percentage of the time, we can squeeze in one
+                -- extra input beyond the computed maximum, leaving just a handful of
+                -- bytes free (0 to 3).
+                forAll (genMaxInputTx 2) $ \case
+                    Left _err        -> False
+                    Right (lhs, rhs) -> lhs > rhs
+

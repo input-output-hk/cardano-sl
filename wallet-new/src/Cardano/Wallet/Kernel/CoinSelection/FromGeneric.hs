@@ -459,27 +459,15 @@ estimateMaxTxInputs
   -> Byte -- ^ Size of @Attributes ()@
   -> Byte -- ^ Maximum size of a transaction
   -> Word64
-estimateMaxTxInputs addrAttrSize txAttrSize maxSize = fromIntegral $
-  case compare (estSize txins0) maxSize of
-      LT -> bsearchUp   estSize txins0 maxSize step0
-      EQ -> txins0
-      GT -> bsearchDown estSize txins0 maxSize step0
+estimateMaxTxInputs addrAttrSize txAttrSize maxSize =
+    fromIntegral (go 0 128)
 
   where
-    txins0 = fromIntegral $ maxSize `div` 200
     estSize txins = estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
-    step0 = 1 + (txins0 `div` 10)
 
-    bsearchUp f x y step
-        | f x <  y  = bsearchUp f (x + step) y step
-        | f x == y   = x
-        | otherwise = if step > 1
-                      then let step' = step `div` 2 in bsearchDown f (x - step') y step'
-                      else x - 1
-
-    bsearchDown f x y step
-        | f x >  y  = bsearchDown f (x - step) y step
-        | f x == y   = x
-        | otherwise = if step > 1
-                      then let step' = step `div` 2 in bsearchUp f (x + step') y step'
-                      else x
+    go x step = case compare (estSize x) maxSize of
+        LT -> go (x + step) step
+        EQ -> x
+        GT | step == 1 -> x - 1
+           | otherwise -> let step' = step `div` 2
+                          in go (x - step') step'

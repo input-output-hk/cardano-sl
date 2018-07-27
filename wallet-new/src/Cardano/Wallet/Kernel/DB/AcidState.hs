@@ -15,6 +15,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , CancelPending(..)
   , ApplyBlock(..)
   , SwitchToFork(..)
+  , UpdateCurrentCheckpointUtxo(..)
     -- ** Updates on HD wallets
     -- *** CREATE
   , CreateHdWallet(..)
@@ -23,6 +24,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , UpdateHdRootAssurance
   , UpdateHdRootName(..)
   , UpdateHdAccountName(..)
+  , SetWalletRestorationSyncTip(..)
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
@@ -34,6 +36,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
 
 import           Universum
 
+import           Control.Lens (assign)
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 
@@ -46,9 +49,12 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
+import           Pos.Core (ChainDifficulty)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (OldestFirst (..))
+import qualified Pos.Util.Modifier as MM
 import qualified Pos.Core.Txp as Txp
-import           Pos.Txp (Utxo)
+import           Pos.Txp (Utxo, UtxoModifier)
 
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
@@ -330,6 +336,30 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
                 , _checkpointBlockMeta   = mempty
                 }
 
+updateCurrentCheckpointUtxo :: UtxoModifier -> Update DB ()
+updateCurrentCheckpointUtxo umod = runUpdateNoErrors $
+    zoomAll (dbHdWallets . hdWalletsAccounts) $
+        over hdAccountCurrentCheckpoint (checkpointUtxoModify umod)
+
+checkpointUtxoModify :: UtxoModifier -> Checkpoint -> Checkpoint
+checkpointUtxoModify umod c =
+  let InDb utxo0 = _checkpointUtxo c
+      utxo1 = MM.modifyMap umod utxo0
+  in c { _checkpointUtxo = InDb utxo1
+       , _checkpointUtxoBalance = InDb (Spec.balance utxo1)
+       }
+
+setWalletRestorationSyncTip
+  :: HdRootId
+  -> ChainDifficulty
+  -> HeaderHash
+  -> Update DB (Either UnknownHdRoot ())
+setWalletRestorationSyncTip hdrId cd hh =
+    runUpdate' $ zoom dbHdWallets $ do
+       zoomHdRootId id hdrId $ do
+          assign (hdRootSyncStatus . hdSyncStatusState)
+                 (HdSyncState_Restoring (InDb cd) (InDb hh))
+
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations
 -------------------------------------------------------------------------------}
@@ -386,6 +416,8 @@ makeAcidic ''DB [
     , 'cancelPending
     , 'applyBlock
     , 'switchToFork
+    , 'updateCurrentCheckpointUtxo
+    , 'setWalletRestorationSyncTip
       -- Updates on HD wallets
     , 'createHdRoot
     , 'createHdAddress

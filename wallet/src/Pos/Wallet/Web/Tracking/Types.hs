@@ -96,6 +96,7 @@ data SyncError = GenesisBlockHeaderNotFound
                -- The routine was not even started.
                | SyncFailed  (CId Wal) SomeException
                -- ^ The sync process failed abruptly during the sync process.
+               deriving (Show)
 
 -- | A 'SyncResult' represents the possible outcomes of a syncing operation: it can either
 -- fail with a 'SyncError', or succeed by actualising the source wallet up to a particular 'BlockHeader'.

@@ -26,6 +26,7 @@ import qualified Formatting.Buildable
 
 import qualified Pos.Core as Core
 
+import           Cardano.Wallet.API.V1.Types (mkSyncThroughput)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
@@ -129,6 +130,11 @@ initHdRoot rootId name hasPass assurance created = HdRoot {
     , _hdRootHasPassword = hasPass
     , _hdRootAssurance   = assurance
     , _hdRootCreatedAt   = created
+    , _hdRootSyncStatus  = HdSyncStatus
+        { _hdSyncStatusState = HdSyncState_New
+        , _hdSyncStatusDepth = 0
+        , _hdSyncStatusThroughput = InDb (mkSyncThroughput 0)
+        }
     }
 
 -- | New account

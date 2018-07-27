@@ -15,6 +15,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdRoot(..)
   , HdAccount(..)
   , HdAddress(..)
+  , HdSyncStatus(..)
+  , HdSyncState(..)
     -- ** Initialiser
   , initHdWallets
     -- ** Lenses
@@ -30,6 +32,10 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdRootHasPassword
   , hdRootAssurance
   , hdRootCreatedAt
+  , hdRootSyncStatus
+  , hdSyncStatusState
+  , hdSyncStatusDepth
+  , hdSyncStatusThroughput
   , hdAccountId
   , hdAccountName
   , hdAccountCurrentCheckpoint
@@ -75,10 +81,12 @@ import           Test.QuickCheck (Arbitrary (..), oneof, vectorOf)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
+import           Pos.Core.Block (HeaderHash)
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
 
 import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.API.V1.Types (SyncThroughput)
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
@@ -218,7 +226,22 @@ data HdRoot = HdRoot {
 
       -- | When was this wallet created?
     , _hdRootCreatedAt   :: InDb Core.Timestamp
+
+      -- | Wallet synchronization status.
+    , _hdRootSyncStatus :: HdSyncStatus
     }
+
+data HdSyncStatus = HdSyncStatus
+    { _hdSyncStatusState :: !HdSyncState
+    , _hdSyncStatusDepth :: !Core.ChainDifficulty
+    , _hdSyncStatusThroughput :: !(InDb SyncThroughput)
+    } deriving (Eq)
+
+data HdSyncState
+  = HdSyncState_New
+  | HdSyncState_Restoring !(InDb Core.ChainDifficulty) !(InDb HeaderHash)
+  | HdSyncState_At !(InDb HeaderHash)
+  deriving (Eq)
 
 instance Buildable HdRoot where
     build HdRoot{..} =
@@ -247,6 +270,7 @@ data HdAccount = HdAccount {
       -- | State of the " wallet " as stipulated by the wallet specification
     , _hdAccountCheckpoints :: NonEmpty Checkpoint
     }
+
 
 instance Buildable HdAccount where
     build HdAccount{..} =
@@ -294,9 +318,13 @@ eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 makeLenses ''HdAccountId
 makeLenses ''HdAddressId
 
+makeLenses ''HdSyncStatus
 makeLenses ''HdRoot
 makeLenses ''HdAccount
 makeLenses ''HdAddress
+
+deriveSafeCopy 1 'base ''HdSyncState
+deriveSafeCopy 1 'base ''HdSyncStatus
 
 deriveSafeCopy 1 'base ''HdRootId
 deriveSafeCopy 1 'base ''HdAccountId
@@ -559,3 +587,8 @@ instance Buildable UnknownHdAccount where
         = bprint ("UnknownHdAccountRoot: "%build) rootId
     build (UnknownHdAccount accountId)
         = bprint ("UnknownHdAccount accountId: "%build) accountId
+
+instance Buildable UnknownHdRoot where
+    build (UnknownHdRoot rootId)
+        = bprint ("UnknownHdRoot: "%build) rootId
+

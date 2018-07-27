@@ -12,8 +12,11 @@ import           Data.SafeCopy (SafeCopy (..))
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
+import           Pos.Core.Block (HeaderHash)
 import qualified Pos.Crypto as Core
 import qualified Pos.Txp as Core
+
+import Cardano.Wallet.API.V1.Types (SyncThroughput)
 
 {-------------------------------------------------------------------------------
   Wrap core types so that we can make independent serialization decisions
@@ -67,11 +70,6 @@ instance SafeCopy (InDb Core.Timestamp) where
     getCopy = error "TODO: getCopy for (InDb Core.Timestamp)"
     putCopy = error "TODO: putCopy for (InDb Core.Timestamp)"
 
--- TODO this should live with other core type safecopy instances
-instance SafeCopy Txp.TxAux where
-    getCopy = error "TODO: getCopy for (InDb Txp.TxAux)"
-    putCopy = error "TODO: putCopy for (InDb Txp.TxAux)"
-
 instance SafeCopy (InDb Txp.TxAux) where
     getCopy = error "TODO: getCopy for (InDb Txp.TxAux)"
     putCopy = error "TODO: putCopy for (InDb Txp.TxAux)"
@@ -92,6 +90,18 @@ instance SafeCopy (InDb a) => SafeCopy (InDb (Set a)) where
   getCopy = error "TODO: getCopy for (InDb (Set a))"
   putCopy = error "TODO: putCopy for (InDb (Set a))"
 
+instance SafeCopy (InDb SyncThroughput) where
+  getCopy = error "TODO: getCopy for (InDb SyncThroughput)"
+  putCopy = error "TODO: putCopy for (InDb SyncThroughput)"
+
+instance SafeCopy (InDb Core.ChainDifficulty) where
+  getCopy = error "TODO: getCopy for (InDb ChainDifficulty)"
+  putCopy = error "TODO: putCopy for (InDb ChainDifficulty)"
+
+instance SafeCopy (InDb HeaderHash) where
+  getCopy = error "TODO: getCopy for (InDb HeaderHash)"
+  putCopy = error "TODO: putCopy for (InDb HeaderHash)"
+
 instance SafeCopy (InDb (Map Txp.TxId Core.SlotId)) where
-    getCopy = error "TODO: getCopy for (InDb (Map Txp.TxId Core.SlotId))"
-    putCopy = error "TODO: putCopy for (InDb (Map Txp.TxId Core.SlotId))"
+  getCopy = error "TODO: getCopy for (InDb (Map Txp.TxId Core.SlotId))"
+  putCopy = error "TODO: putCopy for (InDb (Map Txp.TxId Core.SlotId))"

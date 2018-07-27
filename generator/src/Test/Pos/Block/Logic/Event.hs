@@ -6,6 +6,7 @@ module Test.Pos.Block.Logic.Event
          runBlockEvent
        , runBlockScenario
        , BlockScenarioResult(..)
+       , lastSlot
 
        -- * Exceptions
        , SnapshotMissingEx(..)
@@ -17,14 +18,16 @@ import           Universum
 import           Control.Exception.Safe (fromException)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified GHC.Exts as IL
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Core.Block (Block, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Exception (CardanoFatalError (..))
-import           Pos.DB.Block (BlockLrcMode, rollbackBlocks,
-                     verifyAndApplyBlocks)
+import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
+import           Pos.DB.Block (BlockLrcMode, getVerifyBlocksContext',
+                     rollbackBlocks, verifyAndApplyBlocks)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
 import           Pos.DB.Txp (MonadTxpLocal)
@@ -57,6 +60,12 @@ data BlockEventResult
     | BlockEventFailure IsExpected SomeException
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
+lastSlot :: [Block] -> Maybe SlotId
+lastSlot bs =
+    case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
+        [] -> Nothing
+        ss -> Just $ maximum ss
+
 verifyAndApplyBlocks' ::
        ( HasConfiguration
        , BlockLrcMode BlockTestContext m
@@ -65,9 +74,16 @@ verifyAndApplyBlocks' ::
     => OldestFirst NE Blund
     -> m ()
 verifyAndApplyBlocks' blunds = do
+    let -- We cannot simply take `getCurrentSlot` since blocks are generated in
+        --`MonadBlockGen` which locally changes its current slot.  We just take
+        -- the last slot of all generated blocks.
+        curSlot :: Maybe SlotId
+        curSlot = lastSlot (map fst . IL.toList $ blunds)
+    ctx <- getVerifyBlocksContext' curSlot
+
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic True blocks
+            verifyAndApplyBlocks dummyProtocolMagic ctx True blocks
         return ()
   where
     blocks = fst <$> blunds

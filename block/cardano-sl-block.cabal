@@ -43,6 +43,8 @@ library
                       , ether
                       , formatting
                       , lens
+                      , log-warper
+                      , mmorph
                       , mtl
                       , reflection
                       , safe-exceptions

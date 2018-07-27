@@ -47,6 +47,8 @@ import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)
 import           Pos.DB.Block.Logic.Internal (MonadBlockApply,
                      applyBlocksUnsafe, normalizeMempool)
+import           Pos.DB.Block.Logic.Types (VerifyBlocksContext (..),
+                     getVerifyBlocksContext)
 import           Pos.DB.Block.Logic.Util (calcChainQualityM)
 import           Pos.DB.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
@@ -161,11 +163,17 @@ createGenesisBlockDo pm epoch = do
             LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock pm (Right tipHeader) epoch leaders
         let newTip = headerHash blk
-        verifyBlocksPrefix pm (one (Left blk)) >>= \case
+        ctx <- getVerifyBlocksContext
+        verifyBlocksPrefix pm ctx (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                applyBlocksUnsafe pm (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
+                applyBlocksUnsafe pm
+                    (vbcBlockVersion ctx)
+                    (vbcBlockVersionData ctx)
+                    (ShouldCallBListener True)
+                    (one (Left blk, undo))
+                    (Just pollModifier)
                 normalizeMempool pm
                 pure (newTip, Just blk)
     logShouldNot =
@@ -358,8 +366,9 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
-    applyCreatedBlockDo isFallback blockToApply =
-        verifyBlocksPrefix pm (one (Right blockToApply)) >>= \case
+    applyCreatedBlockDo isFallback blockToApply = do
+        ctx <- getVerifyBlocksContext
+        verifyBlocksPrefix pm ctx (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
@@ -367,6 +376,8 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe
                     pm
+                    (vbcBlockVersion ctx)
+                    (vbcBlockVersionData ctx)
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)

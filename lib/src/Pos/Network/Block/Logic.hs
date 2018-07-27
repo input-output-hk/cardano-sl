@@ -41,6 +41,7 @@ import           Pos.Core.Exception (cardanoExceptionFromException,
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
+import           Pos.Core.StateLock (Priority (..), modifyStateLock)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
@@ -50,7 +51,6 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
                      jlAdoptedBlock)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
@@ -289,7 +289,8 @@ applyWithoutRollback pm diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        res <- fmap fst <$> verifyAndApplyBlocks pm False blocks
+        ctx <- L.getVerifyBlocksContext
+        res <- fmap fst <$> verifyAndApplyBlocks pm ctx False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)

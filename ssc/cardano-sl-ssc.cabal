@@ -56,6 +56,7 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , deepseq
                      , ether
                      , formatting
                      , lens

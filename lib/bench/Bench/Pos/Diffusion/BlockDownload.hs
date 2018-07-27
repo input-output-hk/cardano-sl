@@ -230,7 +230,6 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches =  d
     -- a lower bound on the real speedup).
     forM_ [1..batches] $ \_ ->
         getBlocks client serverAddress blockHeader checkpoints
-    pure ()
 
 -- Final parameter, like for 'blockDownloadBatch', is the number of batches to
 -- do. Here, in streaming, we multiply by 2200 to make a fair comparison with

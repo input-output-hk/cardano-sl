@@ -247,7 +247,7 @@ send pm diffusion idx outputs = do
     takeSecret :: m EncryptedSecretKey
     takeSecret
         | idx == -1 = do
-            _userSecret <- view userSecret >>= atomically . readTVar
+            _userSecret <- view userSecret >>= readTVarIO
             pure $ maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
         | otherwise = (!! idx) <$> getSecretKeysPlain
 

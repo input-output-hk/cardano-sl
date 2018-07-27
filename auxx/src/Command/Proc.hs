@@ -487,7 +487,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
                          "          pk hash:   "%hashHexF%"\n"%
                          "          HD addr:   "%build)
                     i addr pk (addressHash pk) addrHD
-        walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
+        walletMB <- (^. usWallet) <$> (view userSecret >>= readTVarIO)
         whenJust walletMB $ \wallet -> do
             addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
             printAction $

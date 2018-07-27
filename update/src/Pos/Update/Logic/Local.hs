@@ -79,7 +79,7 @@ getMemPool
     :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m MemPool
 getMemPool = msPool <$>
-    (atomically . readTVar . mvState =<< views (lensOf @UpdateContext) ucMemState)
+    ((readTVarIO . mvState) =<< views (lensOf @UpdateContext) ucMemState)
 
 clearUSMemPool
     :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
@@ -93,7 +93,7 @@ getPollModifier
     :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m PollModifier
 getPollModifier = msModifier <$>
-    (atomically . readTVar . mvState =<< views (lensOf @UpdateContext) ucMemState)
+    ( (readTVarIO . mvState) =<< views (lensOf @UpdateContext) ucMemState)
 
 getLocalProposals
     :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
@@ -112,7 +112,7 @@ modifyMemState
     => (MemState -> m MemState) -> m ()
 modifyMemState action = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
-    ms <- atomically $ readTVar stateVar
+    ms <- readTVarIO stateVar
     newMS <- action ms
     atomically $ writeTVar stateVar newMS
 
@@ -294,7 +294,7 @@ usNormalizeDo
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
-    ms@MemState {..} <- atomically $ readTVar stateVar
+    ms@MemState {..} <- readTVarIO stateVar
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
         runDBPoll . runPollT def $ normalizePoll msSlot mpProposals mpLocalVotes

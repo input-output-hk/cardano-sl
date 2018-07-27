@@ -62,7 +62,7 @@ getLastKnownHeader
   :: (MonadLastKnownHeader ctx m, MonadIO m)
   => m (Maybe BlockHeader)
 getLastKnownHeader =
-    atomically . readTVar =<< view (lensOf @LastKnownHeaderTag)
+    readTVarIO =<< view (lensOf @LastKnownHeaderTag)
 
 type BlockchainInfoEnv ctx m =
     ( MonadDBRead m
@@ -98,7 +98,7 @@ connectedPeersWebWallet
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
     PC.ConnectedPeers cp <- view (lensOf @PC.ConnectedPeers)
-    atomically (readTVar cp)
+    readTVarIO cp
 
 blockchainSlotDurationWebWallet
     :: forall ctx m. BlockchainInfoEnv ctx m

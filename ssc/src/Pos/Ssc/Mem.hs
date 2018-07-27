@@ -74,7 +74,7 @@ sscRunLocalQuery
     => ReaderT SscLocalData m a -> m a
 sscRunLocalQuery action = do
     localVar <- sscLocal <$> askSscMem
-    ld <- atomically $ readTVar localVar
+    ld <- readTVarIO localVar
     runReaderT action ld
 
 -- | Run STM transaction which modifies 'SscLocalData' and also can log.
@@ -103,7 +103,7 @@ sscRunGlobalQuery
     => ReaderT SscGlobalState m a -> m a
 sscRunGlobalQuery action = do
     globalVar <- sscGlobal <$> askSscMem
-    gs <- atomically $ readTVar globalVar
+    gs <- readTVarIO globalVar
     runReaderT action gs
 
 sscRunGlobalUpdate

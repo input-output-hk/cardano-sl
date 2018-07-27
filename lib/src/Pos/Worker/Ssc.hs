@@ -107,7 +107,7 @@ shouldParticipate :: SscMode ctx m => EpochIndex -> m Bool
 shouldParticipate epoch = do
     richmen <- getSscRichmen "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
-        atomically . readTVar . scParticipateSsc
+        (readTVarIO . scParticipateSsc)
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
@@ -127,7 +127,7 @@ onNewSlotSsc pm = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
-                atomically . readTVar . scBehavior
+                (readTVarIO . scBehavior)
             checkNSendOurCert pm (sendSscCert diffusion)
             onNewSlotCommitment pm slotId (sendSscCommitment diffusion)
             onNewSlotOpening pm (sbSendOpening behavior) slotId (sendSscOpening diffusion)

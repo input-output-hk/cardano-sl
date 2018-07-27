@@ -230,7 +230,6 @@ main = (flip evalStateT) 0 $ do
                      , b <- the'nodes
                      , c <- the'nodes
                      , a /= b, a /= c, b /=c ]
-    return ()
   where
     outputYaml :: MonadIO m => FilePath -> String -> m ()
     outputYaml fp = liftIO . writeFile ("config" <.> fp <.> "yaml")

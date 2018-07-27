@@ -110,7 +110,7 @@ sscNormalize pm = do
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
-    gs <- atomically $ readTVar globalVar
+    gs <- readTVarIO globalVar
     seed <- Rand.drgNew
 
     launchNamedPureLog atomically $

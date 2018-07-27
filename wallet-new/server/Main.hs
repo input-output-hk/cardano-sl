@@ -42,7 +42,10 @@ import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage,
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor
+                     (newMonadDBReadAdaptor)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      NewWalletBackendParams (..), WalletBackendParams (..),
                      WalletStartupOptions (..), getWalletNodeOptions,
@@ -128,9 +131,10 @@ actionWithNewWallet pm sscParams nodeParams params =
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
       userSecret <- atomically $ readTVar (ncUserSecret $ nrContext nr)
+      let rocksDB = newMonadDBReadAdaptor (nrDBs nr)
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
-          bracketKernelPassiveWallet logMessage' keystore $ \walletLayer passiveWallet -> do
-            liftIO $ logMessage' Info "Wallet kernel initialized"
+          bracketKernelPassiveWallet logMessage' keystore rocksDB $ \walletLayer passiveWallet -> do
+            Kernel.init passiveWallet
             Kernel.Mode.runWalletMode pm
                                       nr
                                       walletLayer

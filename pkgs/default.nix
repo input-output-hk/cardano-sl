@@ -18360,6 +18360,7 @@ license = stdenv.lib.licenses.mit;
 , quickcheck-instances
 , random
 , reflection
+, resourcet
 , retry
 , safe-exceptions
 , safecopy
@@ -18461,6 +18462,7 @@ network-transport
 optparse-applicative
 QuickCheck
 reflection
+resourcet
 retry
 safe-exceptions
 safecopy

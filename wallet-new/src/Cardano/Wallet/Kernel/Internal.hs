@@ -13,6 +13,7 @@ module Cardano.Wallet.Kernel.Internal (
   , walletKeystore
   , wallets
   , walletLogMessage
+  , walletRocksDB
   ) where
 
 import           Universum hiding (State)
@@ -23,10 +24,10 @@ import           System.Wlog (Severity (..))
 
 import           Data.Acid (AcidState)
 
+import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-
-import           Cardano.Wallet.Kernel.DB.AcidState (DB)
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
 
 -- Handy re-export of the pure getters
@@ -50,6 +51,7 @@ data PassiveWallet = PassiveWallet {
       -- ^ An opaque handle to a place where we store the 'EncryptedSecretKey'.
     , _wallets          :: AcidState DB
       -- ^ Database handle
+    , _walletRocksDB    :: MonadDBReadAdaptor IO
     }
 
 makeLenses ''PassiveWallet

@@ -93,9 +93,10 @@ library
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
-                       Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Internal
+                       Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
+                       Cardano.Wallet.Kernel.MonadDBReadAdaptor
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
@@ -129,7 +130,6 @@ library
   ghc-options:         -Wall
 
   build-depends:       base
-                     , QuickCheck
                      , acid-state
                      , aeson
                      , aeson-options
@@ -165,6 +165,7 @@ library
                      , directory
                      , exceptions
                      , formatting
+                     , formatting
                      , generics-sop
                      , http-api-data
                      , http-client
@@ -176,15 +177,17 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , mwc-random
                      , neat-interpolation
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
-                     , mwc-random
+                     , QuickCheck
                      , reflection
+                     , resourcet
                      , retry
-                     , safe-exceptions
                      , safecopy
+                     , safe-exceptions
                      , serokell-util
                      , servant
                      , servant-client
@@ -196,7 +199,6 @@ library
                      , sqlite-simple-errors
                      , swagger2
                      , text
-                     , formatting
                      , time
                      , time-units
                      , tls

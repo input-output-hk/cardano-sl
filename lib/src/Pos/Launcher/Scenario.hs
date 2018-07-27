@@ -84,7 +84,7 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
 
     waitSystemStart
     let runWithReportHandler action =
-            action diffusion `catch` reportHandler
+            forever (action diffusion `catch` reportHandler)
 
     void (mapConcurrently runWithReportHandler (workers' ++ plugins'))
 

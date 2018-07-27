@@ -34,6 +34,7 @@
 
 \usetikzlibrary{arrows}
 
+\newcommand{\coot}[1]{\textcolor{violet}{\emph{#1}}}
 \newcommand{\njd}[1]{\textcolor{purple}{\emph{#1}}}
 \newcommand{\avieth}[1]{\textcolor{blue}{\emph{#1}}}
 \newcommand{\dcoutts}[1]{\textcolor{orange}{\emph{#1}}}
@@ -446,9 +447,12 @@ The protocol can be instantiated with any choice of these details.
 In the typical case (consumer A in Figure \ref{chain-diagram-read-pointers}),
 the read pointer is on the producer's chain and is not yet at the chain head
 so there is a next block. In this case when the consumer requests the next
-instruction, the producer simply sends the next block. The producer can assume
-that the consumer will update its local state and so the producer can update
-the read pointer to point to the next block.
+instruction, the producer simply sends the next block. \marginpar{\coot{It's probably more
+efficient to subscribe for updates, and the producer could just push
+instructions, but maybe this does not matter at this level of description.}} The
+producer can assume that the consumer will update its local state and so the
+producer can update the read pointer to point to the next
+block.
 
 \paragraph{Producer state change: adding a block}
 
@@ -490,6 +494,33 @@ which block the consumer was at is preserved. This explains why the read
 pointer for the fork state has to be at the block on the current chain that the
 consumer will roll back to rather than at the block on the old fork: it is so
 that if there is a further fork the read pointer can easily be found and moved.
+
+\coot{
+    Let's analyze what will happen when a consumer is following more than one
+    producer in a subscription model rather than request / respond model.  It
+    may happen that the consumer will receive two different instructions.  Let
+    say that producer $p_1$ and producer $p_2$ are pushing the consumer to
+    switch to two different blocks that follows consumers tip (a fork happens).  The
+    consumer will solve a tie and choose one of the forks, let say $p_1$'s
+    fork.  The producer $p_1$ does not need to be informed about the tip
+    change of the consumer.   When $p_1$ will build on top of his fork he will
+    send instructions to rollback and follow to his tip and if his chain will
+    loose he will have a way to inform the consumer how to proceed.  It seems
+    that we need the following two invariants:
+    \begin{itemize}
+    \item the producer knows how to connect his tip with read pointer of the
+        consumer
+    \item the consumer should not delete the header at which producer's read pointer points to
+    \end{itemize}
+    Furthermore, together with a rollback - roll forward instruction from
+    a producer, the consumer should get the height of the chain from the
+    read pointer to producer's tip.  This can be used to choose which producer
+    to follow, in case of multiple choices from different producers.  This is
+    just an optimisation for resource usage (bandwidth and memory usage).
+    This message should be validated if it does not extends a chain to the
+    future.  This simple measure can save resources that would be wasted
+    downloading and validating headers.
+}
 
 \paragraph{Establishing a new consumer session}
 
@@ -875,6 +906,37 @@ version, modulo differences between indifferent alternatives.
 \mathsf{selectChain} ~ c ~ cs & = blah
 \end{align*}
 
+\coot{\subsubsection{Selection functions}}
+
+\begin{definition}
+    \coot{A selection on a set \(A\) is a family of functions
+    \(f_n:A^n\rightarrow A\) such that}
+    \begin{enumerate}
+        \item[F1] \coot{\(f_1:A\rightarrow A\) is an identity function}
+        \item[F2]\coot{\(f_n\circ\sigma' = f_n\) for any permutation \(\sigma\),
+            where \(\sigma':A^n\rightarrow A^n\) is defined by
+            \(\sigma'(a_1,\dots,a_n)=(a_{\sigma(1)},\dots,a_{\sigma(n)})\)}
+        \item[F3]\coot{\(f_n(f_{m_1}(a^1_1,\dots,a^1_{m_1}),\dots,f_{m_n}(a^n_1,\dots,a^n_{m_n}))=f_{m_1+\dots+m_n}(a^1_1,\dots,a^m_{m_n})\)}
+    \end{enumerate}
+\end{definition}
+
+\begin{lemma}
+    \coot{There is a bijection between the set of selections on a set \(A\)
+    and abelian semigroup multiplications on \(A\) defined by:
+    \((f_n)\mapsto f_2\)
+    }
+\end{lemma}
+\begin{proof}
+    \coot{
+        Given \(g:A^2\rightarrow A\) an abelian semigroup multiplication on
+        \(A\) a \(n\)-th
+        selection function \(f_n:A^n\rightarrow A\) is defined by
+        $$f_n(a_1,\dots,a_n)=g(\dots g(g(a_1,a_2),a_3),\dots,a_n)\ for a_i\in
+        A\ \mathrm{and}\ n>1$$
+        Furthermore so constructed selection satisfies axioms \rm{F1}, \rm{F2} and
+        \rm{F3}.
+    }
+\end{proof}
 \subsection{Sketch of a design for interleaving chain selection with relaying}
 
 We assume a peer discover mechanism that establishes associations between

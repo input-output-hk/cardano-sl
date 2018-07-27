@@ -33,7 +33,7 @@ let
   haskell = import localLib.fetchHaskell hackage;
   packageOverlay = self: super: {
     # the lts-XX_Y is essentially the same as what pkgs/default.nix returns.
-    haskellPackages = ((import localLib.fetchStackage { pkgs = super; inherit hackage haskell; }).lts-12_2
+    haskellPackages = ((import localLib.fetchStackage { pkgs = self; inherit hackage haskell; }).lts-12_2
       # ontop of the LTS, inject the extra pacakges and source deps.
       { extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                           // stack-pkgs.packages hsPkgs)

@@ -75,9 +75,19 @@ spaces:
         packages.ghc843 = (ps.haskell.packages.ghc843.override {
           overrides = self: super: rec {
             mkDerivation = drv: super.mkDerivation (drv // {
+              # # fast builds -- the logic is as follows:
+              # #  - test are often broken and we have a curated set
+              # #    thus, let us assume we don't need no tests. (also time consuming)
+              # #  - haddocks are not used, and sometimes fail.  (also time consuming)
+              # #  - The curated set has proper version bounds, so we can just
+              # #    exactConfig globally
               enableLibraryProfiling = false;
               enableSharedLibraries = ps.stdenv.targetPlatform == ps.stdenv.hostPlatform;
               enableSharedExecutables = false;
+              # enableExecutableProfiling = false;
+              doHaddock = false;
+              doHoogle = false;
+              doCheck = false;
               configureFlags = (drv.configureFlags or []) ++ [ spaces ];
             });
           };

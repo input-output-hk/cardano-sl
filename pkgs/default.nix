@@ -16503,6 +16503,8 @@ libraryHaskellDepends = [
 base
 bytestring
 cardano-sl
+cardano-sl-binary
+cardano-sl-block
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core

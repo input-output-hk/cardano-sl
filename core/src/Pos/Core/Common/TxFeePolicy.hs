@@ -9,11 +9,14 @@ import           Data.Hashable (Hashable)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable as Buildable
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
                      decodeUnknownCborDataItem, encodeKnownCborDataItem,
                      encodeListLen, encodeUnknownCborDataItem, enforceSize)
 import           Pos.Core.Common.TxSizeLinear
+import           Pos.Core.Genesis.Canonical ()
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
 -- fee for a transaction. Transactions with lesser fees won't be accepted. The
@@ -59,5 +62,18 @@ instance Bi TxFeePolicy where
             _ -> TxFeePolicyUnknown tag  <$> decodeUnknownCborDataItem
 
 instance Hashable TxFeePolicy
+
+instance Monad m => ToJSON m TxFeePolicy where
+    toJSON (TxFeePolicyTxSizeLinear (TxSizeLinear summand multiplier)) =
+        mkObject
+            [("summand", toJSON summand), ("multiplier", toJSON multiplier)]
+    toJSON (TxFeePolicyUnknown {}) =
+        error "Having TxFeePolicyUnknown in genesis is likely a bug"
+
+instance ReportSchemaErrors m => FromJSON m TxFeePolicy where
+    fromJSON obj = do
+        summand <- fromJSField obj "summand"
+        multiplier <- fromJSField obj "multiplier"
+        return $ TxFeePolicyTxSizeLinear (TxSizeLinear summand multiplier)
 
 deriveSafeCopySimple 0 'base ''TxFeePolicy

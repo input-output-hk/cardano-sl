@@ -6,9 +6,13 @@ module Pos.Core.Genesis.ProtocolConstants
 
 import           Universum
 
+import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
+                     ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
+
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Crypto.Configuration (ProtocolMagic)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 
 -- | 'GensisProtocolConstants' are not really part of genesis global state,
 -- but they affect consensus, so they are part of 'GenesisSpec' and
@@ -23,6 +27,24 @@ data GenesisProtocolConstants = GenesisProtocolConstants
       -- | VSS certificates min timeout to live (number of epochs).
     , gpcVssMinTTL     :: !VssMinTTL
     } deriving (Show, Eq, Generic)
+
+instance Monad m => ToJSON m GenesisProtocolConstants where
+    toJSON GenesisProtocolConstants {..} =
+        mkObject
+            -- 'k' definitely won't exceed the limit
+            [ ("k", pure . JSNum . fromIntegral $ gpcK)
+            , ("protocolMagic", toJSON (getProtocolMagic gpcProtocolMagic))
+            , ("vssMaxTTL", toJSON gpcVssMaxTTL)
+            , ("vssMinTTL", toJSON gpcVssMinTTL)
+            ]
+
+instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
+    fromJSON obj = do
+        gpcK <- fromIntegral @Int54 <$> fromJSField obj "k"
+        gpcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
+        gpcVssMaxTTL <- fromJSField obj "vssMaxTTL"
+        gpcVssMinTTL <- fromJSField obj "vssMinTTL"
+        return GenesisProtocolConstants {..}
 
 genesisProtocolConstantsToProtocolConstants
     :: GenesisProtocolConstants

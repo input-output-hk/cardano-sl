@@ -10,14 +10,16 @@ import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
-
-import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
-import           Pos.Util.Orphans ()
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Binary ()
+import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
+import           Pos.Core.Genesis.Canonical ()
+import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
 import           Pos.Core.Update.SoftforkRule
+import           Pos.Util.Orphans ()
 
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
@@ -70,6 +72,43 @@ instance Buildable BlockVersionData where
         bvdSoftforkRule
         bvdTxFeePolicy
         bvdUnlockStakeEpoch
+
+instance Monad m => ToJSON m BlockVersionData where
+    toJSON (BlockVersionData scriptVersion slotDuration maxBlockSize maxHeaderSize maxTxSize maxProposalSize mpcThd heavyDelThd updateVoteThd updateProposalThd updateImplicit softforkRule txFeePolicy unlockStakeEpoch) =
+        mkObject
+            [ ("scriptVersion", toJSON scriptVersion)
+            , ("slotDuration", toJSON slotDuration)
+            , ("maxBlockSize", toJSON maxBlockSize)
+            , ("maxHeaderSize", toJSON maxHeaderSize)
+            , ("maxTxSize", toJSON maxTxSize)
+            , ("maxProposalSize", toJSON maxProposalSize)
+            , ("mpcThd", toJSON mpcThd)
+            , ("heavyDelThd", toJSON heavyDelThd)
+            , ("updateVoteThd", toJSON updateVoteThd)
+            , ("updateProposalThd", toJSON updateProposalThd)
+            , ("updateImplicit", toJSON updateImplicit)
+            , ("softforkRule", toJSON softforkRule)
+            , ("txFeePolicy", toJSON txFeePolicy)
+            , ("unlockStakeEpoch", toJSON unlockStakeEpoch)
+            ]
+
+instance ReportSchemaErrors m => FromJSON m BlockVersionData where
+    fromJSON obj = do
+        bvdScriptVersion <- fromJSField obj "scriptVersion"
+        bvdSlotDuration <- fromJSField obj "slotDuration"
+        bvdMaxBlockSize <- fromJSField obj "maxBlockSize"
+        bvdMaxHeaderSize <- fromJSField obj "maxHeaderSize"
+        bvdMaxTxSize <- fromJSField obj "maxTxSize"
+        bvdMaxProposalSize <- fromJSField obj "maxProposalSize"
+        bvdMpcThd <- fromJSField obj "mpcThd"
+        bvdHeavyDelThd <- fromJSField obj "heavyDelThd"
+        bvdUpdateVoteThd <- fromJSField obj "updateVoteThd"
+        bvdUpdateProposalThd <- fromJSField obj "updateProposalThd"
+        bvdUpdateImplicit <- fromJSField obj "updateImplicit"
+        bvdSoftforkRule <- fromJSField obj "softforkRule"
+        bvdTxFeePolicy <- fromJSField obj "txFeePolicy"
+        bvdUnlockStakeEpoch <- fromJSField obj "unlockStakeEpoch"
+        return BlockVersionData {..}
 
 -- | Version of 'isBootstrapEra' which takes 'BlockVersionData'
 -- instead of unlock stake epoch.

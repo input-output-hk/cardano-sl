@@ -13,7 +13,11 @@ module Pos.Core.ProtocolConstants
 
 import           Universum
 
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
+
 import           Pos.Core.Common (BlockCount (..))
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Slotting.SlotCount (SlotCount)
 
 -- | The 'k' parameter and TTLs for VSS certificates.
@@ -31,10 +35,22 @@ newtype VssMinTTL = VssMinTTL
     { getVssMinTTL :: Word32
     } deriving (Eq, Show, Bounded, Enum, Generic)
 
+instance Monad m => ToJSON m VssMinTTL where
+    toJSON = toJSON . getVssMinTTL
+
+instance (ReportSchemaErrors m) => FromJSON m VssMinTTL where
+    fromJSON = fmap VssMinTTL . fromJSON
+
 -- | Maximum time-to-live for a VSS certificate.
 newtype VssMaxTTL = VssMaxTTL
     { getVssMaxTTL :: Word32
     } deriving (Eq, Show, Bounded, Enum, Generic)
+
+instance Monad m => ToJSON m VssMaxTTL where
+    toJSON = toJSON . getVssMaxTTL
+
+instance (ReportSchemaErrors m) => FromJSON m VssMaxTTL where
+    fromJSON = fmap VssMaxTTL . fromJSON
 
 -- | Security parameter which is maximum number of blocks which can be
 -- rolled back.

@@ -101,7 +101,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   fi
   ''}
 
-  ${executables.${executable}}                                     \
+  exec ${executables.${executable}}                                     \
     ${configurationArgs}                                           \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
     ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \

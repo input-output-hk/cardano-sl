@@ -5,6 +5,7 @@
 , runExplorer ? false
 , numCoreNodes ? 4
 , numRelayNodes ? 1
+, numImportedWallets ? 11
 , assetLockAddresses ? []
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
@@ -15,6 +16,7 @@
 , launchGenesis ? false
 , configurationKey ? "default"
 , useStackBinaries ? false
+, disableClientAuth ? false
 }:
 
 with localLib;
@@ -25,8 +27,9 @@ let
   demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl ];
   allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   walletConfig = {
-    inherit stateDir;
+    inherit stateDir disableClientAuth;
     topologyFile = walletTopologyFile;
+    environment = "demo";
   };
   walletEnvironment = if launchGenesis then {
     environment = "override";
@@ -158,23 +161,22 @@ in pkgs.writeScript "demo-cluster" ''
       fi
     done
     echo Blockchain Synced: $PERC%
-    # import keys
-    echo "Importing poor HD keys/wallet..."
-
-    for i in {0..11}
-    do
-        echo "Importing key$i.sk ..."
-        curl https://${demoWallet.walletListen}/api/wallets/keys \
-        --cacert ${stateDir}/tls/client/ca.crt \
-        --cert ${stateDir}/tls/client/client.pem \
-        -X POST \
-        -H 'cache-control: no-cache' \
-        -H 'content-type: application/json' \
-        -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
-    done
-
+    if [ ${builtins.toString numImportedWallets} -gt 0 ]
+    then
+      echo "Importing ${builtins.toString numImportedWallets} poor HD keys/wallet..."
+      for i in {0..${builtins.toString numImportedWallets}}
+      do
+          echo "Importing key$i.sk ..."
+          curl https://${demoWallet.walletListen}/api/wallets/keys \
+          --cacert ${stateDir}/tls/client/ca.crt \
+          --cert ${stateDir}/tls/client/client.pem \
+          -X POST \
+          -H 'cache-control: no-cache' \
+          -H 'content-type: application/json' \
+          -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
+      done
+    fi
   ''}
-
   ${ifKeepAlive ''
     sleep infinity
   ''}

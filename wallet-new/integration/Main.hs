@@ -1,64 +1,24 @@
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TupleSections #-}
-
 module Main where
 
 import           Universum
 
-import           Cardano.Wallet.Client.Http
-import qualified Data.ByteString.Char8 as B8
-import           Data.Map (fromList)
-import           Data.Traversable (for)
-import           Data.X509.File (readSignedObject)
+import           Cardano.Wallet.Client.Http (WalletClient)
 import           Network.HTTP.Client (Manager)
+import qualified QuickCheckSpecs as QuickCheck
 import           System.Environment (withArgs)
-import           System.IO (hSetEncoding, stdout, utf8)
-import           Test.Hspec
+import           Test.Hspec (Spec, hspec)
 
 import           AccountSpecs (accountSpecs)
 import           AddressSpecs (addressSpecs)
-import           CLI
-import           Functions
-import qualified QuickCheckSpecs as QuickCheck
+import           RandomStateWalk (randomStateWalkTest)
+import           SetupTestEnv (setupClients)
 import           TransactionSpecs (transactionSpecs)
-import           Types
-import           Util (WalletRef, newWalletRef)
-import           WalletSpecs (walletSpecs)
+import           WalletSpecs (externalWalletSpecs, internalWalletSpecs)
 
--- | Here we want to run main when the (local) nodes
--- have started.
 main :: IO ()
 main = do
-
-    hSetEncoding stdout utf8
-    CLOptions {..} <- getOptions
-
-    -- TODO (akegalj): run server cluster in haskell, instead of using shell scripts
-    -- serverThread <- async (runWalletServer options)
-
-    printT "Starting the integration testing for wallet."
-
-    let serverId = (serverHost, B8.pack $ show serverPort)
-    caChain <- readSignedObject tlsCACertPath
-    clientCredentials <- orFail =<< credentialLoadX509 tlsClientCertPath tlsPrivKeyPath
-    manager <- newManager $ mkHttpsManagerSettings serverId caChain clientCredentials
-
-    let baseUrl = BaseUrl Https serverHost serverPort mempty
-
-    let walletClient :: MonadIO m => WalletClient m
-        walletClient = liftClient $ mkHttpClient baseUrl manager
-
-    walletState <- initialWalletState walletClient
-
-    printT $ "Initial wallet state: " <> show walletState
-
-    void $ runActionCheck
-                          walletClient
-                          walletState
-                          actionDistribution
-
-    -- Acquire the initial state for the deterministic tests
-    wRef <- newWalletRef
+    clients@((client0, _),_ ,_ ,_) <- setupClients
+    randomStateWalkTest client0
 
     -- NOTE Our own CLI options interfere with `hspec` which parse them for
     -- itself when executed, leading to a VERY unclear message:
@@ -67,35 +27,18 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
-    withArgs [] . hspec $ deterministicTests wRef walletClient manager
-  where
-    orFail :: MonadFail m => Either String a -> m a
-    orFail =
-        either (fail . ("Error decoding X509 certificates: " <>)) return
+    withArgs [] . hspec $ integrationTests clients
 
-
-initialWalletState :: WalletClient IO -> IO WalletState
-initialWalletState wc = do
-    -- We will have single genesis wallet in intial state that was imported from launching script
-    _wallets <- fromResp $ getWallets wc
-    _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
-    -- Lets set all wallet passwords for initial wallets (genesis) to default (emptyPassphrase)
-    let _lastAction       = NoOp
-        _walletsPass      = fromList $ map ((, V1 mempty) . walId) _wallets
-        _addresses        = concatMap accAddresses _accounts
-        -- TODO(akegalj): I am not sure does importing a genesis wallet (which we do prior launching integration tests) creates a transaction
-        -- If it does, we should add this transaction to the list
-        _transactions     = mempty
-        _actionsNum       = 0
-        _successActions   = mempty
-    pure $ WalletState {..}
-  where
-    fromResp = (either throwM (pure . wrData) =<<)
-
-deterministicTests :: WalletRef -> WalletClient IO -> Manager -> Spec
-deterministicTests wref wc manager = do
-    accountSpecs wc
-    addressSpecs wref wc
-    walletSpecs wref wc
-    transactionSpecs wref wc
-    QuickCheck.mkSpec manager
+integrationTests
+  :: ((WalletClient IO, Manager)
+     ,(WalletClient IO, Manager)
+     ,(WalletClient IO, Manager)
+     ,(WalletClient IO, Manager))
+  -> Spec
+integrationTests ((wc0, m0),(wc1, _) ,(wc2, _) ,(wc3, _)) = do
+    accountSpecs wc0
+    addressSpecs wc0
+    internalWalletSpecs  wc0
+    externalWalletSpecs  wc0
+    transactionSpecs (wc0, wc1, wc2, wc3)
+    QuickCheck.mkSpec m0

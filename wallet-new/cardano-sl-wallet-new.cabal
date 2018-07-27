@@ -293,12 +293,13 @@ executable wal-integr-test
                        -O2
   other-modules:       CLI
                        Types
-                       Functions
+                       RandomStateWalk
                        Error
                        Util
                        WalletSpecs
                        AccountSpecs
                        AddressSpecs
+                       SetupTestEnv
                        TransactionSpecs
                        QuickCheckSpecs
 

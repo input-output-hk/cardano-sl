@@ -6,13 +6,9 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 
-module Functions
-    ( actionDistribution
-    , printT
-    , runActionCheck
-    ) where
+module RandomStateWalk (randomStateWalkTest) where
 
-import           Universum hiding (log, uncons, init)
+import           Universum hiding (init, log, uncons)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Data.Aeson (toJSON)
@@ -20,6 +16,8 @@ import           Data.Aeson.Diff (diff)
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, uncons, (!!), (\\))
+import           Data.Map (fromList)
+import           Data.Traversable (for)
 import           Servant.Client (GenResponse (..))
 import           Test.Hspec
 import           Test.QuickCheck
@@ -28,16 +26,22 @@ import           Text.Show.Pretty (ppShow)
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
-                                        WalletClient (..), WalletError (..), getAccounts,
-                                        getAddressIndex, getTransactionIndex, getWallets,
-                                        hoistClient)
+import           Cardano.Wallet.Client (ClientError (..), ServantError (..), WalletClient (..),
+                                        WalletError (..), getAccounts, getAddressIndex,
+                                        getTransactionIndex, getWallets, hoistClient)
 
 import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
 import           Types
+
+randomStateWalkTest :: WalletClient IO -> IO ()
+randomStateWalkTest walletClient = do
+    printT "Starting the integration testing for wallet."
+    walletState <- initialWalletState walletClient
+    printT $ "Initial wallet state: " <> show walletState
+    void $ runActionCheck walletClient walletState actionDistribution
 
 newtype RefT s m a
     = RefT
@@ -717,3 +721,21 @@ actionDistribution = do
     (PostWallet, Weight 2)
     :| (PostTransaction, Weight 5)
     : fmap (, Weight 1) [minBound .. maxBound]
+
+initialWalletState :: WalletClient IO -> IO WalletState
+initialWalletState wc = do
+    -- We will have single genesis wallet in intial state that was imported from launching script
+    _wallets <- fromResp $ getWallets wc
+    _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
+    -- Lets set all wallet passwords for initial wallets (genesis) to default (emptyPassphrase)
+    let _lastAction       = NoOp
+        _walletsPass      = fromList $ map ((, V1 mempty) . walId) _wallets
+        _addresses        = concatMap accAddresses _accounts
+        -- TODO(akegalj): I am not sure does importing a genesis wallet (which we do prior launching integration tests) creates a transaction
+        -- If it does, we should add this transaction to the list
+        _transactions     = mempty
+        _actionsNum       = 0
+        _successActions   = mempty
+    pure $ WalletState {..}
+  where
+    fromResp = (either throwM (pure . wrData) =<<)

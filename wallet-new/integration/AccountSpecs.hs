@@ -5,8 +5,8 @@ module AccountSpecs (accountSpecs) where
 
 import           Universum
 
-import           Pos.Core (addrToBase58Text)
 import           Cardano.Wallet.Client.Http
+import           Pos.Core (addrToBase58Text)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
 

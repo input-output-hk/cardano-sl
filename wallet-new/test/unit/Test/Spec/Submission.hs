@@ -45,7 +45,7 @@ import           Util.Buildable.Hspec
 
 {-------------------------------------------------------------------------------
   QuickCheck core-based generators, which cannot be placed in the normal
-  modules without having `wallet-new` depends from `cardano-sl-txp-test`.
+  modules without having `wallet-new` depends from `cardano-sl-core-test`.
 -------------------------------------------------------------------------------}
 
 genPending :: Core.ProtocolMagic -> Gen Pending

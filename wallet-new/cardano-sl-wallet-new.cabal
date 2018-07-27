@@ -656,8 +656,8 @@ test-suite wallet-integration-tests
 
   hs-source-dirs:     test/integration
   main-is:            Main.hs
-
-  -- other-modules:
+  other-modules:      Clients
+                      Fixtures
 
   default-extensions: BangPatterns
                       ConstraintKinds

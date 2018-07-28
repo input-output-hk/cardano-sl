@@ -10,7 +10,7 @@ import           Control.Exception.Safe (Exception (..))
 import           Formatting (bprint, build, stext, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Block.Error (VerifyBlocksException)
+import           Pos.Chain.Block (VerifyBlocksException)
 import           Pos.Core (Address, StakeholderId, addressF)
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)

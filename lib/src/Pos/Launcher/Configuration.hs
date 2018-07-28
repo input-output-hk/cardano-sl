@@ -44,13 +44,13 @@ import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
 
-import           Pos.Block.Configuration
+import           Pos.Chain.Block
+import           Pos.Chain.Delegation
+import           Pos.Chain.Ssc hiding (filter)
+import           Pos.Chain.Txp
+import           Pos.Chain.Update
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Delegation.Configuration
-import           Pos.Ssc.Configuration
-import           Pos.Txp.Configuration
-import           Pos.Update.Configuration
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration

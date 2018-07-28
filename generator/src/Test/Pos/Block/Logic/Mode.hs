@@ -58,7 +58,9 @@ import           Test.QuickCheck.Property (Testable)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
                      mkAllSecretsSimple)
-import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
                      HasConfiguration, HasProtocolConstants, SlotId,
                      Timestamp (..), epochSlots, genesisSecretKeys,
@@ -88,7 +90,6 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                      txpGlobalSettings)
 import           Pos.DB.Update (UpdateContext, mkUpdateContext)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
@@ -104,7 +105,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Ssc (SscMemTag, SscState)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,

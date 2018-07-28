@@ -11,8 +11,7 @@ import           Cardano.Wallet.API
 import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 
 import qualified Cardano.Wallet.API.V1.Handlers as V1

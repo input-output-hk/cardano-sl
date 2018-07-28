@@ -44,8 +44,10 @@ import           Test.QuickCheck.Gen (Gen)
 import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 
 import           Pos.AllSecrets (HasAllSecrets (..))
-import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Block (HasSlogGState (..), LastKnownHeader,
+                     LastKnownHeaderTag)
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getSecretDefault, modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -71,7 +73,6 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
                      txpMemPool, txpTip)
 import           Pos.DB.Update (UpdateContext)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
@@ -87,8 +88,6 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Ssc.Mem (SscMemTag)
-import           Pos.Ssc.Types (SscState)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)

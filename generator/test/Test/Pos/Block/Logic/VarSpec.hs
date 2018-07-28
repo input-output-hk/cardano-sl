@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes      #-}
 
--- | Specification of 'Pos.Block.Logic.VAR'.
+-- | Specification of 'Pos.Chain.Block.VAR'.
 
 module Test.Pos.Block.Logic.VarSpec
        ( spec
@@ -23,7 +23,7 @@ import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre, run)
 import           Test.QuickCheck.Random (QCGen)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
 import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
                      genesisData)
 import           Pos.Core.Block (headerHash)
@@ -58,7 +58,7 @@ import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks,
                      stopProperty)
 
--- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
+-- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Chain.Block.Var"
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.

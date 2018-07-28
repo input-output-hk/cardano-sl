@@ -17,6 +17,8 @@ import qualified Data.ByteString as BS
 import           Test.QuickCheck (Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
+import           Pos.Chain.Ssc (HasSscConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasConfiguration, makePubKeyAddressBoot)
@@ -25,8 +27,6 @@ import           Pos.Core.Configuration (HasGenesisBlockVersionData,
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 ----------------------------------------------------------------------------
 -- Configuration propagation

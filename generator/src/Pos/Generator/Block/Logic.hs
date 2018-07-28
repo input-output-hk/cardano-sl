@@ -19,7 +19,9 @@ import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Delegation (ProxySKBlockInfo)
+import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
                      epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Core.Block (Block, BlockHeader)
@@ -35,7 +37,6 @@ import           Pos.DB.Delegation (getDlgTransPsk)
 import           Pos.DB.Lrc (lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
-import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
                      MonadBlockGen, MonadBlockGenInit, mkBlockGenContext,
@@ -43,7 +44,6 @@ import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
 import           Pos.Generator.Block.Param (BlockGenParams,
                      HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------

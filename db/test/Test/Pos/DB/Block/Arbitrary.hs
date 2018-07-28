@@ -8,14 +8,13 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Block.Slog (SlogUndo)
-import           Pos.Block.Types (Undo (..))
+import           Pos.Chain.Block (SlogUndo, Undo (..))
 import           Pos.Core (HasProtocolConstants)
 
+import           Test.Pos.Chain.Delegation.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.DB.Update.Arbitrary ()
-import           Test.Pos.Delegation.Arbitrary ()
 
 instance Arbitrary SlogUndo where
     arbitrary = genericArbitrary

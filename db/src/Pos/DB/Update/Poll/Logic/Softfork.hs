@@ -17,6 +17,8 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logInfo)
 
+import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
+                     MonadPollRead (..), PollVerFailure (..))
 import           Pos.Core (Coin, EpochIndex, HasProtocolConstants, SlotId (..),
                      StakeholderId, crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Block (HeaderHash)
@@ -25,9 +27,6 @@ import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
 import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
                      adoptBlockVersion, calcSoftforkThreshold, canBeAdoptedBV,
                      updateSlottingData)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util.AssertMode (inAssertMode)
 
 -- | Record the fact that main block with given version and leader has

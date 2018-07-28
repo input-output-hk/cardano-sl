@@ -6,6 +6,7 @@ module Pos.GState.GState
 
 import           Universum
 
+import           Pos.Chain.Txp (genesisUtxo)
 import           Pos.Core (genesisData)
 import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Genesis (gdHeavyDelegation)
@@ -17,7 +18,6 @@ import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
 import           Pos.DB.Ssc (initSscDB)
 import           Pos.DB.Txp (initGStateStakes, initGStateUtxo)
 import           Pos.DB.Update (initGStateUS)
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::

@@ -16,6 +16,11 @@ import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
+                     HasUpdateConfiguration, MonadPoll, PollModifier (..),
+                     PollT, PollVerFailure, ProposalState, USUndo, execPollT,
+                     execRollT, getAdoptedBV, lastKnownBlockVersion,
+                     reportUnexpectedError, runPollT)
 import           Pos.Core (HasCoreConfiguration, HasProtocolConstants,
                      ProtocolMagic, StakeholderId, addressHash, epochIndexL)
 import           Pos.Core.Block (ComponentBlock (..), headerHashG,
@@ -37,12 +42,6 @@ import           Pos.DB.Update.Poll.Logic.Base (canCreateBlockBV)
 import           Pos.DB.Update.Poll.Logic.Rollback (rollbackUS)
 import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
-import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState,
-                     MonadPoll, PollModifier (..), PollT, PollVerFailure,
-                     ProposalState, USUndo, execPollT, execRollT, getAdoptedBV,
-                     reportUnexpectedError, runPollT)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
 

@@ -4,7 +4,7 @@ module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
-import           Universum hiding (empty, filter, id, keys)
+import           Universum hiding (id)
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -17,16 +17,16 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose,
                      conjoin, counterexample, suchThat, vectorOf, (.&&.),
                      (==>))
 
+import           Pos.Chain.Ssc (SscGlobalState (..), VssCertData (..),
+                     expiryEoS, rollbackSsc, runPureToss, setLastKnownSlot,
+                     sgsVssCertificates)
+import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration,
                      SlotId (..), slotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Core.Ssc (VssCertificate (..), getCertId,
                      getVssCertificatesMap, mkVssCertificate)
-import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty,
-                     expiryEoS, filter, insert, keys, lookup, member,
-                     rollbackSsc, runPureToss, setLastKnownSlot,
-                     sgsVssCertificates)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
@@ -89,8 +89,8 @@ instance HasConfiguration => Arbitrary CorrectVssCertData where
         lkeos             <- arbitrary :: Gen EpochOrSlot
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
-        let dataUpdaters   = map insert vssCertificates
-        pure $ foldl' (&) (empty {lastKnownEoS = lkeos}) dataUpdaters
+        let dataUpdaters   = map Ssc.insert vssCertificates
+        pure $ foldl' (&) (Ssc.empty {lastKnownEoS = lkeos}) dataUpdaters
 
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
@@ -101,18 +101,18 @@ verifyInsertVssCertData certificate certData =
     certificate `canBeIn` certData ==>
     counterexample
         ("expected " <> show shid <> " to be in certdata")
-        (shid `member` insert certificate certData)
+        (shid `Ssc.member` Ssc.insert certificate certData)
   where
     shid = getCertId certificate
 
 verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Property
 verifyDeleteVssCertData certificate certData =
     let shid = getCertId certificate
-        certWithShid    = insert certificate certData
-        certWithoutShid = delete shid certWithShid
+        certWithShid    = Ssc.insert certificate certData
+        certWithoutShid = Ssc.delete shid certWithShid
     in  counterexample
             ("expected " <> show shid <> " not to be in certdata")
-            (not (shid `member` certWithoutShid))
+            (not (shid `Ssc.member` certWithoutShid))
 
 -- | This function checks all imaginable properties for correctly created 'VssCertData'.
 -- TODO: some checks are not assimptotically efficient but nobody cares untill time is reasonable
@@ -164,11 +164,11 @@ verifySetLastKnownSlot newLks (CorrectVssCertData vssCertData) =
 -- TODO: add more checks here?
 verifyDeleteAndFilter :: CorrectVssCertData -> Bool
 verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
-    let certificatesHolders = keys vcd
+    let certificatesHolders = Ssc.keys vcd
         holdersLength       = length certificatesHolders
         halfOfHolders       = take (holdersLength `div` 2) certificatesHolders
         setFromHalf         = HS.fromList halfOfHolders
-        resultVcd           = filter (`HS.member` setFromHalf) vcd
+        resultVcd           = Ssc.filter (`HS.member` setFromHalf) vcd
         resultCorrectVcd    = CorrectVssCertData resultVcd
     in isConsistent resultCorrectVcd
 
@@ -198,7 +198,7 @@ instance HasConfiguration => Arbitrary RollbackData where
 verifyRollback
     :: HasConfiguration => RollbackData -> Gen Property
 verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
-    let certAdder vcd = foldl' (flip insert) vcd vssCerts
+    let certAdder vcd = foldl' (flip Ssc.insert) vcd vssCerts
         newSscGlobalState@(SscGlobalState _ _ _ newVssCertData) =
             oldSscGlobalState & sgsVssCertificates %~ certAdder
     (_, SscGlobalState _ _ _ rolledVssCertData, _) <-
@@ -208,9 +208,9 @@ verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
         let id = getCertId cert in
         counterexample ("haven't found cert with id " <>
                         show id <> " in newVssCertData")
-            (qcIsJust (lookup id newVssCertData))
+            (qcIsJust (Ssc.lookup id newVssCertData))
         .&&.
         counterexample ("expected a " <> show (Just cert) <>
-                        ", got " <> show (lookup id rolledVssCertData) <>
+                        ", got " <> show (Ssc.lookup id rolledVssCertData) <>
                         " in rolledVssCertData")
-            ((/= Just cert) (lookup id rolledVssCertData))
+            ((/= Just cert) (Ssc.lookup id rolledVssCertData))

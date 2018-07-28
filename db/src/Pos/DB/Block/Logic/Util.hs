@@ -24,8 +24,8 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
-import           Pos.Block.Slog (HasSlogGState)
+import           Pos.Chain.Block (HasBlockConfiguration, HasSlogGState,
+                     fixedTimeCQ)
 import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
                      Timestamp (..), difficultyL, flattenSlotId)
 import           Pos.Core.Block (BlockHeader, HeaderHash, headerHash,

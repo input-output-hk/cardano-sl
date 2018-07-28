@@ -18,9 +18,9 @@ import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..),
 import           Pos.Crypto (hash)
 import           Pos.Infra.Communication.Relay (DataMsg (..))
 
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Update.Arbitrary ()
 
 instance Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary

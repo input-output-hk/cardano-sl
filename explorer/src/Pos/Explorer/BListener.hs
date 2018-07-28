@@ -29,7 +29,8 @@ import qualified Ether
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (topsortTxs)
 import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
                      difficultyL, epochIndexL, getChainDifficulty)
 import           Pos.Core.Block (Block, HeaderHash, MainBlock, headerHash,
@@ -44,7 +45,6 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      defaultPageSize, findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
-import           Pos.Txp (topsortTxs)
 import           Pos.Util.AssertMode (inAssertMode)
 
 

@@ -9,7 +9,7 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
-import qualified Pos.Block.Types as Block
+import qualified Pos.Chain.Block as Block
 import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)
 import qualified Pos.Network.Block.Types as Block

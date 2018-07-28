@@ -26,8 +26,13 @@ import qualified Data.Aeson as J
 
 import           Ntp.Client (NtpConfiguration)
 
-import           Pos.Block.Configuration (HasBlockConfiguration,
-                     withBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
+import           Pos.Chain.Delegation (HasDlgConfiguration,
+                     withDlgConfiguration)
+import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
+import           Pos.Chain.Txp (HasTxpConfiguration, withTxpConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..),
@@ -35,14 +40,8 @@ import           Pos.Core.Configuration (CoreConfiguration (..),
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Ssc.Configuration (HasSscConfiguration,
-                     withSscConfiguration)
-import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)
 
 -- | This configuration is embedded into binary and is used by default

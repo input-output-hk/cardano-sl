@@ -24,7 +24,13 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
+                     ProxySKBlockInfo)
+import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
+import           Pos.Chain.Txp (emptyTxPayload)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     lastKnownBlockVersion)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
                      SlotId (..), chainQualityThreshold, epochIndexL,
                      epochSlots, flattenSlotId, getEpochOrSlot)
@@ -63,13 +69,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
-import           Pos.Delegation (DelegationVar, DlgPayload (..),
-                     ProxySKBlockInfo)
-import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
-import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
 

@@ -23,8 +23,10 @@ import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration,
-                     recoveryHeadersMessage, streamWindow)
+import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
+                     streamWindow)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
@@ -52,8 +54,6 @@ import           Pos.Logic.Full (logicFull)
 import           Pos.Logic.Types (Logic, hoistLogic)
 import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)

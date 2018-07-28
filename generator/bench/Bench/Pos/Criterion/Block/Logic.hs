@@ -15,7 +15,7 @@ import           System.Random (newStdGen)
 import           System.Wlog (LoggerName (..))
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
-import           Pos.Block.Logic.Integrity (VerifyBlockParams (..),
+import           Pos.Chain.Block (VerifyBlockParams (..),
                      VerifyHeaderParams (..), verifyBlock, verifyHeader)
 import           Pos.Core.Block (Block, getBlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)

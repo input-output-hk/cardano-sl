@@ -12,12 +12,12 @@ import           Universum
 import           Formatting (sformat, (%))
 import           System.Wlog (logInfo)
 
+import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote (..),
+                     mkUpdateVoteSafe)
 import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (sendUpdateProposal, sendVote))
-import           Pos.Update (UpId, UpdateProposal, UpdateVote (..),
-                     mkUpdateVoteSafe)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses

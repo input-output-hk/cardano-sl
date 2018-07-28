@@ -14,7 +14,7 @@ import           Universum
 import           Control.Lens (lens, makeClassy)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Slog (HasSlogGState (..), SlogGState)
+import           Pos.Chain.Block (HasSlogGState (..), SlogGState)
 import           Pos.DB.Block (cloneSlogGState)
 import           Pos.DB.Lrc (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.DB.Pure (cloneDBPure)

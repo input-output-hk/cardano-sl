@@ -15,12 +15,12 @@ import           Universum
 import           Control.Monad.Trans (MonadTrans)
 import           Data.Time.Units (Millisecond)
 
+import           Pos.Chain.Update (ConfirmedProposalState (..))
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Core (ChainDifficulty)
 import           Pos.Core.JsonLog (CanJsonLog)
-import           Pos.Update (ConfirmedProposalState (..))
 import           Pos.WorkMode (EmptyMempoolExt)
 
 class Monad m => MonadBlockchainInfo m where

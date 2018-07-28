@@ -55,7 +55,7 @@ import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (noTrace, wlogTrace)
-import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
 --

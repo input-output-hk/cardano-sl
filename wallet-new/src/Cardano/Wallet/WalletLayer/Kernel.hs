@@ -16,7 +16,7 @@ import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
 import           System.Wlog (Severity (Debug))
 
-import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Chain.Block (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel

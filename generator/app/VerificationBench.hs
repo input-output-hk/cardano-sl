@@ -18,7 +18,7 @@ import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
-import           Pos.Block.Error (ApplyBlocksException, VerifyBlocksException)
+import           Pos.Chain.Block (ApplyBlocksException, VerifyBlocksException)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)

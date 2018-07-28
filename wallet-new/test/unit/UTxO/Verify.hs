@@ -21,10 +21,10 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           System.Wlog
 
-import           Pos.Block.Error
-import           Pos.Block.Logic (verifyBlocks)
-import           Pos.Block.Slog
-import           Pos.Block.Types
+import           Pos.Chain.Block
+import           Pos.Chain.Delegation (DlgUndo (..))
+import           Pos.Chain.Txp
+import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Block (Block, ComponentBlock (..), HeaderHash,
                      genBlockLeaders, mainBlockSlot, prevBlockL)
@@ -33,9 +33,6 @@ import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
-import           Pos.Delegation (DlgUndo (..))
-import           Pos.Txp
-import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
@@ -159,20 +156,20 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
   Block verification
 
   There appears to be only a single "pure" block verification function
-  (requiring only HasConfiguration): 'Pos.Block.Logic.Integrity.verifyBlocks'.
+  (requiring only HasConfiguration): 'Pos.Chain.Block.verifyBlocks'.
   Unfortunately, it seems this really only verifies the block envelope (maximum
   block size, unknown attributes, that sort of thing), not the transactions
   contained within. There is also
 
-  1. 'Pos.Block.Logic.VAR.verifyBlocksPrefix'
+  1. 'Pos.Chain.Block.VAR.verifyBlocksPrefix'
      Requires 'MonadBlockVerify'.
 
-  2. 'Pos.Block.Slog.Logic.slogVerifyBlocks'
+  2. 'Pos.Chain.Block.slogVerifyBlocks'
      Requires 'MonadSlogVerify'.
-     Called by (1) and calls 'Pos.Block.Logic.Integrity.verifyBlocks'.
+     Called by (1) and calls 'Pos.Chain.Block.verifyBlocks'.
      Doesn't seem to do any additional verification itself.
 
-  3. 'Pos.Ssc.Logic.VAR.sscVerifyBlocks'
+  3. 'Pos.Chain.Ssc.Logic.VAR.sscVerifyBlocks'
      Requires 'SscGlobalVerifyMode'.
      Called by (1).
      I think this only verifies SSC stuff (shared seed computation).
@@ -189,7 +186,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
      It seems this is the /only/ instantiation of 'tgsVerifyBlocks' (in the core
      libraries at least); thus, also called by (1).
 
-  6. 'Pos.Delegation.Logic.VAR.dlgVerifyBlocks'
+  6. 'Pos.Chain.Delegation.Logic.VAR.dlgVerifyBlocks'
       No constraint synonym, but requires 'MonadDBRead' and 'MonadIO'.
       According to its header comment, verifies delegation logic.
 
@@ -205,7 +202,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 --
 -- LRC must be already performed for the epoch from which blocks are.
 --
--- Adapted from 'Pos.Block.Logic.VAR.verifyBlocksPrefix'.
+-- Adapted from 'Pos.Chain.Block.VAR.verifyBlocksPrefix'.
 --
 -- Differences from original:
 --
@@ -287,7 +284,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
 --
--- Adapted from 'Pos.Block.Slog.Logic.slogVerifyBlocks'.
+-- Adapted from 'Pos.Chain.Block.slogVerifyBlocks'.
 --
 -- Differences from original:
 --

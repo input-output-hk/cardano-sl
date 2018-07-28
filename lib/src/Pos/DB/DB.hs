@@ -10,6 +10,7 @@ module Pos.DB.DB
 
 import           Universum
 
+import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Core (GenesisHash (..), SlotCount, genesisHash)
 import           Pos.Core.Block (genesisBlock0, headerHash)
 import           Pos.Core.Update (BlockVersionData)
@@ -19,7 +20,6 @@ import           Pos.DB.Class (MonadDB, MonadDBRead (..))
 import           Pos.DB.Lrc (prepareLrcDB)
 import           Pos.DB.Update (getAdoptedBVData)
 import           Pos.GState.GState (prepareGStateDB)
-import           Pos.Lrc.Genesis (genesisLeaders)
 
 -- | Initialize DBs if necessary.
 initNodeDBs

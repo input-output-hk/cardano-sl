@@ -13,9 +13,9 @@ import           Universum
 import           Formatting (int, sformat, (%))
 import qualified System.Metrics as Ekg
 
-import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQSec)
-import           Pos.Block.Slog (HasSlogGState (..), LastBlkSlots,
-                     SlogContext (..), SlogGState (..), sgsLastBlkSlots)
+import           Pos.Chain.Block (HasBlockConfiguration, HasSlogGState (..),
+                     LastBlkSlots, SlogContext (..), SlogGState (..),
+                     fixedTimeCQSec, sgsLastBlkSlots)
 import           Pos.Core (blkSecurityParam)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.Core.Reporting (MetricMonitorState, mkMetricMonitorState)

@@ -3,7 +3,7 @@
 
 -- | This module does some hard work related to block processing
 -- logic, but not specific to any particular part of the
--- system. On the contrary, modules like 'Pos.Block.Logic.VAR'
+-- system. On the contrary, modules like 'Pos.Chain.Block.VAR'
 -- unite logic from multiple components into functions.
 
 module Pos.DB.Block.Slog.Logic
@@ -31,9 +31,10 @@ import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Logic.Integrity (verifyBlocks)
-import           Pos.Block.Slog (HasSlogGState)
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Block (Blund, HasSlogGState, SlogUndo (..),
+                     Undo (..), verifyBlocks)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
 import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
                      epochIndexL, flattenSlotId)
 import           Pos.Core.Block (Block, genBlockLeaders, headerHash,
@@ -57,8 +58,6 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 

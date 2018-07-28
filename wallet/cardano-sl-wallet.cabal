@@ -116,20 +116,15 @@ library
                       , bytestring
                       , cardano-crypto
                       , cardano-sl
-                      , cardano-sl-block
+                      , cardano-sl-chain
                       , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-crypto
-                      , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-db
                       , cardano-sl-infra
-                      , cardano-sl-lrc
-                      , cardano-sl-ssc
-                      , cardano-sl-txp
                       , cardano-sl-networking
                       , cardano-sl-node-ipc
-                      , cardano-sl-update
                       , cardano-sl-util
                       , containers
                       , cryptonite
@@ -247,20 +242,15 @@ test-suite cardano-wallet-test
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-delegation
                      , cardano-sl-generator
                      , cardano-sl-infra
-                     , cardano-sl-lrc
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , cardano-sl-wallet

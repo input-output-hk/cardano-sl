@@ -39,6 +39,9 @@ import           Servant.Server (Handler, HasServer, ServantErr (errBody),
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)
+import           Pos.Chain.Ssc (scParticipateSsc)
+import           Pos.Chain.Txp (TxOut (..), toaOut)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
@@ -50,9 +53,6 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Ssc (scParticipateSsc)
-import           Pos.Txp (TxOut (..), toaOut)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
 

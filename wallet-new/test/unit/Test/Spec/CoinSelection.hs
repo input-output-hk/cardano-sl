@@ -20,10 +20,10 @@ import qualified Formatting as F
 import           Formatting.Buildable (Buildable (..))
 import qualified Text.Tabl as Tabl
 
+import qualified Pos.Chain.Txp as Core
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import qualified Pos.Core as Core
 import           Pos.Crypto (SecretKey)
-import qualified Pos.Txp as Core
 import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable

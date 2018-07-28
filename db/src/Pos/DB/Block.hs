@@ -46,8 +46,8 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class (decodeFull', serialize')
-import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (SlogUndo (..), Undo (..))
+import           Pos.Chain.Block (SlogUndo (..), Undo (..))
+import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Core.Block (Block, GenesisBlock, HeaderHash, headerHash)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
@@ -60,7 +60,6 @@ import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                      pureBlocksStorage)
 import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
-import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
 
 import           Pos.DB.Block.BListener as X

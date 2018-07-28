@@ -41,6 +41,7 @@ import           Formatting (build, sformat, (%))
 import           Servant.API.ContentTypes (NoContent (..))
 import           System.Wlog (WithLogger)
 
+import           Pos.Chain.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
                      addSecretKey, deleteSecretKeyBy)
 import           Pos.Core (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
@@ -50,7 +51,6 @@ import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches,
 import           Pos.DB.Txp (GenericTxpLocalData, MonadTxpMem, getLocalTxs,
                      getLocalUndos, withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Util (maybeThrow)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)

@@ -28,8 +28,9 @@ import           Control.Monad.Except
 import           Data.Constraint (Dict (..))
 import           Universum
 
-import           Pos.Block.Error
-import           Pos.Block.Types
+import           Pos.Chain.Block
+import           Pos.Chain.Txp
+import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Block (Block, GenesisBlock, GenesisBlockHeader,
                      HeaderHash, MainBlock, gbBody, gbHeader, gbLeaders,
@@ -37,8 +38,6 @@ import           Pos.Core.Block (Block, GenesisBlock, GenesisBlockHeader,
 import           Pos.Core.Chrono
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
-import           Pos.Txp.Toil
-import           Pos.Update
 
 import           Util.Validated
 import           UTxO.Context
@@ -200,7 +199,7 @@ verify ma = withConfig $ do
 -- Probably easier is to always start from an epoch boundary block; in such a
 -- case in principle we don't need to pass in the set of leaders all, since the
 -- the core of the block verification code ('verifyBlocks' from module
--- "Pos.Block.Logic.Integrity") will then take the set of leaders from the
+-- "Pos.Chain.Block") will then take the set of leaders from the
 -- genesis/epoch boundary block itself. In practice, however, the passed in set
 -- of leaders is verified 'slogVerifyBlocks', so we'd have to modify the
 -- verification code a bit.

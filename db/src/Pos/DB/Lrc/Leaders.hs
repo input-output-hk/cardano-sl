@@ -19,6 +19,7 @@ module Pos.DB.Lrc.Leaders
 import           Universum
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount,
                      SlotId (SlotId), SlotLeaders, StakeholderId,
                      flattenSlotId, pcEpochSlots, protocolConstants,
@@ -26,7 +27,6 @@ import           Pos.Core (EpochIndex, HasProtocolConstants, SlotCount,
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.DB.Lrc.Common (dbHasKey, getBi, putBatch, putBatchBi,
                      putBi, toRocksOps)
-import           Pos.Lrc.Genesis (genesisLeaders)
 
 ----------------------------------------------------------------------------
 -- Getters

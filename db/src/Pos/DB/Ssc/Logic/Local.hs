@@ -28,6 +28,19 @@ import           Serokell.Util (magnify')
 import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
+                     SscGlobalState, SscLocalData (..), SscLocalQuery,
+                     SscLocalUpdate, SscTag (..), SscVerifyError (..), TossT,
+                     askSscMem, evalPureTossWithLogger, evalTossT, execTossT,
+                     hasCertificateToss, hasCommitmentToss, hasOpeningToss,
+                     hasSharesToss, isCommitmentIdx, isGoodSlotForTag,
+                     isOpeningIdx, isSharesIdx, ldEpoch, ldModifier, ldSize,
+                     normalizeToss, refreshToss, sscGlobal, sscLocal,
+                     sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM,
+                     supplyPureTossEnv, syncingStateWith, tmCertificates,
+                     tmCommitments, tmOpenings, tmShares,
+                     verifyAndApplySscPayload)
 import           Pos.Core (EpochIndex, HasGenesisData, HasProtocolConstants,
                      SlotId (..), StakeholderId, epochIndexL)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
@@ -40,22 +53,6 @@ import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen, tryGetSscRichmen)
-import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate,
-                     askSscMem, sscRunGlobalQuery, sscRunLocalQuery,
-                     sscRunLocalSTM, syncingStateWith)
-import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT,
-                     evalPureTossWithLogger, evalTossT, execTossT,
-                     hasCertificateToss, hasCommitmentToss, hasOpeningToss,
-                     hasSharesToss, isGoodSlotForTag, normalizeToss,
-                     refreshToss, supplyPureTossEnv, tmCertificates,
-                     tmCommitments, tmOpenings, tmShares,
-                     verifyAndApplySscPayload)
-import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch,
-                     ldModifier, ldSize, sscGlobal, sscLocal)
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,

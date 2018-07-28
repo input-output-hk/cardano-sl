@@ -21,11 +21,11 @@ import           Formatting (float, int, sformat, (%))
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
+import           Pos.Chain.Txp (genesisUtxo, unGenesisUtxo)
 import           Pos.Core.Conc (delay)
 import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF,
                      hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)

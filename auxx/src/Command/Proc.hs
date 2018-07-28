@@ -16,6 +16,7 @@ import           System.Wlog (CanLog, HasLoggerName, logError, logInfo,
                      logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
+import           Pos.Chain.Update (BlockVersionModifier (..))
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (AddrStakeDistribution (..), Address, StakeholderId,
@@ -31,7 +32,6 @@ import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase,
                      safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Update (BlockVersionModifier (..))
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
                      usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)

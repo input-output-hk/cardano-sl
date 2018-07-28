@@ -9,6 +9,7 @@ module Pos.Launcher.Launcher
 
 import           Universum
 
+import           Pos.Chain.Ssc (SscParams)
 import           Pos.Core.Configuration (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
@@ -20,7 +21,6 @@ import           Pos.Launcher.Resource (NodeResources (..),
                      bracketNodeResources)
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Launcher.Scenario (runNode)
-import           Pos.Ssc.Types (SscParams)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 

@@ -12,6 +12,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Txp (ToilVerFailure (..), Utxo)
 import           Pos.Core (EpochIndex, Timestamp)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
@@ -25,7 +26,6 @@ import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.Infra.StateLock (Priority (..), StateLock,
                      StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Txp.Toil (ToilVerFailure (..), Utxo)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (HasLens')
 

@@ -28,8 +28,7 @@ import           Serokell.Util.Verify (VerificationRes (..))
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..),
-                     verifyHeader)
+import           Pos.Chain.Block (VerifyHeaderParams (..), verifyHeader)
 import           Pos.Core (blkSecurityParam, difficultyL, epochIndexL,
                      getEpochOrSlot)
 import           Pos.Core.Block (BlockHeader (..), HeaderHash, headerHash,

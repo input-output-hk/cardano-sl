@@ -11,9 +11,9 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo,
 import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Ntp.Client (NtpStatus)
+import           Pos.Chain.Update (curSoftwareVersion)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 

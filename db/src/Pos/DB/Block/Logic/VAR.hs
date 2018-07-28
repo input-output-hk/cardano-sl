@@ -23,9 +23,11 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (sformat, shown, (%))
 import           System.Wlog (logDebug)
 
-import           Pos.Block.Error (ApplyBlocksException (..),
-                     RollbackException (..), VerifyBlocksException (..))
-import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Chain.Block (ApplyBlocksException (..), Blund,
+                     RollbackException (..), Undo (..),
+                     VerifyBlocksException (..))
+import           Pos.Chain.Txp (HasTxpConfiguration)
+import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Block (Block, HeaderHash, headerHashG, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
@@ -48,8 +50,6 @@ import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import           Pos.DB.Update (getAdoptedBVFull, usVerifyBlocks)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
-import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
 
@@ -91,7 +91,7 @@ verifyBlocksPrefix pm ctx blocks = runExceptT $ do
     let dataMustBeKnown = mustDataBeKnown (vbcBlockVersion ctx)
 
     -- Run verification of each component.
-    -- 'slogVerifyBlocks' uses 'Pos.Block.Pure.verifyBlocks' which does
+    -- 'slogVerifyBlocks' uses 'Pos.Chain.Block.Pure.verifyBlocks' which does
     -- the internal consistency checks formerly done in the 'Bi' instance
     -- 'decode'.
     slogUndos <- withExceptT VerifyBlocksError $

@@ -28,7 +28,7 @@ import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage,
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 

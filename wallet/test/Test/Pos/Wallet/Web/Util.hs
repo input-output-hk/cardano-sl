@@ -36,7 +36,8 @@ import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf,
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund, LastKnownHeaderTag)
+import           Pos.Chain.Block (Blund, LastKnownHeaderTag)
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
@@ -52,7 +53,6 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
 import           Pos.Generator.Block (genBlocks)
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
 
 import           Pos.Util.Servant (encodeCType)

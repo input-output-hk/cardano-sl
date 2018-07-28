@@ -24,8 +24,12 @@ import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
 import           Ntp.Client (NtpConfiguration)
-
-import           Pos.Block.Configuration (blockConfiguration)
+import           Pos.Chain.Block (blockConfiguration)
+import           Pos.Chain.Delegation (dlgConfiguration)
+import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
+import           Pos.Chain.Ssc (sscConfiguration)
+import           Pos.Chain.Txp (txpConfiguration)
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
@@ -36,13 +40,8 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
-import           Pos.Delegation.Configuration (dlgConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Security.Params (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.Configuration (sscConfiguration)
-import           Pos.Txp.Configuration (txpConfiguration)
-import           Pos.Update.Configuration (updateConfiguration)
 import           Pos.Util.AssertMode (inAssertMode)
 
 printFlags :: WithLogger m => m ()

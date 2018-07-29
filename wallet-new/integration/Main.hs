@@ -78,7 +78,7 @@ main = do
     actionDistribution = do
         (PostWallet, Weight 2)
             :| (PostTransaction, Weight 5)
-            : fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
+            : fmap (, Weight 1) [minBound .. maxBound]
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do

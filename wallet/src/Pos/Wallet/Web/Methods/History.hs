@@ -157,7 +157,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         (Nothing, Nothing)      -> throwM errorSpecifySomething
         (Just _, Just _)        -> throwM errorDontSpecifyBoth
         (Just cWalId', Nothing) ->
-            let accIds' = \ws -> getWalletAccountIds ws cWalId'
+            let accIds' = (`getWalletAccountIds` cWalId')
              in pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, const [accId])
     (WalletHistory unsortedThs, WalletHistorySize n)

@@ -223,6 +223,11 @@ packages:
     commit: 94327051aa311b369a58214a594eb00109912cd8 # the ghc-8.4.2 branch.
   extra-dep: true
 
+- location:
+    git: https://github.com/luite/hfsevents.git
+    commit: 25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

@@ -89,5 +89,6 @@
       canonical-json = ./.stack.nix/canonical-json.nix;
       clock = ./.stack.nix/clock.nix;
       purescript = ./.stack.nix/purescript.nix;
+      hfsevents = ./.stack.nix/hfsevents.nix;
     };
 }

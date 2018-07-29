@@ -3,7 +3,7 @@ let
     _flags = {
       release = false;
     } // flags;
-    in {
+    in ({
       flags = _flags;
       package = {
         specVersion = "0";
@@ -210,4 +210,6 @@ let
         rev = "94327051aa311b369a58214a594eb00109912cd8";
         sha256 = "0ckkfhcy8gs2rm7vfd2cvjf7jg7lhcz3a1s6qc0cdn5wcv2a0blx";
       };
+    }) // {
+      cabal-generator = "hpack";
     }

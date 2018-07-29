@@ -157,7 +157,7 @@ let
     cardano-sl-explorer   = doTemplateHaskell super.cardano-sl-explorer;
 
     trifecta              = doTemplateHaskell super.trifecta;
-    cardano-sl-tools      = doTemplateHaskell (super.cardano-sl-tools.override { flags = { for-installer = true; }; });
+    cardano-sl-tools      = doTemplateHaskell super.cardano-sl-tools;#.override; # { flags = { for-installer = true; }; }));
     hedgehog              = doTemplateHaskell super.hedgehog;
 
     cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };

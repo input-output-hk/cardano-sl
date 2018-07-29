@@ -27,8 +27,6 @@
       "servant-client-core" = hsPkgs.servant-client-core."0.13.0.1";
       "servant-generic" = hsPkgs.servant-generic."0.1.0.2";
       "servant-server" = hsPkgs.servant-server."0.13.0.1";
-      "purescript" = hsPkgs.purescript."0.12.0";
-      "spdx" = hsPkgs.spdx."0.2.2.0";
     };
   packages = hsPkgs: {
       cardano-sl-util = ./.stack.nix/cardano-sl-util.nix;
@@ -90,5 +88,6 @@
       serokell-util = ./.stack.nix/serokell-util.nix;
       canonical-json = ./.stack.nix/canonical-json.nix;
       clock = ./.stack.nix/clock.nix;
+      purescript = ./.stack.nix/purescript.nix;
     };
 }

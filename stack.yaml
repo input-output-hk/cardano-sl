@@ -216,6 +216,13 @@ packages:
     commit: ef60bd51a3587a173adf565c33bf2886df6e3842
   extra-dep: true
 
+# LTS-12 doesn't have purescript, we do however build it in CI.
+# See https://github.com/purescript/purescript/pull/3372 for the ghc 8.4 compat
+- location:
+    git: https://github.com/purescript/purescript.git
+    commit: 94327051aa311b369a58214a594eb00109912cd8 # the ghc-8.4.2 branch.
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -274,10 +281,6 @@ extra-deps:
 - servant-client-core-0.13.0.1
 - servant-generic-0.1.0.2
 - servant-server-0.13.0.1
-
-# LTS-12 doesn't have purescript, we do however build it in CI.
-- purescript-0.12.0
-- spdx-0.2.2.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

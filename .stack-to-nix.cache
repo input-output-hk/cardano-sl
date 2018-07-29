@@ -21,3 +21,4 @@ https://github.com/input-output-hk/universum.git 7f1b2483f71cacdfd032fe447064d6e
 https://github.com/input-output-hk/serokell-util.git 4ead9809e119483e7832da5f8224b0c4d4a2d5d6 . 0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd serokell-util .stack.nix/serokell-util.nix
 https://github.com/angerman/canonical-json.git f66762e4c4fe484ed109d28ad541fc55cc841c2c . 0cqa4vnrj3wqqgzzg9v7p3ddrfsf5fx63dv2jnwnlfaczs007dkq canonical-json .stack.nix/canonical-json.nix
 https://github.com/corsis/clock.git ef60bd51a3587a173adf565c33bf2886df6e3842 . 1r4n9imls483f7wd61fi1jk16z2k7w36gpx798sqidvwbnc831q1 clock .stack.nix/clock.nix
+https://github.com/purescript/purescript.git 94327051aa311b369a58214a594eb00109912cd8 . 0ckkfhcy8gs2rm7vfd2cvjf7jg7lhcz3a1s6qc0cdn5wcv2a0blx purescript .stack.nix/purescript.nix

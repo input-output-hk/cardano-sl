@@ -129,7 +129,7 @@ actionWithNewWallet pm sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      userSecret <- atomically $ readTVar (ncUserSecret $ nrContext nr)
+      userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let rocksDB = newMonadDBReadAdaptor (nrDBs nr)
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
           bracketKernelPassiveWallet logMessage' keystore rocksDB $ \walletLayer passiveWallet -> do

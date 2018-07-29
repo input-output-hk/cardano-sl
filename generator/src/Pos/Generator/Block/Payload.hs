@@ -134,7 +134,7 @@ genTxPayload pm = do
     flip evalStateT gtd $ do
         (a,d) <- lift $ view tgpTxCountRange
         txsN <- fromIntegral <$> getRandomR (a, a + d)
-        void $ replicateM txsN genTransaction
+        replicateM_ txsN genTransaction
   where
     genTransaction :: StateT GenTxData (BlockGenRandMode ext g m) ()
     genTransaction = do

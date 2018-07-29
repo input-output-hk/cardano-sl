@@ -91,7 +91,7 @@ sscVerifyBlocks pm bvd blocks = do
         assertionFailed differentEpochsMsg
     richmenSet <- getSscRichmen "sscVerifyBlocks" epoch
     globalVar <- sscGlobal <$> askSscMem
-    gs <- atomically $ readTVar globalVar
+    gs <- readTVarIO globalVar
     res <-
         runExceptT
             (execStateT (sscVerifyAndApplyBlocks pm richmenSet bvd blocks) gs)

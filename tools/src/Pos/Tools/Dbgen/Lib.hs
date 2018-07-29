@@ -282,7 +282,7 @@ generateFakeTxs (SimpleTxsHistory txsCount numOutgoingAddress) aId = do
     -- We don't generate all txs at once since we could run out of memory.
     -- That's why we use batching so GC can clear the memory behind us in
     -- batches.
-    void $ replicateM batches (generateNFakeTxs batchSize numOutgoingAddress aId)
+    replicateM_ batches (generateNFakeTxs batchSize numOutgoingAddress aId)
     generateNFakeTxs remainder numOutgoingAddress aId
 
 

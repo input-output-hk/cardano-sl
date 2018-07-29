@@ -100,7 +100,7 @@ getCurrentSlotInaccurateSimple' var =
     getCurrentSlotSimple' var >>= \case
         Just slot -> pure slot
         Nothing   -> do
-            lastSlot <- _sssLastSlot <$> atomically (readTVar var)
+            lastSlot <- _sssLastSlot <$> readTVarIO var
             max lastSlot <$> (currentTimeSlottingSimple >>=
                 approxSlotUsingOutdated)
 

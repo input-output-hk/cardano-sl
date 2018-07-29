@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -128,7 +129,7 @@ runJsonLogT' :: MonadIO m
                              -- log messages are written to handle @h@.
              -> JsonLogT m a -- ^ A monadic computation containing JSON log messages.
              -> m a
-runJsonLogT' mh = runJsonLogT $ fmap (\h -> (h, const $ return True)) mh
+runJsonLogT' mh = runJsonLogT $ fmap (, const $ return True) mh
 
 -- | Runs a computation containing JSON log messages,
 -- writing some of them to a handle.

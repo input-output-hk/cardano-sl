@@ -20,14 +20,12 @@ import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (sformat)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Aeson.Fee ()
 import           Pos.Core.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty,
-                     Script (..), addressF,
-                     decodeTextAddress)
-import           Pos.Core.Slotting (LocalSlotIndex,
-                     SlotCount (..), SlotId, Timestamp (..))
+                     Script (..), addressF, decodeTextAddress)
+import           Pos.Core.Slotting (LocalSlotIndex, SlotCount (..), SlotId,
+                     Timestamp (..))
 import           Pos.Util.Util (toAesonError)
 
 deriving instance ToJSON SlotCount

@@ -7,8 +7,8 @@ module Pos.Core.Update.SoftwareVersion
 
 import           Universum
 
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Control.Monad.Except (MonadError)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, stext, (%))
 import qualified Formatting.Buildable as Buildable

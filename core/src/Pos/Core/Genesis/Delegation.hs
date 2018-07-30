@@ -7,9 +7,9 @@ module Pos.Core.Genesis.Delegation
 
 import           Universum hiding (elems)
 
-import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Control.Lens (at)
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)

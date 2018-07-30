@@ -6,9 +6,9 @@ module Pos.Core.Update.SoftforkRule
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import qualified Data.Aeson.Options as S (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
-import           Control.Monad.Except (MonadError)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, (%))
 import qualified Formatting.Buildable as Buildable

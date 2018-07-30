@@ -5,8 +5,8 @@ module Pos.Core.Genesis.AvvmBalances
 import           Universum
 
 import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
-import qualified Text.JSON.Canonical as Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..))
+import qualified Text.JSON.Canonical as Canonical (FromJSON (..),
+                     ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Core.Common (Coin)
 import           Pos.Core.Genesis.Canonical ()

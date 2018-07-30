@@ -15,9 +15,8 @@ import           Universum
 import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (_Left)
 import qualified Crypto.Sign.Ed25519 as Ed25519
-import           Data.Aeson (FromJSONKey (..),
-                     FromJSONKeyFunction (..), ToJSONKey (..),
-                     ToJSONKeyFunction (..))
+import           Data.Aeson (FromJSONKey (..), FromJSONKeyFunction (..),
+                     ToJSONKey (..), ToJSONKeyFunction (..))
 import           Data.Aeson.Encoding (text)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.ByteString as BS

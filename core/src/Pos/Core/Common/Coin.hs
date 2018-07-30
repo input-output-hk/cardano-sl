@@ -32,8 +32,8 @@ import           Data.Data (Data)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, int, (%))
 import qualified Formatting.Buildable
-import qualified Text.JSON.Canonical as Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..))
+import qualified Text.JSON.Canonical as Canonical (FromJSON (..),
+                     ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Genesis.Canonical ()

@@ -7,8 +7,8 @@ module Pos.Core.Update.ApplicationName
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
-import           Data.Aeson.TH (deriveToJSON, defaultOptions)
 import           Data.Aeson (FromJSON (..))
+import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Char (isAscii)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T

@@ -20,7 +20,6 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Pos.Aeson.Core
-                       Pos.Aeson.Fee
 
                        Pos.Core
                        Pos.Core.Binary

@@ -19,8 +19,8 @@ import           Data.Aeson.Types (Parser)
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
-import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text as T
 import           Serokell.Util.Base64 (JsonByteString (..))
 
@@ -80,12 +80,12 @@ deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
 deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
 deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
+fromByteString :: BS.ByteString -> BA.Bytes
+fromByteString = BA.convert
 
 instance FromJSON Ed25519.PublicKey where
   parseJSON v =
     let
-      fromByteString :: BS.ByteString -> BA.Bytes
-      fromByteString = BA.convert
       fromCryptoToAeson :: CryptoFailable a -> Parser a
       fromCryptoToAeson (CryptoFailed e) = error $ mappend "Pos.Crypto.Orphan.parseJSON Ed25519.PublicKey failed because " (T.pack $ show e)
       fromCryptoToAeson (CryptoPassed r) = return r
@@ -105,8 +105,6 @@ instance ToJSON Ed25519.PublicKey where
 instance FromJSON Ed25519.Signature where
   parseJSON v =
     let
-      fromByteString :: BS.ByteString -> BA.Bytes
-      fromByteString = BA.convert
       fromCryptoToAeson :: CryptoFailable a -> Parser a
       fromCryptoToAeson (CryptoFailed e) = error $ mappend "Pos.Crypto.Orphan.parseJSON Ed25519.Signature failed because " (T.pack $ show e)
       fromCryptoToAeson (CryptoPassed r) = return r
@@ -123,47 +121,31 @@ instance ToJSON Ed25519.Signature where
     in
       toJSON . JsonByteString . toByteString
 
+
+fromCryptoToDecoder :: T.Text -> CryptoFailable a -> Decoder s a
+fromCryptoToDecoder item (CryptoFailed e) = error $ "Pos.Crypto.Orphan.decode " <> item <> " failed because " <> show e
+fromCryptoToDecoder _ (CryptoPassed r) = return r
+
 instance Bi Ed25519.PublicKey where
     encode =  E.encodeBytes . BA.convert
     decode =
-      let
-        fromByteString :: BS.ByteString -> BA.Bytes
-        fromByteString = BA.convert
-        fromCryptoToAeson :: CryptoFailable a -> Decoder s a
-        fromCryptoToAeson (CryptoFailed e) = error $ mappend "Pos.Crypto.Orphan.decode Ed25519.PublicKey failed because " (T.pack $ show e)
-        fromCryptoToAeson (CryptoPassed r) = return r
-      in
         do
           res <- Ed25519.publicKey . fromByteString <$> decode
-          fromCryptoToAeson res
+          fromCryptoToDecoder "Ed25519.PublicKey" res
 
 instance Bi Ed25519.SecretKey where
     encode =  E.encodeBytes . BA.convert
     decode =
-      let
-        fromByteString :: BS.ByteString -> BA.Bytes
-        fromByteString = BA.convert
-        fromCryptoToAeson :: CryptoFailable a -> Decoder s a
-        fromCryptoToAeson (CryptoFailed e) = error $ mappend "Pos.Crypto.Orphan.decode Ed25519.SecretKey failed because " (T.pack $ show e)
-        fromCryptoToAeson (CryptoPassed r) = return r
-      in
         do
           res <- Ed25519.secretKey . fromByteString <$> decode
-          fromCryptoToAeson res
+          fromCryptoToDecoder "Ed25519.SecretKey" res
 
 instance Bi Ed25519.Signature where
     encode =  E.encodeBytes . BA.convert
     decode =
-      let
-        fromByteString :: BS.ByteString -> BA.Bytes
-        fromByteString = BA.convert
-        fromCryptoToAeson :: CryptoFailable a -> Decoder s a
-        fromCryptoToAeson (CryptoFailed e) = error $ mappend "Pos.Crypto.Orphan.decode Ed25519.Signature failed because " (T.pack $  show e)
-        fromCryptoToAeson (CryptoPassed r) = return r
-      in
         do
           res <- Ed25519.signature . fromByteString <$> decode
-          fromCryptoToAeson res
+          fromCryptoToDecoder "Ed25519.Signature" res
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape

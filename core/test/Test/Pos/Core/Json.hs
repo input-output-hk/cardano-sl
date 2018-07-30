@@ -7,7 +7,6 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Time.Units (Millisecond)
 import           Hedgehog (Property)
 import qualified Hedgehog as H
-import           Pos.Aeson.Core.Configuration ()
 import           Pos.Binary.Class (Raw (..))
 import           Pos.Core.Common (Coeff (..), Coin (..), CoinPortion (..),
                      ScriptVersion, SharedSeed (..), TxFeePolicy (..),

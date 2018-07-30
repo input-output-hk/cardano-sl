@@ -15185,6 +15185,7 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 base
 binary
 bytestring

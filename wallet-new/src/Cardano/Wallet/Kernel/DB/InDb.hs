@@ -10,8 +10,9 @@ import           Universum
 
 import           Control.Arrow ((***))
 import           Control.Lens.TH (makeLenses)
+import           Crypto.Error (CryptoFailable (..))
 import           Crypto.Hash (Digest, digestFromByteString)
-import qualified Crypto.Sign.Ed25519 as Ed25519
+import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
@@ -302,16 +303,20 @@ instance SC.SafeCopy (InDb Txp.TxSigData) where
 instance SC.SafeCopy (InDb Core.RedeemPublicKey) where
     getCopy = SC.contain $ do
         bs :: B.ByteString <- SC.safeGet
-        pure (InDb (Core.RedeemPublicKey (Ed25519.PublicKey bs)))
+        case Ed25519.publicKey bs of
+            CryptoPassed key -> pure (InDb (Core.RedeemPublicKey key))
+            CryptoFailed err -> fail (show err)
     putCopy (InDb (Core.RedeemPublicKey pk)) = SC.contain $ do
-        SC.safePut (Ed25519.openPublicKey pk :: B.ByteString)
+        SC.safePut (BA.convert pk :: ByteString)
 
 instance SC.SafeCopy (InDb (Core.RedeemSignature a)) where
     getCopy = SC.contain $ do
         bs :: B.ByteString <- SC.safeGet
-        pure (InDb (Core.RedeemSignature (Ed25519.Signature bs)))
+        case Ed25519.signature bs of
+            CryptoPassed sig -> pure (InDb (Core.RedeemSignature sig))
+            CryptoFailed err -> fail (show err)
     putCopy (InDb (Core.RedeemSignature pk)) = SC.contain $ do
-        SC.safePut (Ed25519.unSignature pk :: B.ByteString)
+        SC.safePut (BA.convert pk :: ByteString)
 
 instance SC.SafeCopy (InDb h) => SC.SafeCopy (InDb (Core.Attributes h)) where
     getCopy = SC.contain $ do

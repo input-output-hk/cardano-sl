@@ -80,8 +80,9 @@ module Test.Pos.Core.ExampleHelpers
 
 import           Universum
 
+import           Crypto.Error (CryptoFailable (..))
+import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Crypto.SCRAPE as Scrape
-import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
@@ -631,16 +632,18 @@ exampleGenesisConfiguration_GCSpec =
 exampleGenesisAvvmBalances :: GenesisAvvmBalances
 exampleGenesisAvvmBalances =
     GenesisAvvmBalances {getGenesisAvvmBalances =
-        (HM.fromList [(RedeemPublicKey (Ed25519.PublicKey fstRedKey)
+        HM.fromList [(RedeemPublicKey (unsafePublicKey fstRedKey)
                      , Coin {getCoin = 36524597913081152})
-                     ,(RedeemPublicKey (Ed25519.PublicKey  sndRedKey)
+                     ,(RedeemPublicKey (unsafePublicKey sndRedKey)
                      ,Coin {getCoin = 37343863242999412})
-                     ]) }
+                     ] }
   where
-    fstRedKey = hexToBS "e2a1773a2a82d10c30890cbf84eccbdc1aaaee9204\
-                        \96424d36e868039d9cb519"
-    sndRedKey = hexToBS "9cdabcec332abbc6fdf883ca5bf3a8afddca69bfea\
-                        \c14c013304da88ac032fe6"
+    unsafePublicKey :: ByteString -> Ed25519.PublicKey
+    unsafePublicKey bytes = case Ed25519.publicKey bytes of
+        CryptoFailed e -> error (show e)
+        CryptoPassed r -> r
+    fstRedKey = "\254\156\235\217{]\130W\183LfJ\240"
+    sndRedKey = "\254\156\235\217{]\130W\183LfJ\240\RS\224"
 
 exampleSharedSeed :: SharedSeed
 exampleSharedSeed = SharedSeed (getBytes 8 32)

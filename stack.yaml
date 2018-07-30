@@ -95,12 +95,6 @@ packages:
     commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
   extra-dep: true
 
-# We're waiting on next release: https://github.com/thoughtpolice/hs-ed25519/issues/20
-- location:
-    git: https://github.com/thoughtpolice/hs-ed25519
-    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
-  extra-dep: true
-
 # These three are needed for cardano-sl-networking
 #
 # This defines a bundle type and attribute:

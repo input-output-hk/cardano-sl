@@ -8,11 +8,13 @@ module Pos.Crypto.Signing.Redeem
 
 import           Universum
 
-import           Crypto.Random (MonadRandom, getRandomBytes)
+import           Crypto.Error (CryptoFailable (..))
+import qualified Crypto.PubKey.Ed25519 as Ed25519
+import           Crypto.Random (MonadRandom)
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
-
-import qualified Crypto.Sign.Ed25519 as Ed25519
+import qualified Data.Text as T
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (ProtocolMagic)
@@ -28,17 +30,18 @@ import           Pos.Crypto.Signing.Types.Redeem
 -- than the default IO generator.
 redeemKeyGen :: MonadRandom m => m (RedeemPublicKey, RedeemSecretKey)
 redeemKeyGen =
-    getRandomBytes 32 >>=
-    maybe err pure . redeemDeterministicKeyGen
-  where
-    err = error "Pos.Crypto.RedeemSigning.redeemKeyGen: createKeypairFromSeed_ failed"
+  do
+    sk <- Ed25519.generateSecretKey
+    return (RedeemPublicKey $ Ed25519.toPublic sk, RedeemSecretKey sk)
 
 -- | Create key pair deterministically from 32 bytes.
 redeemDeterministicKeyGen
     :: BS.ByteString
     -> Maybe (RedeemPublicKey, RedeemSecretKey)
 redeemDeterministicKeyGen seed =
-    bimap RedeemPublicKey RedeemSecretKey <$> Ed25519.createKeypairFromSeed_ seed
+  case Ed25519.secretKey $ (BA.convert seed :: BA.Bytes) of
+        CryptoPassed r -> Just (RedeemPublicKey $ Ed25519.toPublic r, RedeemSecretKey r)
+        CryptoFailed e -> error $ mappend "Pos.Crypto.Signing.Redeem.hs redeemDeterministicKeyGen failed because " (T.pack $ show e)
 
 ----------------------------------------------------------------------------
 -- Redeem signatures
@@ -62,7 +65,7 @@ redeemSignRaw
     -> ByteString
     -> RedeemSignature Raw
 redeemSignRaw pm mbTag (RedeemSecretKey k) x =
-    RedeemSignature (Ed25519.dsign k (tag <> x))
+    RedeemSignature (Ed25519.sign k (Ed25519.toPublic k) (BA.convert $ tag <> x :: BA.Bytes) )
   where
     tag = maybe mempty (signTag pm) mbTag
 
@@ -84,6 +87,6 @@ redeemVerifyRaw
     -> RedeemSignature Raw
     -> Bool
 redeemVerifyRaw pm mbTag (RedeemPublicKey k) x (RedeemSignature s) =
-    Ed25519.dverify k (tag <> x) s
+    Ed25519.verify k (BA.convert $ tag <> x :: BA.Bytes) s
   where
     tag = maybe mempty (signTag pm) mbTag

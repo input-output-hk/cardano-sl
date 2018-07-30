@@ -396,7 +396,6 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.CreateAddress
-                      Test.Spec.CreateWallet
                       Test.Spec.Fixture
                       Test.Spec.Kernel
                       Test.Spec.Keystore
@@ -404,6 +403,7 @@ test-suite wallet-unit-tests
                       Test.Spec.NewPayment
                       Test.Spec.Submission
                       Test.Spec.Translation
+                      Test.Spec.Wallets
                       Test.Spec.WalletWorker
                       TxMetaStorageSpecs
                       Util.Buildable

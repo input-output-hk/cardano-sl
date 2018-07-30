@@ -25,13 +25,14 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , singleton
   , omap
   , otraverse
+  , foldl'
   , emptyIxSet
     -- * Destruction
   , toList
   ) where
 
 import qualified Prelude
-import           Universum hiding (Foldable, null, toList)
+import           Universum hiding (Foldable, foldl', null, toList)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
@@ -225,6 +226,16 @@ emptyIxSet :: forall a.
               Indexable a
            => IxSet a
 emptyIxSet = WrapIxSet IxSet.empty
+
+-- | Strict left fold over an 'IxSet'.
+foldl' :: (acc -> a -> acc)
+       -> acc
+       -> IxSet a
+       -> acc
+foldl' f initialValue (WrapIxSet nativeSet) =
+    Data.Foldable.foldl' (\acc (WrapOrdByPrimKey a) -> f acc a)
+                         initialValue
+                         nativeSet
 
 {-------------------------------------------------------------------------------
   Destruction

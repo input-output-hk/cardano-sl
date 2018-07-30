@@ -23,6 +23,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- *** UPDATE
   , UpdateHdRootAssurance
   , UpdateHdRootName(..)
+  , UpdateHdRootPassword(..)
   , UpdateHdAccountName(..)
     -- *** DELETE
   , DeleteHdRoot(..)
@@ -359,6 +360,14 @@ updateHdRootName :: HdRootId
 updateHdRootName rootId name = runUpdate' . zoom dbHdWallets $
     HD.updateHdRootName rootId name
 
+updateHdRootPassword :: HdRootId
+                     -> HasSpendingPassword
+                     -> Update DB (Either UnknownHdRoot (DB, HdRoot))
+updateHdRootPassword rootId hasSpendingPassword = do
+    a <- runUpdate' . zoom dbHdWallets $
+             HD.updateHdRootPassword rootId hasSpendingPassword
+    get >>= \st' -> return $ bimap identity (st',) a
+
 updateHdAccountName :: HdAccountId
                     -> AccountName
                     -> Update DB (Either UnknownHdAccount (DB, HdAccount))
@@ -399,6 +408,7 @@ makeAcidic ''DB [
     , 'createHdWallet
     , 'updateHdRootAssurance
     , 'updateHdRootName
+    , 'updateHdRootPassword
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount

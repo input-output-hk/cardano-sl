@@ -15,7 +15,7 @@ import           Servant
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
 handlers pwl =  newWallet pwl
            :<|> listWallets
-           :<|> updatePassword
+           :<|> updatePassword pwl
            :<|> deleteWallet
            :<|> getWallet
            :<|> updateWallet
@@ -45,10 +45,15 @@ listWallets :: RequestParams
             -> Handler (WalletResponse [Wallet])
 listWallets _params _fops _sops = error "Unimplemented. See CBR-227."
 
-updatePassword :: WalletId
+updatePassword :: PassiveWalletLayer IO
+               -> WalletId
                -> PasswordUpdate
                -> Handler (WalletResponse Wallet)
-updatePassword _wid _passwordUpdate = error "Unimplemented. See CBR-227."
+updatePassword pwl wid passwordUpdate = do
+    res <- liftIO $ (_pwlUpdateWalletPassword pwl) wid passwordUpdate
+    case res of
+         Left e  -> throwM e
+         Right w -> return $ single w
 
 -- | Deletes an exisiting wallet.
 deleteWallet :: WalletId -> Handler NoContent

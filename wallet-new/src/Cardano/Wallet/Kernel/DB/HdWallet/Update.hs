@@ -2,6 +2,7 @@
 module Cardano.Wallet.Kernel.DB.HdWallet.Update (
     updateHdRootAssurance
   , updateHdRootName
+  , updateHdRootPassword
   , updateHdAccountName
   ) where
 
@@ -22,6 +23,16 @@ updateHdRootAssurance :: HdRootId
 updateHdRootAssurance rootId assurance =
     zoomHdRootId identity rootId $
       hdRootAssurance .= assurance
+
+updateHdRootPassword :: HdRootId
+                     -> HasSpendingPassword
+                     -> Update' HdWallets UnknownHdRoot HdRoot
+updateHdRootPassword rootId hasSpendingPassword =
+    zoomHdRootId identity rootId $ do
+        oldHdRoot <- get
+        let newHdRoot = oldHdRoot & hdRootHasPassword .~ hasSpendingPassword
+        put newHdRoot
+        return newHdRoot
 
 updateHdRootName :: HdRootId
                  -> WalletName

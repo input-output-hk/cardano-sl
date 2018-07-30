@@ -9,7 +9,8 @@ import           Universum
 import           System.Directory (doesFileExist, removeFile)
 import           System.IO.Error (IOError)
 
-import           Test.Hspec (Spec, describe, it, shouldBe, shouldReturn)
+import           Test.Hspec (Spec, describe, it, shouldBe, shouldReturn,
+                     shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, arbitrary)
 import           Test.QuickCheck.Monadic (forAllM, monadicIO, pick, run)
@@ -37,6 +38,15 @@ genKeypair = do
     (_, esk) <- arbitrary >>= safeKeyGen
     return $ bimap STB STB (WalletIdHdRnd . eskToHdRootId  $ esk, esk)
 
+genKeys :: Gen ( ShowThroughBuild WalletId
+               , ShowThroughBuild EncryptedSecretKey
+               , ShowThroughBuild EncryptedSecretKey
+               )
+genKeys = do
+    (wId, origKey) <- genKeypair
+    (_, esk2) <- arbitrary >>= safeKeyGen
+    return (wId, origKey, STB esk2)
+
 nukeKeystore :: FilePath -> IO ()
 nukeKeystore fp =
     removeFile fp `catch` (\(_ :: IOError) -> return ())
@@ -62,6 +72,15 @@ spec =
                     Keystore.insert wid esk ks
                     mbKey <- Keystore.lookup wid ks
                     (fmap hash mbKey) `shouldBe` (Just (hash esk))
+
+        prop "replacement of keys works" $ monadicIO $ do
+            forAllM genKeys $ \(STB wid, STB oldKey, STB newKey) -> run $ do
+                withKeystore $ \ks -> do
+                    Keystore.insert wid oldKey ks
+                    mbOldKey <- Keystore.lookup wid ks
+                    Keystore.replace wid newKey ks
+                    mbNewKey <- Keystore.lookup wid ks
+                    (fmap hash mbOldKey) `shouldSatisfy` ((/=) (fmap hash mbNewKey))
 
         prop "Inserts are persisted after releasing the keystore" $ monadicIO $ do
             (STB wid, STB esk) <- pick genKeypair

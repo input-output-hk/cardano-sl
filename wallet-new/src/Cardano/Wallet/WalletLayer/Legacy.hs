@@ -18,14 +18,15 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError, DeleteAccountError, GetAccountError,
                      GetAccountsError, PassiveWalletLayer (..),
-                     UpdateAccountError)
+                     UpdateAccountError, UpdateWalletPasswordError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
-                     NewAccount (..), NewAddress, NewWallet (..), V1 (..),
-                     Wallet, WalletId, WalletOperation (..), WalletUpdate)
+                     NewAccount (..), NewAddress, NewWallet (..),
+                     PasswordUpdate, V1 (..), Wallet, WalletId,
+                     WalletOperation (..), WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -75,23 +76,24 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet   = pwlCreateWallet
-        , _pwlGetWalletIds   = pwlGetWalletIds
-        , _pwlGetWallet      = pwlGetWallet
-        , _pwlUpdateWallet   = pwlUpdateWallet
-        , _pwlDeleteWallet   = pwlDeleteWallet
+        { _pwlCreateWallet          = pwlCreateWallet
+        , _pwlGetWalletIds          = pwlGetWalletIds
+        , _pwlGetWallet             = pwlGetWallet
+        , _pwlUpdateWallet          = pwlUpdateWallet
+        , _pwlUpdateWalletPassword  = pwlUpdateWalletPassword
+        , _pwlDeleteWallet          = pwlDeleteWallet
 
-        , _pwlCreateAccount  = pwlCreateAccount
-        , _pwlGetAccounts    = pwlGetAccounts
-        , _pwlGetAccount     = pwlGetAccount
-        , _pwlUpdateAccount  = pwlUpdateAccount
-        , _pwlDeleteAccount  = pwlDeleteAccount
+        , _pwlCreateAccount         = pwlCreateAccount
+        , _pwlGetAccounts           = pwlGetAccounts
+        , _pwlGetAccount            = pwlGetAccount
+        , _pwlUpdateAccount         = pwlUpdateAccount
+        , _pwlDeleteAccount         = pwlDeleteAccount
 
-        , _pwlCreateAddress  = pwlCreateAddress
-        , _pwlGetAddresses   = pwlGetAddresses
+        , _pwlCreateAddress         = pwlCreateAddress
+        , _pwlGetAddresses          = pwlGetAddresses
 
-        , _pwlApplyBlocks    = pwlApplyBlocks
-        , _pwlRollbackBlocks = pwlRollbackBlocks
+        , _pwlApplyBlocks           = pwlApplyBlocks
+        , _pwlRollbackBlocks        = pwlRollbackBlocks
         }
 
 
@@ -196,6 +198,12 @@ pwlUpdateWallet wId wUpdate = do
 
     -- Get wallet or throw if missing.
     maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+
+pwlUpdateWalletPassword
+    :: WalletId
+    -> PasswordUpdate
+    -> m (Either UpdateWalletPasswordError Wallet)
+pwlUpdateWalletPassword _ _ = error "Unused and deprecated. See [CBR-227]"
 
 -- | Seems silly, but we do need some sort of feedback from
 -- the DB.

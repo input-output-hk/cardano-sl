@@ -88,7 +88,7 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet
 -------------------------------------------------------------------------------}
 
 -- | Wallet name
-newtype WalletName = WalletName Text
+newtype WalletName = WalletName { getWalletName :: Text }
 
 instance Buildable WalletName where
     build (WalletName wName) = bprint build wName

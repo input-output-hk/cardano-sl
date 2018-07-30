@@ -7,6 +7,7 @@ module Cardano.Wallet.Kernel.DB.Read (
   , accountAddresses
   , hdWallets
   , readAddressMeta
+  , walletAccounts
   ) where
 
 import           Universum
@@ -24,6 +25,9 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdAddress,
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
                      readAddressesByAccountId, readHdAccountCurrentCheckpoint)
 import           Cardano.Wallet.Kernel.DB.Spec (checkpointAddressMeta)
+
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdRootId)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAccountsByRootId)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 
@@ -88,3 +92,8 @@ readAddressMeta snapshot accountId cardanoAddress
     = view (checkpointAddressMeta cardanoAddress) (walletQuery' snapshot checkpoint)
     where
         checkpoint = readHdAccountCurrentCheckpoint accountId
+
+-- | Returns all the accounts for a 'HdRoot', given its 'HdRootId'.
+walletAccounts :: DB -> HdRootId -> IxSet HdAccount
+walletAccounts snapshot rootId
+    = walletQuery' snapshot (readAccountsByRootId rootId)

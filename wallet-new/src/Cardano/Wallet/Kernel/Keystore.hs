@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel.Keystore (
     , bracketLegacyKeystore
     -- * Inserting values
     , insert
+    , replace
     -- * Deleting values
     , delete
     -- * Queries on a keystore
@@ -172,15 +173,28 @@ insert :: WalletId
        -> IO ()
 insert _walletId esk (Keystore ks) =
     modifyMVar_ ks $ \(InternalStorage us) -> do
-        return . InternalStorage $
-            if view usKeys us `contains` esk
-                     then us
-                     else us & over usKeys (esk :)
+        return . InternalStorage . insertKey esk $ us
+
+-- | Insert a new 'EncryptedSecretKey' directly inside the 'UserSecret'.
+insertKey :: EncryptedSecretKey -> UserSecret -> UserSecret
+insertKey esk us =
+    if view usKeys us `contains` esk
+        then us
+        else us & over usKeys (esk :)
     where
       -- Comparator taken from the old code which needs to hash
       -- all the 'EncryptedSecretKey' in order to compare them.
       contains :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
       contains ls k = hash k `elem` map hash ls
+
+-- | Replace an old 'EncryptedSecretKey' with a new one.
+replace :: WalletId
+        -> EncryptedSecretKey
+        -> Keystore
+        -> IO ()
+replace walletId esk (Keystore ks) =
+    modifyMVar_ ks $ \(InternalStorage us) -> do
+        return . InternalStorage . insertKey esk . deleteKey walletId $ us
 
 {-------------------------------------------------------------------------------
   Looking up things inside a keystore
@@ -207,10 +221,14 @@ lookupKey us (WalletIdHdRnd walletId) =
 delete :: WalletId -> Keystore -> IO ()
 delete walletId (Keystore ks) = do
     modifyMVar_ ks $ \(InternalStorage us) -> do
-        let mbEsk = lookupKey us walletId
-        let erase = Data.List.deleteBy (\a b -> hash a == hash b)
-        let us' = maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
-        return (InternalStorage us')
+        return (InternalStorage $ deleteKey walletId us)
+
+-- | Delete a key directly inside the 'UserSecret'.
+deleteKey :: WalletId -> UserSecret -> UserSecret
+deleteKey walletId us =
+    let mbEsk = lookupKey us walletId
+        erase = Data.List.deleteBy (\a b -> hash a == hash b)
+    in maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
 
 {-------------------------------------------------------------------------------
   Converting a Keystore into container types

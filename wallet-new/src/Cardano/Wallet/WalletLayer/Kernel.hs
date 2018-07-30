@@ -78,11 +78,13 @@ bracketPassiveWallet logFunction keystore rocksDB f =
         let invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
             invokeIO = liftIO . STM.atomically . invoke
         in PassiveWalletLayer
-            { _pwlCreateWallet   = Wallets.createWallet wallet
-            , _pwlGetWalletIds   = error "Not implemented!"
-            , _pwlGetWallet      = error "Not implemented!"
-            , _pwlUpdateWallet   = error "Not implemented!"
-            , _pwlDeleteWallet   = error "Not implemented!"
+            { _pwlCreateWallet          = Wallets.createWallet wallet
+
+            , _pwlGetWalletIds          = error "Not implemented!"
+            , _pwlGetWallet             = error "Not implemented!"
+            , _pwlUpdateWallet          = error "Not implemented!"
+            , _pwlUpdateWalletPassword  = Wallets.updateWalletPassword wallet
+            , _pwlDeleteWallet          = error "Not implemented!"
 
             , _pwlCreateAccount = Accounts.createAccount wallet
             , _pwlGetAccounts   =

@@ -17,6 +17,7 @@ module Pos.Util.Mnemonic
 
        -- * Creating @Mnemonic@ (resp. @Entropy@)
        , mkEntropy
+       , eitherToParser
        , mkMnemonic
        , genEntropy
 
@@ -348,10 +349,10 @@ instance
     ) => FromJSON (Mnemonic mw) where
     parseJSON =
         parseJSON >=> (eitherToParser . mkMnemonic)
-      where
-        eitherToParser :: Either MnemonicErr (Mnemonic mw) -> Parser (Mnemonic mw)
-        eitherToParser =
-            either (fail . formatToString build) pure
+
+eitherToParser :: Buildable a => Either a b -> Parser b
+eitherToParser =
+    either (fail . formatToString build) pure
 
 
 instance ToJSON (Mnemonic mw) where

@@ -7,8 +7,7 @@ module Pos.Wallet.Aeson.ClientTypes
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..),
-                     genericParseJSON, genericToJSON, object, withArray,
-                     withObject, (.:), (.=))
+                     genericToJSON, object, withArray, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (Parser, typeMismatch)
 import           Data.Version (showVersion)
@@ -18,10 +17,11 @@ import           Crypto.Encoding.BIP39 (EntropySize, MnemonicWords,
                      ValidChecksumSize, ValidEntropySize,
                      ValidMnemonicSentence)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
+import           Pos.Util.Mnemonic (eitherToParser, mkMnemonic)
 import           Pos.Util.Util (aesonError)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount,
                      CAccountId, CAccountInit, CAccountMeta, CAddress,
-                     CBackupPhrase, CCoin, CFilePath (..), CHash, CId,
+                     CBackupPhrase (..), CCoin, CFilePath (..), CHash, CId,
                      CInitialized, CPaperVendWalletRedeem, CProfile,
                      CPtxCondition, CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
                      CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
@@ -53,6 +53,17 @@ instance ToJSON (CBackupPhrase mw) where
     toJSON =
         genericToJSON defaultOptions
 
+
+-- We use a custom parser to support
+-- {
+--   "bpToList": ["squirrel material silly twice direct slush",
+--                "pistol razor", "becomed junk kingdom"]
+-- }
+-- as in addition to
+-- {
+--   "bpToList": ["squirrel", "material", "silly", "twice", "direct", "slush",
+--                "pistol", "razor", "become", "junk", "kingdom"]
+-- }
 instance
     ( n ~ EntropySize mw
     , mw ~ MnemonicWords n
@@ -60,8 +71,17 @@ instance
     , ValidEntropySize n
     , ValidMnemonicSentence mw
     ) => FromJSON (CBackupPhrase mw) where
-    parseJSON =
-        genericParseJSON defaultOptions
+    parseJSON (Object v) =
+        (v .: "bpToList")
+        <&> backwardCompatibility
+        >>= (eitherToParser . mkMnemonic)
+        <&> CBackupPhrase
+      where
+        backwardCompatibility :: [Text] -> [Text]
+        backwardCompatibility = (>>= words)
+
+    parseJSON _          = mzero
+
 
 
 

@@ -4,9 +4,13 @@ stdenv.mkDerivation rec {
   buildInputs = with pkgs; [ jq curl glibcLocales ];
   buildCommand = ''
     ${walletIntegrationTests}
-    if [ $? == 0 ]
+    EXIT_CODE=$?
+    mkdir -pv $out/nix-support
+    if [ $EXIT_CODE != 0 ]
     then
-      echo $? > $out
+      touch $out/nix-support/failed
+      tar -czvf  $out/logs.tar.gz state-demo/logs
+      echo "file binary-dist $out/logs.tar.gz" >> $out/nix-support/hydra-build-products
     fi
   '';
 

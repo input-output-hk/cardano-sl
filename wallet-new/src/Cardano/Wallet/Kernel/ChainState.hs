@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Cardano.Wallet.Kernel.ChainState (
     -- * Chain state
     UpdateInfo(..)
@@ -20,7 +22,7 @@ import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
 import           Pos.DB.Update (getAdoptedBVData, getConfirmedProposals)
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..),
-                     StakeholderVotes, isPositiveVote)
+                     StakeholderVotes, VoteState, isPositiveVote)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor
@@ -86,7 +88,7 @@ fromProposals bvd proposals = Just
     cpsToNumericVersion :: ConfirmedProposalState -> NumSoftwareVersion
     cpsToNumericVersion = svNumber . upSoftwareVersion . cpsUpdateProposal
 
--- | Construct 'UpdateInfo' from a 'ConfiurmedProposalState'
+-- | Construct 'UpdateInfo' from a 'ConfirmedProposalState'
 --
 -- NOTE: This is a straight-forward adaptation of 'toCUpdateInfo' in the
 -- old wallet.
@@ -109,9 +111,11 @@ fromProposal bvd ConfirmedProposalState{..} = UpdateInfo {
 -- | Return counts of negative and positive votes
 countVotes :: StakeholderVotes -> (Int, Int)
 countVotes = foldl' counter (0, 0)
-  where counter (n, m) vote = if isPositiveVote vote
-                              then (n + 1, m)
-                              else (n, m + 1)
+  where
+    counter :: (Int, Int) -> VoteState -> (Int, Int)
+    counter (!n, !m) vote
+      | isPositiveVote vote = (n + 1, m)
+      | otherwise           = (n, m + 1)
 
 {-------------------------------------------------------------------------------
   Pretty-printing

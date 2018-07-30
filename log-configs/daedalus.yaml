@@ -5,6 +5,8 @@ rotation:
     keepFiles: 20
 loggerTree:
   severity: Debug+
+  syncWalletWorker:
+    severity: Error+
   files:
     - pub/node.pub
     - node

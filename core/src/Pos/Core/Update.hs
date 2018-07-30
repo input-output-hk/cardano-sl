@@ -11,7 +11,6 @@ module Pos.Core.Update
        , module Pos.Core.Update.SoftwareVersion
        , module Pos.Core.Update.SystemTag
        , module Pos.Core.Update.Vote
-       , module Pos.Core.Update.VoteId
        ) where
 
 import           Pos.Core.Update.ApplicationName
@@ -26,4 +25,3 @@ import           Pos.Core.Update.SoftforkRule
 import           Pos.Core.Update.SoftwareVersion
 import           Pos.Core.Update.SystemTag
 import           Pos.Core.Update.Vote
-import           Pos.Core.Update.VoteId

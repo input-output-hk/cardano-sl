@@ -5,6 +5,7 @@ module Pos.Core.Update.Vote
        , formatVoteShort
        , shortVoteF
        , checkUpdateVote
+       , mkVoteId
        ) where
 
 import           Universum
@@ -22,7 +23,7 @@ import           Pos.Crypto (ProtocolMagic, PublicKey, SafeSigner, SecretKey,
                      SignTag (SignUSVote), Signature, checkSig, safeSign,
                      safeToPublic, shortHashF, sign, toPublic)
 
-import           Pos.Core.Update.Proposal
+import           Pos.Core.Update.Proposal (UpId, UpdateProposal, VoteId)
 
 -- | Vote for update proposal.
 --
@@ -114,5 +115,8 @@ checkUpdateVote pm it =
     unless sigValid (throwError "UpdateVote: invalid signature")
   where
     sigValid = checkSig pm SignUSVote (uvKey it) (uvProposalId it, uvDecision it) (uvSignature it)
+
+mkVoteId :: UpdateVote -> VoteId
+mkVoteId vote = (uvProposalId vote, uvKey vote, uvDecision vote)
 
 deriveSafeCopySimple 0 'base ''UpdateVote

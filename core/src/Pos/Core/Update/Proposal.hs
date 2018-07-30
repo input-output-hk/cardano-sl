@@ -1,5 +1,7 @@
 module Pos.Core.Update.Proposal
-       ( UpdateProposal (..)
+       (
+       -- Software update proposal
+         UpdateProposal (..)
        , UpdateProposals
        , UpId
        , UpAttributes
@@ -7,6 +9,9 @@ module Pos.Core.Update.Proposal
        , formatMaybeProposal
        , mkUpdateProposalWSign
        , checkUpdateProposal
+
+       -- Software update vote
+       , VoteId
        ) where
 
 import           Universum
@@ -31,6 +36,10 @@ import           Pos.Core.Update.BlockVersionModifier
 import           Pos.Core.Update.Data
 import           Pos.Core.Update.SoftwareVersion
 import           Pos.Core.Update.SystemTag
+
+----------------------------------------------------------------------------
+-- Software Update Proposal
+----------------------------------------------------------------------------
 
 -- | ID of software update proposal
 type UpId = Hash UpdateProposal
@@ -151,7 +160,25 @@ checkUpdateProposal pm it = do
     unless (checkSig pm SignUSProposal (upFrom it) toSign (upSignature it))
         (throwError "UpdateProposal: invalid signature")
 
+----------------------------------------------------------------------------
+-- Software Update Vote
+--
+-- N.B. VoteId needs to be defined in here or else its Buildable instance
+-- will be an orphan.
+----------------------------------------------------------------------------
+
+-- | ID of a voter and its decision regarding a specific software update
+-- proposal
+type VoteId = (UpId, PublicKey, Bool)
+
+instance Buildable VoteId where
+    build (upId, pk, dec) =
+      bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
+             pk upId dec
+
+----------------------------------------------------------------------------
 -- TH generated instances at the end of the file.
+----------------------------------------------------------------------------
 
 deriveSimpleBi ''UpdateProposalToSign [
     Cons 'UpdateProposalToSign [

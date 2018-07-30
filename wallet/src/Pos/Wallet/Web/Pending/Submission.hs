@@ -20,6 +20,7 @@ import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
 import           System.Wlog (WithLogger, logDebug, logInfo)
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
@@ -109,12 +110,13 @@ type TxSubmissionMode ctx m = ( TxMode m )
 submitAndSavePtx
     :: TxSubmissionMode ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PtxSubmissionHandlers m
     -> PendingTx
     -> m ()
-submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+submitAndSavePtx pm txpConfig db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -132,7 +134,7 @@ submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
                       _ptxTxId
        | otherwise -> do
            addOnlyNewPendingTx db ptx
-           (saveTx pm (_ptxTxId, _ptxTxAux)
+           (saveTx pm txpConfig (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
            ack <- submitTx _ptxTxAux

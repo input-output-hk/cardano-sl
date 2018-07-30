@@ -38,10 +38,11 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
-                     TxOut, TxOutAux (..), TxWitness, TxpError (..),
-                     UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, evalUtxoM,
-                     flattenTxPayload, genesisUtxo, runUtxoM, topsortTxs,
-                     txOutAddress, unGenesisUtxo, utxoGet, utxoToLookup)
+                     TxOut, TxOutAux (..), TxWitness, TxpConfiguration,
+                     TxpError (..), UtxoLookup, UtxoM, UtxoModifier,
+                     applyTxToUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
+                     runUtxoM, topsortTxs, txOutAddress, unGenesisUtxo,
+                     utxoGet, utxoToLookup)
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
                      HasConfiguration, Timestamp (..), difficultyL, epochSlots,
                      genesisHash)
@@ -173,7 +174,7 @@ class (Monad m, HasConfiguration) => MonadTxHistory m where
         :: ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
-    saveTx :: ProtocolMagic -> (TxId, TxAux) -> m ()
+    saveTx :: ProtocolMagic -> TxpConfiguration -> (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
@@ -188,9 +189,10 @@ class (Monad m, HasConfiguration) => MonadTxHistory m where
     default saveTx
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
         => ProtocolMagic
+        -> TxpConfiguration
         -> (TxId, TxAux)
         -> m ()
-    saveTx pm = lift . saveTx pm
+    saveTx pm txpConfig = lift . saveTx pm txpConfig
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
@@ -265,9 +267,12 @@ instance Exception SaveTxException where
         \case
             SaveTxToilFailure x -> toString (pretty x)
 
-saveTxDefault :: TxHistoryEnv ctx m => ProtocolMagic -> (TxId, TxAux) -> m ()
-saveTxDefault pm txw = do
-    res <- txpProcessTx pm txw
+saveTxDefault :: TxHistoryEnv ctx m
+              => ProtocolMagic
+              -> TxpConfiguration
+              -> (TxId, TxAux) -> m ()
+saveTxDefault pm txpConfig txw = do
+    res <- txpProcessTx pm txpConfig txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

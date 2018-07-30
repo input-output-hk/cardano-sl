@@ -28,7 +28,6 @@ import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      findDelegationStakes, findRichmenStakes,
                      followTheSatoshiM)
 import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
-import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Chain.Update (BlockVersionState (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
                      StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,
@@ -65,8 +64,7 @@ import           Pos.Util.Util (HasLens (..))
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ctx m =
-    ( HasTxpConfiguration
-    , LrcMode ctx m
+    ( LrcMode ctx m
     , MonadSscMem ctx m
     , MonadSlots ctx m
     , MonadBlockApply ctx m

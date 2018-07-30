@@ -23,7 +23,7 @@ import           System.Wlog (logWarning)
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
-import           Pos.Chain.Txp (HasTxpConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
                      epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Core.Block (Block, BlockHeader)
@@ -74,12 +74,13 @@ foldM' combine = go
 -- disk, then collected by using '()' as the monoid and 'const ()' as the
 -- injector, for example.
 genBlocks ::
-       forall g ctx m t . (HasTxpConfiguration, BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
+       forall g ctx m t . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
     => ProtocolMagic
+    -> TxpConfiguration
     -> BlockGenParams
     -> (Maybe Blund -> t)
     -> RandT g m t
-genBlocks pm params inj = do
+genBlocks pm txpConfig params inj = do
     ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
   where
@@ -95,7 +96,7 @@ genBlocks pm params inj = do
         :: t
         -> EpochOrSlot
         -> RandT g (BlockGenMode (MempoolExt m) m) t
-    genOneBlock t eos = ((t <>) . inj) <$> genBlock pm eos
+    genOneBlock t eos = ((t <>) . inj) <$> genBlock pm txpConfig eos
 
 -- | Generate a 'Block' for the given epoch or slot (geneis block in the formet
 -- case and main block in the latter case) and do not apply it.
@@ -105,13 +106,13 @@ genBlockNoApply
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-       , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> EpochOrSlot
     -> BlockHeader -- ^ previoud block header
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Block)
-genBlockNoApply pm eos header = do
+genBlockNoApply pm txpConfig eos header = do
     let epoch = eos ^. epochIndexL
     lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot pm epoch)
     -- We need to know leaders to create any block.
@@ -121,7 +122,7 @@ genBlockNoApply pm eos header = do
             let genesisBlock = mkGenesisBlock pm (Right header) epoch leaders
             return $ Just $ Left genesisBlock
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
-            genPayload pm slot
+            genPayload pm txpConfig slot
             leader <-
                 lift $ maybeThrow
                     (BGInternal "no leader")
@@ -163,15 +164,15 @@ genBlock ::
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-       , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock pm eos = do
+genBlock pm txpConfig eos = do
     let epoch = eos ^. epochIndexL
     tipHeader <- lift DB.getTipHeader
-    genBlockNoApply pm eos tipHeader >>= \case
+    genBlockNoApply pm txpConfig eos tipHeader >>= \case
         Just block@Left{}   -> do
             let slot0 = SlotId epoch minBound
             ctx <- getVerifyBlocksContext' (Just slot0)
@@ -197,5 +198,5 @@ genBlock pm eos = do
                     (ShouldCallBListener True)
                     (one blund)
                     (Just pollModifier)
-                normalizeMempool pm
+                normalizeMempool pm txpConfig
                 pure blund

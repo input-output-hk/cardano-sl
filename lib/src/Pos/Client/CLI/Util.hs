@@ -28,7 +28,7 @@ import           Pos.Chain.Block (blockConfiguration)
 import           Pos.Chain.Delegation (dlgConfiguration)
 import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
 import           Pos.Chain.Ssc (sscConfiguration)
-import           Pos.Chain.Txp (txpConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
@@ -52,10 +52,11 @@ printInfoOnStart ::
        (HasConfigurations, WithLogger m, MonadIO m)
     => CommonNodeArgs
     -> NtpConfiguration
+    -> TxpConfiguration
     -> m ()
-printInfoOnStart CommonNodeArgs {..} ntpConfig = do
+printInfoOnStart CommonNodeArgs {..} ntpConfig txpConfig = do
     whenJust cnaDumpGenesisDataPath $ dumpGenesisData True
-    when cnaDumpConfiguration $ dumpConfiguration ntpConfig
+    when cnaDumpConfiguration $ dumpConfiguration ntpConfig txpConfig
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -106,8 +107,9 @@ dumpGenesisData canonical path = do
 dumpConfiguration
     :: (HasConfigurations, MonadIO m)
     => NtpConfiguration
+    -> TxpConfiguration
     -> m ()
-dumpConfiguration ntpConfig = do
+dumpConfiguration ntpConfig txpConfig = do
     let conf =
             Configuration
             { ccCore = coreConfiguration
@@ -115,7 +117,7 @@ dumpConfiguration ntpConfig = do
             , ccUpdate = updateConfiguration
             , ccSsc = sscConfiguration
             , ccDlg = dlgConfiguration
-            , ccTxp = txpConfiguration
+            , ccTxp = txpConfig
             , ccBlock = blockConfiguration
             , ccNode = nodeConfiguration
             }

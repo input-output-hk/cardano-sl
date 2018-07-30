@@ -36,7 +36,7 @@ import           Servant
 
 spec :: Spec
 spec =
-    withDefConfigurations $ \_ _ ->
+    withDefConfigurations $ \_ _ _ ->
         describe "development endpoint" $
         describe "secret-keys" $ modifyMaxSuccess (const 10) deleteAllSecretKeysSpec
 

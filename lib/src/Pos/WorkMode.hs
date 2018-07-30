@@ -23,7 +23,6 @@ import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
-import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
@@ -173,7 +172,7 @@ instance MonadBListener (RealMode ext) where
 
 type instance MempoolExt (RealMode ext) = ext
 
-instance (HasConfiguration, HasTxpConfiguration) =>
+instance (HasConfiguration) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction

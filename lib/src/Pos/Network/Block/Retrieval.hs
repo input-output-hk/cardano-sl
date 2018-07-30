@@ -18,6 +18,7 @@ import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (difficultyL, isMoreDifficult)
 import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash)
@@ -58,8 +59,10 @@ retrievalWorker
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic -> Diffusion m -> m ()
-retrievalWorker pm diffusion = do
+    => ProtocolMagic
+    -> TxpConfiguration
+    -> Diffusion m -> m ()
+retrievalWorker pm txpConfig diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where
@@ -111,7 +114,7 @@ retrievalWorker pm diffusion = do
         logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader pm header >>= \case
             CHContinues ->
-                void $ getProcessBlocks pm diffusion nodeId (headerHash header) [hHash]
+                void $ getProcessBlocks pm txpConfig diffusion nodeId (headerHash header) [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -167,7 +170,7 @@ retrievalWorker pm diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ streamProcessBlocks pm diffusion nodeId (headerHash rHeader) checkpoints
+        void $ streamProcessBlocks pm txpConfig diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -277,12 +280,13 @@ getProcessBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-getProcessBlocks pm diffusion nodeId desired checkpoints = do
+getProcessBlocks pm txpConfig diffusion nodeId desired checkpoints = do
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
     case OldestFirst <$> nonEmpty (getOldestFirst result) of
       Nothing -> do
@@ -295,7 +299,7 @@ getProcessBlocks pm diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks pm blocks diffusion
+          handleBlocks pm txpConfig blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.
@@ -322,18 +326,19 @@ streamProcessBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-streamProcessBlocks pm diffusion nodeId desired checkpoints = do
+streamProcessBlocks pm txpConfig diffusion nodeId desired checkpoints = do
     logInfo "streaming start"
     r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
     case r of
          Nothing -> do
              logInfo "streaming not supported, reverting to batch mode"
-             getProcessBlocks pm diffusion nodeId desired checkpoints
+             getProcessBlocks pm txpConfig diffusion nodeId desired checkpoints
          Just _  -> do
              logInfo "streaming done"
              return ()
@@ -341,4 +346,4 @@ streamProcessBlocks pm diffusion nodeId desired checkpoints = do
     writeCallback :: [Block] -> m ()
     writeCallback [] = return ()
     writeCallback (block:blocks) =
-        handleBlocks pm (OldestFirst (NE.reverse $ block :| blocks)) diffusion
+        handleBlocks pm txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion

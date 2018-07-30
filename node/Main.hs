@@ -17,6 +17,7 @@ import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Binary ()
 import           Pos.Chain.Ssc (SscParams)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
@@ -37,29 +38,31 @@ actionWithoutWallet
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> SscParams
     -> NodeParams
     -> IO ()
-actionWithoutWallet pm sscParams nodeParams =
-    runNodeReal pm nodeParams sscParams [updateTriggerWorker]
+actionWithoutWallet pm txpConfig sscParams nodeParams =
+    runNodeReal pm txpConfig nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations
        , HasCompileInfo
        )
     => SimpleNodeArgs
-    -> NtpConfiguration
     -> ProtocolMagic
+    -> TxpConfiguration
+    -> NtpConfiguration
     -> IO ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
-    CLI.printInfoOnStart cArgs ntpConfig
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) pm txpConfig ntpConfig = do
+    CLI.printInfoOnStart cArgs ntpConfig txpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet pm sscParams currentParams
+    actionWithoutWallet pm txpConfig sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do

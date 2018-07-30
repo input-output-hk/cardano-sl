@@ -46,6 +46,7 @@ import           Universum
 
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
 import qualified Formatting.Buildable
@@ -61,6 +62,7 @@ import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
 import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
+import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
                      HasConfiguration, HasProtocolConstants, SlotId,
                      Timestamp (..), epochSlots, genesisSecretKeys,
@@ -133,6 +135,7 @@ data TestParams = TestParams
     , _tpGenesisInitializer :: !GenesisInitializer
     -- ^ 'GenesisInitializer' in 'TestParams' allows one to use custom
     -- genesis data.
+    , _tpTxpConfiguration   :: !TxpConfiguration
     }
 
 makeClassy ''TestParams
@@ -153,6 +156,7 @@ instance Arbitrary TestParams where
     arbitrary = do
         let _tpStartTime = Timestamp (fromMicroseconds 0)
         let _tpBlockVersionData = defaultTestBlockVersionData
+        let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
         _tpGenesisInitializer <-
             withGenesisBlockVersionData
                 _tpBlockVersionData
@@ -276,7 +280,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic
+            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic _tpTxpConfiguration
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}

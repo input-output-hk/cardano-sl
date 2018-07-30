@@ -19,6 +19,7 @@ import           Servant.Generic (AsServerT, GenericProduct, ToServant,
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
@@ -39,12 +40,13 @@ servantHandlersWithSwagger
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> (forall x. m x -> Handler x)
     -> Server A.WalletSwaggerApi
-servantHandlersWithSwagger pm ntpStatus submitTx nat =
-    hoistServer A.walletApi nat (servantHandlers pm ntpStatus submitTx)
+servantHandlersWithSwagger pm txpConfig ntpStatus submitTx nat =
+    hoistServer A.walletApi nat (servantHandlers pm txpConfig ntpStatus submitTx)
    :<|>
     swaggerSchemaUIServer swaggerSpecForWalletApi
 
@@ -57,18 +59,19 @@ servantHandlers
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> ServerT A.WalletApi m
-servantHandlers pm ntpStatus submitTx = toServant' A.WalletApiRecord
+servantHandlers pm txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
     { _test        = testHandlers
     , _wallets     = walletsHandlers
     , _accounts    = accountsHandlers
     , _addresses   = addressesHandlers
     , _profile     = profileHandlers
-    , _txs         = txsHandlers pm submitTx
+    , _txs         = txsHandlers pm txpConfig submitTx
     , _update      = updateHandlers
-    , _redemptions = redemptionsHandlers pm submitTx
+    , _redemptions = redemptionsHandlers pm txpConfig submitTx
     , _reporting   = reportingHandlers
     , _settings    = settingsHandlers ntpStatus
     , _backup      = backupHandlers
@@ -120,11 +123,12 @@ profileHandlers = toServant' A.WProfileApiRecord
 txsHandlers
     :: MonadFullWalletWebMode ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WTxsApi m
-txsHandlers pm submitTx = toServant' A.WTxsApiRecord
-    { _newPayment                = M.newPayment pm submitTx
-    , _newPaymentBatch           = M.newPaymentBatch pm submitTx
+txsHandlers pm txpConfig submitTx = toServant' A.WTxsApiRecord
+    { _newPayment                = M.newPayment pm txpConfig submitTx
+    , _newPaymentBatch           = M.newPaymentBatch pm txpConfig submitTx
     , _txFee                     = M.getTxFee pm
     , _resetFailedPtxs           = M.resetAllFailedPtxs
     , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
@@ -143,11 +147,12 @@ updateHandlers = toServant' A.WUpdateApiRecord
 redemptionsHandlers
     :: MonadFullWalletWebMode ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WRedemptionsApi m
-redemptionsHandlers pm submitTx = toServant' A.WRedemptionsApiRecord
-    { _redeemADA          = M.redeemAda pm submitTx
-    , _redeemADAPaperVend = M.redeemAdaPaperVend pm submitTx
+redemptionsHandlers pm txpConfig submitTx = toServant' A.WRedemptionsApiRecord
+    { _redeemADA          = M.redeemAda pm txpConfig submitTx
+    , _redeemADAPaperVend = M.redeemAdaPaperVend pm txpConfig submitTx
     }
 
 reportingHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WReportingApi m

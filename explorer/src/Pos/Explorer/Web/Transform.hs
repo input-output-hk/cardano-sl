@@ -23,7 +23,6 @@ import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration)
-import           Pos.Chain.Txp (HasTxpConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
@@ -54,15 +53,15 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
-instance (HasConfiguration, HasTxpConfiguration) =>
+instance HasConfiguration =>
          MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasTxpConfiguration) =>
+instance HasConfiguration =>
          MonadTxpLocal ExplorerProd where
-    txpNormalize = lift . lift . txpNormalize
-    txpProcessTx pm = lift . lift . txpProcessTx pm
+    txpNormalize pm = lift . lift . txpNormalize pm
+    txpProcessTx pm txpConfig = lift . lift . txpProcessTx pm txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.

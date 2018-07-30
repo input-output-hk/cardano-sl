@@ -52,7 +52,6 @@ library
                      , cryptonite
                      , cryptonite-openssl
                      , data-default
-                     , ed25519
                      , formatting
                      , hashable
                      , lens

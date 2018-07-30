@@ -158,7 +158,6 @@ library
                       , cryptonite >= 0.23
                       , data-default
                       , directory
-                      , ed25519
                       , ekg-core
                       , ether >= 0.5
                       , exceptions

@@ -11,8 +11,10 @@ module Pos.Crypto.Signing.Types.Redeem
        ) where
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Crypto.Sign.Ed25519 as Ed25519
+import           Crypto.Error (CryptoFailable (..))
+import qualified Crypto.PubKey.Ed25519 as Ed25519
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
@@ -50,22 +52,25 @@ deriving instance Bi RedeemSecretKey
 
 deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
+fromPublicKeyToByteString :: Ed25519.PublicKey -> BS.ByteString
+fromPublicKeyToByteString = BA.convert
+
 redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
-    later $ \(RedeemPublicKey pk) -> formatBase64 $ Ed25519.openPublicKey pk
+    later $ \(RedeemPublicKey pk) -> formatBase64 $ fromPublicKeyToByteString pk
 
 -- | Base64url Format for 'RedeemPublicKey'.
 redeemPkB64UrlF :: Format r (RedeemPublicKey -> r)
 redeemPkB64UrlF =
     later $ \(RedeemPublicKey pk) ->
-        B.build $ B64.encodeUrl $ Ed25519.openPublicKey pk
+        B.build $ B64.encodeUrl $ fromPublicKeyToByteString pk
 
 redeemPkB64ShortF :: Format r (RedeemPublicKey -> r)
 redeemPkB64ShortF = fitLeft 8 %. redeemPkB64F
 
 -- | Public key derivation function.
 redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
-redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
+redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.toPublic k)
 
 instance B.Buildable RedeemPublicKey where
     build = bprint ("redeem_pk:"%redeemPkB64F)
@@ -131,4 +136,6 @@ redeemPkBuild bs
         error $
         "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
         ", when should be 32"
-    | otherwise = RedeemPublicKey $ Ed25519.PublicKey $ bs
+    | otherwise = case Ed25519.publicKey $ (BA.convert bs :: BA.Bytes) of
+        CryptoPassed r -> RedeemPublicKey r
+        CryptoFailed e -> error $ mappend "Pos.Crypto.Signing.Types.Redeem.hs consRedeemPk failed because " (T.pack $ show e)

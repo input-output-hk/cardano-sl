@@ -1,4 +1,9 @@
-module Fixtures where
+module Integration.Fixtures
+    ( MonadIntegrationFixtures(..)
+
+    -- * Out-of-spec fixtures
+    , generateInitialState
+    ) where
 
 import           Universum
 
@@ -6,8 +11,10 @@ import           Data.Default (Default (..))
 import           Data.Time.Units (fromMicroseconds)
 import           System.Environment (lookupEnv)
 import           System.Wlog (LoggerName (..))
-import           Test.Hspec (describe, hspec, it, shouldBe)
+import           Test.Hspec (describe, it)
+import           Test.Hspec.Core (SpecM)
 
+import           Cardano.Wallet.Client.Http
 import           Pos.Core (Timestamp (..))
 import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
@@ -21,6 +28,25 @@ import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Runner (CommonNodeArgs (..),
                      ExtraNodeArgs (..), NodeArgs (..), runWWebMode)
 
+import           Integration.Util (asksM, fromResp)
+
+import qualified Prelude
+
+
+class MonadIntegrationFixtures m where
+    getArbitraryAccount :: m (Account, Wallet)
+
+instance MonadIntegrationFixtures (ReaderT (WalletClient IO) IO) where
+    getArbitraryAccount = do
+        wallets <- asksM getWallets >>= fromResp
+        let wallet@Wallet{..} = Prelude.head wallets
+        accounts <- asksM (`getAccounts` walId) >>= fromResp
+        return (Prelude.head accounts, wallet)
+
+
+--
+-- USING 'WalletWebMode'
+--
 
 -- | Generate an initial state for the integration tests
 generateInitialState :: HasConfigurations => WalletWebMode ()

@@ -69,8 +69,7 @@ import qualified Control.Exception.Safe as E
 import qualified Control.Monad.Reader as Mtl
 
 data ExtraNodeArgs = ExtraNodeArgs
-    { _nodePath    :: !FilePath
-    , _walletPath  :: !FilePath
+    { _walletPath  :: !FilePath
     , _configPath  :: !FilePath
     , _configKey   :: !Text
     , _systemStart :: Timestamp

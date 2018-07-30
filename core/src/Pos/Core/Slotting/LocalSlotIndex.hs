@@ -22,6 +22,7 @@ module Pos.Core.Slotting.LocalSlotIndex
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Ix (Ix)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           System.Random (Random (..))
@@ -132,5 +133,7 @@ localSlotIndexPred es =
 
 -- -----------------------------------------------------------------------------
 -- TH derived instances at the end of the file.
+
+deriveJSON defaultOptions ''LocalSlotIndex
 
 deriveSafeCopySimple 0 'base ''LocalSlotIndex

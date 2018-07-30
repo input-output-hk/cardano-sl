@@ -15,7 +15,6 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..), fromJSField, mkObject)
 
-import           Pos.Aeson.Core ()
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)

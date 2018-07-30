@@ -55,13 +55,16 @@ module Pos.Core.Common.Address
 import           Universum
 
 import           Control.Lens (makePrisms)
+import qualified Data.Aeson as Aeson (FromJSON (..), FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSON (toJSON), ToJSONKey (..))
+import qualified Data.Aeson.Types as Aeson (toJSONKeyText)
 import qualified Data.ByteString as BS
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
                      decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, builder, formatToString,
-                     later, (%))
+                     later, sformat, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
@@ -84,6 +87,7 @@ import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
 import           Pos.Util.Json.Parse (tryParseString)
+import           Pos.Util.Util (toAesonError)
 
 import           Pos.Core.Common.AddrAttributes
 import           Pos.Core.Common.AddressHash
@@ -151,6 +155,18 @@ instance Monad m => ToJSON m Address where
 
 instance ReportSchemaErrors m => FromJSON m Address where
     fromJSON = tryParseString decodeTextAddress
+
+instance Aeson.FromJSONKey Address where
+    fromJSONKey = Aeson.FromJSONKeyTextParser (toAesonError . decodeTextAddress)
+
+instance Aeson.ToJSONKey Address where
+    toJSONKey = Aeson.toJSONKeyText (sformat addressF)
+
+instance Aeson.FromJSON Address where
+    parseJSON = toAesonError . decodeTextAddress <=< Aeson.parseJSON
+
+instance Aeson.ToJSON Address where
+    toJSON = Aeson.toJSON . sformat addressF
 
 ----------------------------------------------------------------------------
 -- Formatting, pretty-printing

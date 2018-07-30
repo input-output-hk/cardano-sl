@@ -19,9 +19,8 @@ flag asserts
 library
   hs-source-dirs:      src
   exposed-modules:
-                       Pos.Aeson.Core
-
                        Pos.Core
+                       Pos.Core.Aeson
                        Pos.Core.Binary
                        Pos.Core.Chrono
                        Pos.Core.Limits
@@ -77,6 +76,9 @@ library
                        Pos.Core.Metrics.Constants
 
   other-modules:
+                       -- Aeson
+                       Pos.Core.Aeson.Orphans
+
                        -- Binary
                        Pos.Core.Binary.Orphans
 

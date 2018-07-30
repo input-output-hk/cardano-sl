@@ -35,7 +35,6 @@ import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
                      verifyGeneric)
 
-import           Pos.Aeson.Core ()
 import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
                      decodeKnownCborDataItem, decodeUnknownCborDataItem,
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,

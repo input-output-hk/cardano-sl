@@ -9,11 +9,14 @@
 module Cardano.Wallet.Kernel.Internal (
     -- * Passive wallet
     PassiveWallet(..)
-  , ActiveWallet(..)
+    -- ** Lenses
   , walletKeystore
   , wallets
   , walletLogMessage
   , walletRocksDB
+  , walletChainState
+    -- * Active wallet
+  , ActiveWallet(..)
   ) where
 
 import           Universum hiding (State)
@@ -24,6 +27,7 @@ import           System.Wlog (Severity (..))
 
 import           Data.Acid (AcidState)
 
+import           Cardano.Wallet.Kernel.ChainState (ChainState)
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
@@ -52,6 +56,8 @@ data PassiveWallet = PassiveWallet {
     , _wallets          :: AcidState DB
       -- ^ Database handle
     , _walletRocksDB    :: MonadDBReadAdaptor IO
+      -- ^ Chain state
+    , _walletChainState :: MVar ChainState
     }
 
 makeLenses ''PassiveWallet

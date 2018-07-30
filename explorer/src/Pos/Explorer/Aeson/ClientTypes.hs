@@ -21,7 +21,6 @@ import           Pos.Explorer.Web.ClientTypes (CAda (..), CAddress,
                      CGenesisSummary, CHash, CNetworkAddress, CTxBrief,
                      CTxEntry, CTxId, CTxSummary, CUtxo)
 import           Pos.Explorer.Web.Error (ExplorerError)
-import           Pos.Txp ()
 
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CAddress

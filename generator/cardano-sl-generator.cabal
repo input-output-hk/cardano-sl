@@ -30,6 +30,7 @@ library
                        Pos.Generator.Block.Error
                        Pos.Generator.Block.Logic
                        Pos.Generator.Block.Mode
+                       Pos.Generator.Block.Orphans
                        Pos.Generator.Block.Param
                        Pos.Generator.Block.Payload
 
@@ -218,7 +219,6 @@ benchmark cardano-sl-verification-bench
   ghc-options:          -threaded
                         -rtsopts
                         -Wall
-                        -fno-warn-orphans
                         -O2
   if os(linux)
     ghc-options:        -optl-fuse-ld=gold
@@ -292,7 +292,6 @@ executable cardano-sl-verification-bench-exe
   ghc-options:        -threaded
                       -rtsopts
                       -Wall
-                      -fno-warn-orphans
                       -main-is VerificationBench
                       -O2
   if os(linux)

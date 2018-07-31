@@ -12,12 +12,15 @@ module Pos.Util.Mnemonic
        , MnemonicWords
 
        -- * Errors
-       , MnemonicErr(..)
+       , MnemonicError(..)
        , MnemonicException(..)
+       -- ** Re-exports from 'cardano-crypto'
+       , EntropyError(..)
+       , DictionaryError(..)
+       , MnemonicWordsError(..)
 
        -- * Creating @Mnemonic@ (resp. @Entropy@)
        , mkEntropy
-       , eitherToParser
        , mkMnemonic
        , genEntropy
 
@@ -27,14 +30,17 @@ module Pos.Util.Mnemonic
        , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
+
+       -- * Helper (FIXME: Move to a separated module)
+       , eitherToParser
        ) where
 
 import           Universum
 
 import           Basement.Sized.List (unListN)
+import           Control.Arrow (left)
 import           Control.Lens ((?~))
 import           Crypto.Encoding.BIP39
-import           Crypto.Encoding.BIP39.Dictionary (mnemonicSentenceToListN)
 import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.Types (Parser)
@@ -75,14 +81,15 @@ data Mnemonic (mw :: Nat) = Mnemonic
 -- ERRORS
 --
 
-data MnemonicException = UnexpectedMnemonicErr MnemonicErr
+data MnemonicException csz = UnexpectedEntropyError (EntropyError csz)
     deriving (Show, Typeable)
 
 
-data MnemonicErr
-    = MnemonicErrInvalidEntropyLength Int
-    | MnemonicErrFailedToCreate
-    | MnemonicErrForbiddenMnemonic
+data MnemonicError csz
+    = ErrMnemonicWords MnemonicWordsError
+    | ErrEntropy (EntropyError csz)
+    | ErrDictionary DictionaryError
+    | ErrForbidden
     deriving (Show)
 
 
@@ -94,12 +101,8 @@ data MnemonicErr
 mkEntropy
     :: forall n csz. (ValidEntropySize n, ValidChecksumSize n csz)
     => ByteString
-    -> Either MnemonicErr (Entropy n)
-mkEntropy =
-    let
-        n = fromIntegral $ natVal (Proxy @n)
-    in
-        maybe (Left $ MnemonicErrInvalidEntropyLength n) Right . toEntropy @n
+    -> Either (EntropyError csz) (Entropy n)
+mkEntropy = toEntropy
 
 
 -- | Generate Entropy of a given size using a random seed.
@@ -115,7 +118,7 @@ genEntropy =
         size =
             fromIntegral $ natVal (Proxy @n)
         eitherToIO =
-            either (throwM . UnexpectedMnemonicErr) return
+            either (throwM . UnexpectedEntropyError) return
     in
         (eitherToIO . mkEntropy) =<< Crypto.getEntropy (size `div` 8)
 
@@ -127,22 +130,20 @@ mkMnemonic
      , EntropySize mw ~ n
      )
     => [Text]
-    -> Either MnemonicErr (Mnemonic mw)
+    -> Either (MnemonicError csz) (Mnemonic mw)
 mkMnemonic wordsm = do
-    sentence <- maybe
-        (Left MnemonicErrFailedToCreate)
-        (Right . mnemonicPhraseToMnemonicSentence Dictionary.english)
-        (mnemonicPhrase @mw (toUtf8String <$> wordsm))
+    phrase <- left ErrMnemonicWords
+        $ mnemonicPhrase @mw (toUtf8String <$> wordsm)
 
-    entropy <- maybe
-        (Left MnemonicErrFailedToCreate)
-        Right
-        (wordsToEntropy sentence :: Maybe (Entropy n))
+    sentence <- left ErrDictionary
+        $ mnemonicPhraseToMnemonicSentence Dictionary.english phrase
 
-    when (isForbiddenMnemonic sentence) $
-        Left MnemonicErrForbiddenMnemonic
+    entropy <- left ErrEntropy
+        $ wordsToEntropy sentence
 
-    pure $ Mnemonic
+    when (isForbiddenMnemonic sentence) $ Left ErrForbidden
+
+    pure Mnemonic
         { mnemonicToEntropy  = entropy
         , mnemonicToSentence = sentence
         }
@@ -260,7 +261,7 @@ instance
             size    = fromIntegral $ natVal (Proxy @n)
             entropy = mkEntropy  @n . B8.pack <$> vectorOf (size `quot` 8) arbitrary
         in
-            either (error . show . UnexpectedMnemonicErr) identity <$> entropy
+            either (error . show . UnexpectedEntropyError) identity <$> entropy
 
 
 -- Same remark from 'Arbitrary Entropy' applies here.
@@ -276,7 +277,7 @@ instance
         entropyToMnemonic <$> arbitrary @(Entropy n)
 
 
-instance Exception MnemonicException
+instance (KnownNat csz) => Exception (MnemonicException csz)
 
 
 -- FIXME: Suggestion, we could -- when certain flags are turned on -- display
@@ -294,15 +295,22 @@ instance Buildable (SecureLog (Mnemonic mw)) where
     build _ =
         "<mnemonic>"
 
-instance Buildable MnemonicErr where
+instance Buildable (MnemonicError csz) where
     build = \case
-        MnemonicErrInvalidEntropyLength l ->
-            bprint ("Entropy must be a sequence of " % build % " bytes") l
-        MnemonicErrFailedToCreate ->
-            bprint "Invalid Mnemonic words"
-        MnemonicErrForbiddenMnemonic ->
+        ErrMnemonicWords (ErrWrongNumberOfWords a e) ->
+            bprint ("Invalid number of mnemonic words: got "%build%" words, expected "%build%" words") a e
+        ErrDictionary (ErrInvalidDictionaryWord w) ->
+            bprint ("Invalid dictionary word: "%build%"") (fromUtf8String w)
+        ErrEntropy (ErrInvalidEntropyLength a e) ->
+            bprint ("Invalid entropy length: got "%build%" bits, expected "%build%" bits") a e
+        ErrEntropy (ErrInvalidEntropyChecksum a e) ->
+            bprint ("Invalid entropy checksum: got "%build%", expected "%build) (show' a) (show' e)
+        ErrForbidden ->
             bprint "Forbidden Mnemonic: an example Mnemonic has been submitted. \
             \Please generate a fresh and private Mnemonic from a trusted source"
+      where
+        show' :: Checksum csz -> String
+        show' = show
 
 
 -- | To use everytime we need to show an example of a Mnemonic. This particular
@@ -325,13 +333,13 @@ instance Default (Mnemonic 12) where
                 , "flee"
                 ]
 
-            sentence = maybe
-                (error $ show $ UnexpectedMnemonicErr MnemonicErrFailedToCreate)
-                (mnemonicPhraseToMnemonicSentence Dictionary.english)
+            phrase = either (error . show) id
                 (mnemonicPhrase @12 (toUtf8String <$> wordsm))
 
-            entropy = fromMaybe
-                (error $ show $ UnexpectedMnemonicErr MnemonicErrFailedToCreate)
+            sentence = either (error . show) id
+                (mnemonicPhraseToMnemonicSentence Dictionary.english phrase)
+
+            entropy = either (error . show) id
                 (wordsToEntropy @(EntropySize 12) sentence)
         in Mnemonic
             { mnemonicToSentence = sentence

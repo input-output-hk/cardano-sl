@@ -14611,7 +14611,6 @@ license = stdenv.lib.licenses.mit;
 , lens
 , lens-aeson
 , lifted-base
-, log-warper
 , monad-control
 , mtl
 , network
@@ -14657,7 +14656,6 @@ http-types
 lens
 lens-aeson
 lifted-base
-log-warper
 monad-control
 mtl
 network
@@ -14679,7 +14677,6 @@ base
 directory
 filepath
 http-types
-log-warper
 monad-control
 mtl
 optparse-applicative
@@ -14747,7 +14744,6 @@ license = stdenv.lib.licenses.bsd3;
 , http-client-tls
 , http-conduit
 , lens
-, log-warper
 , memory
 , mmorph
 , monad-control
@@ -14844,7 +14840,6 @@ http-client
 http-client-tls
 http-conduit
 lens
-log-warper
 memory
 mmorph
 monad-control
@@ -14917,7 +14912,6 @@ formatting
 generic-arbitrary
 hspec
 lens
-log-warper
 network-transport
 network-transport-inmemory
 pipes
@@ -14995,7 +14989,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , loc
-, log-warper
 , megaparsec
 , MonadRandom
 , mtl
@@ -15062,7 +15055,6 @@ generic-arbitrary
 haskeline
 lens
 loc
-log-warper
 megaparsec
 MonadRandom
 mtl
@@ -15101,7 +15093,6 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 formatting
-log-warper
 network-transport-tcp
 safe-exceptions
 temporary
@@ -15366,7 +15357,6 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
-, log-warper
 , lrucache
 , memory
 , mmorph
@@ -15424,7 +15414,6 @@ formatting
 free
 hashable
 lens
-log-warper
 lrucache
 memory
 mmorph
@@ -15576,7 +15565,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , mtl
 , QuickCheck
 , safe-exceptions
@@ -15611,7 +15599,6 @@ containers
 data-default
 formatting
 lens
-log-warper
 mtl
 QuickCheck
 safe-exceptions
@@ -15693,7 +15680,6 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
-, log-warper
 , memory
 , mmorph
 , monad-control
@@ -15766,7 +15752,6 @@ fmt
 formatting
 hashable
 lens
-log-warper
 memory
 mmorph
 monad-control
@@ -16101,7 +16086,6 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , formatting
 , lens
-, log-warper
 , lrucache
 , memory
 , mmorph
@@ -16152,7 +16136,6 @@ ether
 filepath
 formatting
 lens
-log-warper
 lrucache
 memory
 mmorph
@@ -16264,7 +16247,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , http-types
 , lens
-, log-warper
 , memory
 , mmorph
 , mtl
@@ -16338,7 +16320,6 @@ formatting
 free
 http-types
 lens
-log-warper
 memory
 mmorph
 mtl
@@ -16380,7 +16361,6 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 lens
-log-warper
 optparse-applicative
 optparse-simple
 purescript-bridge
@@ -16410,7 +16390,6 @@ engine-io
 generic-arbitrary
 hspec
 lens
-log-warper
 QuickCheck
 universum
 warp
@@ -16467,7 +16446,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , lrucache
 , monad-control
 , MonadRandom
@@ -16519,7 +16497,6 @@ ether
 exceptions
 formatting
 lens
-log-warper
 monad-control
 MonadRandom
 QuickCheck
@@ -16559,7 +16536,6 @@ directory
 ether
 formatting
 lens
-log-warper
 lrucache
 MonadRandom
 mtl
@@ -16622,7 +16598,6 @@ cryptonite
 data-default
 ether
 lens
-log-warper
 lrucache
 MonadRandom
 mtl
@@ -16685,7 +16660,6 @@ license = stdenv.lib.licenses.mit;
 , iproute
 , kademlia
 , lens
-, log-warper
 , lzma-conduit
 , mtl
 , network-info
@@ -16751,7 +16725,6 @@ http-client-tls
 iproute
 kademlia
 lens
-log-warper
 lzma-conduit
 mtl
 network-info
@@ -16882,8 +16855,8 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , hspec-core
 , kademlia
+, katip
 , lens
-, log-warper
 , monad-control
 , mtl
 , mwc-random
@@ -16936,8 +16909,8 @@ exceptions
 formatting
 hashable
 kademlia
+katip
 lens
-log-warper
 monad-control
 mtl
 network
@@ -16975,7 +16948,6 @@ containers
 hspec
 hspec-core
 lens
-log-warper
 mtl
 network-transport
 network-transport-inmemory
@@ -17014,7 +16986,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cpphs
-, log-warper
 , stdenv
 , universum
 }:
@@ -17039,7 +17010,6 @@ cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-log-warper
 universum
 ];
 executableToolDepends = [
@@ -17059,7 +17029,6 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , Cabal
 , cardano-sl-infra
-, log-warper
 , mtl
 , stdenv
 , universum
@@ -17081,7 +17050,6 @@ binary
 bytestring
 Cabal
 cardano-sl-infra
-log-warper
 mtl
 universum
 ];
@@ -17134,7 +17102,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , lifted-async
-, log-warper
 , mtl
 , neat-interpolation
 , network-transport-tcp
@@ -17197,7 +17164,6 @@ containers
 data-default
 directory
 filepath
-log-warper
 network-transport-tcp
 optparse-applicative
 optparse-generic
@@ -17249,7 +17215,6 @@ Glob
 hourglass
 lens
 lifted-async
-log-warper
 mtl
 neat-interpolation
 network-transport-tcp
@@ -17321,10 +17286,12 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, hspec-core
+, katip
 , lens
-, log-warper
 , lrucache
 , megaparsec
+, mmorph
 , mtl
 , optparse-applicative
 , parsec
@@ -17348,6 +17315,7 @@ license = stdenv.lib.licenses.mit;
 , universum
 , unliftio-core
 , unordered-containers
+, yaml
 }:
 mkDerivation {
 
@@ -17377,10 +17345,12 @@ file-embed
 filepath
 formatting
 hashable
+hspec
+katip
 lens
-log-warper
 lrucache
 megaparsec
+mmorph
 mtl
 optparse-applicative
 parsec
@@ -17400,6 +17370,7 @@ transformers-lift
 universum
 unliftio-core
 unordered-containers
+yaml
 ];
 libraryToolDepends = [
 cpphs
@@ -17415,6 +17386,7 @@ filepath
 formatting
 hedgehog
 hspec
+katip
 pretty-show
 QuickCheck
 quickcheck-instances
@@ -17547,7 +17519,6 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hspec
 , lens
-, log-warper
 , memory
 , monad-control
 , MonadRandom
@@ -17625,7 +17596,6 @@ formatting
 hashable
 hspec
 lens
-log-warper
 memory
 monad-control
 mtl
@@ -17685,7 +17655,6 @@ ether
 formatting
 hspec
 lens
-log-warper
 MonadRandom
 mtl
 QuickCheck
@@ -17758,7 +17727,6 @@ license = stdenv.lib.licenses.mit;
 , ixset-typed
 , json-sop
 , lens
-, log-warper
 , memory
 , mtl
 , mwc-random
@@ -17863,7 +17831,6 @@ http-types
 ixset-typed
 json-sop
 lens
-log-warper
 memory
 mtl
 mwc-random
@@ -17926,7 +17893,6 @@ hspec
 http-client
 http-types
 lens
-log-warper
 mtl
 optparse-applicative
 pretty-show
@@ -17970,7 +17936,6 @@ hedgehog
 hspec
 ixset-typed
 lens
-log-warper
 mtl
 normaldistribution
 optparse-applicative

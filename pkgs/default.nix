@@ -16503,7 +16503,6 @@ libraryHaskellDepends = [
 base
 bytestring
 cardano-sl
-cardano-sl-binary
 cardano-sl-block
 cardano-sl-chain
 cardano-sl-client
@@ -17521,7 +17520,6 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-crypto
 , cardano-sl
-, cardano-sl-binary
 , cardano-sl-block
 , cardano-sl-chain
 , cardano-sl-client
@@ -17670,7 +17668,6 @@ base
 bytestring
 cardano-crypto
 cardano-sl
-cardano-sl-binary
 cardano-sl-block
 cardano-sl-chain
 cardano-sl-client
@@ -17727,6 +17724,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-crypto
 , cardano-sl
+, cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-chain
 , cardano-sl-client
@@ -17840,6 +17838,8 @@ beam-sqlite
 bytestring
 cardano-crypto
 cardano-sl
+cardano-sl-binary
+cardano-sl-block
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core
@@ -17954,6 +17954,7 @@ base
 bytestring
 cardano-crypto
 cardano-sl
+cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
 cardano-sl-client

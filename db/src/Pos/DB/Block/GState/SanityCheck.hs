@@ -12,15 +12,16 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.DB.Txp (sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 sanityCheckDB ::
        ( MonadMask m
        , MonadDBRead m
        , MonadUnliftIO m
        )
-    => m ()
-sanityCheckDB = inAssertMode sanityCheckGStateDB
+    => TraceNamed IO -> m ()
+sanityCheckDB logTrace = inAssertMode $ sanityCheckGStateDB $ natTrace liftIO logTrace
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB ::
@@ -28,7 +29,7 @@ sanityCheckGStateDB ::
        ( MonadDBRead m
        , MonadUnliftIO m
        )
-    => m ()
-sanityCheckGStateDB = do
-    sanityCheckStakes noTrace
-    sanityCheckUtxo noTrace =<< getRealTotalStake
+    => TraceNamed m -> m ()
+sanityCheckGStateDB logTrace = do
+    sanityCheckStakes logTrace
+    sanityCheckUtxo logTrace =<< getRealTotalStake

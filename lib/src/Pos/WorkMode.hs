@@ -49,7 +49,7 @@ import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Util.Lens (postfixLFields)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
@@ -160,8 +160,8 @@ instance HasConfiguration => MonadDB (RealMode ext) where
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 instance MonadBListener (RealMode ext) where
-    onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub
+    onApplyBlocks tr = onApplyBlocksStub $ natTrace liftIO tr
+    onRollbackBlocks tr = onRollbackBlocksStub $ natTrace liftIO tr
 
 type instance MempoolExt (RealMode ext) = ext
 

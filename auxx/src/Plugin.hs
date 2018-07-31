@@ -41,7 +41,7 @@ import           Repl (PrintAction, WithCommandAction (..))
 
 auxxPlugin ::
        MonadAuxxMode m
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> AuxxOptions
@@ -49,7 +49,7 @@ auxxPlugin ::
     -> Diffusion m
     -> m ()
 auxxPlugin logTrace pm txpConfig auxxOptions repl = \diffusion -> do
-    logInfo logTrace $ sformat ("Length of genesis utxo: " %int)
+    liftIO $ logInfo logTrace $ sformat ("Length of genesis utxo: " %int)
                       (length $ unGenesisUtxo genesisUtxo)
     rawExec logTrace (Just pm) (Just txpConfig) (Just Dict) auxxOptions (Just diffusion) repl
 
@@ -57,7 +57,7 @@ rawExec ::
        ( MonadIO m
        , MonadCatch m
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> Maybe ProtocolMagic
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
@@ -74,7 +74,7 @@ rawExec logTrace pm txpConfig mHasAuxxMode AuxxOptions{..} mDiffusion = \case
 runWalletCmd ::
        ( MonadIO m
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> Maybe ProtocolMagic
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
@@ -95,7 +95,7 @@ runWalletCmd logTrace pm txpConfig mHasAuxxMode mDiffusion line = do
 
 runCmd
     :: MonadIO m
-    => TraceNamed m
+    => TraceNamed IO
     -> Maybe ProtocolMagic
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))

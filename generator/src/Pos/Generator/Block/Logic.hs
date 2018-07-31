@@ -76,7 +76,7 @@ foldM' combine = go
 -- injector, for example.
 genBlocks ::
        forall g ctx m t . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> BlockGenParams
@@ -110,7 +110,7 @@ genBlockNoApply
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> EpochOrSlot
@@ -118,7 +118,7 @@ genBlockNoApply
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Block)
 genBlockNoApply logTrace0 pm txpConfig eos header = do
     let epoch = eos ^. epochIndexL
-    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot logTrace pm epoch)
+    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot logTrace0 pm epoch)
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
@@ -139,7 +139,7 @@ genBlockNoApply logTrace0 pm txpConfig eos header = do
             canSkip <- view bgpSkipNoKey
             case (maybeLeader, canSkip) of
                 (Nothing,True)     -> do
-                    lift $ logWarning logTrace $
+                    liftIO $ logWarning logTrace0 $
                         sformat ("Skipping block creation for leader "%build%
                                  " as no related key was found")
                                 leader
@@ -150,14 +150,13 @@ genBlockNoApply logTrace0 pm txpConfig eos header = do
                     -- When we know the secret key we can proceed to the actual creation.
                     Just <$> usingPrimaryKey leaderSK
                              (lift $ genMainBlock slot (swap <$> transCert))
-    where
-    logTrace = natTrace lift logTrace0
+  where
     genMainBlock ::
         SlotId ->
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Block
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal logTrace pm slot proxySkInfo >>= \case
+        createMainBlockInternal (natTrace liftIO logTrace0) pm slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> return $ Right mainBlock
 
@@ -170,7 +169,7 @@ genBlock ::
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> EpochOrSlot
@@ -193,18 +192,18 @@ genBlock logTrace pm txpConfig eos = do
         -> Block
         -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply ctx block =
-        let logTrace' = natTrace lift logTrace
+        let logTrace' = natTrace liftIO logTrace
         in
         verifyBlocksPrefix logTrace' pm ctx (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                applyBlocksUnsafe logTrace' pm
+                applyBlocksUnsafe logTrace pm
                     (vbcBlockVersion ctx)
                     (vbcBlockVersionData ctx)
                     (ShouldCallBListener True)
                     (one blund)
                     (Just pollModifier)
-                normalizeMempool logTrace' pm txpConfig
+                normalizeMempool (natTrace liftIO logTrace) pm txpConfig
                 pure blund

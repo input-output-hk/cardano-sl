@@ -50,6 +50,7 @@ import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import           Pos.DB.Update (getAdoptedBVFull, usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug)
 import           Pos.Util.Util (HasLens (..))
 
@@ -137,7 +138,7 @@ verifyAndApplyBlocks
        , MonadMempoolNormalization ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> VerifyBlocksContext
@@ -150,12 +151,13 @@ verifyAndApplyBlocks logTrace0 pm txpConfig ctx rollback blocks = runExceptT $ d
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
     hh <- rollingVerifyAndApply [] (spanEpoch blocks)
-    lift $ normalizeMempool logTrace pm txpConfig
+    lift $ normalizeMempool logTrace' pm txpConfig
     pure hh
   where
     logTrace = appendName "verifyAndApplyBlocks" logTrace0
+    logTrace' = natTrace liftIO logTrace
     logDebug' :: Text -> m ()
-    logDebug' = logDebug logTrace
+    logDebug' = logDebug logTrace'
     -- Spans input into @(a, b)@ where @a@ is either a single genesis
     -- block or a maximum prefix of main blocks from the same epoch.
     -- Examples (where g is for genesis and m is for main):
@@ -181,8 +183,8 @@ verifyAndApplyBlocks logTrace0 pm txpConfig ctx rollback blocks = runExceptT $ d
         -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
     applyAMAP e (OldestFirst []) _      True                   = throwError e
     applyAMAP _ (OldestFirst []) blunds False                  = (,blunds) <$> lift GS.getTip
-    applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied = do
-        lift (verifyBlocksPrefix logTrace pm ctx (one block)) >>= \case
+    applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied =
+        lift (verifyBlocksPrefix logTrace' pm ctx (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
                 applyAMAP e' (OldestFirst []) blunds nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
@@ -222,7 +224,7 @@ verifyAndApplyBlocks logTrace0 pm txpConfig ctx rollback blocks = runExceptT $ d
                        <> pretty epochIndex
             lift $ lrcSingleShot logTrace pm epochIndex
         lift $ logDebug' "Rolling: verifying"
-        lift (verifyBlocksPrefix logTrace pm ctx prefix) >>= \case
+        lift (verifyBlocksPrefix logTrace' pm ctx prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
@@ -263,7 +265,7 @@ applyBlocks
      . ( BlockLrcMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> Bool
     -> Maybe PollModifier
@@ -294,7 +296,7 @@ applyBlocks logTrace pm calculateLrc pModifier blunds = do
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
     :: MonadBlockApply ctx m
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> NewestFirst NE Blund
     -> m ()
@@ -312,7 +314,7 @@ applyWithRollback
        , MonadMempoolNormalization ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> NewestFirst NE Blund        -- ^ Blocks to rollbck

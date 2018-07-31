@@ -87,7 +87,7 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet,
@@ -389,8 +389,8 @@ instance MonadUpdates WalletTestMode where
     applyLastUpdate = applyLastUpdateWebWallet
 
 instance (HasConfigurations) => MonadBListener WalletTestMode where
-    onApplyBlocks = onApplyBlocksWebWallet
-    onRollbackBlocks = onRollbackBlocksWebWallet
+    onApplyBlocks tr = onApplyBlocksWebWallet $ natTrace liftIO tr
+    onRollbackBlocks tr = onRollbackBlocksWebWallet $ natTrace liftIO tr
 
 instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
     networkChainDifficulty = networkChainDifficultyWebWallet

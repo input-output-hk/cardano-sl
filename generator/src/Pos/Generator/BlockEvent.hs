@@ -72,6 +72,7 @@ import           Pos.DB.Txp (TxpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode,
                      MonadBlockGen, TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (lensOf')
 
@@ -159,7 +160,7 @@ flattenBlockchainTree prePath tree = do
 
 genBlocksInForest
     :: (MonadIO m, BlockTxpGenMode g ctx m)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets
@@ -172,14 +173,14 @@ genBlocksInForest logTrace pm txpConfig secrets bootStakeholders =
 
 genBlocksInTree
     :: (MonadIO m, BlockTxpGenMode g ctx m)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets
     -> GenesisWStakeholders
     -> BlockchainTree BlockDesc
     -> RandT g m (BlockchainTree Blund)
-genBlocksInTree logTrace pm txpConfig secrets bootStakeholders blockchainTree = do
+genBlocksInTree logTrace0 pm txpConfig secrets bootStakeholders blockchainTree = do
     txpSettings <- view (lensOf' @TxpGlobalSettings)
     let BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
@@ -194,14 +195,14 @@ genBlocksInTree logTrace pm txpConfig secrets bootStakeholders blockchainTree = 
             , _bgpSkipNoKey       = False
             , _bgpTxpGlobalSettings = txpSettings
             }
-    blocks <- genBlocks logTrace pm txpConfig blockGenParams maybeToList
+    blocks <- genBlocks logTrace0 pm txpConfig blockGenParams maybeToList
     block <- case blocks of
         [block] -> return block
         _ ->
             -- We specify '_bgpBlockCount = 1' above, so the output must contain
             -- exactly one block.
             error "genBlocksInTree: impossible - 'genBlocks' generated unexpected amount of blocks"
-    forestBlocks <- genBlocksInForest logTrace pm txpConfig secrets bootStakeholders blockchainForest
+    forestBlocks <- genBlocksInForest (natTrace liftIO logTrace0) pm txpConfig secrets bootStakeholders blockchainForest
     return $ BlockchainTree block forestBlocks
 
 -- Precondition: paths in the structure are non-empty.
@@ -209,7 +210,7 @@ genBlocksInStructure ::
        ( MonadIO m
        , BlockTxpGenMode g ctx m
        , Functor t, Foldable t)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets

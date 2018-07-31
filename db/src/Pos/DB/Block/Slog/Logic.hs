@@ -59,6 +59,7 @@ import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 
 ----------------------------------------------------------------------------
@@ -218,7 +219,7 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
     :: MonadSlogApply ctx m
-    => TraceNamed m
+    => TraceNamed IO
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp
@@ -287,15 +288,16 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
        MonadSlogApply ctx m
-    => TraceNamed m
+    => TraceNamed IO
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m SomeBatchOp
 slogRollbackBlocks logTrace (BypassSecurityCheck bypassSecurity)
                    (ShouldCallBListener callBListener) blunds = do
+    let logTrace' = natTrace liftIO logTrace
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
-        assertionFailed logTrace $
+        assertionFailed logTrace' $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     -- We should never allow a situation when we summarily roll back by more
     -- than 'k' blocks
@@ -310,7 +312,7 @@ slogRollbackBlocks logTrace (BypassSecurityCheck bypassSecurity)
             -- no rollback further than k blocks
             maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
     unless (bypassSecurity || secure) $
-        traceFatalError logTrace
+        traceFatalError logTrace'
                          "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."

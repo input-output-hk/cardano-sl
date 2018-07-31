@@ -177,8 +177,8 @@ instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
 
 instance MonadBListener AuxxMode where
-    onApplyBlocks _ = realModeToAuxx ... onApplyBlocks noTrace
-    onRollbackBlocks _ = realModeToAuxx ... onRollbackBlocks noTrace
+    onApplyBlocks = realModeToAuxx ... onApplyBlocks
+    onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
     --TODO trace on the left side has a different monad from trace on the right side
     --maybe a TraceNamed IO is a good solution
 

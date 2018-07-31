@@ -34,7 +34,7 @@ import           Mode (MonadAuxxMode)
 -- from it to the given file.
 rollbackAndDump
     :: MonadAuxxMode m
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> Word
     -> FilePath
@@ -43,7 +43,7 @@ rollbackAndDump logTrace pm numToRollback outFile = withStateLock noTrace HighPr
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
-    logInfo logTrace $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
+    liftIO $ logInfo logTrace $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
         Just blunds -> do
@@ -54,10 +54,10 @@ rollbackAndDump logTrace pm numToRollback outFile = withStateLock noTrace HighPr
             let allTxs :: [TxAux]
                 allTxs = concatMap extractTxs blunds
             liftIO $ BSL.writeFile outFile (encode allTxs)
-            logInfo logTrace $ sformat ("Dumped "%int%" transactions to "%string)
+            liftIO $ logInfo logTrace $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
             rollbackBlocksUnsafe logTrace pm (BypassSecurityCheck True) (ShouldCallBListener True) blunds
-            logInfo logTrace $ sformat ("Rolled back "%int%" blocks") (length blunds)
+            liftIO $ logInfo logTrace $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where
     -- It's illegal to rollback 0-th genesis block.  We also may load
@@ -73,4 +73,4 @@ rollbackAndDump logTrace pm numToRollback outFile = withStateLock noTrace HighPr
     is0thGenesis _ = False
     printTipDifficulty = do
         tipDifficulty <- view difficultyL <$> DB.getTipHeader
-        logInfo logTrace $ sformat ("Our tip's difficulty is "%build) tipDifficulty
+        liftIO $ logInfo logTrace $ sformat ("Our tip's difficulty is "%build) tipDifficulty

@@ -23,10 +23,10 @@ class Monad m => MonadBListener m where
     -- Callback will be called after putting blocks into BlocksDB
     -- and before changing of GStateDB.
     -- Callback action will be performed under block lock.
-    onApplyBlocks :: TraceNamed m -> OldestFirst NE Blund -> m SomeBatchOp
+    onApplyBlocks :: TraceNamed IO -> OldestFirst NE Blund -> m SomeBatchOp
     -- Callback will be called before changing of GStateDB.
     -- Callback action will be performed under block lock.
-    onRollbackBlocks :: TraceNamed m -> NewestFirst NE Blund -> m SomeBatchOp
+    onRollbackBlocks :: TraceNamed IO -> NewestFirst NE Blund -> m SomeBatchOp
 
 instance {-# OVERLAPPABLE #-}
     ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)) =>
@@ -37,10 +37,10 @@ instance {-# OVERLAPPABLE #-}
 
 onApplyBlocksStub
     :: MonadIO m
-    => TraceNamed m -> OldestFirst NE Blund -> m SomeBatchOp
+    => TraceNamed IO -> OldestFirst NE Blund -> m SomeBatchOp
 onApplyBlocksStub _ _ = pure mempty
 
 onRollbackBlocksStub
     :: MonadIO m
-    => TraceNamed m -> NewestFirst NE Blund -> m SomeBatchOp
+    => TraceNamed IO -> NewestFirst NE Blund -> m SomeBatchOp
 onRollbackBlocksStub _ _ = pure mempty

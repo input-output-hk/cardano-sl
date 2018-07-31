@@ -53,6 +53,7 @@ import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getAdoptedBVFull, getCompetingBVStates)
 import           Pos.Util (maybeThrow)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
                      logWarning)
 import           Pos.Util.Util (HasLens (..))
@@ -76,40 +77,41 @@ type LrcModeFull ctx m =
 lrcSingleShot
     :: forall ctx m
      . (LrcModeFull ctx m, HasMisbehaviorMetrics ctx)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> EpochIndex
     -> m ()
 lrcSingleShot logTrace pm epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
-    logDebug logTrace $ sformat
+    logDebug logTrace' $ sformat
         ("lrcSingleShot is trying to acquire LRC lock, the epoch is "
          %build) epoch
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
+    logTrace' = natTrace liftIO logTrace
     consumers = allLrcConsumers @ctx @m
     for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
     onAcquiredLock = do
-        logDebug logTrace "lrcSingleShot has acquired LRC lock"
+        logDebug logTrace' "lrcSingleShot has acquired LRC lock"
         (need, filteredConsumers) <-
-            logWarningWaitLinear logTrace 5 "determining whether LRC is needed" $ do
+            logWarningWaitLinear logTrace' 5 "determining whether LRC is needed" $ do
                 expectedRichmenComp <-
                     filterM (flip lcIfNeedCompute epoch) consumers
                 needComputeLeaders <- not <$> LrcDB.hasLeaders epoch
                 let needComputeRichmen = not . null $ expectedRichmenComp
-                when needComputeLeaders $ logInfo logTrace
+                when needComputeLeaders $ logInfo logTrace'
                     ("Need to compute leaders" <> for_thEpochMsg)
-                when needComputeRichmen $ logInfo logTrace
+                when needComputeRichmen $ logInfo logTrace'
                     ("Need to compute richmen" <> for_thEpochMsg)
                 return $
                     ( needComputeLeaders || needComputeRichmen
                     , expectedRichmenComp)
         when need $ do
-            logInfo logTrace "LRC is starting actual computation"
+            logInfo logTrace' "LRC is starting actual computation"
             lrcDo logTrace pm epoch filteredConsumers
-            logInfo logTrace "LRC has finished actual computation"
+            logInfo logTrace' "LRC has finished actual computation"
         putEpoch epoch
-        logInfo logTrace ("LRC has updated LRC DB" <> for_thEpochMsg)
+        logInfo logTrace' ("LRC has updated LRC DB" <> for_thEpochMsg)
 
 tryAcquireExclusiveLock
     :: (MonadMask m, MonadIO m)
@@ -134,7 +136,7 @@ lrcDo
      . ( LrcModeFull ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> EpochIndex
     -> [LrcConsumer m]
@@ -154,9 +156,10 @@ lrcDo logTrace pm epoch consumers = do
     blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
-    seed <- sscCalculateSeed logTrace epoch >>= \case
+    let logTrace' = natTrace liftIO logTrace
+    seed <- sscCalculateSeed logTrace' epoch >>= \case
         Right s -> do
-            logInfo logTrace $ sformat
+            logInfo logTrace' $ sformat
                 ("Calculated seed for epoch "%build%" successfully") epoch
             return s
         Left _ -> do
@@ -170,9 +173,9 @@ lrcDo logTrace pm epoch consumers = do
     putSeed epoch seed
     -- Roll back to the crucial slot and calculate richmen, etc.
     withBlocksRolledBack blundsToRollbackNE $ do
-        issuersComputationDo logTrace epoch
-        richmenComputationDo logTrace epoch consumers
-        DB.sanityCheckDB
+        issuersComputationDo logTrace' epoch
+        richmenComputationDo logTrace' epoch consumers
+        DB.sanityCheckDB logTrace
         leadersComputationDo epoch seed
   where
     atLeastKNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)

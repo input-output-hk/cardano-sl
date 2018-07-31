@@ -30,13 +30,13 @@ import           Mode (MonadAuxxMode)
 
 
 generateBlocks :: MonadAuxxMode m
-               => TraceNamed m
+               => TraceNamed IO
                -> ProtocolMagic
                -> TxpConfiguration
-               -> GenBlocksParams -> m ()
+               -> GenBlocksParams -> m ()                                -- JSON logging Trace
 generateBlocks logTrace pm txpConfig GenBlocksParams{..} = withStateLock noTrace HighPriority ApplyBlock $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
-    logInfo logTrace $ "Generating with seed " <> show seed
+    liftIO $ logInfo logTrace $ "Generating with seed " <> show seed
 
     allSecrets <- mkAllSecretsSimple . map encToSecret <$> getSecretKeysPlain
 
@@ -54,4 +54,4 @@ generateBlocks logTrace pm txpConfig GenBlocksParams{..} = withStateLock noTrace
     withCompileInfo $ evalRandT (genBlocks logTrace pm txpConfig bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
-    logInfo logTrace $ "Generated with seed " <> show seed
+    liftIO $ logInfo logTrace $ "Generated with seed " <> show seed

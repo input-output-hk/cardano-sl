@@ -64,7 +64,7 @@ import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
 import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
                      usNormalize, usRollbackBlocks)
 import           Pos.Util (Some (..), spanSafe)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens', lensOf)
 
@@ -146,7 +146,7 @@ normalizeMempool logTrace pm txpConfig = do
 applyBlocksUnsafe
     :: ( MonadBlockApply ctx m
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> BlockVersion
     -> BlockVersionData
@@ -156,7 +156,7 @@ applyBlocksUnsafe
     -> m ()
 applyBlocksUnsafe logTrace pm bv bvd scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
-    unless (null nextEpoch) $ assertionFailed noTrace $
+    unless (null nextEpoch) $ assertionFailed (natTrace liftIO logTrace) $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
                  "thisEpoch"%listJson%"\nnextEpoch:"%listJson)
                 (map (headerHash . fst) thisEpoch)
@@ -182,7 +182,7 @@ applyBlocksUnsafe logTrace pm bv bvd scb blunds pModifier = do
 applyBlocksDbUnsafeDo
     :: ( MonadBlockApply ctx m
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> BlockVersion
     -> BlockVersionData
@@ -196,12 +196,19 @@ applyBlocksDbUnsafeDo logTrace pm bv bvd scb blunds pModifier = do
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks logTrace scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks noTrace pm bv (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks noTrace (map toDlgBlund blunds)
-    txpBatch <- tgsApplyBlocks noTrace $ map toTxpBlund blunds
+    usBatch <- SomeBatchOp <$> usApplyBlocks
+                                (natTrace liftIO logTrace)
+                                pm
+                                bv
+                                (map toUpdateBlock blocks)
+                                pModifier
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks
+                                        (natTrace liftIO logTrace)
+                                        (map toDlgBlund blunds)
+    txpBatch <- tgsApplyBlocks (natTrace liftIO logTrace) $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks noTrace pm bvd (map toSscBlock blocks) Nothing
+        sscApplyBlocks (natTrace liftIO logTrace) pm bvd (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -209,13 +216,13 @@ applyBlocksDbUnsafeDo logTrace pm bv bvd scb blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
-    sanityCheckDB
+    sanityCheckDB logTrace
 
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: MonadBlockApply ctx m
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
@@ -223,13 +230,13 @@ rollbackBlocksUnsafe
     -> m ()
 rollbackBlocksUnsafe logTrace pm bsc scb toRollback = do
     slogRoll <- slogRollbackBlocks logTrace bsc scb toRollback
-    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks noTrace (map toDlgBlund toRollback)
-    usRoll <- SomeBatchOp <$> usRollbackBlocks noTrace
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (natTrace liftIO logTrace) (map toDlgBlund toRollback)
+    usRoll <- SomeBatchOp <$> usRollbackBlocks (natTrace liftIO logTrace)
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    txRoll <- tgsRollbackBlocks noTrace $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks noTrace
+    txRoll <- tgsRollbackBlocks (natTrace liftIO logTrace) $ map toTxpBlund toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (natTrace liftIO logTrace)
         (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll
@@ -244,7 +251,7 @@ rollbackBlocksUnsafe logTrace pm bsc scb toRollback = do
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
     dlgNormalizeOnRollback pm
-    sanityCheckDB
+    sanityCheckDB logTrace
 
 
 toComponentBlock :: (MainBlock -> payload) -> Block -> ComponentBlock payload

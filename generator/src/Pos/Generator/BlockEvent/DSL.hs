@@ -118,7 +118,7 @@ snapshotEq snapshotId = emitEvent $
 
 runBlockEventGenT
     :: (MonadIO m, BlockTxpGenMode g ctx m)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets

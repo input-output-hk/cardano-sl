@@ -38,6 +38,7 @@ import           Pos.Network.Block.Logic (BlockNetLogicException (..),
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,
                      BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logInfo,
                      logWarning)
 import           Pos.Util.Util (HasLens (..))
@@ -60,14 +61,15 @@ retrievalWorker
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m -> m ()
-retrievalWorker logTrace pm txpConfig diffusion = do
+retrievalWorker logTrace0 pm txpConfig diffusion = do
     logInfo logTrace "Starting retrievalWorker loop"
     mainLoop
   where
+    logTrace = natTrace liftIO logTrace0
     mainLoop = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -116,7 +118,7 @@ retrievalWorker logTrace pm txpConfig diffusion = do
         logDebug logTrace $ "handleContinues: " <> pretty hHash
         classifyNewHeader pm header >>= \case
             CHContinues ->
-                void $ getProcessBlocks logTrace pm txpConfig diffusion nodeId (headerHash header) [hHash]
+                void $ getProcessBlocks logTrace0 pm txpConfig diffusion nodeId (headerHash header) [hHash]
             res -> logDebug logTrace $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -172,7 +174,7 @@ retrievalWorker logTrace pm txpConfig diffusion = do
                                         "already present in db"
         logDebug logTrace "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ streamProcessBlocks logTrace pm txpConfig diffusion nodeId (headerHash rHeader) checkpoints
+        void $ streamProcessBlocks logTrace0 pm txpConfig diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -285,7 +287,7 @@ getProcessBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m
@@ -294,6 +296,7 @@ getProcessBlocks
     -> [HeaderHash]
     -> m ()
 getProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints = do
+    let logTrace' = natTrace liftIO logTrace
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
     case OldestFirst <$> nonEmpty (getOldestFirst result) of
       Nothing -> do
@@ -303,7 +306,7 @@ getProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints = do
           throwM $ DialogUnexpected msg
       Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-          logDebug logTrace $ sformat
+          logDebug logTrace' $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
           handleBlocks logTrace pm txpConfig blocks diffusion
@@ -322,7 +325,7 @@ getProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints = do
                   then isJust <$> tryTakeTMVar recHeaderVar
                   else pure False
           when exitedRecovery $
-              logInfo logTrace "Recovery mode exited gracefully on receiving block we needed"
+              logInfo logTrace' "Recovery mode exited gracefully on receiving block we needed"
 
 -- Attempts to catch up by streaming blocks from peer.
 -- Will fall back to getProcessBlocks if streaming is disabled
@@ -332,7 +335,7 @@ streamProcessBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m
@@ -341,16 +344,17 @@ streamProcessBlocks
     -> [HeaderHash]
     -> m ()
 streamProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints = do
-    logInfo logTrace "streaming start"
+    logInfo logTrace' "streaming start"
     r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
     case r of
          Nothing -> do
-             logInfo logTrace "streaming not supported, reverting to batch mode"
+             logInfo logTrace' "streaming not supported, reverting to batch mode"
              getProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints
          Just _  -> do
-             logInfo logTrace "streaming done"
+             logInfo logTrace' "streaming done"
              return ()
   where
+    logTrace' = natTrace liftIO logTrace
     writeCallback :: [Block] -> m ()
     writeCallback [] = return ()
     writeCallback (block:blocks) =

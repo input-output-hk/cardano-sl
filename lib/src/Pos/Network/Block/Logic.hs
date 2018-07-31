@@ -56,7 +56,7 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
                      logWarning)
 import           Pos.Util.Util (lensOf)
@@ -229,28 +229,29 @@ handleBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> OldestFirst NE Block
     -> Diffusion m
     -> m ()
 handleBlocks logTrace pm txpConfig blocks diffusion = do
-    logDebug logTrace "handleBlocks: processing"
-    inAssertMode $ logInfo logTrace $
+    logDebug logTrace' "handleBlocks: processing"
+    inAssertMode $ logInfo logTrace' $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
             getOldestFirst $ map headerHash blocks
     maybe onNoLca handleBlocksWithLca =<<
         lcaWithMainChain (map (view blockHeader) blocks)
-    inAssertMode $ logDebug logTrace $ "Finished processing sequence of blocks"
+    inAssertMode $ logDebug logTrace' $ "Finished processing sequence of blocks"
   where
-    onNoLca = logWarning logTrace $
+    logTrace' = natTrace liftIO logTrace
+    onNoLca = logWarning logTrace' $
         "Sequence of blocks can't be processed, because there is no LCA. " <>
         "Probably rollback happened in parallel"
 
     handleBlocksWithLca :: HeaderHash -> m ()
     handleBlocksWithLca lcaHash = do
-        logDebug logTrace $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
+        logDebug logTrace' $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
         maybe (applyWithoutRollback logTrace pm txpConfig diffusion blocks)
@@ -262,21 +263,21 @@ applyWithoutRollback
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback logTrace pm txpConfig diffusion blocks = do
-    logInfo logTrace . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+    logInfo logTrace' . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock noTrace HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
-            onFailedVerifyBlocks logTrace (getOldestFirst blocks) err
+            onFailedVerifyBlocks logTrace' (getOldestFirst blocks) err
         Right newTip -> do
             when (newTip /= newestTip) $
-                logWarning logTrace $ sformat
+                logWarning logTrace' $ sformat
                     ("Only blocks up to "%shortHashF%" were applied, "%
                      "newer were considered invalid")
                     newTip
@@ -288,18 +289,19 @@ applyWithoutRollback logTrace pm txpConfig diffusion blocks = do
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
-            relayBlock logTrace diffusion toRelay
-            logInfo logTrace $ blocksAppliedMsg applied
+            relayBlock logTrace' diffusion toRelay
+            logInfo logTrace' $ blocksAppliedMsg applied
             -- TODO for_ blocks $ jsonLog . jlAdoptedBlock
   where
+    logTrace' = natTrace liftIO logTrace
     newestTip = blocks ^. _OldestFirst . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
-        logInfo logTrace "Verifying and applying blocks..."
+        logInfo logTrace' "Verifying and applying blocks..."
         ctx <- L.getVerifyBlocksContext
         res <- fmap fst <$> verifyAndApplyBlocks logTrace pm txpConfig ctx False blocks
-        logInfo logTrace "Verifying and applying blocks done"
+        logInfo logTrace' "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
 
@@ -307,7 +309,7 @@ applyWithRollback
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m
@@ -316,25 +318,26 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback logTrace pm txpConfig diffusion toApply lca toRollback = do
-    logInfo logTrace . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+    logInfo logTrace' . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
-    logInfo logTrace $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
+    logInfo logTrace' $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock noTrace HighPriority ApplyBlockWithRollback $ \curTip -> do
         res <- L.applyWithRollback logTrace pm txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->
-            logWarning logTrace $ "Couldn't apply blocks with rollback: " <> err
+            logWarning logTrace' $ "Couldn't apply blocks with rollback: " <> err
         Right newTip -> do
-            logDebug logTrace $ sformat
+            logDebug logTrace' $ sformat
                 ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)
                 newTip
             reportRollback
-            logInfo logTrace $ blocksRolledBackMsg (getNewestFirst toRollback)
-            logInfo logTrace $ blocksAppliedMsg (getOldestFirst toApply)
+            logInfo logTrace' $ blocksRolledBackMsg (getNewestFirst toRollback)
+            logInfo logTrace' $ blocksAppliedMsg (getOldestFirst toApply)
             -- TODO for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
-            relayBlock logTrace diffusion $ toApply ^. _OldestFirst . _neLast
+            relayBlock logTrace' diffusion $ toApply ^. _OldestFirst . _neLast
   where
+    logTrace' = natTrace liftIO logTrace
     toRollbackHashes = fmap headerHash toRollback
     reportRollback = do
         let rollbackDepth = length toRollback

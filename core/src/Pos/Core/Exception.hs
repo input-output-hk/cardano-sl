@@ -16,7 +16,7 @@ import           Control.Exception.Safe (Exception (..))
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
 import qualified Formatting.Buildable
-import qualified Pos.Util.Trace.Named as TN
+import           Pos.Util.Trace.Named (TraceNamed, logError)
 import           Serokell.Util (Color (Red), colorize)
 import qualified Text.Show
 import           Universum
@@ -66,13 +66,13 @@ instance Exception CardanoFatalError where
 -- | Print red message about fatal error and throw exception.
 traceFatalError
     :: MonadThrow m
-    => TN.TraceNamed m -> Text -> m a
+    => TraceNamed m -> Text -> m a
 traceFatalError tr msg = do
-    TN.logError tr (colorize Red msg)
+    logError tr (colorize Red msg)
     throwM $ CardanoFatalError msg
 
 -- | Report 'CardanoFatalError' for failed assertions.
-assertionFailed :: MonadThrow m => TN.TraceNamed m -> Text -> m a
+assertionFailed :: MonadThrow m => TraceNamed m -> Text -> m a
 assertionFailed logTrace msg =
     traceFatalError logTrace $ "assertion failed: " <> msg
 

@@ -64,6 +64,7 @@ import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logDebugS,
                      logError, logInfo, logInfoS, logWarning, logWarningS)
 
@@ -76,16 +77,18 @@ blkWorkers
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> [Diffusion m -> m ()]
-blkWorkers logTrace pm txpConfig =
-    [ blkCreatorWorker logTrace pm txpConfig
+blkWorkers logTrace0 pm txpConfig =
+    [ blkCreatorWorker logTrace0 pm txpConfig
     , informerWorker logTrace
-    , retrievalWorker logTrace pm txpConfig
+    , retrievalWorker logTrace0 pm txpConfig
     , recoveryTriggerWorker logTrace pm
     ]
+      where
+        logTrace = natTrace liftIO logTrace0
 
 informerWorker
     :: ( BlockWorkMode ctx m
@@ -118,15 +121,16 @@ blkCreatorWorker
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m -> m ()
-blkCreatorWorker logTrace pm txpConfig =
+blkCreatorWorker logTrace0 pm txpConfig =
     \diffusion -> onNewSlot logTrace onsp $ \slotId ->
         recoveryCommGuard logTrace "onNewSlot worker, blkCreatorWorker" $
-        blockCreator logTrace pm txpConfig slotId diffusion `catchAny` onBlockCreatorException
+        blockCreator logTrace0 pm txpConfig slotId diffusion `catchAny` onBlockCreatorException
   where
+    logTrace = natTrace liftIO logTrace0
     onBlockCreatorException = reportOrLogE logTrace "blockCreator failed: "
     onsp :: OnNewSlotParams
     onsp =
@@ -137,15 +141,15 @@ blockCreator
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> SlotId
     -> Diffusion m -> m ()
-blockCreator logTrace pm txpConfig (slotId@SlotId {..}) diffusion = do
+blockCreator logTrace0 pm txpConfig (slotId@SlotId {..}) diffusion = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlockAndApply logTrace pm txpConfig siEpoch
+    mGenBlock <- createGenesisBlockAndApply logTrace0 pm txpConfig siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo logTrace $ sformat ("Created genesis block:\n" %build) createdBlk
         -- TODO jsonLog $ jlCreatedBlock (Left createdBlk)
@@ -163,6 +167,7 @@ blockCreator logTrace pm txpConfig (slotId@SlotId {..}) diffusion = do
                   (onKnownLeader leaders)
                   (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
   where
+    logTrace = natTrace liftIO logTrace0
     onNoLeader =
         logError logTrace "Couldn't find a leader for current slot among known ones"
     logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS
@@ -197,23 +202,23 @@ blockCreator logTrace pm txpConfig (slotId@SlotId {..}) diffusion = do
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
            | weAreLeader ->
-                 onNewSlotWhenLeader logTrace pm txpConfig slotId Nothing diffusion
+                 onNewSlotWhenLeader logTrace0 pm txpConfig slotId Nothing diffusion
            | heavyWeAreDelegate ->
                  let pske = swap <$> dlgTransM
-                 in onNewSlotWhenLeader logTrace pm txpConfig slotId pske diffusion
+                 in onNewSlotWhenLeader logTrace0 pm txpConfig slotId pske diffusion
            | otherwise -> pass
 
 onNewSlotWhenLeader
     :: ( BlockWorkMode ctx m
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> SlotId
     -> ProxySKBlockInfo
     -> Diffusion m
     -> m ()
-onNewSlotWhenLeader logTrace pm txpConfig slotId pske diffusion = do
+onNewSlotWhenLeader logTrace0 pm txpConfig slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -231,9 +236,10 @@ onNewSlotWhenLeader logTrace pm txpConfig slotId pske diffusion = do
     delay timeToWait
     logWarningSWaitLinear logTrace 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
   where
+    logTrace = natTrace liftIO logTrace0
     onNewSlotWhenLeaderDo = do
         logInfoS logTrace "It's time to create a block for current slot"
-        createdBlock <- createMainBlockAndApply logTrace pm txpConfig slotId pske
+        createdBlock <- createMainBlockAndApply logTrace0 pm txpConfig slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS logTrace "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do

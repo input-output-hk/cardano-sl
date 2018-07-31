@@ -117,7 +117,7 @@ createGenesisBlockAndApply ::
        , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> EpochIndex
@@ -128,9 +128,9 @@ createGenesisBlockAndApply logTrace pm txpConfig epoch = do
     tipHeader <- DB.getTipHeader
     -- preliminary check outside the lock,
     -- must be repeated inside the lock
-    needGen <- needCreateGenesisBlock logTrace epoch tipHeader
+    needGen <- needCreateGenesisBlock (natTrace liftIO logTrace) epoch tipHeader
     if needGen
-        then modifyStateLock noTrace
+        then modifyStateLock noTrace --jsonTrace
                  HighPriority
                  ApplyBlock
                  (\_ -> createGenesisBlockDo logTrace pm txpConfig epoch)
@@ -141,15 +141,15 @@ createGenesisBlockDo
        ( MonadCreateBlock ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
 createGenesisBlockDo logTrace pm txpConfig epoch = do
     tipHeader <- DB.getTipHeader
-    logDebug logTrace $ sformat msgTryingFmt epoch tipHeader
-    needCreateGenesisBlock logTrace epoch tipHeader >>= \case
+    liftIO $ logDebug logTrace $ sformat msgTryingFmt epoch tipHeader
+    needCreateGenesisBlock (natTrace liftIO logTrace) epoch tipHeader >>= \case
         False -> (BC.blockHeaderHash tipHeader, Nothing) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
@@ -158,14 +158,15 @@ createGenesisBlockDo logTrace pm txpConfig epoch = do
     -- Note that it shouldn't fail, because 'shouldCreate' guarantees that we
     -- have enough blocks for LRC.
     actuallyCreate tipHeader = do
+        let logTrace' = natTrace liftIO logTrace
         lrcSingleShot logTrace pm epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
             LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock pm (Right tipHeader) epoch leaders
         let newTip = headerHash blk
         ctx <- getVerifyBlocksContext
-        verifyBlocksPrefix logTrace pm ctx (one (Left blk)) >>= \case
-            Left err -> traceFatalError logTrace $ pretty err
+        verifyBlocksPrefix logTrace' pm ctx (one (Left blk)) >>= \case
+            Left err -> traceFatalError logTrace' $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe logTrace pm
@@ -174,10 +175,10 @@ createGenesisBlockDo logTrace pm txpConfig epoch = do
                     (ShouldCallBListener True)
                     (one (Left blk, undo))
                     (Just pollModifier)
-                normalizeMempool logTrace pm txpConfig
+                normalizeMempool logTrace' pm txpConfig
                 pure (newTip, Just blk)
     logShouldNot =
-        logDebug logTrace
+        logDebug (natTrace liftIO logTrace)
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
@@ -227,7 +228,7 @@ createMainBlockAndApply ::
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> SlotId
@@ -235,9 +236,9 @@ createMainBlockAndApply ::
     -> m (Either Text MainBlock)
 createMainBlockAndApply logTrace pm txpConfig sId pske =
     modifyStateLock noTrace HighPriority ApplyBlock createAndApply
-  where
+  where          -- ^^ jsonTrace
     createAndApply tip =
-        createMainBlockInternal logTrace pm sId pske >>= \case
+        createMainBlockInternal (natTrace liftIO logTrace) pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)
             Right blk -> convertRes <$> applyCreatedBlock logTrace pm txpConfig pske blk
     convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
@@ -270,7 +271,7 @@ createMainBlockInternal logTrace pm sId pske = do
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockFinish :: BlockHeader -> ExceptT Text m MainBlock
     createMainBlockFinish prevHeader = do
-        rawPay <- lift $ getRawPayload (headerHash prevHeader) sId
+        rawPay <- lift $ getRawPayload logTrace (headerHash prevHeader) sId
         sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
@@ -362,7 +363,7 @@ applyCreatedBlock ::
     ( MonadBlockApply ctx m
     , MonadCreateBlock ctx m
     )
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration
     -> ProxySKBlockInfo
@@ -374,7 +375,7 @@ applyCreatedBlock logTrace pm txpConfig pske createdBlock = applyCreatedBlockDo 
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
     applyCreatedBlockDo isFallback blockToApply = do
         ctx <- getVerifyBlocksContext
-        verifyBlocksPrefix logTrace pm ctx (one (Right blockToApply)) >>= \case
+        verifyBlocksPrefix (natTrace liftIO logTrace) pm ctx (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
@@ -388,7 +389,7 @@ applyCreatedBlock logTrace pm txpConfig pske createdBlock = applyCreatedBlockDo 
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
-                normalizeMempool logTrace pm txpConfig
+                normalizeMempool (natTrace liftIO logTrace) pm txpConfig
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
@@ -398,19 +399,20 @@ applyCreatedBlock logTrace pm txpConfig pske createdBlock = applyCreatedBlockDo 
         clearDlgMemPool
     fallback :: Text -> m MainBlock
     fallback reason = do
+        let logTrace' = natTrace liftIO logTrace
         let message = sformat ("We've created bad main block: "%stext) reason
         -- REPORT:ERROR Created bad main block
         reportError message
-        logDebug logTrace $ "Clearing mempools"
+        logDebug logTrace' $ "Clearing mempools"
         clearMempools
-        logDebug logTrace $ "Creating empty block"
-        createMainBlockInternal logTrace pm slotId pske >>= \case
+        logDebug logTrace' $ "Creating empty block"
+        createMainBlockInternal logTrace' pm slotId pske >>= \case
             Left err ->
-                assertionFailed logTrace $
+                assertionFailed logTrace' $
                 sformat ("Couldn't create a block in fallback: "%stext) err
             Right mainBlock -> applyCreatedBlockDo True mainBlock
     onFailedFallback =
-        assertionFailed logTrace .
+        assertionFailed (natTrace liftIO logTrace) .
         sformat
             ("We've created bad main block even with empty payload: "%stext)
 
@@ -426,13 +428,14 @@ data RawPayload = RawPayload
     }
 
 getRawPayload :: MonadCreateBlock ctx m
-    => HeaderHash
+    => TraceNamed m
+    -> HeaderHash
     -> SlotId
     -> m RawPayload
-getRawPayload tip slotId = do
-    localTxs <- txGetPayload noTrace tip -- result is topsorted
-    sscData <- sscGetLocalPayload noTrace slotId
-    usPayload <- usPreparePayload noTrace tip slotId
+getRawPayload logTrace tip slotId = do
+    localTxs <- txGetPayload logTrace tip -- result is topsorted
+    sscData <- sscGetLocalPayload logTrace slotId
+    usPayload <- usPreparePayload logTrace tip slotId
     dlgPayload <- getDlgMempool
     let rawPayload =
             RawPayload

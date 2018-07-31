@@ -45,7 +45,6 @@ import           Pos.Core.Attributes (Attributes)
 import           Pos.Core.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
 import           Pos.Crypto (Signature)
 import qualified Pos.Crypto as Core
-import qualified Pos.Txp as Core
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic

@@ -29,7 +29,6 @@ import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (SecretKey)
-import qualified Pos.Txp as Core
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util.Text (listJsonIndent)
 

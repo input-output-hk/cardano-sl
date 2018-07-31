@@ -12,8 +12,6 @@ import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
-import           System.Wlog (CanLog, HasLoggerName, logError, logInfo,
-                     logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -33,6 +31,8 @@ import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase,
                      safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo,
+                     logWarning)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
                      usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)
@@ -62,14 +62,15 @@ import           Mode (MonadAuxxMode, deriveHDAddressAuxx,
 import           Repl (PrintAction)
 
 createCommandProcs ::
-       forall m. (MonadIO m, CanLog m, HasLoggerName m)
-    => Maybe ProtocolMagic
+       forall m. MonadIO m
+    => TraceNamed m
+    -> Maybe ProtocolMagic
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
     -> Maybe (Diffusion m)
     -> [CommandProc m]
-createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
+createCommandProcs logTrace mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
 
     return CommandProc
     { cpName = "L"
@@ -225,7 +226,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
         stagpTpsSentFile <- getArg tyFilePath "file"
         return Tx.SendToAllGenesisParams{..}
     , cpExec = \stagp -> do
-        Tx.sendToAllGenesis pm diffusion stagp
+        Tx.sendToAllGenesis logTrace pm diffusion stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
                \ for <duration> seconds, <delay> in ms. <conc> is the \
@@ -240,7 +241,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
-        Tx.sendTxsFromFile diffusion filePath
+        Tx.sendTxsFromFile logTrace diffusion filePath
         return ValueUnit
     , cpHelp = ""
     },
@@ -256,7 +257,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
     , cpExec = \(i, outputs) -> do
-        Tx.send pm diffusion i outputs
+        Tx.send logTrace pm diffusion i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
                \ (use 'tx-out' to build them)"
@@ -274,7 +275,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
              <*> getArg tyBool "agree"
              <*> getArg tyHash "up-id"
     , cpExec = \(i, decision, upId) -> do
-        Update.vote pm diffusion i decision upId
+        Update.vote logTrace pm diffusion i decision upId
         return ValueUnit
     , cpHelp = "send vote for update proposal <up-id> and \
                \ decision <agree> ('true' or 'false'), \
@@ -352,7 +353,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
         -- FIXME: confuses existential/universal. A better solution
         -- is to have two ValueHash constructors, one with universal and
         -- one with existential (relevant via singleton-style GADT) quantification.
-        ValueHash . unsafeCheatingHashCoerce <$> Update.propose pm diffusion params
+        ValueHash . unsafeCheatingHashCoerce <$> Update.propose logTrace pm diffusion params
     , cpHelp = "propose an update with one positive vote for it \
                \ using secret key #i"
     },
@@ -382,7 +383,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
     , cpExec = \(i, delegatePk, curEpoch, dry) -> do
         issuerSk <- (!! i) <$> getSecretKeysPlain
         withSafeSigner issuerSk (pure emptyPassphrase) $ \case
-            Nothing -> logError "Invalid passphrase"
+            Nothing -> logError logTrace "Invalid passphrase"
             Just ss -> do
                 let psk = safeCreatePsk pm ss delegatePk (HeavyDlgIndex curEpoch)
                 if dry
@@ -396,7 +397,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
                                 CanonicalJSON.toJSON psk)
                 else do
                     sendPskHeavy diffusion psk
-                    logInfo "Sent heavyweight cert"
+                    logInfo logTrace "Sent heavyweight cert"
         return ValueUnit
     , cpHelp = ""
     },
@@ -413,7 +414,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
         bgoSeed <- getArgOpt tyInt "seed"
         return GenBlocksParams{..}
     , cpExec = \params -> do
-        generateBlocks pm txpConfig params
+        generateBlocks logTrace pm txpConfig params
         return ValueUnit
     , cpHelp = "generate <n> blocks"
     },
@@ -425,7 +426,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
-        when (null is) $ logWarning "Not adding keys from pool (list is empty)"
+        when (null is) $ logWarning logTrace "Not adding keys from pool (list is empty)"
         let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
         forM_ is $ \i -> do
             key <- evaluateNF $ secrets !! i
@@ -444,7 +445,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
         akpPrimary <- getArg tyBool "primary"
         return AddKeyParams {..}
     , cpExec = \AddKeyParams {..} -> do
-        secret <- readUserSecret akpFile
+        secret <- readUserSecret logTrace akpFile
         if akpPrimary then do
             let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
             addSecretKey $ noPassEncrypt primSk
@@ -467,7 +468,7 @@ createCommandProcs mpm mTxpConfig hasAuxxMode printAction mDiffusion = rights . 
         rpDumpPath <- getArg tyFilePath "dump-file"
         pure RollbackParams{..}
     , cpExec = \RollbackParams{..} -> do
-        Rollback.rollbackAndDump pm rpNum rpDumpPath
+        Rollback.rollbackAndDump logTrace pm rpNum rpDumpPath
         return ValueUnit
     , cpHelp = ""
     },

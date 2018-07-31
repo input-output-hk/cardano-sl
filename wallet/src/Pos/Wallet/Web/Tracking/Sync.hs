@@ -64,6 +64,7 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
 import           Pos.Core.Block (BlockHeader (..), HeaderHash, getBlockHeader,
                      headerHash, headerSlotL, mainBlockTxPayload)
 import           Pos.Core.Chrono (getNewestFirst)
+import           Pos.Core.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund, resolveForwardLink)
@@ -74,14 +75,13 @@ import qualified Pos.GState as GS
 import           Pos.Infra.Slotting (MonadSlots (..), MonadSlotsData,
                      getSlotStartPure, getSystemStartM)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
-import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP,
-                     logInfoSP, logWarningSP, secretOnlyF, secure)
+import           Pos.Util.Log.LogSafe (buildSafe, secretOnlyF, secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logDebugSP, logError, logErrorSP, logInfo, logInfoSP,
+                     logWarning, logWarningSP)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)
-import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug,
-                     logError, logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Wallet.Web.ClientTypes (CId, CTxMeta (..), Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
@@ -115,19 +115,20 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 processSyncRequest :: ( WalletDbReader ctx m
                       , BlockLockMode ctx m
                       , MonadSlotsData ctx m
-                      ) => SyncQueue -> m ()
-processSyncRequest syncQueue = do
+                      ) => TraceNamed m -> SyncQueue -> m ()
+processSyncRequest logTrace syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
-    syncWalletWithBlockchain newRequest >>= either processSyncError (const (logSuccess newRequest))
-    processSyncRequest syncQueue
+    syncWalletWithBlockchain logTrace newRequest >>= either (processSyncError logTrace) (const (logSuccess logTrace newRequest))
+    processSyncRequest logTrace syncQueue
 
 -- | Yields a new 'CAccModifier' using the information retrieved from the mempool, if any.
 txMempoolToModifier :: WalletTrackingEnv ctx m
-                    => WalletSnapshot
+                    => TraceNamed m
+                    -> WalletSnapshot
                     -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
                     -> WalletDecrCredentials
                     -> m CAccModifier
-txMempoolToModifier ws (txs, undoMap) credentials = do
+txMempoolToModifier logTrace ws (txs, undoMap) credentials = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         getDiff       = const Nothing  -- no difficulty (mempool txs)
         getTs         = const Nothing  -- don't give any timestamp
@@ -137,11 +138,11 @@ txMempoolToModifier ws (txs, undoMap) credentials = do
         Just undo -> pure (id, tx, undo)
         Nothing -> do
             let errMsg sl = sformat ("There is no undo corresponding to TxId #"%secretOnlyF sl build%" from txp mempool") id
-            logErrorSP errMsg
+            logErrorSP logTrace errMsg
             throwM $ InternalError (errMsg secure)
 
     case topsortTxs wHash txsWUndo of
-        Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Nothing      -> mempty <$ logWarning logTrace "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> do
             tipH <- DB.getTipHeader
             let usedAddresses = WS.getCustomAddresses ws WS.UsedAddr
@@ -151,36 +152,36 @@ txMempoolToModifier ws (txs, undoMap) credentials = do
 
 -- | Process each 'SyncError'.
 -- The current implementation just logs the errors without exposing it to the upper layers.
-processSyncError :: ( WithLogger m , MonadIO m ) => SyncError -> m ()
-processSyncError sr = case sr of
-    GenesisBlockHeaderNotFound -> logError "Couldn't extract the genesis block header from the database."
-    GenesisHeaderHashNotFound  -> logError "Couldn't extract the genesis header hash from the database."
+processSyncError :: MonadIO m => TraceNamed m -> SyncError -> m ()
+processSyncError logTrace sr = case sr of
+    GenesisBlockHeaderNotFound -> logError logTrace "Couldn't extract the genesis block header from the database."
+    GenesisHeaderHashNotFound  -> logError logTrace "Couldn't extract the genesis header hash from the database."
     NoSyncStateAvailable walletId ->
-        logWarningSP $ \sl -> sformat ("There is no sync state corresponding to wallet #"%secretOnlyF sl build) walletId
+        logWarningSP logTrace $ \sl -> sformat ("There is no sync state corresponding to wallet #"%secretOnlyF sl build) walletId
     NotSyncable walletId walletError -> do
-        logErrorSP   $ \sl -> sformat ("Wallet #" % secretOnlyF sl build
+        logErrorSP logTrace   $ \sl -> sformat ("Wallet #" % secretOnlyF sl build
                                                   % " is not syncable. Error was: "
                                                   % build) walletId walletError
     SyncFailed  walletId exception -> do
         let errMsg sl = "Sync failed for Wallet #" % secretOnlyF sl build
                                                    % ". An exception was raised during the sync process: "
                                                    % build
-        logErrorSP $ \sl -> sformat (errMsg sl) walletId exception
+        logErrorSP logTrace $ \sl -> sformat (errMsg sl) walletId exception
     RestorationInvariantViolated walletId expectedRbd actualRbd -> do
         let errMsg sl = "Restoration invariant violated for Wallet #" % secretOnlyF sl build
                       % ". Expected restoration header hash was " % build % " , but this one was passed: " % build
-        logErrorSP $ \sl -> sformat (errMsg sl) walletId (WS.getRestorationBlockDepth expectedRbd)
+        logErrorSP logTrace $ \sl -> sformat (errMsg sl) walletId (WS.getRestorationBlockDepth expectedRbd)
                                                          (WS.getRestorationBlockDepth actualRbd)
     StateTransitionNotAllowed walletId _ _ -> do
         let errMsg sl = "SyncState transition for Wallet #" % secretOnlyF sl build % " is not allowed."
-        logErrorSP $ \sl -> sformat (errMsg sl) walletId
+        logErrorSP logTrace $ \sl -> sformat (errMsg sl) walletId
 
 
 -- | Simply log that the wallet syncing has been completed.
-logSuccess :: (WithLogger m, MonadIO m) => SyncRequest -> m ()
-logSuccess SyncRequest{..} = do
+logSuccess :: MonadIO m => TraceNamed m -> SyncRequest -> m ()
+logSuccess logTrace SyncRequest{..} = do
   let (_, walletId) = srCredentials
-  logInfoSP   $ \sl -> sformat ("Wallet #" % secretOnlyF sl build
+  logInfoSP logTrace   $ \sl -> sformat ("Wallet #" % secretOnlyF sl build
                                            % " is now 100% synced.") walletId
 
 -- | Iterates over blocks (using forward links) and reconstructs the transaction
@@ -193,9 +194,10 @@ syncWalletWithBlockchain
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     )
-    => SyncRequest
+    => TraceNamed m
+    -> SyncRequest
     -> m SyncResult
-syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
+syncWalletWithBlockchain logTrace0 syncRequest@SyncRequest{..} = do
     ws <- WS.askWalletSnapshot
     let (_, walletId) = srCredentials
     let onError       = pure . Left . SyncFailed walletId
@@ -209,7 +211,7 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
 
             -- FIXME(adn): There is a bit of duplication in these two paths.
             Just (SyncedWith wTip) -> do
-                logDebugSP $ \sl ->
+                logDebugSP logTrace $ \sl ->
                     sformat ( "Resuming syncing of Wallet "
                             % secretOnlyF sl build
                             % " from HeaderHash "
@@ -222,7 +224,7 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
                     RestoreWallet rbd -> pure $ Left (StateTransitionNotAllowed walletId SyncWallet rbd)
                     SyncWallet -> maybe (pure . Left . NotSyncable walletId $ internalError wTip) (syncDo srOperation) wHeaderMb
             Just (RestoringFrom expectedRbd wTip) -> do
-                logDebugSP $ \sl ->
+                logDebugSP logTrace $ \sl ->
                     sformat ( "Wallet "
                             % secretOnlyF sl build
                             % " is restoring from a blockchain depth of "
@@ -249,6 +251,7 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
                         maybe (pure . Left . NotSyncable walletId $ internalError wTip)
                               (syncDo (RestoreWallet expectedRbd)) wHeaderMb
   where
+    logTrace = appendName "SecuredText" logTrace0
     syncDo :: TrackingOperation -> BlockHeader -> m SyncResult
     syncDo trackingOp walletTipHeader = do
         let wdiff = (fromIntegral . heightOf $ walletTipHeader) :: Word32
@@ -268,18 +271,18 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
                 stableBlockHeader <- List.last . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
-                logInfo $
+                logInfo logTrace $
                     sformat ( "Wallet's tip is far from GState tip. Syncing with the last stable known header " %build%
                               " (the tip of the blockchain - k blocks) without the block lock"
                             ) (headerHash stableBlockHeader)
-                result <- syncWalletWithBlockchainUnsafe (syncRequest { srOperation = trackingOp }) walletTipHeader stableBlockHeader
+                result <- syncWalletWithBlockchainUnsafe logTrace (syncRequest { srOperation = trackingOp }) walletTipHeader stableBlockHeader
                 pure $ (Just result, stableBlockHeader)
             else pure (Nothing, walletTipHeader)
 
         let finaliseSyncUnderBlockLock = withStateLockNoMetrics HighPriority $ \tip -> do
-                logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
+                logInfo logTrace $ sformat ("Syncing wallet with "%build%" under the block lock") tip
                 tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
-                syncWalletWithBlockchainUnsafe (syncRequest { srOperation = SyncWallet }) wNewTip tipH
+                syncWalletWithBlockchainUnsafe logTrace (syncRequest { srOperation = SyncWallet }) wNewTip tipH
 
         case syncResult of
             Nothing         -> finaliseSyncUnderBlockLock
@@ -296,10 +299,10 @@ syncWalletWithBlockchainUnsafe
     :: forall ctx m .
     ( WalletDbReader ctx m
     , MonadDBRead m
-    , WithLogger m
     , MonadSlotsData ctx m
     )
-    => SyncRequest
+    => TraceNamed m
+    -> SyncRequest
     -> BlockHeader
     -- ^ Block header corresponding to wallet's tip. It can map
     -- to the genesis BlockHeader if this is a brand new wallet being
@@ -307,7 +310,7 @@ syncWalletWithBlockchainUnsafe
     -> BlockHeader
     -- ^ Blockchain's tip header hash
     -> m SyncResult
-syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $ do
+syncWalletWithBlockchainUnsafe logTrace0 syncRequest walletTip blockchainTip = do
     let credentials@(_, walletId) = srCredentials syncRequest
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
@@ -320,19 +323,19 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
 
     -- Compute the next 'CAccModifier' and tentatively assess the throughput.
     ((mapModifier, newSyncTip), timeTook) <-
-        timed "syncWalletWithBlockchainUnsafe.computeAccModifier" $
+        timed logTrace "syncWalletWithBlockchainUnsafe.computeAccModifier" $
             computeAccModifier credentials getBlockHeaderTimestamp walletTip usedAddresses mempty 0
 
     let syncTime = BoundedSyncTime 10000 timeTook
     WS.updateSyncStatistics db walletId (SyncStatistics (calculateThroughput syncTime) (heightOf newSyncTip))
 
     -- Apply the 'CAccModifier' to the wallet state.
-    applyModifierToWallet db (srOperation syncRequest) walletId newSyncTip mapModifier
-    logDebugSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
+    applyModifierToWallet logTrace db (srOperation syncRequest) walletId newSyncTip mapModifier
+    logDebugSP logTrace $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
 
     case headerHash newSyncTip == headerHash blockchainTip of
         True -> do
-            logInfoSP $ \sl ->
+            logInfoSP logTrace $ \sl ->
                 sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                         %shortHashF%", "%buildSafe sl)
                         walletId (headerHash newSyncTip) mapModifier
@@ -342,9 +345,10 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             -- as it won't matter anymore.
             WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
-        False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
+        False -> syncWalletWithBlockchainUnsafe logTrace syncRequest newSyncTip blockchainTip
 
     where
+        logTrace = appendName "syncWalletWorker" logTrace0
         -- | Main workhorse which iterates over the blockchain and reconstruct the transaction
         -- history. Yields a new 'CAccModifier', give or take, every 10000 blocks.
         computeAccModifier :: WalletDecrCredentials
@@ -365,7 +369,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                     let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) /
                                                          (max 1.0 (fromIntegral totalDepth))
                     let renderProgress = progress (heightOf wHeader) (heightOf blockchainTip)
-                    logDebug $ sformat ("Progress: " % float @Double % "%") renderProgress
+                    logDebug logTrace $ sformat ("Progress: " % float @Double % "%") renderProgress
                     pure (currentModifier, wHeader)
                 False -> do
                     let walletId = snd credentials
@@ -395,7 +399,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                              let newModifier = foldl' (\r b -> r <> rollbackBlock credentials usedAddresses b getBlockTimestamp) currentModifier blunds
                              pure (newModifier, getBlockHeader . fst . List.last $ blunds)
                        | otherwise -> do
-                             logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" has finally caught up with the blockchain.") walletId
+                             logInfoSP logTrace $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" has finally caught up with the blockchain.") walletId
                              pure (currentModifier, blockchainTip)
 
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
@@ -585,24 +589,22 @@ calculateEstimatedRemainingTime (WS.SyncThroughput blocks) remainingBlocks =
 
 -- | Apply the given 'CAccModifier' to a wallet.
 applyModifierToWallet
-    :: ( CanLog m
-       , HasLoggerName m
-       , MonadIO m
-       )
-    => WalletDB
+    :: MonadIO m
+    => TraceNamed m
+    -> WalletDB
     -> TrackingOperation
     -> CId Wal
     -> BlockHeader
     -> CAccModifier
     -> m ()
-applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..} = do
+applyModifierToWallet logTrace db trackingOperation wid newBlockHeaderTip CAccModifier{..} = do
 
     let newTip = headerHash newBlockHeaderTip
 
     let newSyncState = case trackingOperation of
             SyncWallet        -> SyncedWith newTip
             RestoreWallet rbd -> RestoringFrom rbd newTip
-    logDebug $ sformat ("applyModifierToWallet: new SyncState = " % shown) trackingOperation
+    logDebug logTrace $ sformat ("applyModifierToWallet: new SyncState = " % shown) trackingOperation
 
     let cMetas = mapMaybe (\THEntry {..} -> (\mts -> (encodeCType _thTxId
                                                      , CTxMeta . timestampToPosix $ mts)
@@ -624,23 +626,22 @@ applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..
       newSyncState
 
 rollbackModifierFromWallet
-    :: ( CanLog m
-       , HasLoggerName m
-       , MonadSlots ctx m
+    :: ( MonadSlots ctx m
        , HasProtocolConstants
        )
-    => WalletDB
+    => TraceNamed m
+    -> WalletDB
     -> TrackingOperation
     -> CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-rollbackModifierFromWallet db trackingOperation wid newTip CAccModifier{..} = do
+rollbackModifierFromWallet logTrace db trackingOperation wid newTip CAccModifier{..} = do
 
     let newSyncState = case trackingOperation of
             SyncWallet        -> SyncedWith newTip
             RestoreWallet rbd -> RestoringFrom rbd newTip
-    logDebug $ sformat ("rollbackModifierFromWallet: new SyncState = " % shown) trackingOperation
+    logDebug logTrace $ sformat ("rollbackModifierFromWallet: new SyncState = " % shown) trackingOperation
 
     curSlot <- getCurrentSlotInaccurate
 
@@ -696,6 +697,3 @@ evalChange allUsed inputs outputs allOutputsOur
         -- Apply the third point.
         if allOutputsOur && potentialChange == HS.fromList (map WS._wamAddress outputs) then []
         else HS.toList potentialChange
-
-setLogger :: HasLoggerName m => m a -> m a
-setLogger = modifyLoggerName (const "syncWalletWorker")

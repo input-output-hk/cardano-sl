@@ -11,6 +11,7 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
 
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -27,9 +28,9 @@ spec = withDefConfigurations $ \_ _ _ ->
 
 emptyWallet :: HasConfigurations => WalletProperty ()
 emptyWallet = do
-    wallets <- lift getWallets
+    wallets <- lift $ getWallets noTrace
     unless (null wallets) $
         stopProperty "Wallets aren't empty"
-    accounts <- lift $ getAccounts Nothing
+    accounts <- lift $ getAccounts noTrace Nothing
     unless (null accounts) $
         stopProperty "Accounts aren't empty"

@@ -66,6 +66,7 @@ import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam,
                      CReqBody, DCQueryParam, DReqBody, LoggingApi,
                      ModifiesApiRes (..), ReportDecodeError (..), VerbMod,
                      serverHandlerL')
+import           Pos.Util.Trace (noTrace)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId,
                      CAccountInit, CAccountMeta, CAddress, CCoin, CFilePath,
                      CId, CInitialized, CPaperVendWalletRedeem, CPassPhrase,
@@ -86,7 +87,7 @@ type WalletVerb verb = VerbMod WalletVerbTag verb
 
 instance ModifiesApiRes WalletVerbTag where
     type ApiModifiedRes WalletVerbTag a = Either WalletError a
-    modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
+    modifyApiResult _ = try . (catchEndpointErrors noTrace) . (either throwM pure =<<)
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
@@ -96,8 +97,8 @@ data WalletLoggingConfig
 
 -- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
 -- can be used.
-instance Reifies WalletLoggingConfig ApiLoggingConfig where
-    reflect _ = ApiLoggingConfig ("node" <> "wallet" <> "servant")
+instance Reifies (WalletLoggingConfig ) ApiLoggingConfig where
+  reflect _ = ApiLoggingConfig ("node" <> "wallet" <> "servant")
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)

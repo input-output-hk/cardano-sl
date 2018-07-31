@@ -28,7 +28,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
@@ -45,10 +44,11 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
                      isRedeemAddress, largestHDAddressBoot, mkCoin)
-import           Pos.Core.JsonLog (CanJsonLog (..))
+--import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..), Reporter (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Core.StateLock (StateLock)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -67,14 +67,9 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.StateLock (StateLock)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                     jsonLogDefault)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
 import           Pos.Util (postfixLFields)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
@@ -171,18 +166,16 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = wwmcRealModeContext_L . lensOf @tag
 
-instance HasLoggerName' WalletWebModeContext where
-    loggerName = wwmcRealModeContext_L . loggerName
-
 instance HasSlogContext WalletWebModeContext where
     slogContext = wwmcRealModeContext_L . slogContext
 
 instance HasSlogGState WalletWebModeContext where
     slogGState = wwmcRealModeContext_L . slogGState
 
+{- TODO
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig
-
+-}
 instance HasNodeType WalletWebModeContext where
     getNodeType = getNodeType . wwmcRealModeContext
 
@@ -241,13 +234,10 @@ instance (HasConfiguration, MonadSlotsData ctx WalletWebMode)
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
     currentTimeSlotting = currentTimeSlottingSimple
 
-instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
-
+{- TODO
 instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault
-
+-}
 instance HasConfiguration => MonadDBRead WalletWebMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault

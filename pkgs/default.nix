@@ -14759,7 +14759,6 @@ license = stdenv.lib.licenses.bsd3;
 , network-transport-tcp
 , optparse-applicative
 , parsec
-, pipes
 , pvss
 , QuickCheck
 , random
@@ -14854,7 +14853,6 @@ network
 network-transport
 optparse-applicative
 parsec
-pipes
 pvss
 QuickCheck
 random
@@ -14907,6 +14905,7 @@ cardano-sl-infra-test
 cardano-sl-networking
 cardano-sl-util
 cardano-sl-util-test
+conduit
 containers
 cryptonite
 data-default
@@ -14920,7 +14919,6 @@ lens
 log-warper
 network-transport
 network-transport-inmemory
-pipes
 pvss
 QuickCheck
 random
@@ -14947,13 +14945,13 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 cardano-sl-util-test
+conduit
 criterion
 deepseq
 formatting
 network-transport
 network-transport-tcp
 optparse-applicative
-pipes
 QuickCheck
 time-units
 universum
@@ -16106,7 +16104,6 @@ license = stdenv.lib.licenses.mit;
 , memory
 , mmorph
 , mtl
-, pipes
 , reflection
 , resourcet
 , rocksdb-haskell-ng
@@ -16157,7 +16154,6 @@ lrucache
 memory
 mmorph
 mtl
-pipes
 reflection
 resourcet
 rocksdb-haskell-ng

@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -19,21 +18,34 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
     -- * Estimating fees
   , estimateCardanoFee
+  , dummyAddrAttrSize
+  , dummyTxAttrSize
+    -- * Estimating transaction limits
+  , estimateMaxTxInputs
+  , estimateHardMaxTxInputs
     -- * Testing & internal use only
   , estimateSize
   ) where
 
 import           Universum hiding (Sum (..))
 
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
+import           Data.Typeable (TypeRep, typeRep)
 
+import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
+                     encode, szSimplify, szWithCtx, toLazyByteString)
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Client.Txp.Util as Core
-import           Pos.Core (TxSizeLinear, calculateTxSizeLinear)
+import           Pos.Core (AddrAttributes, Coin (..), TxSizeLinear,
+                     calculateTxSizeLinear)
 import qualified Pos.Core as Core
+import           Pos.Core.Attributes (Attributes)
+import           Pos.Core.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
+import           Pos.Crypto (Signature)
 import qualified Pos.Crypto as Core
-import           Serokell.Data.Memory.Units (Byte, fromBytes)
+import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 import           Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
@@ -355,49 +367,49 @@ largestFirst opts maxInps =
   Cardano-specific fee-estimation.
 -------------------------------------------------------------------------------}
 
--- NOTE(adn): Once https://github.com/input-output-hk/cardano-sl/pull/3232
--- will be merged, we should use the proper formula rather than the unrolled
--- computation below.
-
-{-| Estimate the size of a transaction, in bytes.
-
-     The magic numbers appearing in the formula have the following origins:
-
-       5 = 1 + 2 + 2, where 1 = tag for Tx type, and 2 each to delimit the
-           TxIn and TxOut lists.
-
-      42 = 2 + 1 + 34 + 5, where 2 = tag for TxIn ctor, 1 = tag for pair,
-           34 = size of encoded Blake2b_256 Tx hash, 5 = max size of encoded
-           CRC32 (range is 1..5 bytes, average size is just under 5 bytes).
-
-      11 = 2 + 2 + 2 + 5, where the 2s are: tag for TxOut ctor, tag for Address
-           ctor, and delimiters for encoded address. 5 = max size of CRC32.
-
-      32 = 1 + 30 + 1, where the first 1 is a tag for a tuple length, the
-           second 1 is the encoded address type. 30 = size of Blake2b_224
-           hash of Address'.
--}
-estimateSize :: Int      -- ^ Average size of @Attributes AddrAttributes@.
-             -> Int      -- ^ Size of transaction's @Attributes ()@.
+-- | Estimate the size of a transaction, in bytes.
+estimateSize :: Byte     -- ^ Average size of @Attributes AddrAttributes@.
+             -> Byte     -- ^ Size of transaction's @Attributes ()@.
              -> Int      -- ^ Number of inputs to the transaction.
              -> [Word64] -- ^ Coin value of each output to the transaction.
-             -> Byte     -- ^ Estimated size of the resulting transaction.
-estimateSize saa sta ins outs
-    = fromBytes . fromIntegral $
-      5
-    + 42 * ins
-    + (11 + listSize (32 + (fromIntegral saa))) * length outs
-    + sum (map intSize outs)
-    + fromIntegral sta
-  where
-    intSize s =
-        if | s <= 0x17       -> 1
-           | s <= 0xff       -> 2
-           | s <= 0xffff     -> 3
-           | s <= 0xffffffff -> 5
-           | otherwise       -> 9
+             -> Range Byte -- ^ Estimated size bounds of the resulting transaction.
+estimateSize saa sta ins outs =
+    -- This error case should not be possible unless the structure of `TxAux` changes
+    -- in such a way that it depends on a new type with no override for `Bi`'s
+    -- `encodedSizeExpr`. In that case, the size expression for `TxAux` will be symbolic,
+    -- and cannot be simplified to a concrete size range. However, the `Bi` unit tests
+    -- in `core` include a test that `TxAux`'s size reduces to a concrete range, and the
+    -- range encloses the correct encoded size.
+    --
+    -- In other words, either the unit test in `core` gives a concrete range and this
+    -- always yields a `Right`, or the unit test gives fails due to a symbolic range
+    -- and this always yields a `Left`.
+    case szSimplify (szWithCtx ctx (Proxy @TxAux)) of
+        Left  sz    -> error ("Size estimate failed to simplify: " <> pretty sz)
+        Right range -> range
 
-    listSize s = s + intSize s
+  where
+
+    ctx = sizeEstimateCtx
+        -- Number of outputs
+        & insert (Proxy @(LengthOf [TxOut])) (toSize (length outs))
+        -- Average size of an encoded Coin for this transaction.
+        & insert (Proxy @Coin) (toSize (avgCoinSize outs))
+        -- Number of inputs.
+        & insert (Proxy @(LengthOf [TxIn]))               (toSize ins)
+        & insert (Proxy @(LengthOf (Vector TxInWitness))) (toSize ins)
+        -- Set attribute sizes to reasonable dummy values.
+        & insert (Proxy @(Attributes AddrAttributes)) (toSize (toBytes saa))
+        & insert (Proxy @(Attributes ()))             (toSize (toBytes sta))
+
+    insert k = Map.insert (typeRep k)
+
+    avgCoinSize [] = 0
+    avgCoinSize cs = case sum (map encodedCoinSize cs) `quotRem` length cs of
+        (avg, 0) -> avg
+        (avg, _) -> avg + 1
+
+    encodedCoinSize = fromIntegral . LBS.length . toLazyByteString . encode . Coin
 
 -- | Estimate the fee for a transaction that has @ins@ inputs
 --   and @length outs@ outputs. The @outs@ lists holds the coin value
@@ -408,4 +420,81 @@ estimateSize saa sta ins outs
 --         here with some (hopefully) realistic values.
 estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
-    = round (calculateTxSizeLinear linearFeePolicy (estimateSize 128 16 ins outs))
+    = round $ calculateTxSizeLinear linearFeePolicy
+            $ hi $ estimateSize dummyAddrAttrSize dummyTxAttrSize ins outs
+
+-- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
+--   encoded transaction sizes. The minimum possible value is 2.
+dummyAddrAttrSize :: Byte
+dummyAddrAttrSize = 16
+
+-- | Size to use for a value of type @Attributes ()@ when estimating
+--   encoded transaction sizes. The minimum possible value is 2.
+dummyTxAttrSize :: Byte
+dummyTxAttrSize = 2
+
+-- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
+--   @Attributes ()@, compute the maximum possible number of inputs a transaction
+--   can have. The formula for this value is not linear, so we just do a binary
+--   search here. A decent first guess makes this search relatively quick.
+--
+--   We use a conservative over-estimate for the encoded transaction sizes, so the
+--   number of transaction inputs computed here is a lower bound on the true
+--   maximum.
+estimateMaxTxInputs
+  :: Byte -- ^ Size of @Attributes AddrAttributes@
+  -> Byte -- ^ Size of @Attributes ()@
+  -> Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateMaxTxInputs addrAttrSize txAttrSize maxSize =
+    fromIntegral (searchUp estSize maxSize 7)
+
+  where
+    estSize txins = hi $ estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
+
+-- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
+--   @Attributes ()@, compute the maximum possible number of inputs a transaction
+--   can have, as in @estimateMaxTxInputs@. The difference is that this function
+--   tries to find the absolute highest number of possible inputs, by minimizing the
+--   size of the transaction. This gives a hard upper bound on the number of
+--   possible inputs a transaction can have; by comparison, @estimateMaxTxInputs@
+--   gives an upper bound on the number of inputs you can put into a transaction,
+--   if you do not have /a priori/ control over the size of those inputs.
+estimateHardMaxTxInputs
+  :: Byte -- ^ Size of @Attributes AddrAttributes@
+  -> Byte -- ^ Size of @Attributes ()@
+  -> Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateHardMaxTxInputs addrAttrSize txAttrSize maxSize =
+    fromIntegral (searchUp estSize maxSize 7)
+
+  where
+    estSize txins = lo $ estimateSize addrAttrSize txAttrSize txins [minBound]
+
+-- | Substitutions for certain sizes and lengths in the size estimates.
+sizeEstimateCtx :: Map TypeRep SizeOverride
+sizeEstimateCtx = Map.fromList
+      -- For this estimate, assume all input witnesses use the `PkWitness` constructor.
+    [ (typeRep (Proxy @TxInWitness)           , SelectCases ["PkWitness"])
+
+    -- The magic number 66 is the encoded size of a `TxSigData` signature:
+    -- 64 bytes for the payload, plus two bytes of ByteString overhead.
+    , (typeRep (Proxy @(Signature TxSigData)) , SizeConstant 66)
+    ]
+
+-- | Helper function for creating size constants.
+toSize :: Integral a => a -> SizeOverride
+toSize = SizeConstant . fromIntegral
+
+-- | For a monotonic @f@ and a value @y@, @searchUp f y k@ will find the
+--   largest @x@ such that @f x <= y@ by walking up from zero using steps
+--   of size @2^k@, reduced by a factor of 2 whenever we overshoot the target.
+searchUp :: (Integral a, Ord b) => (a -> b) -> b -> a -> a
+searchUp f y k = go 0 (2^k)
+  where
+    go x step = case compare (f x) y of
+        LT -> go (x + step) step
+        EQ -> x
+        GT | step == 1 -> x - 1
+           | otherwise -> let step' = step `div` 2
+                          in go (x - step') step'

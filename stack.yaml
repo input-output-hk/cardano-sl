@@ -22,20 +22,10 @@ packages:
 - core/test
 - db
 - db/test
-- lrc
-- lrc/test
 - infra
 - infra/test
-- ssc
-- ssc/test
-- txp
-- txp/test
-- update
-- update/test
-- delegation
-- delegation/test
-- block
-- block/test
+- chain
+- chain/test
 - lib
 - generator
 - client
@@ -153,8 +143,17 @@ packages:
 
 # Library has never been released on Hackage yet
 - location:
-    git: https://github.com/well-typed/canonical-json.git
-    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
+    git: https://github.com/input-output-hk/canonical-json.git
+    commit: f66762e4c4fe484ed109d28ad541fc55cc841c2c
+  extra-dep: true
+
+# The latest release of clock on hackage is *way* too old (0.7.2)
+# and can not be cross compiled.  As
+# https://github.com/corsis/clock/commit/f7fe4fb5691d56c342e6fbf5a99c121ab24a6b41
+# hasn't made it into any release yet.
+- location:
+    git: https://github.com/corsis/clock.git
+    commit: ef60bd51a3587a173adf565c33bf2886df6e3842
   extra-dep: true
 
 # Library has never been released on Hackage yet
@@ -175,8 +174,8 @@ packages:
 - location:
     git: https://github.com/input-output-hk/haskell-hedgehog.git
     commit: 2c9e51804e8217dff89f5c32cbe0d79ce20bc508
-    subdirs:
-      - hedgehog
+  subdirs:
+    - hedgehog
   extra-dep: true
 
 # servant-quickcheck has a doc/doc.cabal file that is poorly specified and this
@@ -224,10 +223,6 @@ extra-deps:
 
 # Serokell-specific utilities not on stackage
 - fmt-0.6
-# We *must* use 6.3.6 at least, otherwise `int` is synonymous with `build` and
-# will result in an infinite loop -> space leak; however we can't yet because
-# CI hasn't run cabal update yet.
-# - formatting-6.3.6
 
 # Following 10 are not on stackage.
 - pvss-0.2.0
@@ -275,7 +270,7 @@ extra-deps:
 - sqlite-simple-errors-0.6.1.0
 
 # Working around a stack issue with rebuilding dependencies
-- pretty-show-1.6.16
+- pretty-show-1.7
 
 # Needed for coin selection in the wallet
 - normaldistribution-1.1.0.3
@@ -290,6 +285,11 @@ extra-deps:
 # we need to explicilty bump tasty-hedgehog to 0.2.0.0.
 - tasty-hedgehog-0.2.0.0
 
+- file-embed-lzma-0
+- servant-swagger-ui-core-0.3.1
+- servant-swagger-ui-0.3.0.3.13.2
+- servant-swagger-ui-redoc-0.3.0.1.21.2
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
@@ -299,8 +299,8 @@ ghc-options:
   cardano-sl-auxx:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary-test: -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-block:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-block-test:  -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain:       -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain-test:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-client:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core-test:   -Werror -Wcompat -fwarn-redundant-constraints
@@ -308,19 +308,12 @@ ghc-options:
   cardano-sl-crypto-test: -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-db:          -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-db-test:     -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-delegation:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-explorer:    -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-generator:   -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-infra:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-lrc:         -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-lrc-test:    -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:        -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-ssc:         -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools:       -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-txp:         -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-txp-test:    -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-update:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util-test:   -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-wallet:      -Werror -Wcompat -fwarn-redundant-constraints

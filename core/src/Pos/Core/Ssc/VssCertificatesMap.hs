@@ -25,14 +25,16 @@ import           Data.List.Extra (nubOrdOn)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Crypto (ProtocolMagic)
-
 import           Pos.Core.Ssc.VssCertificate (VssCertificate (..),
                      checkVssCertificate, getCertId, toCertPair)
+import           Pos.Crypto (ProtocolMagic)
+import           Pos.Util.Json.Parse (wrapConstructor)
 import           Pos.Util.Util (cborError)
 
 -- | VssCertificatesMap contains all valid certificates collected
@@ -62,6 +64,14 @@ instance Monoid VssCertificatesMap where
 instance Bi VssCertificatesMap where
     encode = encodeVssCertificates
     decode = decodeVssCertificates
+
+instance Monad m => ToJSON m VssCertificatesMap where
+    toJSON = toJSON . getVssCertificatesMap
+
+instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
+    fromJSON val = do
+        m <- UnsafeVssCertificatesMap <$> fromJSON val
+        wrapConstructor (validateVssCertificatesMap m)
 
 -- | Construct a 'VssCertificatesMap' from a list of certs by making a
 -- hashmap on certificate identifiers.

@@ -1,4 +1,4 @@
--- | Specification for submodules of Pos.Update.MemState
+-- | Specification for submodules of Pos.Chain.Update.MemState
 
 module Test.Pos.Update.MemStateSpec
        ( spec
@@ -14,8 +14,8 @@ import qualified Pos.DB.Update as Upd
 
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.DB.Update.Arbitrary ()
-import           Test.Pos.Update.Arbitrary ()
 import           Test.QuickCheck (Property, (.&&.), (==>))
 
 spec :: Spec

@@ -10,9 +10,12 @@ import           Control.Monad.Except (MonadError)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common (CoinPortion, checkCoinPortion)
+import           Pos.Core.Genesis.Canonical ()
 
 -- | Values defining softfork resolution rule.
 -- If a proposal is confirmed at the 's'-th epoch, softfork resolution threshold
@@ -39,6 +42,21 @@ instance Buildable SoftforkRule where
     build SoftforkRule {..} =
         bprint ("(init = "%build%", min = "%build%", decrement = "%build%")")
         srInitThd srMinThd srThdDecrement
+
+instance Monad m => ToJSON m SoftforkRule where
+    toJSON SoftforkRule {..} =
+        mkObject
+            [ ("initThd", toJSON srInitThd)
+            , ("minThd", toJSON srMinThd)
+            , ("thdDecrement", toJSON srThdDecrement)
+            ]
+
+instance ReportSchemaErrors m => FromJSON m SoftforkRule where
+    fromJSON obj = do
+        srInitThd <- fromJSField obj "initThd"
+        srMinThd <- fromJSField obj "minThd"
+        srThdDecrement <- fromJSField obj "thdDecrement"
+        return SoftforkRule {..}
 
 -- | 'SoftforkRule' formatter which restricts type.
 softforkRuleF :: Format r (SoftforkRule -> r)

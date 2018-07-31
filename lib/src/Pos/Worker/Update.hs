@@ -12,8 +12,9 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
 import           System.Wlog (logDebug, logInfo)
 
-import           Pos.Core (SoftwareVersion (..))
-import           Pos.Core.Update (UpdateProposal (..))
+import           Pos.Chain.Update (ConfirmedProposalState (..),
+                     curSoftwareVersion)
+import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.DB.Update (UpdateContext (..), getConfirmedProposals,
                      processNewSlot)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -23,8 +24,6 @@ import           Pos.Infra.Slotting.Util (ActionTerminationPolicy (..),
                      OnNewSlotParams (..), defaultOnNewSlotParams, onNewSlot)
 import           Pos.Listener.Update (UpdateMode)
 import           Pos.Network.Update.Download (downloadUpdate)
-import           Pos.Update.Configuration (curSoftwareVersion)
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Util (lensOf)
 
 -- | Update System related workers.

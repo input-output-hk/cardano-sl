@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
--- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
+-- nodes. Also see "Pos.Chain.Block.Network.Retrieval" for retrieval worker
 -- loop logic.
 module Pos.Network.Block.Logic
        (
@@ -27,29 +27,31 @@ import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Block.Error (ApplyBlocksException)
-import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader,
-                     headerHashG, isMoreDifficult, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader, blockHeader)
+import           Pos.Chain.Block (ApplyBlocksException, Blund,
+                     LastKnownHeaderTag)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core (isMoreDifficult)
+import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
+                     HeaderHash, blockHeader, gbHeader, headerHashG,
+                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)
+import           Pos.Core.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
+import           Pos.Core.StateLock (Priority (..), modifyStateLock)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.DB.Block as L
 import qualified Pos.DB.Block as DB
-import           Pos.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
                      jlAdoptedBlock)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
@@ -225,10 +227,11 @@ handleBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks pm blocks diffusion = do
+handleBlocks pm txpConfig blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -246,8 +249,8 @@ handleBlocks pm blocks diffusion = do
         logDebug $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-        maybe (applyWithoutRollback pm diffusion blocks)
-              (applyWithRollback pm diffusion blocks lcaHash)
+        maybe (applyWithoutRollback pm txpConfig diffusion blocks)
+              (applyWithRollback pm txpConfig diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
@@ -256,10 +259,11 @@ applyWithoutRollback
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> m ()
-applyWithoutRollback pm diffusion blocks = do
+applyWithoutRollback pm txpConfig diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
@@ -288,7 +292,8 @@ applyWithoutRollback pm diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        res <- fmap fst <$> verifyAndApplyBlocks pm False blocks
+        ctx <- L.getVerifyBlocksContext
+        res <- fmap fst <$> verifyAndApplyBlocks pm txpConfig ctx False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
@@ -298,17 +303,18 @@ applyWithRollback
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback pm diffusion toApply lca toRollback = do
+applyWithRollback pm txpConfig diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
-        res <- L.applyWithRollback pm toRollback toApplyAfterLca
+        res <- L.applyWithRollback pm txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->

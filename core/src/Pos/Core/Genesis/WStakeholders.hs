@@ -5,12 +5,15 @@ module Pos.Core.Genesis.WStakeholders
 
 import           Universum
 
+import           Data.Semigroup (Semigroup)
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
 
-import           Data.Semigroup (Semigroup)
 import           Pos.Core.Common (StakeholderId)
+import           Pos.Core.Genesis.Canonical ()
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
@@ -31,3 +34,9 @@ newtype GenesisWStakeholders = GenesisWStakeholders
 instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
         bprint ("GenesisWStakeholders: "%mapJson) m
+
+instance Monad m => ToJSON m GenesisWStakeholders where
+    toJSON (GenesisWStakeholders stks) = toJSON stks
+
+instance ReportSchemaErrors m => FromJSON m GenesisWStakeholders where
+    fromJSON = fmap GenesisWStakeholders . fromJSON

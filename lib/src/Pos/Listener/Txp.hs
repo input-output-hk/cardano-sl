@@ -18,6 +18,7 @@ import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
@@ -31,12 +32,13 @@ import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
 handleTxDo
     :: TxpMode ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> (JLEvent -> m ())  -- ^ How to log transactions
     -> TxAux              -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo pm logTx txAux = do
+handleTxDo pm txpConfig logTx txAux = do
     let txId = hash (taTx txAux)
-    res <- txpProcessTx pm (txId, txAux)
+    res <- txpProcessTx pm txpConfig (txId, txAux)
     let json me = logTx $ JLTxReceived $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me

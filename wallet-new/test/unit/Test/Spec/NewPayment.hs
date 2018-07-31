@@ -19,7 +19,8 @@ import           System.Wlog (Severity)
 import           Test.Pos.Configuration (withDefConfiguration)
 
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
-                     TxOut (..), TxOutAux (..), deriveLvl2KeyPair, mkCoin)
+                     deriveLvl2KeyPair, mkCoin)
+import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      safeDeterministicKeyGen)
 
@@ -46,6 +47,7 @@ import           Cardano.Wallet.Kernel.Internal (ActiveWallet, PassiveWallet,
                      wallets)
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import qualified Cardano.Wallet.Kernel.PrefilterTx as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
@@ -127,7 +129,7 @@ withFixture :: MonadIO m
 withFixture initialBalance toPay cc = do
     generateFixtures <- prepareFixtures initialBalance toPay
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore $ \passiveLayer passiveWallet -> do
+        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \pm -> do
                 WalletLayer.bracketKernelActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
                     fixtures <- generateFixtures keystore activeWallet
@@ -309,4 +311,3 @@ spec = describe "NewPayment" $ do
                     withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
                         res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer newPayment)
                         liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
-

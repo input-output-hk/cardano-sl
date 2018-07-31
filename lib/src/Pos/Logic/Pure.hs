@@ -12,33 +12,33 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName (..), Block, BlockHeader (..),
-                     BlockVersion (..), BlockVersionData (..), ExtraBodyData,
-                     ExtraHeaderData, GenericBlock (..),
-                     GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                     SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
+import           Pos.Chain.Txp (emptyTxPayload)
+import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
-import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..),
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Core.Block (Block, BlockHeader (..), BlockHeaderAttributes,
+                     BlockSignature (..), ExtraBodyData, ExtraHeaderData,
+                     GenericBlock (..), GenericBlockHeader (..), HeaderHash,
                      MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),
                      MainConsensusData (..), MainExtraBodyData (..),
                      MainExtraHeaderData (..), MainProof (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Merkle (MerkleRoot (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..),
                      VssCertificatesMap (..))
 import           Pos.Core.Txp (TxProof (..))
-import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..), UpdatePayload (..), UpdateProof)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
                      Signature (..), deterministicKeyGen, signRaw)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Merkle (MerkleRoot (..))
-import           Pos.Txp.Base (emptyTxPayload)
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 

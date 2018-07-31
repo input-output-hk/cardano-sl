@@ -2,8 +2,6 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Web server.
 
 module Pos.Web.Server
@@ -20,7 +18,6 @@ import qualified Control.Concurrent.Async as Async
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default, def)
 import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
@@ -36,12 +33,15 @@ import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost,
                      runSettingsSocket, setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket,
                      tlsSettingsChain)
-import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
+import           Servant.API ((:<|>) ((:<|>)))
 import           Servant.Server (Handler, HasServer, ServantErr (errBody),
                      Server, ServerT, err404, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)
+import           Pos.Chain.Ssc (scParticipateSsc)
+import           Pos.Chain.Txp (TxOut (..), toaOut)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
@@ -53,9 +53,6 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Ssc (scParticipateSsc)
-import           Pos.Txp (TxOut (..), toaOut)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -335,10 +332,3 @@ servantServerHealthCheck mStatus = do
     case status of
       HSUnhealthy msg -> throwM $ err503 { errBody = encodeUtf8 msg }
       HSHealthy msg   -> return (show msg)
-
-----------------------------------------------------------------------------
--- Orphan instances
-----------------------------------------------------------------------------
-
-deriving instance FromHttpApiData EpochIndex
-deriveToJSON defaultOptions ''CConfirmedProposalState

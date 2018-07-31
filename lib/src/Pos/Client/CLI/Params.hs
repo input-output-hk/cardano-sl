@@ -15,6 +15,8 @@ import qualified Data.Yaml as Yaml
 import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
+import           Pos.Chain.Ssc (SscParams (..))
+import           Pos.Chain.Update (UpdateParams (..))
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Secrets (prepareUserSecret)
@@ -23,8 +25,6 @@ import           Pos.Crypto (VssKeyPair)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
-import           Pos.Ssc (SscParams (..))
-import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
 

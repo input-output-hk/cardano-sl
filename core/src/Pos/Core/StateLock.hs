@@ -37,7 +37,7 @@ import           System.Mem (getAllocationCounter)
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      usingLoggerName)
 
-import           Pos.Core (HeaderHash)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Util.Concurrent (modifyMVar, withMVar)

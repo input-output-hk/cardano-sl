@@ -8,10 +8,15 @@ module Pos.Core.Block.Genesis.Types
        , GenesisBodyAttributes
        , GenesisExtraHeaderData (..)
        , GenesisHeaderAttributes
+
+       -- * GenesisConsensusData Lenses
+       , gcdEpoch
+       , gcdDifficulty
        ) where
 
 import           Universum
 
+import           Control.Lens (makeLenses)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Formatting (bprint, build, (%))
@@ -19,10 +24,11 @@ import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
-import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown)
+import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..),
+                     SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (Hash)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 -- [CSL-199]: maybe we should use ADS.
 -- | Proof of GenesisBody is just a hash of slot leaders list.
@@ -75,6 +81,11 @@ instance SafeCopy GenesisConsensusData where
         contain $
         do safePut _gcdEpoch
            safePut _gcdDifficulty
+
+makeLenses 'GenesisConsensusData
+
+instance HasDifficulty GenesisConsensusData where
+    difficultyL = gcdDifficulty
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()

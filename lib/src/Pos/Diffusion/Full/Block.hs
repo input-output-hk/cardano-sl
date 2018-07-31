@@ -19,6 +19,7 @@ import           Control.Exception (Exception (..), throwIO)
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Conduit (await, runConduit, (.|))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
@@ -27,7 +28,6 @@ import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Conversation (sendRaw)
-import           Pipes (await, runEffect, (>->))
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Gauge
 
@@ -36,18 +36,17 @@ import           Pos.Binary.Communication (serializeMsgSerializedBlock,
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
-import           Pos.Communication.Message ()
-import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
-                     bvdSlotDuration, difficultyL, headerHash, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
-                     blockHeader)
+import           Pos.Core (ProtocolConstants (..), difficultyL)
+import           Pos.Core.Block (Block, BlockHeader (..), HeaderHash,
+                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Core.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Core.NetworkAddress (NetworkAddress)
+import           Pos.Core.Update (BlockVersionData, bvdSlotDuration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
                      ConversationActions (..), EnqueueMsg, ListenerSpec,
@@ -65,7 +64,7 @@ import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
                      MsgStreamBlock (..), MsgStreamStart (..),
                      MsgStreamUpdate (..))
 -- Dubious having this security stuff in here.
-import           Pos.Security.Params (AttackTarget (..), AttackType (..),
+import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
                      NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Timer (Timer, startTimer)
@@ -477,7 +476,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
         -- TODO figure out what this security stuff is doing and judge whether
         -- it needs to change / be removed.
         let sparams = Logic.securityParams logic
-        -- Copied from Pos.Security.Util but made pure. The existing
+        -- Copied from Pos.Chain.Security but made pure. The existing
         -- implementation was tied to a reader rather than taking a
         -- SecurityParams value as a function argument.
             shouldIgnoreAddress :: NetworkAddress -> Bool
@@ -690,7 +689,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                         Logic.streamBlocks logic lca
                         lift $ send conv MsgStreamEnd
                     consumer = loop nodeId conv window
-                runEffect $ producer >-> consumer
+                runConduit $ producer .| consumer
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")
@@ -704,10 +703,10 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                   MsgUpdate u -> do
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop new window "%shown%" from "%build) u nodeId)
                       loop nodeId conv (msuWindow u)
-    loop nodeId conv window = do
-        b <- await
-        lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
-        loop nodeId conv (window - 1)
+    loop nodeId conv window =
+        whenJustM await $ \b -> do
+            lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
+            loop nodeId conv (window - 1)
 
 ----------------------------------------------------------------------------
 -- Header propagation

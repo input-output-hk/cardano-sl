@@ -21,10 +21,14 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, serialize, unsafeDeserialize)
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
+import           Pos.Core.Ssc (VssCertificate)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..))
 
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes,
+import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
                      encodeAttributes)
-import           Pos.Merkle (MerkleTree)
+import           Pos.Core.Merkle (MerkleTree)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Core.Arbitrary ()
@@ -79,7 +83,7 @@ instance Bi (Attributes X2) where
 
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
+spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ ->
     describe "Cbor Bi instances" $ do
         describe "Core.Address" $ do
             binaryTest @Address

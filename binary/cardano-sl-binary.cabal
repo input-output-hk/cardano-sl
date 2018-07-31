@@ -27,6 +27,7 @@ library
   build-depends:       base
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-sl-util
                      , cborg
                      , cereal
@@ -43,7 +44,6 @@ library
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
                      , th-utilities
                      , time-units
                      , universum

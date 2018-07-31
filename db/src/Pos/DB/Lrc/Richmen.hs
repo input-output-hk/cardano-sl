@@ -27,10 +27,14 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (Coin, CoinPortion, ProxySKHeavy, StakeholderId,
-                     addressHash, applyCoinPortionUp, gdHeavyDelegation,
-                     genesisData, sumCoins, unGenesisDelegation,
+import           Pos.Chain.Lrc (FullRichmenData, RichmenComponent (..),
+                     findDelegationStakes, findRichmenStakes)
+import           Pos.Chain.Txp (genesisStakes)
+import           Pos.Core (Coin, CoinPortion, StakeholderId, addressHash,
+                     applyCoinPortionUp, genesisData, sumCoins,
                      unsafeIntegerToCoin)
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Genesis (gdHeavyDelegation, unGenesisDelegation)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Lrc.Consumer.Delegation (dlgRichmenComponent,
@@ -39,10 +43,6 @@ import           Pos.DB.Lrc.Consumer.Ssc (sscRichmenComponent, tryGetSscRichmen)
 import           Pos.DB.Lrc.Consumer.Update (tryGetUSRichmen,
                      updateRichmenComponent)
 import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
-import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
-import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
-import           Pos.Lrc.Types (FullRichmenData)
-import           Pos.Txp.GenesisUtxo (genesisStakes)
 
 ----------------------------------------------------------------------------
 -- Initialization

@@ -26,11 +26,12 @@ import qualified Data.Map.Strict as Map
 import           Data.Word (Word32)
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Core (GenesisBlock, MainBlock, Tx, TxAux (..), TxId,
-                     TxIn (..), TxOut, TxOutAux (..), gbBody, mainBlockSlot,
-                     mbTxs, mbWitnesses, txInputs, txOutputs)
+import           Pos.Chain.Txp (Utxo)
+import           Pos.Core.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
+                     mbWitnesses)
+import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), TxOut,
+                     TxOutAux (..), txInputs, txOutputs)
 import           Pos.Crypto.Hashing (hash)
-import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
 
 import           Formatting (bprint, (%))
@@ -117,15 +118,16 @@ mkRawResolvedTx txAux ins =
 
 -- | Signed block along with its resolved inputs
 --
--- If this block sits directly after an epoch boundary, it might additionally
--- have an attached epoch boundary block which should directly proceed it in the
--- chain . This is becuase the DSL contains no notion of epoch boundaries.
---
 -- Constructor is marked unsafe because the caller should make sure that
 -- invariant 'invRawResolvedBlock' holds.
 data RawResolvedBlock = UnsafeRawResolvedBlock {
+      -- | The underlying 'MainBlock'
       rawResolvedBlock       :: MainBlock
-    , rawResolvedBlockEBB    :: Maybe GenesisBlock
+
+      -- | Resolved inputs
+      --
+      -- Working with these inputs is more convenient using a 'ResolvedBlock';
+      -- see 'fromRawResolvedBlock'.
     , rawResolvedBlockInputs :: ResolvedBlockInputs
     }
 
@@ -143,10 +145,12 @@ invRawResolvedBlock block ins =
     txs = getBlockTxs block
 
 -- | Smart constructor for 'RawResolvedBlock' that checks the invariant
-mkRawResolvedBlock :: MainBlock -> Maybe GenesisBlock -> ResolvedBlockInputs -> RawResolvedBlock
-mkRawResolvedBlock block mebb  ins =
+mkRawResolvedBlock :: MainBlock
+                   -> ResolvedBlockInputs
+                   -> RawResolvedBlock
+mkRawResolvedBlock block ins =
     if invRawResolvedBlock block ins
-      then UnsafeRawResolvedBlock block mebb ins
+      then UnsafeRawResolvedBlock block ins
       else error "mkRawResolvedBlock: invariant violation"
 
 {-------------------------------------------------------------------------------

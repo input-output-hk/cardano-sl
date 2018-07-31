@@ -20,18 +20,19 @@ module Pos.DB.Block.GState.BlockExtra
 
 import           Universum hiding (init)
 
+import           Data.Conduit (ConduitT, yield)
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Pipes (Producer, yield)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Block.Slog (LastBlkSlots, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, HasCoreConfiguration, HasHeaderHash,
-                     HasProtocolConstants, HeaderHash, genesisHash, headerHash,
-                     slotIdF, unflattenSlotId)
-import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Chain.Block (LastBlkSlots, noLastBlkSlots)
+import           Pos.Core (FlatSlotId, HasCoreConfiguration,
+                     HasProtocolConstants, genesisHash, slotIdF,
+                     unflattenSlotId)
+import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
+                     headerHash)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
@@ -121,7 +122,7 @@ streamBlocks
     => (HeaderHash -> m (Maybe SerializedBlock))
     -> (HeaderHash -> m (Maybe HeaderHash))
     -> HeaderHash
-    -> Producer SerializedBlock m ()
+    -> ConduitT () SerializedBlock m ()
 streamBlocks loadBlock forwardLink base = do
     mFirst <- lift $ forwardLink base
     maybe (pure ()) loop mFirst

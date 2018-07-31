@@ -26,6 +26,7 @@ import qualified Hedgehog.Gen as Gen
 
 import           Pos.Binary.Class (Bi, Case (..), LengthOf, Raw (..),
                      SizeOverride (..), asBinary, szCases)
+import           Pos.Core.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Block (BlockHeader (..), BlockHeaderAttributes,
                      BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
                      GenesisConsensusData (..), GenesisProof (..), HeaderHash,
@@ -44,6 +45,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
 import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
                      LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
+import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
@@ -75,8 +77,6 @@ import           Pos.Crypto (AbstractHash (..), EncShare (..),
                      deterministic, deterministicVssKeyGen, hash, proxySign,
                      redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
                      sign, toPublic, toVssPublicKey)
-import           Pos.Data.Attributes (Attributes, mkAttributes)
-import           Pos.Merkle (mkMerkleTree, mtRoot)
 
 import           Serokell.Data.Memory.Units (Byte)
 

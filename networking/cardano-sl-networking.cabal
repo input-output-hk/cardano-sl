@@ -33,17 +33,19 @@ Library
                         Node.Util.Monitor
 
                         Ntp.Client
+                        Ntp.Util
+                        Ntp.Packet
 
                         Bench.Network.Commons
 
-  other-modules:        Ntp.Packet
-                        Ntp.Util
-                        Data.NonEmptySet
+  other-modules:        Data.NonEmptySet
 
   build-depends:        aeson
+                      , aeson-options
                       , async
                       , attoparsec
                       , base
+                      , cardano-sl-chain
                       , cardano-sl-core
                       , cardano-sl-util
                       , containers
@@ -68,6 +70,7 @@ Library
                       , safe-exceptions
                       , stm
                       , text
+                      , these
                       , formatting
                       , time
                       , time-units
@@ -222,6 +225,7 @@ test-suite cardano-sl-networking-test
   main-is:             Test.hs
   other-modules:       Spec
                        Test.NodeSpec
+                       Test.NtpSpec
                        Test.Network.Broadcast.OutboundQueueSpec
                        Test.Util
   type:                exitcode-stdio-1.0

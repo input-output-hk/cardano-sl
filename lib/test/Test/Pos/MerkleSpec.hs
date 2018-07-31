@@ -13,7 +13,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (===))
 
 import           Pos.Binary (Bi)
-import           Pos.Merkle (mkMerkleTree)
+import           Pos.Core.Merkle (mkMerkleTree)
 import           Test.Pos.Binary.Helpers (safeCopyEncodeDecode)
 
 spec :: Spec

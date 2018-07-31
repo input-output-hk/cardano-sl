@@ -7,9 +7,9 @@ import           Data.Aeson
 import           Data.Time (UTCTime (..), fromGregorian)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
+import qualified Pos.Chain.Txp as V0
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
-import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
@@ -17,9 +17,8 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 import qualified Test.QuickCheck.Property as Property
 
-import           Pos.Util.Mnemonic (Mnemonic)
-
 import qualified Pos.Core as Core
+import qualified Pos.Core.Update as Core
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.V1.Errors (WalletError)
@@ -33,9 +32,10 @@ spec :: Spec
 spec = parallel $ describe "Marshalling & Unmarshalling" $ do
     parallel $ describe "Roundtrips" $ do
         -- Aeson roundrips
-        aesonRoundtripProp @(V1 (Mnemonic 12)) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
+        aesonRoundtripProp @BackupPhrase Proxy
+        aesonRoundtripProp @Redemption Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
         aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy

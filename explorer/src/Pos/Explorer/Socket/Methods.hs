@@ -63,9 +63,9 @@ import qualified Data.Set as S
 import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
-import           Pos.Block.Types (Blund)
-import           Pos.Core (Address, HeaderHash)
-import           Pos.Core.Block (Block, mainBlockTxPayload)
+import           Pos.Chain.Block (Blund)
+import           Pos.Core (Address)
+import           Pos.Core.Block (Block, HeaderHash, mainBlockTxPayload)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
                      txpTxs)

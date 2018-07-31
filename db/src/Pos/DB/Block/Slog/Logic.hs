@@ -3,7 +3,7 @@
 
 -- | This module does some hard work related to block processing
 -- logic, but not specific to any particular part of the
--- system. On the contrary, modules like 'Pos.Block.Logic.VAR'
+-- system. On the contrary, modules like 'Pos.Chain.Block.VAR'
 -- unite logic from multiple components into functions.
 
 module Pos.DB.Block.Slog.Logic
@@ -31,21 +31,25 @@ import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Logic.Integrity (verifyBlocks)
-import           Pos.Block.Slog (HasSlogGState)
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
-                     difficultyL, epochIndexL, flattenSlotId, headerHash,
-                     headerHashG, prevBlockL)
-import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
+import           Pos.Chain.Block (Blund, HasSlogGState, SlogUndo (..),
+                     Undo (..), verifyBlocks)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
+import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
+                     epochIndexL, flattenSlotId)
+import           Pos.Core.Block (Block, genBlockLeaders, headerHash,
+                     headerHashG, mainBlockSlot, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
-import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Core.Exception (assertionFailed, reportFatalError)
+import           Pos.Core.Slotting (MonadSlots)
+import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
 import           Pos.DB.Block.Load (putBlunds)
+import           Pos.DB.Block.Logic.Types (VerifyBlocksContext (..))
 import           Pos.DB.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
@@ -54,10 +58,6 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Update (getAdoptedBVFull)
-import           Pos.Exception (assertionFailed, reportFatalError)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 
@@ -129,12 +129,11 @@ type MonadSlogVerify ctx m =
 slogVerifyBlocks
     :: MonadSlogVerify ctx m
     => ProtocolMagic
+    -> VerifyBlocksContext
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks pm blocks = runExceptT $ do
-    curSlot <- getCurrentSlot
-    (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
-    let dataMustBeKnown = mustDataBeKnown adoptedBV
+slogVerifyBlocks pm ctx blocks = runExceptT $ do
+    let dataMustBeKnown = mustDataBeKnown (vbcBlockVersion ctx)
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     leaders <- lift $
         lrcActionOnEpochReason
@@ -155,7 +154,12 @@ slogVerifyBlocks pm blocks = runExceptT $ do
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks pm curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks pm
+            (vbcCurrentSlot ctx)
+            dataMustBeKnown
+            (vbcBlockVersionData ctx)
+            leaders
+            blocksList
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.

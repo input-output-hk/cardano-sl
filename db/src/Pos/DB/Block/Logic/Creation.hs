@@ -24,16 +24,23 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
-                     HasProtocolConstants, HeaderHash, SlotId (..),
-                     chainQualityThreshold, epochIndexL, epochSlots,
-                     flattenSlotId, getEpochOrSlot, headerHash)
-import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock,
-                     MainBlockchain)
+import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
+                     ProxySKBlockInfo)
+import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
+import           Pos.Chain.Txp (TxpConfiguration, emptyTxPayload)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     lastKnownBlockVersion)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
+                     SlotId (..), chainQualityThreshold, epochIndexL,
+                     epochSlots, flattenSlotId, getEpochOrSlot)
+import           Pos.Core.Block (BlockHeader (..), Blockchain (..),
+                     GenesisBlock, HeaderHash, MainBlock, MainBlockchain,
+                     headerHash)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
+import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
@@ -46,6 +53,8 @@ import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)
 import           Pos.DB.Block.Logic.Internal (MonadBlockApply,
                      applyBlocksUnsafe, normalizeMempool)
+import           Pos.DB.Block.Logic.Types (VerifyBlocksContext (..),
+                     getVerifyBlocksContext)
 import           Pos.DB.Block.Logic.Util (calcChainQualityM)
 import           Pos.DB.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
@@ -60,14 +69,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
 import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
-import           Pos.Delegation (DelegationVar, DlgPayload (..),
-                     ProxySKBlockInfo)
-import           Pos.Exception (assertionFailed, reportFatalError)
-import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
-import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
@@ -120,11 +121,12 @@ createGenesisBlockAndApply ::
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> EpochIndex
     -> m (Maybe GenesisBlock)
 -- Genesis block for 0-th epoch is hardcoded.
-createGenesisBlockAndApply _ 0 = pure Nothing
-createGenesisBlockAndApply pm epoch = do
+createGenesisBlockAndApply _ _ 0 = pure Nothing
+createGenesisBlockAndApply pm txpConfig epoch = do
     tipHeader <- DB.getTipHeader
     -- preliminary check outside the lock,
     -- must be repeated inside the lock
@@ -133,7 +135,7 @@ createGenesisBlockAndApply pm epoch = do
         then modifyStateLock
                  HighPriority
                  ApplyBlock
-                 (\_ -> createGenesisBlockDo pm epoch)
+                 (\_ -> createGenesisBlockDo pm txpConfig epoch)
         else return Nothing
 
 createGenesisBlockDo
@@ -142,9 +144,10 @@ createGenesisBlockDo
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
-createGenesisBlockDo pm epoch = do
+createGenesisBlockDo pm txpConfig epoch = do
     tipHeader <- DB.getTipHeader
     logDebug $ sformat msgTryingFmt epoch tipHeader
     needCreateGenesisBlock epoch tipHeader >>= \case
@@ -161,12 +164,18 @@ createGenesisBlockDo pm epoch = do
             LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock pm (Right tipHeader) epoch leaders
         let newTip = headerHash blk
-        verifyBlocksPrefix pm (one (Left blk)) >>= \case
+        ctx <- getVerifyBlocksContext
+        verifyBlocksPrefix pm ctx (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                applyBlocksUnsafe pm (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
-                normalizeMempool pm
+                applyBlocksUnsafe pm
+                    (vbcBlockVersion ctx)
+                    (vbcBlockVersionData ctx)
+                    (ShouldCallBListener True)
+                    (one (Left blk, undo))
+                    (Just pollModifier)
+                normalizeMempool pm txpConfig
                 pure (newTip, Just blk)
     logShouldNot =
         logDebug
@@ -220,16 +229,17 @@ createMainBlockAndApply ::
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
-createMainBlockAndApply pm sId pske =
+createMainBlockAndApply pm txpConfig sId pske =
     modifyStateLock HighPriority ApplyBlock createAndApply
   where
     createAndApply tip =
         createMainBlockInternal pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)
-            Right blk -> convertRes <$> applyCreatedBlock pm pske blk
+            Right blk -> convertRes <$> applyCreatedBlock pm txpConfig pske blk
     convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
 
 ----------------------------------------------------------------------------
@@ -351,15 +361,17 @@ applyCreatedBlock ::
     , MonadCreateBlock ctx m
     )
     => ProtocolMagic
+    -> TxpConfiguration
     -> ProxySKBlockInfo
     -> MainBlock
     -> m MainBlock
-applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
+applyCreatedBlock pm txpConfig pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
-    applyCreatedBlockDo isFallback blockToApply =
-        verifyBlocksPrefix pm (one (Right blockToApply)) >>= \case
+    applyCreatedBlockDo isFallback blockToApply = do
+        ctx <- getVerifyBlocksContext
+        verifyBlocksPrefix pm ctx (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
@@ -367,10 +379,12 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe
                     pm
+                    (vbcBlockVersion ctx)
+                    (vbcBlockVersionData ctx)
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
-                normalizeMempool pm
+                normalizeMempool pm txpConfig
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do

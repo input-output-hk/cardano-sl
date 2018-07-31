@@ -77,8 +77,8 @@ import           Data.Typeable (Typeable)
 import           Data.Version (Version)
 import           Formatting (bprint, build, builder, later, shown, (%))
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
-                     SoftwareVersion, unsafeGetCoin)
+import           Pos.Core (ChainDifficulty, Coin, ScriptVersion, unsafeGetCoin)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildUnsecure, deriveSafeBuildable, secretOnlyF,
                      secureListF)

@@ -17,15 +17,15 @@ module Pos.DB.Lrc.Consumer.Update
 
 import           Universum
 
+import           Pos.Chain.Lrc (FullRichmenData, RichmenComponent (..))
 import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
-                     bvdUpdateVoteThd, genesisBlockVersionData)
+                     genesisBlockVersionData)
+import           Pos.Core.Update (bvdUpdateVoteThd)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.DB.Lrc.Consumer (LrcConsumer,
                      lrcConsumerFromComponentSimple)
 import           Pos.DB.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import           Pos.DB.Lrc.RichmenBase
-import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
-import           Pos.Lrc.Types (FullRichmenData)
 
 ----------------------------------------------------------------------------
 -- RichmenComponent

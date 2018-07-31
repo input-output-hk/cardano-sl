@@ -1,4 +1,4 @@
--- | Specification of Pos.Ssc.Toss.Base
+-- | Specification of Pos.Chain.Ssc
 
 module Test.Pos.Ssc.Toss.BaseSpec
        ( spec
@@ -19,32 +19,33 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
                      vector, (.&&.), (===), (==>))
 
 import           Pos.Binary (AsBinary)
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
-                     StakeholderId, VssCertificate (..),
-                     VssCertificatesMap (..), addressHash, crucialSlot,
-                     genesisBlockVersionData, insertVss, mkCoin, _vcVssKey)
-import           Pos.Core.Ssc (Commitment, CommitmentSignature,
-                     CommitmentsMap (..), InnerSharesMap, Opening, OpeningsMap,
-                     SharesMap, SignedCommitment, mkCommitmentsMapUnsafe)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey,
-                     SignTag (SignCommitment), sign, toPublic)
-import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv,
+import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc (MultiRichmenStakes, PureTossWithEnv,
                      SscGlobalState (..), SscVerifyError (..),
                      VssCertData (..), checkCertificatesPayload,
                      checkCommitmentsPayload, checkOpeningsPayload,
-                     checkSharesPayload, runPureToss, sgsCommitments,
-                     sgsOpenings, sgsShares, sgsVssCertificates,
-                     supplyPureTossEnv)
-import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment,
+                     checkSharesPayload, deleteSignedCommitment, runPureToss,
+                     sgsCommitments, sgsOpenings, sgsShares,
+                     sgsVssCertificates, supplyPureTossEnv, verifyCommitment,
                      verifyCommitmentSignature, verifyOpening)
-import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, ValidRichmenStakes (..))
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
+                     StakeholderId, addressHash, crucialSlot,
+                     genesisBlockVersionData, mkCoin)
+import           Pos.Core.Ssc (Commitment, CommitmentSignature,
+                     CommitmentsMap (..), InnerSharesMap, Opening, OpeningsMap,
+                     SharesMap, SignedCommitment, VssCertificate (..),
+                     VssCertificatesMap (..), insertVss,
+                     mkCommitmentsMapUnsafe, _vcVssKey)
+import           Pos.Crypto (DecShare, PublicKey, SecretKey,
+                     SignTag (SignCommitment), sign, toPublic)
+import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
+                     ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
+import           Test.Pos.Chain.Ssc.Arbitrary (BadCommAndOpening (..),
+                     BadSignedCommitment (..), CommitmentOpening (..))
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Ssc.Arbitrary (BadCommAndOpening (..),
-                     BadSignedCommitment (..), CommitmentOpening (..))
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Ssc.Base" $ do

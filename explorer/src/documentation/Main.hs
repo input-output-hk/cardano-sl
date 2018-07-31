@@ -27,8 +27,9 @@ import           Control.Lens (mapped, (?~))
 import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import           Data.Fixed (Fixed (..), Micro)
-import           Data.Swagger (Swagger, ToParamSchema (..), ToSchema (..),
-                     declareNamedSchema, defaultSchemaOptions, description,
+import           Data.Swagger (NamedSchema (..), Swagger, ToParamSchema (..),
+                     ToSchema (..), binarySchema, declareNamedSchema,
+                     defaultSchemaOptions, description,
                      genericDeclareNamedSchema, host, info, name, title,
                      version)
 import           Data.Typeable (Typeable, typeRep)
@@ -85,6 +86,7 @@ instance ToParamSchema C.EpochIndex
 instance ToSchema      C.CTxSummary
 instance ToSchema      C.CTxEntry
 instance ToSchema      C.CTxBrief
+instance ToSchema      C.CUtxo
 instance ToSchema      C.CBlockSummary
 instance ToSchema      C.CBlockEntry
 instance ToSchema      C.CAddressType
@@ -99,6 +101,9 @@ instance ToSchema      ExplorerError
 instance ToParamSchema C.CAddressesFilter
 
 deriving instance Generic Micro
+
+instance ToSchema C.CByteString where
+  declareNamedSchema _ = return $ NamedSchema (Just "CByteString") binarySchema
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

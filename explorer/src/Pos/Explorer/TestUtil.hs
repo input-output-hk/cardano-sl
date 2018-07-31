@@ -31,30 +31,31 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable,
                      choose, counterexample, forAll, generate, property,
                      suchThat)
 
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Block (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
+                     ProxySKBlockInfo)
+import           Pos.Chain.Ssc (defaultSscPayload)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), GenesisHash (..), HasConfiguration,
-                     HeaderHash, LocalSlotIndex (..), SlotId (..), SlotLeaders,
-                     StakeholderId, difficultyL, genesisHash, headerHash,
+                     LocalSlotIndex (..), SlotId (..), SlotLeaders,
+                     StakeholderId, difficultyL, genesisHash,
                      makePubKeyAddressBoot)
-import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock,
-                     getBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, HeaderHash,
+                     MainBlock, getBlockHeader, headerHash)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      convertToPagedMap)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
-import           Pos.Ssc.Base (defaultSscPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
@@ -85,14 +86,14 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
-    blocks <- withDefConfigurations $ \_ _ ->
+    blocks <- withDefConfigurations $ \_ _ _ ->
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
     let tipBlock         = Prelude.last blocks
-    let pagedHHs         = withDefConfigurations $ const $ createMapPageHHs blocks
-    let hHsBlunds        = withDefConfigurations $ const $ createMapHHsBlund blocks
-    let epochPageHHs     = withDefConfigurations $ const $ createMapEpochPageHHs blocks slotsPerEpoch
-    let mapEpochMaxPages = withDefConfigurations $ const $ createMapEpochMaxPages $ keys epochPageHHs
+    let pagedHHs         = withDefConfigurations $ \pm _ _ -> createMapPageHHs blocks pm
+    let hHsBlunds        = withDefConfigurations $ \pm _ _ -> createMapHHsBlund blocks pm
+    let epochPageHHs     = withDefConfigurations $ \pm _ _ -> createMapEpochPageHHs blocks slotsPerEpoch pm
+    let mapEpochMaxPages = withDefConfigurations $ \pm _ _ -> createMapEpochMaxPages (keys epochPageHHs) pm
 
     pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock
@@ -154,7 +155,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 -- need to add quite a bit of logic to it. For now, it's good enough, since we are
 -- testing just the "sunny day" scenario, and we don't worry about rollbacks. There
 -- are already tests that cover a lot of rollback logic.
--- For a more realistic @Undo@, check @Pos.Block.Logic.VAR.verifyBlocksPrefix@.
+-- For a more realistic @Undo@, check @Pos.Chain.Block.VAR.verifyBlocksPrefix@.
 createEmptyUndo :: Undo
 createEmptyUndo = Undo
     { undoTx = mempty

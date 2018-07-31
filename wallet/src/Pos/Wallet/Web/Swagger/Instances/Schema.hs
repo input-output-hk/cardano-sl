@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE OverloadedLists #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -18,13 +19,18 @@ import           Data.Swagger (NamedSchema (..), SwaggerType (..),
 import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
+
+#if !(MIN_VERSION_swagger2(2,2,2))
 import           Data.Version (Version)
+#endif
+
 import           Servant.Multipart (FileData (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion,
-                     ChainDifficulty, Coin, SlotCount (..), SoftwareVersion,
-                     mkCoin)
+import           Pos.Core (BlockCount (..), ChainDifficulty, Coin,
+                     SlotCount (..), mkCoin)
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     SoftwareVersion)
 import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
@@ -83,7 +89,9 @@ instance ToParamSchema CT.CPassPhrase
 instance ToParamSchema CT.ScrollOffset
 instance ToParamSchema CT.ScrollLimit
 instance ToSchema      CT.ApiVersion
+#if !(MIN_VERSION_swagger2(2,2,2))
 instance ToSchema      Version
+#endif
 instance ToSchema      CT.ClientInfo
 
 instance (KnownNat mw) => ToSchema (CT.CBackupPhrase mw) where

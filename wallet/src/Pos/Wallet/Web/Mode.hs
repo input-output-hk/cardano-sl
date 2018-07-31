@@ -31,7 +31,10 @@ import qualified Data.Map.Strict as M
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Ssc (HasSscContext (..))
+import           Pos.Chain.Txp (Utxo, addrBelongsToSet,
+                     applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getSecretDefault, modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -69,9 +72,6 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
-import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.Txp (HasTxpConfiguration, Utxo, addrBelongsToSet,
-                     applyUtxoModToAddrCoinMap)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
@@ -204,7 +204,7 @@ type MonadWalletWebMode ctx m =
     , MonadGState m
     , MonadDBRead m
     , MonadTxpMem WalletMempoolExt ctx m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadBListener m
     , MonadReader ctx m
     , HasLens StateLock ctx StateLock
@@ -320,7 +320,7 @@ instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance (HasConfiguration, HasTxpConfiguration)
+instance (HasConfiguration)
         => MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -328,7 +328,7 @@ instance (HasConfiguration, HasTxpConfiguration)
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
-instance (HasConfiguration, HasTxpConfiguration) =>
+instance HasConfiguration =>
          MonadTxpLocal WalletWebMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet

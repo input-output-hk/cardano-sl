@@ -56,8 +56,9 @@ import qualified Database.RocksDB as Rocks
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (HasCoreConfiguration, ProxySKHeavy, StakeholderId,
-                     addressHash)
+import           Pos.Chain.Delegation (DlgEdgeAction (..), isRevokePsk)
+import           Pos.Core (HasCoreConfiguration, StakeholderId, addressHash)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis (GenesisDelegation (..))
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (RocksBatchOp (..), dbSerializeValue,
@@ -65,8 +66,6 @@ import           Pos.DB (RocksBatchOp (..), dbSerializeValue,
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB,
                      MonadDBRead (..))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Delegation.Cede (DlgEdgeAction (..))
-import           Pos.Delegation.Types (isRevokePsk)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors

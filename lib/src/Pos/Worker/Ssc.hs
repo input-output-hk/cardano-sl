@@ -22,18 +22,29 @@ import qualified Crypto.Random as Rand
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
+import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Security (SecurityParams)
+import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
+                     MonadSscMem, SscBehavior (..), SscOpeningParams (..),
+                     SscSharesParams (..), SscTag (..), computeParticipants,
+                     computeSharesDistrPure, getOurShares, hasCommitment,
+                     hasOpening, hasShares, isCommitmentIdx, isOpeningIdx,
+                     isSharesIdx, mkSignedCommitment, mpcSendInterval,
+                     scBehavior, scParticipateSsc, scVssKeyPair,
+                     sgsCommitments, vssThreshold)
 import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
-                     StakeholderId, Timestamp (..), VssCertificate (..),
-                     VssCertificatesMap (..), blkSecurityParam, bvdMpcThd,
+                     StakeholderId, Timestamp (..), blkSecurityParam,
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
-                     lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
-                     slotSecurityParam, vssMaxTTL)
+                     mkLocalSlotIndex, slotSecurityParam, vssMaxTTL)
 import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     getCommitmentsMap, randCommitmentAndOpening)
+                     VssCertificate (..), VssCertificatesMap (..),
+                     getCommitmentsMap, lookupVss, memberVss, mkVssCertificate,
+                     randCommitmentAndOpening)
+import           Pos.Core.Update (bvdMpcThd)
 import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
                      randomNumber, randomNumberInRange, runSecureRandom,
                      vssKeyGen)
@@ -53,21 +64,6 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
-import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx,
-                     mkSignedCommitment)
-import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..),
-                     SscSharesParams (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration, mpcSendInterval)
-import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares,
-                     vssThreshold)
-import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Ssc.Message (SscTag (..))
-import           Pos.Ssc.Shares (getOurShares)
-import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
-import           Pos.Ssc.Types (HasSscContext (..), scBehavior,
-                     scParticipateSsc, scVssKeyPair, sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (HasLens (..), getKeys, leftToPanic)
 
@@ -83,7 +79,7 @@ type SscMode ctx m
       , MonadGState m
       , MonadDB m
       , MonadSscMem ctx m
-      , MonadRecoveryInfo m
+      , MonadRecoveryInfo ctx m
       , HasShutdownContext ctx
       , MonadReader ctx m
       , HasSscContext ctx
@@ -105,7 +101,7 @@ shouldParticipate :: SscMode ctx m => EpochIndex -> m Bool
 shouldParticipate epoch = do
     richmen <- getSscRichmen "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
-        atomically . readTVar . scParticipateSsc
+        (readTVarIO . scParticipateSsc)
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
@@ -125,7 +121,7 @@ onNewSlotSsc pm = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
-                atomically . readTVar . scBehavior
+                (readTVarIO . scBehavior)
             checkNSendOurCert pm (sendSscCert diffusion)
             onNewSlotCommitment pm slotId (sendSscCommitment diffusion)
             onNewSlotOpening pm (sbSendOpening behavior) slotId (sendSscOpening diffusion)

@@ -48,7 +48,7 @@ library
                      , bytestring
                      , canonical-json
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -56,9 +56,6 @@ library
                      , cardano-sl-db
                      , cardano-sl-generator
                      , cardano-sl-infra
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , conduit
                      , constraints
@@ -134,7 +131,8 @@ executable cardano-auxx
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , cardano-sl-txp
+                     , cardano-sl-networking
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , log-warper
                      , temporary

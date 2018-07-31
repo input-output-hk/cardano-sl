@@ -46,6 +46,7 @@ import           Universum
 
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
 import qualified Formatting.Buildable
@@ -58,18 +59,22 @@ import           Test.QuickCheck.Property (Testable)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
                      mkAllSecretsSimple)
-import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Core (BlockVersionData, CoreConfiguration (..),
-                     GenesisConfiguration (..), GenesisInitializer (..),
-                     GenesisSpec (..), HasConfiguration, HasProtocolConstants,
-                     SlotId, Timestamp (..), epochSlots, genesisSecretKeys,
+import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Ssc (SscMemTag, SscState)
+import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
+                     HasConfiguration, HasProtocolConstants, SlotId,
+                     Timestamp (..), epochSlots, genesisSecretKeys,
                      withGenesisSpec)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
+import           Pos.Core.Genesis (GenesisInitializer (..), GenesisSpec (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
@@ -87,7 +92,6 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                      txpGlobalSettings)
 import           Pos.DB.Update (UpdateContext, mkUpdateContext)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
@@ -103,7 +107,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
-import           Pos.Ssc (SscMemTag, SscState)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
@@ -132,6 +135,7 @@ data TestParams = TestParams
     , _tpGenesisInitializer :: !GenesisInitializer
     -- ^ 'GenesisInitializer' in 'TestParams' allows one to use custom
     -- genesis data.
+    , _tpTxpConfiguration   :: !TxpConfiguration
     }
 
 makeClassy ''TestParams
@@ -152,6 +156,7 @@ instance Arbitrary TestParams where
     arbitrary = do
         let _tpStartTime = Timestamp (fromMicroseconds 0)
         let _tpBlockVersionData = defaultTestBlockVersionData
+        let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
         _tpGenesisInitializer <-
             withGenesisBlockVersionData
                 _tpBlockVersionData
@@ -170,7 +175,7 @@ genGenesisInitializer = do
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.
 withTestParams :: TestParams -> (HasConfiguration => ProtocolMagic -> r) -> r
-withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration
+withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration id
   where
     defaultCoreConf :: CoreConfiguration
     defaultCoreConf = ccCore defaultTestConf
@@ -275,7 +280,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic
+            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic _tpTxpConfiguration
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}

@@ -10,9 +10,9 @@ import           Control.Exception.Safe (Exception (..))
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Core.Slotting (SlotId, slotIdF)
-import           Pos.Exception (cardanoExceptionFromException,
+import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
+import           Pos.Core.Slotting (SlotId, slotIdF)
 
 -- | Type aggregating run-time errors related to Slotting.
 data SlottingError = SEUnknownSlotStart !SlotId

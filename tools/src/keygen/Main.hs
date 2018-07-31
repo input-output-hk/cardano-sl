@@ -18,9 +18,11 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
-                     ProtocolMagic, RichSecrets (..), addressHash, ccGenesis,
-                     coreConfiguration, generateFakeAvvm, generateRichSecrets,
-                     mkVssCertificate, vcSigningKey, vssMaxTTL)
+                     ProtocolMagic, addressHash, ccGenesis, coreConfiguration,
+                     vssMaxTTL)
+import           Pos.Core.Genesis (RichSecrets (..), generateFakeAvvm,
+                     generateRichSecrets)
+import           Pos.Core.Ssc (mkVssCertificate, vcSigningKey)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)
@@ -155,7 +157,7 @@ main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
-    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \_ pm -> do
+    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \pm _ _ -> do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk

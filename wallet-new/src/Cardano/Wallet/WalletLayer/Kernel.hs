@@ -16,7 +16,7 @@ import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
 import           System.Wlog (Severity (Debug))
 
-import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Chain.Block (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
@@ -48,6 +48,7 @@ import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
 import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 import           Pos.Crypto.Signing
 
@@ -61,9 +62,10 @@ bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
     => (Severity -> Text -> IO ())
     -> Keystore
+    -> MonadDBReadAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore f =
-    Kernel.bracketPassiveWallet logFunction keystore $ \w -> do
+bracketPassiveWallet logFunction keystore rocksDB f =
+    Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
 
       -- Create the wallet worker and its communication endpoint `invoke`.
       bracket (liftIO $ Actions.forkWalletWorker $ Actions.WalletActionInterp
@@ -97,7 +99,7 @@ bracketPassiveWallet logFunction keystore f =
     passiveWalletLayer wallet invoke =
         PassiveWalletLayer
             { _pwlCreateWallet   =
-                \(V1.NewWallet (V1 mnemonic) mbSpendingPassword v1AssuranceLevel v1WalletName operation) -> do
+                \(V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword v1AssuranceLevel v1WalletName operation) -> do
                     liftIO $ limitExecutionTimeTo (30 :: Second) CreateWalletTimeLimitReached $ do
                         case operation of
                              V1.RestoreWallet -> error "Not implemented, see [CBR-243]."
@@ -174,7 +176,7 @@ bracketPassiveWallet logFunction keystore f =
     blundToResolvedBlock (b,u)
         = rightToJust b <&> \mainBlock ->
             fromRawResolvedBlock
-            $ UnsafeRawResolvedBlock mainBlock Nothing spentOutputs'
+            $ UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
             spentOutputs' = map (map fromJust) $ undoTx u
             rightToJust   = either (const Nothing) Just

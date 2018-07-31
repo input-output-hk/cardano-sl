@@ -9,21 +9,28 @@ module Pos.Logic.Full
 import           Universum hiding (id)
 
 import           Control.Lens (at, to)
+import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
-import           Pipes (Producer)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..), SscTag (..),
+                     TossModifier, ldModifier, sscRunLocalQuery,
+                     tmCertificates, tmCommitments, tmOpenings, tmShares)
+import           Pos.Chain.Txp (MemPool (..), TxpConfiguration)
 import           Pos.Communication (NodeId)
-import           Pos.Core (Block, BlockHeader, BlockVersionData,
-                     HasConfiguration, HeaderHash, ProxySKHeavy, StakeholderId,
-                     TxAux (..), addressHash, getCertId, lookupVss)
+import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Ssc (getCommitmentsMap)
-import           Pos.Core.Txp (TxMsgContents (..))
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
+import           Pos.Core.Txp (TxAux (..), TxMsgContents (..))
+import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
+                     UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
@@ -36,6 +43,7 @@ import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
 import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
 import           Pos.DB.Update (getLocalProposalNVotes, getLocalVote,
                      isProposalNeeded, isVoteNeeded)
+import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)
 import           Pos.Listener.Delegation (DlgListenerConstraint)
@@ -48,16 +56,6 @@ import qualified Pos.Network.Block.Logic as Block
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
-import           Pos.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Security.Util (shouldIgnorePkAddress)
-import           Pos.Ssc.Mem (sscRunLocalQuery)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
-import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates,
-                     tmCommitments, tmOpenings, tmShares)
-import           Pos.Ssc.Types (ldModifier)
-import           Pos.Txp (MemPool (..))
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
@@ -83,7 +81,7 @@ type LogicWorkMode ctx m =
     , MonadBlockDBRead m
     , MonadDBRead m
     , MonadGState m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadSlots ctx m
     , HasLens RecoveryHeaderTag ctx RecoveryHeader
     , BlockWorkMode ctx m
@@ -98,16 +96,17 @@ logicFull
     :: forall ctx m .
        ( LogicWorkMode ctx m )
     => ProtocolMagic
+    -> TxpConfiguration
     -> StakeholderId
     -> SecurityParams
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull pm ourStakeholderId securityParams jsonLogTx =
+logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
 
-        streamBlocks :: HeaderHash -> Producer SerializedBlock m ()
+        streamBlocks :: HeaderHash -> ConduitT () SerializedBlock m ()
         streamBlocks = Block.streamBlocks DB.dbGetSerBlock Block.resolveForwardLink
 
         getTip :: m Block
@@ -154,7 +153,7 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm txpConfig jsonLogTx txAux
             }
 
         postUpdate = KeyVal

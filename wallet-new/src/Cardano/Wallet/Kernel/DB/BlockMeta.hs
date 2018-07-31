@@ -16,8 +16,12 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
                      safeGet, safePut)
+import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
+import           Serokell.Util (mapJson)
 
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 
 import           Cardano.Wallet.Kernel.DB.InDb
 
@@ -38,7 +42,7 @@ data AddressMeta = AddressMeta {
 -- | Block metadata
 data BlockMeta = BlockMeta {
       -- | Slot each transaction got confirmed in
-      _blockMetaSlotId      :: InDb (Map Core.TxId Core.SlotId)
+      _blockMetaSlotId      :: InDb (Map Txp.TxId Core.SlotId)
     , -- | Address metadata
       _blockMetaAddressMeta :: InDb (Map Core.Address AddressMeta)
     }
@@ -80,3 +84,27 @@ instance Monoid BlockMeta where
           _blockMetaAddressMeta = InDb Map.empty
       }
   mappend = (<>)
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable AddressMeta where
+    build AddressMeta{..} = bprint
+        ( "AddressMeta"
+        % "{ isUsed:   " % build
+        % ", isChange: " % build
+        % "}"
+        )
+        _addressMetaIsUsed
+        _addressMetaIsChange
+
+instance Buildable BlockMeta where
+    build BlockMeta{..} = bprint
+        ( "BlockMeta"
+        % "{ slotId:      " % mapJson
+        % ", addressMeta: " % mapJson
+        % "}"
+        )
+        (_fromDb _blockMetaSlotId)
+        (_fromDb _blockMetaAddressMeta)

@@ -21,6 +21,8 @@ import qualified Formatting.Buildable
 import           Universum
 
 import           Pos.Core
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Txp (TxIn)
 import           Pos.Crypto
 
 {-------------------------------------------------------------------------------

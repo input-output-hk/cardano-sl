@@ -7,6 +7,8 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
   , cancelPending
   , applyBlock
   , switchToFork
+    -- * Testing
+  , observableRollbackUseInTestsOnly
   ) where
 
 import           Universum
@@ -24,10 +26,11 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 
 import           Control.Lens (each)
+import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (hash)
-import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..))
 
@@ -44,7 +47,7 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 -- | Errors thrown by 'newPending'
 data NewPendingFailed =
     -- | Some inputs are not in the wallet utxo
-    NewPendingInputsUnavailable (Set (InDb Core.TxIn))
+    NewPendingInputsUnavailable (Set (InDb Txp.TxIn))
 
 deriveSafeCopy 1 'base ''NewPendingFailed
 
@@ -79,7 +82,7 @@ instance Arbitrary NewPendingFailed where
 --   a specialized hardware device).
 -- * We do not actually have access to the key storage inside the DB layer
 --   (and do not store private keys) so we cannot actually sign transactions.
-newPending :: InDb Core.TxAux
+newPending :: InDb Txp.TxAux
            -> Update' Checkpoints NewPendingFailed ()
 newPending tx = do
     checkpoints <- get
@@ -95,7 +98,7 @@ newPending tx = do
 
         insertPending :: Checkpoints -> Checkpoints
         insertPending cs = cs & currentPendingTxs %~ Map.insert txId tx'
-            where txId = hash $ Core.taTx tx'
+            where txId = hash $ Txp.taTx tx'
 
         inputUnavailableErr available_ = do
             let unavailableInputs = txAuxInputSet tx' `Set.difference` utxoInputs available_
@@ -103,7 +106,7 @@ newPending tx = do
 
 -- | Cancel the input set of cancelled transactions from @all@ the 'Checkpoints'
 -- of an 'Account'.
-cancelPending :: Set Core.TxId -> Checkpoints -> Checkpoints
+cancelPending :: Set Txp.TxId -> Checkpoints -> Checkpoints
 cancelPending txids checkpoints =
     checkpoints & over each
                 (\ckpoint ->
@@ -120,7 +123,6 @@ applyBlock prefBlock checkpoints
           _checkpointUtxo           = InDb utxo''
         , _checkpointUtxoBalance    = InDb balance''
         , _checkpointPending        = Pending . InDb $ pending''
-        , _checkpointExpected       = InDb expected''
         , _checkpointBlockMeta      = blockMeta''
         } NE.<| checkpoints
     where
@@ -130,9 +132,6 @@ applyBlock prefBlock checkpoints
         (utxo'', balance'') = updateUtxo      prefBlock (utxo', utxoBalance')
         pending''           = updatePending   prefBlock (checkpoints ^. currentPendingTxs)
         blockMeta''         = updateBlockMeta prefBlock (checkpoints ^. currentBlockMeta)
-        -- TODO(@uroboros/ryan) applyBlock.updateExpected
-        -- (as part of CBR-150 Extend pure data layer to support rollback)
-        expected''          = checkpoints ^. currentExpected
 
 updateBlockMeta :: PrefilteredBlock -> BlockMeta -> BlockMeta
 updateBlockMeta PrefilteredBlock{..} meta
@@ -158,9 +157,25 @@ updatePending PrefilteredBlock{..} =
 
 -- | Rollback
 --
+-- For the base case, see section "Rollback -- Omitting checkpoints" in the
+-- formal specification.
+--
 -- This is an internal function only, and not exported. See 'switchToFork'.
 rollback :: Checkpoints -> Checkpoints
-rollback = error "rollback"
+rollback (c :| [])      = c :| []
+rollback (c :| c' : cs) = Checkpoint {
+      _checkpointUtxo        = c' ^. checkpointUtxo
+    , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
+    , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
+    , _checkpointPending     = unionPending (c  ^. checkpointPending)
+                                            (c' ^. checkpointPending)
+    } :| cs
+
+-- | Observable rollback, used in testing only
+--
+-- See 'switchToFork' for production use.
+observableRollbackUseInTestsOnly :: Checkpoints -> Checkpoints
+observableRollbackUseInTestsOnly = rollback
 
 -- | Switch to a fork
 switchToFork :: Int  -- ^ Number of blocks to rollback

@@ -53,15 +53,17 @@ import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
-import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Chain.Block (Blund, undoTx)
+import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
+                     _txOutputs)
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     HasDifficulty (..), HasProtocolConstants, HeaderHash,
-                     Timestamp (..), blkSecurityParam, genesisHash, headerHash,
-                     headerSlotL, timestampToPosix)
-import           Pos.Core.Block (BlockHeader (..), MainBlock, getBlockHeader,
-                     mainBlockTxPayload)
+                     HasDifficulty (..), HasProtocolConstants,
+                     Timestamp (..), genesisHash, blkSecurityParam,
+                     timestampToPosix)
+import           Pos.Core.Block (BlockHeader (..), HeaderHash, getBlockHeader,
+                     headerHash, headerSlotL, mainBlockTxPayload, MainBlock)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
@@ -76,7 +78,6 @@ import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP,
                      logInfoSP, logWarningSP, secretOnlyF, secure)
-import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)

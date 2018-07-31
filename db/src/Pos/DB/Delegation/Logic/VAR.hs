@@ -25,10 +25,18 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId,
-                     addressHash, epochIndexL, gbHeader, headerHash,
-                     prevBlockL, siEpoch)
-import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
+import           Pos.Chain.Delegation (CedeModifier (..), DlgBlund,
+                     DlgEdgeAction (..), DlgPayload (getDlgPayload),
+                     DlgUndo (..), MonadCede (..), MonadCedeRead (..),
+                     MonadDelegation, cmPskMods, dlgEdgeActionIssuer,
+                     dwProxySKPool, dwTip, emptyCedeModifier, getPskPk, modPsk,
+                     pskToDlgEdgeAction)
+import           Pos.Chain.Lrc (RichmenSet)
+import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
+                     epochIndexL, siEpoch)
+import           Pos.Core.Block (Block, ComponentBlock (..), gbHeader,
+                     headerHash, mainBlockDlgPayload, mainBlockSlot,
+                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
@@ -45,14 +53,6 @@ import           Pos.DB.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                      deleteFromDlgMemPool, processProxySKHeavyInternal)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
-import           Pos.Delegation.Cede (CedeModifier (..), DlgEdgeAction (..),
-                     MonadCede (..), MonadCedeRead (..), cmPskMods,
-                     dlgEdgeActionIssuer, emptyCedeModifier, getPskPk, modPsk,
-                     pskToDlgEdgeAction)
-import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
-import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload),
-                     DlgUndo (..))
-import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
 
 

@@ -13,6 +13,7 @@ module Pos.Core.Block.Constructors
 
 import           Universum
 
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Block.Blockchain (GenericBlock (..), mkGenericHeader)
 import           Pos.Core.Block.Genesis (GenesisBody (..),
                      GenesisConsensusData (..), GenesisExtraBodyData (..),
@@ -31,7 +32,6 @@ import           Pos.Core.Slotting (EpochIndex, SlotId)
 import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash,
                      proxySign, sign, toPublic)
-import           Pos.Data.Attributes (mkAttributes)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors

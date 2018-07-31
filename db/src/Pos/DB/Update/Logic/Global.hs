@@ -16,15 +16,22 @@ import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..),
-                     HasCoreConfiguration, HasProtocolConstants,
-                     NumSoftwareVersion, ProtocolMagic, SoftwareVersion (..),
-                     StakeholderId, addressHash, blockVersionL, epochIndexL,
-                     headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
+                     HasUpdateConfiguration, MonadPoll, PollModifier (..),
+                     PollT, PollVerFailure, ProposalState, USUndo, execPollT,
+                     execRollT, getAdoptedBV, lastKnownBlockVersion,
+                     reportUnexpectedError, runPollT)
+import           Pos.Core (HasCoreConfiguration, HasProtocolConstants,
+                     ProtocolMagic, StakeholderId, addressHash, epochIndexL)
+import           Pos.Core.Block (ComponentBlock (..), headerHashG,
+                     headerLeaderKeyL, headerSlotL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlotsData, SlottingData, slottingVar)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     BlockVersionData, NumSoftwareVersion,
+                     SoftwareVersion (..), UpId, UpdatePayload, blockVersionL)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.Lrc (HasLrcContext)
@@ -35,13 +42,6 @@ import           Pos.DB.Update.Poll.Logic.Base (canCreateBlockBV)
 import           Pos.DB.Update.Poll.Logic.Rollback (rollbackUS)
 import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
-import           Pos.Exception (reportFatalError)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
-import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState,
-                     MonadPoll, PollModifier (..), PollT, PollVerFailure,
-                     ProposalState, USUndo, execPollT, execRollT, getAdoptedBV,
-                     reportUnexpectedError, runPollT)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
 
@@ -99,21 +99,22 @@ usApplyBlocks
        , USGlobalApplyMode ctx m
        )
     => ProtocolMagic
+    -> BlockVersion
     -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks pm blocks modifierMaybe =
+usApplyBlocks pm bv blocks modifierMaybe =
     withUSLogger $
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- usVerifyBlocks pm False blocks
+            verdict <- usVerifyBlocks pm False bv blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- usVerifyBlocks pm False blocks
+                verdict <- usVerifyBlocks pm False bv blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
@@ -165,16 +166,16 @@ usVerifyBlocks ::
        )
     => ProtocolMagic
     -> Bool
+    -> BlockVersion
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks pm verifyAllIsKnown blocks =
+usVerifyBlocks pm verifyAllIsKnown adoptedBV blocks =
     withUSLogger $
     reportUnexpectedError $
     processRes <$> run (runExceptT action)
   where
     action = do
-        lastAdopted <- getAdoptedBV
-        mapM (verifyBlock pm lastAdopted verifyAllIsKnown) blocks
+        mapM (verifyBlock pm adoptedBV verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::

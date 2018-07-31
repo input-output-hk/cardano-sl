@@ -15,12 +15,13 @@ import           Universum
 import           Data.Default (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core (HeaderHash, SlotId (..), UpdateProposals)
+import           Pos.Chain.Update (LocalVotes, PollModifier)
+import           Pos.Core (SlotId (..))
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Core.Update (UpdateProposals)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
-import           Pos.Update.Poll.Modifier (PollModifier)
-import           Pos.Update.Poll.Types (LocalVotes)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.

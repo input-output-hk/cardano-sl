@@ -34,12 +34,12 @@ import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Txp (topsortTxAuxes)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
-import           Pos.Core (BlockVersionData (bvdSlotDuration),
-                     IsBootstrapEraAddr (..), Timestamp (..),
+import           Pos.Core (IsBootstrapEraAddr (..), Timestamp (..),
                      deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Conc (concurrently, currentTime, delay,
                      forConcurrently, modifySharedAtomic, newSharedAtomic)
@@ -47,11 +47,11 @@ import           Pos.Core.Configuration (genesisBlockVersionData,
                      genesisSecretKeys)
 import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
                      TxOutAux (..), txaF)
+import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,
                      encToPublic, fakeSigner, hash, safeToPublic, toPublic,
                      withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Txp (topsortTxAuxes)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
@@ -247,7 +247,7 @@ send pm diffusion idx outputs = do
     takeSecret :: m EncryptedSecretKey
     takeSecret
         | idx == -1 = do
-            _userSecret <- view userSecret >>= atomically . readTVar
+            _userSecret <- view userSecret >>= readTVarIO
             pure $ maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
         | otherwise = (!! idx) <$> getSecretKeysPlain
 

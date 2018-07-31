@@ -5,7 +5,6 @@
 -- later if need be.
 -- Currently only the batched block requests are wired up. The streaming
 -- definition is not yet available.
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -20,23 +19,25 @@ import qualified Criterion
 import qualified Criterion.Main as Criterion
 import qualified Criterion.Main.Options as Criterion
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Conduit.Combinators (yieldMany)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Data.Semigroup ((<>))
+import           Data.Time.Units (Microsecond)
 import qualified Options.Applicative as Opt (execParser)
 
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Data.Time.Units (Microsecond)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Network.Transport (Transport)
 import qualified Network.Transport.TCP as TCP
 import           Node (NodeId)
 import qualified Node
-import           Pipes (each)
 
 import           Pos.Binary (serialize, serialize')
-import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash)
-import qualified Pos.Core as Core (getBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
+import qualified Pos.Core.Block as Block (getBlockHeader)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
+import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
@@ -52,10 +53,9 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (noTrace, wlogTrace)
-import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+
+import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
 --
@@ -114,14 +114,14 @@ serverLogic
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
-    , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
+    , getBlockHeader = const (pure (Just (Block.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
+    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
-          each $ map serializedBlock bs
+          yieldMany $ map serializedBlock bs
     }
 
 serializedBlock :: Block -> SerializedBlock
@@ -230,7 +230,6 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches =  d
     -- a lower bound on the real speedup).
     forM_ [1..batches] $ \_ ->
         getBlocks client serverAddress blockHeader checkpoints
-    pure ()
 
 -- Final parameter, like for 'blockDownloadBatch', is the number of batches to
 -- do. Here, in streaming, we multiply by 2200 to make a fair comparison with
@@ -298,7 +297,7 @@ runBenchmark = do
         size = 4
         !arbitraryBlock = force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
         !arbitraryHashes = force $ someHash :| replicate 2199 someHash
-        !arbitraryHeader = force $ Core.getBlockHeader arbitraryBlock
+        !arbitraryHeader = force $ Block.getBlockHeader arbitraryBlock
         !arbitraryHeaders = force $ arbitraryHeader :| replicate 2199 arbitraryHeader
         blockSize = LBS.length $ serialize arbitraryBlock
         setStreamIORef = \n -> writeIORef streamIORef (replicate n arbitraryBlock)

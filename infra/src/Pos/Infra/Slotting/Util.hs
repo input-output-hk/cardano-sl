@@ -34,8 +34,7 @@ import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId (..),
-                     Timestamp (..), slotIdF)
+import           Pos.Core (LocalSlotIndex, SlotId (..), Timestamp (..), slotIdF)
 import           Pos.Core.Conc (delay, timeout)
 import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      EpochSlottingData (..), MonadSlotsData,
@@ -107,24 +106,24 @@ type MonadOnNewSlot ctx m =
     , WithLogger m
     , MonadReporting m
     , HasShutdownContext ctx
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.
 onNewSlot
-    :: (MonadOnNewSlot ctx m, HasProtocolConstants)
+    :: MonadOnNewSlot ctx m
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
 onNewSlotWithLogging
-    :: (MonadOnNewSlot ctx m, HasProtocolConstants)
+    :: MonadOnNewSlot ctx m
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
-    :: forall ctx m. (MonadOnNewSlot ctx m, HasProtocolConstants)
+    :: forall ctx m. MonadOnNewSlot ctx m
     => Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging params action =
     impl `catch` workerHandler
@@ -143,7 +142,7 @@ onNewSlotImpl withLogging params action =
         onNewSlotImpl withLogging params action
 
 onNewSlotDo
-    :: (MonadOnNewSlot ctx m, HasProtocolConstants)
+    :: MonadOnNewSlot ctx m
     => Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotDo withLogging expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
@@ -189,7 +188,7 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: (MonadOnNewSlot ctx m, HasProtocolConstants) => m ()
+logNewSlotWorker :: MonadOnNewSlot ctx m => m ()
 logNewSlotWorker =
     onNewSlotWithLogging defaultOnNewSlotParams $ \slotId -> do
         modifyLoggerName (<> "slotting") $

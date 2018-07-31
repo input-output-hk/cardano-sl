@@ -1,14 +1,17 @@
--- the Getter instances
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-} -- for the Getter instances
+
+{-# LANGUAGE TypeOperators #-}
 
 -- | Union of blockchain types.
 
 module Pos.Core.Block.Union.Types
-       ( BlockHeader (BlockHeaderGenesis, BlockHeaderMain)
+       ( BlockHeader (..)
        , _BlockHeaderGenesis
        , _BlockHeaderMain
        , choosingBlockHeader
        , Block
+       , getBlockHeader
+       , blockHeader
 
        -- * GenesisBlockchain
        , GenesisBlockchain
@@ -42,34 +45,99 @@ module Pos.Core.Block.Union.Types
 
        , module Pos.Core.Block.Genesis.Types
        , module Pos.Core.Block.Main.Types
+
+       -- ** Lenses
+       -- * MainToSign
+       , msHeaderHash
+       , msBodyProof
+       , msSlot
+       , msChainDiff
+       , msExtraHeader
+
+         -- * Extra types
+       , mehBlockVersion
+       , mehSoftwareVersion
+       , mehAttributes
+       , mebAttributes
+
+         -- * MainConsensusData
+       , mcdSlot
+       , mcdLeaderKey
+       , mcdDifficulty
+       , mcdSignature
+
+         -- * MainBlockHeader
+       , mainHeaderPrevBlock
+       , mainHeaderProof
+       , mainHeaderSlot
+       , mainHeaderLeaderKey
+       , mainHeaderDifficulty
+       , mainHeaderSignature
+       , mainHeaderBlockVersion
+       , mainHeaderSoftwareVersion
+       , mainHeaderAttributes
+
+         -- * MainBody
+       , mbSscPayload
+       , mbTxPayload
+       , mbDlgPayload
+       , mbUpdatePayload
+       , mbTxs
+       , mbWitnesses
+
+         -- * MainBlock
+       , mainBlockPrevBlock
+       , mainBlockProof
+       , mainBlockSlot
+       , mainBlockLeaderKey
+       , mainBlockDifficulty
+       , mainBlockSignature
+       , mainBlockBlockVersion
+       , mainBlockSoftwareVersion
+       , mainBlockHeaderAttributes
+       , mainBlockEBDataProof
+       , mainBlockTxPayload
+       , mainBlockSscPayload
+       , mainBlockDlgPayload
+       , mainBlockUpdatePayload
+       , mainBlockAttributes
        ) where
+
+import           Universum
 
 import           Codec.CBOR.Decoding (decodeWordCanonical)
 import           Codec.CBOR.Encoding (encodeWord)
-import           Control.Lens (Getter, LensLike', choosing, makePrisms, to)
-
+import           Control.Lens (Getter, LensLike', choosing, makeLenses,
+                     makePrisms, to)
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Serialize as Cereal
-import           Formatting (Format, bprint, build, (%))
+import           Formatting (Format, bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
-import           Universum
 
 import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,
                      encodeListLen, enforceSize)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
-                     GenericBlockHeader (..), gbHeader, gbhPrevBlock)
-import           Pos.Core.Block.Genesis.Types
-import           Pos.Core.Block.Main.Types
+                     GenericBlockHeader (..), gbBody, gbExtra, gbHeader,
+                     gbPrevBlock, gbhBodyProof, gbhConsensus, gbhExtra,
+                     gbhPrevBlock)
+import           Pos.Core.Block.Genesis.Types (GenesisBody (..),
+                     GenesisConsensusData (..), GenesisExtraBodyData (..),
+                     GenesisExtraHeaderData (..), GenesisProof (..), gcdEpoch)
+import           Pos.Core.Block.Main.Types (BlockBodyAttributes,
+                     BlockHeaderAttributes, MainBody (..), MainExtraBodyData,
+                     MainExtraHeaderData, MainProof (..))
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
-import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
-import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..),
-                     SlotId (..))
-import           Pos.Core.Ssc (mkSscProof)
-import           Pos.Core.Txp (mkTxProof)
-import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..),
+import           Pos.Core.Delegation (DlgPayload, ProxySigHeavy, ProxySigLight)
+import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..),
+                     HasEpochOrSlot (..), SlotId (..), slotIdF)
+import           Pos.Core.Ssc (SscPayload, mkSscProof)
+import           Pos.Core.Txp (Tx, TxPayload, TxWitness, mkTxProof, txpTxs,
+                     txpWitnesses)
+import           Pos.Core.Update (BlockVersion, HasBlockVersion (..),
+                     HasSoftwareVersion (..), SoftwareVersion, UpdatePayload,
                      mkUpdateProof)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash,
-                     unsafeHash)
+                     hashHexF, unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 import           Pos.Util.Util (cborError, cerealError)
 
@@ -87,8 +155,38 @@ data GenesisBlockchain
 -- | Header of Genesis block.
 type GenesisBlockHeader = GenericBlockHeader GenesisBlockchain
 
+instance Buildable GenesisBlockHeader where
+    build gbh@UnsafeGenericBlockHeader {..} =
+        bprint
+            ("GenesisBlockHeader:\n"%
+             "    hash: "%hashHexF%"\n"%
+             "    previous block: "%hashHexF%"\n"%
+             "    epoch: "%build%"\n"%
+             "    difficulty: "%int%"\n"
+            )
+            gbhHeaderHash
+            _gbhPrevBlock
+            _gcdEpoch
+            _gcdDifficulty
+      where
+        gbhHeaderHash :: HeaderHash
+        gbhHeaderHash = blockHeaderHash $ BlockHeaderGenesis gbh
+        GenesisConsensusData {..} = _gbhConsensus
+
+instance HasDifficulty GenesisBlockHeader where
+    difficultyL = gbhConsensus . difficultyL
+
+instance HasEpochOrSlot GenesisBlockHeader where
+    getEpochOrSlot = EpochOrSlot . Left . _gcdEpoch . _gbhConsensus
+
+instance HasEpochIndex GenesisBlockHeader where
+    epochIndexL = gbhConsensus . gcdEpoch
+
 -- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock = GenericBlock GenesisBlockchain
+
+instance HasDifficulty GenesisBlock where
+    difficultyL = gbHeader . difficultyL
 
 instance Blockchain GenesisBlockchain where
     type BodyProof GenesisBlockchain = GenesisProof
@@ -114,6 +212,30 @@ data MainBlockchain
 
 -- | Header of generic main block.
 type MainBlockHeader = GenericBlockHeader MainBlockchain
+
+instance Buildable MainBlockHeader where
+    build gbh@UnsafeGenericBlockHeader {..} =
+        bprint
+            ("MainBlockHeader:\n"%
+             "    hash: "%hashHexF%"\n"%
+             "    previous block: "%hashHexF%"\n"%
+             "    slot: "%slotIdF%"\n"%
+             "    difficulty: "%int%"\n"%
+             "    leader: "%build%"\n"%
+             "    signature: "%build%"\n"%
+             build
+            )
+            gbhHeaderHash
+            _gbhPrevBlock
+            _mcdSlot
+            _mcdDifficulty
+            _mcdLeaderKey
+            _mcdSignature
+            _gbhExtra
+      where
+        gbhHeaderHash :: HeaderHash
+        gbhHeaderHash = blockHeaderHash $ BlockHeaderMain gbh
+        MainConsensusData {..} = _gbhConsensus
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
@@ -216,8 +338,7 @@ instance Bi MainConsensusData where
                                  decode <*>
                                  decode
 
-instance ( Bi BlockHeader
-         , Bi MainProof) =>
+instance (Bi MainProof) =>
          Blockchain MainBlockchain where
 
     type BodyProof MainBlockchain = MainProof
@@ -265,6 +386,25 @@ data BlockHeader
     = BlockHeaderGenesis GenesisBlockHeader
     | BlockHeaderMain MainBlockHeader
 
+instance Buildable BlockHeader where
+    build = \case
+        BlockHeaderGenesis bhg -> Buildable.build bhg
+        BlockHeaderMain    bhm -> Buildable.build bhm
+
+instance HasHeaderHash BlockHeader where
+    headerHash = blockHeaderHash
+
+instance HasDifficulty BlockHeader where
+    difficultyL = choosingBlockHeader difficultyL difficultyL
+
+instance HasEpochIndex BlockHeader where
+    epochIndexL = choosingBlockHeader epochIndexL epochIndexL
+
+instance IsHeader BlockHeader
+
+instance HasEpochOrSlot BlockHeader where
+    getEpochOrSlot = view (choosingBlockHeader (to getEpochOrSlot) (to getEpochOrSlot))
+
 deriving instance Generic BlockHeader
 deriving instance (Eq GenesisBlockHeader, Eq MainBlockHeader) => Eq BlockHeader
 deriving instance (Show GenesisBlockHeader, Show MainBlockHeader) => Show BlockHeader
@@ -303,6 +443,21 @@ instance Bi BlockHeader where
 -- | Block.
 type Block = Either GenesisBlock MainBlock
 
+instance HasHeaderHash Block where
+    headerHash = blockHeaderHash . getBlockHeader
+
+instance HasDifficulty Block where
+    difficultyL = choosing difficultyL difficultyL
+
+blockHeader :: Getter Block BlockHeader
+blockHeader = to getBlockHeader
+
+-- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
+getBlockHeader :: Block -> BlockHeader
+getBlockHeader = \case
+    Left  gb -> BlockHeaderGenesis (_gbHeader gb)
+    Right mb -> BlockHeaderMain    (_gbHeader mb)
+
 ----------------------------------------------------------------------------
 -- HeaderHash
 ----------------------------------------------------------------------------
@@ -332,7 +487,7 @@ headerHashG = to headerHash
 --
 -- Perhaps, it shouldn't be here, but I decided not to create a module
 -- for only this function.
-blockHeaderHash :: Bi BlockHeader => BlockHeader -> HeaderHash
+blockHeaderHash :: BlockHeader -> HeaderHash
 blockHeaderHash = unsafeHash
 
 -- HasPrevBlock
@@ -367,8 +522,6 @@ instance HasPrevBlock BlockHeader where
 blockHeaderProtocolMagic :: BlockHeader -> ProtocolMagic
 blockHeaderProtocolMagic (BlockHeaderGenesis gbh) = _gbhProtocolMagic gbh
 blockHeaderProtocolMagic (BlockHeaderMain mbh)    = _gbhProtocolMagic mbh
-
-makePrisms 'BlockHeaderGenesis
 
 ----------------------------------------------------------------------------
 -- IsHeader
@@ -478,3 +631,167 @@ instance IsHeader     (Some IsMainHeader)
 instance IsMainHeader (Some IsMainHeader) where
     headerSlotL = liftLensSome headerSlotL
     headerLeaderKeyL = liftLensSome headerLeaderKeyL
+
+----------------------------------------------------------------------------
+-- BlockHeaderGenesis prisms
+----------------------------------------------------------------------------
+
+makePrisms 'BlockHeaderGenesis
+
+----------------------------------------------------------------------------
+-- MainToSign lenses
+----------------------------------------------------------------------------
+
+makeLenses ''MainToSign
+
+----------------------------------------------------------------------------
+-- MainExtra lenses
+----------------------------------------------------------------------------
+
+makeLenses ''MainExtraHeaderData
+makeLenses ''MainExtraBodyData
+
+----------------------------------------------------------------------------
+-- MainConsensusData lenses
+----------------------------------------------------------------------------
+
+makeLenses 'MainConsensusData
+
+----------------------------------------------------------------------------
+-- MainBlockHeader lenses
+----------------------------------------------------------------------------
+
+-- | Lens from 'MainBlockHeader' to 'HeaderHash' of its parent.
+mainHeaderPrevBlock :: Lens' MainBlockHeader HeaderHash
+mainHeaderPrevBlock = gbhPrevBlock
+
+-- | Lens from 'MainBlockHeader' to 'MainProof'.
+mainHeaderProof :: Lens' MainBlockHeader MainProof
+mainHeaderProof = gbhBodyProof
+
+-- | Lens from 'MainBlockHeader' to 'SlotId'.
+mainHeaderSlot :: Lens' MainBlockHeader SlotId
+mainHeaderSlot = gbhConsensus . mcdSlot
+
+-- | Lens from 'MainBlockHeader' to 'PublicKey'.
+mainHeaderLeaderKey :: Lens' MainBlockHeader PublicKey
+mainHeaderLeaderKey = gbhConsensus . mcdLeaderKey
+
+-- | Lens from 'MainBlockHeader' to 'ChainDifficulty'.
+mainHeaderDifficulty :: Lens' MainBlockHeader ChainDifficulty
+mainHeaderDifficulty = gbhConsensus . mcdDifficulty
+
+-- | Lens from 'MainBlockHeader' to 'Signature'.
+mainHeaderSignature :: Lens' MainBlockHeader BlockSignature
+mainHeaderSignature = gbhConsensus . mcdSignature
+
+-- | Lens from 'MainBlockHeader' to 'BlockVersion'.
+mainHeaderBlockVersion :: Lens' MainBlockHeader BlockVersion
+mainHeaderBlockVersion = gbhExtra . mehBlockVersion
+
+-- | Lens from 'MainBlockHeader' to 'SoftwareVersion'.
+mainHeaderSoftwareVersion :: Lens' MainBlockHeader SoftwareVersion
+mainHeaderSoftwareVersion = gbhExtra . mehSoftwareVersion
+
+-- | Lens from 'MainBlockHeader' to 'BlockHeaderAttributes'.
+mainHeaderAttributes :: Lens' MainBlockHeader BlockHeaderAttributes
+mainHeaderAttributes = gbhExtra . mehAttributes
+
+-- | Lens from 'MainBlockHeader' to 'MainExtraBodyData'
+mainHeaderEBDataProof :: Lens' MainBlockHeader (Hash MainExtraBodyData)
+mainHeaderEBDataProof = gbhExtra . mehEBDataProof
+
+----------------------------------------------------------------------------
+-- MainBody lenses
+----------------------------------------------------------------------------
+
+makeLenses 'MainBody
+
+-- | Lens for transaction tree in main block body.
+mbTxs :: Lens' MainBody ([Tx])
+mbTxs = mbTxPayload . txpTxs
+
+-- | Lens for witness list in main block body.
+mbWitnesses :: Lens' MainBody [TxWitness]
+mbWitnesses = mbTxPayload . txpWitnesses
+
+----------------------------------------------------------------------------
+-- More MainBlock instances
+-- Placed here due to TH splices
+----------------------------------------------------------------------------
+
+instance HasDifficulty MainBlock where
+    difficultyL = mainBlockDifficulty
+
+instance HasDifficulty MainBlockHeader where
+    difficultyL = mainHeaderDifficulty
+
+instance HasEpochOrSlot MainBlockHeader where
+    getEpochOrSlot = EpochOrSlot . Right . view mainHeaderSlot
+
+instance HasEpochIndex MainBlockHeader where
+    epochIndexL = mainHeaderSlot . epochIndexL
+
+----------------------------------------------------------------------------
+-- MainBlock lenses
+----------------------------------------------------------------------------
+
+-- | Lens from 'MainBlock' to 'HeaderHash' of its parent.
+mainBlockPrevBlock :: Lens' MainBlock HeaderHash
+mainBlockPrevBlock = gbPrevBlock
+
+-- | Lens from 'MainBlock' to 'MainProof'.
+mainBlockProof :: Lens' MainBlock MainProof
+mainBlockProof = gbHeader . mainHeaderProof
+
+-- | Lens from 'MainBlock' to 'SlotId'.
+mainBlockSlot :: Lens' MainBlock SlotId
+mainBlockSlot = gbHeader . mainHeaderSlot
+
+-- | Lens from 'MainBlock' to 'PublicKey'.
+mainBlockLeaderKey :: Lens' MainBlock PublicKey
+mainBlockLeaderKey = gbHeader . mainHeaderLeaderKey
+
+-- | Lens from 'MainBlock' to 'ChainDifficulty'.
+mainBlockDifficulty :: Lens' MainBlock ChainDifficulty
+mainBlockDifficulty = gbHeader . mainHeaderDifficulty
+
+-- | Lens from 'MainBlock' to 'Signature'.
+mainBlockSignature :: Lens' MainBlock BlockSignature
+mainBlockSignature = gbHeader . mainHeaderSignature
+
+-- | Lens from 'MainBlock' to 'BlockVersion'.
+mainBlockBlockVersion :: Lens' MainBlock BlockVersion
+mainBlockBlockVersion = gbHeader . mainHeaderBlockVersion
+
+-- | Lens from 'MainBlock' to 'SoftwareVersion'.
+mainBlockSoftwareVersion :: Lens' MainBlock SoftwareVersion
+mainBlockSoftwareVersion = gbHeader . mainHeaderSoftwareVersion
+
+-- | Lens from 'MainBlock' to 'BlockHeaderAttributes'.
+mainBlockHeaderAttributes :: Lens' MainBlock BlockHeaderAttributes
+mainBlockHeaderAttributes = gbHeader . mainHeaderAttributes
+
+-- | Lens from 'MainBlock' to proof (hash) of 'MainExtraBodyData'.
+mainBlockEBDataProof :: Lens' MainBlock (Hash MainExtraBodyData)
+mainBlockEBDataProof = gbHeader . mainHeaderEBDataProof
+
+-- | Lens from 'MainBlock' to 'TxPayload'.
+mainBlockTxPayload :: Lens' MainBlock TxPayload
+mainBlockTxPayload = gbBody . mbTxPayload
+
+-- | Lens from 'MainBlock' to 'SscPayload'.
+mainBlockSscPayload :: Lens' MainBlock SscPayload
+mainBlockSscPayload = gbBody . mbSscPayload
+
+-- | Lens from 'MainBlock' to 'UpdatePayload'.
+mainBlockUpdatePayload :: Lens' MainBlock UpdatePayload
+mainBlockUpdatePayload = gbBody . mbUpdatePayload
+
+-- | Lens from 'MainBlock' to 'DlgPayload'.
+mainBlockDlgPayload :: Lens' MainBlock DlgPayload
+mainBlockDlgPayload = gbBody . mbDlgPayload
+
+-- | Lens from 'MainBlock' to 'BlockBodyAttributes'.
+mainBlockAttributes :: Lens' MainBlock BlockBodyAttributes
+mainBlockAttributes = gbExtra . mebAttributes

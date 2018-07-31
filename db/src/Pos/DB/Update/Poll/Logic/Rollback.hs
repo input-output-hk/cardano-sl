@@ -8,13 +8,11 @@ module Pos.DB.Update.Poll.Logic.Rollback
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Core (ApplicationName, BlockVersion, NumSoftwareVersion,
-                     SoftwareVersion (..))
-import           Pos.Core.Update (UpId)
-import           Pos.Update.Poll.Class (MonadPoll (..))
-import           Pos.Update.Poll.Types (BlockVersionState,
-                     ConfirmedProposalState, PrevValue (..),
-                     ProposalState (..), USUndo (..))
+import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
+                     MonadPoll (..), PrevValue (..), ProposalState (..),
+                     USUndo (..))
+import           Pos.Core.Update (ApplicationName, BlockVersion,
+                     NumSoftwareVersion, SoftwareVersion (..), UpId)
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.

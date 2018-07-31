@@ -25,20 +25,19 @@ import qualified Data.Vector as V
 import qualified Ether
 
 import           Data.Default (Default (..), def)
-import           Pos.Block.Types (Blund)
-import           Pos.Core.Block (Block)
+import           Pos.Chain.Block (Blund)
+import           Pos.Core.Block (Block, HeaderHash)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
-
 import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
                      getPageBlocks)
 
+import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo,
+                     utxoToAddressCoinPairs)
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
-                     HeaderHash, SlotId (..), SlotLeaders, Timestamp,
-                     isRedeemAddress)
+                     SlotId (..), SlotLeaders, Timestamp, isRedeemAddress)
 import           Pos.DB.Lrc (getLeadersForEpoch)
 import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
-import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 
 
 -------------------------------------------------------------------------------------

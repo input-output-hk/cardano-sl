@@ -15,10 +15,10 @@ import qualified Formatting.Buildable
 
 import           Data.Acid.Advanced (update')
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Timestamp)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
                      safeDeterministicKeyGen)
-import           Pos.Txp.Toil (Utxo)
 
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39

@@ -41,11 +41,11 @@ import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, enforceSize,
                      knownCborDataItemSizeExpr, szCases)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF,
                      coinToInteger, decodeTextAddress, integerToCoin)
 import           Pos.Crypto (Hash, decodeAbstractHash, hash, hashHexF,
                      shortHashF)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Util.Util (toAesonError)
 
 ----------------------------------------------------------------------------

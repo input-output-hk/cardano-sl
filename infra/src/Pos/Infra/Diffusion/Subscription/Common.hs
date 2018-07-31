@@ -3,8 +3,7 @@
 -- | Common definitions for peer discovery and subscription workers.
 
 module Pos.Infra.Diffusion.Subscription.Common
-    ( SubscriptionMessageConstraints
-    , SubscriptionTerminationReason (..)
+    ( SubscriptionTerminationReason (..)
 
     , subscriptionListeners
     , subscriptionListener
@@ -32,7 +31,6 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 
 import           Formatting (sformat, shown, (%))
-import           Node.Message.Class (Message)
 import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
 import           System.Wlog (Severity (..))
 
@@ -134,8 +132,7 @@ networkSubscribeTo before after doSubscription = mask $ \restore -> do
 -- established. The action will be killed when the subscription goes down, and
 -- vice-versa (they are run 'concurrently').
 withNetworkSubscription
-    :: ( SubscriptionMessageConstraints )
-    => IO r    -- ^ Run before attempting to subscribe
+    :: IO r    -- ^ Run before attempting to subscribe
     -> IO ()   -- ^ Run after subscription comes up
     -> IO ()   -- ^ In case the keepalive version is run, keepalive is sent when
                --   this returns.
@@ -161,8 +158,7 @@ withNetworkSubscription before middle keepalive after sendActions peer action = 
 --   - Returns the duration of the subscription in 'Milliseconds', after it
 --     ends.
 networkSubscribeTo'
-    :: ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+    :: Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId bucket
     -> bucket
     -> NodeType -- ^ Type to attribute to the peer that is subscribed to.
@@ -206,16 +202,8 @@ networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive subStates sen
     msgSubscriptionTerminated :: NodeId -> SubscriptionTerminationReason -> Text
     msgSubscriptionTerminated = sformat ("subscriptionWorker: lost connection to "%shown%" "%shown)
 
--- | Instances required in order to do network subscription.
-type SubscriptionMessageConstraints =
-    ( Message MsgSubscribe
-    , Message MsgSubscribe1
-    , Message Void
-    )
-
 subscriptionEstablish
-    :: ( SubscriptionMessageConstraints )
-    => IO () -- ^ Run when subscription is up
+    :: IO () -- ^ Run when subscription is up
     -> IO () -- ^ Send keepalive when this returns
     -> SendActions
     -> NodeId
@@ -251,8 +239,7 @@ convMsgSubscribe1 subscribed conv = do
 -- of known peers when the connection is dropped.
 subscriptionListener
     :: forall pack.
-       ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+       Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> (ListenerSpec, OutSpecs)
@@ -283,8 +270,7 @@ subscriptionListener logTrace oq nodeType = listenerConv @Void logTrace oq $ \__
 -- | Version of subscriptionListener for MsgSubscribe1.
 subscriptionListener1
     :: forall pack.
-       ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+       Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> (ListenerSpec, OutSpecs)
@@ -303,8 +289,7 @@ subscriptionListener1 logTrace oq nodeType = listenerConv @Void logTrace oq $ \_
 
 subscriptionListeners
     :: forall pack.
-       ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
+       Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> MkListeners

@@ -11,9 +11,9 @@ import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi, decode, encode)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.HD (HDAddressPayload)
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes,
+import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
                      encodeAttributes)
+import           Pos.Crypto.HD (HDAddressPayload)
 
 import           Pos.Core.Common.AddrStakeDistribution
 

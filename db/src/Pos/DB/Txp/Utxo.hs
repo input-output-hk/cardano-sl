@@ -42,16 +42,17 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Address, Coin, GenesisData (gdBootStakeholders),
-                     HasCoreConfiguration, coinF, genesisData, mkCoin,
-                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, addrBelongsToSet,
+                     txOutStake)
+import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF,
+                     genesisData, mkCoin, sumCoins, unsafeAddCoin,
+                     unsafeIntegerToCoin)
+import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      IterType, MonadDB, MonadDBRead, RocksBatchOp (..),
                      dbIterSource, dbSerializeValue, encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Txp.Base (addrBelongsToSet, txOutStake)
-import           Pos.Txp.Toil.Types (GenesisUtxo (..), Utxo)
 
 ----------------------------------------------------------------------------
 -- Getters

@@ -10,13 +10,12 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core.Configuration ()
+import           Pos.Chain.Update (LocalVotes)
 import           Pos.Core.StateLock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import           Pos.Core.Update (UpdatePayload (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash)
 import           Pos.DB.Update.MemState.Types (MemPool (..))
-import           Pos.Update.Poll (LocalVotes)
 import           Pos.Util.Util (HasLens')
 
 type UpdateVotes = HashMap PublicKey UpdateVote

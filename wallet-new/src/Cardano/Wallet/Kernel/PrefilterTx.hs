@@ -4,6 +4,7 @@
 
 module Cardano.Wallet.Kernel.PrefilterTx
        ( PrefilteredBlock(..)
+       , emptyPrefilteredBlock
        , AddrWithId
        , prefilterBlock
        , prefilterUtxo
@@ -22,10 +23,10 @@ import           Serokell.Util (listJson, mapJson)
 
 import           Data.SafeCopy (base, deriveSafeCopy)
 
-import           Pos.Core (Address (..), SlotId, TxId)
-import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Chain.Txp (Utxo)
+import           Pos.Core (Address (..), SlotId)
+import           Pos.Core.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Txp.Toil.Types (Utxo)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
                      eskToWalletDecrCredentials, selectOwnAddresses)
@@ -66,6 +67,19 @@ data PrefilteredBlock = PrefilteredBlock {
     }
 
 deriveSafeCopy 1 'base ''PrefilteredBlock
+
+-- | Empty prefiltered block
+--
+-- An empty prefiltered block is what we get when we filter a block for a
+-- particular account and there is nothing in the block that is of
+-- relevance to that account
+emptyPrefilteredBlock :: PrefilteredBlock
+emptyPrefilteredBlock = PrefilteredBlock {
+      pfbInputs  = Set.empty
+    , pfbOutputs = Map.empty
+    , pfbAddrs   = []
+    , pfbMeta    = mempty
+    }
 
 type WalletKey = (WalletId, WalletDecrCredentials)
 

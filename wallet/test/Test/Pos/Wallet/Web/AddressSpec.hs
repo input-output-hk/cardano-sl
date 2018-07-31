@@ -35,7 +35,7 @@ import           Test.Pos.Wallet.Web.Util (importSingleWallet,
                      mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ ->
+spec = withDefConfigurations $ \_ _ _ ->
     describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $

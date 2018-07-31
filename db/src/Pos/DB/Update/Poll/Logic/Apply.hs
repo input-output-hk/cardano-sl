@@ -16,31 +16,31 @@ import           Formatting (build, builder, int, sformat, (%))
 import           System.Wlog (logDebug, logInfo, logNotice)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Update (ConfirmedProposalState (..),
+                     DecidedProposalState (..), DpsExtra (..), MonadPoll (..),
+                     MonadPollRead (..), PollVerFailure (..),
+                     ProposalState (..), UndecidedProposalState (..),
+                     UpsExtra (..), psProposal)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
-                     HasProtocolConstants, HeaderHash, IsMainHeader (..),
-                     ProtocolMagic, SlotId (siEpoch), SoftwareVersion (..),
-                     addressHash, applyCoinPortionUp, blockVersionL,
-                     coinToInteger, difficultyL, epochIndexL, flattenSlotId,
-                     headerHashG, headerSlotL, sumCoins, unflattenSlotId,
-                     unsafeIntegerToCoin)
+                     HasProtocolConstants, ProtocolMagic, SlotId (..),
+                     addressHash, applyCoinPortionUp, coinToInteger,
+                     difficultyL, epochIndexL, flattenSlotId, sumCoins,
+                     unflattenSlotId, unsafeIntegerToCoin)
+import           Pos.Core.Attributes (areAttributesKnown)
+import           Pos.Core.Block (HeaderHash, IsMainHeader (..), headerHashG,
+                     headerSlotL)
 import           Pos.Core.Configuration (blkSecurityParam)
-import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
-                     UpdatePayload (..), UpdateProposal (..), UpdateVote (..),
+import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
+                     SoftwareVersion (..), UpId, UpdatePayload (..),
+                     UpdateProposal (..), UpdateVote (..), blockVersionL,
                      bvdUpdateProposalThd, checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
-import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
                      canCreateBlockBV, confirmBlockVersion, isDecided,
                      mkTotNegative, mkTotPositive, mkTotSum, putNewProposal,
                      voteToUProposalState)
 import           Pos.DB.Update.Poll.Logic.Version (verifyAndApplyProposalBVS,
                      verifyBlockVersion, verifySoftwareVersion)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..),
-                     DecidedProposalState (..), DpsExtra (..),
-                     ProposalState (..), UndecidedProposalState (..),
-                     UpsExtra (..), psProposal)
 import           Pos.Util.Some (Some (..))
 
 type ApplyMode m =
@@ -112,7 +112,7 @@ verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdateP
 
 -- Here we verify all US-related data from header.
 verifyHeader
-    :: (MonadError PollVerFailure m, MonadPoll m, IsMainHeader mainHeader)
+    :: (MonadError PollVerFailure m, MonadPollRead m, IsMainHeader mainHeader)
     => BlockVersion -> mainHeader -> m ()
 verifyHeader lastAdopted header = do
     let versionInHeader = header ^. blockVersionL

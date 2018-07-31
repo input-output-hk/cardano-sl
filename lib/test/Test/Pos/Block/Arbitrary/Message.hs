@@ -14,10 +14,10 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 import           Pos.Core (HasGenesisHash, HasProtocolConstants)
 import qualified Pos.Network.Block.Types as T
 
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
--- import           Test.Pos.Ssc.Arbitrary ()
-import           Test.Pos.Update.Arbitrary ()
+-- import           Test.Pos.Chain.Ssc.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 
 ------------------------------------------------------------------------------------------
 -- Block network types

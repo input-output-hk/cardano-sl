@@ -23,8 +23,11 @@ import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration,
-                     recoveryHeadersMessage, streamWindow)
+import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
+                     streamWindow)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
@@ -50,11 +53,8 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Logic.Full (logicFull)
 import           Pos.Logic.Types (Logic, hoistLogic)
-import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
@@ -77,10 +77,11 @@ runRealMode
        -- though they should use only @RealModeContext@
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode pm nr@NodeResources {..} act = runServer
+runRealMode pm txpConfig nr@NodeResources {..} act = runServer
     pm
     ncNodeParams
     (EkgNodeMetrics nrEkgStore)
@@ -94,7 +95,7 @@ runRealMode pm nr@NodeResources {..} act = runServer
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull pm ourStakeholderId securityParams jsonLog
+    logic = logicFull pm txpConfig ourStakeholderId securityParams jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
     act' :: Diffusion IO -> IO a

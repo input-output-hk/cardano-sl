@@ -24,9 +24,9 @@ import qualified Data.Set as Set
 
 import qualified Pos.Core as Core
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
                      TxOutAux (..))
-import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.Types (txUtxo)
@@ -73,8 +73,20 @@ utxoRestrictToInputs = restrictKeys
 available :: Utxo -> PendingTxs -> Utxo
 available utxo pending = utxoRemoveInputs utxo (txIns pending)
 
+-- | The outputs of all pending transactions
+--
+-- See also 'pendingUtxo'
+rawPendingUtxo :: PendingTxs -> Utxo
+rawPendingUtxo pending = unionTxOuts $ map (txUtxo . taTx) $ Map.elems pending
+
+-- | The outputs of the pending transactions which aren't used by other
+-- pending transactions
+--
+-- NOTE: 'pendingUtxo' and 'rawPendingUtxo' can be different only in the
+-- presence of rollbacks; see section "Rollback -- Model" in the formal
+-- specification.
 pendingUtxo :: PendingTxs -> Utxo
-pendingUtxo pending = unionTxOuts $ map (txUtxo . taTx) $ Map.elems pending
+pendingUtxo pending = rawPendingUtxo pending `utxoRemoveInputs` txIns pending
 
 isValidPendingTx :: TxAux -> Utxo -> Bool
 isValidPendingTx tx availableUtxo

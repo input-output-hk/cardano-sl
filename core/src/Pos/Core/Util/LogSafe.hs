@@ -14,8 +14,6 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Safe/secure logging
 
 module Pos.Core.Util.LogSafe
@@ -82,13 +80,13 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import qualified Formatting.Buildable
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
-import           Serokell.Util (listJson)
 import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..),
                      logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
-import           Pos.Core (Timestamp, TxId)
+import           Pos.Core (Timestamp)
 import           Pos.Core.Common (Address, Coin)
+import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
 
 ----------------------------------------------------------------------------
@@ -332,9 +330,6 @@ logInfoSP    = logMessageSP Info
 logNoticeSP  = logMessageSP Notice
 logWarningSP = logMessageSP Warning
 logErrorSP   = logMessageSP Error
-
-instance Buildable [Address] where
-    build = bprint listJson
 
 instance BuildableSafe a => Buildable (SecureLog [a]) where
     build = bprint (buildSafeList secure) . getSecureLog

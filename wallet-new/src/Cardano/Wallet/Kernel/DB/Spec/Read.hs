@@ -10,9 +10,9 @@ import           Universum
 
 import qualified Data.Map.Strict as Map
 
+import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
-import           Pos.Txp (Utxo)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD

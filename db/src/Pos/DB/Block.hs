@@ -25,6 +25,10 @@ module Pos.DB.Block
        , dbGetSerUndoSumDefault
        , dbPutSerBlundsSumDefault
 
+       -- * Low-level API
+       , getSerializedBlock
+       , getSerializedUndo
+
        , module X
        ) where
 
@@ -42,10 +46,9 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class (decodeFull', serialize')
-import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (SlogUndo (..), Undo (..))
-import           Pos.Core (HeaderHash, headerHash)
-import           Pos.Core.Block (Block, GenesisBlock)
+import           Pos.Chain.Block (SlogUndo (..), Undo (..))
+import           Pos.Chain.Delegation (DlgUndo (..))
+import           Pos.Core.Block (Block, GenesisBlock, HeaderHash, headerHash)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
@@ -57,7 +60,6 @@ import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                      pureBlocksStorage)
 import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
-import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
 
 import           Pos.DB.Block.BListener as X
@@ -66,6 +68,7 @@ import           Pos.DB.Block.Load as X
 import           Pos.DB.Block.Logic.Creation as X
 import           Pos.DB.Block.Logic.Header as X
 import           Pos.DB.Block.Logic.Internal as X
+import           Pos.DB.Block.Logic.Types as X
 import           Pos.DB.Block.Logic.Util as X
 import           Pos.DB.Block.Logic.VAR as X
 import           Pos.DB.Block.Lrc as X

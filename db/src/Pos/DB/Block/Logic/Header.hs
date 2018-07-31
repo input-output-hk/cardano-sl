@@ -28,15 +28,15 @@ import           Serokell.Util.Verify (VerificationRes (..))
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..),
-                     verifyHeader)
-import           Pos.Core (HeaderHash, blkSecurityParam, bvdMaxHeaderSize,
-                     difficultyL, epochIndexL, getEpochOrSlot, headerHash,
+import           Pos.Chain.Block (VerifyHeaderParams (..), verifyHeader)
+import           Pos.Core (blkSecurityParam, difficultyL, epochIndexL,
+                     getEpochOrSlot)
+import           Pos.Core.Block (BlockHeader (..), HeaderHash, headerHash,
                      headerHashG, headerSlotL, prevBlockL)
-import           Pos.Core.Block (BlockHeader (..))
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Core.Update (bvdMaxHeaderSize)
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.GState.BlockExtra as GS

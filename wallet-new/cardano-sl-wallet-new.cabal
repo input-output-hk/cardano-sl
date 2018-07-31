@@ -16,11 +16,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.API
-                       Cardano.Wallet.API.Development
-                       Cardano.Wallet.API.Development.Handlers
-                       Cardano.Wallet.API.Development.Helpers
-                       Cardano.Wallet.API.Development.LegacyHandlers
                        Cardano.Wallet.API.Indices
+                       Cardano.Wallet.API.Internal
+                       Cardano.Wallet.API.Internal.Handlers
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Filter
                        Cardano.Wallet.API.Request.Pagination
@@ -95,9 +93,10 @@ library
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
-                       Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Internal
+                       Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
+                       Cardano.Wallet.Kernel.MonadDBReadAdaptor
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
@@ -131,7 +130,6 @@ library
   ghc-options:         -Wall
 
   build-depends:       base
-                     , QuickCheck
                      , acid-state
                      , aeson
                      , aeson-options
@@ -143,7 +141,8 @@ library
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-binary
+                     , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -152,9 +151,6 @@ library
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-node-ipc
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-test
@@ -167,6 +163,7 @@ library
                      , directory
                      , exceptions
                      , formatting
+                     , formatting
                      , generics-sop
                      , http-api-data
                      , http-client
@@ -178,15 +175,17 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , mwc-random
                      , neat-interpolation
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
-                     , mwc-random
+                     , QuickCheck
                      , reflection
+                     , resourcet
                      , retry
-                     , safe-exceptions
                      , safecopy
+                     , safe-exceptions
                      , serokell-util
                      , servant
                      , servant-client
@@ -194,11 +193,12 @@ library
                      , servant-server
                      , servant-swagger
                      , servant-swagger-ui
+                     , servant-swagger-ui-core
+                     , servant-swagger-ui-redoc
                      , sqlite-simple
                      , sqlite-simple-errors
                      , swagger2
                      , text
-                     , formatting
                      , time
                      , time-units
                      , tls
@@ -242,13 +242,12 @@ executable cardano-node
                        -O2
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-db
                      , cardano-sl-networking
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
@@ -292,6 +291,7 @@ executable cardano-generate-swagger-file
                      , cardano-sl-core
                      , cardano-sl-wallet-new
                      , optparse-applicative
+                     , servant-server
                      , swagger2
                      , universum >= 0.1.11
 
@@ -302,6 +302,7 @@ executable cardano-generate-swagger-file
                        ScopedTypeVariables
                        FlexibleContexts
                        MonadFailDesugaring
+                       TypeOperators
 
 
 -- Cryptic executable name to mitigate $PATH limitation
@@ -422,6 +423,7 @@ test-suite wallet-unit-tests
                       Wallet.Inductive.Generator
                       Wallet.Inductive.Interpreter
                       Wallet.Inductive.Invariants
+                      Wallet.Inductive.History
                       Wallet.Inductive.Validation
                       Wallet.Prefiltered
                       Wallet.Rollback.Basic
@@ -454,17 +456,13 @@ test-suite wallet-unit-tests
                     , bytestring
                     , cardano-crypto
                     , cardano-sl
-                    , cardano-sl-block
+                    , cardano-sl-binary
+                    , cardano-sl-chain
                     , cardano-sl-client
                     , cardano-sl-core
                     , cardano-sl-core-test
                     , cardano-sl-crypto
                     , cardano-sl-db
-                    , cardano-sl-delegation
-                    , cardano-sl-lrc
-                    , cardano-sl-ssc
-                    , cardano-sl-txp
-                    , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet-new
                     , constraints
@@ -506,11 +504,13 @@ test-suite wallet-new-specs
   hs-source-dirs:   test test/unit
 
   other-modules:    APISpec
-                    DevelopmentSpec
+                    InternalAPISpec
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec
                     WalletHandlersSpec
+                    WalletNewJson
+                    WalletNewGen
                     Cardano.Wallet.WalletLayer.QuickCheck
 
   default-language: Haskell2010
@@ -544,11 +544,13 @@ test-suite wallet-new-specs
                     , aeson
                     , bytestring
                     , cardano-sl
+                    , cardano-sl-binary-test
                     , cardano-sl-client
                     , cardano-sl-client
                     , cardano-sl-core
+                    , cardano-sl-core-test
                     , cardano-sl-crypto
-                    , cardano-sl-txp
+                    , cardano-sl-chain
                     , cardano-sl-util-test
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
@@ -556,6 +558,7 @@ test-suite wallet-new-specs
                     , directory
                     , directory
                     , formatting
+                    , hedgehog
                     , hspec
                     , lens
                     , QuickCheck

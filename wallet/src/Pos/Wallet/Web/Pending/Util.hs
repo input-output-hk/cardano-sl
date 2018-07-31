@@ -17,13 +17,13 @@ import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 import           Data.Reflection (give)
 import qualified Data.Set as Set
 
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
 import           Pos.Client.Txp.Util (PendingAddresses (..))
 import           Pos.Core (ProtocolConstants (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (Address)
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
 import           Pos.Crypto (WithHash (..))
-import           Pos.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..),
                      PtxCondition (..), PtxSubmitTiming (..), pstNextDelay,
                      pstNextSlot, ptxPeerAck, ptxSubmitTiming)

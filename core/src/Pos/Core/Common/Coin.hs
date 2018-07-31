@@ -31,8 +31,11 @@ import           Data.Data (Data)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, int, (%))
 import qualified Formatting.Buildable
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coin is the least possible unit of currency.
@@ -51,6 +54,12 @@ instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode = Coin <$> decode
     encodedSizeExpr size pxy = size (unsafeGetCoin <$> pxy)
+
+instance Monad m => ToJSON m Coin where
+    toJSON = toJSON @_ @Word64 . unsafeGetCoin  -- i. e. String
+
+instance ReportSchemaErrors m => FromJSON m Coin where
+    fromJSON = fmap Coin . fromJSON
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64

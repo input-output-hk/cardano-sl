@@ -9,6 +9,8 @@ module Pos.Launcher.Launcher
 
 import           Universum
 
+import           Pos.Chain.Ssc (SscParams)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Configuration (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
@@ -20,7 +22,6 @@ import           Pos.Launcher.Resource (NodeResources (..),
                      bracketNodeResources)
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Launcher.Scenario (runNode)
-import           Pos.Ssc.Types (SscParams)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
@@ -34,12 +35,13 @@ runNodeReal
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> NodeParams
     -> SscParams
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> IO ()
-runNodeReal pm np sscnp plugins =
-    bracketNodeResources np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots) action
+runNodeReal pm txpConfig np sscnp plugins =
+    bracketNodeResources np sscnp (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) action
   where
     action :: NodeResources EmptyMempoolExt -> IO ()
-    action nr@NodeResources {..} = runRealMode pm nr (runNode pm nr plugins)
+    action nr@NodeResources {..} = runRealMode pm txpConfig nr (runNode pm txpConfig nr plugins)

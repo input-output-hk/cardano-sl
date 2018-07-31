@@ -8,8 +8,10 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (ComponentBlock (..), HasConfiguration, HeaderHash,
-                     SlotId (..), epochIndexL, headerHash, headerSlotL)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core (HasConfiguration, SlotId (..), epochIndexL)
+import           Pos.Core.Block (ComponentBlock (..), HeaderHash, headerHash,
+                     headerSlotL)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.Crypto (ProtocolMagic)
@@ -27,11 +29,14 @@ import           Pos.Explorer.Txp.Toil (EGlobalToilM, ExplorerExtraLookup (..),
                      ExplorerExtraModifier (..), eApplyToil, eRollbackToil)
 
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: HasConfiguration => ProtocolMagic -> TxpGlobalSettings
-explorerTxpGlobalSettings pm =
+explorerTxpGlobalSettings :: HasConfiguration
+                          => ProtocolMagic
+                          -> TxpConfiguration
+                          -> TxpGlobalSettings
+explorerTxpGlobalSettings pm txpConfig =
     -- verification is same
-    (txpGlobalSettings pm)
-    { tgsApplyBlocks = applyBlocksWith pm applySettings
+    (txpGlobalSettings pm txpConfig)
+    { tgsApplyBlocks = applyBlocksWith pm txpConfig applySettings
     , tgsRollbackBlocks = processBlunds rollbackSettings . getNewestFirst
     }
 

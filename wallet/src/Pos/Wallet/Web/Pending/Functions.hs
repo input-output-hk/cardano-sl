@@ -16,11 +16,11 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
+import           Pos.Chain.Txp (ToilVerFailure (..))
 import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
 import           Pos.Core (HasConfiguration, protocolConstants)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Txp (ToilVerFailure (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Error (WalletError (RequestError))

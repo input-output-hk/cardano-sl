@@ -22,39 +22,41 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary.Communication ()
+import           Pos.Chain.Delegation (DlgPayload, DlgUndo)
+import qualified Pos.Chain.Ssc as Ssc
+import qualified Pos.Chain.Txp as T
+import qualified Pos.Chain.Update as U
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
-import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
+import           Pos.Core (StakeholderId)
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Ssc (VssCertificate)
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
-import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
-import qualified Pos.Ssc as Ssc
-import qualified Pos.Txp as T
-import qualified Pos.Update as U
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
+import           Test.Pos.Chain.Delegation.Arbitrary ()
+import           Test.Pos.Chain.Ssc.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.DB.Update.Arbitrary ()
-import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
 import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Infra.Arbitrary.Update ()
-import           Test.Pos.Ssc.Arbitrary ()
-import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId

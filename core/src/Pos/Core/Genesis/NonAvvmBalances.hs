@@ -12,9 +12,13 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
 
 import           Pos.Core.Common (Address, Coin, decodeTextAddress,
                      unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Genesis.Canonical ()
+
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
@@ -28,6 +32,12 @@ instance (Hashable Address) =>
 
 deriving instance Hashable Address => Semigroup GenesisNonAvvmBalances
 deriving instance Hashable Address => Monoid GenesisNonAvvmBalances
+
+instance Monad m => ToJSON m GenesisNonAvvmBalances where
+    toJSON = toJSON . getGenesisNonAvvmBalances
+
+instance ReportSchemaErrors m => FromJSON m GenesisNonAvvmBalances where
+    fromJSON = fmap GenesisNonAvvmBalances . fromJSON
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in

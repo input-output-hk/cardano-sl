@@ -31,6 +31,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
@@ -83,7 +84,7 @@ withFixture :: MonadIO m
 withFixture cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore $ \layer wallet -> do
+        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
             fixtures <- generateFixtures wallet
             cc keystore layer fixtures
 
@@ -168,4 +169,3 @@ spec = describe "CreateAddress" $ do
                          -- because the random index will be generated with a seed which changes every time
                          -- as we uses random, IO-based generation deep down the guts.
                          return $ (bimap STB STB res1) `shouldSatisfy` isRight
-

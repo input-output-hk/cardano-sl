@@ -7,7 +7,13 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
+                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
+                     mkSyncThroughput)
 import           Data.Aeson
+import           Data.Aeson.Encoding (pairStr)
+import           Data.Aeson.Types (Value (..), typeMismatch)
+import qualified Data.HashMap.Strict as HMS
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
@@ -16,15 +22,9 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
+import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto.Hashing as Crypto
-import qualified Pos.Data.Attributes as Core
-
-import           Cardano.Wallet.API.Response.JSend
-                     (ResponseStatus (ErrorStatus))
-import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
-                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
-                     mkSyncThroughput)
+import           Pos.Util.Util (aesonError)
 
 --
 -- Error handling
@@ -58,28 +58,38 @@ import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
 --
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
-      NotEnoughMoney { weNeedMore :: !Int }
-    | OutputIsRedeem { weAddress :: !(V1 Core.Address) }
-    | MigrationFailed { weDescription :: !Text }
-    | JSONValidationFailed { weValidationError :: !Text }
-    | UnknownError { weMsg :: !Text }
-    | InvalidAddressFormat { weMsg :: !Text }
+    -- | NotEnoughMoney weNeedMore
+      NotEnoughMoney !Int
+    -- | OutputIsRedeem weAddress
+    | OutputIsRedeem !(V1 Core.Address)
+    -- | MigrationFailed weDescription
+    | MigrationFailed !Text
+    -- | JSONValidationFailed weValidationError
+    | JSONValidationFailed !Text
+    -- | UnknownError weMsg
+    | UnknownError !Text
+    -- | InvalidAddressFormat weMsg
+    | InvalidAddressFormat !Text
     | WalletNotFound
     -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
     | TxRedemptionDepleted
-    | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
-    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
-    | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
+    -- | TxSafeSignerNotFound weAddress
+    | TxSafeSignerNotFound !(V1 Core.Address)
+    -- | MissingRequiredParams requiredParams
+    | MissingRequiredParams !(NonEmpty (Text, Text))
+    -- | WalletIsNotReadyToProcessPayments weStillRestoring
+    | WalletIsNotReadyToProcessPayments !SyncProgress
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
     -- synced (its 'WalletSyncState' indicates it's either syncing or
     -- restoring) and thus cannot accept new @Payment@ requests.
-    | NodeIsStillSyncing { wenssStillSyncing :: SyncPercentage }
+    -- | NodeIsStillSyncing wenssStillSyncing
+    | NodeIsStillSyncing !SyncPercentage
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
-    deriving (Show, Eq)
+    deriving (Generic, Show, Eq)
 
 convertTxError :: TxError.TxError -> WalletError
 convertTxError err = case err of
@@ -101,14 +111,125 @@ convertTxError err = case err of
 --
 -- Instances for `WalletError`
 
--- deriveWalletErrorJSON ''WalletError
 deriveGeneric ''WalletError
 
 instance ToJSON WalletError where
-    toJSON = gtoJsend ErrorStatus
+    toEncoding (NotEnoughMoney weNeedMore) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "needMore" (toEncoding weNeedMore))
+             <> "message" .= String "NotEnoughMoney"
+    toEncoding (OutputIsRedeem weAddress) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "address" (toEncoding weAddress))
+             <> "message" .= String "OutputIsRedeem"
+    toEncoding (MigrationFailed weDescription) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "description" (toEncoding weDescription))
+             <> "message" .= String "MigrationFailed"
+    toEncoding (JSONValidationFailed weValidationError) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "validationError"
+                     (toEncoding weValidationError))
+             <> "message" .= String "JSONValidationFailed"
+    toEncoding (UnknownError weMsg) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
+             <> "message" .= String "UnknownError"
+    toEncoding (InvalidAddressFormat weMsg) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
+             <> "message" .= String "InvalidAddressFormat"
+    toEncoding (WalletNotFound) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "WalletNotFound"
+    toEncoding (WalletAlreadyExists) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "WalletAlreadyExists"
+    toEncoding (AddressNotFound) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "AddressNotFound"
+    toEncoding (TxFailedToStabilize) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TxFailedToStabilize"
+    toEncoding (TxRedemptionDepleted) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TxRedemptionDepleted"
+    toEncoding (TxSafeSignerNotFound weAddress) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "address" (toEncoding weAddress))
+             <> "message" .= String "TxSafeSignerNotFound"
+    toEncoding (MissingRequiredParams requiredParams) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic"
+                 (pairs $ pairStr "params" (toEncoding requiredParams))
+             <> "message" .= String "MissingRequiredParams"
+    toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
+        toEncoding $ toJSON weStillRestoring
+    toEncoding (NodeIsStillSyncing wenssStillSyncing) =
+        toEncoding $ toJSON wenssStillSyncing
 
 instance FromJSON WalletError where
-    parseJSON = gparseJsend
+    parseJSON (Object o)
+        | HMS.member "message" o =
+              case HMS.lookup "message" o of
+                Just "NotEnoughMoney"        ->
+                    NotEnoughMoney
+                        <$> ((o .: "diagnostic") >>= (.: "needMore"))
+                Just "OutputIsRedeem"        ->
+                    OutputIsRedeem <$> ((o .: "diagnostic") >>= (.: "address"))
+                Just "MigrationFailed"       ->
+                    MigrationFailed
+                        <$> ((o .: "diagnostic") >>= (.: "description"))
+                Just "JSONValidationFailed"  ->
+                    JSONValidationFailed
+                        <$> ((o .: "diagnostic") >>= (.: "validationError"))
+                Just "UnknownError"          ->
+                    UnknownError <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "InvalidAddressFormat"  ->
+                    InvalidAddressFormat
+                        <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "WalletNotFound"        -> pure WalletNotFound
+                Just "WalletAlreadyExists"   -> pure WalletAlreadyExists
+                Just "AddressNotFound"       -> pure AddressNotFound
+                Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
+                Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
+                Just "TxSafeSignerNotFound"  ->
+                    TxSafeSignerNotFound
+                        <$> ((o .: "diagnostic") >>= (.: "address"))
+                Just "MissingRequiredParams" ->
+                    MissingRequiredParams
+                        <$> ((o .: "diagnostic") >>= (.: "params"))
+                Just _                       ->
+                    fail "Incorrect JSON encoding for WalletError"
+                Nothing                      ->
+                    fail "Incorrect JSON encoding for WalletError"
+        -- WalletIsNotReadyToProcessPayments
+        | HMS.member "estimatedCompletionTime" o = do
+            estCompTO <- (o .: "estimatedCompletionTime")
+            sThroughPO <- (o .: "throughput")
+            prctO <- (o .: "percentage")
+            estCompT <- parseJSON estCompTO
+            sThroughP <- parseJSON sThroughPO
+            prct <- parseJSON prctO
+            return . WalletIsNotReadyToProcessPayments
+                $ SyncProgress estCompT sThroughP prct
+        -- NodeIsStillSyncing
+        | HMS.member "quantity" o = do
+            quantityO <-  o .: "quantity"
+            quantity <- parseJSON quantityO
+            return . NodeIsStillSyncing $ mkSyncPercentage quantity
+        | otherwise = aesonError "Incorrect JSON encoding for WalletError"
+    parseJSON invalid = typeMismatch "WalletError" invalid
 
 instance Exception WalletError where
 

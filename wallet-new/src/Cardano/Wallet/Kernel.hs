@@ -9,15 +9,19 @@ module Cardano.Wallet.Kernel (
     PassiveWallet -- opaque
   , DB -- opaque
   , WalletId
-  , applyBlock
-  , applyBlocks
   , bracketPassiveWallet
   , init
   , walletLogMessage
   , walletPassive
-    -- * The only effectful getter you will ever need
+    -- ** Respond to block chain events
+  , applyBlock
+  , applyBlocks
+  , switchToFork
+    -- *** Testing
+  , observableRollbackUseInTestsOnly
+    -- ** The only effectful getter you will ever need
   , getWalletSnapshot
-    -- * Pure getters acting on a DB snapshot
+    -- ** Pure getters acting on a DB snapshot
   , module Getters
     -- * Active wallet
   , ActiveWallet -- opaque
@@ -49,11 +53,14 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), DB, NewPending (..), NewPendingError,
-                     Snapshot (..), defDB)
+                     ObservableRollbackUseInTestsOnly (..), Snapshot (..),
+                     SwitchToFork (..), defDB)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor,
+                     withMonadDBRead)
 import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
                      addPending, defaultResubmitFunction, exponentialBackoff,
                      newWalletSubmission, tick)
@@ -63,10 +70,11 @@ import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 
-import           Pos.Core (ProtocolMagic, TxAux (..))
+import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Core.Txp (TxAux (..))
 import           Pos.Crypto (hash)
-
+import           Pos.DB.BlockIndex (getTipHeader)
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
@@ -79,13 +87,14 @@ import           Pos.Crypto (hash)
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
                      -> Keystore
+                     -> MonadDBReadAdaptor IO
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet _walletLogMessage keystore f =
+bracketPassiveWallet logMsg keystore rocksDB f =
     bracket (liftIO $ openMemoryState defDB)
             (\_ -> return ())
             (\db ->
                 bracket
-                  (liftIO $ initPassiveWallet _walletLogMessage keystore db)
+                  (liftIO $ initPassiveWallet logMsg keystore db rocksDB)
                   (\_ -> return ())
                   f)
 
@@ -104,16 +113,20 @@ withKeystore pw action = action (pw ^. walletKeystore)
 initPassiveWallet :: (Severity -> Text -> IO ())
                   -> Keystore
                   -> AcidState DB
+                  -> MonadDBReadAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore db = do
-    return $ PassiveWallet logMessage keystore db
+initPassiveWallet logMessage keystore db rocksDB = do
+    return $ PassiveWallet logMessage keystore db rocksDB
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
 -- This is separate from allocating the wallet resources, and will only be
 -- called when the node is initialized (when run in the node proper).
 init :: PassiveWallet -> IO ()
-init PassiveWallet{..} = _walletLogMessage Info "Passive Wallet kernel initialized"
+init PassiveWallet{..} = do
+    tip <- withMonadDBRead _walletRocksDB $ getTipHeader
+    _walletLogMessage Info $ "Passive Wallet kernel initialized. Current tip: "
+                          <> pretty tip
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation
@@ -139,7 +152,7 @@ applyBlock pw@PassiveWallet{..} b
     = do
         blocksByAccount <- prefilterBlock' pw b
         -- apply block to all Accounts in all Wallets
-        void $ update' _wallets $ ApplyBlock blocksByAccount
+        update' _wallets $ ApplyBlock blocksByAccount
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
 --
@@ -148,6 +161,25 @@ applyBlocks :: PassiveWallet
             -> OldestFirst [] ResolvedBlock
             -> IO ()
 applyBlocks = mapM_ . applyBlock
+
+-- | Switch to a new fork
+--
+-- NOTE: The Ouroboros protocol says that this is only valid if the number of
+-- resolved blocks exceeds the length of blocks to roll back.
+switchToFork :: PassiveWallet
+             -> Int             -- ^ Number of blocks to roll back
+             -> [ResolvedBlock] -- ^ Blocks in the new fork
+             -> IO ()
+switchToFork pw@PassiveWallet{..} n bs = do
+    blockssByAccount <- mapM (prefilterBlock' pw) bs
+    update' _wallets $ SwitchToFork n blockssByAccount
+
+-- | Observable rollback
+--
+-- Only used for tests. See 'switchToFork'.
+observableRollbackUseInTestsOnly :: PassiveWallet -> IO ()
+observableRollbackUseInTestsOnly PassiveWallet{..} =
+    update' _wallets $ ObservableRollbackUseInTestsOnly
 
 {-------------------------------------------------------------------------------
   Active wallet

@@ -10,11 +10,11 @@ module Pos.DB.Ssc.State.Local
 
 import           Universum
 
+import           Pos.Chain.Ssc (MonadSscMem, SscLocalData (..), askSscMem,
+                     sscLocal)
 import           Pos.Core (HasProtocolConstants, SlotId (..))
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.DB (MonadDBRead)
-import           Pos.Ssc.Mem (MonadSscMem, askSscMem)
-import           Pos.Ssc.Types (SscLocalData (..), sscLocal)
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense

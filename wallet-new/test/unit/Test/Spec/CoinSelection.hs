@@ -27,8 +27,8 @@ import           Pos.Binary.Class (Bi (encode), toLazyByteString)
 import qualified Pos.Chain.Txp as Core
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import qualified Pos.Core as Core
+import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (SecretKey)
-import           Pos.Data.Attributes (mkAttributes)
 import qualified Pos.Txp as Core
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util.Text (listJsonIndent)
@@ -41,7 +41,8 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
                      InputGrouping (..), largestFirst, mkStdTx, newOptions,
                      random)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (estimateCardanoFee, estimateMaxTxInputs)
+                     (estimateCardanoFee, estimateHardMaxTxInputs,
+                     estimateMaxTxInputs)
 import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
@@ -399,31 +400,43 @@ errorWas predicate _ _ (STB hardErr) =
 -------------------------------------------------------------------------------}
 
 -- | Generate a random maximum transaction size, then create a transaction with
---   as many inputs as possible. The @slop@ parameter is the number of additional
---   inputs to add, beyond the maximum computed by @estimateMaxTxInputs@.
-genMaxInputTx :: Int -> Gen (Either Text (Byte, Byte))
-genMaxInputTx slop = do
+--   as many inputs as possible. The @estimator@ parameter is used to compute the
+--   number of inputs, as a function of the maximum transaction size and the sizes
+--   of @Attributes AddrAttributes@ and @Attributes ()@.
+genMaxInputTx :: (Byte -> Byte -> Byte -> Word64) -> Gen (Either Text (Byte, Byte))
+genMaxInputTx estimator = do
     -- Generate the output and compute the attribute sizes.
-    let genOut = Core.TxOutAux <$> (Core.TxOut <$> arbitrary <*> arbitrary)
-        genIn  = Core.TxInUtxo <$> arbitrary <*> pure maxBound
-        encodedSize :: Bi a => a -> Byte
-        encodedSize = fromBytes . fromIntegral . LBS.length . toLazyByteString . encode
-        txAttrSize = encodedSize (mkAttributes ())
+    let genIn  = Core.TxInUtxo <$> arbitrary <*> pure maxBound
 
-    output <- genOut
-    let addrAttrSize = encodedSize (Core.addrAttributes $ Core.txOutAddress $ Core.toaOut output)
+    output <- genOutAux
+    let addrAttrSize = getAddrAttrSize output
 
     -- Select the maximum transaction size and compute the number of inputs.
-    maxTxSize <- fromBytes <$> choose (65536, 65536) -- (4000, 100000)
-    let maxInputs = fromIntegral (estimateMaxTxInputs addrAttrSize txAttrSize maxTxSize)
+    maxTxSize <- genMaxTxSize
+    let maxInputs = fromIntegral (estimator addrAttrSize txAttrSize maxTxSize)
 
     -- Now build the transaction, attempting to make the encoded size of the transaction
     -- as large as possible.
     bimap pretty ((,maxTxSize) . encodedSize) <$> (
         withDefConfiguration $ \pm -> do
             key    <- arbitrary
-            inputs <- replicateM (maxInputs + slop) ((,) <$> genIn <*> genOut)
+            inputs <- replicateM maxInputs ((,) <$> genIn <*> genOutAux)
             mkTx pm key (NE.fromList inputs) (NE.fromList [output]) [])
+
+genMaxTxSize :: Gen Byte
+genMaxTxSize = fromBytes <$> choose (4000, 100000)
+
+genOutAux :: Gen Core.TxOutAux
+genOutAux = Core.TxOutAux <$> (Core.TxOut <$> arbitrary <*> arbitrary)
+
+getAddrAttrSize :: Core.TxOutAux -> Byte
+getAddrAttrSize = encodedSize . Core.addrAttributes . Core.txOutAddress . Core.toaOut
+
+txAttrSize :: Byte
+txAttrSize = encodedSize (mkAttributes ())
+
+encodedSize :: Bi a => a -> Byte
+encodedSize = fromBytes . fromIntegral . LBS.length . toLazyByteString . encode
 
 {-------------------------------------------------------------------------------
   Combinators to assemble properties easily
@@ -694,18 +707,21 @@ spec =
                   paymentSucceededWith utxo payee res [utxoWasNotDepleted]
 
         describe "Estimating the maximum number of inputs" $ do
-            prop "esimateMaxTxInputs yields a lower bound." $
-                forAll (genMaxInputTx 0) $ \case
+            prop "estimateMaxTxInputs yields a lower bound." $
+                forAll (genMaxInputTx estimateMaxTxInputs) $ \case
                     Left _err        -> False
                     Right (lhs, rhs) -> lhs <= rhs
 
-            prop "esimateMaxTxInputs yields a relatively tight bound." $
-                -- This tests that if we add *two* more inputs, the transaction will
-                -- exceed the maximum size. Why two instead of one? It seems that some
-                -- small but nontrivial percentage of the time, we can squeeze in one
-                -- extra input beyond the computed maximum, leaving just a handful of
-                -- bytes free (0 to 3).
-                forAll (genMaxInputTx 2) $ \case
+            prop "estimateMaxTxInputs yields a relatively tight bound." $
+                forAll (genMaxInputTx $ \x y z -> 1 + estimateHardMaxTxInputs x y z) $ \case
                     Left _err        -> False
                     Right (lhs, rhs) -> lhs > rhs
 
+            withMaxSuccess 1000 $ prop "estimateHardMaxTxInputs is close to estimateMaxTxInputs." $
+                forAll ((,) <$> genMaxTxSize
+                            <*> (getAddrAttrSize <$> genOutAux)) $
+                \(maxTxSize, addrAttrSize) ->
+                    let safeMax = estimateMaxTxInputs     addrAttrSize txAttrSize maxTxSize
+                        hardMax = estimateHardMaxTxInputs addrAttrSize txAttrSize maxTxSize
+                        threshold = 5 -- percent
+                    in (hardMax * 100) `div` safeMax <= 100 + threshold

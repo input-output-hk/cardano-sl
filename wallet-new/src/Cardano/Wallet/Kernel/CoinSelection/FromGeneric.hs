@@ -22,6 +22,7 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , dummyTxAttrSize
     -- * Estimating transaction limits
   , estimateMaxTxInputs
+  , estimateHardMaxTxInputs
     -- * Testing & internal use only
   , estimateSize
   ) where
@@ -31,18 +32,19 @@ import           Universum hiding (Sum (..))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import           Data.Typeable (typeRep)
+import           Data.Typeable (TypeRep, typeRep)
 
 import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
                      encode, szSimplify, szWithCtx, toLazyByteString)
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Client.Txp.Util as Core
-import           Pos.Core (AddrAttributes, Coin (..), TxAux, TxIn, TxInWitness,
-                     TxOut, TxSigData, TxSizeLinear, calculateTxSizeLinear)
+import           Pos.Core (AddrAttributes, Coin (..), TxSizeLinear,
+                     calculateTxSizeLinear)
 import qualified Pos.Core as Core
+import           Pos.Core.Attributes (Attributes)
+import           Pos.Core.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
 import           Pos.Crypto (Signature)
 import qualified Pos.Crypto as Core
-import           Pos.Data.Attributes (Attributes)
 import qualified Pos.Txp as Core
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 
@@ -371,7 +373,7 @@ estimateSize :: Byte     -- ^ Average size of @Attributes AddrAttributes@.
              -> Byte     -- ^ Size of transaction's @Attributes ()@.
              -> Int      -- ^ Number of inputs to the transaction.
              -> [Word64] -- ^ Coin value of each output to the transaction.
-             -> Byte     -- ^ Estimated size of the resulting transaction.
+             -> Range Byte -- ^ Estimated size bounds of the resulting transaction.
 estimateSize saa sta ins outs =
     -- This error case should not be possible unless the structure of `TxAux` changes
     -- in such a way that it depends on a new type with no override for `Bi`'s
@@ -383,36 +385,25 @@ estimateSize saa sta ins outs =
     -- In other words, either the unit test in `core` gives a concrete range and this
     -- always yields a `Right`, or the unit test gives fails due to a symbolic range
     -- and this always yields a `Left`.
-    case szSimplify (szWithCtx (Map.fromList ctx) (Proxy @TxAux)) of
+    case szSimplify (szWithCtx ctx (Proxy @TxAux)) of
         Left  sz    -> error ("Size estimate failed to simplify: " <> pretty sz)
-        Right range -> hi range
+        Right range -> range
 
   where
-    -- Substitutions for certain sizes and lengths in the size estimate:
-    ctx = [ -- Number of outputs
-            (typeRep (Proxy @(LengthOf [TxOut]))    , toSize (length outs))
 
-          -- Average size of an encoded Coin for this transaction.
-          , (typeRep (Proxy @Coin)                  , toSize (avgCoinSize outs))
+    ctx = sizeEstimateCtx
+        -- Number of outputs
+        & insert (Proxy @(LengthOf [TxOut])) (toSize (length outs))
+        -- Average size of an encoded Coin for this transaction.
+        & insert (Proxy @Coin) (toSize (avgCoinSize outs))
+        -- Number of inputs.
+        & insert (Proxy @(LengthOf [TxIn]))               (toSize ins)
+        & insert (Proxy @(LengthOf (Vector TxInWitness))) (toSize ins)
+        -- Set attribute sizes to reasonable dummy values.
+        & insert (Proxy @(Attributes AddrAttributes)) (toSize (toBytes saa))
+        & insert (Proxy @(Attributes ()))             (toSize (toBytes sta))
 
-          -- Number of inputs.
-          , (typeRep (Proxy @(LengthOf [TxIn]))     , toSize ins)
-          , (typeRep (Proxy @(LengthOf (Vector TxInWitness)))
-                                                    , toSize ins)
-
-          -- For this estimate, assume all input witnesses use the
-          -- `PkWitness` constructor.
-          , (typeRep (Proxy @TxInWitness)           , SelectCases ["PkWitness"])
-
-          -- Set attribute sizes to reasonable dummy values.
-          , (typeRep (Proxy @(Attributes AddrAttributes))
-                                                    , toSize (toBytes saa))
-          , (typeRep (Proxy @(Attributes ()))       , toSize (toBytes sta))
-
-          -- The magic number 66 is the encoded size of a `TxSigData` signature:
-          -- 64 bytes for the payload, plus two bytes of ByteString overhead.
-          , (typeRep (Proxy @(Signature TxSigData)) , SizeConstant 66)
-          ]
+    insert k = Map.insert (typeRep k)
 
     avgCoinSize [] = 0
     avgCoinSize cs = case sum (map encodedCoinSize cs) `quotRem` length cs of
@@ -420,9 +411,6 @@ estimateSize saa sta ins outs =
         (avg, _) -> avg + 1
 
     encodedCoinSize = fromIntegral . LBS.length . toLazyByteString . encode . Coin
-
-    toSize :: Integral a => a -> SizeOverride
-    toSize = SizeConstant . fromIntegral
 
 -- | Estimate the fee for a transaction that has @ins@ inputs
 --   and @length outs@ outputs. The @outs@ lists holds the coin value
@@ -434,7 +422,7 @@ estimateSize saa sta ins outs =
 estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
     = round $ calculateTxSizeLinear linearFeePolicy
-            $ estimateSize dummyAddrAttrSize dummyTxAttrSize ins outs
+            $ hi $ estimateSize dummyAddrAttrSize dummyTxAttrSize ins outs
 
 -- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.
@@ -460,12 +448,52 @@ estimateMaxTxInputs
   -> Byte -- ^ Maximum size of a transaction
   -> Word64
 estimateMaxTxInputs addrAttrSize txAttrSize maxSize =
-    fromIntegral (go 0 128)
+    fromIntegral (searchUp estSize maxSize 7)
 
   where
-    estSize txins = estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
+    estSize txins = hi $ estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
 
-    go x step = case compare (estSize x) maxSize of
+-- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
+--   @Attributes ()@, compute the maximum possible number of inputs a transaction
+--   can have, as in @estimateMaxTxInputs@. The difference is that this function
+--   tries to find the absolute highest number of possible inputs, by minimizing the
+--   size of the transaction. This gives a hard upper bound on the number of
+--   possible inputs a transaction can have; by comparison, @estimateMaxTxInputs@
+--   gives an upper bound on the number of inputs you can put into a transaction,
+--   if you do not have /a priori/ control over the size of those inputs.
+estimateHardMaxTxInputs
+  :: Byte -- ^ Size of @Attributes AddrAttributes@
+  -> Byte -- ^ Size of @Attributes ()@
+  -> Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateHardMaxTxInputs addrAttrSize txAttrSize maxSize =
+    fromIntegral (searchUp estSize maxSize 7)
+
+  where
+    estSize txins = lo $ estimateSize addrAttrSize txAttrSize txins [minBound]
+
+-- | Substitutions for certain sizes and lengths in the size estimates.
+sizeEstimateCtx :: Map TypeRep SizeOverride
+sizeEstimateCtx = Map.fromList
+      -- For this estimate, assume all input witnesses use the `PkWitness` constructor.
+    [ (typeRep (Proxy @TxInWitness)           , SelectCases ["PkWitness"])
+
+    -- The magic number 66 is the encoded size of a `TxSigData` signature:
+    -- 64 bytes for the payload, plus two bytes of ByteString overhead.
+    , (typeRep (Proxy @(Signature TxSigData)) , SizeConstant 66)
+    ]
+
+-- | Helper function for creating size constants.
+toSize :: Integral a => a -> SizeOverride
+toSize = SizeConstant . fromIntegral
+
+-- | For a monotonic @f@ and a value @y@, @searchUp f y k@ will find the
+--   largest @x@ such that @f x <= y@ by walking up from zero using steps
+--   of size @2^k@, reduced by a factor of 2 whenever we overshoot the target.
+searchUp :: (Integral a, Ord b) => (a -> b) -> b -> a -> a
+searchUp f y k = go 0 (2^k)
+  where
+    go x step = case compare (f x) y of
         LT -> go (x + step) step
         EQ -> x
         GT | step == 1 -> x - 1

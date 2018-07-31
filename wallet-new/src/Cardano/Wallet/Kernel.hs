@@ -34,47 +34,39 @@ import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
-import qualified Data.Map.Strict as Map
-
-import           System.Wlog (Severity (..))
-
 import           Data.Acid (AcidState)
 import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
-
-import           Cardano.Wallet.Kernel.Internal
-
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
-                     prefilterBlock)
-import           Cardano.Wallet.Kernel.Types (WalletId (..))
-
-import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
-                     CancelPending (..), DB, NewPending (..), NewPendingError,
-                     ObservableRollbackUseInTestsOnly (..), Snapshot (..),
-                     SwitchToFork (..), defDB)
-import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.DB.InDb
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.DB.Spec (singletonPending)
-import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor,
-                     withMonadDBRead)
-import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
-                     addPending, defaultResubmitFunction, exponentialBackoff,
-                     newWalletSubmission, tick)
-import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
-
--- Handy re-export of the pure getters
-
-import           Cardano.Wallet.Kernel.DB.Read as Getters
+import qualified Data.Map.Strict as Map
+import           System.Wlog (Severity (..))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
 import           Pos.Crypto (hash)
-import           Pos.DB.BlockIndex (getTipHeader)
+
+import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
+                     CancelPending (..), DB, NewPending (..), NewPendingError,
+                     ObservableRollbackUseInTestsOnly (..),
+                     RollbackDuringRestoration, Snapshot (..),
+                     SwitchToFork (..), defDB)
+import           Cardano.Wallet.Kernel.DB.HdWallet
+import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.Read as Getters
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Internal
+import           Cardano.Wallet.Kernel.Keystore (Keystore)
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
+                     prefilterBlock)
+import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
+                     addPending, defaultResubmitFunction, exponentialBackoff,
+                     newWalletSubmission, tick)
+import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
@@ -87,14 +79,14 @@ import           Pos.DB.BlockIndex (getTipHeader)
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
                      -> Keystore
-                     -> MonadDBReadAdaptor IO
+                     -> NodeStateAdaptor IO
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet logMsg keystore rocksDB f =
+bracketPassiveWallet logMsg keystore node f =
     bracket (liftIO $ openMemoryState defDB)
             (\_ -> return ())
             (\db ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore db rocksDB)
+                  (liftIO $ initPassiveWallet logMsg keystore db node)
                   (\_ -> return ())
                   f)
 
@@ -113,10 +105,10 @@ withKeystore pw action = action (pw ^. walletKeystore)
 initPassiveWallet :: (Severity -> Text -> IO ())
                   -> Keystore
                   -> AcidState DB
-                  -> MonadDBReadAdaptor IO
+                  -> NodeStateAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore db rocksDB = do
-    return $ PassiveWallet logMessage keystore db rocksDB
+initPassiveWallet logMessage keystore db node = do
+    return $ PassiveWallet logMessage keystore db node
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -124,9 +116,7 @@ initPassiveWallet logMessage keystore db rocksDB = do
 -- called when the node is initialized (when run in the node proper).
 init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
-    tip <- withMonadDBRead _walletRocksDB $ getTipHeader
-    _walletLogMessage Info $ "Passive Wallet kernel initialized. Current tip: "
-                          <> pretty tip
+    _walletLogMessage Info $ "Passive Wallet kernel initialized."
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation
@@ -169,7 +159,7 @@ applyBlocks = mapM_ . applyBlock
 switchToFork :: PassiveWallet
              -> Int             -- ^ Number of blocks to roll back
              -> [ResolvedBlock] -- ^ Blocks in the new fork
-             -> IO ()
+             -> IO (Either RollbackDuringRestoration ())
 switchToFork pw@PassiveWallet{..} n bs = do
     blockssByAccount <- mapM (prefilterBlock' pw) bs
     update' _wallets $ SwitchToFork n blockssByAccount
@@ -177,7 +167,8 @@ switchToFork pw@PassiveWallet{..} n bs = do
 -- | Observable rollback
 --
 -- Only used for tests. See 'switchToFork'.
-observableRollbackUseInTestsOnly :: PassiveWallet -> IO ()
+observableRollbackUseInTestsOnly :: PassiveWallet
+                                 -> IO (Either RollbackDuringRestoration ())
 observableRollbackUseInTestsOnly PassiveWallet{..} =
     update' _wallets $ ObservableRollbackUseInTestsOnly
 
@@ -241,7 +232,7 @@ newPending ActiveWallet{..} accountId tx = do
         Left e -> return (Left e)
         Right () -> do
             let txId = hash . taTx $ tx
-            modifyMVar_ walletSubmission (return . addPending accountId (singletonPending txId tx))
+            modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton txId tx))
             return $ Right ()
 
 cancelPending :: PassiveWallet -> Cancelled -> IO ()

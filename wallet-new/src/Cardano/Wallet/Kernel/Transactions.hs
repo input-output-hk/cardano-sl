@@ -17,6 +17,8 @@ import           Control.Lens (to)
 import           Control.Retry (RetryPolicyM, RetryStatus, applyPolicy,
                      fullJitterBackoff, limitRetries, retrying)
 import           Crypto.Random (MonadRandom (..))
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as B
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import           System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
@@ -25,9 +27,14 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
-import qualified Data.ByteArray as ByteArray
-import qualified Data.ByteString as B
+import           Pos.Chain.Txp (Utxo)
+import           Pos.Core (Address, Coin, unsafeSubCoin)
+import qualified Pos.Core as Core
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
+                     ShouldCheckPassphrase (..), hash)
 
+import           Cardano.Wallet.Kernel (getWalletSnapshot, newPending)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
                      CoinSelFinalResult (..), CoinSelectionOptions,
@@ -41,23 +48,13 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read
                      (readHdAddressByCardanoAddress)
-import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
-import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
-                     utxoRestrictToInputs)
-
-import           Cardano.Wallet.Kernel (getWalletSnapshot, newPending)
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
                      walletKeystore)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-
-import           Pos.Core (Address, Coin, unsafeSubCoin)
-import qualified Pos.Core as Core
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
-
-import           Pos.Chain.Txp (Utxo)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
-                     ShouldCheckPassphrase (..), hash)
+import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
+                     utxoRestrictToInputs)
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees
@@ -279,7 +276,7 @@ estimateFees activeWallet@ActiveWallet{..} spendingPassword options accountId pa
       sumOfInputs :: TxAux -> Utxo -> Coin
       sumOfInputs tx utxo =
           let inputs = Set.fromList $ toList . _txInputs . taTx $ tx
-          in utxoBalance (utxoRestrictToInputs inputs utxo)
+          in utxoBalance (utxo `utxoRestrictToInputs` inputs)
 
       sumOfOutputs :: TxAux -> Coin
       sumOfOutputs tx =

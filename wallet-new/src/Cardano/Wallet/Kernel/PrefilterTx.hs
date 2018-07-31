@@ -31,11 +31,12 @@ import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
                      eskToWalletDecrCredentials, selectOwnAddresses)
 
+import           Cardano.Wallet.Kernel.ChainState (ChainBrief (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
-                     ResolvedInput, ResolvedTx, rbSlot, rbTxs, rtxInputs,
+                     ResolvedInput, ResolvedTx, rbBrief, rbTxs, rtxInputs,
                      rtxOutputs)
 
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -54,16 +55,19 @@ type AddrWithId = (HdAddressId,Address)
 -- the block that are relevant to the wallet.
 data PrefilteredBlock = PrefilteredBlock {
       -- | Relevant inputs
-      pfbInputs  :: Set TxIn
+      pfbInputs  :: !(Set TxIn)
 
       -- | Relevant outputs
-    , pfbOutputs :: Utxo
+    , pfbOutputs :: !Utxo
 
       -- | all output addresses present in the Utxo
-    , pfbAddrs   :: [AddrWithId]
+    , pfbAddrs   :: ![AddrWithId]
 
       -- | Prefiltered block metadata
-    , pfbMeta    :: BlockMeta
+    , pfbMeta    :: !LocalBlockMeta
+
+      -- | Chain brief
+    , pfbBrief   :: !ChainBrief
     }
 
 deriveSafeCopy 1 'base ''PrefilteredBlock
@@ -73,12 +77,13 @@ deriveSafeCopy 1 'base ''PrefilteredBlock
 -- An empty prefiltered block is what we get when we filter a block for a
 -- particular account and there is nothing in the block that is of
 -- relevance to that account
-emptyPrefilteredBlock :: PrefilteredBlock
-emptyPrefilteredBlock = PrefilteredBlock {
+emptyPrefilteredBlock :: ChainBrief -> PrefilteredBlock
+emptyPrefilteredBlock brief = PrefilteredBlock {
       pfbInputs  = Set.empty
     , pfbOutputs = Map.empty
     , pfbAddrs   = []
-    , pfbMeta    = mempty
+    , pfbMeta    = emptyLocalBlockMeta
+    , pfbBrief   = brief
     }
 
 type WalletKey = (WalletId, WalletDecrCredentials)
@@ -244,11 +249,13 @@ prefilterBlock :: WalletId
                -> EncryptedSecretKey
                -> ResolvedBlock
                -> Map HdAccountId PrefilteredBlock
-prefilterBlock wid esk block
-    = Map.fromList $ map (mkPrefBlock slotId inpAll outAll) (Set.toList accountIds)
+prefilterBlock wid esk block =
+      Map.fromList
+    $ map (mkPrefBlock (block ^. rbBrief) inpAll outAll)
+    $ Set.toList accountIds
   where
     wdc :: WalletDecrCredentials
-    wdc = eskToWalletDecrCredentials esk
+    wdc  = eskToWalletDecrCredentials esk
     wKey = (wid, wdc)
 
     inps :: [Map HdAccountId (Set TxIn)]
@@ -260,16 +267,20 @@ prefilterBlock wid esk block
     inpAll = Map.unionsWith Set.union inps
     outAll = Map.unionsWith Map.union outs
 
-    slotId = block ^. rbSlot . fromDb
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
-mkPrefBlock :: SlotId
+mkPrefBlock :: ChainBrief
             -> Map HdAccountId (Set TxIn)
             -> Map HdAccountId (Map TxIn (TxOutAux, AddressSummary))
             -> HdAccountId
             -> (HdAccountId, PrefilteredBlock)
-mkPrefBlock slotId inps outs accId
-    = (accId, PrefilteredBlock inps' outs' addrs'' blockMeta')
+mkPrefBlock brief inps outs accId = (accId, PrefilteredBlock {
+        pfbInputs  = inps'
+      , pfbOutputs = outs'
+      , pfbAddrs   = addrs''
+      , pfbMeta    = blockMeta'
+      , pfbBrief   = brief
+      })
     where
         fromAddrSummary :: AddressSummary -> AddrWithId
         fromAddrSummary AddressSummary{..} = (addrSummaryId,addrSummaryAddr)
@@ -279,12 +290,12 @@ mkPrefBlock slotId inps outs accId
         inps'           =                  byAccountId accId Set.empty inps
         (outs', addrs') = fromUtxoSummary (byAccountId accId Map.empty outs)
 
-        addrs'' = nub $ map fromAddrSummary addrs'
-
+        addrs''    = nub $ map fromAddrSummary addrs'
+        slotId     = cbSlotId brief
         blockMeta' = mkBlockMeta slotId addrs'
 
-mkBlockMeta :: SlotId -> [AddressSummary] -> BlockMeta
-mkBlockMeta slotId addrs_ = BlockMeta{..}
+mkBlockMeta :: SlotId -> [AddressSummary] -> LocalBlockMeta
+mkBlockMeta slotId addrs_ = LocalBlockMeta BlockMeta{..}
     where
         txIds' = nub $ map addrSummaryTxId addrs_
 

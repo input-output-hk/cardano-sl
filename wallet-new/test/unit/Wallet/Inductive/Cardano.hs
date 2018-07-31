@@ -27,6 +27,7 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
+import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -168,7 +169,7 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
   Equivalence check between the real implementation and (a) pure wallet
 -------------------------------------------------------------------------------}
 
-equivalentT :: forall h e m. (Hash h Addr, MonadIO m)
+equivalentT :: forall h e m. (Hash h Addr, MonadIO m, MonadFail m)
             => Kernel.ActiveWallet
             -> EncryptedSecretKey
             -> (DSL.Transaction h Addr -> Wallet h Addr)
@@ -236,7 +237,7 @@ equivalentT activeWallet esk = \mkWallet w ->
                       -> RawResolvedBlock
                       -> TranslateT EquivalenceViolation m ()
     walletApplyBlockT ctxt accountId block = do
-        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
+        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock dummyChainBrief block)
         checkWalletState ctxt accountId
 
     walletNewPendingT :: InductiveCtxt h
@@ -251,7 +252,8 @@ equivalentT activeWallet esk = \mkWallet w ->
                     -> HD.HdAccountId
                     -> TranslateT EquivalenceViolation m ()
     walletRollbackT ctxt accountId = do
-        liftIO $ Kernel.observableRollbackUseInTestsOnly passiveWallet
+        -- We assume the wallet is not in restoration mode
+        Right () <- liftIO $ Kernel.observableRollbackUseInTestsOnly passiveWallet
         checkWalletState ctxt accountId
 
     checkWalletState :: InductiveCtxt h

@@ -5,124 +5,109 @@ module Cardano.Wallet.Kernel.DB.Spec.Read (
   , queryAccountUtxo
   , queryAccountAvailableUtxo
   , queryAccountAvailableBalance
+    -- * Pure functions on checkpoints
+  , cpAvailableUtxo
+  , cpAvailableBalance
+  , Availability(..)
+  , cpCheckAvailable
   ) where
 
 import           Universum
 
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 
-import           Pos.Chain.Txp (Utxo)
+import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
-import           Cardano.Wallet.Kernel.DB.Spec.Util
-
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-
-{-------------------------------------------------------------------------------
-  An address is considered "ours" if it belongs to the set of "our" addresses.
-  The following pure functions are given the set of "our" addresses to enable filtering.
--------------------------------------------------------------------------------}
-
--- | If an Address is in the given set, it will occur exactly once or not at all
-ourAddr :: IxSet HdAddress -> Core.Address -> Bool
-ourAddr addrs addr =
-    1 == IxSet.size (IxSet.getEQ addr addrs)
-
--- | Determines whether the transaction output address is one of "ours"
-ourTxOut :: IxSet HdAddress -> TxOutAux -> Bool
-ourTxOut addrs tx
-    = ourAddr addrs (txOutAddress . toaOut $ tx)
-
--- | Filters the given utxo by selecting only utxo outputs that are "ours"
-ourUtxo :: IxSet HdAddress -> Utxo -> Utxo
-ourUtxo addrs = Map.filter (ourTxOut addrs)
+import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
 {-------------------------------------------------------------------------------
   Pure functions that support read-only operations on an account Checkpoint, as
   defined in the Wallet Spec
 -------------------------------------------------------------------------------}
 
-accountUtxo :: Checkpoint -> Utxo
-accountUtxo = view (checkpointUtxo . fromDb)
+-- | Available UTxO
+--
+-- The available UtxO is the current UTxO minus outputs spent by pending txs
+cpAvailableUtxo :: IsCheckpoint c => c -> Core.Utxo
+cpAvailableUtxo c =
+    Core.utxoRemoveInputs (c ^. cpUtxo) pendingIns
+  where
+    pendingIns = Pending.txIns (c ^. cpPending)
 
-accountUtxoBalance :: Checkpoint -> Core.Coin
-accountUtxoBalance = view (checkpointUtxoBalance . fromDb)
+data Availability = AllAvailable | Unavailable (Set Core.TxIn)
 
-accountPendingTxs :: Checkpoint -> PendingTxs
-accountPendingTxs = view (checkpointPending . pendingTransactions . fromDb)
+-- | Check whether the specified inputs are all available
+--
+-- Returns the inputs that are not available, if any
+cpCheckAvailable :: IsCheckpoint c => Set Core.TxIn -> c -> Availability
+cpCheckAvailable ins c
+  | Set.null unavailable = AllAvailable
+  | otherwise            = Unavailable unavailable
+  where
+    unavailable = ins Set.\\ Map.keysSet (cpAvailableUtxo c)
 
--- | The Available UtxO is the cached utxo balance minus any (pending) spent utxo
-accountAvailableUtxo :: Checkpoint -> Utxo
-accountAvailableUtxo c =
-    let pendingIns = txIns (accountPendingTxs c)
-    in utxoRemoveInputs (accountUtxo c) pendingIns
-
--- | The Available Balance is the cached utxo balance minus any (pending) spent utxo
-accountAvailableBalance :: Checkpoint -> Core.Coin
-accountAvailableBalance c =
+-- | Balance of the available UTxO
+cpAvailableBalance :: IsCheckpoint c => c -> Core.Coin
+cpAvailableBalance c =
     fromMaybe subCoinErr balance'
-    where
-        subCoinErr = error "Coin arithmetic error: subCoin utxoBalance balanceDelta"
+  where
+    pendingIns = Pending.txIns (c ^. cpPending)
+    spentUtxo  = Core.utxoRestrictToInputs (c ^. cpUtxo) pendingIns
+    balance'   = Core.subCoin (c ^. cpUtxoBalance) (Core.utxoBalance spentUtxo)
+    subCoinErr = error "cpAvailableBalance: spent more than available?"
 
-        pendingIns = txIns (accountPendingTxs c)
-        spentUtxo  = utxoRestrictToInputs (accountUtxo c) pendingIns
-
-        balance' = Core.subCoin (accountUtxoBalance c) (balance spentUtxo)
-
--- | Account Change refers to any pending outputs paid back into the
---   account (represented by the given checkpoint).
+-- | Change outputs
 --
--- NOTE: computing 'change' requires filtering "our" addresses
-accountChange :: (Utxo -> Utxo) -> Checkpoint -> Utxo
-accountChange ours
-    = ours . pendingUtxo . accountPendingTxs
+-- Pending outputs paid back into addresses that belong to the wallet.
+cpChange :: IsCheckpoint c => IxSet HdAddress -> c -> Core.Utxo
+cpChange ours = Pending.change ours' . view cpPending
+  where
+    ours' :: Core.Address -> Bool
+    ours' addr = IxSet.size (IxSet.getEQ addr ours) == 1
 
--- | The Account Total Balance is the 'available' balance plus any 'change'
---
--- NOTE: computing 'total balance' requires filtering "our" addresses, which requires
---       the full set of addresses for this Account Checkpoint
-accountTotalBalance :: IxSet HdAddress -> Checkpoint -> Core.Coin
-accountTotalBalance addrs c
-    = add' availableBalance changeBalance
-    where
-        add' = Core.unsafeAddCoin
-        ourUtxo' = ourUtxo addrs
-
-        availableBalance = accountAvailableBalance c
-        changeBalance    = balance (accountChange ourUtxo' c)
+-- | Total balance (available balance plus change)
+cpTotalBalance :: IsCheckpoint c => IxSet HdAddress -> c -> Core.Coin
+cpTotalBalance ours c =
+    Core.unsafeAddCoin availableBalance changeBalance
+  where
+    availableBalance = cpAvailableBalance c
+    changeBalance    = Core.utxoBalance (cpChange ours c)
 
 {-------------------------------------------------------------------------------
   Public queries on an account, as defined in the Wallet Spec
 -------------------------------------------------------------------------------}
 
 queryAccountTotalBalance :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Core.Coin
-queryAccountTotalBalance accountId db
-    = accountTotalBalance <$> ourAddrs <*> checkpoint
-    where
-        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
-        ourAddrs   = HD.readAddressesByAccountId       accountId db
+queryAccountTotalBalance accountId db =
+    cpTotalBalance <$> ourAddrs <*> checkpoint
+  where
+    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+    ourAddrs   = HD.readAddressesByAccountId       accountId db
 
-queryAccountUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Utxo
-queryAccountUtxo accountId db
-    = accountUtxo <$> checkpoint
-    where
-        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+queryAccountUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Core.Utxo
+queryAccountUtxo accountId db =
+    view (pcheckpointUtxo . fromDb) <$> checkpoint
+  where
+    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
 
-queryAccountAvailableUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Utxo
-queryAccountAvailableUtxo accountId db
-    = accountAvailableUtxo <$> checkpoint
-    where
-        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+queryAccountAvailableUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Core.Utxo
+queryAccountAvailableUtxo accountId db =
+    cpAvailableUtxo <$> checkpoint
+  where
+    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
 
 queryAccountAvailableBalance :: HdAccountId
                              -> HD.HdQueryErr UnknownHdAccount Core.Coin
-queryAccountAvailableBalance accountId db
-    = accountAvailableBalance <$> checkpoint
-    where
-        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+queryAccountAvailableBalance accountId db =
+    cpAvailableBalance <$> checkpoint
+  where
+    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db

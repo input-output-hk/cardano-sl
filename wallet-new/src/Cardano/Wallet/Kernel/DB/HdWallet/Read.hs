@@ -38,6 +38,7 @@ import           Data.Foldable (toList)
 import           Pos.Core (Address, Coin, sumCoins)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
+import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -84,7 +85,10 @@ hdRootBalance rootId = sumCoins
 
 -- | Current balance of an account
 hdAccountBalance :: HdAccount -> Coin
-hdAccountBalance = view (hdAccountCheckpoints . currentUtxoBalance)
+hdAccountBalance = view $ hdAccountState
+                        . hdAccountStateCurrent
+                        . pcheckpointUtxoBalance
+                        . fromDb
 
 {-------------------------------------------------------------------------------
   Accumulate across wallets/accounts
@@ -149,9 +153,10 @@ readHdAccount accId = do
                    <$> readHdRoot rootId
 
 -- | Look up the specified account and return the current checkpoint
-readHdAccountCurrentCheckpoint :: HdAccountId -> HdQueryErr UnknownHdAccount Checkpoint
-readHdAccountCurrentCheckpoint accId db
-    = view hdAccountCurrentCheckpoint <$> readHdAccount accId db
+readHdAccountCurrentCheckpoint :: HdAccountId
+                               -> HdQueryErr UnknownHdAccount PartialCheckpoint
+readHdAccountCurrentCheckpoint accId db =
+    view (hdAccountState . hdAccountStateCurrent) <$> readHdAccount accId db
 
 -- | Look up the specified address
 readHdAddress :: HdAddressId -> HdQueryErr UnknownHdAddress HdAddress

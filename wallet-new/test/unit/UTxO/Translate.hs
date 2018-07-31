@@ -78,6 +78,7 @@ newtype TranslateT e m a = TranslateT {
            , Monad
            , MonadError e
            , MonadIO
+           , MonadFail
            )
 
 instance MonadTrans (TranslateT e) where

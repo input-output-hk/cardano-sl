@@ -1,3 +1,7 @@
+{-# LANGUAGE RankNTypes #-}
+-- TODO: Not sure about the best way to avoid the orphan instances here
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | HD wallets
 module Cardano.Wallet.Kernel.DB.HdWallet (
     -- * Supporting types
@@ -15,29 +19,48 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdRoot(..)
   , HdAccount(..)
   , HdAddress(..)
+    -- * HD Wallet state
+  , HdAccountState(..)
+  , HdAccountUpToDate(..)
+  , HdAccountWithinK(..)
+  , HdAccountOutsideK(..)
+  , reachedWithinK
+  , finishRestoration
     -- ** Initialiser
   , initHdWallets
     -- ** Lenses
+    -- *** Wallet collection
   , hdWalletsRoots
   , hdWalletsAccounts
   , hdWalletsAddresses
+    -- *** Account ID
   , hdAccountIdParent
   , hdAccountIdIx
+    -- ** Address ID
   , hdAddressIdParent
   , hdAddressIdIx
+    -- *** Root
   , hdRootId
   , hdRootName
   , hdRootHasPassword
   , hdRootAssurance
   , hdRootCreatedAt
+    -- *** Account
   , hdAccountId
   , hdAccountName
-  , hdAccountCurrentCheckpoint
-  , hdAccountCheckpoints
+  , hdAccountState
+  , hdAccountStateCurrent
+    -- *** Account state: up to date
+  , hdUpToDateCheckpoints
+    -- *** Account state: within K slots
+  , hdWithinKCurrent
+  , hdWithinKHistorical
+    -- *** Account state: outside K slots
+  , hdOutsideKCurrent
+  , hdOutsideKHistorical
+    -- *** Address
   , hdAddressId
   , hdAddressAddress
-  , hdAddressIsUsed
-  , hdAddressIsChange
     -- ** Composite lenses
   , hdAccountRootId
   , hdAddressRootId
@@ -52,6 +75,9 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomHdRootId
   , zoomHdAccountId
   , zoomHdAddressId
+  , matchHdAccountState
+  , zoomHdAccountCheckpoints
+  , matchHdAccountCheckpoints
     -- * Zoom variations that create on request
   , zoomOrCreateHdRoot
   , zoomOrCreateHdAccount
@@ -64,11 +90,11 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
 
 import           Universum
 
-import           Control.Lens (at)
+import           Control.Lens (at, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet
-import           Data.SafeCopy (base, deriveSafeCopy)
+import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
 
 import           Test.QuickCheck (Arbitrary (..), oneof, vectorOf)
 
@@ -76,12 +102,14 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
 import qualified Pos.Core as Core
+import           Pos.Core.Chrono (NewestFirst (..))
 import qualified Pos.Crypto as Core
 
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
+import           Cardano.Wallet.Kernel.Util (neHead)
 
 {-------------------------------------------------------------------------------
   Supporting types
@@ -146,6 +174,18 @@ deriveSafeCopy 1 'base ''HdAccountIx
 deriveSafeCopy 1 'base ''HdAddressIx
 deriveSafeCopy 1 'base ''AssuranceLevel
 deriveSafeCopy 1 'base ''HasSpendingPassword
+
+{-------------------------------------------------------------------------------
+  General-utility functions
+-------------------------------------------------------------------------------}
+
+-- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'. See the
+-- comment in the definition of 'makePubKeyAddressBoot' on why this is
+-- acceptable.
+--
+-- TODO: This may well disappear as part of [CBR-325].
+eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
+eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 
 {-------------------------------------------------------------------------------
   HD wallets
@@ -239,13 +279,17 @@ instance Buildable HdRoot where
 -- Key derivation is cheap
 data HdAccount = HdAccount {
       -- | Account index
-      _hdAccountId          :: HdAccountId
+      _hdAccountId    :: HdAccountId
 
       -- | Account name
-    , _hdAccountName        :: AccountName
+    , _hdAccountName  :: AccountName
 
-      -- | State of the " wallet " as stipulated by the wallet specification
-    , _hdAccountCheckpoints :: NonEmpty Checkpoint
+      -- | Account state
+      --
+      -- When the account is up to date with the blockchain, the account state
+      -- coincides with the state of a " wallet " as mandated by the formal
+      -- spec.
+    , _hdAccountState :: HdAccountState
     }
 
 instance Buildable HdAccount where
@@ -259,33 +303,92 @@ instance Buildable HdAccount where
 -- | Address in an account of a HD wallet
 data HdAddress = HdAddress {
       -- | Address ID
-      _hdAddressId       :: HdAddressId
+      _hdAddressId      :: HdAddressId
 
       -- | The actual address
-    , _hdAddressAddress  :: InDb Core.Address
-
-      -- | Has this address been involved in a transaction?
-      --
-      -- TODO: How is this determined? What is the definition? How is it set?
-      -- TODO: This will likely move to the 'BlockMeta' instead.
-    , _hdAddressIsUsed   :: Bool
-
-      -- | Was this address used as a change address?
-      --
-      -- TODO: How is this derived when we do wallet recovery?
-      -- TODO: Do we need this at all?
-    , _hdAddressIsChange :: Bool
+    , _hdAddressAddress :: InDb Core.Address
     }
 
 {-------------------------------------------------------------------------------
-  General-utility functions
+  Account state
 -------------------------------------------------------------------------------}
 
--- | Computes the 'HdRootId' from the given 'EncryptedSecretKey'. See the
--- comment in the definition of 'makePubKeyAddressBoot' on why this is
--- acceptable.
-eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
-eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
+-- | Account state (essentially, how much historical data do we have?)
+data HdAccountState =
+      HdAccountStateUpToDate !HdAccountUpToDate
+    | HdAccountStateWithinK  !HdAccountWithinK
+    | HdAccountStateOutsideK !HdAccountOutsideK
+
+-- | Account state for an account which has complete historical data
+data HdAccountUpToDate = HdAccountUpToDate {
+      _hdUpToDateCheckpoints :: !(NewestFirst NonEmpty Checkpoint)
+    }
+
+-- | Account state for an account which is lacking some historical checkpoints,
+-- but is within k slots of the tip.
+--
+-- NOTE: If the wallet backend gets shut down during restoration, and later
+-- restarted, it cannot be the case that the wallet is behind the full node,
+-- since the full node /itself/ will also be behind the chain. The wallet can
+-- /only/ be behind the full node if a wallet (that already exists on the chain)
+-- gets added to a running full node.
+data HdAccountWithinK = HdAccountWithinK {
+      -- | Current checkpoints
+      --
+      -- During wallet restoration we always track the underlying node, but may
+      -- lack historical checkpoints. We synchronously construct a partial
+      -- checkpoint for the current tip, and then as we get new blocks from
+      -- the BListener, we add new partial checkpoints.
+      _hdWithinKCurrent    :: !(NewestFirst NonEmpty PartialCheckpoint)
+
+      -- | Historical full checkpoints
+      --
+      -- Meanwhile, we asynchronously construct full checkpoints, starting
+      -- from genesis. One this gets to within k slots of the tip, we start
+      -- keeping all of these.
+    , _hdWithinKHistorical :: !(NewestFirst NonEmpty Checkpoint)
+    }
+
+-- | Account state for an account which is lacking historical checkpoints,
+-- and hasn't reached the block that is within k slots of the tip yet.
+data HdAccountOutsideK = HdAccountOutsideK {
+      -- | Current checkpoint
+      _hdOutsideKCurrent    :: !(NewestFirst NonEmpty PartialCheckpoint)
+
+      -- | Historical full checkpoints
+      --
+      -- Since we haven't reached the block k away yet, we only need to
+      -- keep this one checkpoint.
+    , _hdOutsideKHistorical :: !Checkpoint
+    }
+
+makeLenses ''HdAccountUpToDate
+makeLenses ''HdAccountWithinK
+makeLenses ''HdAccountOutsideK
+
+-- | Once we reached K slots from the tip, we should start collecting
+-- checkpoints rather than just keeping the most recent.
+reachedWithinK :: HdAccountOutsideK -> HdAccountWithinK
+reachedWithinK HdAccountOutsideK{..} = HdAccountWithinK{
+      _hdWithinKCurrent    = _hdOutsideKCurrent
+    , _hdWithinKHistorical = NewestFirst $ _hdOutsideKHistorical :| []
+    }
+
+-- | Restoration is complete when we have all historical checkpoints
+--
+-- NOTE: The local block metadata in the partial checkpoints /already/
+-- accumulates (the local block metadata in the next partial checkpoint includes
+-- the local block metadata in the previous). Therefore we get the most recent
+-- /full/ checkpoint, and use that as the basis for constructing full block
+-- metadata for /all/ partial checkpoints.
+finishRestoration :: HdAccountWithinK -> HdAccountUpToDate
+finishRestoration HdAccountWithinK{..} = HdAccountUpToDate{
+      _hdUpToDateCheckpoints =
+           map (toFullCheckpoint mostRecent) _hdWithinKCurrent
+        <> _hdWithinKHistorical
+    }
+  where
+    NewestFirst (mostRecent :| _) = _hdWithinKHistorical
 
 {-------------------------------------------------------------------------------
   Template Haskell splices
@@ -306,6 +409,19 @@ deriveSafeCopy 1 'base ''HdRoot
 deriveSafeCopy 1 'base ''HdAccount
 deriveSafeCopy 1 'base ''HdAddress
 
+deriveSafeCopy 1 'base ''HdAccountState
+deriveSafeCopy 1 'base ''HdAccountUpToDate
+deriveSafeCopy 1 'base ''HdAccountWithinK
+deriveSafeCopy 1 'base ''HdAccountOutsideK
+
+instance SafeCopy (NewestFirst NonEmpty Checkpoint)  where
+    getCopy = error "TODO: getCopy for (NewestFirst NonEmpty Checkpoint)"
+    putCopy = error "TODO: putCopy for (NewestFirst NonEmpty Checkpoint)"
+
+instance SafeCopy (NewestFirst NonEmpty PartialCheckpoint)  where
+    getCopy = error "TODO: getCopy for (NewestFirst NonEmpty Checkpoint)"
+    putCopy = error "TODO: putCopy for (NewestFirst NonEmpty Checkpoint)"
+
 {-------------------------------------------------------------------------------
   Derived lenses
 -------------------------------------------------------------------------------}
@@ -319,8 +435,22 @@ hdAddressAccountId = hdAddressId . hdAddressIdParent
 hdAddressRootId :: Lens' HdAddress HdRootId
 hdAddressRootId = hdAddressAccountId . hdAccountIdParent
 
-hdAccountCurrentCheckpoint :: Lens' HdAccount Checkpoint
-hdAccountCurrentCheckpoint = hdAccountCheckpoints . currentCheckpoint
+hdAccountStateCurrent :: Lens' HdAccountState PartialCheckpoint
+hdAccountStateCurrent f (HdAccountStateUpToDate st) =
+    (\pcp -> HdAccountStateUpToDate (st & l .~ pcp)) <$> f (st ^. l)
+  where
+    l :: Lens' HdAccountUpToDate PartialCheckpoint
+    l = hdUpToDateCheckpoints . _Wrapped . neHead . fromFullCheckpoint
+hdAccountStateCurrent f (HdAccountStateWithinK st) =
+    (\pcp -> HdAccountStateWithinK (st & l .~ pcp)) <$> f (st ^. l)
+  where
+    l :: Lens' HdAccountWithinK PartialCheckpoint
+    l = hdWithinKCurrent . _Wrapped . neHead
+hdAccountStateCurrent f (HdAccountStateOutsideK st) =
+    (\pcp -> HdAccountStateOutsideK (st & l .~ pcp)) <$> f (st ^. l)
+  where
+    l :: Lens' HdAccountOutsideK PartialCheckpoint
+    l = hdOutsideKCurrent . _Wrapped . neHead
 
 {-------------------------------------------------------------------------------
   Unknown identifiers
@@ -480,6 +610,45 @@ zoomHdAddressId embedErr addrId =
 
     embedErr' :: UnknownHdAccount -> e
     embedErr' = embedErr . embedUnknownHdAccount
+
+-- | Pattern match on the state of the account
+matchHdAccountState :: Update' HdAccountUpToDate e a
+                    -> Update' HdAccountWithinK  e a
+                    -> Update' HdAccountOutsideK e a
+                    -> Update' HdAccount         e a
+matchHdAccountState updUpToDate updWithinK updOutsideK = StateT $ \acc ->
+    case acc ^. hdAccountState of
+      HdAccountStateUpToDate st ->
+            second (\st' -> acc & hdAccountState .~ HdAccountStateUpToDate st')
+        <$> runStateT updUpToDate st
+      HdAccountStateWithinK  st ->
+            second (\st' -> acc & hdAccountState .~ HdAccountStateWithinK st')
+        <$> runStateT updWithinK st
+      HdAccountStateOutsideK st ->
+            second (\st' -> acc & hdAccountState .~ HdAccountStateOutsideK st')
+        <$> runStateT updOutsideK st
+
+-- | Zoom to the current checkpoints of the wallet
+zoomHdAccountCheckpoints :: (   forall c. IsCheckpoint c
+                             => Update' (NewestFirst NonEmpty c) e a )
+                         -> Update' HdAccount e a
+zoomHdAccountCheckpoints upd =
+    matchHdAccountState
+      (zoom hdUpToDateCheckpoints upd)
+      (zoom hdWithinKCurrent      upd)
+      (zoom hdOutsideKCurrent     upd)
+
+-- | Variant of 'zoomHdAccountCheckpoints' that distinguishes between
+-- full checkpoints (wallet is up to date) and partial checkpoints
+-- (wallet is still recovering historical data)
+matchHdAccountCheckpoints :: Update' (NewestFirst NonEmpty Checkpoint)        e a
+                          -> Update' (NewestFirst NonEmpty PartialCheckpoint) e a
+                          -> Update' HdAccount e a
+matchHdAccountCheckpoints updFull updPartial =
+    matchHdAccountState
+      (zoom hdUpToDateCheckpoints updFull)
+      (zoom hdWithinKCurrent      updPartial)
+      (zoom hdOutsideKCurrent     updPartial)
 
 {-------------------------------------------------------------------------------
   Zoom to parts of the wallet, creating them if they don't exist

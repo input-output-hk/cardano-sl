@@ -41,7 +41,7 @@ import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
-import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
+import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 
 import           Test.QuickCheck (Arbitrary (..), oneof)
 

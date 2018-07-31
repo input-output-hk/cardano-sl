@@ -16,7 +16,8 @@ import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation (..), InputGrouping (..))
-import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp, paymentAmount)
+import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp,
+                     paymentAmount)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer)
 

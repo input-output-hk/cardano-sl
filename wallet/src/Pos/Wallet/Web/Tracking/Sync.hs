@@ -59,11 +59,11 @@ import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     HasDifficulty (..), HasProtocolConstants,
-                     Timestamp (..), genesisHash, blkSecurityParam,
-                     timestampToPosix)
-import           Pos.Core.Block (BlockHeader (..), HeaderHash, getBlockHeader,
-                     headerHash, headerSlotL, mainBlockTxPayload, MainBlock)
+                     HasDifficulty (..), HasProtocolConstants, Timestamp (..),
+                     blkSecurityParam, genesisHash, timestampToPosix)
+import           Pos.Core.Block (BlockHeader (..), HeaderHash, MainBlock,
+                     getBlockHeader, headerHash, headerSlotL,
+                     mainBlockTxPayload)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)

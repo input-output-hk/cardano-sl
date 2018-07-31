@@ -14,7 +14,6 @@ import           Data.Default (def)
 import           Data.Maybe (fromJust)
 import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
-import           System.Wlog (Severity (Debug))
 
 import           Pos.Chain.Block (Blund, Undo (..))
 
@@ -45,6 +44,7 @@ import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Actions as Actions
@@ -60,20 +60,20 @@ import           Cardano.Wallet.API.V1.Types (Payment (..),
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
-    => (Severity -> Text -> IO ())
+    => TraceNamed IO
     -> Keystore
     -> MonadDBReadAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore rocksDB f =
-    Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
+bracketPassiveWallet logTrace keystore rocksDB f =
+    Kernel.bracketPassiveWallet logTrace keystore rocksDB $ \w -> do
 
       -- Create the wallet worker and its communication endpoint `invoke`.
       bracket (liftIO $ Actions.forkWalletWorker $ Actions.WalletActionInterp
                  { Actions.applyBlocks  =  \blunds ->
                      Kernel.applyBlocks w $
                          OldestFirst (mapMaybe blundToResolvedBlock (toList (getOldestFirst blunds)))
-                 , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
-                 , Actions.emit         = logFunction Debug
+                 , Actions.switchToFork = \_ _ -> logDebug logTrace "<switchToFork>"
+                 , Actions.emit         = logDebug logTrace
                  }
               ) (\invoke -> liftIO (invoke Actions.Shutdown))
               $ \invoke -> do

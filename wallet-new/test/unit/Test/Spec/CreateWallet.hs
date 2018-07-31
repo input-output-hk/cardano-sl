@@ -10,9 +10,9 @@ import           Test.QuickCheck (arbitrary, frequency, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Data.Coerce (coerce)
-import           System.Wlog (Severity)
 
 import           Pos.Crypto (emptyPassphrase)
+import           Pos.Util.Trace (Trace, noTrace)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
@@ -39,14 +39,14 @@ import           Util.Buildable (ShowThroughBuild (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
+devNull :: Trace IO a
+devNull = noTrace
 
 withLayer :: MonadIO m
           => (PassiveWalletLayer m -> PassiveWallet -> IO a)
           -> PropertyM IO a
 withLayer cc = do
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
         WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
             cc layer wallet
 

@@ -15,9 +15,9 @@ import qualified Data.Map.Strict as M
 import           Control.Lens (to)
 import           Data.Acid (update)
 import           Formatting (build, sformat)
-import           System.Wlog (Severity)
 
 import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
+import           Pos.Util.Trace (Trace, noTrace)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState
@@ -46,8 +46,8 @@ import           Util.Buildable (ShowThroughBuild (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
+devNull :: Trace IO a
+devNull = noTrace
 
 data Fixture = Fixture {
       fixtureHdRootId  :: HdRootId
@@ -83,7 +83,7 @@ withFixture :: MonadIO m
             => (Keystore.Keystore -> PassiveWalletLayer m -> Fixture -> IO a) -> PropertyM IO a
 withFixture cc = do
     generateFixtures <- prepareFixtures
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
         WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
             fixtures <- generateFixtures wallet
             cc keystore layer fixtures

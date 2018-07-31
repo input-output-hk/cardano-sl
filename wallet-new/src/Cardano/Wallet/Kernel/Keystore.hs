@@ -37,10 +37,9 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
 
 import           Pos.Crypto (EncryptedSecretKey, hash)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      takeUserSecret, usKeys, writeUserSecretRelease)
-import           System.Wlog (CanLog (..), HasLoggerName (..), LoggerName (..),
-                     logMessage)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -56,12 +55,14 @@ data Keystore = Keystore (MVar InternalStorage)
 newtype KeystoreM a = KeystoreM { fromKeystore :: IdentityT IO a }
                     deriving (Functor, Applicative, Monad, MonadIO)
 
+{-
 instance HasLoggerName KeystoreM where
     askLoggerName = return (LoggerName "Keystore")
     modifyLoggerName _ action = action
 
 instance CanLog KeystoreM where
     dispatchMessage _ln sev txt = logMessage sev txt
+-}
 
 -- | A 'DeletePolicy' is a preference the user can express on how to release
 -- the 'Keystore' during its teardown.
@@ -85,20 +86,21 @@ data DeletePolicy =
 
 -- | Creates a 'Keystore' using a 'bracket' pattern, where the
 -- initalisation and teardown of the resource are wrapped in 'bracket'.
-bracketKeystore :: DeletePolicy
+bracketKeystore :: TraceNamed IO
+                -> DeletePolicy
                 -- ^ What to do if the keystore is empty
                 -> FilePath
                 -- ^ The path to the file which will be used for the 'Keystore'
                 -> (Keystore -> IO a)
                 -- ^ An action on the 'Keystore'.
                 -> IO a
-bracketKeystore deletePolicy fp withKeystore =
-    bracket (newKeystore fp) (releaseKeystore deletePolicy) withKeystore
+bracketKeystore logTrace deletePolicy fp withKeystore =
+    bracket (newKeystore logTrace fp) (releaseKeystore deletePolicy) withKeystore
 
 -- | Creates a new keystore.
-newKeystore :: FilePath -> IO Keystore
-newKeystore fp = runIdentityT $ fromKeystore $ do
-    us <- takeUserSecret fp
+newKeystore :: TraceNamed IO -> FilePath -> IO Keystore
+newKeystore logTrace fp = runIdentityT $ fromKeystore $ do
+    us <- liftIO $ takeUserSecret logTrace fp
     Keystore <$> newMVar (InternalStorage us)
 
 -- | Creates a legacy 'Keystore' by reading the 'UserSecret' from a 'NodeContext'.
@@ -117,9 +119,9 @@ bracketLegacyKeystore us withKeystore =
             (\_ -> return ()) -- Leave teardown to the legacy wallet
             withKeystore
 
-bracketTestKeystore :: (Keystore -> IO a) -> IO a
-bracketTestKeystore withKeystore =
-    bracket newTestKeystore
+bracketTestKeystore :: TraceNamed IO -> (Keystore -> IO a) -> IO a
+bracketTestKeystore logTrace withKeystore =
+    bracket (newTestKeystore logTrace)
             (releaseKeystore RemoveKeystoreIfEmpty)
             withKeystore
 
@@ -132,12 +134,12 @@ bracketTestKeystore withKeystore =
 -- production, but only for testing, as it can even possibly contain data
 -- races due to the fact its underlying file is stored in the OS' temporary
 -- directory.
-newTestKeystore :: IO Keystore
-newTestKeystore = liftIO $ runIdentityT $ fromKeystore $ do
+newTestKeystore :: TraceNamed IO -> IO Keystore
+newTestKeystore logTrace = liftIO $ runIdentityT $ fromKeystore $ do
     tempDir         <- liftIO getTemporaryDirectory
     (tempFile, hdl) <- liftIO $ openTempFile tempDir "keystore.key"
     liftIO $ hClose hdl
-    us <- takeUserSecret tempFile
+    us <- liftIO $ takeUserSecret logTrace tempFile
     Keystore <$> newMVar (InternalStorage us)
 
 -- | Release the resources associated with this 'Keystore'.

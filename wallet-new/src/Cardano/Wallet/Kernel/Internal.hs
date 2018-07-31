@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.Internal (
     -- * Passive wallet
     PassiveWallet(..)
   , ActiveWallet(..)
+    -- * lenses
   , walletKeystore
   , wallets
   , walletLogMessage
@@ -19,8 +20,6 @@ module Cardano.Wallet.Kernel.Internal (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-
-import           System.Wlog (Severity (..))
 
 import           Data.Acid (AcidState)
 
@@ -33,6 +32,7 @@ import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
 -- Handy re-export of the pure getters
 
 import           Pos.Core (ProtocolMagic)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -45,7 +45,7 @@ import           Pos.Core (ProtocolMagic)
 --
 data PassiveWallet = PassiveWallet {
       -- | Send log message
-      _walletLogMessage :: Severity -> Text -> IO ()
+      _walletLogMessage :: TraceNamed IO
       -- ^ Logger
     , _walletKeystore   :: Keystore
       -- ^ An opaque handle to a place where we store the 'EncryptedSecretKey'.

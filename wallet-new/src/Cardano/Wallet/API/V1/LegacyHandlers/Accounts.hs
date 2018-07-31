@@ -6,6 +6,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Accounts
 import           Universum
 
 import qualified Data.IxSet.Typed as IxSet
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Servant
 
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -25,17 +26,18 @@ import           Cardano.Wallet.API.V1.Types
 
 handlers
     :: HasConfigurations
-    => ProtocolMagic
+    => TraceNamed MonadV1
+    -> ProtocolMagic
     -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> ServerT Accounts.API MonadV1
-handlers pm txpConfig submitTx =
+handlers logTrace pm txpConfig submitTx =
          deleteAccount
-    :<|> getAccount
-    :<|> listAccounts
-    :<|> newAccount
-    :<|> updateAccount
-    :<|> redeemAda pm txpConfig submitTx
+    :<|> (getAccount logTrace)
+    :<|> (listAccounts logTrace)
+    :<|> (newAccount logTrace)
+    :<|> (updateAccount logTrace)
+    :<|> (redeemAda logTrace pm txpConfig submitTx)
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -45,16 +47,18 @@ deleteAccount wId accIdx =
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountIndex -> m (WalletResponse Account)
-getAccount wId accIdx =
-    single <$> (migrate (wId, accIdx) >>= V0.getAccount >>= migrate)
+    => TraceNamed m
+    -> WalletId -> AccountIndex -> m (WalletResponse Account)
+getAccount logTrace wId accIdx =
+    single <$> (migrate (wId, accIdx) >>= V0.getAccount logTrace >>= migrate)
 
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> RequestParams -> m (WalletResponse [Account])
-listAccounts wId params = do
+    => TraceNamed m
+    -> WalletId -> RequestParams -> m (WalletResponse [Account])
+listAccounts logTrace wId params = do
     wid' <- migrate wId
-    oldAccounts <- V0.getAccounts (Just wid')
+    oldAccounts <- V0.getAccounts logTrace (Just wid')
     newAccounts <- migrate @[V0.CAccount] @[Account] oldAccounts
     respondWith params
         (NoFilters :: FilterOperations Account)
@@ -63,32 +67,35 @@ listAccounts wId params = do
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> NewAccount -> m (WalletResponse Account)
-newAccount wId nAccount@NewAccount{..} = do
+    => TraceNamed m
+    -> WalletId -> NewAccount -> m (WalletResponse Account)
+newAccount logTrace wId nAccount@NewAccount{..} = do
     let (V1 spendingPw) = fromMaybe (V1 mempty) naccSpendingPassword
     accInit <- migrate (wId, nAccount)
-    cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
+    cAccount <- V0.newAccount logTrace V0.RandomSeed spendingPw accInit
     single <$> (migrate cAccount)
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
-updateAccount wId accIdx accUpdate = do
+    => TraceNamed m
+    -> WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
+updateAccount logTrace wId accIdx accUpdate = do
     newAccId <- migrate (wId, accIdx)
     accMeta <- migrate accUpdate
-    cAccount <- V0.updateAccount newAccId accMeta
+    cAccount <- V0.updateAccount logTrace newAccId accMeta
     single <$> (migrate cAccount)
 
 redeemAda
     :: HasConfigurations
-    => ProtocolMagic
+    => TraceNamed MonadV1
+    -> ProtocolMagic
     -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> WalletId
     -> AccountIndex
     -> Redemption
     -> MonadV1 (WalletResponse Transaction)
-redeemAda pm txpConfig submitTx walletId accountIndex r = do
+redeemAda logTrace pm txpConfig submitTx walletId accountIndex r = do
     let ShieldedRedemptionCode seed = redemptionRedemptionCode r
         V1 spendingPassword = redemptionSpendingPassword r
     accountId <- migrate (walletId, accountIndex)
@@ -101,10 +108,10 @@ redeemAda pm txpConfig submitTx walletId accountIndex r = do
                     , V0.pvSeed = seed
                     , V0.pvBackupPhrase = phrase
                     }
-            V0.redeemAdaPaperVend pm txpConfig submitTx spendingPassword cpaperRedeem
+            V0.redeemAdaPaperVend logTrace pm txpConfig submitTx spendingPassword cpaperRedeem
         Nothing -> do
             let cwalletRedeem = V0.CWalletRedeem
                     { V0.crWalletId = caccountId
                     , V0.crSeed = seed
                     }
-            V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem
+            V0.redeemAda logTrace pm txpConfig submitTx spendingPassword cwalletRedeem

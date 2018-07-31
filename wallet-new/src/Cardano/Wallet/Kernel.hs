@@ -36,8 +36,6 @@ import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import qualified Data.Map.Strict as Map
 
-import           System.Wlog (Severity (..))
-
 import           Data.Acid (AcidState)
 import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
@@ -75,6 +73,7 @@ import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
 import           Pos.Crypto (hash)
 import           Pos.DB.BlockIndex (getTipHeader)
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
@@ -85,16 +84,16 @@ import           Pos.DB.BlockIndex (getTipHeader)
 -- Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => (Severity -> Text -> IO ())
+                     => TraceNamed IO
                      -> Keystore
                      -> MonadDBReadAdaptor IO
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet logMsg keystore rocksDB f =
+bracketPassiveWallet logTrace keystore rocksDB f =
     bracket (liftIO $ openMemoryState defDB)
             (\_ -> return ())
             (\db ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore db rocksDB)
+                  (liftIO $ initPassiveWallet logTrace keystore db rocksDB)
                   (\_ -> return ())
                   f)
 
@@ -110,13 +109,13 @@ withKeystore pw action = action (pw ^. walletKeystore)
 -------------------------------------------------------------------------------}
 
 -- | Initialise Passive Wallet with empty Wallets collection
-initPassiveWallet :: (Severity -> Text -> IO ())
+initPassiveWallet :: TraceNamed IO
                   -> Keystore
                   -> AcidState DB
                   -> MonadDBReadAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore db rocksDB = do
-    return $ PassiveWallet logMessage keystore db rocksDB
+initPassiveWallet logTrace keystore db rocksDB = do
+    return $ PassiveWallet logTrace keystore db rocksDB
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -125,7 +124,7 @@ initPassiveWallet logMessage keystore db rocksDB = do
 init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
     tip <- withMonadDBRead _walletRocksDB $ getTipHeader
-    _walletLogMessage Info $ "Passive Wallet kernel initialized. Current tip: "
+    logInfo _walletLogMessage $ "Passive Wallet kernel initialized. Current tip: "
                           <> pretty tip
 
 {-------------------------------------------------------------------------------
@@ -201,7 +200,7 @@ bracketActiveWallet walletProtocolMagic walletPassive walletDiffusion runActiveW
     bracket
       (return ActiveWallet{..})
       (\_ -> liftIO $ do
-                 (_walletLogMessage walletPassive) Error "stopping the wallet submission layer..."
+                 logError (_walletLogMessage walletPassive) "stopping the wallet submission layer..."
                  cancel submissionLayerTicker
       )
       runActiveWallet

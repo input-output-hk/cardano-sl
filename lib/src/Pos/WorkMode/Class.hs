@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
@@ -27,8 +26,9 @@ import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
-import           Pos.Core.JsonLog (CanJsonLog)
+--import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
+import           Pos.Core.StateLock (StateLock, StateLockMetrics)
 import           Pos.DB.Block (MonadBListener)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext)
@@ -40,7 +40,6 @@ import           Pos.Infra.Network.Types (HasNodeType, NetworkConfig)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Recovery.Types (MonadRecoveryHeader)
 import           Pos.Util (HasLens, HasLens')
@@ -88,9 +87,8 @@ type WorkMode ctx m
 
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
-    = ( WithLogger m
-      , CanJsonLog m
-      , MonadIO m
+    = ( -- TODO CanJsonLog m
+        MonadIO m
       , MonadUnliftIO m
       , HasConfiguration
       , HasUpdateConfiguration

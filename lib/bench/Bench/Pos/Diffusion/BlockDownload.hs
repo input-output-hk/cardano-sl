@@ -19,7 +19,6 @@ import qualified Criterion
 import qualified Criterion.Main as Criterion
 import qualified Criterion.Main.Options as Criterion
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Semigroup ((<>))
 import qualified Options.Applicative as Opt (execParser)
 
 import           Data.List.NonEmpty (NonEmpty ((:|)))
@@ -54,7 +53,7 @@ import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (noTrace, wlogTrace)
+import           Pos.Util.Trace (noTrace)
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
@@ -140,7 +139,7 @@ withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server" <> "outboundqueue"))
+                 noTrace --("server" <> "outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -168,7 +167,7 @@ withServer transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("server" <> "diffusion")
+        , fdcTrace = noTrace --("server" <> "diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -183,7 +182,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 noTrace --("client" <> "outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -213,7 +212,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = noTrace --("client" <> "diffusion")
         }
 
 
@@ -278,16 +277,12 @@ blockDownloadStreamBenchmarks serverAddress setStreamIORef client =
     streamParams = pure (someHash, [someHash])
 
 runBlockDownloadBenchmark :: Criterion.Mode -> NodeId -> (Int -> IO ()) -> Diffusion IO -> IO ()
-runBlockDownloadBenchmark mode serverAddress setStreamIORef client =
+runBlockDownloadBenchmark mode serverAddress setStreamIORef client = do
+    putStrLn $ "client -> server (" ++ (show serverAddress) ++ ")"
     Criterion.runMode mode $ blockDownloadBenchmarks serverAddress setStreamIORef client
 
 runBenchmark :: IO ()
 runBenchmark = do
-    {-
-    Wlog.setupLogging Nothing $ (Wlog.defaultConfig "arbitrary_logger_name")
-        { Wlog._lcTree = Wlog.LoggerTree mempty [] (Just Wlog.allSeverities)
-        }
-    -}
     -- Parse criterion arguments before setting anything up. Wouldn't want to
     -- bring up a transport if the arguments don't parse.
     criterionMode <- Opt.execParser (Criterion.describe Criterion.defaultConfig)

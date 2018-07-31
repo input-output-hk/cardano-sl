@@ -17,8 +17,6 @@ import           Universum hiding (try)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
-import           System.Wlog (LoggerConfig (..), WithLogger, logInfo,
-                     parseLoggerConfig, productionB)
 import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
@@ -43,23 +41,30 @@ import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.LoggerConfig (LoggerConfig (..), parseLoggerConfig)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
-printFlags :: WithLogger m => m ()
-printFlags = do
-    inAssertMode $ logInfo "Asserts are ON"
+
+
+printFlags :: (Applicative m) => TraceNamed m -> m ()
+printFlags logTrace = do
+    inAssertMode $ logInfo logTrace "Asserts are ON"
 
 printInfoOnStart ::
-       (HasConfigurations, WithLogger m, MonadIO m)
-    => CommonNodeArgs
+     ( HasConfigurations
+     , MonadIO m
+     )
+    => TraceNamed m
+    -> CommonNodeArgs
     -> NtpConfiguration
     -> TxpConfiguration
     -> m ()
-printInfoOnStart CommonNodeArgs {..} ntpConfig txpConfig = do
-    whenJust cnaDumpGenesisDataPath $ dumpGenesisData True
+printInfoOnStart logTrace CommonNodeArgs {..} ntpConfig txpConfig = do
+    whenJust cnaDumpGenesisDataPath $ dumpGenesisData logTrace True
     when cnaDumpConfiguration $ dumpConfiguration ntpConfig txpConfig
-    printFlags
+    printFlags logTrace
     t <- currentTime
-    mapM_ logInfo $
+    mapM_ (logInfo logTrace) $
         [ sformat ("System start time is " % shown) $ gdStartTime genesisData
         , sformat ("Current time is "%shown) (Timestamp t)
         , sformat ("Using configs and genesis:\n"%shown)
@@ -85,7 +90,7 @@ attackTargetParser =
 -- | Default logger config. Will be used if `--log-config` argument is
 -- not passed.
 defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = productionB
+defaultLoggerConfig = mempty :: LoggerConfig
 
 -- | Reads logger config from given path. By default returns
 -- 'defaultLoggerConfig'.
@@ -94,11 +99,11 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | Dump our 'GenesisData' into a file.
 dumpGenesisData ::
-       (HasConfiguration, MonadIO m, WithLogger m) => Bool -> FilePath -> m ()
-dumpGenesisData canonical path = do
+       (HasConfiguration, MonadIO m) => TraceNamed m -> Bool -> FilePath -> m ()
+dumpGenesisData logTrace canonical path = do
     let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
     let prettyJsonStr = prettyGenesisJson genesisData
-    logInfo $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
+    logInfo logTrace $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
     liftIO $ case canonical of
         True  -> BSL.writeFile path canonicalJsonBytes
         False -> writeFile path (toText prettyJsonStr)

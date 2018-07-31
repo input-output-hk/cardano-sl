@@ -55,9 +55,9 @@ Two steps remain, then:
 
     ..and then add two following lines:
 
-    substituters = https://hydra.iohk.io https://cache.nixos.org/
-    trusted-substituters =
-    trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+        substituters = https://hydra.iohk.io https://cache.nixos.org/
+        trusted-substituters =
+        trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-node-static`:

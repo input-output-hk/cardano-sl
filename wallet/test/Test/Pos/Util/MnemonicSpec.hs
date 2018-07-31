@@ -138,10 +138,10 @@ spec = do
           )
         ]
       where
+        orFail :: Show e => Either e a -> a
         orFail =
             either (error . (<>) "Failed to create golden Mnemonic: " . show) identity
-        mkEntropy' =
-            maybe (Left MnemonicErrFailedToCreate) Right . toEntropy @128 @4 @ByteString
+        mkEntropy' = toEntropy @128 @4 @ByteString
 
     -- | V0 Mnemonics are wrapped in a singleton object with a `bpToList` prop
     jsonV0Compat :: BL.ByteString -> BL.ByteString

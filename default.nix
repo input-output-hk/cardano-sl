@@ -20,6 +20,7 @@ in
 , enableDebugging ? false
 , enableBenchmarks ? true
 , allowCustomConfig ? true
+, useStackBinaries ? false
 }:
 
 with pkgs.lib;
@@ -156,15 +157,15 @@ let
     inherit (pkgs) purescript;
     connectScripts = {
       mainnet = {
-        wallet = connect {};
+        wallet = connect { inherit useStackBinaries;};
         explorer = connect { executable = "explorer"; };
       };
       staging = {
-        wallet = connect { environment = "mainnet-staging"; };
+        wallet = connect { inherit useStackBinaries; environment = "mainnet-staging"; };
         explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
       };
       testnet = {
-        wallet = connect { environment = "testnet"; };
+        wallet = connect { inherit useStackBinaries; environment = "testnet"; };
         explorer = connect { executable = "explorer"; environment = "testnet"; };
       };
       demoWallet = connect { environment = "demo"; };

@@ -60,8 +60,8 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HasDifficulty (..), HasProtocolConstants, HeaderHash,
                      Timestamp (..), blkSecurityParam, genesisHash, headerHash,
                      headerSlotL, timestampToPosix)
-import           Pos.Core.Block (BlockHeader (..), getBlockHeader,
-                     mainBlockTxPayload, MainBlock)
+import           Pos.Core.Block (BlockHeader (..), MainBlock, getBlockHeader,
+                     mainBlockTxPayload)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
@@ -589,12 +589,18 @@ constructAllUsed usedAddresses modif =
 -- Addresses are used in TxIn's will be deleted,
 -- in TxOut's will be added.
 trackingApplyTxs
-    :: WalletDecrCredentials                 -- ^ Wallet's decryption credentials
-    -> [(Address, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
-    -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
-    -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
-    -> (BlockHeader -> Maybe PtxBlockInfo)    -- ^ Function to determine pending tx's block info
-    -> [(TxAux, TxUndo, BlockHeader)]         -- ^ Txs of blocks and corresponding header hash
+    :: WalletDecrCredentials
+    -- ^ Wallet's decryption credentials
+    -> [(Address, HeaderHash)]
+    -- ^ All used addresses from db along with their HeaderHashes
+    -> (BlockHeader -> Maybe ChainDifficulty)
+    -- ^ Function to determine tx chain difficulty
+    -> (BlockHeader -> Maybe Timestamp)
+    -- ^ Function to determine tx timestamp in history
+    -> (BlockHeader -> Maybe PtxBlockInfo)
+    -- ^ Function to determine pending tx's block info
+    -> [(TxAux, TxUndo, BlockHeader)]
+    -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
 trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo txs =
     foldl' applyTx mempty txs
@@ -610,7 +616,11 @@ trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo txs =
             ownTxIns = map (fst . fst) theeInputs
             ownTxOuts = map fst theeOutputs
 
-            addedHistory = maybe camAddedHistory (flip DL.cons camAddedHistory) (isTxEntryInteresting thee)
+            addedHistory =
+                maybe
+                    camAddedHistory
+                    (flip DL.cons camAddedHistory)
+                    (isTxEntryInteresting thee)
 
             usedAddrs = map (WS._wamAddress . snd) theeOutputs
             changeAddrs = evalChange
@@ -638,11 +648,16 @@ trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo txs =
 -- Process transactions on block rollback.
 -- Like @trackingApplyTxs@, but vise versa.
 trackingRollbackTxs
-    :: WalletDecrCredentials                  -- ^ Wallet's decryption credentials
-    -> [(Address, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
-    -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
-    -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
-    -> [(TxAux, TxUndo, BlockHeader)]         -- ^ Txs of blocks and corresponding header hash
+    :: WalletDecrCredentials
+    -- ^ Wallet's decryption credentials
+    -> [(Address, HeaderHash)]
+    -- ^ All used addresses from db along with their HeaderHashes
+    -> (BlockHeader -> Maybe ChainDifficulty)
+    -- ^ Function to determine tx chain difficulty
+    -> (BlockHeader -> Maybe Timestamp)
+    -- ^ Function to determine tx timestamp in history
+    -> [(TxAux, TxUndo, BlockHeader)]
+    -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
 trackingRollbackTxs credentials usedAddresses getDiff getTs txs =
     foldl' rollbackTx mempty txs
@@ -656,8 +671,9 @@ trackingRollbackTxs credentials usedAddresses getDiff getTs txs =
                 buildTHEntryExtra credentials (wh, undo) (getDiff blkHeader, getTs blkHeader)
 
             ownTxOutIns = map (fst . fst) theeOutputs
-            deletedHistory = maybe camDeletedHistory (DL.snoc camDeletedHistory) (isTxEntryInteresting thee)
             deletedPtxCandidates = DL.cons (txId, theeTxEntry) camDeletedPtxCandidates
+            deletedHistory =
+                maybe camDeletedHistory (DL.snoc camDeletedHistory) (isTxEntryInteresting thee)
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)

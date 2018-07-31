@@ -1,10 +1,14 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Integration.Clients
-    (
+    ( describeOptions
+
     -- * WWebModeRunner (run WalletWebMode actions)
-      WWebModeRunner(..)
+    , WWebModeRunner(..)
     , mkWWebModeRunner
 
     -- * WalletClient (run requests against the API)
+    , WalletClient
     , mkWHttpClient
     ) where
 
@@ -19,6 +23,7 @@ import           System.Wlog (LoggerName (..))
 import           Cardano.Wallet.Client.Http (BaseUrl (..), Scheme (..),
                      WalletClient, credentialLoadX509, liftClient,
                      mkHttpClient, mkHttpsManagerSettings, newManager)
+import           NeatInterpolation (text)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -39,12 +44,15 @@ newtype (WWebModeRunner m) = WWebModeRunner
     }
 
 
--- INTEGRATION_TESTS_NODE_PATH        = Path to a valid rocksdb database
--- INTEGRATION_TESTS_WALLET_PATH      = Path to a valid acid-state database
--- INTEGRATION_TESTS_DB_PATH          = Path to directory with all DBs used by the node
--- INTEGRATION_TESTS_CONFIG_PATH      = Path to the yaml configuration file
--- INTEGRATION_TESTS_CONFIG_KEY       = Key to use within that config file (e.g. development, test)
--- INTEGRATION_TESTS_SYSTEM_START     = Timestamp at which the system has started, in us
+instance DescribeOptions WWebModeRunner where
+    describeOptions _ = [text|
+    INTEGRATION_TESTS_GENESIS_SECRET   = Override genesis secret from the config file (e.g. 14)
+    INTEGRATION_TESTS_WALLET_PATH      = Path to the acid-state database (e.g. 'wallet-db')
+    INTEGRATION_TESTS_DB_PATH          = Path to the rocksdb database (e.g. 'node-db')
+    INTEGRATION_TESTS_CONFIG_PATH      = Path to the configuration file (e.g. 'lib/configuration.yaml')
+    INTEGRATION_TESTS_CONFIG_KEY       = Configuration key to use (e.g. 'default')
+    INTEGRATION_TESTS_SYSTEM_START     = Timestamp (is μs) at which the system has started (e.g. 1533025621472000)
+|]
 
 -- | Read environment variables and turn them into node arguments, using default
 -- value for the rest. Then, return a runner able to execute (WalletWebMode a)
@@ -81,6 +89,15 @@ mkWWebModeRunner = do
     return $ WWebModeRunner (Runner.runWWebMode commonNodeArgs nodeArgs extraNodeArgs)
 
 
+instance DescribeOptions WalletClient where
+    describeOptions _ = [text|
+    INTEGRATION_TESTS_CLIENT_CERT_PATH = Path to a x509 client certificate (e.g. 'tls-files/client.crt')
+    INTEGRATION_TESTS_CLIENT_KEY_PATH  = Path to a corresponding client private key (e.g. 'tls-files/client.key')
+    INTEGRATION_TESTS_CA_CERT_PATH     = Path to a x509 CA certificate (e.g. 'tls-files/ca.crt')
+    INTEGRATION_TESTS_SERVER_HOST      = Wallet backend's host (e.g. 'localhost')
+    INTEGRATION_TESTS_SERVER_PORT      = Wallet backend's port (e.g. 8090)
+|]
+
 mkWHttpClient :: MonadIO m => IO (WalletClient m)
 mkWHttpClient = do
     tlsClientCertPath <- lookupEnvD "../run/tls-files/client.crt" "INTEGRATION_TESTS_CLIENT_CERT_PATH"
@@ -108,6 +125,9 @@ mkWHttpClient = do
 --
 -- INTERNALS
 --
+
+class DescribeOptions (a :: (* -> *) -> *) where
+    describeOptions :: Proxy a -> Text
 
 newtype DefaultValue
     = DefaultValue String

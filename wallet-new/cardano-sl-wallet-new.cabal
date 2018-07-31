@@ -649,7 +649,7 @@ benchmark cardano-sl-wallet-new-bench
                         TemplateHaskell
                         ScopedTypeVariables
 
-test-suite wallet-integration-tests
+test-suite integration
   default-language:   Haskell2010
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
@@ -698,6 +698,7 @@ test-suite wallet-integration-tests
                     , lens
                     , log-warper
                     , mtl
+                    , neat-interpolation
                     , quickcheck-instances
                     , random
                     , stm

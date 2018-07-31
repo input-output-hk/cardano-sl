@@ -39,6 +39,7 @@ import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
 import           Pos.DB.Update (getAdoptedBVFull)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
@@ -61,7 +62,7 @@ spec = withStaticConfigurations $ \txpConfig _ ->
             -- negligible) and performance matters (but not very much,
             -- so we can run more than once).
             modifyMaxSuccess (const 4) $ prop lrcCorrectnessDesc $
-                blockPropertyToProperty genTestParams (lrcCorrectnessProp txpConfig)
+                blockPropertyToProperty noTrace genTestParams (lrcCorrectnessProp txpConfig)
             -- This test is relatively slow, hence we launch it only 15 times.
             modifyMaxSuccess (const 15) $ blockPropertySpec lessThanKAfterCrucialDesc
                 (lessThanKAfterCrucialProp txpConfig)
@@ -157,7 +158,7 @@ lrcCorrectnessProp txpConfig = do
                       (Just blkCount1)
                       (EnableTxPayload False)
                       (InplaceDB True)
-    lift $ Lrc.lrcSingleShot dummyProtocolMagic 1
+    lift $ Lrc.lrcSingleShot noTrace dummyProtocolMagic 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (LrcDB.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
@@ -258,7 +259,8 @@ genAndApplyBlockFixedTxs txpConfig txs = do
                              (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
     (adoptedBV, adoptedBVD) <- run getAdoptedBVFull
-    lift $ applyBlocksUnsafe dummyProtocolMagic
+    lift $ applyBlocksUnsafe noTrace
+                             dummyProtocolMagic
                              adoptedBV
                              adoptedBVD
                              (ShouldCallBListener False)
@@ -312,7 +314,7 @@ lessThanKAfterCrucialProp txpConfig = do
              " blocks after crucial slot, but it failed")
     let unexpectedFailMsg = sformat (mkFormat "succeed") inLast2K
     let unexpectedSuccessMsg = sformat (mkFormat "fail") inLast2K
-    lift (try $ Lrc.lrcSingleShot dummyProtocolMagic 1) >>= \case
+    lift (try $ Lrc.lrcSingleShot noTrace dummyProtocolMagic 1) >>= \case
         Left Lrc.UnknownBlocksForLrc
             | shouldSucceed -> stopProperty unexpectedFailMsg
             | otherwise -> pass

@@ -72,6 +72,7 @@ import           Pos.DB.Txp (TxpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode,
                      MonadBlockGen, TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (lensOf')
 
 ----------------------------------------------------------------------------
@@ -157,26 +158,28 @@ flattenBlockchainTree prePath tree = do
     (prePath, a) : flattenBlockchainForest prePath forest
 
 genBlocksInForest
-    :: BlockTxpGenMode g ctx m
-    => ProtocolMagic
+    :: (MonadIO m, BlockTxpGenMode g ctx m)
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets
     -> GenesisWStakeholders
     -> BlockchainForest BlockDesc
     -> RandT g m (BlockchainForest Blund)
-genBlocksInForest pm txpConfig secrets bootStakeholders =
+genBlocksInForest logTrace pm txpConfig secrets bootStakeholders =
     traverse $ mapRandT withClonedGState .
-    genBlocksInTree pm txpConfig secrets bootStakeholders
+    genBlocksInTree logTrace pm txpConfig secrets bootStakeholders
 
 genBlocksInTree
-    :: BlockTxpGenMode g ctx m
-    => ProtocolMagic
+    :: (MonadIO m, BlockTxpGenMode g ctx m)
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets
     -> GenesisWStakeholders
     -> BlockchainTree BlockDesc
     -> RandT g m (BlockchainTree Blund)
-genBlocksInTree pm txpConfig secrets bootStakeholders blockchainTree = do
+genBlocksInTree logTrace pm txpConfig secrets bootStakeholders blockchainTree = do
     txpSettings <- view (lensOf' @TxpGlobalSettings)
     let BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
@@ -191,28 +194,30 @@ genBlocksInTree pm txpConfig secrets bootStakeholders blockchainTree = do
             , _bgpSkipNoKey       = False
             , _bgpTxpGlobalSettings = txpSettings
             }
-    blocks <- genBlocks pm txpConfig blockGenParams maybeToList
+    blocks <- genBlocks logTrace pm txpConfig blockGenParams maybeToList
     block <- case blocks of
         [block] -> return block
         _ ->
             -- We specify '_bgpBlockCount = 1' above, so the output must contain
             -- exactly one block.
             error "genBlocksInTree: impossible - 'genBlocks' generated unexpected amount of blocks"
-    forestBlocks <- genBlocksInForest pm txpConfig secrets bootStakeholders blockchainForest
+    forestBlocks <- genBlocksInForest logTrace pm txpConfig secrets bootStakeholders blockchainForest
     return $ BlockchainTree block forestBlocks
 
 -- Precondition: paths in the structure are non-empty.
 genBlocksInStructure ::
-       ( BlockTxpGenMode g ctx m
+       ( MonadIO m
+       , BlockTxpGenMode g ctx m
        , Functor t, Foldable t)
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> AllSecrets
     -> GenesisWStakeholders
     -> Map Path BlockDesc
     -> t Path
     -> RandT g m (t Blund)
-genBlocksInStructure pm txpConfig secrets bootStakeholders annotations s = do
+genBlocksInStructure logTrace pm txpConfig secrets bootStakeholders annotations s = do
     let
         getAnnotation :: Path -> BlockDesc
         getAnnotation path =
@@ -222,7 +227,7 @@ genBlocksInStructure pm txpConfig secrets bootStakeholders annotations s = do
         descForest :: BlockchainForest BlockDesc
         descForest = buildBlockchainForest BlockDescDefault paths
     blockForest :: BlockchainForest Blund <-
-        genBlocksInForest pm txpConfig secrets bootStakeholders descForest
+        genBlocksInForest logTrace pm txpConfig secrets bootStakeholders descForest
     let
         getBlock :: Path -> Blund
         getBlock path = Map.findWithDefault

@@ -20,7 +20,6 @@ import qualified Control.Monad.Trans.Control as MC
 import qualified Crypto.Random as Rand
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Microsecond)
-import           System.Wlog (CanLog (..))
 import           UnliftIO (MonadUnliftIO)
 
 newtype ClockVar = ClockVar (IORef Microsecond)
@@ -80,5 +79,5 @@ instance MC.MonadBaseControl IO Emulation where
         (a -> Emulation a))
       MC.restoreM
 
-instance CanLog Emulation where
-    dispatchMessage ln s t = Emulation $ dispatchMessage ln s t
+--instance CanLog Emulation where
+--    dispatchMessage ln s t = Emulation $ dispatchMessage ln s t

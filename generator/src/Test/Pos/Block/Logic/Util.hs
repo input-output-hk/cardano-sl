@@ -37,6 +37,7 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings,
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..),
                      MonadBlockGenInit, genBlocks, tgpTxCountRange)
 import           Pos.Util (HasLens', _neLast)
+import           Pos.Util.Trace (noTrace)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
                      btcSlotIdL)
 
@@ -97,7 +98,7 @@ bpGenBlocks
 bpGenBlocks pm txpConfig blkCnt enableTxPayload inplaceDB = do
     params <- genBlockGenParams pm blkCnt enableTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ OldestFirst <$> evalRandT (genBlocks pm txpConfig params maybeToList) g
+    lift $ OldestFirst <$> evalRandT (genBlocks noTrace pm txpConfig params maybeToList) g
 
 -- | A version of 'bpGenBlocks' which generates exactly one
 -- block. Allows one to avoid unsafe functions sometimes.

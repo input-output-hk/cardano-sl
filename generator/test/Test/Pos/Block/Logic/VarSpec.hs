@@ -44,6 +44,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                      DbNotEquivalentToSnapshot (..), lastSlot,
@@ -107,7 +108,7 @@ verifyEmptyMainBlock txpConfig = do
                                      (EnableTxPayload False)
                                      (InplaceDB False)
     ctx <- run $ getVerifyBlocksContext' (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot $ emptyBlock)
-    whenLeftM (lift $ verifyBlocksPrefix dummyProtocolMagic ctx (one emptyBlock))
+    whenLeftM (lift $ verifyBlocksPrefix noTrace dummyProtocolMagic ctx (one emptyBlock))
         $ stopProperty
         . pretty
 
@@ -132,6 +133,7 @@ verifyValidBlocks txpConfig = do
 
     ctx <- run $ getVerifyBlocksContext' (lastSlot blocks)
     verRes <- lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix
+        noTrace
         dummyProtocolMagic
         ctx
         blocksToVerify
@@ -154,7 +156,7 @@ verifyAndApplyBlocksSpec txpConfig =
         satisfySlotCheck blocks $
            -- we don't check current SlotId, because the applier is run twice
            -- and the check will fail the verification
-           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic txpConfig ctx True blocks) throwM
+           whenLeftM (verifyAndApplyBlocks noTrace dummyProtocolMagic txpConfig ctx True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>
@@ -307,7 +309,8 @@ blockPropertyScenarioGen txpConfig m = do
     allSecrets <- getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ flip evalRandT g $ runBlockEventGenT dummyProtocolMagic
+    lift $ flip evalRandT g $ runBlockEventGenT noTrace
+                                                dummyProtocolMagic
                                                 txpConfig
                                                 allSecrets
                                                 genStakeholders

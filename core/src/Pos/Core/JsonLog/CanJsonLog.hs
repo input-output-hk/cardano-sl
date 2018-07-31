@@ -53,8 +53,3 @@ instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
 deriving instance CanJsonLog (t m) => CanJsonLog (Ether.TaggedTrans tag t m)
-
--- Required for @Explorer@ @BListener@ and @ExtraContext@ redirect
-deriving instance CanJsonLog m => CanJsonLog (Ether.TaggedTrans tag IdentityT m)
-deriving instance CanJsonLog m => CanJsonLog (Ether.ReaderT tag r m)
-

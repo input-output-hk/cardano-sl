@@ -189,7 +189,6 @@ library
                        Pos.Core.Update.Data
                        Pos.Core.Update.Payload
                        Pos.Core.Update.Proof
-                       Pos.Core.Update.Proposal
                        Pos.Core.Update.SoftforkRule
                        Pos.Core.Update.SoftwareVersion
                        Pos.Core.Update.SystemTag

@@ -6,7 +6,6 @@ module Pos.Core.Update
        , module Pos.Core.Update.Data
        , module Pos.Core.Update.Payload
        , module Pos.Core.Update.Proof
-       , module Pos.Core.Update.Proposal
        , module Pos.Core.Update.SoftforkRule
        , module Pos.Core.Update.SoftwareVersion
        , module Pos.Core.Update.SystemTag
@@ -20,7 +19,6 @@ import           Pos.Core.Update.BlockVersionModifier
 import           Pos.Core.Update.Data
 import           Pos.Core.Update.Payload
 import           Pos.Core.Update.Proof
-import           Pos.Core.Update.Proposal
 import           Pos.Core.Update.SoftforkRule
 import           Pos.Core.Update.SoftwareVersion
 import           Pos.Core.Update.SystemTag

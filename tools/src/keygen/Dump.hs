@@ -14,12 +14,12 @@ import           Serokell.Util (enumerate)
 import qualified Serokell.Util.Base64 as B64
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
 import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..),
                      RichSecrets (..), poorSecretToEncKey)
 import           Pos.Crypto (SecretKey)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 import           Pos.Util.UserSecret (UserSecret, initializeUserSecret,
                      mkGenesisWalletUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease)
@@ -29,30 +29,33 @@ import           Pos.Util.UserSecret (UserSecret, initializeUserSecret,
 ----------------------------------------------------------------------------
 
 dumpDlgIssuerSecret
-    :: (MonadIO m, MonadThrow m, WithLogger m)
-    => FilePath
+    :: (MonadIO m, MonadThrow m)
+    => TraceNamed m
+    -> FilePath
     -> SecretKey
     -> m ()
-dumpDlgIssuerSecret fp sk = dumpUserSecret fp $ usPrimKey .~ Just sk
+dumpDlgIssuerSecret logTace fp sk = dumpUserSecret logTace fp $ usPrimKey .~ Just sk
 
 dumpRichSecrets
-    :: (MonadIO m, MonadThrow m, WithLogger m)
-    => FilePath
+    :: (MonadIO m, MonadThrow m)
+    => TraceNamed m
+    -> FilePath
     -> RichSecrets
     -> m ()
-dumpRichSecrets fp RichSecrets {..} =
-    dumpUserSecret fp $
+dumpRichSecrets logTace fp RichSecrets {..} =
+    dumpUserSecret logTace fp $
     foldl' (.) identity [ usPrimKey .~ Just rsPrimaryKey
                         , usVss .~ Just rsVssKeyPair
                         ]
 
 dumpPoorSecret
-    :: (MonadIO m, MonadThrow m, WithLogger m)
-    => FilePath
+    :: (MonadIO m, MonadThrow m)
+    => TraceNamed m
+    -> FilePath
     -> PoorSecret
     -> m ()
-dumpPoorSecret fp poorSec = let hdwSk = poorSecretToEncKey poorSec in
-    dumpUserSecret fp $
+dumpPoorSecret logTace fp poorSec = let hdwSk = poorSecretToEncKey poorSec in
+    dumpUserSecret logTace fp $
     foldl' (.) identity [ usKeys %~ (hdwSk :)
                         , usWallet ?~ mkGenesisWalletUserSecret hdwSk
                         ]
@@ -65,28 +68,30 @@ dumpFakeAvvmSeed fp seed = writeFile fp (B64.encode seed)
 ----------------------------------------------------------------------------
 
 dumpGeneratedGenesisData
-    :: (MonadIO m, WithLogger m, MonadThrow m, HasGeneratedSecrets)
-    => (FilePath, FilePath)
+    :: (MonadIO m, MonadThrow m, HasGeneratedSecrets)
+    => TraceNamed m
+    -> (FilePath, FilePath)
     -> m ()
-dumpGeneratedGenesisData (dir, pat) = do
+dumpGeneratedGenesisData logTace (dir, pat) = do
     let GeneratedSecrets {..} =
             fromMaybe (error "GeneratedSecrets are unknown") generatedSecrets
-    dumpKeyfiles (dir, pat) gsDlgIssuersSecrets gsRichSecrets gsPoorSecrets
-    dumpFakeAvvmSeeds dir gsFakeAvvmSeeds
+    dumpKeyfiles logTace (dir, pat) gsDlgIssuersSecrets gsRichSecrets gsPoorSecrets
+    dumpFakeAvvmSeeds logTace dir gsFakeAvvmSeeds
 
 dumpKeyfiles
-    :: (MonadIO m, MonadThrow m, WithLogger m)
-    => (FilePath, FilePath) -- directory and key-file pattern
+    :: (MonadIO m, MonadThrow m)
+    => TraceNamed m
+    -> (FilePath, FilePath) -- directory and key-file pattern
     -> [SecretKey]
     -> [RichSecrets]
     -> [PoorSecret]
     -> m ()
-dumpKeyfiles (dir, pat) dlgIssuers richs poors = do
+dumpKeyfiles logTrace (dir, pat) dlgIssuers richs poors = do
     let keysDir = dir </> "generated-keys"
     let dlgIssuersDir = keysDir </> "dlg-issuers"
     let richDir = keysDir </> "rich"
     let poorDir = keysDir </> "poor"
-    logInfo $ "Dumping generated genesis secrets into " <> fromString keysDir
+    logInfo logTrace $ "Dumping generated genesis secrets into " <> fromString keysDir
     mapM_ (liftIO . createDirectoryIfMissing True)
         [ dlgIssuersDir
         , richDir
@@ -97,42 +102,44 @@ dumpKeyfiles (dir, pat) dlgIssuers richs poors = do
 
     let patternize = applyPattern @Int pat
     forM_ (enumerate dlgIssuers) $ \(i, sk) ->
-        dumpDlgIssuerSecret (dlgIssuersDir </> patternize i) sk
+        dumpDlgIssuerSecret logTrace (dlgIssuersDir </> patternize i) sk
     forM_ (enumerate richs) $ \(i, richSecrets) ->
-        dumpRichSecrets (richDir </> patternize i) richSecrets
+        dumpRichSecrets logTrace (richDir </> patternize i) richSecrets
     forM_ (enumerate poors) $ \(i, hdwSk) ->
-        dumpPoorSecret (poorDir </> patternize i) hdwSk
+        dumpPoorSecret logTrace (poorDir </> patternize i) hdwSk
 
-    logInfo $ show totalSecrets <> " keyfiles are generated"
+    logInfo logTrace $ show totalSecrets <> " keyfiles are generated"
 
 dumpFakeAvvmSeeds
-    :: (MonadIO m, WithLogger m)
-    => FilePath
+    :: MonadIO m
+    => TraceNamed m
+    -> FilePath
     -> [ByteString]
     -> m ()
-dumpFakeAvvmSeeds dir seeds = do
+dumpFakeAvvmSeeds logTrace dir seeds = do
     let keysDir = dir </> "keys-fakeavvm"
-    logInfo $ "Generating fake avvm data into " <> fromString keysDir
+    logInfo logTrace $ "Generating fake avvm data into " <> fromString keysDir
     liftIO $ createDirectoryIfMissing True keysDir
     let faoCount = length seeds
 
     forM_ (enumerate seeds) $ \(i :: Int, seed) ->
         dumpFakeAvvmSeed (keysDir </> ("fake-" <> show i <> ".seed")) seed
 
-    logInfo (show faoCount <> " fake avvm seeds are generated")
+    logInfo logTrace (show faoCount <> " fake avvm seeds are generated")
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 dumpUserSecret
-    :: (MonadIO m, MonadThrow m, WithLogger m)
-    => FilePath
+    :: (MonadIO m, MonadThrow m)
+    => TraceNamed m
+    -> FilePath
     -> (UserSecret -> UserSecret)
     -> m ()
-dumpUserSecret fp operation = do
-    initializeUserSecret fp
-    us <- takeUserSecret fp
+dumpUserSecret logTace fp operation = do
+    initializeUserSecret logTace fp
+    us <- takeUserSecret logTace fp
     writeUserSecretRelease (operation us)
 
 -- Replace "{}" with the result of applying 'show' to the given

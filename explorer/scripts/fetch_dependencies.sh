@@ -8,7 +8,6 @@ https://github.com/serokell/log-warper.git
 https://github.com/serokell/kademlia.git
 https://github.com/serokell/rocksdb-haskell.git
 https://github.com/serokell/time-warp-nt.git
-https://github.com/thoughtpolice/hs-ed25519.git
 https://github.com/serokell/network-transport.git
 https://github.com/serokell/network-transport-tcp.git
 https://github.com/input-output-hk/cardano-crypto.git

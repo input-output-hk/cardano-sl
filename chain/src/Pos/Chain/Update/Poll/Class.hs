@@ -28,7 +28,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List as List (find)
 import qualified Ether
-import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Chain.Update.BlockVersion (applyBVM)
 import           Pos.Chain.Update.Poll.Modifier (PollModifier (..),
@@ -51,13 +50,14 @@ import           Pos.Crypto (hash)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (ether)
 
+
 ----------------------------------------------------------------------------
 -- Read-only
 ----------------------------------------------------------------------------
 
 -- | Type class which provides function necessary for read-only
 -- verification of US data.
-class (Monad m, WithLogger m) => MonadPollRead m where
+class Monad m => MonadPollRead m where
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]
@@ -102,7 +102,7 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getAdoptedBVData = snd <$> getAdoptedBVFull
 
 instance {-# OVERLAPPABLE #-}
-    (MonadPollRead m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
+    (MonadPollRead m, MonadTrans t, Monad (t m)) =>
         MonadPollRead (t m)
   where
     getBVState = lift . getBVState
@@ -153,7 +153,7 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Set proposers.
 
 instance {-# OVERLAPPABLE #-}
-    (MonadPoll m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
+    (MonadPoll m, MonadTrans t, Monad (t m)) =>
         MonadPoll (t m)
   where
     putBVState pv = lift . putBVState pv
@@ -348,7 +348,8 @@ instance (MonadPollRead m) =>
         adoptedBVD <- getAdoptedBVData
         case bvs of
             Nothing ->
-                logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+                --logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+                return ()
             Just (bvsModifier -> bvm) ->
                 pmAdoptedBVFullL .= Just (bv, applyBVM bvm adoptedBVD)
     setLastConfirmedSV SoftwareVersion {..} = ether $

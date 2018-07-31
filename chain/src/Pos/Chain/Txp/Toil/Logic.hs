@@ -70,6 +70,8 @@ verifyToil pm bvd lockedAssets curEpoch verifyAllIsKnown =
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
+
+
 applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 applyToil [] = pass
 applyToil txun = do

@@ -4,8 +4,9 @@ synopsis:            Cardano SL - generators for cardano-sl-infra
 description:         This package contains generators for the infrastructural data types used in Cardano SL.
 license:             MIT
 license-file:        LICENSE
+homepage:            https://github.com/input-output-hk/cardano-sl
 author:              IOHK
-maintainer:          IOHK <support@iohk.io>
+maintainer:          support@iohk.io
 copyright:           2018 IOHK
 category:            Currency
 build-type:          Simple

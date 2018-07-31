@@ -136,7 +136,7 @@ getAccount snapshot (V1.WalletId wId) accountIndex = do
                 wallets = Kernel.hdWallets snapshot
 
             return $ case readHdAccount hdAccountId wallets of
-                 Left kernelError -> Left $ GetAccountError kernelError
+                 Left kernelError -> Left $ GetAccountError (V1 kernelError)
                  Right acc        -> Right $ toV1Account snapshot acc
 
 deleteAccount :: MonadIO m
@@ -153,7 +153,7 @@ deleteAccount wallet (V1.WalletId wId) accountIndex = do
                 hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
             res <- liftIO $ Kernel.deleteAccount hdAccountId wallet
             return $ case res of
-                 Left e   -> Left (DeleteAccountError e)
+                 Left e   -> Left (DeleteAccountError (V1 e))
                  Right () -> Right ()
 
 updateAccount :: MonadIO m
@@ -172,7 +172,7 @@ updateAccount wallet (V1.WalletId wId) accountIndex (V1.AccountUpdate newAccount
                 accountName = HD.AccountName newAccountName
             res <- liftIO $ Kernel.updateAccount hdAccountId accountName wallet
             return $ case res of
-                 Left e                -> Left (UpdateAccountError e)
+                 Left e                -> Left (UpdateAccountError (V1 e))
                  Right (snapshot, acc) -> Right $ toV1Account snapshot acc
 
 {-----------------------------------------------------------------------------
@@ -199,15 +199,11 @@ toV1Account snapshot account =
 
 
 -- | Converts a Kernel 'HdAddress' into a V1 'WalletAddress'.
-toWalletAddress :: Kernel.DB
-                -> HD.HdAddress
-                -> V1.WalletAddress
+toWalletAddress :: Kernel.DB -> HD.HdAddress -> V1.WalletAddress
 toWalletAddress db hdAddress =
     let cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
         hdAccountId = hdAddress ^. HD.hdAddressId . HD.hdAddressIdParent
-    in case Kernel.lookupAddressMeta db hdAccountId cardanoAddress of
-           Nothing -> V1.WalletAddress (V1 cardanoAddress) False False
-           Just addressMeta ->
-               V1.WalletAddress (V1 cardanoAddress)
-                                (addressMeta ^. addressMetaIsUsed)
-                                (addressMeta ^. addressMetaIsChange)
+        addressMeta = Kernel.readAddressMeta db hdAccountId cardanoAddress
+    in V1.WalletAddress (V1 cardanoAddress)
+                        (addressMeta ^. addressMetaIsUsed)
+                        (addressMeta ^. addressMetaIsChange)

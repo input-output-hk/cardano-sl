@@ -41,7 +41,7 @@ import qualified Formatting.Buildable
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-                     Payment, Wallet, WalletId, WalletUpdate)
+                     Payment, V1 (..), Wallet, WalletId, WalletUpdate)
 
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
@@ -150,7 +150,7 @@ instance Buildable CreateAccountError where
         bprint ("CreateAccountFirstAddressGenerationFailed " % build) kernelError
 
 data GetAccountError =
-      GetAccountError Kernel.UnknownHdAccount
+      GetAccountError (V1 Kernel.UnknownHdAccount)
     | GetAccountWalletIdDecodingFailed Text
     deriving Eq
 
@@ -167,7 +167,7 @@ instance Buildable GetAccountError where
         bprint ("GetAccountWalletIdDecodingFailed " % build) txt
 
 data DeleteAccountError =
-      DeleteAccountError Kernel.DeleteAccountError
+      DeleteAccountError (V1 Kernel.UnknownHdAccount)
     | DeleteAccountWalletIdDecodingFailed Text
     deriving Eq
 
@@ -201,7 +201,7 @@ instance Buildable GetAccountsError where
         bprint ("GetAccountsWalletIdDecodingFailed " % build) txt
 
 data UpdateAccountError =
-      UpdateAccountError Kernel.UpdateAccountError
+      UpdateAccountError (V1 Kernel.UnknownHdAccount)
     | UpdateAccountWalletIdDecodingFailed Text
     deriving Eq
 

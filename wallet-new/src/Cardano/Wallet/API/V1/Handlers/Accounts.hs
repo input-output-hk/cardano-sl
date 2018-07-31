@@ -30,7 +30,7 @@ deleteAccount :: PassiveWalletLayer IO
               -> AccountIndex
               -> Handler NoContent
 deleteAccount layer wId accIdx = do
-    res <- liftIO $ (WalletLayer.deleteAccount layer) wId accIdx
+    res <- liftIO $ WalletLayer.deleteAccount layer wId accIdx
     case res of
          Left e   -> throwM e
          Right () -> return NoContent
@@ -41,7 +41,7 @@ getAccount :: PassiveWalletLayer IO
            -> AccountIndex
            -> Handler (WalletResponse Account)
 getAccount layer wId accIdx = do
-    res <- liftIO $ (WalletLayer.getAccount layer) wId accIdx
+    res <- liftIO $ WalletLayer.getAccount layer wId accIdx
     case res of
          Left e        -> throwM e
          Right account -> return $ single account
@@ -51,7 +51,7 @@ listAccounts :: PassiveWalletLayer IO
              -> RequestParams
              -> Handler (WalletResponse [Account])
 listAccounts layer wId params = do
-    res <- liftIO $ (WalletLayer.getAccounts layer) wId
+    res <- liftIO $ WalletLayer.getAccounts layer wId
     case res of
          Left e         -> throwM e
          Right accounts ->
@@ -68,7 +68,7 @@ newAccount :: PassiveWalletLayer IO
            -> NewAccount
            -> Handler (WalletResponse Account)
 newAccount layer wId newAccountRequest = do
-    res <- liftIO $ (WalletLayer.createAccount layer) wId newAccountRequest
+    res <- liftIO $ WalletLayer.createAccount layer wId newAccountRequest
     case res of
          Left e        -> throwM e
          Right account -> return $ single account
@@ -79,7 +79,7 @@ updateAccount :: PassiveWalletLayer IO
               -> AccountUpdate
               -> Handler (WalletResponse Account)
 updateAccount layer wId accIdx updateRequest = do
-    res <- liftIO $ (WalletLayer.updateAccount layer) wId accIdx updateRequest
+    res <- liftIO $ WalletLayer.updateAccount layer wId accIdx updateRequest
     case res of
          Left e -> throwM e
          Right updatedAccount ->

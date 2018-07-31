@@ -12,8 +12,7 @@ import qualified Test.Spec.CreateWallet as Wallets
 
 import           Formatting (build, formatToString, (%))
 
-import           Cardano.Wallet.Kernel.Accounts (CreateAccountError (..),
-                     DeleteAccountError (..), UpdateAccountError (..))
+import           Cardano.Wallet.Kernel.Accounts (CreateAccountError (..))
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -24,6 +23,7 @@ import qualified Cardano.Wallet.API.Request as API
 import qualified Cardano.Wallet.API.Request.Pagination as API
 import qualified Cardano.Wallet.API.Response as API
 import           Cardano.Wallet.API.V1.Handlers.Accounts as Handlers
+import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
@@ -119,13 +119,14 @@ spec = describe "Accounts" $ do
                     res <- (WalletLayer._pwlDeleteAccount layer) wId accIndex
                     (bimap STB STB res) `shouldSatisfy` isRight
 
-        prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
+        prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
                     res <- (WalletLayer._pwlDeleteAccount layer) wId 100
                     case res of
-                         Left (WalletLayer.DeleteAccountError (DeleteAccountUnknownHdRoot _)) ->
+                         Left (WalletLayer.DeleteAccountError
+                                  (V1 (Kernel.UnknownHdAccountRoot _))) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -134,6 +135,22 @@ spec = describe "Accounts" $ do
                                         % build
                                         % " , V1.Wallet "
                              in fail $ formatToString errMsg wId
+
+        prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
+            monadicIO $ do
+                withFixture $ \_ layer _ Fixture{..} -> do
+                    res <- (WalletLayer._pwlDeleteAccount layer) (V1.walId fixtureV1Wallet) 100
+                    case res of
+                         Left (WalletLayer.DeleteAccountError
+                                  (V1 (Kernel.UnknownHdAccount _))) ->
+                             return ()
+                         Left unexpectedErr ->
+                             fail $ "expecting different failure than " <> show unexpectedErr
+                         Right _ ->
+                             let errMsg = "expecting account not to be deleted, but it was. random WalletId "
+                                        % build
+                                        % " , V1.Wallet "
+                             in fail $ formatToString errMsg (V1.walId fixtureV1Wallet)
 
         prop "works when called from Servant" $ withMaxSuccess 50 $ do
             monadicIO $ do
@@ -149,16 +166,26 @@ spec = describe "Accounts" $ do
                          -- trying to make one would be overkill.
                          Right _ -> return ()
 
-        prop "Servant handler fails if the parent root doesn't exist" $ withMaxSuccess 50 $ do
+        prop "Servant handler fails if the parent wallet doesn't exist" $ withMaxSuccess 50 $ do
+            monadicIO $ do
+                wId <- pick arbitrary
+                withLayer $ \layer _ -> do
+                    let delete = Handlers.deleteAccount layer wId 100
+                    res <- try . runExceptT . runHandler' $ delete
+                    case res of
+                         Left (_e :: WalletLayer.DeleteAccountError)  -> return ()
+                         Right (Left e)  -> throwM e -- Unexpected Failure
+                         Right (Right _) -> fail "Expecting a failure, but the handler succeeded."
+
+        prop "Servant handler fails if the account doesn't exist" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let delete = Handlers.deleteAccount layer (V1.walId fixtureV1Wallet) 100
-                    res <- runExceptT . runHandler' $ delete
+                    res <- try . runExceptT . runHandler' $ delete
                     case res of
-                         Left e  -> fail (show e)
-                         -- There is no Buildable instance for 'NoContent', and
-                         -- trying to make one would be overkill.
-                         Right _ -> return ()
+                         Left (_e :: WalletLayer.DeleteAccountError)  -> return ()
+                         Right (Left e)  -> throwM e -- Unexpected Failure
+                         Right (Right _) -> fail "Expecting a failure, but the handler succeeded."
 
     describe "UpdateAccount" $ do
 
@@ -182,7 +209,8 @@ spec = describe "Accounts" $ do
                 withLayer $ \layer _ -> do
                     res <- (WalletLayer._pwlUpdateAccount layer) wId 100 (V1.AccountUpdate "new account")
                     case res of
-                         Left (WalletLayer.UpdateAccountError (UpdateAccountUnknownHdRoot _)) ->
+                         Left (WalletLayer.UpdateAccountError
+                                (V1 (Kernel.UnknownHdAccountRoot _))) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -198,7 +226,8 @@ spec = describe "Accounts" $ do
                     let wId = V1.walId fixtureV1Wallet
                     res <- (WalletLayer._pwlUpdateAccount layer) wId 100 (V1.AccountUpdate "new account")
                     case res of
-                         Left (WalletLayer.UpdateAccountError (UpdateAccountUnknownHdAccount _)) ->
+                         Left (WalletLayer.UpdateAccountError
+                                (V1 (Kernel.UnknownHdAccount _))) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -241,7 +270,7 @@ spec = describe "Accounts" $ do
                 withLayer $ \layer _ -> do
                     res <- (WalletLayer._pwlGetAccount layer) wId 100
                     case res of
-                         Left (WalletLayer.GetAccountError (Kernel.UnknownHdAccountRoot _)) ->
+                         Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccountRoot _))) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -256,7 +285,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     res <- (WalletLayer._pwlGetAccount layer) (V1.walId fixtureV1Wallet) 100
                     case res of
-                         Left (WalletLayer.GetAccountError (Kernel.UnknownHdAccount _)) ->
+                         Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr

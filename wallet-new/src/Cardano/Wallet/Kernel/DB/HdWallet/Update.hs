@@ -3,14 +3,11 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Update (
     updateHdRootAssurance
   , updateHdRootName
   , updateHdAccountName
-  -- * Errors
-  , UpdateHdAccountError (..)
   ) where
 
 import           Universum
 
 import           Control.Lens ((.=))
-import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
@@ -18,16 +15,6 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 {-------------------------------------------------------------------------------
   UPDATE
 -------------------------------------------------------------------------------}
-
--- | Errors thrown by 'updateHdAccountName'
-data UpdateHdAccountError =
-    -- | Parent root not found
-    UpdateHdAccountUnknownRoot UnknownHdRoot
-    -- | Account not found
-  | UpdateHdAccountUnknownAccount UnknownHdAccount
-  deriving Eq
-
-deriveSafeCopy 1 'base ''UpdateHdAccountError
 
 updateHdRootAssurance :: HdRootId
                       -> AssuranceLevel
@@ -45,12 +32,9 @@ updateHdRootName rootId name =
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
-                    -> Update' HdWallets UpdateHdAccountError HdAccount
+                    -> Update' HdWallets UnknownHdAccount HdAccount
 updateHdAccountName accId name = do
-    -- Check that the parent root & account does exist.
-    zoomHdRootId UpdateHdAccountUnknownRoot (accId ^. hdAccountIdParent) $
-      return ()
-    zoomHdAccountId UpdateHdAccountUnknownAccount accId $ do
+    zoomHdAccountId identity accId $ do
         oldAccount <- get
         let newAccount = oldAccount & hdAccountName .~ name
         put newAccount

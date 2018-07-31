@@ -102,12 +102,6 @@ newtype IxSet a = WrapIxSet {
 instance Show a => Show (IxSet a) where
     show = show . map unwrapOrdByPrimKey . IxSet.toList . unwrapIxSet
 
-instance (Indexable a, HasPrimKey a) => Eq (IxSet a) where
-    (WrapIxSet ix1) == (WrapIxSet ix2) = ix1 == ix2
-
-instance (Indexable a, HasPrimKey a) => Ord (IxSet a) where
-    compare (WrapIxSet ix1) (WrapIxSet ix2) = compare ix1 ix2
-
 -- | Evidence that the specified indices are in fact available
 type Indexable a = IxSet.Indexable (PrimKey a ': IndicesOf a) (OrdByPrimKey a)
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 -- | Wallet state as mandated by the wallet specification
 module Cardano.Wallet.Kernel.DB.Spec (
     -- * Wallet state as mandated by the spec
@@ -16,6 +17,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , checkpointUtxoBalance
   , checkpointPending
   , checkpointBlockMeta
+  , checkpointAddressMeta
     -- ** Lenses into the current checkpoint
   , currentCheckpoint
   , currentUtxo
@@ -27,7 +29,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
 
 import           Universum hiding (elems)
 
-import           Control.Lens (to)
+import           Control.Lens (at, lens, non, to, (?~))
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as M
 import           Data.SafeCopy (base, deriveSafeCopy)
@@ -107,6 +109,14 @@ makeLenses ''Checkpoint
 
 deriveSafeCopy 1 'base ''Pending
 deriveSafeCopy 1 'base ''Checkpoint
+
+checkpointAddressMeta :: Core.Address -> Lens' Checkpoint AddressMeta
+checkpointAddressMeta addr =
+    let getMeta = checkpointBlockMeta . blockMetaAddressMeta . fromDb
+    in lens (\c      -> c ^. getMeta . at addr . non mempty)
+            (\c meta -> over ( checkpointBlockMeta
+                             . blockMetaAddressMeta
+                             . fromDb) (at addr ?~ meta) c)
 
 {-------------------------------------------------------------------------------
   Lenses for accessing current checkpoint

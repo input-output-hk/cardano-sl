@@ -15,6 +15,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      GetAccountError (..), GetAccountsError (..),
                      PassiveWalletLayer (..), UpdateAccountError (..))
 
+import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 
 import           Pos.Core ()
@@ -91,7 +92,7 @@ instance Arbitrary Kernel.CreateAccountError where
                       ]
 
 instance Arbitrary GetAccountError where
-    arbitrary = oneof [ GetAccountError <$> arbitrary
+    arbitrary = oneof [ GetAccountError . V1 <$> arbitrary
                       , GetAccountWalletIdDecodingFailed <$> arbitrary
                       ]
 
@@ -100,21 +101,12 @@ instance Arbitrary GetAccountsError where
                       , GetAccountsWalletIdDecodingFailed <$> arbitrary
                       ]
 
-instance Arbitrary Kernel.UpdateAccountError where
-    arbitrary = oneof [ Kernel.UpdateAccountUnknownHdRoot <$> arbitrary
-                      , Kernel.UpdateAccountUnknownHdAccount <$> arbitrary
-                      ]
-
 instance Arbitrary UpdateAccountError where
-    arbitrary = oneof [ UpdateAccountError <$> arbitrary
+    arbitrary = oneof [ UpdateAccountError . V1 <$> arbitrary
                       , UpdateAccountWalletIdDecodingFailed <$> arbitrary
                       ]
 
-instance Arbitrary Kernel.DeleteAccountError where
-    arbitrary = oneof [ Kernel.DeleteAccountUnknownHdRoot <$> arbitrary
-                      ]
-
 instance Arbitrary DeleteAccountError where
-    arbitrary = oneof [ DeleteAccountError <$> arbitrary
+    arbitrary = oneof [ DeleteAccountError . V1 <$> arbitrary
                       , DeleteAccountWalletIdDecodingFailed <$> arbitrary
                       ]

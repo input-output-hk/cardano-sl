@@ -6,13 +6,10 @@ module Cardano.Wallet.Kernel.DB.Read (
   , accountTotalBalance
   , accountAddresses
   , hdWallets
-  , lookupAddressMeta
+  , readAddressMeta
   ) where
 
 import           Universum
-
-import           Control.Lens (to)
-import qualified Data.Map.Strict as Map
 
 import           Formatting (build, sformat)
 import           Formatting.Buildable (Buildable)
@@ -21,14 +18,12 @@ import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Address, Coin)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
-                     blockMetaAddressMeta)
+import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdAddress,
                      HdWallets)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
                      readAddressesByAccountId, readHdAccountCurrentCheckpoint)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Checkpoint, checkpointBlockMeta)
+import           Cardano.Wallet.Kernel.DB.Spec (checkpointAddressMeta)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 
@@ -87,24 +82,9 @@ accountAddresses snapshot accountId
 hdWallets :: DB -> HdWallets
 hdWallets snapshot = snapshot ^. dbHdWallets
 
--- | Lookup the given 'Address' in the 'HdAccount' current checkpoint.
--- This getter returns a 'Maybe' because in case of freshly-generated
--- addresses (which has to be yet incorporated into a block) this lookup might
--- fail, but upstream consumers might want to deal with this gracefully (for
--- example in case a new prestine account is populated with many addresses and
--- the same account is requested by the web API).
-lookupAddressMeta :: DB
-                  -> HdAccountId
-                  -> Address
-                  -> Maybe AddressMeta
-lookupAddressMeta snapshot accountId cardanoAddress
-    = getAddressMeta $ walletQuery' snapshot checkpoint
+-- | Reads the given 'Address' in the 'HdAccount' current checkpoint.
+readAddressMeta :: DB -> HdAccountId -> Address -> AddressMeta
+readAddressMeta snapshot accountId cardanoAddress
+    = view (checkpointAddressMeta cardanoAddress) (walletQuery' snapshot checkpoint)
     where
         checkpoint = readHdAccountCurrentCheckpoint accountId
-
-        getAddressMeta :: Checkpoint -> Maybe AddressMeta
-        getAddressMeta currentCheckpoint =
-            currentCheckpoint ^. checkpointBlockMeta
-                               . blockMetaAddressMeta
-                               . fromDb
-                               . to (Map.lookup cardanoAddress)

@@ -45,7 +45,6 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HMS
 import qualified Ether
 import           Formatting (sformat)
-import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
                      getSlotIndex, mkLocalSlotIndex)
@@ -242,8 +241,7 @@ class HasJsonLogConfig ctx where
     jsonLogConfig :: Lens' ctx JsonLogConfig
 
 jsonLogDefault
-    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadCatch m,
-        MonadIO m, WithLogger m)
+    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadIO m, MonadCatch m)
     => a -> m ()
 jsonLogDefault x = do
     jlc <- view jsonLogConfig

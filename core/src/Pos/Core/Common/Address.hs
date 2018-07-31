@@ -84,6 +84,7 @@ import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
 import           Pos.Util.Json.Parse (tryParseString)
+import           Pos.Util.Log.LogSafe (SecureLog)
 
 import           Pos.Core.Common.AddrAttributes
 import           Pos.Core.Common.AddressHash
@@ -134,9 +135,6 @@ instance Bi Address where
                                                 <*> (addrAttributes <$> pxy)
                                                 <*> (addrType       <$> pxy) )
 
-instance Buildable [Address] where
-    build = bprint listJson
-
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize
 
@@ -180,6 +178,12 @@ addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
 
 instance Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
+
+instance Buildable [Address] where
+    build = bprint listJson
+
+instance Buildable (SecureLog Address) where
+    build _ = "<address>"
 
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)

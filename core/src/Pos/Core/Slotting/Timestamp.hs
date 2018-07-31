@@ -29,6 +29,7 @@ import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Log.LogSafe (SecureLog)
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
@@ -52,6 +53,9 @@ instance Read Timestamp where
 
 instance Buildable Timestamp where
     build = Buildable.build . toInteger
+
+instance Buildable (SecureLog Timestamp) where
+    build _ = "<timestamp>"
 
 instance NFData Timestamp where
     rnf Timestamp{..} = rnf (toInteger getTimestamp)

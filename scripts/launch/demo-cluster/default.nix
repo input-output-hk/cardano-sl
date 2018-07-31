@@ -5,6 +5,7 @@
 , runExplorer ? false
 , numCoreNodes ? 4
 , numRelayNodes ? 1
+, numImportedWallets ? 11
 , assetLockAddresses ? []
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
@@ -12,6 +13,7 @@
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , keepAlive ? true
+, disableClientAuth ? false
 }:
 
 with localLib;
@@ -26,10 +28,11 @@ let
   };
   demoClusterDeps = with pkgs; (with iohkPkgs; [ jq coreutils pkgs.curl gnused openssl cardano-sl-tools cardano-sl-wallet-new cardano-sl-node-static ]);
   walletConfig = {
-    inherit stateDir;
+    inherit stateDir disableClientAuth;
     topologyFile = walletTopologyFile;
+    environment = "demo";
   };
-  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; debug = false; environment = "demo"; } // walletConfig);
+  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; } // walletConfig);
   ifWallet = localLib.optionalString (runWallet);
   ifKeepAlive = localLib.optionalString (keepAlive);
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
@@ -137,19 +140,22 @@ in pkgs.writeScript "demo-cluster" ''
   done
   echo Blockchain Synced: $PERC%
   # import keys
-  echo "Importing poor HD keys/wallet..."
 
-  for i in {0..11}
-  do
-      echo "Importing key$i.sk ..."
-      curl https://localhost:8090/api/wallets/keys \
-      --cacert ${stateDir}/tls/client/ca.crt \
-      --cert ${stateDir}/tls/client/client.pem \
-      -X POST \
-      -H 'cache-control: no-cache' \
-      -H 'content-type: application/json' \
-      -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
-  done
+  if [ ${builtins.toString numImportedWallets} -gt 0 ]
+  then
+    echo "Importing ${builtins.toString numImportedWallets} poor HD keys/wallet..."
+    for i in {0..${builtins.toString numImportedWallets}}
+    do
+        echo "Importing key$i.sk ..."
+        curl https://localhost:8090/api/wallets/keys \
+        --cacert ${stateDir}/tls/client/ca.crt \
+        --cert ${stateDir}/tls/client/client.pem \
+        -X POST \
+        -H 'cache-control: no-cache' \
+        -H 'content-type: application/json' \
+        -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
+    done
+  fi
   ${ifKeepAlive ''
     sleep infinity
   ''}

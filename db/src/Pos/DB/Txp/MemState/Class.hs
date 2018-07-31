@@ -7,7 +7,6 @@ module Pos.DB.Txp.MemState.Class
        ( MonadTxpMem
        , TxpHolderTag
        , withTxpLocalData
-       , withTxpLocalDataLog
        , getUtxoModifier
        , getLocalUndos
        , getMemPool
@@ -38,8 +37,8 @@ import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.DB.Txp.MemState.Types (GenericTxpLocalData (..))
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens (..))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 data TxpHolderTag
 
@@ -61,15 +60,6 @@ withTxpLocalData
     :: (MonadIO m, MonadTxpMem e ctx m)
     => (GenericTxpLocalData e -> STM.STM a) -> m a
 withTxpLocalData f = askTxpMem >>= \ld -> atomically (f ld)
-
--- | Operate with some of all of the TXP local data, allowing
---   logging.
-withTxpLocalDataLog
-    :: (MonadIO m, MonadTxpMem e ctx m, WithLogger m)
-    => (GenericTxpLocalData e -> NamedPureLogger STM.STM a)
-    -> m a
-withTxpLocalDataLog f = askTxpMem >>=
-    \ld -> launchNamedPureLog atomically $ f ld
 
 -- | Read the UTXO modifier from the local TXP data.
 getUtxoModifier
@@ -129,8 +119,8 @@ clearTxpMemPool txpData = do
 type family MempoolExt (m :: * -> *) :: *
 
 class Monad m => MonadTxpLocal m where
-    txpNormalize :: ProtocolMagic -> TxpConfiguration -> m ()
-    txpProcessTx :: ProtocolMagic -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+    txpNormalize :: TraceNamed m -> ProtocolMagic -> TxpConfiguration -> m ()
+    txpProcessTx :: TraceNamed m -> ProtocolMagic -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -138,7 +128,6 @@ type TxpLocalWorkMode ctx m =
     , MonadGState m
     , MonadSlots ctx m
     , MonadTxpMem (MempoolExt m) ctx m
-    , WithLogger m
     , MonadMask m
     , MonadReporting m
     )

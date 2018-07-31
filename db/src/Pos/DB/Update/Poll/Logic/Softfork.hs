@@ -15,7 +15,6 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (logInfo)
 
 import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
                      MonadPollRead (..), PollVerFailure (..))
@@ -28,6 +27,7 @@ import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
                      adoptBlockVersion, calcSoftforkThreshold, canBeAdoptedBV,
                      updateSlottingData)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo)
 
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.
@@ -72,8 +72,9 @@ recordBlockIssuance id bv slot h = do
 -- | Process creation of genesis block for given epoch.
 processGenesisBlock
     :: forall m. (MonadError PollVerFailure m, MonadPoll m, HasProtocolConstants)
-    => EpochIndex -> m ()
-processGenesisBlock epoch = do
+    => TraceNamed m
+    -> EpochIndex -> m ()
+processGenesisBlock logTrace epoch = do
     -- First thing to do is to obtain values threshold for softfork
     -- resolution rule check.
     totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
@@ -99,6 +100,7 @@ processGenesisBlock epoch = do
     updateSlottingData epoch
     setEpochProposers mempty
   where
+    logInfo' = logInfo (appendName "processGenesisBlock" logTrace)
     checkThreshold ::
            Coin
         -> SoftforkRule
@@ -132,24 +134,24 @@ processGenesisBlock epoch = do
     adoptAndFinish allConfirmed (bv, BlockVersionState {..}) = do
         winningBlock <-
             note (PollInternalError "no winning block") bvsLastBlockStable
-        adoptBlockVersion winningBlock bv
+        adoptBlockVersion logTrace winningBlock bv
         filterBVAfterAdopt (fst <$> allConfirmed)
         mapM_ moveUnstable =<< getCompetingBVStates
     logCompetingBVStates [] =
-        logInfo ("We are processing genesis block, currently we don't have " <>
-                "competing block versions")
+        logInfo' ("We are processing genesis block, currently we don't have " <>
+                  "competing block versions")
     logCompetingBVStates versions = do
-        logInfo $ sformat
-                  ("We are processing genesis block, "%
-                   "competing block versions are: "%listJson)
-                  (map fst versions)
+        logInfo' $ sformat
+                   ("We are processing genesis block, "%
+                    "competing block versions are: "%listJson)
+                   (map fst versions)
         mapM_ logBVIssuers versions
     logBVIssuers (bv, BlockVersionState {..}) =
-        logInfo $ sformat (build%" has these stable issuers "%listJson%
-                           " and these unstable issuers "%listJson)
-                           bv bvsIssuersStable bvsIssuersUnstable
+        logInfo' $ sformat (build%" has these stable issuers "%listJson%
+                            " and these unstable issuers "%listJson)
+                            bv bvsIssuersStable bvsIssuersUnstable
     logWhichCanBeAdopted =
-        logInfo . sformat ("These versions can be adopted: "%listJson)
+        logInfo' . sformat ("These versions can be adopted: "%listJson)
 
 calculateIssuersStake
     :: (MonadError PollVerFailure m, MonadPollRead m)

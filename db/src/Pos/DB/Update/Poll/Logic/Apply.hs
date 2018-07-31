@@ -6,14 +6,12 @@ module Pos.DB.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
-import           Universum hiding (id)
-
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, builder, int, sformat, (%))
-import           System.Wlog (logDebug, logInfo, logNotice)
+import           Universum
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
@@ -42,6 +40,7 @@ import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
 import           Pos.DB.Update.Poll.Logic.Version (verifyAndApplyProposalBVS,
                      verifyBlockVersion, verifySoftwareVersion)
 import           Pos.Util.Some (Some (..))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logNotice)
 
 type ApplyMode m =
     ( MonadError PollVerFailure m
@@ -63,14 +62,15 @@ type ApplyMode m =
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
 verifyAndApplyUSPayload ::
-       (ApplyMode m, HasProtocolConstants)
-    => ProtocolMagic
+       (MonadIO m, ApplyMode m, HasProtocolConstants)
+    => TraceNamed m
+    -> ProtocolMagic
     -> BlockVersion
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> UpdatePayload
     -> m ()
-verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+verifyAndApplyUSPayload logTrace pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
     either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload pm upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
@@ -85,7 +85,7 @@ verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdateP
         let otherGroups = NE.groupWith uvProposalId otherVotes
         -- When there is proposal in payload, it's verified and applied.
         whenJust upProposal $
-            verifyAndApplyProposal verifyAllIsKnown slotOrHeader curPropVotes
+            verifyAndApplyProposal logTrace verifyAllIsKnown slotOrHeader curPropVotes
         -- Then we also apply votes from other groups.
         -- ChainDifficulty is needed, because proposal may become approved
         -- and then we'll need to track whether it becomes confirmed.
@@ -100,10 +100,12 @@ verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdateP
         Left _           -> pass
         Right mainHeader -> do
             applyImplicitAgreement
+                logTrace
                 (mainHeader ^. headerSlotL)
                 (mainHeader ^. difficultyL)
                 (mainHeader ^. headerHashG)
             applyDepthCheck
+                logTrace
                 (mainHeader ^. epochIndexL)
                 (mainHeader ^. headerHashG)
                 (mainHeader ^. difficultyL)
@@ -126,11 +128,11 @@ resolveVoteStake
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => EpochIndex -> Coin -> UpdateVote -> m Coin
 resolveVoteStake epoch totalStake vote = do
-    let !id = addressHash (uvKey vote)
+    let !addrid = addressHash (uvKey vote)
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
     let threshold = applyCoinPortionUp thresholdPortion totalStake
-    let errNotRichman mbStake = PollNotRichman id threshold mbStake
-    stake <- note (errNotRichman Nothing) =<< getRichmanStake epoch id
+    let errNotRichman mbStake = PollNotRichman addrid threshold mbStake
+    stake <- note (errNotRichman Nothing) =<< getRichmanStake epoch addrid
     when (stake < threshold) $
         throwError $ errNotRichman (Just stake)
     return stake
@@ -153,13 +155,14 @@ resolveVoteStake epoch totalStake vote = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool
+    :: (MonadIO m, MonadError PollVerFailure m, MonadPoll m)
+    => TraceNamed m
+    -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
-verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
+verifyAndApplyProposal logTrace verifyAllIsKnown slotOrHeader votes
                            up@UnsafeUpdateProposal {..} = do
     let !upId = hash up
     let !upFromId = addressHash upFrom
@@ -191,22 +194,24 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     -- When necessary, we also check that proposal itself has enough
     -- positive votes to be included into block.
     when (isRight slotOrHeader) $
-        verifyProposalStake totalStake votesAndStakes upId
+        verifyProposalStake logTrace totalStake votesAndStakes upId
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
 -- Here we check that proposal has at least 'bvdUpdateProposalThd' stake of
 -- total stake in all positive votes for it.
 verifyProposalStake
-    :: (MonadPollRead m, MonadError PollVerFailure m)
-    => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
-verifyProposalStake totalStake votesAndStakes upId = do
+    :: (MonadIO m, MonadPollRead m, MonadError PollVerFailure m)
+    => TraceNamed m
+    -> Coin -> [(UpdateVote, Coin)] -> UpId
+    -> m ()
+verifyProposalStake logTrace totalStake votesAndStakes upId = do
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
     let threshold = applyCoinPortionUp thresholdPortion totalStake
-    let thresholdInt = coinToInteger threshold
-    let votesSum =
+        thresholdInt = coinToInteger threshold
+        votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
-    logDebug $
+    logDebug logTrace $
         sformat
             ("Verifying stake for proposal "%shortHashF%
              ", threshold is "%int%", voted stake is "%int)
@@ -225,7 +230,7 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: ApplyMode m
+    :: (ApplyMode m)
     => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
@@ -274,9 +279,11 @@ verifyAndApplyVoteDo cd ups vote = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: (MonadPoll m, HasProtocolConstants)
-    => SlotId -> ChainDifficulty -> HeaderHash -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
+    :: (MonadIO m, MonadPoll m, HasProtocolConstants)
+    => TraceNamed m
+    -> SlotId -> ChainDifficulty -> HeaderHash
+    -> m ()
+applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
     let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
     -- There is no one implicit agreed proposal
@@ -290,8 +297,9 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
         let upId = hash $ upsProposal ups
             status | dpsDecision decided = "approved"
                    | otherwise = "rejected"
-        logInfo $ sformat ("Proposal "%build%" is implicitly "%builder)
-            upId status
+        logInfo logTrace $
+            sformat ("Proposal "%build%" is implicitly "%builder)
+                               upId status
     makeImplicitlyDecided ups@UndecidedProposalState {..} =
         DecidedProposalState
         { dpsUndecided = ups
@@ -305,9 +313,11 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: forall m . (ApplyMode m, HasProtocolConstants)
-    => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck epoch hh (ChainDifficulty cd)
+    :: forall m . (MonadIO m, ApplyMode m, HasProtocolConstants)
+    => TraceNamed m
+    -> EpochIndex -> HeaderHash -> ChainDifficulty
+    -> m ()
+applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
@@ -344,12 +354,12 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
       | otherwise =
           compare  (upsSlot $ dpsUndecided b) (upsSlot $ dpsUndecided a)
 
-    applyDepthCheckDo :: DecidedProposalState -> m ()
+    --applyDepthCheckDo :: (MonadIO m, MonadError PollVerFailure m) => DecidedProposalState -> m ()
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
-        let sv = upSoftwareVersion upsProposal
-        let bv = upBlockVersion upsProposal
-        let upId = hash upsProposal
+            sv = upSoftwareVersion upsProposal
+            bv = upBlockVersion upsProposal
+            upId = hash upsProposal
         let status | dpsDecision = "confirmed"
                    | otherwise = "discarded"
         when dpsDecision $ do
@@ -377,9 +387,9 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
                confirmBlockVersion epoch bv
-               logInfo $ sformat (build%" is competing now") bv
+               logInfo logTrace $ sformat (build%" is competing now") bv
            | otherwise -> do
                delBVState bv
-               logInfo $ sformat ("State of "%build%" is deleted") bv
+               logInfo logTrace $ sformat ("State of "%build%" is deleted") bv
         deactivateProposal upId
-        logNotice $ sformat ("Proposal "%shortHashF%" is "%builder) upId status
+        logNotice logTrace $ sformat ("Proposal "%shortHashF%" is "%builder) upId status

@@ -64,6 +64,8 @@ import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
 import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
                      usNormalize, usRollbackBlocks)
 import           Pos.Util (Some (..), spanSafe)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
@@ -124,16 +126,17 @@ type MonadMempoolNormalization ctx m
 -- | Normalize mempool.
 normalizeMempool
     :: MonadMempoolNormalization ctx m
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> m ()
-normalizeMempool pm txpConfig = do
+normalizeMempool logTrace pm txpConfig = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize pm
-    txpNormalize pm txpConfig
-    usNormalize
+    sscNormalize logTrace pm
+    txpNormalize logTrace pm txpConfig
+    usNormalize logTrace
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -143,16 +146,17 @@ normalizeMempool pm txpConfig = do
 applyBlocksUnsafe
     :: ( MonadBlockApply ctx m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> BlockVersion
     -> BlockVersionData
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksUnsafe pm bv bvd scb blunds pModifier = do
+applyBlocksUnsafe logTrace pm bv bvd scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
-    unless (null nextEpoch) $ assertionFailed $
+    unless (null nextEpoch) $ assertionFailed noTrace $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
                  "thisEpoch"%listJson%"\nnextEpoch:"%listJson)
                 (map (headerHash . fst) thisEpoch)
@@ -170,7 +174,7 @@ applyBlocksUnsafe pm bv bvd scb blunds pModifier = do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksDbUnsafeDo pm bv bvd scb x pModifier
+    app x = applyBlocksDbUnsafeDo logTrace pm bv bvd scb x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
@@ -178,25 +182,26 @@ applyBlocksUnsafe pm bv bvd scb blunds pModifier = do
 applyBlocksDbUnsafeDo
     :: ( MonadBlockApply ctx m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> BlockVersion
     -> BlockVersionData
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksDbUnsafeDo pm bv bvd scb blunds pModifier = do
+applyBlocksDbUnsafeDo logTrace pm bv bvd scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
-    slogBatch <- slogApplyBlocks scb blunds
+    slogBatch <- slogApplyBlocks logTrace scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks pm bv (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
-    txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
+    usBatch <- SomeBatchOp <$> usApplyBlocks noTrace pm bv (map toUpdateBlock blocks) pModifier
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks noTrace (map toDlgBlund blunds)
+    txpBatch <- tgsApplyBlocks noTrace $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks pm bvd (map toSscBlock blocks) Nothing
+        sscApplyBlocks noTrace pm bvd (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -210,20 +215,21 @@ applyBlocksDbUnsafeDo pm bv bvd scb blunds pModifier = do
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: MonadBlockApply ctx m
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m ()
-rollbackBlocksUnsafe pm bsc scb toRollback = do
-    slogRoll <- slogRollbackBlocks bsc scb toRollback
-    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (map toDlgBlund toRollback)
-    usRoll <- SomeBatchOp <$> usRollbackBlocks
+rollbackBlocksUnsafe logTrace pm bsc scb toRollback = do
+    slogRoll <- slogRollbackBlocks logTrace bsc scb toRollback
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks noTrace (map toDlgBlund toRollback)
+    usRoll <- SomeBatchOp <$> usRollbackBlocks noTrace
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks
+    txRoll <- tgsRollbackBlocks noTrace $ map toTxpBlund toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks noTrace
         (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll

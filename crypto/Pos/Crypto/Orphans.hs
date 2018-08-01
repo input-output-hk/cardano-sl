@@ -135,10 +135,14 @@ instance Bi Ed25519.PublicKey where
 
 
 instance Bi Ed25519.SecretKey where
-    encode =  E.encodeBytes . BA.convert
+    encode sk =
+      let
+        pk = BA.convert $ Ed25519.toPublic sk
+      in
+        E.encodeBytes $ (BS.append (BA.convert sk) pk)
     decode =
         do
-          res <- Ed25519.secretKey . fromByteString <$> decode
+          res <- Ed25519.secretKey . fromByteString . BS.take Ed25519.secretKeySize <$> decode
           fromCryptoToDecoder "Ed25519.SecretKey" res
 
 instance Bi Ed25519.Signature where

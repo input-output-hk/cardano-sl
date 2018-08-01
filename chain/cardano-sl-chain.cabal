@@ -86,7 +86,6 @@ library
                        Pos.Chain.Ssc.Toss.Pure
                        Pos.Chain.Ssc.Toss.Base
                        Pos.Chain.Ssc.Toss.Class
-                       Pos.Chain.Ssc.Toss.Trans
                        Pos.Chain.Ssc.Toss.Types
 
                        Pos.Chain.Update.BlockVersion

@@ -234,9 +234,9 @@ as it is.\improvement{We may want to add something about protocol
 
   We write $f⊆g$, for partial functions $f$ and $g$ with respective domains $U$
   and $V$, if $U ⊆ V$ and $∀a∈U. f(a)=g(a)$. When $f⊆g$, we write
-  $f⧵g$ for the partial function with support $U⧵A $ defined as:
+  $g⧵f$ for the partial function with support $V⧵U $ defined as:
   $$
-  f⧵g(a) = f(a)
+  g⧵f(a) = g(a)
   $$
 
   For two partial functions $f$ and $g$ with respective domains $U$
@@ -756,7 +756,7 @@ $b_1,…,b_n$ if all of the following hold
     \end{description}
 
   \item[Bootstrap era] The following conditions must all pass to
-    validate blocks in the bootstrap era. This specification only
+    validate transactions in the bootstrap era. This specification only
     describes the behaviour during the bootstrap era, hence the
     following conditions are checked unconditionally.
     \begin{description}
@@ -800,7 +800,7 @@ $b_1,…,b_n$ if all of the following hold
       have $\epochslot{s}∈\commitphase$.
     \item[Richmen] We must have
       $U⊆\richmen{\delegations{b_1,…,b_n}}{\currentdistribution{b_1,…,b_n}}$.
-    \item[Valid] For every $a∈U$, let $(m,p) = f(a)$, we must have
+    \item[Valid] For every $a∈U$, let $(m,p) = c(a)$, we must have
       $m=p$.
     \item[Fresh] Let $V$ be the domain of $\epochcommitments{b_1,…,b_n}$,
       we must have $U∩V=∅$.

@@ -27,8 +27,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Swagger
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
                      compileInfo)
 

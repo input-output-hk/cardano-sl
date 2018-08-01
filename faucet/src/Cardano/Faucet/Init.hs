@@ -52,6 +52,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
                                               AssuranceLevel (NormalAssurance),
+                                              BackupPhrase(..),
                                               NewWallet (..), NodeInfo (..),
                                               Payment (..),
                                               PaymentDistribution (..),
@@ -166,7 +167,7 @@ createWallet client = do
     where
         mkWallet = do
           phrase <- liftIO generateBackupPhrase
-          let w = NewWallet (V1 phrase) Nothing NormalAssurance "Faucet-Wallet" CreateWallet
+          let w = NewWallet (BackupPhrase phrase) Nothing NormalAssurance "Faucet-Wallet" CreateWallet
           runExceptT $ do
               wId <- walId <$> (runClient WalletCreationError $ postWallet client w)
               let wIdLog = Text.pack $ show wId

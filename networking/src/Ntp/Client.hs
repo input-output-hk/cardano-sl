@@ -186,13 +186,13 @@ sendLoop cli addrs = do
             cmd <- timeout poll (wait a)
             case cmd of
                 Nothing -> cancel a
-                Just SendRequest
-                        -> sendLoop cli addrs
+                Just _  -> return ()
         )
 
     -- reset state & status before next loop
     atomically $ writeTVar (ncState cli) []
     atomically $ writeTVar (ncStatus cli) NtpSyncPending
+
     sendLoop cli addrs
 
     where

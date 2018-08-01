@@ -42,13 +42,13 @@ import           Pos.Client.CLI.Params (getNodeParams, loggingParams)
 import           Pos.Client.CLI.Util (printInfoOnStart)
 import           Pos.Context (NodeContext (..))
 import           Pos.Core.Configuration (epochSlots)
+import           Pos.Core.JsonLog (JsonLogConfig (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration (..),
                      ntpClientSettings)
 import           Pos.Infra.Reporting (noReporter)
-import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Launcher (AssetLockPath (..), BaseParams (..),
                      ConfigurationOptions (..), HasConfigurations,
                      LoggingParams (..), NodeParams (..), NodeResources (..),
@@ -155,20 +155,21 @@ runWWebMode cArgs nArgs wArgs loggerName action = do
                     <$> pure db
                     <*> newTVarIO def
                     <*> liftIO newTQueueIO
-                    <*> newRealModeContext res
+                    <*> pure (nodeResourcesToContext res)
 
                 action `runReaderT` ctx
   where
-    newRealModeContext :: NodeResources WalletMempoolExt -> IO (RealModeContext ())
-    newRealModeContext NodeResources{..} = RealModeContext
-        <$> pure nrDBs
-        <*> pure nrSscState
-        <*> pure nrTxpState
-        <*> pure nrDlgState
-        <*> jsonLogConfigFromHandle stdout
-        <*> pure loggerName
-        <*> pure nrContext
-        <*> pure noReporter
+    nodeResourcesToContext :: NodeResources WalletMempoolExt -> RealModeContext ()
+    nodeResourcesToContext NodeResources{..} = RealModeContext
+        { rmcNodeDBs       = nrDBs
+        , rmcSscState      = nrSscState
+        , rmcTxpLocalData  = nrTxpState
+        , rmcDelegationVar = nrDlgState
+        , rmcJsonLogConfig = JsonLogDisabled
+        , rmcLoggerName    = loggerName
+        , rmcNodeContext   = nrContext
+        , rmcReporter      = noReporter
+        }
 
 
 --

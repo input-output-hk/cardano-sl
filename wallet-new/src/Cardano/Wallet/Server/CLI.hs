@@ -5,18 +5,24 @@ module Cardano.Wallet.Server.CLI where
 
 import           Universum
 
+import           Data.List (stripPrefix)
+import           Data.Maybe (fromJust)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
-import           Options.Applicative (Parser, auto, execParser, footerDoc,
-                     fullDesc, header, help, helper, info, infoOption, long,
-                     metavar, option, progDesc, strOption, switch, value)
+import           Options.Applicative (Parser, ParserInfo, auto, execParser,
+                     footerDoc, fullDesc, header, help, helper, info,
+                     infoOption, long, metavar, option, progDesc, strOption,
+                     switch, value)
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
-import qualified Pos.Client.CLI as CLI
 import           Pos.Core.NetworkAddress (NetworkAddress, localhost)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
                      compileInfo)
 import           Pos.Web (TlsParams (..))
+import           System.Environment (getEnvironment, withArgs)
+
+import qualified Data.Char as Char
+import qualified Pos.Client.CLI as CLI
 
 
 -- | The options parsed from the CLI when starting up this wallet node.
@@ -238,3 +244,33 @@ dbOptionsParser = WalletDBOptions <$> dbPathParser
                                  \(everything excluding wallets/accounts/addresses, \
                                  \metadata)"
                            )
+
+
+-- | Run parsers from environment variables rather than command-line arguments
+execParserEnv
+    :: String        -- ^ Prefix (underscore included) for each ENV var
+    -> ParserInfo a  -- ^ Parser information (displayed in case of error)
+    -> IO a          -- ^ Parsed value, or throw in IO
+execParserEnv prefix info = do
+    vars <- filter (hasPrefix prefix . fst) <$> getEnvironment
+    withArgs (map varToArg vars) $ execParser info
+  where
+    varToArg :: (String, String) -> String
+    varToArg (k, v) =
+        "--" <> upperSnakeToKebab (unsafeStripPrefix prefix k) <> "=" <> v
+
+    upperSnakeToKebab :: String -> String
+    upperSnakeToKebab =
+        let
+            replaceIf want to x | x == want = to
+            replaceIf _ _ x     = x
+        in
+            map (Char.toLower . replaceIf '_' '-')
+
+    hasPrefix :: String -> String -> Bool
+    hasPrefix p x = take (length p) x == p
+
+    -- Safe after 'filter (hasPrefix ...)'
+    unsafeStripPrefix :: String -> String -> String
+    unsafeStripPrefix p =
+        fromJust . stripPrefix p

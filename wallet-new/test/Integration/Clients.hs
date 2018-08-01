@@ -1,10 +1,7 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Integration.Clients
-    ( describeOptions
-
+    (
     -- * WWebModeRunner (run WalletWebMode actions)
-    , WWebModeRunner(..)
+      WWebModeRunner(..)
     , mkWWebModeRunner
 
     -- * WalletClient (run requests against the API)
@@ -27,7 +24,6 @@ import           Cardano.Wallet.Launcher (CommonArgs (..), CommonNodeArgs (..),
                      ConfigurationOptions (..), TlsParams (..))
 import           Cardano.Wallet.Server.CLI (RunMode (..),
                      WalletBackendParams (..), WalletDBOptions (..))
-import           NeatInterpolation (text)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -46,22 +42,12 @@ newtype (WWebModeRunner m) = WWebModeRunner
     }
 
 
-instance DescribeOptions WWebModeRunner where
-    describeOptions _ = [text|
-    INTEGRATION_TESTS_GENESIS_SECRET   = Override genesis secret from the config file (e.g. 14)
-    INTEGRATION_TESTS_WALLET_PATH      = Path to the acid-state database (e.g. 'wallet-db')
-    INTEGRATION_TESTS_DB_PATH          = Path to the rocksdb database (e.g. 'node-db')
-    INTEGRATION_TESTS_CONFIG_PATH      = Path to the configuration file (e.g. 'lib/configuration.yaml')
-    INTEGRATION_TESTS_CONFIG_KEY       = Configuration key to use (e.g. 'default')
-    INTEGRATION_TESTS_SYSTEM_START     = Timestamp (is μs) at which the system has started (e.g. 1533025621472000)
-|]
-
 -- | Read environment variables and turn them into node arguments, using default
 -- value for the rest. Then, return a runner able to execute (WalletWebMode a)
 -- actions in IO using the provided config.
 --
 -- We can add more environment variables as needed if we need to tweak something.
-mkWWebModeRunner :: IO (WWebModeRunner IO)
+mkWWebModeRunner ::  IO (WWebModeRunner IO)
 mkWWebModeRunner = do
     -- NOTE The following defaults have been selected based on the `demo-with-wallet-api.sh` script
     -- This way, we act directly as if we were one of cluster's node.
@@ -71,11 +57,11 @@ mkWWebModeRunner = do
     configPath        <- lookupEnvD "../lib/configuration.yaml"   "INTEGRATION_TESTS_CONFIG_PATH"
     configKey         <- lookupEnvD "default"                     "INTEGRATION_TESTS_CONFIG_KEY"
     systemStart       <- lookupEnvD "0"                           "INTEGRATION_TESTS_SYSTEM_START"
-    tlsServerCertPath <- lookupEnvD "../run/tls-files/server.crt" "INTEGRATION_TESTS_SERVER_CERT_PATH"
-    tlsServerKeyPath  <- lookupEnvD "../run/tls-files/server.key" "INTEGRATION_TESTS_SERVER_KEY_PATH"
-    tlsCACertPath     <- lookupEnvD "../run/tls-files/ca.crt"     "INTEGRATION_TESTS_CA_CERT_PATH"
-    serverHost        <- lookupEnvD "localhost"                   "INTEGRATION_TESTS_SERVER_HOST"
-    serverPort        <- lookupEnvD "8090"                        "INTEGRATION_TESTS_SERVER_PORT"
+    tlsServerCertPath <- lookupEnvD "../run/tls-files/server.crt" ""
+    tlsServerKeyPath  <- lookupEnvD "../run/tls-files/server.key" ""
+    tlsCACertPath     <- lookupEnvD "../run/tls-files/ca.crt"     ""
+    serverHost        <- lookupEnvD "localhost"                   ""
+    serverPort        <- lookupEnvD "8090"                        ""
 
     let networkAddress = (B8.pack serverHost, Prelude.read serverPort)
 
@@ -121,15 +107,6 @@ mkWWebModeRunner = do
     return $ WWebModeRunner (Launcher.runWWebMode cArgs nArgs wArgs lName)
 
 
-instance DescribeOptions WalletClient where
-    describeOptions _ = [text|
-    INTEGRATION_TESTS_CLIENT_CERT_PATH = Path to a x509 client certificate (e.g. 'tls-files/client.crt')
-    INTEGRATION_TESTS_CLIENT_KEY_PATH  = Path to a corresponding client private key (e.g. 'tls-files/client.key')
-    INTEGRATION_TESTS_CA_CERT_PATH     = Path to a x509 CA certificate (e.g. 'tls-files/ca.crt')
-    INTEGRATION_TESTS_SERVER_HOST      = Wallet backend's host (e.g. 'localhost')
-    INTEGRATION_TESTS_SERVER_PORT      = Wallet backend's port (e.g. 8090)
-|]
-
 mkWHttpClient :: MonadIO m => IO (WalletClient m)
 mkWHttpClient = do
     tlsClientCertPath <- lookupEnvD "../run/tls-files/client.crt" "INTEGRATION_TESTS_CLIENT_CERT_PATH"
@@ -157,9 +134,6 @@ mkWHttpClient = do
 --
 -- INTERNALS
 --
-
-class DescribeOptions (a :: (* -> *) -> *) where
-    describeOptions :: Proxy a -> Text
 
 newtype DefaultValue
     = DefaultValue String

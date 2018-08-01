@@ -9,6 +9,7 @@ module Pos.Client.CLI.NodeOptions
        , SimpleNodeArgs (..)
        , NodeArgs (..)
        , commonNodeArgsParser
+       , nodeArgsParser
        , getSimpleNodeOptions
        , usageExample
        ) where
@@ -157,17 +158,15 @@ instance Default NodeArgs where
         }
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
-simpleNodeArgsParser = do
-    commonNodeArgs <- commonNodeArgsParser
-    behaviorConfigPath <- behaviorConfigOption
-    pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
+simpleNodeArgsParser = SimpleNodeArgs
+    <$> commonNodeArgsParser
+    <*> nodeArgsParser
 
-behaviorConfigOption :: Parser (Maybe FilePath)
-behaviorConfigOption =
-    optional $ strOption $
-        long "behavior" <>
-        metavar "FILE" <>
-        help "Path to the behavior config"
+nodeArgsParser :: Parser NodeArgs
+nodeArgsParser = fmap NodeArgs $ optional $ strOption $
+    long "behavior" <>
+    metavar "FILE" <>
+    help "Path to the behavior config"
 
 getSimpleNodeOptions :: HasCompileInfo => IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo

@@ -693,6 +693,7 @@ test-suite integration
                     , log-warper
                     , mtl
                     , neat-interpolation
+                    , optparse-applicative
                     , quickcheck-instances
                     , random
                     , stm

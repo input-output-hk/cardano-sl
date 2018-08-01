@@ -37,8 +37,9 @@ getInfo :: ( MonadIO m
            )
         => Diffusion MonadV1
         -> TVar NtpStatus
+        -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
-getInfo Diffusion{..} ntpStatus = do
+getInfo Diffusion{..} ntpStatus ntpCheck = do
     subscribers <- readTVarIO (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0

@@ -27,6 +27,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewAccount (..)
   , Update
   , New
+  , ForceNtpCheck
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -1942,6 +1943,9 @@ instance ToSchema Redemption where
 
 instance Arbitrary Redemption where
     arbitrary = Redemption <$> arbitrary <*> arbitrary <*> arbitrary
+
+-- TODO: create newtype instead and make it an instance of Servant's QueryFlag.
+type ForceNtpCheck = Bool
 
 --
 -- POST/PUT requests isomorphisms

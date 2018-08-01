@@ -7,6 +7,7 @@ import           Cardano.Wallet.API.V1.Types
 import           Servant
 
 type API = Tags '["Info"] :>
-         ( "node-info" :> Summary "Retrieves the dynamic information for this node."
-                       :> Get '[ValidJSON] (WalletResponse NodeInfo)
+         (    "node-info" :> Summary "Retrieves the dynamic information for this node."
+                          :> QueryFlag "force_ntp_check"
+                          :> Get '[ValidJSON] (WalletResponse NodeInfo)
          )

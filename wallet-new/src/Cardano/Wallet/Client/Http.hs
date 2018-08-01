@@ -135,7 +135,7 @@ mkHttpClient baseUrl manager = WalletClient
         = run getNodeSettingsR
     -- info
     , getNodeInfo
-        = run getNodeInfoR
+        = run . getNodeInfoR
     }
 
   where

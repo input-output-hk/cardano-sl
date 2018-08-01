@@ -140,7 +140,7 @@ do
   fi
 done
 
-commonargs='--test --no-haddock-deps --bench --jobs=4'
+commonargs='--test --no-haddock-deps --bench --jobs=1'
 norun='--no-run-tests --no-run-benchmarks'
 
 if [[ "$no_nix" == true ]]; then

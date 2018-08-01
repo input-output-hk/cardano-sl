@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- ** Updates on HD wallets
     -- *** CREATE
   , CreateHdWallet(..)
+  , CreateHdAccount(..)
   , CreateHdAddress(..)
     -- *** UPDATE
   , UpdateHdRootAssurance
@@ -338,6 +339,10 @@ createHdRoot :: HdRoot -> Update DB (Either HD.CreateHdRootError ())
 createHdRoot hdRoot = runUpdate' . zoom dbHdWallets $
     HD.createHdRoot hdRoot
 
+createHdAccount :: HdAccount -> Update DB (Either HD.CreateHdAccountError ())
+createHdAccount hdAccount = runUpdate' . zoom dbHdWallets $
+    HD.createHdAccount hdAccount
+
 createHdAddress :: HdAddress -> Update DB (Either HD.CreateHdAddressError ())
 createHdAddress hdAddress = runUpdate' . zoom dbHdWallets $
     HD.createHdAddress hdAddress
@@ -356,15 +361,16 @@ updateHdRootName rootId name = runUpdate' . zoom dbHdWallets $
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
-                    -> Update DB (Either UnknownHdAccount ())
-updateHdAccountName accId name = runUpdate' . zoom dbHdWallets $
-    HD.updateHdAccountName accId name
+                    -> Update DB (Either UnknownHdAccount (DB, HdAccount))
+updateHdAccountName accId name = do
+    a <- runUpdate' . zoom dbHdWallets $ HD.updateHdAccountName accId name
+    get >>= \st' -> return $ bimap identity (st',) a
 
 deleteHdRoot :: HdRootId -> Update DB ()
 deleteHdRoot rootId = runUpdateNoErrors . zoom dbHdWallets $
     HD.deleteHdRoot rootId
 
-deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdRoot ())
+deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
 deleteHdAccount accId = runUpdate' . zoom dbHdWallets $
     HD.deleteHdAccount accId
 
@@ -389,6 +395,7 @@ makeAcidic ''DB [
       -- Updates on HD wallets
     , 'createHdRoot
     , 'createHdAddress
+    , 'createHdAccount
     , 'createHdWallet
     , 'updateHdRootAssurance
     , 'updateHdRootName

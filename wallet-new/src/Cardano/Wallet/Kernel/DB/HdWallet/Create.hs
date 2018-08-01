@@ -79,7 +79,7 @@ createHdRoot hdRoot =
 -- | Create a new account
 createHdAccount :: HdAccount -> Update' HdWallets CreateHdAccountError ()
 createHdAccount hdAccount = do
-    -- Check that the root ID exiwests
+    -- Check that the root ID exists
     zoomHdRootId CreateHdAccountUnknownRoot rootId $
       return ()
 

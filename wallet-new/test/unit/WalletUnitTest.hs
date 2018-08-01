@@ -15,6 +15,7 @@ import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
 import           UTxO.Translate (runTranslateNoErrors, withConfig)
 
+import qualified Test.Spec.Accounts
 import qualified Test.Spec.CoinSelection
 import qualified Test.Spec.CreateAddress
 import qualified Test.Spec.CreateWallet
@@ -76,3 +77,4 @@ tests = describe "Wallet unit tests" $ do
     Test.Spec.CreateAddress.spec
     Test.Spec.CreateWallet.spec
     Test.Spec.NewPayment.spec
+    Test.Spec.Accounts.spec

@@ -20,5 +20,9 @@ deleteHdRoot :: HdRootId -> Update' HdWallets e ()
 deleteHdRoot rootId = zoom hdWalletsRoots $ at rootId .= Nothing
 
 -- | Delete an account
-deleteHdAccount :: HdAccountId -> Update' HdWallets UnknownHdRoot ()
-deleteHdAccount accId = zoom hdWalletsAccounts $ at accId .= Nothing
+deleteHdAccount :: HdAccountId -> Update' HdWallets UnknownHdAccount ()
+deleteHdAccount accId = do
+    -- Check that the account & its parent root do exist before deleting anything.
+    zoomHdAccountId identity accId $
+      return ()
+    zoom hdWalletsAccounts $ at accId .= Nothing

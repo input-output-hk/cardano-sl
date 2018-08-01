@@ -96,6 +96,7 @@ import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
+import qualified Data.IxSet.Typed as IxSet
 import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
@@ -119,6 +120,8 @@ import           Test.QuickCheck.Random (mkQCGen)
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
+                     IndicesOf, OrdByPrimKey, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
@@ -875,6 +878,23 @@ data Account = Account
     , accWalletId  :: !WalletId
     } deriving (Show, Ord, Eq, Generic)
 
+--
+-- IxSet indices
+--
+
+instance HasPrimKey Account where
+    type PrimKey Account = AccountIndex
+    primKey = accIndex
+
+type SecondaryAccountIxs = '[]
+
+type instance IndicesOf Account = SecondaryAccountIxs
+
+instance IxSet.Indexable (AccountIndex ': SecondaryAccountIxs)
+                         (OrdByPrimKey Account) where
+    indices = ixList
+
+
 accountsHaveSameId :: Account -> Account -> Bool
 accountsHaveSameId a b =
     accWalletId a == accWalletId b
@@ -905,7 +925,7 @@ instance BuildableSafeGen Account where
     buildSafeGen sl Account{..} = bprint ("{"
         %" index="%buildSafe sl
         %" name="%buildSafe sl
-        %" addresses="%buildSafeList sl
+        %" addresses="%buildSafe sl
         %" amount="%buildSafe sl
         %" walletId="%buildSafe sl
         %" }")

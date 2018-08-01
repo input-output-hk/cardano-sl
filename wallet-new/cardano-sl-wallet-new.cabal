@@ -40,6 +40,7 @@ library
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Generic
                        Cardano.Wallet.API.V1.Handlers
+                       Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
                        Cardano.Wallet.API.V1.Handlers.Transactions
                        Cardano.Wallet.API.V1.Handlers.Wallets
@@ -63,6 +64,7 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.Accounts
                        Cardano.Wallet.Kernel.Addresses
                        Cardano.Wallet.Kernel.BIP39
                        Cardano.Wallet.Kernel.CoinSelection
@@ -122,6 +124,10 @@ library
                        Cardano.Wallet.WalletLayer
                        Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+                       -- * Useful for testing, especially in the fixture side.
+                       Cardano.Wallet.WalletLayer.Kernel.Accounts
+                       Cardano.Wallet.WalletLayer.Kernel.Addresses
+                       Cardano.Wallet.WalletLayer.Kernel.Wallets
 
   other-modules:       Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
@@ -385,10 +391,12 @@ test-suite wallet-unit-tests
                       InputSelection.TxStats
                       Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
+                      Test.Spec.Accounts
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.CreateAddress
                       Test.Spec.CreateWallet
+                      Test.Spec.Fixture
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models

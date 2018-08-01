@@ -4,6 +4,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Data.Default (Default (def))
 import           Node (NodeId (..))
@@ -29,6 +30,9 @@ instance Example a => Example (NonEmpty a)
 -- NOTE: we don't want to see empty list examples in our swagger doc :)
 instance Example a => Example [a] where
     example = listOf1 example
+
+instance (IxSet.Indexable a, Example a) => Example (IxSet.IxSet a) where
+    example = IxSet.fromList <$> listOf1 example
 
 -- NOTE: we don't want to see "null" examples in our swagger doc :)
 instance Example a => Example (Maybe a) where

@@ -15,8 +15,10 @@ import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     CreateAddressError (..), CreateWalletError,
-                     PassiveWalletLayer (..))
+                     CreateAccountError (..), CreateAddressError (..),
+                     CreateWalletError, DeleteAccountError, GetAccountError,
+                     GetAccountsError, PassiveWalletLayer (..),
+                     UpdateAccountError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -24,6 +26,8 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
                      NewAccount (..), NewAddress, NewWallet (..), V1 (..),
                      Wallet, WalletId, WalletOperation (..), WalletUpdate)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
@@ -213,7 +217,7 @@ pwlCreateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> NewAccount
-    -> m Account
+    -> m (Either CreateAccountError Account)
 pwlCreateAccount wId newAcc@NewAccount{..} = do
 
     let spendingPassword = fromMaybe mempty . fmap coerce $ naccSpendingPassword
@@ -221,47 +225,48 @@ pwlCreateAccount wId newAcc@NewAccount{..} = do
     accInit     <- migrate (wId, newAcc)
     cAccount    <- V0.newAccount RandomSeed spendingPassword accInit
 
-    migrate cAccount
+    Right <$> migrate cAccount
 
 pwlGetAccounts
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m [Account]
+    -> m (Either GetAccountsError (IxSet Account))
 pwlGetAccounts wId = do
     cWId        <- migrate wId
     cAccounts   <- V0.getAccounts $ Just cWId
-    migrate cAccounts
+    Right . IxSet.fromList <$> migrate cAccounts
 
 pwlGetAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
-    -> m (Maybe Account)
+    -> m (Either GetAccountError Account)
 pwlGetAccount wId aId = do
     accId       <- migrate (wId, aId)
     account     <- V0.getAccount accId
-    Just <$> migrate account
+    Right <$> migrate account
 
 pwlUpdateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
     -> AccountUpdate
-    -> m Account
+    -> m (Either UpdateAccountError Account)
 pwlUpdateAccount wId accIdx accUpdate = do
     newAccId    <- migrate (wId, accIdx)
     accMeta     <- migrate accUpdate
     cAccount    <- V0.updateAccount newAccId accMeta
-    migrate cAccount
+    Right <$> migrate cAccount
 
 pwlDeleteAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
-    -> m Bool
+    -> m (Either DeleteAccountError ())
 pwlDeleteAccount wId accIdx = do
     accId <- migrate (wId, accIdx)
-    catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
+    _ <- catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
+    return $ Right ()
 
 ------------------------------------------------------------
 -- Address

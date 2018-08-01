@@ -15,7 +15,6 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Crypto (ProtocolMagic)
 
-import           Pos.Core.Update.Proposal
 import           Pos.Core.Update.Vote
 
 -- | Update System payload. 'BodyProof MainBlockchain' contains

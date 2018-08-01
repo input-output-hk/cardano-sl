@@ -8,6 +8,7 @@ import           Universum
 import           Data.Semigroup ()
 
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
@@ -16,8 +17,9 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
 import           Pos.Core.Common (Address, Coin, decodeTextAddress,
-                     unsafeAddCoin, unsafeIntegerToCoin)
+                     unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Util (toAesonError)
 
 
 -- | Predefined balances of non avvm entries.
@@ -38,6 +40,17 @@ instance Monad m => ToJSON m GenesisNonAvvmBalances where
 
 instance ReportSchemaErrors m => FromJSON m GenesisNonAvvmBalances where
     fromJSON = fmap GenesisNonAvvmBalances . fromJSON
+
+instance Aeson.ToJSON GenesisNonAvvmBalances where
+    toJSON = Aeson.toJSON . convert . getGenesisNonAvvmBalances
+      where
+        convert :: HashMap Address Coin -> HashMap Text Integer
+        convert = HM.fromList . map f . HM.toList
+        f :: (Address, Coin) -> (Text, Integer)
+        f = bimap pretty (toInteger . unsafeGetCoin)
+
+instance Aeson.FromJSON GenesisNonAvvmBalances where
+    parseJSON = toAesonError . convertNonAvvmDataToBalances <=< Aeson.parseJSON
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in

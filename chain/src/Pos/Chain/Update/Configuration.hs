@@ -25,8 +25,6 @@ import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import           Distribution.System (buildArch, buildOS)
 
--- For FromJSON instances.
-import           Pos.Aeson.Core ()
 import           Pos.Core.Update (ApplicationName, BlockVersion (..),
                      SoftwareVersion (..), SystemTag (..), archHelper,
                      osHelper)

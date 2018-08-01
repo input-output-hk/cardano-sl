@@ -47,6 +47,7 @@ import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString as BS
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder.Extra as Builder
@@ -208,6 +209,12 @@ instance Monad m => ToJSON m (AsBinary smth) where
 
 instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
     fromJSON = fmap AsBinary . tryParseString B64.decode
+
+instance Aeson.ToJSON (AsBinary w) where
+    toJSON = Aeson.toJSON . B64.JsonByteString . getAsBinary
+
+instance Aeson.FromJSON (AsBinary w) where
+    parseJSON v = AsBinary . B64.getJsonByteString <$> Aeson.parseJSON v
 
 -- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where

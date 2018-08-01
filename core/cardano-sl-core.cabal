@@ -19,12 +19,8 @@ flag asserts
 library
   hs-source-dirs:      src
   exposed-modules:
-                       Pos.Aeson.Core
-                       Pos.Aeson.Core.Configuration
-                       Pos.Aeson.Fee
-                       Pos.Aeson.Genesis
-
                        Pos.Core
+                       Pos.Core.Aeson
                        Pos.Core.Binary
                        Pos.Core.Chrono
                        Pos.Core.Limits
@@ -80,6 +76,9 @@ library
                        Pos.Core.Metrics.Constants
 
   other-modules:
+                       -- Aeson
+                       Pos.Core.Aeson.Orphans
+
                        -- Binary
                        Pos.Core.Binary.Orphans
 
@@ -190,12 +189,10 @@ library
                        Pos.Core.Update.Data
                        Pos.Core.Update.Payload
                        Pos.Core.Update.Proof
-                       Pos.Core.Update.Proposal
                        Pos.Core.Update.SoftforkRule
                        Pos.Core.Update.SoftwareVersion
                        Pos.Core.Update.SystemTag
                        Pos.Core.Update.Vote
-                       Pos.Core.Update.VoteId
 
   build-depends:       aeson
                      , aeson-options

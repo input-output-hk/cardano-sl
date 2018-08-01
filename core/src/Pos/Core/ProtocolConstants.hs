@@ -13,6 +13,7 @@ module Pos.Core.ProtocolConstants
 
 import           Universum
 
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
@@ -41,6 +42,12 @@ instance Monad m => ToJSON m VssMinTTL where
 instance (ReportSchemaErrors m) => FromJSON m VssMinTTL where
     fromJSON = fmap VssMinTTL . fromJSON
 
+instance Aeson.ToJSON VssMinTTL where
+    toJSON = Aeson.toJSON . getVssMinTTL
+
+instance Aeson.FromJSON VssMinTTL where
+    parseJSON = fmap VssMinTTL . Aeson.parseJSON
+
 -- | Maximum time-to-live for a VSS certificate.
 newtype VssMaxTTL = VssMaxTTL
     { getVssMaxTTL :: Word32
@@ -51,6 +58,12 @@ instance Monad m => ToJSON m VssMaxTTL where
 
 instance (ReportSchemaErrors m) => FromJSON m VssMaxTTL where
     fromJSON = fmap VssMaxTTL . fromJSON
+
+instance Aeson.ToJSON VssMaxTTL where
+    toJSON = Aeson.toJSON . getVssMaxTTL
+
+instance Aeson.FromJSON VssMaxTTL where
+    parseJSON = fmap VssMaxTTL . Aeson.parseJSON
 
 -- | Security parameter which is maximum number of blocks which can be
 -- rolled back.

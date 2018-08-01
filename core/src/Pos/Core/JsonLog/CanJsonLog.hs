@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Identity (IdentityT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson.Types (ToJSON)
+import qualified Ether
 import           System.Wlog.LoggerNameBox (LoggerNameBox)
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
@@ -51,3 +52,4 @@ instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
 instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
+deriving instance CanJsonLog (t m) => CanJsonLog (Ether.TaggedTrans tag t m)

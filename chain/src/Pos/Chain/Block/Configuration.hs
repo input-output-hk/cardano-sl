@@ -34,7 +34,7 @@ import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second, convertUnit,
                      fromMicroseconds)
 
-import           Pos.Aeson.Core ()
+import           Pos.Core.Aeson ()
 
 type HasBlockConfiguration = Given BlockConfiguration
 

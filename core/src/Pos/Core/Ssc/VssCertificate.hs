@@ -17,6 +17,8 @@ import           Universum
 
 import           Control.Lens (makeLensesFor)
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson.Options as S (defaultOptions)
+import           Data.Aeson.TH (deriveJSON)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
@@ -111,6 +113,8 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
             , vcSignature   = signature
             , vcSigningKey  = signingKey
             }
+
+deriveJSON S.defaultOptions ''VssCertificate
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.

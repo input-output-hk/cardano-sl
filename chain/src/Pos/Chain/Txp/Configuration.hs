@@ -12,9 +12,7 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
                      genericToJSON)
 import           Data.Aeson.Options (defaultOptions)
-import           Pos.Aeson.Core ()
 import           Pos.Core (Address)
-
 
 -- | Delegation configruation part.
 data TxpConfiguration = TxpConfiguration

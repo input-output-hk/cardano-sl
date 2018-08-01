@@ -4,8 +4,12 @@ module Pos.Core.Common.TxFeePolicy
 
 import           Universum
 
+import           Data.Aeson (object, (.=))
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM.S
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable as Buildable
@@ -17,6 +21,7 @@ import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
                      encodeListLen, encodeUnknownCborDataItem, enforceSize)
 import           Pos.Core.Common.TxSizeLinear
 import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
 -- fee for a transaction. Transactions with lesser fees won't be accepted. The
@@ -75,5 +80,33 @@ instance ReportSchemaErrors m => FromJSON m TxFeePolicy where
         summand <- fromJSField obj "summand"
         multiplier <- fromJSField obj "multiplier"
         return $ TxFeePolicyTxSizeLinear (TxSizeLinear summand multiplier)
+
+instance Aeson.ToJSON TxFeePolicy where
+    toJSON =
+        object . \case
+            TxFeePolicyTxSizeLinear linear -> ["txSizeLinear" .= linear]
+            TxFeePolicyUnknown policyTag policyPayload ->
+                ["unknown" .= (policyTag, decodeUtf8 @Text policyPayload)]
+
+instance Aeson.FromJSON TxFeePolicy where
+    parseJSON = Aeson.withObject "TxFeePolicy" $ \o -> do
+        (policyName, policyBody) <- toAesonError $ case HM.S.toList o of
+            []  -> Left "TxFeePolicy: none provided"
+            [a] -> Right a
+            _   -> Left "TxFeePolicy: ambiguous choice"
+        let
+          policyParser :: Aeson.FromJSON p => Aeson.Parser p
+          policyParser = Aeson.parseJSON policyBody
+        case policyName of
+            "txSizeLinear" ->
+                TxFeePolicyTxSizeLinear <$> policyParser
+            "unknown" ->
+                mkTxFeePolicyUnknown <$> policyParser
+            _ ->
+                aesonError "TxFeePolicy: unknown policy name"
+        where
+            mkTxFeePolicyUnknown (policyTag, policyPayload) =
+                TxFeePolicyUnknown policyTag
+                    (encodeUtf8 @Text @ByteString policyPayload)
 
 deriveSafeCopySimple 0 'base ''TxFeePolicy

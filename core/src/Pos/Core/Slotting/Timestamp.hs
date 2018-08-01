@@ -15,6 +15,7 @@ import qualified Prelude
 import           Universum
 
 import           Control.Lens (Iso', from, iso, makePrisms)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat,
                      parseTimeM)
 import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
@@ -28,6 +29,7 @@ import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
                      ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.Aeson ()
 import           Pos.Core.Genesis.Canonical ()
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -70,6 +72,9 @@ instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =
         fmap (Timestamp . convertUnit @Second . fromIntegral) .
         fromJSON @_ @Int54
+
+deriving instance Aeson.FromJSON Timestamp
+deriving instance Aeson.ToJSON Timestamp
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

@@ -2,6 +2,8 @@
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE InstanceSigs              #-}
 {-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE RecordWildCards           #-}
@@ -80,7 +82,8 @@ import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
-                     QueryParam, ReflectMethod (..), ReqBody, Summary, Verb)
+                     QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
+                     Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
@@ -148,6 +151,13 @@ type ApiHasArg subApi res =
     )
 
 instance KnownSymbol s => ApiHasArgClass (Capture s a)
+
+instance KnownSymbol s => ApiHasArgClass (QueryFlag s) where
+    type ApiArg (QueryFlag s) = Bool
+
+    apiArgName :: Proxy (QueryFlag s) -> String
+    apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @s)
+
 instance KnownSymbol s => ApiHasArgClass (QueryParam s a) where
     type ApiArg (QueryParam s a) = Maybe a
 instance ApiHasArgClass (ReqBody ct a) where
@@ -472,13 +482,13 @@ class ApiHasArgClass subApi =>
         :: BuildableSafe (ApiArgToLog subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     default toLogParamInfo
-        :: ( Buildable (ApiArg subApi)
-           , Buildable (SecureLog (ApiArg subApi))
-           )
+        :: BuildableSafe (ApiArg subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s a)
+
+instance KnownSymbol s => ApiCanLogArg (QueryFlag s)
 
 instance ApiCanLogArg (ReqBody ct a)
 
@@ -529,9 +539,8 @@ instance {-# OVERLAPPABLE #-}
          , ApiHasArg subApi (LoggingApiRec config res)
          , ApiCanLogArg subApi
          , BuildableSafe (ApiArgToLog subApi)
-         , subApi ~ apiType a
          ) =>
-         HasLoggingServer config (apiType a :> res) ctx where
+         HasLoggingServer config (subApi :> res) ctx where
     routeWithLog = paramRouteWithLog
 
 instance {-# OVERLAPPING #-}

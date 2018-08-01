@@ -27,6 +27,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewAccount (..)
   , Update
   , New
+  , ForceNtpCheck
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -2668,6 +2669,11 @@ instance Arbitrary Redemption where
                            <*> arbitrary
                            <*> arbitrary
                            <*> arbitrary
+
+-- TODO(akegalj): possibly create a new type `data ForceNtpCheck = ForceNtpCheck | NoNtpCheck`
+--  instead of using general Bool type (boolean blindness). For this we would have to create a wrapper
+--  around `QueryFlag` https://haskell-servant.github.io/servant/src/Servant-API-QueryParam.html#QueryFlag
+type ForceNtpCheck = Bool
 
 --
 -- POST/PUT requests isomorphisms

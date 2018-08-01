@@ -16440,9 +16440,10 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , bytestring
+, cardano-sl-chain
 , cardano-sl-core
 , cardano-sl-crypto
-, cardano-sl-update
+, cardano-sl-infra
 , cardano-sl-util
 , cardano-sl-wallet
 , cardano-sl-wallet-new
@@ -16460,6 +16461,7 @@ license = stdenv.lib.licenses.mit;
 , http-api-data
 , http-client
 , http-client-tls
+, http-types
 , lens
 , log-warper
 , memory
@@ -16469,6 +16471,7 @@ license = stdenv.lib.licenses.mit;
 , optparse-applicative
 , QuickCheck
 , random
+, safe-exceptions
 , serokell-util
 , servant
 , servant-client
@@ -16484,7 +16487,9 @@ license = stdenv.lib.licenses.mit;
 , text-format
 , time
 , tls
+, universum
 , wai
+, wai-app-static
 , wai-cors
 , wai-extra
 , warp
@@ -16503,9 +16508,9 @@ aeson-pretty
 base
 base16-bytestring
 bytestring
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
@@ -16521,6 +16526,7 @@ generic-arbitrary
 http-api-data
 http-client
 http-client-tls
+http-types
 lens
 log-warper
 memory
@@ -16529,6 +16535,7 @@ mtl
 neat-interpolation
 QuickCheck
 random
+safe-exceptions
 serokell-util
 servant
 servant-client
@@ -16543,14 +16550,18 @@ text
 text-format
 time
 tls
+universum
+wai
+wai-app-static
 wreq
 ];
 executableHaskellDepends = [
 aeson
 base
 bytestring
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-update
+cardano-sl-infra
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
@@ -16563,10 +16574,12 @@ log-warper
 mmorph
 mtl
 optparse-applicative
+safe-exceptions
 servant
 servant-client
 servant-server
 text
+universum
 wai
 wai-cors
 wai-extra
@@ -16583,6 +16596,7 @@ hspec
 mtl
 QuickCheck
 time
+universum
 ];
 doHaddock = false;
 license = stdenv.lib.licenses.mit;

@@ -21,9 +21,9 @@ module Cardano.Faucet.Types.API (
 
 import           Control.Exception.Safe
 import           Control.Lens (at, makeLenses, makePrisms, makeWrapped, mapped,
-                               (?~), _Wrapped)
+                     (?~), _Wrapped)
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
-                             (.:), (.=))
+                     (.:), (.=))
 import qualified Data.Char as Char
 import           Data.Proxy
 import           Data.String (IsString (..))

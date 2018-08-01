@@ -12,8 +12,8 @@ module Main where
 import           Control.Lens (_Wrapped')
 import           Control.Monad.Except
 import           Data.Aeson (eitherDecode)
-import qualified Data.Text as Text
 import           Data.ByteString.Lazy as BSL
+import qualified Data.Text as Text
 import           Network.Wai.Handler.Warp (run)
 import           Options.Applicative (Parser, execParser, fullDesc, header,
                      help, helper, info, long, progDesc, short, strOption,

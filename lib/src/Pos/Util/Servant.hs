@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE InstanceSigs              #-}
 {-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TypeFamilies              #-}
@@ -79,7 +80,8 @@ import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
-                     QueryParam, ReflectMethod (..), ReqBody, Summary, Verb)
+                     QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
+                     Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
@@ -147,6 +149,13 @@ type ApiHasArg subApi res =
     )
 
 instance KnownSymbol s => ApiHasArgClass (Capture s a)
+
+instance KnownSymbol s => ApiHasArgClass (QueryFlag s) where
+    type ApiArg (QueryFlag s) = Bool
+
+    apiArgName :: Proxy (QueryFlag s) -> String
+    apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @s)
+
 instance KnownSymbol s => ApiHasArgClass (QueryParam s a) where
     type ApiArg (QueryParam s a) = Maybe a
 instance ApiHasArgClass (ReqBody ct a) where
@@ -478,6 +487,8 @@ class ApiHasArgClass subApi =>
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s a)
+
+instance KnownSymbol s => ApiCanLogArg (QueryFlag s)
 
 instance ApiCanLogArg (ReqBody ct a)
 

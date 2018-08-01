@@ -1,2 +1,0 @@
-[2018-06-18T15:36:19.942244Z][cardano-sl.receiver][Debug][AlexBook.fritz.box][53299][ThreadId 7] startNode, we are NodeId 127.0.0.1:5000:0
-[2018-06-18T15:36:26.982076Z][cardano-sl.receiver][[31mError[0m][AlexBook.fritz.box][53299][ThreadId 7] stopping with exception user interrupt

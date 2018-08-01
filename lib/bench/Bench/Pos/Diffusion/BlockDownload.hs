@@ -22,13 +22,12 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Conduit.Combinators (yieldMany)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Data.Semigroup ((<>))
-import           Data.Time.Units (Microsecond)
 import qualified Options.Applicative as Opt (execParser)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
-import           Network.Transport (Transport)
-import qualified Network.Transport.TCP as TCP
+import           Network.Transport (Transport, closeTransport)
+import qualified Network.Transport.InMemory as InMemory
 import           Node (NodeId)
 import qualified Node
 
@@ -45,15 +44,13 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      FullDiffusionInternals (..),
                      RunFullDiffusionInternals (..),
                      diffusionLayerFullExposeInternals)
-import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion
-                     (bracketTransportTCP)
 import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-import           Pos.Util.Trace (noTrace, wlogTrace)
+import           Pos.Util.Trace (wlogTrace)
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -90,21 +87,8 @@ someHash = unsafeMkAbstractHash LBS.empty
 someOtherHash :: forall a . Hash a
 someOtherHash = unsafeMkAbstractHash (LBS.pack [0x00])
 
--- | Grab a TCP transport at 127.0.0.1:0 with 15s timeout.
--- Uses the stock parameters from 'Pos.Diffusion.Transport.bracketTransportTCP'
--- which are also used in production (fair QDisc etc.).
 withTransport :: (Transport -> IO t) -> IO t
-withTransport k =
-    Diffusion.bracketTransportTCP noTrace connectionTimeout tcpAddr k
-  where
-    connectionTimeout :: Microsecond
-    connectionTimeout = 15000000
-    tcpAddr :: TCP.TCPAddr
-    tcpAddr = TCP.Addressable $ TCP.TCPAddrInfo
-        { TCP.tcpBindHost = "127.0.0.1"
-        , TCP.tcpBindPort = "0"
-        , TCP.tcpExternalAddress = (,) "127.0.0.1"
-        }
+withTransport k = bracket InMemory.createTransport closeTransport k
 
 serverLogic
     :: IORef [Block] -- ^ For streaming, so we can control how many are given.

@@ -38,6 +38,7 @@ import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
                      MonadBlockGenBase)
+import           Pos.Generator.Block.Orphans ()
 import           Pos.Generator.Block.Param (HasBlockGenParams (..),
                      HasTxGenParams (..))
 import qualified Pos.Util.Modifier as Modifier

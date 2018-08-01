@@ -23,16 +23,18 @@ import           System.Wlog (LoggerName (..))
 import           Cardano.Wallet.Client.Http (BaseUrl (..), Scheme (..),
                      WalletClient, credentialLoadX509, liftClient,
                      mkHttpClient, mkHttpsManagerSettings, newManager)
+import           Cardano.Wallet.Launcher (CommonArgs (..), CommonNodeArgs (..),
+                     ConfigurationOptions (..), TlsParams (..))
+import           Cardano.Wallet.Server.CLI (RunMode (..),
+                     WalletBackendParams (..), WalletDBOptions (..))
 import           NeatInterpolation (text)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Runner (CommonNodeArgs (..),
-                     ExtraNodeArgs (..))
 
+import qualified Cardano.Wallet.Launcher as Launcher
 import qualified Data.ByteString.Char8 as B8
-import qualified Pos.Wallet.Web.Server.Runner as Runner
 import qualified Prelude
 
 
@@ -63,30 +65,60 @@ mkWWebModeRunner :: IO (WWebModeRunner IO)
 mkWWebModeRunner = do
     -- NOTE The following defaults have been selected based on the `demo-with-wallet-api.sh` script
     -- This way, we act directly as if we were one of cluster's node.
-    genesisSecret <- lookupEnvD "3"                          "INTEGRATION_TESTS_GENESIS_SECRET"
-    walletPath    <- lookupEnvD "../wallet-db"               "INTEGRATION_TESTS_WALLET_PATH"
-    dbPath        <- lookupEnvD "../run/node-db3"            "INTEGRATION_TESTS_DB_PATH"
-    configPath    <- lookupEnvD "../lib/configuration.yaml"  "INTEGRATION_TESTS_CONFIG_PATH"
-    configKey     <- lookupEnvD "default"                    "INTEGRATION_TESTS_CONFIG_KEY"
-    systemStart   <- lookupEnvD "0"                          "INTEGRATION_TESTS_SYSTEM_START"
+    genesisSecret     <- lookupEnvD "3"                           "INTEGRATION_TESTS_GENESIS_SECRET"
+    walletPath        <- lookupEnvD "../wallet-db"                "INTEGRATION_TESTS_WALLET_PATH"
+    dbPath            <- lookupEnvD "../run/node-db3"             "INTEGRATION_TESTS_DB_PATH"
+    configPath        <- lookupEnvD "../lib/configuration.yaml"   "INTEGRATION_TESTS_CONFIG_PATH"
+    configKey         <- lookupEnvD "default"                     "INTEGRATION_TESTS_CONFIG_KEY"
+    systemStart       <- lookupEnvD "0"                           "INTEGRATION_TESTS_SYSTEM_START"
+    tlsServerCertPath <- lookupEnvD "../run/tls-files/server.crt" "INTEGRATION_TESTS_SERVER_CERT_PATH"
+    tlsServerKeyPath  <- lookupEnvD "../run/tls-files/server.key" "INTEGRATION_TESTS_SERVER_KEY_PATH"
+    tlsCACertPath     <- lookupEnvD "../run/tls-files/ca.crt"     "INTEGRATION_TESTS_CA_CERT_PATH"
+    serverHost        <- lookupEnvD "localhost"                   "INTEGRATION_TESTS_SERVER_HOST"
+    serverPort        <- lookupEnvD "8090"                        "INTEGRATION_TESTS_SERVER_PORT"
 
-    let (commonNodeArgs, nodeArgs, extraNodeArgs) =
+    let networkAddress = (B8.pack serverHost, Prelude.read serverPort)
+
+    let lName = LoggerName "integration-tests"
+
+    let timestamp = Timestamp (fromMicroseconds (Prelude.read systemStart))
+
+    let (cArgs, nArgs, wArgs) =
             ( def
-                { dbPath            = Just dbPath
-                , rebuildDB         = True
+                { commonArgs = def
+                    { configurationOptions = def
+                        { cfoFilePath    = configPath
+                        , cfoKey         = toText configKey
+                        , cfoSystemStart = Just timestamp
+                        }
+                    }
+                , dbPath            = Just dbPath
                 , devGenesisSecretI = Just (Prelude.read genesisSecret)
+                , rebuildDB         = True
                 }
             , def
-            , ExtraNodeArgs
-                { _walletPath  = walletPath
-                , _configPath  = configPath
-                , _configKey   = toText configKey
-                , _systemStart = Timestamp (fromMicroseconds (Prelude.read systemStart))
-                , _loggerName  = LoggerName "integration-tests"
+            , WalletBackendParams
+                { enableMonitoringApi = False
+                , monitoringApiPort   = 0
+                , walletTLSParams     = Just TlsParams
+                    { tpCertPath   = tlsServerCertPath
+                    , tpCaPath     = tlsCACertPath
+                    , tpKeyPath    = tlsServerKeyPath
+                    , tpClientAuth = True
+                    }
+                , walletAddress    = networkAddress
+                , walletDocAddress = ("localhost", Prelude.read serverPort + 1)
+                , walletRunMode    = ProductionMode
+                , walletDbOptions  = WalletDBOptions
+                    { walletDbPath       = walletPath
+                    , walletRebuildDb    = True
+                    , walletAcidInterval = 60
+                    , walletFlushDb      = True
+                    }
                 }
             )
 
-    return $ WWebModeRunner (Runner.runWWebMode commonNodeArgs nodeArgs extraNodeArgs)
+    return $ WWebModeRunner (Launcher.runWWebMode cArgs nArgs wArgs lName)
 
 
 instance DescribeOptions WalletClient where

@@ -7,15 +7,7 @@ module Integration.Fixtures
 
 import           Universum
 
-import           Data.Default (Default (..))
-import           Data.Time.Units (fromMicroseconds)
-import           System.Environment (lookupEnv)
-import           System.Wlog (LoggerName (..))
-import           Test.Hspec (describe, it)
-import           Test.Hspec.Core (SpecM)
-
 import           Cardano.Wallet.Client.Http
-import           Pos.Core (Timestamp (..))
 import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret,
@@ -25,8 +17,6 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.UserSecret (WalletUserSecret (..))
 import           Pos.Wallet.Web.Methods (importWalletDo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Runner (CommonNodeArgs (..),
-                     ExtraNodeArgs (..), NodeArgs (..), runWWebMode)
 
 import           Integration.Util (asksM, fromResp)
 

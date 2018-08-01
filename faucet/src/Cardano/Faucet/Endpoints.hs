@@ -21,7 +21,7 @@ import           Data.Text.Lazy.Lens (utf8)
 import           Data.Text.Lens
 import           Servant
 import           System.Wlog (LoggerName (..), logError, logInfo, withSublogger)
-import Universum
+import           Universum
 
 import           Cardano.Wallet.API.V1.Types (Transaction (..), V1, unV1)
 import           Pos.Core (Address (..))

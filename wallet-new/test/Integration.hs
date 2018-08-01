@@ -4,34 +4,24 @@ module Main where
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           NeatInterpolation (text)
 import           Test.Hspec (describe, hspec)
 
-import           Integration.Clients (WWebModeRunner (..), mkWHttpClient,
-                     mkWWebModeRunner)
-import           Integration.Fixtures (generateInitialState)
+import           Integration.Clients (mkWHttpClient, startCluster)
 
 import qualified Integration.Specs.Addresses as Addresses
 
 
-import           Control.Concurrent (ThreadId, forkIO, threadDelay)
-import           Options.Applicative (info)
-import           System.Environment (lookupEnv, setEnv)
-import           System.Wlog (LoggerName (..))
-
-import           Cardano.Wallet.Launcher (startCoreNode, startEdgeNode)
-import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
-                     WalletStartupOptions (..), execParserEnv,
-                     walletBackendParamsParser)
-import           Pos.Client.CLI.NodeOptions (commonNodeArgsParser,
-                     nodeArgsParser)
-
-data NodeType = CoreNode | EdgeNode
 
 main :: IO ()
 main = putText [text|
 ========== INTEGRATION TESTS ==========
-Integration tests run using a local cluster of 3 core nodes + 1 wallet node.
+Integration tests run using a local cluster of 3 core nodes with wallet enabled.
+
+
+#### Configuring Nodes
+
 One can tweak a few things using environment variables, in a similar fashion arguments
 would be passed to node.
 
@@ -47,23 +37,35 @@ Beside nodes have successive ports which depends on the INTEGRATION_TESTS_LISTEN
 environment variable defining port for the first node. For instance, if its
 value is set to 3000, nodes will have the following topology:
 
-    - node-0: localhost@3000
-    - node-1: localhost@3001
-    - node-2: localhost@3002
-    - node-edge: localhost@3003
+    - node0: localhost@3000
+    - node1: localhost@3001
+    - node2: localhost@3003
+
+In a similar fashion, nodes expose their wallet API on the following addresses:
+
+    - node0: localhost@8090
+    - node1: localhost@8091
+    - node2: localhost@8092
+
+
+#### Configuring Http Client
+
+The Http client talking to nodes may be configured using 4 ENV variables:
+
+    - INTEGRATION_TESTS_TLSCERT_CLIENT: Path to a client TLS certificate
+    - INTEGRATION_TESTS_TLSKEY_CLIENT:  Path to a client TLS Key
+    - INTEGRATION_TESTS_TLSCA:          Path to a CA TLS certificate
+    - INTEGRATION_TESTS_WALLET_ADDRESS: Network address of the target wallet node
+
+By default, it will use certificates generated in 'wallet-new/state-integration-tests'
+and talk to `127.0.0.1:8090'.
 
 |] >> do
-    wc <- mkWHttpClient
-
-    -- NOTE Always EdgeNode in the end as its options conflicts with the core nodes.
+    -- NOTE Always WalletNode in the end as its options conflicts with the core nodes.
     -- Also, there should be only one edge node. In the end, this would deserve
     -- a better data-structure I guess. For this sake, a list is fine,
-    _ <- startCluster
-        [ ("node-0", CoreNode)
-        , ("node-1", CoreNode)
-        , ("node-2", CoreNode)
-        , ("node-edge", EdgeNode)
-        ]
+    _ <- startCluster [ "node0", "node1", "node2" ]
+    wc <- mkWHttpClient
 
     putText "Waiting for cluster to start..."
 
@@ -71,46 +73,3 @@ value is set to 3000, nodes will have the following topology:
 
     hspec $ describe "Integration Tests" $
         describe "Addresses" $ Addresses.spec wc
-
-  where
-    as :: String -> String -> IO ()
-    as var def =
-        setEnv var =<< (fromMaybe def <$> lookupEnv var)
-
-    startCluster :: [(String, NodeType)] -> IO [ThreadId]
-    startCluster nodes = do
-        let prefix = "INTEGRATION_TESTS_"
-
-        (prefix <> "DB_PATH")    `as` "state-integration-tests/db"
-        (prefix <> "REBUILD_DB") `as` "True"
-        (prefix <> "LISTEN")     `as` "3000"
-        (prefix <> "TOPOLOGY")   `as` "state-integration-tests/topology.yaml"
-        (prefix <> "TLSCERT")    `as` "state-integration-tests/tls/server.crt"
-        (prefix <> "TLSKEY")     `as` "state-integration-tests/tls/server.key"
-        (prefix <> "TLSCA")      `as` "state-integration-tests/tls/ca.crt"
-
-        forM nodes $ \(nodeId, nodeType) -> do
-            let lName  = LoggerName (toText nodeId)
-
-            (prefix <> "NODE_ID")    `as` nodeId
-            (prefix <> "DB_PATH")    `as` ("state-integration-tests/db/" <> nodeId)
-            (prefix <> "LOG_CONFIG") `as` ("state-integration-tests/logs/" <> nodeId <> ".yaml")
-
-            cArgs <- execParserEnv prefix (info commonNodeArgsParser mempty)
-            nArgs <- execParserEnv prefix (info nodeArgsParser mempty)
-
-            case nodeType of
-                CoreNode ->
-                    forkIO $ startCoreNode cArgs nArgs lName
-
-                EdgeNode -> do
-                    (prefix <> "WALLET_ADDRESS")    `as` "127.0.0.1:8090"
-                    (prefix <> "WALLET_REBUILD_DB") `as` "True"
-                    (prefix <> "WALLET_DB_PATH")    `as` "state-integration-tests/wallet-db"
-
-                    wArgs <- execParserEnv prefix (info walletBackendParamsParser mempty)
-                    let wOpts = WalletStartupOptions cArgs (WalletLegacy wArgs)
-
-                    -- runWWebMode cArgs nArgs wArgs lName generateInitialState
-
-                    forkIO $ startEdgeNode nArgs wOpts lName

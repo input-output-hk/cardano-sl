@@ -251,9 +251,9 @@ execParserEnv
     :: String        -- ^ Prefix (underscore included) for each ENV var
     -> ParserInfo a  -- ^ Parser information (displayed in case of error)
     -> IO a          -- ^ Parsed value, or throw in IO
-execParserEnv prefix info = do
+execParserEnv prefix pInfo = do
     vars <- filter (hasPrefix prefix . fst) <$> getEnvironment
-    withArgs (map varToArg vars) $ execParser info
+    withArgs (map varToArg vars) $ execParser pInfo
   where
     varToArg :: (String, String) -> String
     varToArg (k, v) =

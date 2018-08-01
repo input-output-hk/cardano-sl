@@ -15,7 +15,7 @@ module Cardano.Wallet.Launcher
 
     -- * Launchers
     , startCoreNode
-    , startEdgeNode
+    , startWalletNode
 
     -- * One-shot Runner
     , runWWebMode
@@ -95,13 +95,13 @@ startCoreNode cArgs nArgs loggerName = do
             runNodeReal pm params ssc [updateTriggerWorker]
 
 
--- | Runs an edge node plus its wallet backend API.
-startEdgeNode
+-- | Runs an wallet node plus its wallet backend API.
+startWalletNode
     :: NodeArgs
     -> WalletStartupOptions
     -> LoggerName
     -> IO ()
-startEdgeNode nArgs wOpts loggerName = do
+startWalletNode nArgs wOpts loggerName = do
     let cArgs  = wsoNodeArgs wOpts
     let blPath = AssetLockPath <$> cnaAssetLockPath cArgs
     let lparams = loggingParams loggerName cArgs

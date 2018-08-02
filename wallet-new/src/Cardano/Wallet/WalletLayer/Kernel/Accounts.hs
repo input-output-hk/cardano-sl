@@ -86,21 +86,20 @@ createAccount wallet (V1.WalletId wId) (V1.NewAccount mbSpendingPassword account
 
 
 -- | Retrieves a full set of accounts.
-getAccounts :: MonadIO m
-            => Kernel.DB
+getAccounts :: Kernel.DB
             -> V1.WalletId
-            -> m (Either GetAccountsError (IxSet V1.Account))
+            -> Either GetAccountsError (IxSet V1.Account)
 getAccounts snapshot (V1.WalletId wId) = do
     case decodeTextAddress wId of
          Left _ ->
-             return $ Left (GetAccountsWalletIdDecodingFailed wId)
+             Left (GetAccountsWalletIdDecodingFailed wId)
          Right rootAddr -> do
             let hdRootId = HD.HdRootId . InDb $ rootAddr
                 wallets = Kernel.hdWallets snapshot
 
-            return $ case readAccountsByRootId hdRootId wallets of
+            case readAccountsByRootId hdRootId wallets of
                  Left kernelError -> Left $ GetAccountsError kernelError
-                 -- NOTE(adn) [CBR-347] This has currently terrible performances
+                 -- NOTE(adn) [CBR-347] This has currently terrible performance
                  -- due to the fact we still have to unify the 'IxSet' with
                  -- the 'IxSet'. Not only that, but due to the fact we cannot
                  -- map directly on an 'IxSet' (neither the kernel nor the native one)
@@ -121,21 +120,19 @@ getAccounts snapshot (V1.WalletId wId) = do
                                            . IxSet.toList $ accs
 
 -- | Retrieves a single account.
-getAccount :: MonadIO m
-           => Kernel.DB
+getAccount :: Kernel.DB
            -> V1.WalletId
            -> V1.AccountIndex
-           -> m (Either GetAccountError V1.Account)
+           -> Either GetAccountError V1.Account
 getAccount snapshot (V1.WalletId wId) accountIndex = do
     case decodeTextAddress wId of
-         Left _ ->
-             return $ Left (GetAccountWalletIdDecodingFailed wId)
+         Left _ -> Left (GetAccountWalletIdDecodingFailed wId)
          Right rootAddr -> do
             let hdRootId = HD.HdRootId . InDb $ rootAddr
                 hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
                 wallets = Kernel.hdWallets snapshot
 
-            return $ case readHdAccount hdAccountId wallets of
+            case readHdAccount hdAccountId wallets of
                  Left kernelError -> Left $ GetAccountError (V1 kernelError)
                  Right acc        -> Right $ toV1Account snapshot acc
 

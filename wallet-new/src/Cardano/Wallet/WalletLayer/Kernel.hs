@@ -93,11 +93,11 @@ bracketPassiveWallet logFunction keystore rocksDB f =
             , _pwlGetAccounts   =
                 \walletId -> do
                     snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
-                    Accounts.getAccounts snapshot walletId
+                    return (Accounts.getAccounts snapshot walletId)
             , _pwlGetAccount    =
                 \walletId accountIndex -> do
                     snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
-                    Accounts.getAccount snapshot walletId accountIndex
+                    return (Accounts.getAccount snapshot walletId accountIndex)
             , _pwlUpdateAccount  = Accounts.updateAccount wallet
             , _pwlDeleteAccount  = Accounts.deleteAccount wallet
 

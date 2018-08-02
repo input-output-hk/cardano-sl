@@ -6,6 +6,8 @@ module Pos.Core.Genesis.Initializer
 
 import           Universum
 
+import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson.TH (deriveJSON)
 import           Fmt (genericF)
 import           Formatting (bprint, build, fixed, int, (%))
 import qualified Formatting.Buildable as Buildable
@@ -85,3 +87,7 @@ data FakeAvvmOptions = FakeAvvmOptions
 
 instance Buildable FakeAvvmOptions where
     build = genericF
+
+deriveJSON defaultOptions ''GenesisInitializer
+deriveJSON defaultOptions ''TestnetBalanceOptions
+deriveJSON defaultOptions ''FakeAvvmOptions

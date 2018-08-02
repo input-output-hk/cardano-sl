@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.WalletLayer.QuickCheck
     ( bracketPassiveWallet
@@ -10,10 +11,15 @@ import           Universum
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     PassiveWalletLayer (..))
+                     CreateAccountError (..), DeleteAccountError (..),
+                     GetAccountError (..), GetAccountsError (..),
+                     PassiveWalletLayer (..), UpdateAccountError (..))
+
+import           Cardano.Wallet.API.V1.Types (V1 (..))
+import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 
 import           Pos.Core ()
-import           Test.QuickCheck (Arbitrary, arbitrary, generate)
+import           Test.QuickCheck (Arbitrary, arbitrary, generate, oneof)
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -68,3 +74,39 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
         , pay          = \_ _ _ -> error "unimplemented"
         , estimateFees = \_ _ _ -> error "unimplemented"
         }
+
+
+{-----------------------------------------------------------------------------
+Orphan instances, in preparation for rehoming them.
+------------------------------------------------------------------------------}
+
+instance Arbitrary CreateAccountError where
+    arbitrary = oneof [ CreateAccountError <$> arbitrary
+                      , pure (CreateAccountWalletIdDecodingFailed "foobar")
+                      , CreateAccountTimeLimitReached <$> arbitrary
+                      ]
+
+instance Arbitrary Kernel.CreateAccountError where
+    arbitrary = oneof [ Kernel.CreateAccountUnknownHdRoot <$> arbitrary
+                      , Kernel.CreateAccountHdRndAccountSpaceSaturated <$> arbitrary
+                      ]
+
+instance Arbitrary GetAccountError where
+    arbitrary = oneof [ GetAccountError . V1 <$> arbitrary
+                      , GetAccountWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary GetAccountsError where
+    arbitrary = oneof [ GetAccountsError <$> arbitrary
+                      , GetAccountsWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary UpdateAccountError where
+    arbitrary = oneof [ UpdateAccountError . V1 <$> arbitrary
+                      , UpdateAccountWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary DeleteAccountError where
+    arbitrary = oneof [ DeleteAccountError . V1 <$> arbitrary
+                      , DeleteAccountWalletIdDecodingFailed <$> arbitrary
+                      ]

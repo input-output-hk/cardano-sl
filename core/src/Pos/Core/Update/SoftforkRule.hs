@@ -7,6 +7,8 @@ module Pos.Core.Update.SoftforkRule
 import           Universum
 
 import           Control.Monad.Except (MonadError)
+import qualified Data.Aeson.Options as S (defaultOptions)
+import           Data.Aeson.TH (deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
@@ -70,6 +72,8 @@ checkSoftforkRule SoftforkRule {..} = do
     checkCoinPortion srInitThd
     checkCoinPortion srMinThd
     checkCoinPortion srThdDecrement
+
+deriveJSON S.defaultOptions ''SoftforkRule
 
 deriveSimpleBi ''SoftforkRule [
     Cons 'SoftforkRule [

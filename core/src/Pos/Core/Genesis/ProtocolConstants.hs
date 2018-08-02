@@ -6,6 +6,8 @@ module Pos.Core.Genesis.ProtocolConstants
 
 import           Universum
 
+import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson.TH (deriveJSON)
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
                      ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
 
@@ -45,6 +47,8 @@ instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
         gpcVssMaxTTL <- fromJSField obj "vssMaxTTL"
         gpcVssMinTTL <- fromJSField obj "vssMinTTL"
         return GenesisProtocolConstants {..}
+
+deriveJSON defaultOptions ''GenesisProtocolConstants
 
 genesisProtocolConstantsToProtocolConstants
     :: GenesisProtocolConstants

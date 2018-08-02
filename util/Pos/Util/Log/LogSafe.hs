@@ -395,9 +395,3 @@ logErrorSP   = logMessageSP Error
 
 instance BuildableSafe a => Buildable (SecureLog [a]) where
     build = bprint (buildSafeList secure) . getSecureLog
-
-instance Buildable (SecureLog Text) where
-    build _ = "<hidden>"
-
-instance Buildable (SecureLog Word32) where
-    build _ = "<bytes>"

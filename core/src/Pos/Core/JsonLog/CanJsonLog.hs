@@ -28,11 +28,12 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson (encode)
 import           Data.Aeson.Types (ToJSON)
+import qualified Data.ByteString.Lazy as B
+import           Data.Text.Encoding (decodeUtf8)
+import qualified Ether
 
 import qualified Pos.Util.Log as Log
 
-import qualified Data.ByteString.Lazy as B
-import           Data.Text.Encoding (decodeUtf8)
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.
@@ -59,3 +60,4 @@ instance CanJsonLog m => CanJsonLog (ResourceT m)
 
 instance CanJsonLog (Log.LogContextT IO) where
     jsonLog a = Log.logMessage Log.Info $ decodeUtf8 $ B.toStrict $ encode a
+deriving instance CanJsonLog (t m) => CanJsonLog (Ether.TaggedTrans tag t m)

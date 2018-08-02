@@ -4,6 +4,7 @@ module Pos.Core.Common.SharedSeed
 
 import           Universum
 
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString as BS (pack, zipWith)
 import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
@@ -12,6 +13,7 @@ import           Formatting (formatToString)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F, formatBase16)
 import qualified Serokell.Util.Base16 as B16
+import           Serokell.Util.Base64 (JsonByteString (..))
 import           Text.JSON.Canonical (FromJSON (..), JSValue (..),
                      ReportSchemaErrors, ToJSON (..))
 
@@ -44,6 +46,12 @@ instance Monad m => ToJSON m SharedSeed where
 
 instance ReportSchemaErrors m => FromJSON m SharedSeed where
     fromJSON = fmap SharedSeed . tryParseString B16.decode
+
+instance Aeson.ToJSON SharedSeed where
+    toJSON = Aeson.toJSON . JsonByteString . getSharedSeed
+
+instance Aeson.FromJSON SharedSeed where
+    parseJSON v = SharedSeed . getJsonByteString <$> Aeson.parseJSON v
 
 deriveSimpleBi ''SharedSeed [
     Cons 'SharedSeed [

@@ -17,7 +17,6 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Aeson.Core ()
 import           Pos.Binary.Class (Bi (..), Case (..), decodeKnownCborDataItem,
                      decodeListLenCanonical, decodeUnknownCborDataItem,
                      encodeKnownCborDataItem, encodeListLen,

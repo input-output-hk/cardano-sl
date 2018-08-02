@@ -9,10 +9,10 @@ module Pos.Logic.Full
 import           Universum hiding (id)
 
 import           Control.Lens (at, to)
+import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
-import           Pipes (Producer)
 
 import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
@@ -108,7 +108,7 @@ logicFull logTrace jsonLogTx pm txpConfig ourStakeholderId securityParams =
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
 
-        streamBlocks :: HeaderHash -> Producer SerializedBlock m ()
+        streamBlocks :: HeaderHash -> ConduitT () SerializedBlock m ()
         streamBlocks = Block.streamBlocks DB.dbGetSerBlock Block.resolveForwardLink
 
         getTip :: m Block

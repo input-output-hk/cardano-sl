@@ -94,7 +94,7 @@ instance Buildable WalletName where
     build (WalletName wName) = bprint build wName
 
 -- | Account name
-newtype AccountName = AccountName Text
+newtype AccountName = AccountName { getAccountName :: Text }
 
 instance Buildable AccountName where
     build (AccountName txt) = bprint build txt
@@ -330,6 +330,7 @@ hdAccountCurrentCheckpoint = hdAccountCheckpoints . currentCheckpoint
 data UnknownHdRoot =
     -- | Unknown root ID
     UnknownHdRoot HdRootId
+    deriving Eq
 
 instance Arbitrary UnknownHdRoot where
     arbitrary = oneof [ UnknownHdRoot <$> arbitrary
@@ -553,6 +554,10 @@ instance Buildable HdAddressIx where
 instance Buildable HdAddressId where
     build (HdAddressId parentId addressIx)
         = bprint ("HdAddressId: "%build%", "%build) parentId addressIx
+
+instance Buildable UnknownHdRoot where
+    build (UnknownHdRoot rootId)
+        = bprint ("UnknownHdRoot: "%build) rootId
 
 instance Buildable UnknownHdAccount where
     build (UnknownHdAccountRoot rootId)

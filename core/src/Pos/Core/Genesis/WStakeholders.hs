@@ -5,6 +5,7 @@ module Pos.Core.Genesis.WStakeholders
 
 import           Universum
 
+import qualified Data.Aeson as Aeson (FromJSON, ToJSON)
 import           Data.Semigroup (Semigroup)
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
@@ -40,3 +41,7 @@ instance Monad m => ToJSON m GenesisWStakeholders where
 
 instance ReportSchemaErrors m => FromJSON m GenesisWStakeholders where
     fromJSON = fmap GenesisWStakeholders . fromJSON
+
+deriving instance Aeson.ToJSON GenesisWStakeholders
+
+deriving instance Aeson.FromJSON GenesisWStakeholders

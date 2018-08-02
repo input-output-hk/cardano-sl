@@ -76,24 +76,21 @@ module Pos.Core.Util.LogSafe
 -- what's going on.
 import           Universum
 
-import           Formatting (bprint, build, fconst, later, mapf, (%))
+-- import           Formatting (bprint, build, fconst, later, mapf, (%))
 import qualified Formatting.Buildable
-import           Formatting.Internal (Format (..))
+-- import           Formatting.Internal (Format (..))
 
-import           Pos.Core (Timestamp, TxId)
 import           Pos.Core.Common (Address, Coin)
+import           Pos.Core.Slotting (Timestamp)
+import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
 
 import           Pos.Util.Log.LogSafe
 
 -- | additional instances
 
-{-
-instance Buildable [Address] where
-    build = bprint listJson
-
-instance BuildableSafe a => Buildable (SecureLog [a]) where
-    build = bprint (buildSafeList secure) . getSecureLog
+instance Buildable (SecureLog Text) where
+    build _ = "<hidden>"
 
 instance Buildable (SecureLog PassPhrase) where
     build _ = "<passphrase>"
@@ -104,11 +101,12 @@ instance Buildable (SecureLog Coin) where
 
 instance Buildable (SecureLog Address) where
     build _ = "<address>"
--}
+
+instance Buildable (SecureLog Word32) where
+    build _ = "<bytes>"
+
 instance Buildable (SecureLog TxId) where
     build _ = "<txid>"
 
-{-
 instance Buildable (SecureLog Timestamp) where
     build _ = "<timestamp>"
--}

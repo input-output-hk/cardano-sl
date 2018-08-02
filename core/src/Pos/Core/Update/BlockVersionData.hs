@@ -5,6 +5,8 @@ module Pos.Core.Update.BlockVersionData
 
 import           Universum
 
+import qualified Data.Aeson.Options as S (defaultOptions)
+import           Data.Aeson.TH (deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, int, (%))
@@ -109,6 +111,8 @@ instance ReportSchemaErrors m => FromJSON m BlockVersionData where
         bvdTxFeePolicy <- fromJSField obj "txFeePolicy"
         bvdUnlockStakeEpoch <- fromJSField obj "unlockStakeEpoch"
         return BlockVersionData {..}
+
+deriveJSON S.defaultOptions ''BlockVersionData
 
 -- | Version of 'isBootstrapEra' which takes 'BlockVersionData'
 -- instead of unlock stake epoch.

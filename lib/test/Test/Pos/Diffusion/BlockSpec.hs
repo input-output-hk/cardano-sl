@@ -10,25 +10,26 @@ import           Universum
 
 import           Control.DeepSeq (force)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Bits
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Conduit.Combinators (yieldMany)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup ((<>))
 import           Test.Hspec (Spec, describe, it, shouldBe)
 
-import           Data.Bits
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty as NE
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Network.Transport (Transport, closeTransport)
 import qualified Network.Transport.InMemory as InMemory
 import           Node (NodeId)
 import qualified Node
-import           Pipes (each)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core.Block (Block, BlockHeader, HeaderHash,
                      blockHeaderHash)
 import qualified Pos.Core.Block as Block (getBlockHeader)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic (..))
@@ -44,9 +45,8 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (noTrace)
+
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
@@ -104,7 +104,7 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
-          each $ map serializedBlock bs
+          yieldMany $ map serializedBlock bs
     }
 
 serializedBlock :: Block -> SerializedBlock

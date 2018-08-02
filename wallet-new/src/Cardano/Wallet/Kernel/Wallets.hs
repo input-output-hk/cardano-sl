@@ -59,6 +59,11 @@ instance Exception CreateWalletError
 -------------------------------------------------------------------------------}
 
 -- | Creates a new HD 'Wallet'.
+-- INVARIANT: The input 'Mnemonic' should be supplied by the frontend such that
+-- this is a brand new 'Mnemonic' never used before on the blockchain. Failing
+-- to do so would cause an invariant violation as we system would treat this
+-- wallet as a new one rather than dealing with a proper restoration.
+--
 createHdWallet :: PassiveWallet
              -> Mnemonic nat
              -- ^ The set of words (i.e the mnemonic) to generate the initial seed.
@@ -90,7 +95,8 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                              walletName
                              assuranceLevel
                              esk
-                             mempty
+                             mempty -- ^ Brand new wallets have no Utxo.
+                                    --   See the invariant at the top.
     case res of
          Left e   -> return . Left $ CreateWalletFailed e
          Right hdRoot -> do

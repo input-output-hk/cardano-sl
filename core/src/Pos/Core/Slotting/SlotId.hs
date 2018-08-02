@@ -24,6 +24,7 @@ module Pos.Core.Slotting.SlotId
 import           Universum
 
 import           Control.Lens (Iso', iso, lens, makeLensesFor)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, ords, (%))
 import qualified Formatting.Buildable as Buildable
@@ -50,6 +51,8 @@ instance Buildable SlotId where
         bprint (ords%" slot of "%ords%" epoch") (getSlotIndex siSlot) siEpoch
 
 instance NFData SlotId
+
+deriveJSON defaultOptions ''SlotId
 
 deriveSafeCopySimple 0 'base ''SlotId
 

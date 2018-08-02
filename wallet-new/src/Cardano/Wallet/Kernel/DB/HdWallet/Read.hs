@@ -137,10 +137,16 @@ readHdRoot rootId = aux . view (at rootId) . readAllHdRoots
 
 -- | Look up the specified account
 readHdAccount :: HdAccountId -> HdQueryErr UnknownHdAccount HdAccount
-readHdAccount accId = aux . view (at accId) . readAllHdAccounts
-  where
-    aux :: Maybe a -> Either UnknownHdAccount a
-    aux = maybe (Left (UnknownHdAccount accId)) Right
+readHdAccount accId = do
+    res <- view (at accId) . readAllHdAccounts
+    case res of
+         Just account -> return (Right account)
+         Nothing -> do
+             let rootId = accId ^. hdAccountIdParent
+             -- Offer a better diagnostic on what went wrong.
+             either (\_ -> Left (UnknownHdAccountRoot rootId))
+                    (\_ -> Left (UnknownHdAccount accId))
+                   <$> readHdRoot rootId
 
 -- | Look up the specified account and return the current checkpoint
 readHdAccountCurrentCheckpoint :: HdAccountId -> HdQueryErr UnknownHdAccount Checkpoint

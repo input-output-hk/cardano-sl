@@ -13,8 +13,11 @@ module Pos.Core.Attributes
        , mkAttributes
        ) where
 
+import qualified Prelude
 import           Universum
 
+import           Data.Aeson (FromJSON (..), ToJSON (..))
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Default (Default (..))
 import qualified Data.Hashable as H
@@ -24,7 +27,7 @@ import           Data.SafeCopy (SafeCopy (..), base, contain,
 import           Formatting (bprint, build, int, (%))
 import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
-import qualified Prelude
+import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Binary.Class
 
@@ -36,6 +39,12 @@ newtype UnparsedFields = UnparsedFields (Map Word8 LBS.ByteString)
 
 instance Hashable UnparsedFields where
     hashWithSalt salt = H.hashWithSalt salt . M.toList . fromUnparsedFields
+
+instance FromJSON UnparsedFields where
+    parseJSON v = UnparsedFields . M.map (LBS.fromStrict . getJsonByteString) <$> parseJSON v
+
+instance ToJSON UnparsedFields where
+    toJSON (UnparsedFields fields) = toJSON (M.map (JsonByteString . LBS.toStrict) fields)
 
 fromUnparsedFields :: UnparsedFields -> Map Word8 LBS.ByteString
 fromUnparsedFields (UnparsedFields m) = m
@@ -186,5 +195,7 @@ decodeAttributes initval updater = do
                 { attrData   = newData
                 , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
                 }
+
+deriveJSON defaultOptions ''Attributes
 
 deriveSafeCopySimple 0 'base ''UnparsedFields

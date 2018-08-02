@@ -34,9 +34,6 @@ import           System.FilePath (takeDirectory)
 
 import           Ntp.Client (NtpConfiguration)
 
--- FIXME consistency on the locus of the JSON instances for configuration.
--- Core keeps them separate, infra update and ssc define them on-site.
-import           Pos.Aeson.Core.Configuration ()
 import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Slotting (Timestamp (..))

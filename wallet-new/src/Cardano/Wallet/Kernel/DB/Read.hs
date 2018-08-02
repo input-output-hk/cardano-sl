@@ -2,8 +2,11 @@ module Cardano.Wallet.Kernel.DB.Read (
     -- * Read-only, pure getters
     accountUtxo
   , accountAvailableUtxo
+  , accountAvailableBalance
   , accountTotalBalance
+  , accountAddresses
   , hdWallets
+  , readAddressMeta
   ) where
 
 import           Universum
@@ -12,12 +15,17 @@ import           Formatting (build, sformat)
 import           Formatting.Buildable (Buildable)
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (Coin)
+import           Pos.Core (Address, Coin)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdWallets)
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
+import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdAddress,
+                     HdWallets)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
+                     readAddressesByAccountId, readHdAccountCurrentCheckpoint)
+import           Cardano.Wallet.Kernel.DB.Spec (checkpointAddressMeta)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 
 {-------------------------------------------------------------------------------
                               Wallet getters
@@ -55,11 +63,28 @@ accountAvailableUtxo :: DB -> HdAccountId -> Utxo
 accountAvailableUtxo snapshot accountId
     = walletQuery' snapshot (Spec.queryAccountAvailableUtxo accountId)
 
+-- | Returns the available balance for the input 'HdAccountId'.
+accountAvailableBalance :: DB -> HdAccountId -> Coin
+accountAvailableBalance snapshot accountId
+    = walletQuery' snapshot (Spec.queryAccountAvailableBalance accountId)
+
 -- | Returns the total balance for this 'HdAccountId'.
 accountTotalBalance :: DB -> HdAccountId -> Coin
 accountTotalBalance snapshot accountId
     = walletQuery' snapshot (Spec.queryAccountTotalBalance accountId)
 
 -- | Returns the total balance for this 'HdAccountId'.
+accountAddresses :: DB -> HdAccountId -> IxSet HdAddress
+accountAddresses snapshot accountId
+    = walletQuery' snapshot (readAddressesByAccountId accountId)
+
+-- | Returns the total balance for this 'HdAccountId'.
 hdWallets :: DB -> HdWallets
 hdWallets snapshot = snapshot ^. dbHdWallets
+
+-- | Reads the given 'Address' in the 'HdAccount' current checkpoint.
+readAddressMeta :: DB -> HdAccountId -> Address -> AddressMeta
+readAddressMeta snapshot accountId cardanoAddress
+    = view (checkpointAddressMeta cardanoAddress) (walletQuery' snapshot checkpoint)
+    where
+        checkpoint = readHdAccountCurrentCheckpoint accountId

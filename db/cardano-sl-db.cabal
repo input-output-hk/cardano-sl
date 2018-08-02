@@ -145,7 +145,6 @@ library
                      , memory
                      , mmorph
                      , mtl
-                     , pipes
                      , reflection
                      , resourcet
                      , rocksdb-haskell-ng

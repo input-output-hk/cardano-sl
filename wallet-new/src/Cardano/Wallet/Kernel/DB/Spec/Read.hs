@@ -4,6 +4,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Read (
     queryAccountTotalBalance
   , queryAccountUtxo
   , queryAccountAvailableUtxo
+  , queryAccountAvailableBalance
   ) where
 
 import           Universum
@@ -116,5 +117,12 @@ queryAccountUtxo accountId db
 queryAccountAvailableUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Utxo
 queryAccountAvailableUtxo accountId db
     = accountAvailableUtxo <$> checkpoint
+    where
+        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+
+queryAccountAvailableBalance :: HdAccountId
+                             -> HD.HdQueryErr UnknownHdAccount Core.Coin
+queryAccountAvailableBalance accountId db
+    = accountAvailableBalance <$> checkpoint
     where
         checkpoint = HD.readHdAccountCurrentCheckpoint accountId db

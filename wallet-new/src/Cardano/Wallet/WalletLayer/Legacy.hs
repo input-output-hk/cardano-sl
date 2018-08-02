@@ -17,8 +17,9 @@ import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError, DeleteAccountError, GetAccountError,
-                     GetAccountsError, PassiveWalletLayer (..),
-                     UpdateAccountError, UpdateWalletPasswordError)
+                     GetAccountsError, GetWalletError (..),
+                     PassiveWalletLayer (..), UpdateAccountError,
+                     UpdateWalletPasswordError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -35,7 +36,7 @@ import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
 import           Pos.Crypto (PassPhrase)
 
-import           Pos.Util (HasLens', maybeThrow)
+import           Pos.Util (HasLens')
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..),
                      CWallet (..), CWalletInit (..), CWalletMeta (..))
@@ -143,8 +144,10 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    w <- maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
-    return $ Right w
+    res <- pwlGetWallet wId
+    case res of
+         Left _  -> throwM (WalletNotFound wId)
+         Right w -> return $ Right w
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
@@ -169,16 +172,18 @@ pwlGetWalletIds = do
 pwlGetWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m (Maybe Wallet)
+    -> m (Either GetWalletError Wallet)
 pwlGetWallet wId = do
     ws          <- askWalletSnapshot
 
     cWId        <- migrate wId
     wallet      <- V0.getWallet cWId
 
-    pure $ do
-        walletInfo  <- getWalletInfo cWId ws
-        migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+    let mbWallet = do walletInfo  <- getWalletInfo cWId ws
+                      migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+    return $ case mbWallet of
+                  Nothing -> Left (GetWalletErrorNotFound wId)
+                  Just w  -> Right w
 
 --instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
 
@@ -197,7 +202,10 @@ pwlUpdateWallet wId wUpdate = do
     setWalletMeta walletDB cWId cWMeta
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    res <- pwlGetWallet wId
+    case res of
+         Left _  -> throwM (WalletNotFound wId)
+         Right w -> return w
 
 pwlUpdateWalletPassword
     :: WalletId

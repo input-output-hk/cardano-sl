@@ -8,6 +8,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
+import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
 
 import           Servant
 
@@ -17,7 +18,7 @@ handlers pwl =  newWallet pwl
            :<|> listWallets
            :<|> updatePassword pwl
            :<|> deleteWallet
-           :<|> getWallet
+           :<|> getWallet pwl
            :<|> updateWallet
 
 
@@ -33,7 +34,7 @@ newWallet pwl newWalletRequest = do
 
     -- FIXME(adn) Wallet restoration from seed will be provided as part of
     -- CBR-243.
-    res <- liftIO $ (_pwlCreateWallet pwl) newWalletRequest
+    res <- liftIO $ WalletLayer.createWallet pwl newWalletRequest
     case res of
          Left e  -> throwM e
          Right w -> return $ single w
@@ -50,7 +51,7 @@ updatePassword :: PassiveWalletLayer IO
                -> PasswordUpdate
                -> Handler (WalletResponse Wallet)
 updatePassword pwl wid passwordUpdate = do
-    res <- liftIO $ (_pwlUpdateWalletPassword pwl) wid passwordUpdate
+    res <- liftIO $ WalletLayer.updateWalletPassword pwl wid passwordUpdate
     case res of
          Left e  -> throwM e
          Right w -> return $ single w
@@ -59,8 +60,15 @@ updatePassword pwl wid passwordUpdate = do
 deleteWallet :: WalletId -> Handler NoContent
 deleteWallet _wid = error "Unimplemented. See CBR-227."
 
-getWallet :: WalletId -> Handler (WalletResponse Wallet)
-getWallet _wid = error "Unimplemented. See CBR-227."
+-- | Gets a specific wallet.
+getWallet :: PassiveWalletLayer IO
+          -> WalletId
+          -> Handler (WalletResponse Wallet)
+getWallet pwl wid = do
+    res <- liftIO $ WalletLayer.getWallet pwl wid
+    case res of
+         Left e  -> throwM e
+         Right w -> return $ single w
 
 updateWallet :: WalletId
              -> WalletUpdate

@@ -7,7 +7,7 @@ module Test.Spec.Wallets (
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, shouldSatisfy)
+import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, suchThat, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
@@ -19,7 +19,8 @@ import           Pos.Crypto (emptyPassphrase, hash)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
-                     HdRootId (..), WalletName (..), hdRootId)
+                     HdRootId (..), UnknownHdRoot (..), WalletName (..),
+                     hdRootId)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdRootError (..))
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
@@ -157,7 +158,7 @@ spec = describe "Wallets" $ do
                                      mbEsk `shouldSatisfy` isJust
 
         describe "Wallet creation (Servant)" $ do
-            prop "works as expected in the happy path scenario" $ do
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
                 monadicIO $ do
                     pwd <- genSpendingPassword
                     rq  <- genNewWalletRq pwd
@@ -214,7 +215,7 @@ spec = describe "Wallets" $ do
                                  (fmap hash newKey) `shouldSatisfy` (not . (==) (fmap hash oldKey))
 
         describe "Wallet update password (Servant)" $ do
-            prop "works as expected in the happy path scenario" $ do
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
                 monadicIO $ do
                     newPwd <- pick arbitrary
                     withNewWalletFixture $ \ _ layer _ Fixture{..} -> do
@@ -223,3 +224,48 @@ spec = describe "Wallets" $ do
                             let rq  = V1.PasswordUpdate fixtureSpendingPassword newPwd
                             res <- runExceptT . runHandler' $ Handlers.updatePassword layer wId rq
                             (bimap identity STB res) `shouldSatisfy` isRight
+
+    describe "GetWallet" $ do
+
+        -- There is no formal \"kernel function\" for this one, so we are
+        -- testing only the WalletLayer and the Servant handler.
+        describe "Get a specific wallet (wallet layer)" $ do
+
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    withNewWalletFixture $ \ _ layer _ Fixture{..} -> do
+                            let wId     = V1.walId fixtureV1Wallet
+                            res <- WalletLayer.getWallet layer wId
+                            (bimap STB STB res) `shouldBe` (Right (STB fixtureV1Wallet))
+
+            prop "fails if the wallet doesn't exist" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    wId <- pick arbitrary
+                    withLayer $ \ layer _ -> do
+                            res <- WalletLayer.getWallet layer wId
+                            case res of
+                                 Left (WalletLayer.GetWalletError (V1 (UnknownHdRoot _))) ->
+                                     return ()
+                                 Left unexpectedErr ->
+                                     fail $ "expecting different failure than " <> show unexpectedErr
+                                 Right _ -> fail "expecting password not to be updated, but it was."
+
+        describe "Get a specific wallet (Servant)" $ do
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    withNewWalletFixture $ \ _ layer _ Fixture{..} -> do
+                        liftIO $ do
+                            let wId = V1.walId fixtureV1Wallet
+                            res <- runExceptT . runHandler' $ Handlers.getWallet layer wId
+                            (bimap identity STB res) `shouldSatisfy` isRight
+
+            prop "fails if the wallet doesn't exist" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    wId <- pick arbitrary
+                    withLayer $ \layer _ -> do
+                        let getW = Handlers.getWallet layer wId
+                        res <- try . runExceptT . runHandler' $ getW
+                        case res of
+                             Left (_e :: WalletLayer.GetWalletError)  -> return ()
+                             Right (Left e)  -> throwM e -- Unexpected Failure
+                             Right (Right _) -> fail "Expecting a failure, but the handler succeeded."

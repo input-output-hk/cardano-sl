@@ -1,6 +1,7 @@
 module Cardano.Wallet.WalletLayer.Kernel.Wallets (
       createWallet
     , updateWalletPassword
+    , getWallet
     ) where
 
 import           Universum
@@ -14,14 +15,15 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readHdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
-                     UpdateWalletPasswordError (..))
+                     GetWalletError (..), UpdateWalletPasswordError (..))
 
-import           Pos.Core (Coin, Timestamp, decodeTextAddress, mkCoin,
-                     unsafeAddCoin)
+import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -73,15 +75,17 @@ createWallet wallet (V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword 
                           }
 
 -- | Converts an 'HdRoot' into a V1 'Wallet.
-toV1Wallet :: Timestamp -> Kernel.DB -> HD.HdRoot -> V1.Wallet
-toV1Wallet now db hdRoot =
+toV1Wallet :: Kernel.DB -> HD.HdRoot -> V1.Wallet
+toV1Wallet db hdRoot =
     let (hasSpendingPassword, mbLastUpdate) =
             case hdRoot ^. HD.hdRootHasPassword of
                  HD.NoSpendingPassword     -> (False, Nothing)
                  HD.HasSpendingPassword lu -> (True, Just (lu ^. fromDb))
+        -- In case the wallet has no spending password, its last update
+        -- matches this wallet creation time.
         rootId = hdRoot ^. HD.hdRootId
-        lastUpdate = fromMaybe now mbLastUpdate
         createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
+        lastUpdate = fromMaybe createdAt mbLastUpdate
         walletId   = sformat build . _fromDb . HD.getHdRootId $ rootId
         v1AssuranceLevel = case hdRoot ^. HD.hdRootAssurance of
                                HD.AssuranceLevelNormal -> V1.NormalAssurance
@@ -123,6 +127,18 @@ updateWalletPassword wallet (V1.WalletId wId) (V1.PasswordUpdate (V1 oldPwd) (V1
            res <- liftIO $ Kernel.updatePassword wallet hdRootId oldPwd newPwd
            case res of
                 Left e  -> return $ Left (UpdateWalletPasswordError e)
-                Right (db, updatedWallet) -> do
-                    now <- liftIO getCurrentTimestamp
-                    return $ Right $ toV1Wallet now db updatedWallet
+                Right (db, updatedWallet) ->
+                    return $ Right $ toV1Wallet db updatedWallet
+
+-- | Get a specific wallet.
+getWallet :: Kernel.DB
+          -> V1.WalletId
+          -> Either GetWalletError V1.Wallet
+getWallet db (V1.WalletId wId) =
+    case decodeTextAddress wId of
+        Left _ -> Left (GetWalletWalletIdDecodingFailed wId)
+        Right rootAddr -> do
+           let hdRootId = HD.HdRootId . InDb $ rootAddr
+           case readHdRoot hdRootId (hdWallets db) of
+                Left dbErr -> Left (GetWalletError (V1 dbErr))
+                Right w    -> Right (toV1Wallet db w)

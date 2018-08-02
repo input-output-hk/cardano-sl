@@ -81,7 +81,10 @@ bracketPassiveWallet logFunction keystore rocksDB f =
             { _pwlCreateWallet          = Wallets.createWallet wallet
 
             , _pwlGetWalletIds          = error "Not implemented!"
-            , _pwlGetWallet             = error "Not implemented!"
+            , _pwlGetWallet             =
+                \walletId -> do
+                    snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
+                    return (Wallets.getWallet snapshot walletId)
             , _pwlUpdateWallet          = error "Not implemented!"
             , _pwlUpdateWalletPassword  = Wallets.updateWalletPassword wallet
             , _pwlDeleteWallet          = error "Not implemented!"

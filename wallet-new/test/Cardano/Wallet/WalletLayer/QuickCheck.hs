@@ -13,7 +13,8 @@ import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
                      GetAccountError (..), GetAccountsError (..),
-                     PassiveWalletLayer (..), UpdateAccountError (..))
+                     GetWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -110,4 +111,9 @@ instance Arbitrary UpdateAccountError where
 instance Arbitrary DeleteAccountError where
     arbitrary = oneof [ DeleteAccountError . V1 <$> arbitrary
                       , DeleteAccountWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary GetWalletError where
+    arbitrary = oneof [ GetWalletWalletIdDecodingFailed <$> arbitrary
+                      , GetWalletError . V1 <$> arbitrary
                       ]

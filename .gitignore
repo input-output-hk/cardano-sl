@@ -212,6 +212,7 @@ venv.bak/
 /faucet/test-config.json
 /faucet/tls/*
 /faucet/wallet-source.json
+/faucet/existing-wallet-details.json
 /faucet/generated-wallet-details.json
 /faucet/default.nix
 /faucet/shell.nix

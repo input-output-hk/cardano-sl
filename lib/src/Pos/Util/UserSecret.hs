@@ -57,7 +57,7 @@ import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
 import           Pos.Util.Trace.Named (TraceNamed, logInfo, logWarning)
 #else
-import           Pos.Util.Trace.Named (TraceNamed, logInfo)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
 #endif
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
@@ -260,6 +260,7 @@ initializeUserSecret logTrace secretPath = do
         createEmptyFile secretPath
         setMode600 secretPath
 #else
+    logDebug logTrace "Windows: no permission checking on path"
     unless exists $ createEmptyFile secretPath
 #endif
   where
@@ -272,6 +273,8 @@ readUserSecret :: MonadIO m => TraceNamed m -> FilePath -> m UserSecret
 readUserSecret logTrace path = do
 #ifdef POSIX
     ensureModeIs600 logTrace path
+#else
+    logDebug logTrace "Windows: no permission checking on path"
 #endif
     takeReadLock path $ do
         content <- either (throwM . UserSecretDecodingError . toText) pure .

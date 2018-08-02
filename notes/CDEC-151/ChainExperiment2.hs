@@ -2,24 +2,18 @@
 module ChainExperiment2 where
 
 import Data.Word
-import Data.List
-import Data.Maybe
-import Data.Graph
+import Data.List (tails, foldl')
 import Data.Hashable
-import qualified Data.Set as Set
 import qualified Data.Map as Map
 import           Data.Map (Map)
 
 import Control.Applicative
-import Control.Concurrent.STM (STM, atomically, retry)
 
 import Test.QuickCheck
 
 
 --
 -- Simple blockchain data type.
---
--- These are the abstract types, the specification.
 --
 
 type Chain = [Block]  -- most recent block at the front
@@ -141,7 +135,7 @@ validChainUpdate' (AddBlock    _b)  = True
 validChainUpdate' (SwitchFork n bs) = n >= 0 && n <= k && length bs == n + 1
 
 k :: Int
-k = 5 -- maximum fork length
+k = 5 -- maximum fork length in these tests
 
 chainHeadBlockId :: Chain -> BlockId
 chainHeadBlockId []    = 0
@@ -192,27 +186,14 @@ prop_TestChainAndUpdates (TestChainAndUpdates chain updates) =
     chains = scanl (flip applyChainUpdate) chain updates
 
 --
--- Data types for a plausibly-realisic representation of a blockchain,
--- plus an associated set of readers/consumers of the chain.
---
--- These are the concrete types, the implementaiton.
+-- Data types for a plausibly-realisic representation of a blockchain.
 --
 
--- | Represent a chain as two overlapping parts: an immutable chain and
--- a volatile chain fragment.
+-- | Represent a chain simply as a volatile chain fragment.
 --
--- Readers represented as a relation between blocks, reader ids and
--- reader state.
---
-data ChainState
-   = ChainState {
-       chainImmutable :: Immutable,
-       chainVolatile  :: Volatile,
-       chainReaders   :: ReaderRelation
+data ChainState = ChainState {
+       chainVolatile :: Volatile
      }
-  deriving (Eq, Show)
-
-data Immutable = Immutable Chain -- re-using the spec type for simplicity
   deriving (Eq, Show)
 
 -- | Representation of a chain fragment as a graph with backwards and forward
@@ -223,41 +204,16 @@ data Volatile = Volatile
                   (Maybe BlockId) -- ^ current tip, or empty
   deriving (Eq, Show)
 
-type ReaderRelation = [((Slot, BlockId), ReaderId, ReaderState)]
-type ReaderId = Int
 
-data ReaderState =
-       -- | The reader is on the current producer's chain and can move forward
-       -- (if it's not already at the chain head). In this case the
-       -- (slot, blockid) from the relation tells us where the reader is now.
-       ReaderOnChain
-
-       -- | The reader is on an old fork, and has to rollback to get onto
-       -- the chain. This records where the reader is now, and how many blocks
-       -- they have to roll back. In this case the (slot, blockid) from the
-       -- relation tells us where the reader will end up after rolling back.
-     | ReaderMustRollback Int Slot BlockId
-  deriving (Eq, Show)
-{-
 --
 -- The data invariants
 --
 
-invChainState :: ChainState -> Bool
-invImmutable  :: Immutable  -> Bool
-invVolatile   :: Volatile   -> Bool
+invChainState   :: ChainState -> Bool
+invVolatile     :: Volatile   -> Bool
 
-invChainState (ChainState i v)
-  | invImmutable i
-  , invVolatile  v
-  , Just (i', overlap, v') <- absImmutable i `chainsOverlap` absVolatile v
-  , validChain (i' ++ overlap ++ v' )
-  = True
-
-  | otherwise
-  = False
-
-invImmutable (Immutable c) = validChain c
+invChainState (ChainState v) =
+    invVolatile  v
 
 invVolatile (Volatile blocks Nothing) =
     -- The whole thing can be empty, with no tip.
@@ -268,68 +224,39 @@ invVolatile (Volatile blocks (Just tip)) =
     and [
         -- The tip is in the map, and is marked as such
         case Map.lookup tip blocks of
-          Just (_, TipBlock) -> True; _ -> False
+          Just (_, Nothing) -> True; _ -> False
 
         -- There is only one tip
-      , length [ () | (_, TipBlock) <- Map.elems blocks ] == 1
+      , length [ () | (_, Nothing) <- Map.elems blocks ] == 1
 
         -- all blocks have the right key
       , and [ b == b' | (b, (Block{blockId = b'}, _)) <- Map.toList blocks ]
 
-        -- no cycles within back pointers
-      , noCycles [ (b, blockId, [prevBlockId])
-                 | (b@Block{blockId, prevBlockId}, _) <- Map.elems blocks ]
+        -- There is only one dangling back pointer
+      , length [ () | (b, _) <- Map.elems blocks
+                    , prevBlockId b `Map.notMember` blocks ] == 1
 
-        -- no cycles within the forward pointers
-      , noCycles [ (b, blockId, maybeToList (nextBlockId next))
-                 | (b@Block{blockId}, next) <- Map.elems blocks ]
+        -- Back pointers have to be consistent with the forward pointer:
+        -- following a back pointer gets a block that points forward to the same
+      , and [ case Map.lookup (prevBlockId b) blocks of
+                Nothing                               -> True
+                Just (_, Just bid) | bid == blockId b -> True
+                _                                     -> False
+            | (b, _) <- Map.elems blocks ]
 
-        -- normal forward pointers have to be consistent with the back pointer:
-        -- following a normal forward pointer gets to a block that points back
+        -- Forward pointers have to be consistent with the back pointer:
+        -- following a forward pointer gets a block that points back to the same
       , and [ case Map.lookup bid' blocks of
                 Just (b',_) | prevBlockId b' == blockId b -> True
                 _                                         -> False
-            | (b, NextBlock bid') <- Map.elems blocks ]
+            | (b, Just bid') <- Map.elems blocks ]
 
-        -- the 'activechain' is the blocks reachable backwards from the tip
-        -- the activechain must form a valid chain fragment
-      , validChainFragment activechain
+        -- The chain arising must form a valid chain fragment
+      , validChainFragment (chainBackwardsFrom blocks tip)
 
-        -- the activechain blocks must have normal forward pointers
-      , and [ case next of
-                TipBlock       -> True
-                NextBlock{}    -> True
-                NextRollback{} -> False
-            | (_b, next) <- activechain' ]
-
-        -- all blocks not reachable backwards from the tip must have
-        -- rollback-flavour forward pointers
-      , and [ case next of
-                NextRollback{} -> True
-                _              -> False
-            | let active = Set.fromList (map blockId activechain)
-            , (b, next) <- Map.elems blocks
-            , blockId b `Set.notMember` active ]
       ]
 
-    -- rollback pointers must either point to a block in the vchain or
-    --   to a block in the immutable chain
-    -- rollback numbers must be consistent with the number of back pointers to
-    -- chase to get back to the target block
-    -- rollback pointers with a rollback number N must have M>N blocks in the
-    -- chain forward (ie since forks switches are always to longer ones)
-
-  where
-    noCycles g = null [ () | CyclicSCC _nodes <- stronglyConnComp g ]
-
-    nextBlockId TipBlock           = Nothing
-    nextBlockId (NextBlock      b) = Just b
-    nextBlockId (NextRollback _ b) = Just b
-
-    activechain  = chainBackwardsFrom  blocks tip
-    activechain' = chainBackwardsFrom' blocks tip
-
-chainBackwardsFrom :: Map BlockId (Block, BlockForwardLink)
+chainBackwardsFrom :: Map BlockId (Block, Maybe BlockId)
                    -> BlockId
                    -> [Block]
 chainBackwardsFrom blocks bid =
@@ -337,9 +264,9 @@ chainBackwardsFrom blocks bid =
       Nothing    -> []
       Just (b,_) -> b : chainBackwardsFrom blocks (prevBlockId b)
 
-chainBackwardsFrom' :: Map BlockId (Block, BlockForwardLink)
+chainBackwardsFrom' :: Map BlockId (Block, Maybe BlockId)
                     -> BlockId
-                    -> [(Block, BlockForwardLink)]
+                    -> [(Block, Maybe BlockId)]
 chainBackwardsFrom' blocks bid =
     case Map.lookup bid blocks of
       Nothing      -> []
@@ -351,86 +278,19 @@ chainBackwardsFrom' blocks bid =
 --
 
 absChainState :: ChainState -> Chain
-absImmutable  :: Immutable  -> Chain
 absVolatile   :: Volatile   -> ChainFragment
-
-absImmutable (Immutable c) = c
 
 absVolatile  (Volatile _      Nothing)    = []
 absVolatile  (Volatile blocks (Just tip)) = chainBackwardsFrom blocks tip
 
-absChainState (ChainState i v)
-  | Just (i',  overlap, v') <- absImmutable i `chainsOverlap` absVolatile v
-  = concat [ i', overlap, v' ]
-  -- pattern match guaranteed by the invariant.
-
-
---
--- Important helper function: chain overlaps
---
-
--- | If the chain fragments connect, returns the overlapping part and the
--- remaining non-overlapping parts. 
---
--- >      Just (xs', overlap, ys')         = chainsOverlap xs ys
--- > <==> (xs' ++ overlap, overlap) ++ ys' = (xs, ys)
---
-chainsOverlap :: ChainFragment -> ChainFragment
-              -> Maybe (ChainFragment, ChainFragment, ChainFragment)
-chainsOverlap [] ys = Just ([], [], ys)
-chainsOverlap xs [] = Just (xs, [], [])
-chainsOverlap xs ys =
-    let lastx = last xs in
-    case break (\b -> blockId b == prevBlockId lastx) ys of
-
-      -- Annoying special case: the ys chain is exactly a suffix of xs. The
-      -- normal approach of looking for the thing last x points back to doesn't
-      -- work, for that to work the ys chain has to go one block further back.
-      ((_:_), [])
-        | blockId (last ys) == blockId lastx
-        , ys `isSuffixOf` xs
-       -> Just (take (length xs - length ys) xs, ys, [])
-
-      (_,   []) -> Nothing
-
-      (possibleOverlap, _)
-        | possibleOverlap `isSuffixOf` xs
-       -> let overlap    = possibleOverlap
-              overlaplen = length overlap
-              xs'len     = length xs - overlaplen
-              xs'        = take xs'len xs
-              ys'        = drop overlaplen ys
-           in Just (xs', overlap, ys')
-        | otherwise
-       -> Nothing
-
-prop_chainsOverlap :: TestChain -> Bool
-prop_chainsOverlap (TestChain chain) =
-    and [ validChainFragment xs
-       && validChain            ys
-       && case chainsOverlap xs ys of
-            Nothing                  -> False
-            Just (xs', overlap, ys') ->
-                xs' ++ overlap == xs
-             && overlap ++ ys' == ys
-             && validChain (xs' ++ overlap ++ ys')
-
-        | n <- [0 .. length chain]
-        , m <- [0 .. n]
-        , let xs = take n chain
-              ys = drop m chain
-        ]
-
+absChainState (ChainState v) = absVolatile v
 
 --
 -- Step 1: empty chains
 --
 
 emptyChainState :: ChainState
-emptyChainState = ChainState emptyImmutable emptyVolatile
-
-emptyImmutable :: Immutable
-emptyImmutable = Immutable []
+emptyChainState = ChainState emptyVolatile
 
 emptyVolatile :: Volatile
 emptyVolatile  = Volatile Map.empty Nothing
@@ -448,34 +308,41 @@ prop_emptyChainState = invChainState emptyChainState
 -- Step 2: adding single blocks
 --
 
+addBlock :: Block -> ChainState -> ChainState
+addBlock b (ChainState v) = ChainState (addBlockVolatile b v)
+
 addBlockVolatile :: Block -> Volatile -> Volatile
 addBlockVolatile b (Volatile _ Nothing) =
-    Volatile (Map.singleton (blockId b) (b, TipBlock)) (Just (blockId b))
+    Volatile (Map.singleton (blockId b) (b, Nothing)) (Just (blockId b))
 
 addBlockVolatile b' (Volatile blocks (Just tip))
   | prevBlockId b' == tip = Volatile blocks' (Just tip')
   | otherwise             = error "addBlockVolatile: wrong back pointer"
   where
     tip'    = blockId b'
-    blocks' = Map.insert tip' (b', TipBlock)
-            . Map.adjust (\(b, TipBlock) -> (b, NextBlock tip')) tip
+    blocks' = Map.insert tip' (b', Nothing)
+            . Map.adjust (\(b, Nothing) -> (b, Just tip')) tip
             $ blocks
 
--- | For building a chain from empty using the 'addBlockVolatile', at each step
+-- | For building a chain from empty using the 'addBlock', at each step
 -- the invariant holds, and the concrete and abstract values are equivalent
 --
-prop_addBlockVolatile :: TestChain -> Bool
-prop_addBlockVolatile (TestChain chain) =
-    all invVolatile vsteps
- && and [ absVolatile v == chain'
-        | (v, chain') <- zip (reverse vsteps) (tails chain) ]
+prop_addBlock :: TestChain -> Bool
+prop_addBlock (TestChain chain) =
+    all invChainState steps
+ && and [ absChainState c == c'
+        | (c, c') <- zip (reverse steps) (tails chain) ]
   where
-    vsteps = scanl (flip addBlockVolatile) emptyVolatile (reverse chain)
+    steps = scanl (flip addBlock) emptyChainState (reverse chain)
 
 
 --
 -- Step 3: switching forks
 --
+
+switchFork :: Int -> [Block] -> ChainState -> ChainState
+switchFork rollback newblocks (ChainState v) =
+    ChainState (switchForkVolatile rollback newblocks v)
 
 switchForkVolatile :: Int -> [Block] -> Volatile -> Volatile
 switchForkVolatile _rollback _newblocks (Volatile _ Nothing) =
@@ -485,89 +352,160 @@ switchForkVolatile rollback newblocks (Volatile blocks (Just tip)) =
     Volatile blocks' (Just tip')
   where
     tip'    = blockId (head newblocks)
-    blocks' = Map.adjust (\(b,_) -> (b, NextBlock rollforwardFrom)) rollbackTo
-            $ foldl' (\bs (b,fp) -> Map.insert (blockId b) (b,fp) bs)
-                     blocks updates
-    updates :: [(Block, BlockForwardLink)]
-    updates = zip newblocks (TipBlock : map (NextBlock . blockId) newblocks)
-           ++ [ (b, NextRollback n rollbackTo)
-              | (b, n) <- zip undos [1..] ]
-    undos  = take rollback (chainBackwardsFrom blocks tip)
-    rollbackTo      = prevBlockId (last undos)
-    rollforwardFrom = blockId (last newblocks)
+    blocks' = fixLink . addBlocks forwards . delBlocks backwards $ blocks
 
+    backwards :: [Block]
+    backwards = take rollback (chainBackwardsFrom blocks tip)
+
+    forwards :: [(Block, Maybe BlockId)]
+    forwards  = zip newblocks (Nothing : map (Just . blockId) newblocks)
+
+    addBlocks = flip (foldl' (\bs (b,fp) -> Map.insert (blockId b) (b,fp) bs))
+    delBlocks = flip (foldl' (\bs  b     -> Map.delete (blockId b)        bs))
+    fixLink   = Map.adjust (\(b,_) -> (b, Just rollforwardFrom)) rollbackTo
+      where
+        rollbackTo      = prevBlockId (last backwards)
+        rollforwardFrom = blockId (last newblocks)
+
+applyChainStateUpdate :: ChainUpdate -> ChainState -> ChainState
+applyChainStateUpdate (AddBlock     b)  = addBlock b
+applyChainStateUpdate (SwitchFork n bs) = switchFork n bs
 
 -- | This is now the simulation property covering both the add block and
 -- switch fork operations.
 --
-prop_switchForkVolatile :: TestChainAndUpdates -> Bool
-prop_switchForkVolatile (TestChainAndUpdates chain updates) =
-    all invVolatile vs
- && all (\(v, c) -> absVolatile v == c) (zip vs chains)
+prop_switchFork :: TestChainAndUpdates -> Bool
+prop_switchFork (TestChainAndUpdates chain updates) =
+    all invChainState chains'
+ && all (\(c, c') -> absChainState c' == c) (zip chains chains')
   where
-    v0     = foldr addBlockVolatile emptyVolatile chain
+    c0     = foldr addBlock emptyChainState chain
 
-    vs     = scanl (flip applyChainUpdateVolatile) v0 updates
-    chains = scanl (flip applyChainUpdate)      chain updates
-
-    applyChainUpdateVolatile (AddBlock     b)  = addBlockVolatile b
-    applyChainUpdateVolatile (SwitchFork n bs) = switchForkVolatile n bs
-
-
--- We will actually want additional properties, beyond simulation,
--- but these are specific to the concrete representation and the
--- extra operations we will provide.
---
--- * switching back and forth on the same set of forks works ok (corresponding
---    to two long running competing forks)
--- * an immutability property that all blocks and back pointers are immutable
---   and stay in the map, and only the forward pointers change. If we do no
---   slot-expiry pruning then there should be a strict subset property, since
---   the map will only grow, and only the forward pointers change.
+    chains' = scanl (flip applyChainStateUpdate) c0 updates
+    chains  = scanl (flip applyChainUpdate)   chain updates
 
 --
--- Additional operations on the concrete representation.
---
--- Both correspond to an identity operation on the abstract version.
+-- Read pointer operations
 --
 
--- | Flush blocks in the volatile chain that are now immutable into the
--- immutable part of the chain.
+-- A 'ChainState' plus an associated set of readers/consumers of the chain.
+
+data ChainProducerState = ChainProducerState {
+       chainState   :: ChainState,
+       chainReaders :: ReaderStates
+     }
+
+-- | Readers are represented here as a relation.
 --
-flushNewImmutableBlocks :: Int -> ChainState -> ChainState
-flushNewImmutableBlocks upto ChainState {
-                               chainImmutable = Immutable chainImm,
-                               chainVolatile
-                             } =
-    -- This is not intended to be efficient. It could be made efficient
-    -- by caching pointers to the overlap and flush positions.
-    case chainsOverlap chainImm (absVolatile chainVolatile) of
-      Just (_, _, chainVol) ->
-        let available = drop k chainVol
-            toflush   = reverse . take upto . reverse $ available
-         in ChainState {
-              chainImmutable = Immutable (toflush ++ chainImm),
-              chainVolatile
-            }
-      _ -> error "flushNewImmutableBlocks: invariant violation"
+type ReaderStates = [ReaderState]
+
+-- | A point on the chain is identified by the 'Slot' number and its 'BlockId'.
+-- The 'Slot' tells us where to look and the 'BlockId' either simply serves as
+-- a check, or in some contexts it disambiguates blocks from different forks
+-- that were in the same slot.
+--
+type Point        = (Slot, BlockId)
+type ReaderId     = Int
+data ReaderState  = ReaderState {
+       -- | Where the chain of the consumer and producer intersect. If the
+       -- consumer is on the chain then this is the same as the 'readerHead',
+       -- but if the consumer 'readerHead' is off the chain then this is the
+       -- point the consumer will need to rollback to.
+       readerIntersection :: Point,
+
+       -- | Where the chain consumer was last reading from (typically the
+       -- head of the consumer's chain). If this is on the producer chain
+       -- then it is equal to the 'readerIntersection'.
+       readerHead         :: Point,
+
+       -- | A unique tag per reader, to distinguish different readers.
+       readerId           :: ReaderId
+     }
+  deriving (Eq, Show)
 
 
--- | Provided we flush blocks before we get to 2k, we can drop older
--- blocks from the volatile segment.
---
-pruneVolatileBlocks :: ChainState -> ChainState
-pruneVolatileBlocks cs@ChainState {
-                      chainVolatile = Volatile blocks (Just tip)
-                    } =
-    cs {
-      chainVolatile = Volatile blocks' (Just tip)
-    }
+invChainProducerState :: ChainProducerState -> Bool
+invChainProducerState (ChainProducerState cs rs) =
+    invChainState cs
+ && invReaderStates cs rs
+
+invReaderStates :: ChainState -> ReaderStates  -> Bool
+invReaderStates cs rs =
+    and [
+        -- All the reader intersection points must be on the chain
+        and [ pointOnChain cs readerIntersection
+            | ReaderState{readerIntersection} <- rs ]
+
+        -- All rollback pointer states start from blocks off the chain,
+        -- and rollback must go backwards in slot number
+      , and [ not (pointOnChain cs readerHead) &&
+              fst readerIntersection < fst readerHead
+            | ReaderState{readerIntersection, readerHead} <- rs
+            , readerIntersection /= readerHead ]
+
+      ]
+
+pointOnChain :: ChainState -> Point -> Bool
+pointOnChain (ChainState (Volatile blocks _)) (slot, bid) =
+    case Map.lookup bid blocks of
+      Just (block, _) -> blockSlot block == slot
+      Nothing         -> False
+
+
+{-
+Hmm, perhaps this version does too much, lets simplify
+
+initialiseReadPointer :: [Point]
+                      -> ChainState
+                      -> Maybe (ChainState, ReadPointer)
+initialiseReadPointer checkpoints (ChainState v rs) = do
+    (c, c') <- findIntersectionRange checkpoints
+    let rs' = (c, readPtr, ) : rs
+    return (ChainState v rs')
   where
-    -- just drop all entries that are older than 2k slots from the tip
-    blocks' = Map.filter (\(b, _) -> blockSlot b > tipSlot - 2 * fromIntegral k) blocks
-    tipSlot = blockSlot (fst (blocks Map.! tip))
+    readPtr = freshReaderId rs
 
-pruneVolatileBlocks cs = cs
+    findIntersectionRange cs =
+      find (checkpointOnChain . fst)
+           (zip cs (head cs ++ cs))
+
+-}
+
+initialiseReader :: Point
+                      -> Point
+                      -> ChainProducerState
+                      -> Maybe (ChainProducerState, ReaderId)
+initialiseReader pointReader pointIntersection (ChainProducerState cs rs)
+    | not (pointOnChain cs pointIntersection)
+    = Nothing
+
+    | otherwise
+    = Just (ChainProducerState cs (r:rs), readerId r)
+  where
+    r = ReaderState {
+          readerIntersection = pointIntersection,
+          readerHead         = pointReader,
+          readerId           = freshReaderId rs
+        }
+
+freshReaderId :: ReaderStates -> ReaderId
+freshReaderId rs = 1 + maximum [ readerId | ReaderState{readerId} <- rs ]
+
+lookupReader :: ChainProducerState -> ReaderId -> ReaderState
+lookupReader cps rid = undefined
+
+readerInstruction :: ChainProducerState
+                  -> ReaderId -> Maybe (ChainProducerState, ConsumeChain Block)
+readerInstruction cps rid = undefined
+
+data ConsumeChain block = RollForward  block
+                        | RollBackward Point
+
+improveReaderState :: ChainProducerState
+                   -> ReaderId
+                   -> [Point]
+                   -> ChainProducerState
+improveReaderState cps rid = undefined
 
 --
 -- Final simulation property
@@ -584,77 +522,3 @@ pruneVolatileBlocks cs = cs
 --
 -- Could pick a specific flush policy but would like to check that an arbitrary
 -- valid policy is still ok.
--}
-
---
--- STM based protocol
---
-
--- | An STM-based interface provided by a chain producer to chain consumers.
---
-data ChainProducer = ChainProducer {
-       establishChainConsumer :: [(Slot, BlockId)]
-                              -> STM (ChainConsumer, [(Slot, BlockId)])
-     }
-
-data ChainConsumer = ChainConsumer {
-       currentReadPoint :: STM (Slot, BlockId),
-       improveReadPoint :: [(Slot, BlockId)] -> STM (),
-       tryPeekChain     :: STM (Maybe (ConsumeChain Block)),
-       tryReadChain     :: STM (Maybe (ConsumeChain Block))
-     }
-
-data ConsumeChain block = RollForward block
-                        | RollBackTo  Slot BlockId
-
-type MaxReadBlocks = Int
-
-readRollForwardOnly :: ChainConsumer -> MaxReadBlocks -> STM [Block]
-readRollForwardOnly ChainConsumer{tryPeekChain, tryReadChain} maxBlocks =
-    go maxBlocks
-  where 
-    go 0 = return []
-    go n = do
-      res <- tryPeekChain
-      case res of
-        Just (RollForward b) -> do
-          _ <- tryReadChain
-          bs <- go (n-1)
-          return (b:bs)
-        _ -> return []
-
--- | Like 'tryReadChain' but reads multiple blocks in one go.
---
-tryReadChainN :: ChainConsumer
-              -> MaxReadBlocks -- ^ The maximum number of blocks to read
-              -> STM (Maybe (ConsumeChain [Block]))
-tryReadChainN cs@ChainConsumer{..} maxBlocks = do
-    res <- tryReadChain
-    case res of
-      -- If we're at the chain head or it's a rollback we just return that.
-      Nothing                 -> return Nothing
-      Just (RollBackTo s bid) -> return (Just (RollBackTo s bid))
-      -- If we get one block we peek at what's ahead and consume any
-      -- more blocks, up to our limit.
-      Just (RollForward b) -> do
-        bs <- readRollForwardOnly cs (maxBlocks-1)
-        return (Just (RollForward (b:bs)))
-
--- | Like 'tryReadChainN' but blocks at the chain head.
---
-readChainN :: ChainConsumer
-           -> MaxReadBlocks -- ^ The maximum number of blocks to read
-           -> STM (ConsumeChain [Block])
-readChainN cs@ChainConsumer{..} maxBlocks = do
-    res <- tryReadChain
-    case res of
-      -- If it's the chain head we block by retrying.
-      Nothing                 -> retry
-      -- If it's a rollback we just return that.
-      Just (RollBackTo s bid) -> return (RollBackTo s bid)
-      -- If we get one block we peek at what's ahead and consume any
-      -- more blocks, up to our limit.
-      Just (RollForward b) -> do
-        bs <- readRollForwardOnly cs (maxBlocks-1)
-        return (RollForward (b:bs))
-

@@ -53,7 +53,7 @@ Two steps remain, then:
         $ sudo mkdir -p /etc/nix
         $ sudo vi /etc/nix/nix.conf       # ..or any other editor, if you prefer
 
-    ..and then add two following lines:
+    and then add the following lines:
 
         substituters = https://hydra.iohk.io https://cache.nixos.org/
         trusted-substituters =

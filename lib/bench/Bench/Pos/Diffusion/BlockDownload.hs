@@ -21,7 +21,6 @@ import qualified Criterion.Main.Options as Criterion
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Conduit.Combinators (yieldMany)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Data.Semigroup ((<>))
 import           Data.Time.Units (Microsecond)
 import qualified Options.Applicative as Opt (execParser)
 

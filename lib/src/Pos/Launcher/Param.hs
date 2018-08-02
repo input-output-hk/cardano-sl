@@ -12,7 +12,6 @@ module Pos.Launcher.Param
 import           Universum
 
 import           Control.Lens (makeLensesWith)
---import           System.Wlog (LoggerName)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Chain.Security (SecurityParams)

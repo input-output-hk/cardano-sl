@@ -33,8 +33,6 @@ import           Control.Monad.Free.Church (F (..))
 import           Control.Monad.Morph (generalize)
 import           Control.Monad.Reader (mapReaderT)
 import           Control.Monad.State.Strict (mapStateT)
--- import           Control.Monad.Trans.Identity (IdentityT (..))
--- import           System.Wlog (NamedPureLogger)
 
 import           Pos.Chain.Txp (ExtendedGlobalToilM, ExtendedLocalToilM,
                      StakesLookupF)
@@ -112,7 +110,5 @@ type EGlobalToilM
 explorerExtraMToEGlobalToilM :: ExplorerExtraM ~> EGlobalToilM
 explorerExtraMToEGlobalToilM = mapReaderT (mapStateT f . zoom _2) . magnify _2
   where
-    -- f :: MonadIO (F StakesLookupF) => {-NamedPureLogger-} IdentityT IO ~> {-NamedPureLogger-} (F StakesLookupF)
-    f :: {-NamedPureLogger-} Identity ~> {-NamedPureLogger-} (F StakesLookupF)
-    f = {-hoist-} generalize
-    -- f = liftIO . runIdentityT
+    f :: Identity ~> (F StakesLookupF)
+    f = generalize

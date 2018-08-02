@@ -14,7 +14,7 @@ module Test.Spec.Fixture (
 
 import           Universum
 
-import           System.Wlog (Severity)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.QuickCheck (arbitrary, frequency)
@@ -29,10 +29,6 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
--- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
-
 genSpendingPassword :: PropertyM IO (Maybe V1.SpendingPassword)
 genSpendingPassword =
     pick (frequency [(20, pure Nothing), (80, Just <$> arbitrary)])
@@ -42,7 +38,7 @@ withLayer :: MonadIO m
           -> PropertyM IO a
 withLayer cc = do
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
+        WalletLayer.bracketKernelPassiveWallet noTrace keystore rocksDBNotAvailable $ \layer wallet -> do
             cc layer wallet
 
 type GenPassiveWalletFixture x = PropertyM IO (PassiveWallet -> IO x)
@@ -55,7 +51,7 @@ withPassiveWalletFixture :: MonadIO m
 withPassiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \layer wallet -> do
+        WalletLayer.bracketKernelPassiveWallet noTrace keystore rocksDBNotAvailable $ \layer wallet -> do
             fixtures <- generateFixtures wallet
             cc keystore layer wallet fixtures
 
@@ -66,7 +62,7 @@ withActiveWalletFixture :: MonadIO m
 withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet devNull keystore rocksDBNotAvailable $ \passiveLayer passiveWallet -> do
+        WalletLayer.bracketKernelPassiveWallet noTrace keystore rocksDBNotAvailable $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \pm -> do
                 WalletLayer.bracketKernelActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
                     fixtures <- generateFixtures keystore activeWallet

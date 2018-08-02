@@ -10,6 +10,7 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 import qualified Data.Map.Strict as Map
 import           Formatting (build, sformat)
+-- import           System.Wlog (logDebug)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
@@ -31,7 +32,7 @@ import           Pos.Update.Configuration ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 
-import           Pos.Util (HasLens (..))
+import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.Servant (encodeCType)
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.Error.Types as V0
@@ -104,7 +105,7 @@ newWallet NewWallet{..} = do
         v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
                         `catch` rethrowDuplicateMnemonic
         ss <- askWalletSnapshot
-        migrateWallet ss v0wallet
+        migrateWallet ss v0wallet True
   where
     -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
@@ -132,7 +133,7 @@ listWallets params fops sops = do
     migrateOneWallet :: ( V0.MonadWalletLogicRead ctx m
                         , V0.MonadBlockchainInfo m
                         ) => WalletSnapshot -> (V0.CWallet, V0.WalletInfo) -> m Wallet
-    migrateOneWallet ws (wallet, _) = migrateWallet ws wallet
+    migrateOneWallet ws (wallet, _) = migrateWallet ws wallet True
 
 updatePassword
     :: ( MonadWalletLogic ctx m
@@ -147,7 +148,7 @@ updatePassword wid PasswordUpdate{..} = do
     single <$> do
         ss <- askWalletSnapshot
         wallet <- V0.getWallet wid'
-        migrateWallet ss wallet
+        migrateWallet ss wallet True
 
 -- | Deletes an exisiting wallet.
 deleteWallet
@@ -164,7 +165,7 @@ getWallet wid = do
     ss <- askWalletSnapshot
     wid' <- migrate wid
     wallet <- V0.getWallet wid' `catch` rethrowWalletNotFound
-    single <$> migrateWallet ss wallet
+    single <$> migrateWallet ss wallet True
   where
     rethrowWalletNotFound (e :: V0.WalletError) =
         case e of
@@ -177,17 +178,20 @@ migrateWallet
        )
     => WalletSnapshot
     -> V0.CWallet
+    -> Bool
     -> m Wallet
-migrateWallet snapshot wallet = do
+migrateWallet snapshot wallet walletIsReady = do
     let walletId = V0.cwId wallet
-    case V0.getWalletInfo walletId snapshot of
-        Nothing ->
-            throwM WalletNotFound
-        Just walletInfo -> do
-            walletIsExternal <- V0.isWalletExternal walletId
-            let walletType = if walletIsExternal then WalletExternal else WalletRegular
-            currentDepth <- V0.networkChainDifficulty
-            migrate (wallet, walletInfo, walletType, currentDepth)
+    walletInfo <- if walletIsReady
+        then maybeThrow WalletNotFound $ V0.getWalletInfo walletId snapshot
+        else
+            -- Wallet is not ready yet (because of restoring),
+            -- the only information we can provide is the default one.
+            maybeThrow WalletNotFound $ V0.getUnreadyWalletInfo walletId snapshot
+    walletIsExternal <- V0.isWalletExternal walletId
+    let walletType = if walletIsExternal then WalletExternal else WalletRegular
+    currentDepth <- V0.networkChainDifficulty
+    migrate (wallet, walletInfo, walletType, currentDepth)
 
 updateWallet
     :: (V0.MonadWalletLogic ctx m
@@ -208,7 +212,7 @@ updateWallet wid WalletUpdate{..} = do
     single <$> do
         -- reacquire the snapshot because we did an update
         ws' <- askWalletSnapshot
-        migrateWallet ws' updated
+        migrateWallet ws' updated True
 
 -- | Check if external wallet is presented in node's wallet db.
 checkExternalWallet
@@ -227,7 +231,7 @@ checkExternalWallet encodedExtPubKey = do
     ws <- askWalletSnapshot
     let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
     walletExists <- V0.doesWalletExist walletId
-    (v0wallet, transactions) <- if walletExists
+    (v0wallet, transactions, isWalletReady) <- if walletExists
         then do
             -- Wallet is here, it means that user already used this wallet (for example,
             -- hardware device) on this computer, so we have to return stored information
@@ -246,8 +250,9 @@ checkExternalWallet encodedExtPubKey = do
 
             v1Transactions <- mapM (\(_, (v0Tx, _)) -> migrate v0Tx) $ Map.toList history
 
-            (,) <$> V0.getWallet walletId
-                <*> pure v1Transactions
+            (,,) <$> V0.getWallet walletId
+                 <*> pure v1Transactions
+                 <*> pure True
         else do
             -- No such wallet in db, it means that this wallet (for example, hardware
             -- device) was not used on this computer. But since this wallet _could_ be
@@ -260,10 +265,11 @@ checkExternalWallet encodedExtPubKey = do
                 -- This is a new wallet, currently un-synchronized, so there's no
                 -- history of transactions yet.
                 transactions = []
-            (,) <$> restoreExternalWallet defaultMeta encodedExtPubKey
-                <*> pure transactions
+            (,,) <$> restoreExternalWallet defaultMeta encodedExtPubKey
+                 <*> pure transactions
+                 <*> pure False -- We restore wallet, so it's unready yet.
 
-    v1wallet <- migrateWallet ws v0wallet
+    v1wallet <- migrateWallet ws v0wallet isWalletReady
     let walletAndTxs = WalletAndTxHistory v1wallet transactions
     single <$> pure walletAndTxs
 
@@ -287,7 +293,7 @@ newExternalWallet NewExternalWallet{..} = do
     single <$> do
         v0wallet <- newWalletHandler newewalOperation walletMeta newewalExtPubKey
         ss <- askWalletSnapshot
-        migrateWallet ss v0wallet
+        migrateWallet ss v0wallet True
 
 -- | Creates new external wallet.
 --

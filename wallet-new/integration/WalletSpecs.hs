@@ -8,9 +8,9 @@ import           Pos.Crypto (SecretKey, encToPublic, noPassEncrypt)
 import           Cardano.Wallet.Client.Http
 import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists, WalletNotFound))
 import           Cardano.Wallet.Client.Http
-import           Pos.Crypto (PublicKey, SecretKey, encToPublic, noPassEncrypt)
+import           Pos.Wallet.Web.Util (walletRootPKToIdText)
+import           Pos.Crypto (encodeBase58PublicKey)
 import           Test.Hspec
-import           Test.QuickCheck (arbitrary, generate)
 
 import           Util
 
@@ -52,25 +52,56 @@ internalWalletSpecs wc = describe "Internal Wallets" $ do
 externalWalletSpecs :: WalletClient IO -> Spec
 externalWalletSpecs wc = describe "External Wallets" $ do
     it "Creating an external wallet makes it available" $ do
-        newExtWallet <- randomExternalWallet CreateWallet
-        Wallet{..} <- createExternalWalletCheck wc newExtWallet
-        void $ shouldReturnRight $ getWallet wc walId
-
-    it "Creating an external wallet (using prepared public key) makes it available" $ do
-        publicKey <- makeWalletKey
-        newExtWallet <- randomExternalWalletWithPublicKey CreateWallet publicKey
+        let (_, rootPK) = makeWalletRootKeys SixthSK
+        newExtWallet <- randomExternalWalletWithPublicKey CreateWallet rootPK
         Wallet{..} <- createExternalWalletCheck wc newExtWallet
         void $ shouldReturnRight $ getWallet wc walId
 
     it "Delete an external wallet removes it and its accounts completely" $ do
         -- By default external wallet has one account _without_ addresses
         -- (because they didn't generated yet), so we shouldn't check addresses.
-        newExtWallet <- randomExternalWallet CreateWallet
+        let (_, rootPK) = makeWalletRootKeys NinthSK
+        newExtWallet <- randomExternalWalletWithPublicKey CreateWallet rootPK
         let pubKeyAsText = newewalExtPubKey newExtWallet
         Wallet{..} <- createExternalWalletCheck wc newExtWallet
 
         void $ shouldReturnRight $ deleteExternalWallet wc pubKeyAsText
         getWallet wc walId `shouldFailWith` (ClientWalletError WalletNotFound)
+
+    it "If external wallet with this root PK doesn't exist - it will be created" $ do
+        let (_, rootPK) = makeWalletRootKeys FifthSK
+            rootPKAsBase58 = encodeBase58PublicKey rootPK
+            walletIdAsText = walletRootPKToIdText rootPK
+
+        -- There's no such a wallet yet, so it will be checked and created (with restoring).
+        response <- shouldReturnRight $ postCheckExternalWallet wc rootPKAsBase58
+        let (WalletAndTxHistory wallet txHistory) = wrData response
+            (WalletId newlyCreatedWalletId) = walId wallet
+
+        -- Walled id derived from root PK should obviously be equal to id of newly created wallet.
+        walletIdAsText `shouldBe` newlyCreatedWalletId
+        -- There's no transactions history because wallet isn't ready yet.
+        txHistory `shouldBe` []
+
+    it "If external wallet with this root PK already exists - get info about it with tx history" $ do
+        let (_, rootPK) = makeWalletRootKeys TenthSK
+            rootPKAsBase58 = encodeBase58PublicKey rootPK
+            walletIdAsText = walletRootPKToIdText rootPK
+
+        -- Create this wallet and check it exists.
+        newExtWallet <- randomExternalWalletWithPublicKey CreateWallet rootPK
+        extWallet <- createExternalWalletCheck wc newExtWallet
+        void $ shouldReturnRight $ getWallet wc (walId extWallet)
+
+        -- Since such a wallet already exists - check it and return an info and transactions history.
+        response <- shouldReturnRight $ postCheckExternalWallet wc rootPKAsBase58
+        let (WalletAndTxHistory wallet txHistory) = wrData response
+            (WalletId walletId) = walId wallet
+
+        -- Walled id derived from root PK should obviously be equal to id of already existed wallet.
+        walletIdAsText `shouldBe` walletId
+        -- There's no transactions history because wallet is newly created one.
+        txHistory `shouldBe` []
 
 testWalletAlreadyExists :: WalletClient IO -> WalletOperation -> IO ()
 testWalletAlreadyExists wc action = do
@@ -84,9 +115,3 @@ testWalletAlreadyExists wc action = do
     void $ shouldReturnRight $ postWallet wc newWallet1
     -- Second wallet creation/restoration should rise WalletAlreadyExists
     postWallet wc newWallet2 `shouldFailWith` ClientWalletError WalletAlreadyExists
-
-makeWalletKey :: IO PublicKey
-makeWalletKey = do
-    secretKey <- (generate arbitrary :: IO SecretKey)
-    let publicKey = encToPublic $ noPassEncrypt secretKey
-    pure publicKey

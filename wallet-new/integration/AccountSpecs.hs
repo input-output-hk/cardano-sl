@@ -36,7 +36,8 @@ accountSpecs wc = do
 
         it "Store a new address in the default account of an external wallet" $ do
             -- create an external wallet
-            newExtWallet <- randomExternalWallet CreateWallet
+            let (_, rootPK) = makeWalletRootKeys SeventhSK
+            newExtWallet <- randomExternalWalletWithPublicKey CreateWallet rootPK
             aWallet@Wallet{..} <- createExternalWalletCheck wc newExtWallet
 
             -- generate and prepare a new address (as if it is generated in external wallet)
@@ -63,7 +64,8 @@ accountSpecs wc = do
 
         it "Attempt to store invalid address will fail" $ do
             -- create an external wallet
-            newExtWallet <- randomExternalWallet CreateWallet
+            let (_, rootPK) = makeWalletRootKeys EighthSK
+            newExtWallet <- randomExternalWalletWithPublicKey CreateWallet rootPK
             aWallet@Wallet{..} <- createExternalWalletCheck wc newExtWallet
 
             -- this address is in Base58-form, but it's not Cardano address

@@ -118,13 +118,13 @@ let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
-      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
   other = rec {
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
-    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev;
+      inherit gitrev useStackBinaries;
       launchGenesis = true;
       configurationKey = "testnet_full";
       runWallet = false;
@@ -157,15 +157,15 @@ let
     inherit (pkgs) purescript;
     connectScripts = {
       mainnet = {
-        wallet = connect { inherit useStackBinaries;};
+        wallet = connect { };
         explorer = connect { executable = "explorer"; };
       };
       staging = {
-        wallet = connect { inherit useStackBinaries; environment = "mainnet-staging"; };
+        wallet = connect { environment = "mainnet-staging"; };
         explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
       };
       testnet = {
-        wallet = connect { inherit useStackBinaries; environment = "testnet"; };
+        wallet = connect { environment = "testnet"; };
         explorer = connect { executable = "explorer"; environment = "testnet"; };
       };
       demoWallet = connect { environment = "demo"; };

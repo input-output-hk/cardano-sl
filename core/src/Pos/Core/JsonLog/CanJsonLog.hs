@@ -55,7 +55,6 @@ instance CanJsonLog m => CanJsonLog (IdentityT m)
 instance CanJsonLog m => CanJsonLog (ReaderT r m)
 instance CanJsonLog m => CanJsonLog (StateT s m)
 instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
---instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
 instance CanJsonLog (Log.LogContextT IO) where

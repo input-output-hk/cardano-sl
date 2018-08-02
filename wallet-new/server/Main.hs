@@ -16,4 +16,7 @@ main :: IO ()
 main = withCompileInfo $ do
     putText "Wallet is starting..."
     opts <- getWalletNodeOptions
-    startEdgeNode def opts (LoggerName "node")
+    let lArgs = loggingParams loggerName (wsoNodeArgs opts)
+    startEdgeNode def opts lArgs
+
+

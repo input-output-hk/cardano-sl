@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Integration.Clients
     (
     -- * Start a cluster of wallet nodes
@@ -8,27 +10,38 @@ module Integration.Clients
     , mkWHttpClient
     ) where
 
-import           Universum
+import           Universum hiding (takeWhile)
 
 import           Control.Concurrent (ThreadId, forkIO)
+import           Data.Attoparsec.ByteString.Char8 (IResult (..), parse,
+                     skipWhile, string, takeWhile)
+import           Data.List (elemIndex, stripPrefix)
+import           Data.Maybe (fromJust)
 import           Data.X509.File (readSignedObject)
-import           Options.Applicative (info)
-import           System.Environment (getEnv, lookupEnv, setEnv, unsetEnv)
-import           System.Wlog (LoggerName (..))
+import           Options.Applicative (ParseError (ShowHelpText), Parser,
+                     ParserHelp (..), ParserInfo, defaultPrefs, execFailure,
+                     execParser, info, parserFailure)
+import           Options.Applicative.Help.Chunk (Chunk (..))
+import           System.Environment (getEnv, getEnvironment, lookupEnv, setEnv,
+                     withArgs)
 
 import           Cardano.Wallet.Client.Http (BaseUrl (..), Scheme (..),
                      WalletClient, credentialLoadX509, liftClient,
                      mkHttpClient, mkHttpsManagerSettings, newManager)
 import           Cardano.Wallet.Launcher (runWWebMode, startWalletNode)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
-                     WalletStartupOptions (..), execParserEnv,
-                     walletBackendParamsParser)
+                     WalletBackendParams (..), WalletDBOptions (..),
+                     WalletStartupOptions (..), walletBackendParamsParser)
 import           Integration.Fixtures (generateInitialState)
 import           Pos.Client.CLI.NodeOptions (commonNodeArgsParser,
                      nodeArgsParser)
+import           Pos.Client.CLI.Params (loggingParams)
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
+import           Pos.Launcher (LoggingParams (..))
+
 
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.Char as Char
 import qualified Text.Parsec as Parsec
 
 
@@ -36,48 +49,59 @@ prefix :: String
 prefix =
     "INTEGRATION_TESTS_"
 
-blacklist :: [String]
-blacklist =
-    [ "INTEGRATION_TESTS_TLSCERT_CLIENT"
-    , "INTEGRATION_TESTS_TLSKEY_CLIENT"
-    ]
-
 
 startCluster :: [String] -> IO [ThreadId]
 startCluster nodes = do
-    (prefix <> "REBUILD_DB")        `as` "True"
-    (prefix <> "LISTEN")            `as` "127.0.0.1:3000"
-    (prefix <> "TOPOLOGY")          `as` "state-integration-tests/topology.yaml"
-    (prefix <> "TLSCERT")           `as` "state-integration-tests/tls/server.crt"
-    (prefix <> "TLSKEY")            `as` "state-integration-tests/tls/server.key"
-    (prefix <> "TLSCA")             `as` "state-integration-tests/tls/ca.crt"
-    (prefix <> "WALLET_REBUILD_DB") `as` "True"
-    (prefix <> "WALLET_ADDRESS")    `as` "127.0.0.1:8090"
+    let cVars = varFromParser commonNodeArgsParser prefix
+    let nVars = varFromParser nodeArgsParser prefix
+    let wVars = varFromParser walletBackendParamsParser prefix
+
+    (prefix <> "REBUILD_DB")         `as` "True"
+    (prefix <> "LISTEN")             `as` "127.0.0.1:3000"
+    (prefix <> "TOPOLOGY")           `as` "state-integration-tests/topology.yaml"
+    (prefix <> "TLSCERT")            `as` "state-integration-tests/tls/server.crt"
+    (prefix <> "TLSKEY")             `as` "state-integration-tests/tls/server.key"
+    (prefix <> "TLSCA")              `as` "state-integration-tests/tls/ca.crt"
+    (prefix <> "WALLET_REBUILD_DB")  `as` "True"
+    (prefix <> "WALLET_ADDRESS")     `as` "127.0.0.1:8090"
+    (prefix <> "CONFIGURATION_FILE") `as` "../lib/configuration.yaml"
+    (prefix <> "CONFIGURATION_KEY")  `as` "default"
+    (prefix <> "SYSTEM_START")       `as` "0"
+    (prefix <> "DB_PATH")            `as` "state-integration-tests/db/"
+    (prefix <> "WALLET_DB_PATH")     `as` "state-integration-tests/wallet-db/"
+    (prefix <> "LOG_CONFIG")         `as` "state-integration-tests/logs/"
+
+    dbPath       <- getEnv       (prefix <> "DB_PATH")
+    walletDbPath <- getEnv       (prefix <> "WALLET_DB_PATH")
+    logConfig    <- getEnv       (prefix <> "LOG_CONFIG")
+    addr         <- getNtwrkAddr (prefix <> "LISTEN")
+    waddr        <- getNtwrkAddr (prefix <> "WALLET_ADDRESS")
 
     let indexedNodes = zip nodes (iterate (+1) 0)
 
-    withoutEnv blacklist $ forM indexedNodes $ \(nodeId, i) -> do
-        let lName  = LoggerName (toText nodeId)
+    forM indexedNodes $ \(nodeId, i) -> do
+        setEnv (prefix <> "NODE_ID")            nodeId
+        setEnv (prefix <> "LISTEN")             (ntwrkAddrToEnv $ nextNtwrkAddr i addr)
+        setEnv (prefix <> "WALLET_ADDRESS")     (ntwrkAddrToEnv $ nextNtwrkAddr i waddr)
+        setEnv (prefix <> "WALLET_DOC_ADDRESS") (ntwrkAddrToEnv $ nextNtwrkAddr (i+100) waddr)
+        setEnv (prefix <> "DB_PATH")            (dbPath <> nodeId)
+        setEnv (prefix <> "WALLET_DB_PATH")     (walletDbPath <> nodeId)
+        setEnv (prefix <> "LOG_CONFIG")         (logConfig <> nodeId <> ".yaml")
 
-        addr  <- nextNtwrkAddr i <$> getNtwrkAddr (prefix <> "LISTEN")
-        waddr <- nextNtwrkAddr i <$> getNtwrkAddr (prefix <> "WALLET_ADDRESS")
+        cArgs <- execParserEnv cVars prefix (info commonNodeArgsParser mempty)
+        nArgs <- execParserEnv nVars prefix (info nodeArgsParser mempty)
+        wArgs <- execParserEnv wVars prefix (info walletBackendParamsParser mempty)
 
-        (prefix <> "NODE_ID")        `as` nodeId
-        (prefix <> "DB_PATH")        `as` ("state-integration-tests/db/" <> nodeId)
-        (prefix <> "WALLET_DB_PATH") `as` ("state-integration-tests/wallet-db/" <> nodeId)
-        (prefix <> "LOG_CONFIG")     `as` ("state-integration-tests/logs/" <> nodeId <> ".yaml")
-        (prefix <> "LISTEN")         `as` ntwrkAddrToEnv addr
-        (prefix <> "WALLET_ADDRESS") `as` ntwrkAddrToEnv waddr
+        let lArgs = (loggingParams (fromString nodeId) cArgs) { lpConsoleLog = Just False }
+        let wOpts = WalletStartupOptions cArgs (WalletLegacy $ wArgs
+                { walletDbOptions = (walletDbOptions wArgs)
+                    { walletRebuildDb = False
+                    }
+                })
 
-        cArgs <- execParserEnv prefix (info commonNodeArgsParser mempty)
-        nArgs <- execParserEnv prefix (info nodeArgsParser mempty)
-        wArgs <- execParserEnv prefix (info walletBackendParamsParser mempty)
-
-        let wOpts = WalletStartupOptions cArgs (WalletLegacy wArgs)
-
-        runWWebMode cArgs nArgs wArgs lName generateInitialState
-
-        forkIO $ startWalletNode nArgs wOpts lName
+        forkIO $ do
+            runWWebMode cArgs nArgs wArgs generateInitialState
+            startWalletNode nArgs wOpts lArgs
 
 
 mkWHttpClient :: MonadIO m => IO (WalletClient m)
@@ -106,25 +130,14 @@ mkWHttpClient = do
 --
 -- INTERNALS
 --
+--
+
+data ArgType = Arg | Flag deriving Show
 
 -- | Define a default ENV var if it doesn't exist
 as :: String -> String -> IO ()
 as var def =
     setEnv var =<< (fromMaybe def <$> lookupEnv var)
-
--- | Run an IO action excluding some specific environment variable
-withoutEnv :: [String] -> IO a -> IO a
-withoutEnv vars io  =
-    let
-        backupVar k = do
-            v <- lookupEnv k
-            unsetEnv k
-            return v
-
-        restoreVar _ Nothing  = return ()
-        restoreVar k (Just v) =  setEnv k v
-    in
-        bracket (mapM backupVar vars) (zipWithM restoreVar vars) (const io)
 
 -- | get/set an ENV variable with a default, speficying the getter
 getEnvD :: String -> String -> (String -> IO a) -> IO a
@@ -134,7 +147,7 @@ getEnvD var def getEnv' =
 -- | (unsafe) Parse a NetworkAddress from an ENV var
 getNtwrkAddr :: String -> IO NetworkAddress
 getNtwrkAddr =
-    either (fail . show) return . Parsec.parse addrParser "" .  toText
+    getEnv >=> (either (fail . show) return . Parsec.parse addrParser "" . toText)
 
 -- | Get the next NetworkAddress given an index
 nextNtwrkAddr :: Word16 -> NetworkAddress -> NetworkAddress
@@ -145,3 +158,66 @@ nextNtwrkAddr i (host, port) =
 ntwrkAddrToEnv :: NetworkAddress -> String
 ntwrkAddrToEnv (host, port) =
     B8.unpack host <> ":" <> show port
+
+-- | Extract the list of ENV var from a 'Options.Applicative.Parser'
+varFromParser :: Parser a -> String -> [(String, ArgType)]
+varFromParser parser p =
+    let
+        (usage, _, _) = execFailure (parserFailure defaultPrefs (info parser mempty) ShowHelpText mempty) ""
+
+        usageS = B8.pack $ show $ fromJust $ unChunk $ helpUsage usage
+
+        capture = skipWhile (/= '[') *> string "[" *> takeWhile (/= ']') <* string "]"
+
+        addPrefix (s, t) = (p <> s, t)
+
+        foldParse xs str = case parse (argToVar . B8.unpack <$> capture) str of
+            Fail{}      -> xs
+            Partial{}   -> xs
+            Done rest x -> foldParse (x : xs) rest
+    in
+        map addPrefix (foldParse [] usageS)
+
+-- | Replace third argument by the second one if it matches the first one.
+replaceIf :: Char -> Char -> Char -> Char
+replaceIf want to x | x == want = to
+replaceIf _ _ x     = x
+
+-- | Remove a prefix, throw if there's no such prefix
+unsafeStripPrefix :: String -> String -> String
+unsafeStripPrefix p =
+    fromJust . stripPrefix p
+
+-- | Convert a string argument to its corresponding ENV var
+argToVar :: String -> (String, ArgType)
+argToVar arg = case elemIndex ' ' arg of
+    Nothing -> (kToS (drop 2 arg), Flag)
+    Just i  -> (kToS (drop 2 (take i arg)), Arg)
+  where
+    kToS :: String -> String
+    kToS = map (Char.toUpper . replaceIf '-' '_')
+
+-- | Convert an environment variable to its argument, with value. Returns
+-- 'Nothing' when Flags are given and turned off. 'Just arg' otherwise.
+varToArg :: (String, ArgType, String) -> Maybe String
+varToArg = \case
+    (key, Flag, "True") -> Just ("--" <> sToK key)
+    (_, Flag, _)        -> Nothing
+    (key, Arg, val)     -> Just ("--" <> sToK key <> "=" <> val)
+  where
+    sToK :: String -> String
+    sToK = map (Char.toLower . replaceIf '_' '-')
+
+-- | Run a parser from environment variables rather than command-line arguments
+execParserEnv
+    :: [(String, ArgType)] -- ^ The restricted environment
+    -> String              -- ^ A prefix to remove from all Env variables
+    -> ParserInfo a        -- ^ A corresponding CLI
+    -> IO a
+execParserEnv vars p pInfo = do
+    args <- (mapMaybe varToArg . mapMaybe filterEnv) <$> getEnvironment
+    withArgs args $ execParser pInfo
+  where
+    filterEnv :: (String, String) -> Maybe (String, ArgType, String)
+    filterEnv (k, v) =
+        (\(_, t) -> (unsafeStripPrefix p k, t, v)) <$> find ((== k) . fst) vars

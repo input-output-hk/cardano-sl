@@ -38,7 +38,7 @@ import           Cardano.Wallet.WalletLayer (PassiveWalletLayer,
                      bracketKernelPassiveWallet)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (CommonArgs (..))
-import           Pos.Client.CLI.Params (getNodeParams, loggingParams)
+import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.Client.CLI.Util (printInfoOnStart)
 import           Pos.Context (NodeContext (..))
 import           Pos.Core.Configuration (epochSlots)
@@ -83,15 +83,14 @@ import qualified Cardano.Wallet.Server.Plugins as Plugins
 startCoreNode
     :: CommonNodeArgs
     -> NodeArgs
-    -> LoggerName
+    -> LoggingParams
     -> IO ()
-startCoreNode cArgs nArgs loggerName = do
+startCoreNode cArgs nArgs lArgs = do
     let blPath = AssetLockPath <$> cnaAssetLockPath cArgs
-    let lparams = loggingParams loggerName cArgs
 
-    loggerBracket lparams . logException loggerName $
+    loggerBracket lArgs . logException (lpDefaultName lArgs) $
         withCompileInfo $ withConfigurations blPath (getConfigOpts cArgs) $ \_ pm -> do
-            (params, Just ssc) <- getNodeParams loggerName cArgs nArgs
+            (params, Just ssc) <- getNodeParams (lpDefaultName lArgs) cArgs nArgs
             runNodeReal pm params ssc [updateTriggerWorker]
 
 
@@ -99,17 +98,16 @@ startCoreNode cArgs nArgs loggerName = do
 startWalletNode
     :: NodeArgs
     -> WalletStartupOptions
-    -> LoggerName
+    -> LoggingParams
     -> IO ()
-startWalletNode nArgs wOpts loggerName = do
+startWalletNode nArgs wOpts lArgs = do
     let cArgs  = wsoNodeArgs wOpts
     let blPath = AssetLockPath <$> cnaAssetLockPath cArgs
-    let lparams = loggingParams loggerName cArgs
 
-    loggerBracket lparams . logException loggerName $ do
+    loggerBracket lArgs . logException (lpDefaultName lArgs) $ do
         logInfo "[Attention] Software is built with the wallet backend"
         withCompileInfo $ withConfigurations blPath (getConfigOpts cArgs) $ \ntpConfig pm -> do
-            (nodeParams, Just sscParams) <- getNodeParams loggerName cArgs nArgs
+            (nodeParams, Just sscParams) <- getNodeParams (lpDefaultName lArgs) cArgs nArgs
             printInfoOnStart cArgs ntpConfig
             logInfo "Wallet is enabled!"
             case wsoWalletBackendParams wOpts of
@@ -137,16 +135,15 @@ runWWebMode
     .  CommonNodeArgs
     -> NodeArgs
     -> WalletBackendParams
-    -> LoggerName
     -> ((HasConfigurations, HasCompileInfo) => WalletWebMode a)
     -> IO a
-runWWebMode cArgs nArgs wArgs loggerName action = do
+runWWebMode cArgs nArgs wArgs action = do
     let walletPath = walletDbPath $ walletDbOptions wArgs
     let configOpts = configurationOptions $ commonArgs cArgs
     withCompileInfo $ withConfigurations Nothing configOpts
         $ \_ pm -> bracket (openState True walletPath) closeState
         $ \db -> do
-            (params, Just ssc) <- getNodeParams loggerName cArgs nArgs
+            (params, Just ssc) <- getNodeParams "" cArgs nArgs
             let txp     = txpGlobalSettings pm
             let mode    = initNodeDBs pm epochSlots
             let acquire = allocateNodeResources params ssc txp mode
@@ -166,7 +163,7 @@ runWWebMode cArgs nArgs wArgs loggerName action = do
         , rmcTxpLocalData  = nrTxpState
         , rmcDelegationVar = nrDlgState
         , rmcJsonLogConfig = JsonLogDisabled
-        , rmcLoggerName    = loggerName
+        , rmcLoggerName    = ""
         , rmcNodeContext   = nrContext
         , rmcReporter      = noReporter
         }

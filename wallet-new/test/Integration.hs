@@ -67,9 +67,8 @@ and talk to `127.0.0.1:8090'.
     _ <- startCluster [ "node0", "node1", "node2" ]
     wc <- mkWHttpClient
 
-    putText "Waiting for cluster to start..."
-
-    threadDelay 1000000000000
+    -- FIXME Try to make that nicer using some sort of MVar lock
+    putText "\nWaiting for cluster to start...\n" >> threadDelay 15000000
 
     hspec $ describe "Integration Tests" $
         describe "Addresses" $ Addresses.spec wc

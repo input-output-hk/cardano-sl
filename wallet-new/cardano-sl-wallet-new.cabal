@@ -702,3 +702,4 @@ test-suite integration
                     , universum
                     , x509-store
                     , parsec
+                    , attoparsec

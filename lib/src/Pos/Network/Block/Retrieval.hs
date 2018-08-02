@@ -115,7 +115,7 @@ retrievalWorker coreConfig txpConfig diffusion = do
         logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader coreConfig header >>= \case
             CHContinues ->
-                void $ getProcessBlocks coreConfig txpConfig diffusion nodeId (headerHash header) [hHash]
+                void $ getProcessBlocks coreConfig txpConfig diffusion nodeId hHash [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res

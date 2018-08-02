@@ -1,5 +1,6 @@
 module Cardano.Wallet.Kernel.Wallets (
       createHdWallet
+    , updateHdWallet
     , updatePassword
     , deleteHdWallet
       -- * Errors
@@ -29,7 +30,7 @@ import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
                      DeleteHdWallet (..), DeleteHdWalletError (..),
-                     UpdateHdRootPassword (..))
+                     UpdateHdRootPassword (..), UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
                      WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -200,6 +201,18 @@ deleteHdWallet wallet rootId = do
 {-------------------------------------------------------------------------------
   Wallet update
 -------------------------------------------------------------------------------}
+
+updateHdWallet :: PassiveWallet
+               -> HD.HdRootId
+               -> HD.AssuranceLevel
+               -> HD.WalletName
+               -> IO (Either HD.UnknownHdRoot (Kernel.DB, HdRoot))
+updateHdWallet pw hdRootId assuranceLevel walletName = do
+    res <- update' (pw ^. wallets) (UpdateHdWallet hdRootId assuranceLevel walletName)
+    case res of
+         Left e              -> return (Left e)
+         Right (db, newRoot) -> return (Right (db, newRoot))
+
 updatePassword :: PassiveWallet
                -> HD.HdRootId
                -> PassPhrase

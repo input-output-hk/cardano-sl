@@ -19,7 +19,8 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateWalletError, DeleteAccountError,
                      DeleteWalletError (..), GetAccountError, GetAccountsError,
                      GetWalletError (..), PassiveWalletLayer (..),
-                     UpdateAccountError, UpdateWalletPasswordError)
+                     UpdateAccountError, UpdateWalletError (..),
+                     UpdateWalletPasswordError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -191,7 +192,7 @@ pwlUpdateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> WalletUpdate
-    -> m Wallet
+    -> m (Either UpdateWalletError Wallet)
 pwlUpdateWallet wId wUpdate = do
     walletDB    <- askWalletDB
 
@@ -204,8 +205,8 @@ pwlUpdateWallet wId wUpdate = do
     -- Get wallet or throw if missing.
     res <- pwlGetWallet wId
     case res of
-         Left _  -> throwM (WalletNotFound wId)
-         Right w -> return w
+         Left _  -> throwM (UpdateWalletErrorNotFound wId)
+         Right w -> return (Right w)
 
 pwlUpdateWalletPassword
     :: WalletId

@@ -15,7 +15,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      DeleteWalletError (..), GetAccountError (..),
                      GetAccountsError (..), GetWalletError (..),
                      PassiveWalletLayer (..), UpdateAccountError (..),
-                     UpdateWalletPasswordError (..))
+                     UpdateWalletError (..), UpdateWalletPasswordError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -130,3 +130,5 @@ instance Arbitrary UpdateWalletPasswordError where
 instance Arbitrary DeleteWalletError where
     arbitrary = oneof [ DeleteWalletWalletIdDecodingFailed <$> arbitrary ]
 
+instance Arbitrary UpdateWalletError where
+    arbitrary = oneof [ UpdateWalletWalletIdDecodingFailed <$> arbitrary ]

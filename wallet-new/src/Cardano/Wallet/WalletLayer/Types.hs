@@ -23,6 +23,7 @@ module Cardano.Wallet.WalletLayer.Types
     , WalletLayerError(..)
     , CreateWalletError(..)
     , GetWalletError(..)
+    , UpdateWalletError(..)
     , UpdateWalletPasswordError(..)
     , DeleteWalletError(..)
     , NewPaymentError(..)
@@ -116,6 +117,28 @@ instance Buildable GetWalletError where
         bprint ("GetWalletErrorNotFound " % build) walletId
     build (GetWalletWalletIdDecodingFailed txt) =
         bprint ("GetWalletWalletIdDecodingFailed " % build) txt
+
+data UpdateWalletError =
+      UpdateWalletError (V1 Kernel.UnknownHdRoot)
+    | UpdateWalletErrorNotFound WalletId
+    -- ^ Error thrown by the legacy wallet layer, isomorphic to the one above,
+    -- which is new-data-layer specific.
+    | UpdateWalletWalletIdDecodingFailed Text
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show UpdateWalletError where
+    show = formatToString build
+
+instance Exception UpdateWalletError
+
+instance Buildable UpdateWalletError where
+    build (UpdateWalletError (V1 kernelError)) =
+        bprint ("UpdateWalletError " % build) kernelError
+    build (UpdateWalletErrorNotFound walletId) =
+        bprint ("UpdateWalletErrorNotFound " % build) walletId
+    build (UpdateWalletWalletIdDecodingFailed txt) =
+        bprint ("UpdateWalletWalletIdDecodingFailed " % build) txt
 
 data UpdateWalletPasswordError =
       UpdateWalletPasswordWalletIdDecodingFailed Text
@@ -300,7 +323,9 @@ data PassiveWalletLayer m = PassiveWalletLayer
       _pwlCreateWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
     , _pwlGetWalletIds         :: m [WalletId]
     , _pwlGetWallet            :: WalletId -> m (Either GetWalletError Wallet)
-    , _pwlUpdateWallet         :: WalletId -> WalletUpdate   -> m Wallet
+    , _pwlUpdateWallet         :: WalletId
+                               -> WalletUpdate
+                               -> m (Either UpdateWalletError Wallet)
     , _pwlUpdateWalletPassword :: WalletId
                                -> PasswordUpdate
                                -> m (Either UpdateWalletPasswordError Wallet)
@@ -349,7 +374,10 @@ getWallet :: forall m. PassiveWalletLayer m
           -> m (Either GetWalletError Wallet)
 getWallet pwl = pwl ^. pwlGetWallet
 
-updateWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletUpdate -> m Wallet
+updateWallet :: forall m. PassiveWalletLayer m
+             -> WalletId
+             -> WalletUpdate
+             -> m (Either UpdateWalletError Wallet)
 updateWallet pwl = pwl ^. pwlUpdateWallet
 
 updateWalletPassword :: forall m. PassiveWalletLayer m

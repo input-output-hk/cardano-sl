@@ -19,7 +19,7 @@ handlers pwl =  newWallet pwl
            :<|> updatePassword pwl
            :<|> deleteWallet pwl
            :<|> getWallet pwl
-           :<|> updateWallet
+           :<|> updateWallet pwl
 
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
@@ -76,7 +76,12 @@ getWallet pwl wid = do
          Left e  -> throwM e
          Right w -> return $ single w
 
-updateWallet :: WalletId
+updateWallet :: PassiveWalletLayer IO
+             -> WalletId
              -> WalletUpdate
              -> Handler (WalletResponse Wallet)
-updateWallet _wid _walletUpdate = error "Unimplemented. See CBR-227."
+updateWallet pwl wid walletUpdateRequest = do
+    res <- liftIO $ WalletLayer.updateWallet pwl wid walletUpdateRequest
+    case res of
+         Left e  -> throwM e
+         Right w -> return $ single w

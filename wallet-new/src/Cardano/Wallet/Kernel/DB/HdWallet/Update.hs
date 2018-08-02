@@ -8,8 +8,6 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Update (
 
 import           Universum
 
-import           Control.Lens ((.=))
-
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
@@ -19,10 +17,13 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
 updateHdRootAssurance :: HdRootId
                       -> AssuranceLevel
-                      -> Update' HdWallets UnknownHdRoot ()
+                      -> Update' HdWallets UnknownHdRoot HdRoot
 updateHdRootAssurance rootId assurance =
-    zoomHdRootId identity rootId $
-      hdRootAssurance .= assurance
+    zoomHdRootId identity rootId $ do
+        oldHdRoot <- get
+        let newHdRoot = oldHdRoot & hdRootAssurance .~ assurance
+        put newHdRoot
+        return newHdRoot
 
 updateHdRootPassword :: HdRootId
                      -> HasSpendingPassword
@@ -36,10 +37,13 @@ updateHdRootPassword rootId hasSpendingPassword =
 
 updateHdRootName :: HdRootId
                  -> WalletName
-                 -> Update' HdWallets UnknownHdRoot ()
+                 -> Update' HdWallets UnknownHdRoot HdRoot
 updateHdRootName rootId name =
-    zoomHdRootId identity rootId $
-      hdRootName .= name
+    zoomHdRootId identity rootId $ do
+      oldHdRoot <- get
+      let newHdRoot = oldHdRoot & hdRootName .~ name
+      put newHdRoot
+      return newHdRoot
 
 updateHdAccountName :: HdAccountId
                     -> AccountName

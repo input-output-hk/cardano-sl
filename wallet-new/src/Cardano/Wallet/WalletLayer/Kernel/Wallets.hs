@@ -1,5 +1,6 @@
 module Cardano.Wallet.WalletLayer.Kernel.Wallets (
       createWallet
+    , updateWallet
     , updateWalletPassword
     , deleteWallet
     , getWallet
@@ -23,7 +24,7 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
                      DeleteWalletError (..), GetWalletError (..),
-                     UpdateWalletPasswordError (..))
+                     UpdateWalletError (..), UpdateWalletPasswordError (..))
 
 import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
 
@@ -76,44 +77,24 @@ createWallet wallet (V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword 
                             , walSyncState                  = V1.Synced
                           }
 
--- | Converts an 'HdRoot' into a V1 'Wallet.
-toV1Wallet :: Kernel.DB -> HD.HdRoot -> V1.Wallet
-toV1Wallet db hdRoot =
-    let (hasSpendingPassword, mbLastUpdate) =
-            case hdRoot ^. HD.hdRootHasPassword of
-                 HD.NoSpendingPassword     -> (False, Nothing)
-                 HD.HasSpendingPassword lu -> (True, Just (lu ^. fromDb))
-        -- In case the wallet has no spending password, its last update
-        -- matches this wallet creation time.
-        rootId = hdRoot ^. HD.hdRootId
-        createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
-        lastUpdate = fromMaybe createdAt mbLastUpdate
-        walletId   = sformat build . _fromDb . HD.getHdRootId $ rootId
-        v1AssuranceLevel = case hdRoot ^. HD.hdRootAssurance of
-                               HD.AssuranceLevelNormal -> V1.NormalAssurance
-                               HD.AssuranceLevelStrict -> V1.StrictAssurance
-    in V1.Wallet {
-        walId                         = (V1.WalletId walletId)
-      , walName                       = hdRoot ^. HD.hdRootName
-                                                . to HD.getWalletName
-      , walBalance                    = V1 (walletTotalBalance db rootId)
-      , walHasSpendingPassword        = hasSpendingPassword
-      , walSpendingPasswordLastUpdate = V1 lastUpdate
-      , walCreatedAt                  = V1 createdAt
-      , walAssuranceLevel             = v1AssuranceLevel
-      -- FIXME(adn) Do this as part of CBR-243.
-      , walSyncState                  = V1.Synced
-    }
-
--- | Computes the total balance for this wallet, given its 'HdRootId'.
-walletTotalBalance :: Kernel.DB -> HD.HdRootId -> Coin
-walletTotalBalance db hdRootId =
-    IxSet.foldl' (\total account ->
-                      total `unsafeAddCoin`
-                      Kernel.accountTotalBalance db (account ^. HD.hdAccountId)
-                 )
-                 (mkCoin 0)
-                 (Kernel.walletAccounts db hdRootId)
+-- | Updates the 'SpendingPassword' for this wallet.
+updateWallet :: MonadIO m
+             => Kernel.PassiveWallet
+             -> V1.WalletId
+             -> V1.WalletUpdate
+             -> m (Either UpdateWalletError V1.Wallet)
+updateWallet wallet (V1.WalletId wId) (V1.WalletUpdate v1Level v1Name) = do
+    case decodeTextAddress wId of
+        Left _ -> return $ Left (UpdateWalletWalletIdDecodingFailed wId)
+        Right rootAddr -> do
+           let hdRootId = HD.HdRootId . InDb $ rootAddr
+               newLevel = fromV1AssuranceLevel v1Level
+               newName  = HD.WalletName v1Name
+           res <- liftIO $ Kernel.updateHdWallet wallet hdRootId newLevel newName
+           case res of
+                Left e  -> return $ Left (UpdateWalletError (V1 e))
+                Right (db, updatedWallet) ->
+                    return $ Right $ toV1Wallet db updatedWallet
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWalletPassword :: MonadIO m
@@ -159,3 +140,51 @@ getWallet db (V1.WalletId wId) =
            case readHdRoot hdRootId (hdWallets db) of
                 Left dbErr -> Left (GetWalletError (V1 dbErr))
                 Right w    -> Right (toV1Wallet db w)
+
+{------------------------------------------------------------------------------
+  General utility functions on the wallets.
+------------------------------------------------------------------------------}
+
+-- | Converts an 'HdRoot' into a V1 'Wallet.
+toV1Wallet :: Kernel.DB -> HD.HdRoot -> V1.Wallet
+toV1Wallet db hdRoot =
+    let (hasSpendingPassword, mbLastUpdate) =
+            case hdRoot ^. HD.hdRootHasPassword of
+                 HD.NoSpendingPassword     -> (False, Nothing)
+                 HD.HasSpendingPassword lu -> (True, Just (lu ^. fromDb))
+        -- In case the wallet has no spending password, its last update
+        -- matches this wallet creation time.
+        rootId = hdRoot ^. HD.hdRootId
+        createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
+        lastUpdate = fromMaybe createdAt mbLastUpdate
+        walletId   = sformat build . _fromDb . HD.getHdRootId $ rootId
+        v1AssuranceLevel = case hdRoot ^. HD.hdRootAssurance of
+                               HD.AssuranceLevelNormal -> V1.NormalAssurance
+                               HD.AssuranceLevelStrict -> V1.StrictAssurance
+    in V1.Wallet {
+        walId                         = (V1.WalletId walletId)
+      , walName                       = hdRoot ^. HD.hdRootName
+                                                . to HD.getWalletName
+      , walBalance                    = V1 (walletTotalBalance db rootId)
+      , walHasSpendingPassword        = hasSpendingPassword
+      , walSpendingPasswordLastUpdate = V1 lastUpdate
+      , walCreatedAt                  = V1 createdAt
+      , walAssuranceLevel             = v1AssuranceLevel
+      -- FIXME(adn) Do this as part of CBR-243.
+      , walSyncState                  = V1.Synced
+    }
+
+-- | Converts from the @V1@ 'AssuranceLevel' to the HD one.
+fromV1AssuranceLevel :: V1.AssuranceLevel -> HD.AssuranceLevel
+fromV1AssuranceLevel V1.NormalAssurance = HD.AssuranceLevelNormal
+fromV1AssuranceLevel V1.StrictAssurance = HD.AssuranceLevelStrict
+
+-- | Computes the total balance for this wallet, given its 'HdRootId'.
+walletTotalBalance :: Kernel.DB -> HD.HdRootId -> Coin
+walletTotalBalance db hdRootId =
+    IxSet.foldl' (\total account ->
+                      total `unsafeAddCoin`
+                      Kernel.accountTotalBalance db (account ^. HD.hdAccountId)
+                 )
+                 (mkCoin 0)
+                 (Kernel.walletAccounts db hdRootId)

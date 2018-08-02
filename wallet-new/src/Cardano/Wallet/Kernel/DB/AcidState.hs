@@ -21,8 +21,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , CreateHdAccount(..)
   , CreateHdAddress(..)
     -- *** UPDATE
-  , UpdateHdRootAssurance
-  , UpdateHdRootName(..)
+  , UpdateHdWallet(..)
   , UpdateHdRootPassword(..)
   , UpdateHdAccountName(..)
     -- *** DELETE
@@ -351,17 +350,18 @@ createHdAddress :: HdAddress -> Update DB (Either HD.CreateHdAddressError ())
 createHdAddress hdAddress = runUpdate' . zoom dbHdWallets $
     HD.createHdAddress hdAddress
 
-updateHdRootAssurance :: HdRootId
-                      -> AssuranceLevel
-                      -> Update DB (Either UnknownHdRoot ())
-updateHdRootAssurance rootId assurance = runUpdate' . zoom dbHdWallets $
-    HD.updateHdRootAssurance rootId assurance
-
-updateHdRootName :: HdRootId
-                 -> WalletName
-                 -> Update DB (Either UnknownHdRoot ())
-updateHdRootName rootId name = runUpdate' . zoom dbHdWallets $
-    HD.updateHdRootName rootId name
+updateHdWallet :: HdRootId
+               -> AssuranceLevel
+               -> WalletName
+               -> Update DB (Either UnknownHdRoot (DB, HdRoot))
+updateHdWallet rootId assurance name = do
+    res <- runUpdate' . zoom dbHdWallets $ do
+               -- The result of this update is suppressed as we are interested
+               -- only in the final, amended 'HdRoot', and the errors returned
+               -- by these two Update' are identical.
+               _ <- HD.updateHdRootAssurance rootId assurance
+               HD.updateHdRootName rootId name
+    get >>= \st' -> return $ bimap identity (st',) res
 
 updateHdRootPassword :: HdRootId
                      -> HasSpendingPassword
@@ -460,8 +460,7 @@ makeAcidic ''DB [
     , 'createHdAddress
     , 'createHdAccount
     , 'createHdWallet
-    , 'updateHdRootAssurance
-    , 'updateHdRootName
+    , 'updateHdWallet
     , 'updateHdRootPassword
     , 'updateHdAccountName
     , 'deleteHdRoot

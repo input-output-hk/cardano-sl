@@ -34,6 +34,7 @@ import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
+import qualified Cardano.Wallet.API.Response as V1
 import           Cardano.Wallet.API.V1.Handlers.Wallets as Handlers
 import           Cardano.Wallet.API.V1.Types (V1 (..), unV1)
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -51,6 +52,10 @@ data Fixture = Fixture {
     , fixtureV1Wallet         :: V1.Wallet
     , fixtureHdRootId         :: HdRootId
     }
+
+oppositeLevel :: V1.AssuranceLevel -> V1.AssuranceLevel
+oppositeLevel V1.StrictAssurance = V1.NormalAssurance
+oppositeLevel V1.NormalAssurance = V1.StrictAssurance
 
 genNewWalletRq :: Maybe V1.SpendingPassword -> PropertyM IO V1.NewWallet
 genNewWalletRq spendingPassword = do
@@ -312,7 +317,7 @@ spec = describe "Wallets" $ do
                                      return ()
                                  Left unexpectedErr ->
                                      fail $ "expecting different failure than " <> show unexpectedErr
-                                 Right _ -> fail "expecting password not to be updated, but it was."
+                                 Right _ -> fail "expecting wallet not to be fetched, but it was."
 
         describe "Get a specific wallet (Servant)" $ do
             prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
@@ -331,5 +336,65 @@ spec = describe "Wallets" $ do
                         res <- try . runExceptT . runHandler' $ getW
                         case res of
                              Left (_e :: WalletLayer.GetWalletError)  -> return ()
+                             Right (Left e)  -> throwM e -- Unexpected Failure
+                             Right (Right _) -> fail "Expecting a failure, but the handler succeeded."
+
+    describe "UpdateWallet" $ do
+
+        -- There is no formal \"kernel function\" for this one, so we are
+        -- testing only the WalletLayer and the Servant handler.
+        describe "Update a wallet (wallet layer)" $ do
+
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    withNewWalletFixture $ \ _ layer _ Fixture{..} -> do
+                            let wId     = V1.walId fixtureV1Wallet
+                            let newLevel = oppositeLevel (V1.walAssuranceLevel fixtureV1Wallet)
+                            res <- WalletLayer.updateWallet layer wId (V1.WalletUpdate newLevel "FooBar")
+                            case res of
+                                 Left e  -> fail (formatToString build e)
+                                 Right w -> do
+                                     V1.walAssuranceLevel w `shouldBe` newLevel
+                                     V1.walName w `shouldBe` "FooBar"
+
+            prop "fails if the wallet doesn't exist" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    wId  <- pick arbitrary
+                    lvl  <- pick arbitrary
+                    name <- pick arbitrary
+                    withLayer $ \ layer _ -> do
+                            res <- WalletLayer.updateWallet layer wId  (V1.WalletUpdate lvl name)
+                            case res of
+                                 Left (WalletLayer.UpdateWalletError (V1 (UnknownHdRoot _))) ->
+                                     return ()
+                                 Left unexpectedErr ->
+                                     fail $ "expecting different failure than " <> show unexpectedErr
+                                 Right _ -> fail "expecting wallet not to be updated, but it was."
+
+        describe "Update a wallet (Servant)" $ do
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    withNewWalletFixture $ \ _ layer _ Fixture{..} -> do
+                        liftIO $ do
+                            let wId = V1.walId fixtureV1Wallet
+                            let newLevel = oppositeLevel (V1.walAssuranceLevel fixtureV1Wallet)
+                            let updt     = V1.WalletUpdate newLevel "FooBar"
+                            res <- runExceptT . runHandler' $ Handlers.updateWallet layer wId updt
+                            case res of
+                                 Left e  -> fail (show e)
+                                 Right (V1.WalletResponse{..}) -> do
+                                     V1.walAssuranceLevel wrData `shouldBe` newLevel
+                                     V1.walName wrData `shouldBe` "FooBar"
+
+            prop "fails if the wallet doesn't exist" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    wId <- pick arbitrary
+                    lvl  <- pick arbitrary
+                    name <- pick arbitrary
+                    withLayer $ \layer _ -> do
+                        let updateW = Handlers.updateWallet layer wId
+                        res <- try . runExceptT . runHandler' $ updateW (V1.WalletUpdate lvl name)
+                        case res of
+                             Left (_e :: WalletLayer.UpdateWalletError)  -> return ()
                              Right (Left e)  -> throwM e -- Unexpected Failure
                              Right (Right _) -> fail "Expecting a failure, but the handler succeeded."

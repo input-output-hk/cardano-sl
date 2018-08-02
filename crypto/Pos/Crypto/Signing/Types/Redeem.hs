@@ -153,12 +153,12 @@ fromAvvmPk addrText = do
 redeemPkBuild :: ByteString -> RedeemPublicKey
 redeemPkBuild bs
     | BS.length bs /= 32 =
-        error $
-        "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
-        ", when should be 32"
+          error $
+          "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
+          ", when should be 32"
     | otherwise = case Ed25519.publicKey $ (BA.convert bs :: BA.Bytes) of
-        CryptoPassed r -> RedeemPublicKey r
-        CryptoFailed e -> error $ mappend "Pos.Crypto.Signing.Types.Redeem.hs consRedeemPk failed because " (T.pack $ show e)
+          CryptoPassed r -> RedeemPublicKey r
+          CryptoFailed e -> error $ mappend "Pos.Crypto.Signing.Types.Redeem.hs consRedeemPk failed because " (T.pack $ show e)
 
 ----------------------------------------------------------------------------
 -- Helpers

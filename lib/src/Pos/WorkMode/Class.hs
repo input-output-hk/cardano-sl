@@ -26,7 +26,6 @@ import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
---import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
 import           Pos.Core.StateLock (StateLock, StateLockMetrics)
 import           Pos.DB.Block (MonadBListener)
@@ -87,8 +86,7 @@ type WorkMode ctx m
 
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
-    = ( -- TODO CanJsonLog m
-        MonadIO m
+    = ( MonadIO m
       , MonadUnliftIO m
       , HasConfiguration
       , HasUpdateConfiguration

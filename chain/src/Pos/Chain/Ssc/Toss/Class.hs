@@ -26,7 +26,7 @@ import           Pos.Core.Update (BlockVersionData)
 
 -- | Type class which provides functions necessary for read-only
 -- verification of SSC data.
-class (Monad m {-, WithLogger m -}) =>
+class Monad m =>
       MonadTossRead m where
     -- | Get 'CommitmentsMap' with all commitments.
     getCommitments :: m CommitmentsMap

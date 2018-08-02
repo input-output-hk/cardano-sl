@@ -136,4 +136,4 @@ sscRunGlobalUpdate logTrace action = do
   where
     -- (... MonadPseudoRandom) a -> (... n) a
     executeMonadBaseRandom seed =
-       hoist $ hoist (pure . fst . Rand.withDRG seed)
+        hoist $ hoist (pure . fst . Rand.withDRG seed)

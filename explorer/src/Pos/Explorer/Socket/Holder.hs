@@ -92,9 +92,9 @@ mkConnectionsState =
 withConnState
     :: MonadIO m
     => ConnectionsVar
-    -> {-NamedPureLogger-} (StateT ConnectionsState STM) a
+    -> (StateT ConnectionsState STM) a
     -> m a
-withConnState var = {-launchNamedPureLog $-} atomically . modifyTVarS var
+withConnState var = atomically . modifyTVarS var
 
 askingConnState
     :: MonadIO m

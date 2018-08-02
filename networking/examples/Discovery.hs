@@ -84,7 +84,7 @@ makeNode :: TraceNamed IO
          -> Transport
          -> Int
          -> IO ThreadId
-makeNode tr transport i = do
+makeNode logTrace transport i = do
     let port = 3000 + i
         host = "127.0.0.1"
         addr = (host, fromIntegral port)
@@ -99,7 +99,7 @@ makeNode tr transport i = do
         prng1 = mkStdGen (2 * i)
         prng2 = mkStdGen ((2 * i) + 1)
     putStrLn $ "Starting node " ++ show i
-    forkIO $ node tr (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+    forkIO $ node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                 prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \converse -> do
             putStrLn $ "Making discovery for node " ++ show i

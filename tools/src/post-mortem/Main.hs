@@ -126,9 +126,6 @@ processLogDirThroughput logTrace txWindow waitWindow logDir = do
     throughput svgFile txWindow waitWindow 1000 xs ys
     logInfo logTrace $ sformat ("wrote chart to " % shown) svgFile
 
---err :: String -> IO ()
---err = hPutStrLn stderr
-
 getName :: FilePath -> String -> String -> FilePath
 getName template name ext =
     let dir   = takeDirectory template

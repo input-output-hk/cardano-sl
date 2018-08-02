@@ -38,7 +38,6 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Core.Conc (forConcurrently)
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Core.StateLock (Priority (..), modifyStateLock)

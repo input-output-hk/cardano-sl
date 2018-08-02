@@ -121,7 +121,7 @@ sanityCheckStakes logTrace = do
               ", but getRealTotalStake returned: "%coinF)
     let msg = sformat fmt calculatedTotalStake totalStake
     unless (calculatedTotalStake == totalStake) $ do
-        logError logTrace (colorize Red msg)
+        logError logTrace $ colorize Red msg
         throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------

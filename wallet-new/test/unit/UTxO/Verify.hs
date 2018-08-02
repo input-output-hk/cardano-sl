@@ -92,15 +92,6 @@ withVerifyEnv env a = runReader (unWithVerifyEnv a) env
 instance MonadGState WithVerifyEnv where
   gsAdoptedBVData = WithVerifyEnv $ venvBlockVersionData <$> ask
 
-{-
-instance HasLoggerName WithVerifyEnv where
-  askLoggerName        = WithVerifyEnv $ venvLoggerName <$> ask
-  modifyLoggerName f x = WithVerifyEnv $ local f' (unWithVerifyEnv x)
-    where
-      f' :: VerifyEnv -> VerifyEnv
-      f' env = env { venvLoggerName = f (venvLoggerName env) }
--}
-
 {-------------------------------------------------------------------------------
   Verification monad
 
@@ -140,18 +131,6 @@ verify' st env ma = withVerifyEnv env
 
 deriving instance MonadGState     (Verify e)
 deriving instance (MonadError e)  (Verify e)
-
--- Possible due to HasLoggerName instance for 'StateT'' in "Pos.Util.Orphans"
---deriving instance HasLoggerName (Verify e)
-
-{-
-instance CanLog (Verify e) where
-  dispatchMessage lname sev txt = Verify $
-      _2 %= (logEvent :)
-    where
-      logEvent :: LogEvent
-      logEvent = LogEvent lname sev txt
--}
 
 mapVerifyErrors :: (e -> e') -> Verify e a -> Verify e' a
 mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma

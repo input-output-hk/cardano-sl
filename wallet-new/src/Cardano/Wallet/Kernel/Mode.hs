@@ -16,7 +16,6 @@ import           Pos.Chain.Txp
 import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block hiding (applyBlocks, rollbackBlocks)
@@ -197,10 +196,6 @@ instance ( HasConfiguration
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
-{-
-instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
-  jsonLog = jsonLogDefault
--}
 instance HasConfiguration
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize

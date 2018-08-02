@@ -51,9 +51,9 @@ applySettings ::
     -> ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
 applySettings _{-logTrace-} =
     ProcessBlundsSettings
-        { pbsProcessSingle = -- \tx -> do
+        { pbsProcessSingle = --TODO \tx -> do
                                         -- applySingle logTrace tx
-                                        (const . return . return) ()
+                                (const . return . return) ()
         , pbsCreateEnv = buildExplorerExtraLookup
         , pbsExtraOperations = extraOps
         , pbsIsRollback = False
@@ -63,10 +63,9 @@ rollbackSettings ::
        TxpGlobalRollbackMode m
     => TraceNamed IO
     -> ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
-rollbackSettings _ = -- logTrace =
+rollbackSettings _ =
     ProcessBlundsSettings
         { pbsProcessSingle = return . (eRollbackToil noTrace) . blundToAuxNUndo
-        -- (const . return . return) ()
         , pbsCreateEnv = buildExplorerExtraLookup
         , pbsExtraOperations = extraOps
         , pbsIsRollback = True

@@ -7,11 +7,6 @@
 module Pos.Launcher.Runner
        ( -- * High level runners
          runRealMode
-
-       --, elimRealMode  -- only used locally
-
-       -- * Exported for custom usage in CLI utils
-       --, runServer     -- only used locally
        ) where
 
 import           Universum
@@ -34,7 +29,6 @@ import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants)
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
@@ -60,7 +54,6 @@ import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
-
 
 ----------------------------------------------------------------------------
 -- High level runners

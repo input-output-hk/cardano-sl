@@ -36,7 +36,6 @@ import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
                      mkLocalSlotIndex, slotSecurityParam, vssMaxTTL)
 import           Pos.Core.Conc (currentTime, delay)
---import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
@@ -68,8 +67,7 @@ import           Pos.Util.Util (HasLens (..), getKeys, leftToPanic)
 
 
 type SscMode ctx m
-    = ( --TODO CanJsonLog m
-        MonadIO m
+    = ( MonadIO m
       , MonadUnliftIO m
       , Rand.MonadRandom m
       , MonadMask m

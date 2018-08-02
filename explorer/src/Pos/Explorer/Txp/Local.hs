@@ -48,7 +48,6 @@ eTxProcessTransaction ::
        ( ETxpLocalWorkMode ctx m
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-    --    , CanJsonLog m
        )
     => TraceNamed m
     -> ProtocolMagic

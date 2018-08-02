@@ -13,7 +13,6 @@ import           System.FilePath ((</>))
 import           System.FilePath.Glob (glob)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
-
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),

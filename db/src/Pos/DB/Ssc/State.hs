@@ -13,12 +13,11 @@ import qualified Control.Concurrent.STM as STM
 import           Pos.Chain.Ssc (SscState (..))
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.DB (MonadDBRead)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- Reexports
 import           Pos.DB.Ssc.State.Global
 import           Pos.DB.Ssc.State.Local
-
-import           Pos.Util.Trace.Named (TraceNamed)
 
 mkSscState
     :: forall ctx m .

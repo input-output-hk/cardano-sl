@@ -9,13 +9,11 @@ module Pos.Client.KeyStorage
        , modifySecretPureDefault
        , modifySecretDefault
 
-       --, getPrimaryKey   -- never accessed
        , getSecretKeys
        , getSecretKeysPlain
        , addSecretKey
        , deleteAllSecretKeys
        , deleteSecretKeyBy
-       --, newSecretKey   -- never accessed
        , KeyData
        , KeyError (..)
        , AllUserSecrets (..)
@@ -67,10 +65,6 @@ modifySecretDefault f = do
 ----------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------
-{-
-getPrimaryKey :: MonadKeysRead m => m (Maybe SecretKey)
-getPrimaryKey = view usPrimKey <$> getSecret
--}
 
 newtype AllUserSecrets = AllUserSecrets
     { getAllUserSecrets :: [EncryptedSecretKey]
@@ -94,14 +88,6 @@ deleteAllSecretKeys = modifySecret (usKeys .~ [])
 deleteSecretKeyBy :: MonadKeys m => (EncryptedSecretKey -> Bool) -> m ()
 deleteSecretKeyBy predicate = modifySecret (usKeys %~ filter (not . predicate))
 
--- | Helper for generating a new secret key
-{-
-newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
-newSecretKey pp = do
-    (_, sk) <- liftIO $ runSecureRandom $ safeKeyGen pp
-    addSecretKey sk
-    pure sk
--}
 ------------------------------------------------------------------------
 -- Common functions
 ------------------------------------------------------------------------

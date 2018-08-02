@@ -34,7 +34,6 @@ import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo,
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Worker.Update (updateTriggerWorker)
 
-
 loggerName :: Log.LoggerName
 loggerName = "node"
 

@@ -22,17 +22,18 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import           Distribution.System (OS (Windows), buildOS)
 import           GHC.Generics (Generic)
 import           GHC.IO.Handle.FD (fdToHandle)
+import           System.Environment (lookupEnv)
+import           System.IO (hFlush, hGetLine, hSetNewlineMode,
+                     noNewlineTranslation)
+import           System.IO.Error (IOError, isEOFError)
+import           Universum
+
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Infra.Shutdown.Logic (triggerShutdown)
 import           Pos.Infra.Shutdown.Types (ShutdownContext)
 import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
                      logInfo)
-import           System.Environment (lookupEnv)
-import           System.IO (hFlush, hGetLine, hSetNewlineMode,
-                     noNewlineTranslation)
-import           System.IO.Error (IOError, isEOFError)
-import           Universum
 
 data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong
             | ParseError Text

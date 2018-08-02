@@ -63,13 +63,17 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
 import           Pos.Util (bracketWithTrace, newInitFuture)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, appendName)
-import qualified Pos.Util.Trace.Named as TN
+#ifdef linux_HOST_OS
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logInfo, logWarning)
+#else
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logInfo)
+#endif
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd
 #endif
-
 
 ----------------------------------------------------------------------------
 -- Data type
@@ -107,7 +111,7 @@ allocateNodeResources
     -> InitMode ()
     -> IO (NodeResources ext)
 allocateNodeResources logTrace0 np@NodeParams {..} sscnp txpSettings initDB = do
-    TN.logInfo logTrace "Allocating node resources..."
+    logInfo logTrace "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
             let dbPath = "node-db" :: FilePath
@@ -178,8 +182,8 @@ allocateNodeResources logTrace0 np@NodeParams {..} sscnp txpSettings initDB = do
     where
       logTrace = appendName "allocateNodeResources" logTrace0
       logTraceP = natTrace liftIO logTrace
-      logDebug_ msg = TN.logDebug logTraceP msg
-      logInfo_ msg = TN.logInfo logTraceP msg
+      logDebug_ msg = logDebug logTraceP msg
+      logInfo_ msg = logInfo logTraceP msg
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
@@ -335,8 +339,8 @@ allocateNodeContext logTrace0 ancd txpSettings ekgStore = do
       where
         logTrace = appendName "allocateNodeContext" logTrace0
         logTraceP = natTrace liftIO logTrace
-        logInfo_ m = lift $ TN.logInfo logTraceP m
-        logDebug_ m = lift $ TN.logDebug logTraceP m
+        logInfo_ m = lift $ logInfo logTraceP m
+        logDebug_ m = lift $ logDebug logTraceP m
 
 releaseNodeContext :: forall m . MonadIO m => NodeContext -> m ()
 releaseNodeContext _ = return ()
@@ -355,8 +359,8 @@ notifyReady logTrace = do
     res <- liftIO Systemd.notifyReady
     case res of
         Just () -> return ()
-        Nothing -> TN.logWarning logTrace "notifyReady failed to notify systemd."
+        Nothing -> logWarning logTrace "notifyReady failed to notify systemd."
 #else
 notifyReady :: TraceNamed m -> m ()
-notifyReady logTrace = TN.logInfo logTrace "notifyReady: no systemd support enabled"
+notifyReady logTrace = logInfo logTrace "notifyReady: no systemd support enabled"
 #endif

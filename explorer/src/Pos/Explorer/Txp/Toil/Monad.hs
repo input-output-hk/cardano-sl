@@ -52,7 +52,6 @@ import qualified Pos.Util.Modifier as MM
 -- | Utility monad which allows to lookup extra values related to txp and modify them.
 type ExplorerExtraM
  = ReaderT ExplorerExtraLookup (StateT ExplorerExtraModifier Identity)
---  = ReaderT ExplorerExtraLookup (StateT ExplorerExtraModifier ({-NamedPureLogger-}IdentityT IO))
 
 getTxExtra :: TxId -> ExplorerExtraM (Maybe TxExtra)
 getTxExtra txId = do
@@ -110,5 +109,5 @@ type EGlobalToilM
 explorerExtraMToEGlobalToilM :: ExplorerExtraM ~> EGlobalToilM
 explorerExtraMToEGlobalToilM = mapReaderT (mapStateT f . zoom _2) . magnify _2
   where
-    f :: Identity ~> (F StakesLookupF)
+    f :: Identity ~> F StakesLookupF
     f = generalize

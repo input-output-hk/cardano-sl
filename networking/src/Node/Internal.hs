@@ -401,7 +401,7 @@ pstAddHandler provenance map = case provenance of
 -- | Remove a handler for a given peer. Second component is True if there
 --   are no more handlers for that peer.
 pstRemoveHandler
-  :: TraceNamed IO
+    :: TraceNamed IO
     -> HandlerProvenance peerData t
     -> Map NT.EndPointAddress (MVar PeerStatistics)
     -> IO (Map NT.EndPointAddress (MVar PeerStatistics), Bool)

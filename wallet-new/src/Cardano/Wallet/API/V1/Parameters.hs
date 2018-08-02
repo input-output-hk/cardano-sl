@@ -14,7 +14,6 @@ import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..),
                      PaginationParams (..), PerPage (..))
 import           Cardano.Wallet.API.Types (DQueryParam, mapRouter)
-
 import           Pos.Util.Log.LogSafe (buildSafe)
 import           Pos.Util.Servant (HasLoggingServer (..), LoggingApiRec,
                      addParamLogInfo)

@@ -67,8 +67,8 @@ fillUserSecretVSS ::
 fillUserSecretVSS logTrace = fillUserSecretPart logTrace vssKeyGen usVss "VSS keypair"
 
 -- Make sure UserSecret contains something.
-fillUserSecretPart ::
-       MonadIO m
+fillUserSecretPart
+    :: MonadIO m
     => TraceNamed m
     -> (forall n. MonadRandom n =>
                       n a)

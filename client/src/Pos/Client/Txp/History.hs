@@ -48,7 +48,6 @@ import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
 import           Pos.Core.Block (Block, MainBlock, headerHash, mainBlockSlot,
                      mainBlockTxPayload)
 import           Pos.Core.Block.Constructors (genesisBlock0)
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.StateLock (StateLock, StateLockMetrics)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
@@ -209,7 +208,6 @@ type TxHistoryEnv ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasNodeType ctx
-    --TODO, CanJsonLog m
     )
 
 getBlockHistoryDefault

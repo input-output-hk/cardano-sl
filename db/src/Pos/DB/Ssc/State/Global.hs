@@ -15,7 +15,6 @@ module Pos.DB.Ssc.State.Global
        ) where
 
 import           Formatting (build, sformat, (%))
---import           Pos.Util.Log (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalState (..),
@@ -24,9 +23,10 @@ import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), HasGenesisData,
                      HasProtocolConstants, SlotId (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
+
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
-import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
 
 ----------------------------------------------------------------------------
 -- Certs
@@ -54,7 +54,7 @@ getStableCerts epoch =
 
 -- | Load global state from DB by recreating it from recent blocks.
 sscLoadGlobalState
-    :: (MonadDBRead m)
+    :: MonadDBRead m
     => TraceNamed m
     -> m SscGlobalState
 sscLoadGlobalState logTrace = do

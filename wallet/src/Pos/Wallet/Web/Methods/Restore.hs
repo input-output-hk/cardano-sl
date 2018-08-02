@@ -60,8 +60,7 @@ initialAccAddrIdxs = firstHardened
 
 mkWallet
     :: L.MonadWalletLogic ctx m
-    => TraceNamed m
-    -> PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
+    => TraceNamed m -> PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
 mkWallet logTrace passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
@@ -78,8 +77,7 @@ mkWallet logTrace passphrase CWalletInit {..} isReady = do
     return (skey, cAddr)
 
 newWallet :: L.MonadWalletLogic ctx m
-    => TraceNamed m
-    -> PassPhrase -> CWalletInit -> m CWallet
+    => TraceNamed m -> PassPhrase -> CWalletInit -> m CWallet
 newWallet logTrace passphrase cwInit = do
     db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
@@ -100,8 +98,7 @@ restoreWalletFromSeed
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => TraceNamed m
-    -> PassPhrase -> CWalletInit -> m CWallet
+    => TraceNamed m -> PassPhrase -> CWalletInit -> m CWallet
 restoreWalletFromSeed logTrace passphrase cwInit = do
     (sk, _) <- mkWallet logTrace passphrase cwInit False
     restoreWallet logTrace sk
@@ -111,8 +108,7 @@ restoreWallet
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => TraceNamed m
-    -> EncryptedSecretKey -> m CWallet
+    => TraceNamed m -> EncryptedSecretKey -> m CWallet
 restoreWallet logTrace sk = do
     db <- WS.askWalletDB
     let credentials@(_, wId) = eskToWalletDecrCredentials sk
@@ -125,8 +121,7 @@ restoreWalletFromBackup
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => TraceNamed m
-    -> WalletBackup -> m CWallet
+    => TraceNamed m -> WalletBackup -> m CWallet
 restoreWalletFromBackup logTrace WalletBackup {..} = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
@@ -247,8 +242,7 @@ addInitialRichAccount
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => TraceNamed m
-    -> Int -> m ()
+    => TraceNamed m -> Int -> m ()
 addInitialRichAccount logTrace keyId =
     E.handleAny wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor

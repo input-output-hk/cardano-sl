@@ -28,10 +28,8 @@ import qualified Data.Map as M
 import           Data.Text (Text)
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (sformat, shown, (%))
--- import           Network.EngineIO.Wai (WaiMonad)
 
 import qualified Network.SocketIO as S
--- import           Pos.Util.Log (CanLog (..))
 import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 
 -- * Provides type-safety for event names in some socket-io functions.
@@ -71,11 +69,6 @@ on_ eventName = S.on (toName eventName)
 on :: (MonadState S.RoutingTable m, FromJSON event, EventName name)
    => name -> (event -> S.EventHandler a) -> m ()
 on eventName = S.on (toName eventName)
-
--- * Instances
-
--- instance CanLog WaiMonad where
---     dispatchMessage logName sev msg = liftIO $ dispatchMessage logName sev msg
 
 -- * Misc
 

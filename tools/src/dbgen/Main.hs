@@ -108,7 +108,6 @@ newRealModeContext logTrace pm txpConfig dbs confOpts secretKeyPath = do
          , cnaDumpGenesisDataPath = Nothing
          , cnaDumpConfiguration   = False
          }
-    -- loggerName <- askLoggerName
     nodeParams <- getNodeParams "DBGen" cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)

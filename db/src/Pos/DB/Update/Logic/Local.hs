@@ -386,7 +386,7 @@ usPreparePayload logTrace neededTip slotId@SlotId{..} = do
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
                (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
-                   filterProposalsByThd {-logTrace-} siEpoch mpProposals
+                   filterProposalsByThd siEpoch mpProposals
                runDBPoll . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%

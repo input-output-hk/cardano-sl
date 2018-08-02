@@ -81,13 +81,13 @@ defaultLogConfig :: Log.LoggerConfig
 defaultLogConfig = fromScratch $ zoom lcTree $ do
     ltSeverity ?= warningPlus
     zoomLogger "sender" $ do
-        ltSeverity ?= Log.Info -- infoPlus
+        ltSeverity ?= Log.Info
         commLogger
     zoomLogger "receiver" $ do
-        ltSeverity ?= Log.Info -- infoPlus
+        ltSeverity ?= Log.Info
         commLogger
   where
-    commLogger = zoomLogger "comm" $ ltSeverity ?= Log.Error -- errorPlus
+    commLogger = zoomLogger "comm" $ ltSeverity ?= Log.Error
 -}
 
 {-  TODO  move to Pos.Util.LoggerConfig

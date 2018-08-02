@@ -230,7 +230,7 @@ verifyProposalStake logTrace totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: (ApplyMode m)
+    :: ApplyMode m
     => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
@@ -354,7 +354,6 @@ applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
       | otherwise =
           compare  (upsSlot $ dpsUndecided b) (upsSlot $ dpsUndecided a)
 
-    --applyDepthCheckDo :: (MonadIO m, MonadError PollVerFailure m) => DecidedProposalState -> m ()
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
             sv = upSoftwareVersion upsProposal

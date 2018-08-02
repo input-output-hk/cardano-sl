@@ -54,7 +54,8 @@ recordTxpMetrics logTrace ekgStore memPoolVar = do
         { slmWait = \reason -> do
               liftIO $ Metrics.Gauge.inc ekgMemPoolQueueLength
               qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
-              logDebug logTrace (sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen)
+              logDebug logTrace $
+                sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen
 
         , slmAcquire = \reason timeWaited -> do
               liftIO $ Metrics.Gauge.dec ekgMemPoolQueueLength

@@ -6,13 +6,13 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Accounts
 import           Universum
 
 import qualified Data.IxSet.Typed as IxSet
-import           Pos.Util.Trace.Named (TraceNamed)
 import           Servant
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.Util.Servant as V0
+import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
@@ -47,15 +47,13 @@ deleteAccount wId accIdx =
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => TraceNamed m
-    -> WalletId -> AccountIndex -> m (WalletResponse Account)
+    => TraceNamed m -> WalletId -> AccountIndex -> m (WalletResponse Account)
 getAccount logTrace wId accIdx =
     single <$> (migrate (wId, accIdx) >>= V0.getAccount logTrace >>= migrate)
 
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => TraceNamed m
-    -> WalletId -> RequestParams -> m (WalletResponse [Account])
+    => TraceNamed m -> WalletId -> RequestParams -> m (WalletResponse [Account])
 listAccounts logTrace wId params = do
     wid' <- migrate wId
     oldAccounts <- V0.getAccounts logTrace (Just wid')
@@ -67,8 +65,7 @@ listAccounts logTrace wId params = do
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)
-    => TraceNamed m
-    -> WalletId -> NewAccount -> m (WalletResponse Account)
+    => TraceNamed m -> WalletId -> NewAccount -> m (WalletResponse Account)
 newAccount logTrace wId nAccount@NewAccount{..} = do
     let (V1 spendingPw) = fromMaybe (V1 mempty) naccSpendingPassword
     accInit <- migrate (wId, nAccount)
@@ -77,8 +74,7 @@ newAccount logTrace wId nAccount@NewAccount{..} = do
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => TraceNamed m
-    -> WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
+    => TraceNamed m -> WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
 updateAccount logTrace wId accIdx accUpdate = do
     newAccId <- migrate (wId, accIdx)
     accMeta <- migrate accUpdate

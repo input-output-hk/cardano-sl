@@ -36,7 +36,6 @@ import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
 import           Pos.Core.Block (gbHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
                      MetricMonitorState, noReportMonitor, recordValue)
 import           Pos.Core.Update (BlockVersionData (..))

@@ -57,7 +57,6 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..),
                      largestHDAddressBoot)
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.StateLock (StateLock, StateLockMetrics (..),
                      newStateLock)
 import           Pos.Core.Txp (TxAux)
@@ -307,26 +306,12 @@ instance HasLens UpdateContext WalletTestContext UpdateContext where
 instance HasJsonLogConfig WalletTestContext where
     jsonLogConfig = lens (const JsonLogDisabled) const
 
-{-
-instance {-# OVERLAPPING #-} CanJsonLog WalletTestMode where
-    jsonLog = jsonLogDefault
--}
-
-{-
-instance HasLoggerName' WalletTestContext where
-    loggerName = wtcBlockTestContext_L . lensOf @LoggerName
--}
 instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData WalletMempoolExt) where
     lensOf = wtcBlockTestContext_L . btcTxpMemL
 
 instance HasLens SimpleSlottingStateVar WalletTestContext SimpleSlottingStateVar where
     lensOf = wtcSlottingStateVar_L
 
-{-
-instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
--}
 instance HasConfiguration => MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault

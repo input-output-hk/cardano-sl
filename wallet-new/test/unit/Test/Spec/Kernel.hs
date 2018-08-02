@@ -12,7 +12,8 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import           Pos.Core.Chrono
-import           Pos.Util.Trace (Trace, noTrace)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
@@ -144,7 +145,7 @@ bracketPassiveWallet postHook = do
    -- For now we are not logging them to stdout to not alter the output of
    -- the test runner, but in the future we could store them into a mutable
    -- reference or a TBQueue and perform assertions on them.
-    logMessage :: Trace IO a
+    logMessage :: TraceNamed IO
     logMessage = noTrace
 
 -- | Initialize active wallet in a manner suitable for generator-based testing

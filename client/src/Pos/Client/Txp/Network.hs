@@ -87,7 +87,7 @@ submitTxRaw logTrace diffusion txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo logTrace $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo logTrace $ sformat ("Transaction id: "%build) txId
-    sendTx {-logTrace-} diffusion txAux
+    sendTx diffusion txAux
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

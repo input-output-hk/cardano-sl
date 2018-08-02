@@ -12,7 +12,6 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.DB.Txp (sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Util.AssertMode (inAssertMode)
---import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (noTrace)
 
 sanityCheckDB ::

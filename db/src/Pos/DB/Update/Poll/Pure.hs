@@ -2,9 +2,7 @@
 
 module Pos.DB.Update.Poll.Pure
        ( PurePoll (..)
-       --, evalPurePollWithLogger   -- not used
        , execPurePollWithLogger
-       --, runPurePollWithLogger    -- not used
        ) where
 
 import           Universum
@@ -28,7 +26,7 @@ newtype PurePoll a = PurePoll
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState)
 runPurePollWithLogger ps pp =
     let innerMonad = usingStateT ps . getPurePoll $ pp
-    in  (\((a, finalState){-, logs-}) -> (a, finalState{-, logs-})) . runIdentity $ innerMonad
+    in  (\((a, finalState)) -> (a, finalState)) . runIdentity $ innerMonad
 
 {-
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
@@ -54,7 +52,7 @@ instance MonadPollRead PurePoll where
         propGetByApp appHashmap upIdHashmap =
             case HM.lookup an appHashmap of
                 Nothing -> do
-                    {-liftIO $ traceWith (logDebug trace) $
+                    {-liftIO $ traceWith (logDebug trace) $  --TODO
                         "getProposalsByApp: unknown application name " <> pretty an-}
                     pure []
                 Just hashset -> do
@@ -62,7 +60,7 @@ instance MonadPollRead PurePoll where
                         propStateList = map (\u -> (u, HM.lookup u upIdHashmap)) uidList
                     fromMaybe [] . traverse snd <$> filterM filterFun propStateList
         filterFun ({-uid-}_, Nothing) = do
-            {-liftIO $ traceWith (logWarning trace) $ "getProposalsByApp: unknown update id " <> pretty uid-}
+            {-liftIO $ traceWith (logWarning trace) $ "getProposalsByApp: unknown update id " <> pretty uid-} --TODO
             pure False
         filterFun (_, Just _) = pure True
     getConfirmedProposals = PurePoll $ use $ Poll.psConfirmedProposals . to HM.elems

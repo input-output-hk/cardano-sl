@@ -62,8 +62,6 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
 import           Pos.Util.Trace (noTrace)
---import           Pos.Util.Trace.Named (TraceNamed)
-
 
 ----------------------------------------------------------------------------
 -- Constraint
@@ -324,8 +322,8 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode ext m) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener m => MonadBListener (BlockGenMode ext m) where
-    onApplyBlocks logTrace blunds = {-lift $-} onApplyBlocks logTrace blunds
-    onRollbackBlocks logTrace blunds = {-lift $-} onRollbackBlocks logTrace blunds
+    onApplyBlocks = onApplyBlocks
+    onRollbackBlocks = onRollbackBlocks
 
 
 instance Monad m => MonadAddresses (BlockGenMode ext m) where

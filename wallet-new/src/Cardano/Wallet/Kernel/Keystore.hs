@@ -55,15 +55,6 @@ data Keystore = Keystore (MVar InternalStorage)
 newtype KeystoreM a = KeystoreM { fromKeystore :: IdentityT IO a }
                     deriving (Functor, Applicative, Monad, MonadIO)
 
-{-
-instance HasLoggerName KeystoreM where
-    askLoggerName = return (LoggerName "Keystore")
-    modifyLoggerName _ action = action
-
-instance CanLog KeystoreM where
-    dispatchMessage _ln sev txt = logMessage sev txt
--}
-
 -- | A 'DeletePolicy' is a preference the user can express on how to release
 -- the 'Keystore' during its teardown.
 data DeletePolicy =

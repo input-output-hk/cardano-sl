@@ -78,6 +78,3 @@ instance MC.MonadBaseControl IO Emulation where
         (a -> ReaderT ClockVar IO a) ->
         (a -> Emulation a))
       MC.restoreM
-
---instance CanLog Emulation where
---    dispatchMessage ln s t = Emulation $ dispatchMessage ln s t

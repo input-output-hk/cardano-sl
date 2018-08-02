@@ -503,14 +503,14 @@ getTxSummary logTrace cTxId = do
         -> CTxId
         -> m CTxSummary
     getTxSummaryFromMemPool logTrace' cTxId' = do
-        txId                   <- cTxIdToTxId cTxId'
-        tx                     <- fetchTxFromMempoolOrFail logTrace' txId
+        txId <- cTxIdToTxId cTxId'
+        tx   <- fetchTxFromMempoolOrFail logTrace' txId
 
-        let inputOutputs        = NE.toList . _txOutputs $ taTx tx
-        let txOutputs           = convertTxOutputs inputOutputs
+        let inputOutputs = NE.toList . _txOutputs $ taTx tx
+        let txOutputs    = convertTxOutputs inputOutputs
 
-        let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
-        let totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
+        let totalInput   = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        let totalOutput  = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
 
         -- Verify that strange things don't happen with transactions
         when (totalOutput > totalInput) $

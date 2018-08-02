@@ -143,10 +143,6 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = acRealModeContext_L . lensOf @tag
 
-{-
-instance HasLoggerName' AuxxContext where
-    loggerName = acRealModeContext_L . loggerName
--}
 instance HasSlogContext AuxxContext where
     slogContext = acRealModeContext_L . slogContext
 
@@ -163,17 +159,6 @@ instance (HasConfiguration, MonadSlotsData ctx AuxxMode)
     getCurrentSlotBlocking = realModeToAuxx getCurrentSlotBlocking
     getCurrentSlotInaccurate = realModeToAuxx getCurrentSlotInaccurate
     currentTimeSlotting = realModeToAuxx currentTimeSlotting
-
--- instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
---     askLoggerName = realModeToAuxx askLoggerName
---     modifyLoggerName f action = do
---         auxxCtx <- ask
---         let auxxToRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
---             auxxToRealMode = withReaderT (\realCtx -> set acRealModeContext_L realCtx auxxCtx)
---         realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
-
--- instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
---     jsonLog = realModeToAuxx ... jsonLog
 
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet

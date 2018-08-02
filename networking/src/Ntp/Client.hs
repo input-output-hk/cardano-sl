@@ -133,7 +133,6 @@ updateStatus'
     -> IO ()
 updateStatus' logTrace cli fn = do
     (offset, (sev, msg)) <- fn <$> readTVarIO (ncState cli)
-    --traceWith ntpTrace msg
     logMessage logTrace sev msg
     atomically $ writeTVar (ncStatus cli) offset
 

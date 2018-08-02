@@ -12,7 +12,6 @@ import           Pos.Infra.Shutdown.Types (ShutdownContext (..),
                      shdnIsTriggered)
 import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
-
 triggerShutdown
     :: (MonadIO m, MonadReader ctx m, HasShutdownContext ctx)
     => TraceNamed m

@@ -65,16 +65,6 @@ instance MonadBaseControl b m => MonadBaseControl b (JsonLogT m) where
 
     restoreM = restoreM
 
-{-  TODO
-instance WithLogger m => CanLog (JsonLogT m) where
-
-instance WithLogger m => HasLoggerName (JsonLogT m) where
-
-    askLoggerName = lift askLoggerName
-
-    modifyLoggerName f = hoist (modifyLoggerName f)
--}
-
 jsonLogDefault
     :: (ToJSON a, MonadIO m, MonadCatch m)
     => JsonLogConfig

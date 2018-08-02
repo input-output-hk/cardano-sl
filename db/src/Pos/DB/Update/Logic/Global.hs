@@ -96,10 +96,7 @@ withUSLogger = appendName "us"
 -- will never change. Also note that we store slotting data for all
 -- epochs in memory, so adding new one can't make anything worse.
 usApplyBlocks
-    :: forall ctx m. ( MonadThrow m
-       --, MonadUnliftIO m
-       , USGlobalApplyMode ctx m
-       )
+    :: forall ctx m. (MonadThrow m, USGlobalApplyMode ctx m)
     => TraceNamed m
     -> ProtocolMagic
     -> BlockVersion
@@ -135,7 +132,7 @@ usRollbackBlocks
     -> m [DB.SomeBatchOp]
 usRollbackBlocks logTrace0 blunds =
     processModifier =<<
-      (runDBPoll . execPollT def $ mapM_ ((rollbackUS (natTrace (lift . lift) logTrace)) . snd) blunds)
+        (runDBPoll . execPollT def $ mapM_ ((rollbackUS (natTrace (lift . lift) logTrace)) . snd) blunds)
   where
     logTrace = withUSLogger logTrace0
 
@@ -178,7 +175,7 @@ usVerifyBlocks ::
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
 usVerifyBlocks logTrace0 pm verifyAllIsKnown adoptedBV blocks =
     reportUnexpectedError $
-      processRes <$> run (runExceptT action)
+        processRes <$> run (runExceptT action)
   where
     logTrace = withUSLogger logTrace0
     action = do

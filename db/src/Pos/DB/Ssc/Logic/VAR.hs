@@ -15,7 +15,6 @@ import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph (hoist)
 import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
-
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
 import           Universum
@@ -44,7 +43,6 @@ import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
 import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
-
 
 ----------------------------------------------------------------------------
 -- Modes

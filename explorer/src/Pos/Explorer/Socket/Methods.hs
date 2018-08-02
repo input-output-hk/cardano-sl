@@ -303,7 +303,6 @@ unsubscribeFully logTrace sessId = do
     logDebug (natTrace liftIO logTrace) $ sformat ("Client #"%shown%" unsubscribes from all updates")
                sessId
     let logTrace' = appendName "drop" logTrace
-    -- modifyLoggerName (const "drop") $ do
     unsubscribeAddr logTrace' sessId
     unsubscribeBlocksLastPage logTrace' sessId
     unsubscribeTxs logTrace' sessId
@@ -312,7 +311,7 @@ unsubscribeFully logTrace sessId = do
 -- * Notifications
 
 broadcast
-    :: ({-HasConnectionsState ctx, -}ExplorerMode ctx m, EventName event, ToJSON args)
+    :: (ExplorerMode ctx m, EventName event, ToJSON args)
     => TraceNamed IO -> event -> args -> Set SocketId -> ExplorerSockets m ()
 broadcast logTrace event args recipients = do
     forM_ recipients $ \sockid -> do

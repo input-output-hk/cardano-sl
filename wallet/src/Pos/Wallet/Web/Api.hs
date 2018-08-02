@@ -97,8 +97,8 @@ data WalletLoggingConfig
 
 -- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
 -- can be used.
-instance Reifies (WalletLoggingConfig ) ApiLoggingConfig where
-  reflect _ = ApiLoggingConfig ("node" <> "wallet" <> "servant")
+instance Reifies WalletLoggingConfig ApiLoggingConfig where
+    reflect _ = ApiLoggingConfig ("node" <> "wallet" <> "servant")
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)

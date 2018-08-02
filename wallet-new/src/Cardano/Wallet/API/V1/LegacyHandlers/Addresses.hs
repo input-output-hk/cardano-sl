@@ -85,8 +85,7 @@ listAddresses logTrace params = do
 
 newAddress
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)
-    => TraceNamed m
-    -> NewAddress -> m (WalletResponse WalletAddress)
+    => TraceNamed m -> NewAddress -> m (WalletResponse WalletAddress)
 newAddress logTrace NewAddress {..} = do
     let (V1 password) = fromMaybe (V1 emptyPassphrase) newaddrSpendingPassword
     accountId <- migrate (newaddrWalletId, newaddrAccountIndex)

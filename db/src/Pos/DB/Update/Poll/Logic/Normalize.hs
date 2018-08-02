@@ -151,7 +151,7 @@ normalizeVotes logTrace votesGroups =
 -- read-only.
 filterProposalsByThd
   :: forall m . ({-MonadIO m,-} MonadPollRead m)
---    => TraceNamed m
+--TODO    => TraceNamed m
     => EpochIndex
     -> UpdateProposals
     -> m (UpdateProposals, HashSet UpId)

@@ -60,9 +60,13 @@ walletGuard
     -> m ()
     -> m ()
 walletGuard logTrace ws curTip wAddr action = case WS.getWalletSyncState ws wAddr of
-    Nothing -> logWarningSP logTrace $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
-    Just WS.NotSynced    -> logInfoSP logTrace $ \sl -> sformat ("Wallet #"%secretOnlyF sl build%" hasn't been synced yet") wAddr
-    Just (WS.SyncedWith wTip)      -> tipGuard wTip
+    Nothing                     -> logWarningSP logTrace $ \sl -> sformat
+                                    ("There is no syncTip corresponding to wallet #"
+                                    % secretOnlyF sl build) wAddr
+    Just WS.NotSynced           -> logInfoSP logTrace $ \sl -> sformat
+                                    ("Wallet #" % secretOnlyF sl build %
+                                     " hasn't been synced yet") wAddr
+    Just (WS.SyncedWith wTip)   -> tipGuard wTip
     Just (WS.RestoringFrom _ _) -> do
         logWarningSP logTrace $ \sl ->
             sformat ( "Wallet #"%secretOnlyF sl build%" is restoring, not tracking it just yet...") wAddr

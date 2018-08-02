@@ -300,7 +300,7 @@ sscProcessDataDo logTrace pm richmenData bvd gs payload =
                    evalPureTossWithLogger gs (natTrace lift logTrace) .
                    supplyPureTossEnv (multiRichmen, bvd) .
                    execTossT mempty . refreshToss (natTrace lift pureTossWithEnvTrace) pm givenEpoch =<<
-                   use  ldModifier
+                   use ldModifier
         newTM <-
             ExceptT $
             evalPureTossWithLogger gs logTrace $

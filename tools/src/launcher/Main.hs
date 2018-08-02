@@ -295,16 +295,12 @@ main =
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     lh <- Log.setupLogging $
-        -- LoggerConfig Nothing launcherLogsPrefix
-        -- productionB
         defaultInteractiveConfiguration Log.Debug
-            -- & Log.lcTermSeverityOut .~ Just Log.debugPlus
             & lcBasePath .~ launcherLogsPrefix
             & lcLoggerTree %~ case launcherLogsPrefix of
                   Nothing ->
                       identity
                   Just _  ->
-                    --   identity
                       (ltHandlers %~ (\xs -> LogHandler { _lhName="node", _lhFpath=Just "node.log"
                       , _lhBackend=FileTextBE
                       , _lhMinSeverity=Just Log.Debug

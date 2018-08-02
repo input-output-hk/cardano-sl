@@ -65,4 +65,3 @@ reportOrLogE logTrace = reportOrLog logTrace Log.Error
 -- | A version of 'reportOrLog' which uses 'Warning' severity.
 reportOrLogW :: MonadReporting m => TraceNamed m -> Text -> SomeException -> m ()
 reportOrLogW logTrace = reportOrLog logTrace Log.Warning
-

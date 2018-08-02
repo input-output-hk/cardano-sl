@@ -119,7 +119,6 @@ import           Test.Pos.Configuration (defaultTestBlockVersionData,
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
-
 ----------------------------------------------------------------------------
 -- Parameters
 ----------------------------------------------------------------------------

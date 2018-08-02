@@ -259,7 +259,10 @@ newAddress logTrace addGenSeed passphrase accId = do
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
     => TraceNamed m
-    -> Bool -> AddrGenSeed -> PassPhrase -> CAccountInit
+    -> Bool
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
     -> m CAccount
 newAccountIncludeUnready logTrace includeUnready addGenSeed passphrase CAccountInit {..} = do
     mps <- withTxpLocalData getMempoolSnapshot
@@ -285,14 +288,19 @@ newAccountIncludeUnready logTrace includeUnready addGenSeed passphrase CAccountI
 newAccount
     :: MonadWalletLogic ctx m
     => TraceNamed m
-    -> AddrGenSeed -> PassPhrase -> CAccountInit
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
     -> m CAccount
 newAccount logTrace = newAccountIncludeUnready logTrace False
 
 createWalletSafe
     :: MonadWalletLogic ctx m
     => TraceNamed m
-    -> CId Wal -> CWalletMeta -> Bool -> m CWallet
+    -> CId Wal
+    -> CWalletMeta
+    -> Bool
+    -> m CWallet
 createWalletSafe logTrace cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     db <- askWalletDB
@@ -343,8 +351,7 @@ deleteAccount accId = do
 ----------------------------------------------------------------------------
 
 updateWallet :: MonadWalletLogic ctx m
-    => TraceNamed m
-    -> CId Wal -> CWalletMeta -> m CWallet
+    => TraceNamed m -> CId Wal -> CWalletMeta -> m CWallet
 updateWallet logTrace wId wMeta = do
     db <- askWalletDB
     setWalletMeta db wId wMeta

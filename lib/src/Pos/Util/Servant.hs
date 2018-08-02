@@ -57,13 +57,10 @@ module Pos.Util.Servant
     , serverHandlerL
     , serverHandlerL'
     , inRouteServer
-
-    --, applyLoggingToHandler
     ) where
 
 import           Universum hiding (id)
 
---import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
 import           Control.Monad.Except (ExceptT (..), MonadError (..),
                      catchError, throwError)

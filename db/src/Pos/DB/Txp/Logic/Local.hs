@@ -33,7 +33,6 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
 import           Pos.Core.Block (HeaderHash)
---import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))
@@ -132,9 +131,9 @@ txProcessTransactionAbstract logTrace buildEnv txAction itw@(txId, txAux) = repo
     let env = (utxoToLookup utxo, extraEnv)
 
     pRes <- withTxpLocalData $ \txpData -> do
-        mp   <-  getMemPool txpData
-        undo <-  getLocalUndos txpData
-        tip  <-  STM.readTVar (txpTip txpData)
+        mp    <- getMemPool txpData
+        undo  <- getLocalUndos txpData
+        tip   <- STM.readTVar (txpTip txpData)
         extra <- getTxpExtra txpData
         tm    <- generalize $ processTransactionPure bvd epoch env tipDB itw (utxoModifier, mp, undo, tip, extra)
         forM tm $ setTxpLocalData txpData
@@ -269,4 +268,3 @@ txGetPayload logTrace neededTip = do
         (False, _)       -> [] <$ logWarning logTrace tipMismatchMsg
         (True, Nothing)  -> [] <$ logError logTrace topsortFailMsg
         (True, Just res) -> return $ map snd res
-

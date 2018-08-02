@@ -178,8 +178,8 @@ applyBlocksWith logTrace pm txpConfig settings blunds = do
     inAssertMode $ do
         verdict <- verifyBlocks pm txpConfig False blocks
         whenLeft verdict $
-              assertionFailed logTrace .
-              sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
+            assertionFailed logTrace .
+            sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     processBlunds settings (getOldestFirst blunds)
 
 processBlundsSettings ::

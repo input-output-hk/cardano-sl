@@ -210,14 +210,6 @@ instance Bi UserSecret where
         & usKeys .~ keys
         & usWallet .~ wallet
 
-  {-
-#ifdef POSIX
-type MonadMaybeLog m = (MonadIO m, WithLogger m)
-#else
-type MonadMaybeLog m = MonadIO m
-#endif
-  -}
-
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
 mode600 :: PSX.FileMode

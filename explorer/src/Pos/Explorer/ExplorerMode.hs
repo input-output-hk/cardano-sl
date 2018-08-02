@@ -144,7 +144,6 @@ initExplorerTestContext tp@TestParams {..} = do
     let initCtx = ExplorerTestInitContext
             { eticDBPureVar      = dbPureVar
             }
-    --lh <- liftIO $ Log.setupLogging (defaultInteractiveConfiguration Log.Debug)
     liftIO $ runTestInitMode initCtx $ do
         DB.initNodeDBs dummyProtocolMagic epochSlots
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
@@ -225,9 +224,6 @@ instance HasLens TxpHolderTag ExplorerTestContext (GenericTxpLocalData ExplorerE
 
 instance HasLens Log.LoggerName ExplorerTestContext Log.LoggerName where
       lensOf = etcLoggerName_L
-
--- instance HasLoggerName' ExplorerTestContext where
-    -- loggerName = lensOf @LoggerName
 
 instance HasJsonLogConfig ExplorerTestContext where
     jsonLogConfig = jsonLogConfig

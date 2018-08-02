@@ -72,16 +72,13 @@ newStateLock tip = StateLock <$> newMVar tip <*> newPriorityLock
 data StateLockMetrics slr = StateLockMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
-      --slmWait    :: !(slr -> Log.LoggerNameBox IO ())
       slmWait    :: !(slr -> IO ())
       -- | Called when a thread is granted the lock on the mempool. Parameter
       --   indicates how long it waited.
-    --, slmAcquire :: !(slr -> Microsecond -> Log.LoggerNameBox IO ())
     , slmAcquire :: !(slr -> Microsecond -> IO ())
       -- | Called when a thread is finished modifying the mempool and has
       --   released the lock. Parameters indicates time elapsed since acquiring
       --   the lock, and new mempool size.
-    --, slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> Log.LoggerNameBox IO Value)
     , slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> IO Value)
     }
 

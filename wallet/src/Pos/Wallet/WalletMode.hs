@@ -20,7 +20,6 @@ import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Core (ChainDifficulty)
---import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.WorkMode (EmptyMempoolExt)
 
@@ -49,7 +48,7 @@ instance {-# OVERLAPPABLE #-}
         MonadUpdates (t m)
   where
     waitForUpdate = lift waitForUpdate
-    applyLastUpdate tr = applyLastUpdate tr
+    applyLastUpdate = applyLastUpdate
 
 type WalletMempoolExt = EmptyMempoolExt
 
@@ -62,5 +61,4 @@ type MonadWallet m
       , MonadKeys m
       , MonadBlockchainInfo m
       , MonadUpdates m
-      --, CanJsonLog m
       )

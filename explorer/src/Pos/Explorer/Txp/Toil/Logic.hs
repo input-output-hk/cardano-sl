@@ -213,7 +213,7 @@ updateAddrBalances logTrace (combineBalanceUpdates -> updates) = mapM_ updater u
         maybeBalance <- getAddrBalance addr
         case maybeBalance of
             Nothing ->
-                logError (logTrace) $
+                logError logTrace $
                     sformat ("updateAddrBalances: attempted to subtract "%build%
                              " from unknown address "%build)
                     coin addr

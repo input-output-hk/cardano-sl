@@ -480,9 +480,7 @@ class ApiHasArgClass subApi =>
         :: BuildableSafe (ApiArgToLog subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     default toLogParamInfo
-        :: ( Buildable (ApiArg subApi)
-           , Buildable (SecureLog (ApiArg subApi))
-           )
+        :: BuildableSafe (ApiArg subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
@@ -539,9 +537,8 @@ instance {-# OVERLAPPABLE #-}
          , ApiHasArg subApi (LoggingApiRec config res)
          , ApiCanLogArg subApi
          , BuildableSafe (ApiArgToLog subApi)
-         , subApi ~ apiType a
          ) =>
-         HasLoggingServer config (apiType a :> res) ctx where
+         HasLoggingServer config (subApi :> res) ctx where
     routeWithLog = paramRouteWithLog
 
 instance {-# OVERLAPPING #-}

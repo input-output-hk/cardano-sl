@@ -28,8 +28,10 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
+  , DeleteHdWallet(..)
     -- * Errors
   , NewPendingError
+  , DeleteHdWalletError(..)
     -- * Testing
   , ObservableRollbackUseInTestsOnly(..)
   ) where
@@ -59,6 +61,7 @@ import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
+import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Update as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
@@ -375,13 +378,64 @@ updateHdAccountName accId name = do
     a <- runUpdate' . zoom dbHdWallets $ HD.updateHdAccountName accId name
     get >>= \st' -> return $ bimap identity (st',) a
 
-deleteHdRoot :: HdRootId -> Update DB ()
-deleteHdRoot rootId = runUpdateNoErrors . zoom dbHdWallets $
+deleteHdRoot :: HdRootId -> Update DB (Either UnknownHdRoot ())
+deleteHdRoot rootId = runUpdate' . zoom dbHdWallets $
     HD.deleteHdRoot rootId
 
 deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
 deleteHdAccount accId = runUpdate' . zoom dbHdWallets $
     HD.deleteHdAccount accId
+
+{-----------------------------------------------------------------------------
+  Cascading deletions
+------------------------------------------------------------------------------}
+
+-- | Errors thrown by 'deleteHdWallet'
+data DeleteHdWalletError =
+    -- | Unknown root
+    DeleteHdWalletUnknownRoot UnknownHdRoot
+
+    -- | When deleting these wallet's accounts, something went wrong.
+  | DeleteHdWalletUnknownChildrenAccount UnknownHdAccount
+
+deriveSafeCopy 1 'base ''DeleteHdWalletError
+
+instance Buildable DeleteHdWalletError where
+    build (DeleteHdWalletUnknownRoot uRoot) =
+        bprint ("DeleteHdWalletUnknownRoot " % build) uRoot
+    build (DeleteHdWalletUnknownChildrenAccount uAccount) =
+        bprint ("DeleteHdWalletUnknownChildrenAccount " % build) uAccount
+
+-- | Delete the 'HdRoot' and all the associated resources attached to it,
+-- i.e. all the accounts and all the addresses.
+deleteHdWallet :: HdRootId -> Update DB (Either DeleteHdWalletError ())
+deleteHdWallet rootId = do
+    db <- get
+    case HD.readAccountsByRootId rootId (db ^. dbHdWallets) of
+         Left rootNotFound -> return (Left $ DeleteHdWalletUnknownRoot rootNotFound)
+         Right allAccounts -> do
+             res <- deleteHdRoot rootId
+             case res of
+                  Left rootNotFound ->
+                      return (Left $ DeleteHdWalletUnknownRoot rootNotFound)
+                  Right () -> do
+                      res2 <- foldM delete (Right ()) allAccounts
+                      case res2 of
+                           Left err -> return (Left $ DeleteHdWalletUnknownChildrenAccount err)
+                           Right _  -> return (Right ())
+    where
+        -- | Monadic fold function which tries to delete the given 'HdAccount'
+        -- in the parent wallet and short-circuits when needed. It stops trying
+        -- to delete things at the first failure.
+        delete :: Either UnknownHdAccount ()
+               -> HdAccount
+               -> Update DB (Either UnknownHdAccount ())
+        delete status account = do
+            case status of
+                 Left _ -> return status -- avoid work
+                 Right () -> do
+                     res <- deleteHdAccount (account ^. hdAccountId)
+                     return res
 
 {-------------------------------------------------------------------------------
   Acid-state magic
@@ -412,6 +466,7 @@ makeAcidic ''DB [
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount
+    , 'deleteHdWallet
       -- Testing
     , 'observableRollbackUseInTestsOnly
     ]

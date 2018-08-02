@@ -1,6 +1,7 @@
 module Cardano.Wallet.WalletLayer.Kernel.Wallets (
       createWallet
     , updateWalletPassword
+    , deleteWallet
     , getWallet
     ) where
 
@@ -21,7 +22,8 @@ import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
-                     GetWalletError (..), UpdateWalletPasswordError (..))
+                     DeleteWalletError (..), GetWalletError (..),
+                     UpdateWalletPasswordError (..))
 
 import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
 
@@ -130,7 +132,22 @@ updateWalletPassword wallet (V1.WalletId wId) (V1.PasswordUpdate (V1 oldPwd) (V1
                 Right (db, updatedWallet) ->
                     return $ Right $ toV1Wallet db updatedWallet
 
--- | Get a specific wallet.
+-- | Updates the 'SpendingPassword' for this wallet.
+deleteWallet :: MonadIO m
+             => Kernel.PassiveWallet
+             -> V1.WalletId
+             -> m (Either DeleteWalletError ())
+deleteWallet wallet (V1.WalletId wId) =
+    case decodeTextAddress wId of
+        Left _ -> return $ Left (DeleteWalletWalletIdDecodingFailed wId)
+        Right rootAddr -> do
+           let hdRootId = HD.HdRootId . InDb $ rootAddr
+           res <- liftIO $ Kernel.deleteHdWallet wallet hdRootId
+           case res of
+                Left e   -> return $ Left (DeleteWalletError (V1 e))
+                Right () -> return $ Right ()
+
+-- | Gets a specific wallet.
 getWallet :: Kernel.DB
           -> V1.WalletId
           -> Either GetWalletError V1.Wallet

@@ -24,6 +24,7 @@ module Cardano.Wallet.WalletLayer.Types
     , CreateWalletError(..)
     , GetWalletError(..)
     , UpdateWalletPasswordError(..)
+    , DeleteWalletError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
     , CreateAddressError(..)
@@ -49,6 +50,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
 
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
+import qualified Cardano.Wallet.Kernel.DB.AcidState as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
@@ -125,16 +127,27 @@ instance Show UpdateWalletPasswordError where
 
 instance Exception UpdateWalletPasswordError
 
-instance Arbitrary UpdateWalletPasswordError where
-    arbitrary = oneof [ UpdateWalletPasswordError <$> arbitrary
-                      , UpdateWalletPasswordWalletIdDecodingFailed <$> arbitrary
-                      ]
-
 instance Buildable UpdateWalletPasswordError where
     build (UpdateWalletPasswordWalletIdDecodingFailed txt) =
         bprint ("UpdateWalletPasswordWalletIdDecodingFailed " % build) txt
     build (UpdateWalletPasswordError kernelError) =
         bprint ("UpdateWalletPasswordError " % build) kernelError
+
+data DeleteWalletError =
+      DeleteWalletWalletIdDecodingFailed Text
+    | DeleteWalletError (V1 Kernel.DeleteHdWalletError)
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show DeleteWalletError where
+    show = formatToString build
+
+instance Exception DeleteWalletError
+
+instance Buildable DeleteWalletError where
+    build (DeleteWalletWalletIdDecodingFailed txt) =
+        bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
+    build (DeleteWalletError kernelError) =
+        bprint ("DeleteWalletError " % build) kernelError
 
 ------------------------------------------------------------
 -- Errors creating a new Address
@@ -291,7 +304,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlUpdateWalletPassword :: WalletId
                                -> PasswordUpdate
                                -> m (Either UpdateWalletPasswordError Wallet)
-    , _pwlDeleteWallet         :: WalletId -> m Bool
+    , _pwlDeleteWallet         :: WalletId -> m (Either DeleteWalletError ())
     -- * accounts
     , _pwlCreateAccount        :: WalletId
                                -> NewAccount
@@ -345,7 +358,9 @@ updateWalletPassword :: forall m. PassiveWalletLayer m
                      -> m (Either UpdateWalletPasswordError Wallet)
 updateWalletPassword pwl = pwl ^. pwlUpdateWalletPassword
 
-deleteWallet :: forall m. PassiveWalletLayer m -> WalletId -> m Bool
+deleteWallet :: forall m. PassiveWalletLayer m
+             -> WalletId
+             -> m (Either DeleteWalletError ())
 deleteWallet pwl = pwl ^. pwlDeleteWallet
 
 

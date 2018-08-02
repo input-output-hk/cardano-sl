@@ -1,6 +1,7 @@
 module Cardano.Wallet.Kernel.Wallets (
       createHdWallet
     , updatePassword
+    , deleteHdWallet
       -- * Errors
     , CreateWalletError(..)
     , UpdateWalletPasswordError(..)
@@ -27,6 +28,7 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
+                     DeleteHdWallet (..), DeleteHdWalletError (..),
                      UpdateHdRootPassword (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
                      WalletName, eskToHdRootId)
@@ -180,6 +182,20 @@ createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk utxo = do
         hdSpendingPassword created =
             if hasSpendingPassword then HD.HasSpendingPassword created
                                    else HD.NoSpendingPassword
+
+deleteHdWallet :: PassiveWallet
+               -> HD.HdRootId
+               -> IO (Either DeleteHdWalletError ())
+deleteHdWallet wallet rootId = do
+    -- STEP 1: Remove the HdRoot via an acid-state transaction which will
+    --         also delete any associated accounts and addresses.
+    res <- update' (wallet ^. wallets) $ DeleteHdWallet rootId
+    case res of
+        Left err -> return (Left err)
+        Right () -> do
+            -- STEP 2: Purge the key from the keystore.
+            Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
+            return $ Right ()
 
 {-------------------------------------------------------------------------------
   Wallet update

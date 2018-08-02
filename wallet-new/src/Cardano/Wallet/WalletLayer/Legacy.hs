@@ -16,10 +16,10 @@ import           Data.Coerce (coerce)
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
-                     CreateWalletError, DeleteAccountError, GetAccountError,
-                     GetAccountsError, GetWalletError (..),
-                     PassiveWalletLayer (..), UpdateAccountError,
-                     UpdateWalletPasswordError)
+                     CreateWalletError, DeleteAccountError,
+                     DeleteWalletError (..), GetAccountError, GetAccountsError,
+                     GetWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError, UpdateWalletPasswordError)
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
@@ -218,12 +218,13 @@ pwlUpdateWalletPassword _ _ = error "Unused and deprecated. See [CBR-227]"
 pwlDeleteWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m Bool
+    -> m (Either DeleteWalletError ())
 pwlDeleteWallet wId = do
     cWId        <- migrate wId
-    -- TODO(ks): It would be better to catch specific @Exception@.
-    -- Maybe @try@?
-    catchAll (const True <$> V0.deleteWallet cWId) (const . pure $ False)
+    -- Ignore exceptions for the old wallet as we have no way to track
+    -- precisely what could go wrong there, and this legacy layer is not
+    -- even actually used.
+    Right <$> void (V0.deleteWallet cWId)
 
 ------------------------------------------------------------
 -- Account

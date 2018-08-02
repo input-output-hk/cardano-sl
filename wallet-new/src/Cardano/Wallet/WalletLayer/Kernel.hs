@@ -87,7 +87,7 @@ bracketPassiveWallet logFunction keystore rocksDB f =
                     return (Wallets.getWallet snapshot walletId)
             , _pwlUpdateWallet          = error "Not implemented!"
             , _pwlUpdateWalletPassword  = Wallets.updateWalletPassword wallet
-            , _pwlDeleteWallet          = error "Not implemented!"
+            , _pwlDeleteWallet          = Wallets.deleteWallet wallet
 
             , _pwlCreateAccount = Accounts.createAccount wallet
             , _pwlGetAccounts   =

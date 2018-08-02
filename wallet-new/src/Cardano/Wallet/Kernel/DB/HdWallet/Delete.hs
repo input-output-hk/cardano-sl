@@ -16,8 +16,12 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 -------------------------------------------------------------------------------}
 
 -- | Delete a wallet
-deleteHdRoot :: HdRootId -> Update' HdWallets e ()
-deleteHdRoot rootId = zoom hdWalletsRoots $ at rootId .= Nothing
+deleteHdRoot :: HdRootId -> Update' HdWallets UnknownHdRoot ()
+deleteHdRoot rootId = do
+    -- Check that the root existed to begin with
+    zoomHdRootId identity rootId $
+      return ()
+    zoom hdWalletsRoots $ at rootId .= Nothing
 
 -- | Delete an account
 deleteHdAccount :: HdAccountId -> Update' HdWallets UnknownHdAccount ()

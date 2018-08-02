@@ -12,9 +12,10 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
-                     GetAccountError (..), GetAccountsError (..),
-                     GetWalletError (..), PassiveWalletLayer (..),
-                     UpdateAccountError (..))
+                     DeleteWalletError (..), GetAccountError (..),
+                     GetAccountsError (..), GetWalletError (..),
+                     PassiveWalletLayer (..), UpdateAccountError (..),
+                     UpdateWalletPasswordError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -79,7 +80,10 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 
 
 {-----------------------------------------------------------------------------
-Orphan instances, in preparation for rehoming them.
+ Orphan instances, in preparation for rehoming them.
+ Note that most of them are bonkers -- they were put here just for the sake
+ of the code to compile, as we are not actually using this particular layer
+ anywhere.
 ------------------------------------------------------------------------------}
 
 instance Arbitrary CreateAccountError where
@@ -117,3 +121,12 @@ instance Arbitrary GetWalletError where
     arbitrary = oneof [ GetWalletWalletIdDecodingFailed <$> arbitrary
                       , GetWalletError . V1 <$> arbitrary
                       ]
+
+instance Arbitrary UpdateWalletPasswordError where
+    arbitrary = oneof [ UpdateWalletPasswordError <$> arbitrary
+                      , UpdateWalletPasswordWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary DeleteWalletError where
+    arbitrary = oneof [ DeleteWalletWalletIdDecodingFailed <$> arbitrary ]
+

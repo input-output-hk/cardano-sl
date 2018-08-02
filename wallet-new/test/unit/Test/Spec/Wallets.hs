@@ -13,11 +13,13 @@ import           Test.QuickCheck (arbitrary, suchThat, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Data.Coerce (coerce)
+import           Formatting (build, formatToString)
 
 import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase, hash)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
+import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdWalletError (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HdRootId (..), UnknownHdRoot (..), WalletName (..),
                      hdRootId)
@@ -166,6 +168,68 @@ spec = describe "Wallets" $ do
                         liftIO $ do
                             res <- runExceptT . runHandler' $ Handlers.newWallet layer rq
                             (bimap identity STB res) `shouldSatisfy` isRight
+
+    describe "DeleteWallet" $ do
+        describe "Wallet deletion (wallet layer)" $ do
+
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    withNewWalletFixture $ \_ layer _ Fixture{..} -> do
+                        let wId = V1.walId fixtureV1Wallet
+                        liftIO $ do
+                            res1 <- WalletLayer.deleteWallet layer wId
+                            (bimap STB STB res1) `shouldSatisfy` isRight
+                            -- Check that the wallet is not there anymore
+                            res2 <- WalletLayer.getWallet layer wId
+                            (bimap STB STB res2) `shouldSatisfy` isLeft
+
+            prop "cascade-deletes all the associated accounts" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    withNewWalletFixture $ \_ layer _ Fixture{..} -> do
+                        let wId = V1.walId fixtureV1Wallet
+                        liftIO $ do
+                            let check predicate _ V1.Account{..} = do
+                                    acc <- WalletLayer.getAccount layer wId accIndex
+                                    (bimap STB STB acc) `shouldSatisfy` predicate
+
+                            Right allAccounts <- WalletLayer.getAccounts layer wId
+
+                            foldM (check isRight) () allAccounts
+                            void (WalletLayer.deleteWallet layer wId)
+                            foldM (check isLeft)  () allAccounts
+
+            prop "fails if the wallet doesn't exists" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    wId  <- pick arbitrary
+                    withLayer $ \layer _ -> do
+                        liftIO $ do
+                            res <- WalletLayer.deleteWallet layer wId
+                            case res of
+                                 Left (WalletLayer.DeleteWalletError (V1 (DeleteHdWalletUnknownRoot _))) ->
+                                     return ()
+                                 Left unexpectedErr ->
+                                     fail $ "expecting different failure than " <> show unexpectedErr
+                                 Right _ -> fail "expecting wallet not to be created, but it was."
+
+
+        describe "Wallet deletion (kernel)" $ do
+            prop "correctly deletes the ESK in the keystore" $ withMaxSuccess 50 $
+                monadicIO $ do
+                    withNewWalletFixture $ \ks _ wallet Fixture{..} -> do
+                        liftIO $ do
+                            let wId = WalletIdHdRnd fixtureHdRootId
+
+                            mbKey <- Keystore.lookup wId ks
+                            mbKey `shouldSatisfy` isJust
+
+                            res <- Kernel.deleteHdWallet wallet fixtureHdRootId
+
+                            case res of
+                                 Left e -> fail (formatToString build e)
+                                 Right () -> do
+                                     --  Check that the key is not in the keystore anymore
+                                     mbKey' <- Keystore.lookup wId ks
+                                     mbKey' `shouldSatisfy` isNothing
 
     describe "UpdateWalletPassword" $ do
 

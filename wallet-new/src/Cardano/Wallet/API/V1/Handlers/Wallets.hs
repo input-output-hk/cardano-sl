@@ -17,7 +17,7 @@ handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
 handlers pwl =  newWallet pwl
            :<|> listWallets
            :<|> updatePassword pwl
-           :<|> deleteWallet
+           :<|> deleteWallet pwl
            :<|> getWallet pwl
            :<|> updateWallet
 
@@ -57,8 +57,14 @@ updatePassword pwl wid passwordUpdate = do
          Right w -> return $ single w
 
 -- | Deletes an exisiting wallet.
-deleteWallet :: WalletId -> Handler NoContent
-deleteWallet _wid = error "Unimplemented. See CBR-227."
+deleteWallet :: PassiveWalletLayer IO
+             -> WalletId
+             -> Handler NoContent
+deleteWallet pwl wid = do
+    res <- liftIO $ WalletLayer.deleteWallet pwl wid
+    case res of
+         Left e   -> throwM e
+         Right () -> return NoContent
 
 -- | Gets a specific wallet.
 getWallet :: PassiveWalletLayer IO

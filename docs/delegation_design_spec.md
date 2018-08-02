@@ -430,7 +430,7 @@ Stakepool Retirement Certificate
     - the epoch number, starting from which the stakepool will cease
       to operate
 
-    It must be signed by the staking key $pks_\text{pool}$ of the pool.
+    It must be signed by the staking key $sks_\text{pool}$ of the pool.
 
     After the retirement epoch, any stake that is delegated to this
     stake pool will be disregarded for the PoS protocol. It will not
@@ -453,7 +453,7 @@ Heavyweight Delegation Certificates
     - the public staking key to which stake is delegated,
     $vks_\text{delegate}$[^heavyweight-pointer]
 
-    It must be signed by $pks_\text{source}$.
+    It must be signed by $sks_\text{source}$.
 
 [^heavyweight-pointer]: It might make sense to use a certificate
 pointer here instead?
@@ -474,8 +474,8 @@ that the staking rights are transferred from a source key
 $vks_\text{source}$ to a delegate key $vks_\text{delegate}$.  In
 contrast to heavyweight certificates, they are not posted to the
 blockchain, but instead included in the block header when a block is
-signed with $pks_\text{delegate}$ (or in a message of the coin-tossing
-algorithm when $pks_\text{source}$ is elected as a member of the
+signed with $sks_\text{delegate}$ (or in a message of the coin-tossing
+algorithm when $sks_\text{source}$ is elected as a member of the
 committe for randomness generation).
 
 The purpose of lightweight certificates is to enable stake pool
@@ -485,13 +485,13 @@ setup is as follows:
 - The stake pool operator registers their stake pool, using a key
   $vks_\text{cold}$.  This _cold key_ is kept securely and off-line.
 
-- The stake pool operator uses $pks_\text{cold}$ to sign a lightweight
+- The stake pool operator uses $sks_\text{cold}$ to sign a lightweight
   certificate $C$, transferring the staking rights to a _hot key_
   $vks_\text{hot}$.
 
-- The stake pool operator keeps $pks_\text{hot}$, as well as $C$, on a
+- The stake pool operator keeps $sks_\text{hot}$, as well as $C$, on a
   node that is on-line, and can sign blocks.  A block signed with
-  $pks_\text{hot}$ will be considered valid, provided that $C$ is
+  $sks_\text{hot}$ will be considered valid, provided that $C$ is
   included in its header.
 
 - Should the node get hacked, and the hot key compromised, the stake
@@ -499,7 +499,7 @@ setup is as follows:
   $C'$, delegating the staking rights to a new hot key
   $vks_{\text{hot}'}$.
 
-  In order to render $pks_\text{hot}$ useless, it must be established
+  In order to render $sks_\text{hot}$ useless, it must be established
   that $C'$ takes precedence over $C$.  For this purpose, the
   lightweight delegation certificate will have an additional integer
   field, and certificates with a larger value for this field will take
@@ -717,7 +717,7 @@ However, storing personal information directly on the blockchain would
 lead to violation of legislation like the GDPR, so instead of
 including it in the certificate, it will be stored on an external
 key-value store, using $\mathcal{H}(vks)$ as key.  The integrity of the
-data can be ensured by requiring it to be signed with $pks$.
+data can be ensured by requiring it to be signed with $sks$.
 
 A stake pool operator can change its costs and margin by replacing the
 registration certificate of the pool with a new one. This allows
@@ -778,7 +778,7 @@ engineering.
 
 The wallet software will keep a list of all the stakepool registration
 certificates it finds.  For each, it will perform a lookup of the
-contained $pks$ to retrieve the corresponding metadata to display to
+contained $sks$ to retrieve the corresponding metadata to display to
 the user.
 
 In order to prevent relying on a central party to host this key value
@@ -852,7 +852,7 @@ required.
 
 ### Delegation of Cold Wallets
 
-Using pointer addresses for delegation requires to move funds to a new
+Using pointer addresses for delegation requires the owner to move funds to a new
 address in order to re-delegate. For hot wallets, this is fine, but
 not so for cold wallets: cold wallets are meant to be placed in a
 vault or buried underground for long-term safe storage, while the
@@ -988,8 +988,8 @@ Pool Member Rewards
     they are partly assigned to the treasury and partly carried over
     to the next epoch.
 
-    This disincentivises stakeholders from re-delegating, and from
-    using or moving their funds. If we want to avoid this, an
+    This disincentivises pointer address stakeholders from re-delegating,
+    and from using or moving their funds. If we want to avoid this, an
     alternative is described in section
     \ref{updating-at-the-start-of-an-epoch}.
 

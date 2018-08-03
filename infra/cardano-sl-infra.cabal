@@ -247,6 +247,7 @@ test-suite test
                   , iproute
                   , kademlia
                   , universum
+                  , unordered-containers
 
   ghc-options:         -Wall
                        -O2

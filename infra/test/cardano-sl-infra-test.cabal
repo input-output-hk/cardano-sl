@@ -49,6 +49,7 @@ library
                      , iproute
                      , kademlia
                      , universum
+                     , unordered-containers
 
   default-language:    Haskell2010
 

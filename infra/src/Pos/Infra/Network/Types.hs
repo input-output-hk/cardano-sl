@@ -48,8 +48,11 @@ module Pos.Infra.Network.Types
 
 import           Universum
 
+import           Data.Aeson
+import           Data.Aeson.Encoding.Internal as A
 import           Data.IP (IPv4)
 import qualified Data.Set as Set (null)
+import qualified Data.Text as T
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -76,6 +79,17 @@ import           Pos.Util.Util (HasLens', lensOf)
 
 newtype NodeName = NodeName Text
     deriving (Show, Generic, Ord, Eq, IsString)
+
+instance ToJSON NodeName where
+    toEncoding (NodeName name) = A.text name
+
+instance ToJSONKey NodeName where
+  toJSONKey = ToJSONKeyText f g
+    where f = T.pack . toString
+          g = A.text . T.pack . toString
+
+instance FromJSON NodeName where
+    parseJSON = fmap NodeName . parseJSON
 
 instance ToString NodeName where
     toString (NodeName txt) = toString txt

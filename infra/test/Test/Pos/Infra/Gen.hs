@@ -20,6 +20,7 @@ module Test.Pos.Infra.Gen
         , genHandlerSpec
 
         -- Pos.Infra.Network Generators
+        , genAllStaticallyKnownPeers
         , genDnsDomains
         , genDomain
         , genMaxBucketSize
@@ -30,6 +31,7 @@ module Test.Pos.Infra.Gen
         , genNodeType
         , genNodeRoutes
         , genNodeRegion
+        , genTopology
         ) where
 
 import           Universum
@@ -52,8 +54,9 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 import           Pos.Infra.Network.Types (NodeName (..))
-import           Pos.Infra.Network.Yaml (NodeMetadata (..), NodeRegion (..),
-                     NodeRoutes (..))
+import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
+                     NodeMetadata (..), NodeRegion (..), NodeRoutes (..),
+                     Topology (..))
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
                      createSlottingDataUnsafe)
 
@@ -184,6 +187,9 @@ genNodeMetaData = do
     nmPublicDNS'  <- Gen.bool
     nmMaxSubscrs' <- genMaxBucketSize
     choiceInt <- Gen.int8 (Range.constant 1 10)
+    -- Below generates a NodeMetaData with either an empty DnsDomains or
+    -- empty NodeRoutes. Either occurs ~50% of the time; see FromJSON
+    -- NodeMetadata instance for more details.
     if (choiceInt <= 5)
         then do
             nmRoutes' <- genNodeRoutes
@@ -213,7 +219,7 @@ genNodeMetaData = do
                        nmMaxSubscrs'
 
 genNodeName :: Gen NodeName
-genNodeName = NodeName <$> Gen.text (Range.constant 0 10) Gen.alphaNum
+genNodeName = NodeName <$> Gen.text (Range.constant 1 10) Gen.alphaNum
 
 genNodeType :: Gen NodeType
 genNodeType = Gen.choice [ pure NodeCore
@@ -228,3 +234,30 @@ genNodeRoutes = NodeRoutes <$> Gen.list (Range.constant 1 10) singletonNN
 
 genNodeRegion :: Gen NodeRegion
 genNodeRegion = NodeRegion <$> Gen.text (Range.constant 1 10) Gen.alphaNum
+
+genAllStaticallyKnownPeers :: Gen AllStaticallyKnownPeers
+genAllStaticallyKnownPeers =
+    AllStaticallyKnownPeers <$> customMapGen genNodeName genNodeMetaData
+
+genTopology :: Gen Topology
+genTopology = Gen.choice [ TopologyStatic <$> genAllStaticallyKnownPeers
+                         , TopologyBehindNAT
+                               <$> (Gen.int (Range.constant 1 100))
+                               <*> (Gen.int (Range.constant 1 100))
+                               <*> genDnsDomains
+                         , TopologyP2P
+                               <$> (Gen.int (Range.constant 1 100))
+                               <*> (Gen.int (Range.constant 1 100))
+                               <*> genMaxBucketSize
+                         , TopologyTraditional
+                               <$> (Gen.int (Range.constant 1 100))
+                               <*> (Gen.int (Range.constant 1 100))
+                               <*> genMaxBucketSize
+                         ]
+
+customMapGen :: (Ord k) => Gen k -> Gen v -> Gen (Map k v)
+customMapGen genK genV = DM.fromList <$> Gen.list range gen
+  where
+    gen = (,) <$> genK <*> genV
+    range = Range.linear 0 10
+

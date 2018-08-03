@@ -11,13 +11,12 @@ import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Test.Pos.Infra.Gen (genDnsDomains, genDomain, genMaxBucketSize,
-                     genNodeAddr, genNodeAddrMaybe, genNodeMetaData,
-                     genNodeName, genNodeRegion, genNodeRoutes, genNodeType)
+import           Test.Pos.Infra.Gen (genAllStaticallyKnownPeers, genDnsDomains,
+                     genDomain, genMaxBucketSize, genNodeAddr,
+                     genNodeAddrMaybe, genNodeMetaData, genNodeName,
+                     genNodeRegion, genNodeRoutes, genNodeType, genTopology)
 import           Test.Pos.Util.Golden (eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
-
-
 
 --------------------------------------------------------------------------------
 -- NodeMetaData
@@ -105,7 +104,23 @@ roundTripNodeAddr =
 
 roundTripMaxBucketSize :: Property
 roundTripMaxBucketSize =
-    eachOf 100 genMaxBucketSize roundTripsAesonShow
+    eachOf 1000 genMaxBucketSize roundTripsAesonShow
+
+--------------------------------------------------------------------------------
+-- MaxBucketSize
+--------------------------------------------------------------------------------
+
+roundTripAllStaticallyKnownPeers :: Property
+roundTripAllStaticallyKnownPeers =
+    eachOf 1000 genAllStaticallyKnownPeers roundTripsAesonShow
+
+--------------------------------------------------------------------------------
+-- Topology
+--------------------------------------------------------------------------------
+
+roundTripTopology :: Property
+roundTripTopology =
+    eachOf 1000 genTopology roundTripsAesonShow
 
 tests :: IO Bool
 tests =  H.checkParallel $$discoverRoundTrip

@@ -16787,13 +16787,7 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
-<<<<<<< HEAD
-=======
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-ssc-test
-cardano-sl-update-test
->>>>>>> [CDEC-474] Add rountrip test for `NodeMetadata` and its subtypes
 cardano-sl-util-test
 containers
 dns
@@ -16804,6 +16798,7 @@ iproute
 kademlia
 QuickCheck
 universum
+unordered-containers
 ];
 doHaddock = false;
 description = "Cardano SL - infrastructural";
@@ -16826,13 +16821,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
-<<<<<<< HEAD
-=======
 , cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-ssc-test
-, cardano-sl-update-test
->>>>>>> [CDEC-474] Add rountrip test for `NodeMetadata` and its subtypes
 , cardano-sl-util-test
 , containers
 , dns
@@ -16844,6 +16833,7 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , stdenv
 , universum
+, unordered-containers
 }:
 mkDerivation {
 
@@ -16865,9 +16855,6 @@ cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-ssc-test
-cardano-sl-update-test
 cardano-sl-util-test
 containers
 dns
@@ -16878,6 +16865,7 @@ iproute
 kademlia
 QuickCheck
 universum
+unordered-containers
 ];
 doHaddock = false;
 description = "Cardano SL - generators for cardano-sl-infra";

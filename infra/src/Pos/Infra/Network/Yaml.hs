@@ -72,12 +72,22 @@ data Topology =
       , topologyFallbacks  :: !Fallbacks
       , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
-  deriving (Show)
+  deriving (Eq, Generic, Show)
 
 -- | All statically known peers in the newtork
 newtype AllStaticallyKnownPeers = AllStaticallyKnownPeers
     { allStaticallyKnownPeers :: Map NodeName NodeMetadata
-    } deriving (Show)
+    } deriving (Eq, Generic, Show)
+
+instance ToJSON AllStaticallyKnownPeers where
+    toEncoding (AllStaticallyKnownPeers pMap) = toEncoding pMap
+
+instance FromJSON AllStaticallyKnownPeers where
+    parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
+        AllStaticallyKnownPeers . M.fromList <$> mapM aux (HM.toList obj)
+      where
+        aux :: (Text, A.Value) -> A.Parser (NodeName, NodeMetadata)
+        aux (name, val) = (NodeName name, ) <$> parseJSON val
 
 newtype NodeRegion = NodeRegion Text
     deriving (Show, Generic, Ord, Eq, IsString)
@@ -196,12 +206,6 @@ instance ToJSON NodeRegion where
 instance FromJSON NodeRegion where
     parseJSON = fmap NodeRegion . parseJSON
 
-instance ToJSON NodeName where
-    toEncoding (NodeName name) = A.text name
-
-instance FromJSON NodeName where
-    parseJSON = fmap NodeName . parseJSON
-
 instance ToJSON NodeRoutes where
     toEncoding (NodeRoutes nameList) = A.list toEncoding nameList
 
@@ -304,7 +308,7 @@ instance FromJSON NodeMetadata where
         nmAddress    <- extractNodeAddr return obj
         nmKademlia   <- obj .:? "kademlia" .!= defaultRunKademlia nmType
         nmPublicDNS  <- obj .:? "public"   .!= defaultInPublicDNS nmType
-        nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
+        nmMaxSubscrs <- mBucketSize <$> obj .:? "maxSubscrs"
         case (nmRoutes, nmSubscribe) of
             (NodeRoutes [], DnsDomains []) ->
               aesonError "One of 'static-routes' or 'dynamic-subscribe' must be given"
@@ -323,12 +327,70 @@ instance FromJSON NodeMetadata where
        defaultInPublicDNS NodeRelay = True
        defaultInPublicDNS NodeEdge  = False
 
-instance FromJSON AllStaticallyKnownPeers where
-    parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
-        AllStaticallyKnownPeers . M.fromList <$> mapM aux (HM.toList obj)
-      where
-        aux :: (Text, A.Value) -> A.Parser (NodeName, NodeMetadata)
-        aux (name, val) = (NodeName name, ) <$> parseJSON val
+instance ToJSON Topology where
+    toEncoding (TopologyStatic (AllStaticallyKnownPeers pMap)) =
+        A.pairs $ A.pairStr "nodes" (toEncoding (AllStaticallyKnownPeers pMap) )
+    toEncoding (TopologyBehindNAT
+                   topologyValency
+                   topologyFallbacks
+                   topologyDnsDomains) =
+                       A.pairs $ A.pairStr "wallet"
+                           $ A.pairs $ A.pairStr "relays"
+                                           (toEncoding topologyDnsDomains)
+                                    <> A.pairStr "valency"
+                                           (toEncoding topologyValency)
+                                    <> A.pairStr "fallbacks"
+                                           (toEncoding topologyFallbacks)
+    toEncoding (TopologyTraditional
+                   topologyValency
+                   topologyFallbacks
+                   topologyMaxSubscrs) = do
+                       case topologyMaxSubscrs of
+                           OQ.BucketSizeMax int ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "traditional")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   (toEncoding int)
+                           OQ.BucketSizeUnlimited ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "traditional")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   A.null_
+    toEncoding (TopologyP2P
+                   topologyValency
+                   topologyFallbacks
+                   topologyMaxSubscrs) = do
+                       case topologyMaxSubscrs of
+                           OQ.BucketSizeMax int ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "normal")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   (toEncoding int)
+                           OQ.BucketSizeUnlimited ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "normal")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   A.null_
 
 instance FromJSON Topology where
     parseJSON = A.withObject "Topology" $ \obj -> do
@@ -338,26 +400,30 @@ instance FromJSON Topology where
         case (mNodes, mWallet, mP2p) of
           (Just nodes, Nothing, Nothing) ->
               TopologyStatic <$> parseJSON nodes
-          (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
-              topologyDnsDomains <- walletObj .:  "relays"
-              topologyValency    <- walletObj .:? "valency"   .!= 1
-              topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
-              return TopologyBehindNAT{..}
-          (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
-              variantTxt         <- p2pObj .: "variant"
-              topologyValency    <- p2pObj .:? "valency"   .!= 3
-              topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
-              topologyMaxSubscrs <- maybeBucketSize <$> p2pObj .:? "maxSubscrs"
-              flip (A.withText "P2P variant") variantTxt $ toAesonError . \case
-                  "traditional" -> Right TopologyTraditional{..}
-                  "normal"      -> Right TopologyP2P{..}
-                  _             -> Left "P2P variant: expected 'traditional' or 'normal'"
+          (Nothing, Just wallet, Nothing) ->
+              flip (A.withObject "wallet") wallet $ \walletObj -> do
+                  topologyDnsDomains <- walletObj .:  "relays"
+                  topologyValency    <- walletObj .:? "valency"   .!= 1
+                  topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
+                  return TopologyBehindNAT{..}
+          (Nothing, Nothing, Just p2p) ->
+              flip (A.withObject "P2P") p2p $ \p2pObj -> do
+                  variantTxt         <- p2pObj .: "variant"
+                  topologyValency    <- p2pObj .:? "valency"   .!= 3
+                  topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
+                  topologyMaxSubscrs <- mBucketSize <$> p2pObj .:? "maxSubscrs"
+                  flip (A.withText "P2P variant") variantTxt $ toAesonError . \case
+                      "traditional" -> Right TopologyTraditional{..}
+                      "normal"      -> Right TopologyP2P{..}
+                      _             -> Left "P2P variant: expected \
+                                            \'traditional' or 'normal'"
           _ ->
-            aesonError "Topology: expected exactly one of 'nodes', 'wallet', 'relays', or 'p2p'"
+            aesonError "Topology: expected exactly one of 'nodes', 'wallet',\
+                       \'relays', or 'p2p'"
 
-maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
-maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
-maybeBucketSize (Just n) = OQ.BucketSizeMax n
+mBucketSize :: Maybe Int -> OQ.MaxBucketSize
+mBucketSize Nothing  = OQ.BucketSizeUnlimited
+mBucketSize (Just n) = OQ.BucketSizeMax n
 
 {-------------------------------------------------------------------------------
   Policies described in JSON/YAML.

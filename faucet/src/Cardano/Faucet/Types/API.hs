@@ -13,8 +13,6 @@
 module Cardano.Faucet.Types.API (
    WithdrawalRequest(..), wAddress, gRecaptchaResponse
  , WithdrawalResult(..), _WithdrawalError, _WithdrawalSuccess
- , DepositRequest(..), dWalletId, dAmount
- , DepositResult(..)
  , GCaptchaResponse(..)
  , WithdrawalQFull(..)
   ) where
@@ -36,7 +34,7 @@ import           Universum
 import           Web.FormUrlEncoded
 
 import           Cardano.Wallet.API.V1.Types (Transaction, V1 (..))
-import           Pos.Core (Address (..), Coin (..))
+import           Pos.Core (Address (..))
 
 
 --------------------------------------------------------------------------------
@@ -133,23 +131,3 @@ instance ToSchema WithdrawalResult where
     declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
       { constructorTagModifier = map Char.toLower . drop (length ("Withdrawal" :: String)) }
       & mapped.mapped.schema.description ?~ wdDesc
-
---------------------------------------------------------------------------------
--- | A request to deposit ADA back into the wallet __not currently used__
-data DepositRequest = DepositRequest {
-    _dWalletId :: Text
-  , _dAmount   :: Coin
-  } deriving (Show, Typeable, Generic)
-
-makeLenses ''DepositRequest
-
-instance FromJSON DepositRequest where
-  parseJSON = withObject "DepositRequest" $ \v -> DepositRequest
-    <$> v .: "wallet"
-    <*> (Coin <$> v .: "amount")
-
--- | The result of processing a 'DepositRequest' __not currently used__
-data DepositResult = DepositResult
-  deriving (Show, Typeable, Generic)
-
-instance ToJSON DepositResult

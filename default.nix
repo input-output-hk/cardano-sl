@@ -20,6 +20,7 @@ in
 , enableDebugging ? false
 , enableBenchmarks ? true
 , allowCustomConfig ? true
+, useStackBinaries ? false
 }:
 
 with pkgs.lib;
@@ -117,13 +118,14 @@ let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
-      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
   other = rec {
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
-    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; };
+    demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; disableClientAuth = true; numImportedWallets = 0; };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev;
+      inherit gitrev useStackBinaries;
       launchGenesis = true;
       configurationKey = "testnet_full";
       runWallet = false;
@@ -156,7 +158,7 @@ let
     inherit (pkgs) purescript;
     connectScripts = {
       mainnet = {
-        wallet = connect {};
+        wallet = connect { };
         explorer = connect { executable = "explorer"; };
       };
       staging = {

@@ -382,9 +382,39 @@ deleteHdRoot :: HdRootId -> Update DB (Either UnknownHdRoot ())
 deleteHdRoot rootId = runUpdate' . zoom dbHdWallets $
     HD.deleteHdRoot rootId
 
+-- | Deletes the 'HdAccount' identified by the input 'HdAccountId' together
+-- with all the linked addresses.
 deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
-deleteHdAccount accId = runUpdate' . zoom dbHdWallets $
-    HD.deleteHdAccount accId
+deleteHdAccount accId = do
+    db <- get
+    case HD.readAddressesByAccountId accId (db ^. dbHdWallets) of
+         Left accNotFound -> return (Left accNotFound)
+         Right allAddresses -> do
+             -- Deletes all the children addresses.
+             res <- foldM delete (Right ()) allAddresses
+             case res of
+                  Left err -> return (Left err)
+                  Right () -> do
+                      -- Finally delete the account
+                      res2 <- runUpdate' . zoom dbHdWallets $
+                          HD.deleteHdAccount accId
+                      case res2 of
+                           Left err -> return (Left err)
+                           Right () -> return (Right ())
+    where
+        -- | Monadic fold function which tries to delete the given 'HdAddress
+        -- in the parent account and short-circuits when needed. It stops trying
+        -- to delete things at the first failure.
+        delete :: Either UnknownHdAccount ()
+               -> HdAddress
+               -> Update DB (Either UnknownHdAccount ())
+        delete status address = do
+            case status of
+                 Left _ -> return status -- avoid work
+                 Right () -> do
+                     res <- runUpdate' . zoom dbHdWallets $
+                         HD.deleteHdAddress (address ^. hdAddressId)
+                     return res
 
 {-----------------------------------------------------------------------------
   Cascading deletions

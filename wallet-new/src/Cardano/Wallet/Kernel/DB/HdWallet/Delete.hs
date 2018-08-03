@@ -2,6 +2,7 @@
 module Cardano.Wallet.Kernel.DB.HdWallet.Delete (
     deleteHdRoot
   , deleteHdAccount
+  , deleteHdAddress
   ) where
 
 import           Universum
@@ -30,3 +31,11 @@ deleteHdAccount accId = do
     zoomHdAccountId identity accId $
       return ()
     zoom hdWalletsAccounts $ at accId .= Nothing
+
+-- | Delete an address.
+deleteHdAddress :: HdAddressId -> Update' HdWallets UnknownHdAccount ()
+deleteHdAddress addrId = do
+    -- Check that the account & its parent root do exist before deleting anything.
+    zoomHdAccountId identity (addrId ^. hdAddressIdParent) $
+      return ()
+    zoom hdWalletsAddresses $ at addrId .= Nothing

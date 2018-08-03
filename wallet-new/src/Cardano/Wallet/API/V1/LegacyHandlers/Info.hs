@@ -9,7 +9,7 @@ import qualified Cardano.Wallet.API.V1.Info as Info
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 
-import           Ntp.Client (NtpStatus)
+import           Ntp.Client (NtpStatus (NtpSyncPending))
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
@@ -40,10 +40,15 @@ getInfo :: ( MonadIO m
         -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
 getInfo Diffusion{..} ntpStatus ntpCheck = do
+    timeDifference <- V0.localTimeDifference =<<
+        if ntpCheck
+            then atomically $ do
+                writeTVar ntpStatus NtpSyncPending
+                checkNtpBlocking
+            else pure ntpStatus
     subscribers <- readTVarIO (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
-    timeDifference <- V0.localTimeDifference ntpStatus
     return $ single NodeInfo
         { nfoSyncProgress          = syncProgress
         , nfoSubscriptionStatus    = subscribers
@@ -53,3 +58,9 @@ getInfo Diffusion{..} ntpStatus ntpCheck = do
             { timeDifferenceFromNtpServer = fmap V1.mkLocalTimeDifference timeDifference
             }
         }
+  where
+    checkNtpBlocking = do
+        s <- readTVar ntpStatus
+        case s of
+            NtpSyncPending -> checkNtpBlocking
+            state          -> newTVar state

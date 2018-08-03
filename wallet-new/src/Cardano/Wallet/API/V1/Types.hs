@@ -1944,7 +1944,9 @@ instance ToSchema Redemption where
 instance Arbitrary Redemption where
     arbitrary = Redemption <$> arbitrary <*> arbitrary <*> arbitrary
 
--- TODO: create newtype instead and make it an instance of Servant's QueryFlag.
+-- TODO(akegalj): possibly create a new type `data ForceNtpCheck = ForceNtpCheck | NoNtpCheck`
+--  instead of using general Bool type (boolean blindness). For this we would have to create a wrapper
+--  around `QueryFlag` https://haskell-servant.github.io/servant/src/Servant-API-QueryParam.html#QueryFlag
 type ForceNtpCheck = Bool
 
 --

@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeOperators     #-}
-{-# OPTIONS_GHC -Wall #-}
+
 
 module Main where
 

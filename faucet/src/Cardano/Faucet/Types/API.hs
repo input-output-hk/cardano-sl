@@ -9,7 +9,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# OPTIONS_GHC -Wall #-}
+
 module Cardano.Faucet.Types.API (
    WithdrawalRequest(..), wAddress, gRecaptchaResponse
  , WithdrawalResult(..), _WithdrawalError, _WithdrawalSuccess

@@ -10,7 +10,7 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
-{-# OPTIONS_GHC -Wall #-}
+
 module Cardano.Faucet.Metrics (
    incWithDrawn
  , setWalletBalance

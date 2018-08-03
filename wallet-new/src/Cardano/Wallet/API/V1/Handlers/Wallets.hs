@@ -10,12 +10,15 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
 
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
+import qualified Data.IxSet.Typed as IxSet
+
 import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
 handlers pwl =  newWallet pwl
-           :<|> listWallets
+           :<|> listWallets pwl
            :<|> updatePassword pwl
            :<|> deleteWallet pwl
            :<|> getWallet pwl
@@ -40,11 +43,20 @@ newWallet pwl newWalletRequest = do
          Right w -> return $ single w
 
 -- | Returns the full (paginated) list of wallets.
-listWallets :: RequestParams
+listWallets :: PassiveWalletLayer IO
+            -> RequestParams
             -> FilterOperations Wallet
             -> SortOperations Wallet
             -> Handler (WalletResponse [Wallet])
-listWallets _params _fops _sops = error "Unimplemented. See CBR-227."
+listWallets pwl params fops sops = do
+    wallets <- liftIO $ WalletLayer.getWallets pwl
+    respondWith params
+        fops
+        sops
+        -- FIXME(adn) [CBR-347] We need to unify these two IxSet
+        -- wrappers, but for now let's pay the full conversion price
+        -- to get the feature shipped.
+        (pure $ IxSet.fromList . KernelIxSet.toList $ wallets)
 
 updatePassword :: PassiveWalletLayer IO
                -> WalletId

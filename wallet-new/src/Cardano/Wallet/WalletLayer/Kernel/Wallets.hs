@@ -4,6 +4,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , updateWalletPassword
     , deleteWallet
     , getWallet
+    , getWallets
     ) where
 
 import           Universum
@@ -17,9 +18,12 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readHdRoot)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAllHdRoots,
+                     readHdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
@@ -29,7 +33,6 @@ import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
 import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 import           Pos.Crypto.Signing
 
@@ -140,6 +143,13 @@ getWallet db (V1.WalletId wId) =
            case readHdRoot hdRootId (hdWallets db) of
                 Left dbErr -> Left (GetWalletError (V1 dbErr))
                 Right w    -> Right (toV1Wallet db w)
+
+-- | Gets all the wallets known to this edge node.
+getWallets :: Kernel.DB -> IxSet V1.Wallet
+getWallets db =
+    let allRoots = readAllHdRoots (hdWallets db)
+        f acc a  = IxSet.insert (toV1Wallet db a) acc
+    in IxSet.foldl' f IxSet.emptyIxSet allRoots
 
 {------------------------------------------------------------------------------
   General utility functions on the wallets.

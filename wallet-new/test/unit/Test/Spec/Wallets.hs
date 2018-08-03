@@ -9,7 +9,7 @@ import           Universum
 
 import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, suchThat, withMaxSuccess)
+import           Test.QuickCheck (arbitrary, suchThat, vectorOf, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Data.Coerce (coerce)
@@ -26,6 +26,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdRootError (..))
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -34,6 +35,8 @@ import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
+import qualified Cardano.Wallet.API.Request as API
+import qualified Cardano.Wallet.API.Request.Pagination as API
 import qualified Cardano.Wallet.API.Response as V1
 import           Cardano.Wallet.API.V1.Handlers.Wallets as Handlers
 import           Cardano.Wallet.API.V1.Types (V1 (..), unV1)
@@ -398,3 +401,33 @@ spec = describe "Wallets" $ do
                              Left (_e :: WalletLayer.UpdateWalletError)  -> return ()
                              Right (Left e)  -> throwM e -- Unexpected Failure
                              Right (Right _) -> fail "Expecting a failure, but the handler succeeded."
+
+    describe "GetWallets" $ do
+
+        -- There is no formal \"kernel function\" for this one, so we are
+        -- testing only the WalletLayer and the Servant handler.
+        describe "Gets a list of wallets (wallet layer)" $ do
+
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    rqs <- map (\rq -> rq { V1.newwalOperation = V1.CreateWallet })
+                               <$> pick (vectorOf 5 arbitrary)
+                    withLayer $ \layer _ -> do
+                        void (forM rqs (WalletLayer.createWallet layer))
+                        res <- WalletLayer.getWallets layer
+                        (IxSet.size res) `shouldBe` 5
+
+        describe "Gets a list of wallets (Servant)" $ do
+            prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    rqs <- map (\rq -> rq { V1.newwalOperation = V1.CreateWallet })
+                               <$> pick (vectorOf 5 arbitrary)
+                    withLayer $ \ layer _ -> do
+                        liftIO $ do
+                            void (forM rqs (runExceptT . runHandler' . Handlers.newWallet layer))
+                            let params = API.RequestParams (API.PaginationParams (API.Page 1) (API.PerPage 10))
+                            res <- runExceptT . runHandler' $ Handlers.listWallets layer params API.NoFilters API.NoSorts
+                            case res of
+                                 Left e -> throwM e
+                                 Right (V1.WalletResponse{..}) -> do
+                                     length wrData `shouldBe` 5

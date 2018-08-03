@@ -121,7 +121,7 @@ import           Test.QuickCheck.Random (mkQCGen)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
-                     IndicesOf, OrdByPrimKey, ixList)
+                     IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
@@ -772,6 +772,25 @@ data Wallet = Wallet {
     , walAssuranceLevel             :: !AssuranceLevel
     , walSyncState                  :: !SyncState
     } deriving (Eq, Ord, Show, Generic)
+
+--
+-- IxSet indices
+--
+
+instance HasPrimKey Wallet where
+    type PrimKey Wallet = WalletId
+    primKey = walId
+
+type SecondaryWalletIxs = '[Core.Coin, V1 Core.Timestamp]
+
+type instance IndicesOf Wallet = SecondaryWalletIxs
+
+instance IxSet.Indexable (WalletId ': SecondaryWalletIxs)
+                         (OrdByPrimKey Wallet) where
+    indices = ixList
+                (ixFun ((:[]) . unV1 . walBalance))
+                (ixFun ((:[]) . walCreatedAt))
+
 
 deriveJSON Serokell.defaultOptions ''Wallet
 

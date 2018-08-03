@@ -3,7 +3,7 @@ module Cardano.Wallet.WalletLayer.Types
     , ActiveWalletLayer (..)
     -- * Getters
     , createWallet
-    , getWalletIds
+    , getWallets
     , getWallet
     , updateWallet
     , updateWalletPassword
@@ -321,7 +321,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
       _pwlCreateWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
-    , _pwlGetWalletIds         :: m [WalletId]
+    , _pwlGetWallets           :: m (IxSet Wallet)
     , _pwlGetWallet            :: WalletId -> m (Either GetWalletError Wallet)
     , _pwlUpdateWallet         :: WalletId
                                -> WalletUpdate
@@ -366,8 +366,8 @@ createWallet :: forall m. PassiveWalletLayer m
              -> m (Either CreateWalletError Wallet)
 createWallet pwl = pwl ^. pwlCreateWallet
 
-getWalletIds :: forall m. PassiveWalletLayer m -> m [WalletId]
-getWalletIds pwl = pwl ^. pwlGetWalletIds
+getWallets :: forall m. PassiveWalletLayer m -> m (IxSet Wallet)
+getWallets pwl = pwl ^. pwlGetWallets
 
 getWallet :: forall m. PassiveWalletLayer m
           -> WalletId

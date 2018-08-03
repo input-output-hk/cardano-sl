@@ -36,7 +36,7 @@ bracketPassiveWallet =
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
         { _pwlCreateWallet         = \_     -> liftedGen
-        , _pwlGetWalletIds         =           liftedGen
+        , _pwlGetWallets           =           liftedGen
         , _pwlGetWallet            = \_     -> liftedGen
         , _pwlUpdateWallet         = \_ _   -> liftedGen
         , _pwlUpdateWalletPassword = \_ _   -> liftedGen

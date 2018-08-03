@@ -22,7 +22,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      UpdateAccountError, UpdateWalletError (..),
                      UpdateWalletPasswordError)
 
-import           Cardano.Wallet.API.V1.Migration (migrate)
+import           Cardano.Wallet.API.V1.Migration (eitherMigrate, migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
@@ -47,8 +47,8 @@ import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Pos.Wallet.Web.Methods.Restore (newWallet,
                      restoreWalletFromSeed)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB,
-                     askWalletSnapshot, getWalletAddresses, setWalletMeta)
-import           Pos.Wallet.Web.State.Storage (getWalletInfo)
+                     askWalletSnapshot, setWalletMeta)
+import           Pos.Wallet.Web.State.Storage (getWalletInfo, getWalletInfos)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Pos.Chain.Block (Blund)
@@ -79,7 +79,7 @@ bracketPassiveWallet =
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
         { _pwlCreateWallet          = pwlCreateWallet
-        , _pwlGetWalletIds          = pwlGetWalletIds
+        , _pwlGetWallets            = pwlGetWallets
         , _pwlGetWallet             = pwlGetWallet
         , _pwlUpdateWallet          = pwlUpdateWallet
         , _pwlUpdateWalletPassword  = pwlUpdateWalletPassword
@@ -163,12 +163,18 @@ pwlCreateWallet NewWallet{..} = do
             _ -> throwM e
 
 
-pwlGetWalletIds
+pwlGetWallets
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => m [WalletId]
-pwlGetWalletIds = do
-    ws          <- askWalletSnapshot
-    migrate $ getWalletAddresses ws
+    => m (IxSet Wallet)
+pwlGetWallets = do
+    ws    <- askWalletSnapshot
+    let invariantViolated = error "Conversion between CId Wal -> WalletId failed."
+    let ids = map (either invariantViolated identity . eitherMigrate . fst)
+                  (runReader getWalletInfos ws)
+    wss <- forM ids pwlGetWallet
+    case sequence wss of
+         Left _   -> return IxSet.emptyIxSet
+         Right xs -> return $ IxSet.fromList xs
 
 pwlGetWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)

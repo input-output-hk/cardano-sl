@@ -41,8 +41,8 @@ import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
-import           Pos.Util.Trace (natTrace, noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logDebug)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, natTrace)
 
 ----------------------------------------------------------------------------
 -- Modes
@@ -249,7 +249,7 @@ sscRollbackU blocks = tossToUpdate $ rollbackSsc pureTossTrace oldestEOS payload
 tossToUpdate :: PureToss a -> SscGlobalUpdate a
 tossToUpdate action = do
     oldState <- use identity
-    (res, newState) <- runPureTossWithLogger oldState noTrace action
+    (res, newState) <- runPureTossWithLogger noTrace oldState action
     (identity .= newState) $> res
 
 tossToVerifier
@@ -260,7 +260,7 @@ tossToVerifier
 tossToVerifier logTrace action = do
     oldState <- use identity
     (resOrErr, newState) <-
-        runPureTossWithLogger oldState logTrace $ runExceptT action
+        runPureTossWithLogger logTrace oldState $ runExceptT action
     case resOrErr of
         Left e    -> throwError e
         Right res -> (identity .= newState) $> res

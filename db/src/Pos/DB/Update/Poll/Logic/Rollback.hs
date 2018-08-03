@@ -19,12 +19,13 @@ import           Pos.Util.Trace.Named (TraceNamed)
 -- itself and undo data.
 rollbackUS
     :: forall m . MonadPoll m
-    => TraceNamed m
+    => TraceNamed IO
     -> USUndo -> m ()
 -- Note: here we use explicit pattern-matching which forces us to
 -- enumerate all fields to avoid situation when we add something new
 -- to 'USUndo' and forget to consider it in 'rollbackUS'.
-rollbackUS _ (USUndo changedBlockVersions
+rollbackUS logTrace
+           (USUndo changedBlockVersions
                    lastAdoptedBV
                    changedActiveProposals
                    changedConfirmedSVs
@@ -41,7 +42,7 @@ rollbackUS _ (USUndo changedBlockVersions
     -- because setAdoptedBV takes state from Poll, not as argument.
     mapM_ setOrDelBV $ HM.toList changedBlockVersions
     -- Rollback last adopted
-    whenJust lastAdoptedBV setAdoptedBV
+    whenJust lastAdoptedBV (setAdoptedBV logTrace)
     whenJust prevProposers setEpochProposers
     whenJust slottingData setSlottingData
   where

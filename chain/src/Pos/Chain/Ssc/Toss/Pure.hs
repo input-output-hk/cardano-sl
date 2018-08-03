@@ -115,11 +115,11 @@ runPureToss gs (PureToss act) = do
 
 runPureTossWithLogger
     :: Rand.MonadRandom m
-    => SscGlobalState
-    -> TraceNamed m
+    => TraceNamed m
+    -> SscGlobalState
     -> PureToss a
     -> m (a, SscGlobalState)
-runPureTossWithLogger gs logTrace act = do
+runPureTossWithLogger logTrace gs act = do
     (res, newGS , events ) <- runPureToss gs act
     (res, newGS) <$ (forM_ events (traceWith logTrace))
 
@@ -129,7 +129,7 @@ evalPureTossWithLogger
     -> TraceNamed m
     -> PureToss a
     -> m a
-evalPureTossWithLogger g logTrace = fmap fst . runPureTossWithLogger g logTrace
+evalPureTossWithLogger g logTrace = fmap fst . runPureTossWithLogger logTrace g
 
 execPureTossWithLogger
     :: Rand.MonadRandom m
@@ -137,7 +137,7 @@ execPureTossWithLogger
     -> TraceNamed m
     -> PureToss a
     -> m SscGlobalState
-execPureTossWithLogger g logTrace = fmap snd . runPureTossWithLogger g logTrace
+execPureTossWithLogger g logTrace = fmap snd . runPureTossWithLogger logTrace g
 
 supplyPureTossEnv
     :: (MultiRichmenStakes, BlockVersionData)

@@ -71,8 +71,8 @@ recordBlockIssuance id bv slot h = do
 
 -- | Process creation of genesis block for given epoch.
 processGenesisBlock
-    :: forall m. (MonadError PollVerFailure m, MonadPoll m, HasProtocolConstants)
-    => TraceNamed m
+    :: forall m. (MonadIO m, MonadError PollVerFailure m, MonadPoll m, HasProtocolConstants)
+    => TraceNamed IO
     -> EpochIndex -> m ()
 processGenesisBlock logTrace epoch = do
     -- First thing to do is to obtain values threshold for softfork
@@ -82,10 +82,10 @@ processGenesisBlock logTrace epoch = do
     -- Then we take all competing BlockVersions and actually check softfork
     -- resolution rule for them.
     competing <- getCompetingBVStates
-    logCompetingBVStates competing
+    liftIO $ logCompetingBVStates competing
     let checkThreshold' = checkThreshold totalStake bvdSoftforkRule
     toAdoptList <- catMaybes <$> mapM checkThreshold' competing
-    logWhichCanBeAdopted $ map fst toAdoptList
+    liftIO $ logWhichCanBeAdopted $ map fst toAdoptList
     -- We also do sanity check in assert mode just in case.
     inAssertMode $ sanityCheckCompeting $ map fst competing
     case nonEmpty toAdoptList of

@@ -11,6 +11,8 @@ module Pos.Util.Trace.Named
     , setupLogging
     , namedTrace
     , appendName
+    -- * rexports
+    , natTrace
     -- * log functions
     , logMessage, logMessageS, logMessageP
     , logDebug,   logDebugS,   logDebugP,   logDebugSP,   logDebugUnsafeP
@@ -27,7 +29,7 @@ import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.LogSafe (SecuredText, logMCond, logMessageUnsafeP,
                      selectPublicLogs, selectSecretLogs)
 import           Pos.Util.LoggerConfig (LogSecurityLevel (..))
-import           Pos.Util.Trace (Trace (..), traceWith)
+import           Pos.Util.Trace (Trace (..), natTrace, traceWith)
 import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..),
                      LogPrivacy (..))
 

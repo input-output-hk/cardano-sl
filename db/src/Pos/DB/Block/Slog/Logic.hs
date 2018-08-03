@@ -59,8 +59,7 @@ import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 ----------------------------------------------------------------------------
 -- Helpers

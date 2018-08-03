@@ -25,8 +25,7 @@ import           Pos.Core.Update (UpId, UpdateProposal, UpdateProposals,
 import           Pos.Crypto (PublicKey, hash)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyProposal,
                      verifyAndApplyVoteDo)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning, natTrace)
 import           Pos.Util.Util (getKeys, sortWithMDesc)
 
 -- | Normalize given proposals and votes with respect to current Poll
@@ -35,7 +34,7 @@ import           Pos.Util.Util (getKeys, sortWithMDesc)
 -- proposal can be put into a block.
 normalizePoll
     :: (MonadIO m, MonadPoll m)
-    => TraceNamed m
+    => TraceNamed IO
     -> SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -49,7 +48,7 @@ normalizePoll logTrace slot proposals votes =
 -- everything else.
 refreshPoll
     :: (MonadIO m, MonadPoll m)
-    => TraceNamed m
+    => TraceNamed IO
     -> SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -103,7 +102,7 @@ refreshPoll logTrace slot proposals votes = do
 -- Disregard other proposals.
 normalizeProposals
   :: (MonadIO m, MonadPoll m)
-    => TraceNamed m
+    => TraceNamed IO
     -> SlotId
     -> [UpdateProposal]
     -> m UpdateProposals
@@ -112,13 +111,13 @@ normalizeProposals logTrace slotId (toList -> proposals) =
     -- Here we don't need to verify that attributes are known, because it
     -- must hold for all proposals in mempool anyway.
     forM proposals
-        (runExceptT . verifyAndApplyProposal (natTrace lift logTrace) False (Left slotId) [])
+        (runExceptT . verifyAndApplyProposal logTrace False (Left slotId) [])
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
     :: forall m. (MonadIO m, MonadPoll m)
-    => TraceNamed m
+    => TraceNamed IO
     -> [(UpId, HashMap PublicKey UpdateVote)]
     -> m LocalVotes
 normalizeVotes logTrace votesGroups =
@@ -128,7 +127,7 @@ normalizeVotes logTrace votesGroups =
                            -> m (Maybe (UpId, HashMap PublicKey UpdateVote))
     verifyNApplyVotesGroup (upId, votesGroup) = getProposal upId >>= \case
         Nothing -> do
-            logWarning logTrace $
+            logWarning (natTrace liftIO logTrace) $
                 sformat ("Update Proposal with id "%build%
                          " not found in normalizeVotes") upId
             return Nothing
@@ -138,7 +137,7 @@ normalizeVotes logTrace votesGroups =
                 let uvs = toList votesGroup
                 verifiedPKs <-
                   catRights pks <$>
-                  mapM (runExceptT . verifyAndApplyVoteDo Nothing ups) uvs
+                  mapM (runExceptT . verifyAndApplyVoteDo (natTrace liftIO logTrace) Nothing ups) uvs
                 if | null verifiedPKs -> pure Nothing
                    | otherwise  ->
                        pure $ Just ( upId
@@ -150,16 +149,16 @@ normalizeVotes logTrace votesGroups =
 -- block according to 'bvdUpdateProposalThd'. Note that this function is
 -- read-only.
 filterProposalsByThd
-  :: forall m . ({-MonadIO m,-} MonadPollRead m)
---TODO    => TraceNamed m
-    => EpochIndex
+  :: forall m. (MonadIO m, MonadPollRead m)
+    => TraceNamed IO
+    -> EpochIndex
     -> UpdateProposals
     -> m (UpdateProposals, HashSet UpId)
-filterProposalsByThd {-logTrace-} epoch proposalsHM = getEpochTotalStake epoch >>= \case
+filterProposalsByThd logTrace epoch proposalsHM = getEpochTotalStake epoch >>= \case
     Nothing -> do
-        {-logWarning logTrace $
+        logWarning (natTrace liftIO logTrace) $
             sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build)
-                 epoch-}
+                 epoch
         return (mempty, getKeys proposalsHM)
     Just totalStake -> do
         thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData

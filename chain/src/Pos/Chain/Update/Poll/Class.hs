@@ -48,6 +48,7 @@ import           Pos.Core.Update (ApplicationName, BlockVersion,
                      SoftwareVersion (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 import           Pos.Util.Util (ether)
 
 
@@ -72,7 +73,7 @@ class Monad m => MonadPollRead m where
     -- ^ Get numeric component of last confirmed version of application
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
-    getProposalsByApp :: ApplicationName -> m [ProposalState]
+    getProposalsByApp :: TraceNamed IO -> ApplicationName -> m [ProposalState]
     -- ^ Get active proposals for the specified application.
     getConfirmedProposals :: m [ConfirmedProposalState]
     -- ^ Get all known confirmed proposals.
@@ -112,7 +113,7 @@ instance {-# OVERLAPPABLE #-}
     getAdoptedBVFull = lift getAdoptedBVFull
     getLastConfirmedSV = lift . getLastConfirmedSV
     getProposal = lift . getProposal
-    getProposalsByApp = lift . getProposalsByApp
+    getProposalsByApp = getProposalsByApp
     getConfirmedProposals = lift getConfirmedProposals
     getEpochTotalStake = lift . getEpochTotalStake
     getRichmanStake e = lift . getRichmanStake e
@@ -133,7 +134,7 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Put state of BlockVersion overriding if it exists.
     delBVState :: BlockVersion -> m ()
     -- ^ Delete BlockVersion and associated state.
-    setAdoptedBV :: BlockVersion -> m ()
+    setAdoptedBV :: TraceNamed IO -> BlockVersion -> m ()
     -- ^ Set last adopted block version. State is taken from competing states.
     setLastConfirmedSV :: SoftwareVersion -> m ()
     -- ^ Set last confirmed version of application.
@@ -158,7 +159,7 @@ instance {-# OVERLAPPABLE #-}
   where
     putBVState pv = lift . putBVState pv
     delBVState = lift . delBVState
-    setAdoptedBV = lift . setAdoptedBV
+    setAdoptedBV = setAdoptedBV
     setLastConfirmedSV = lift . setLastConfirmedSV
     delConfirmedSV = lift . delConfirmedSV
     addConfirmedProposal = lift . addConfirmedProposal
@@ -188,7 +189,7 @@ instance (MonadPoll m) => MonadPoll (RollT m) where
         insertIfNotExist bv unChangedBVL getBVState
         delBVState bv
 
-    setAdoptedBV = setValueWrapper unLastAdoptedBVL getAdoptedBV setAdoptedBV
+    setAdoptedBV logTrace = setValueWrapper unLastAdoptedBVL getAdoptedBV (setAdoptedBV logTrace)
 
     setLastConfirmedSV sv@SoftwareVersion{..} = ether $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
@@ -299,10 +300,10 @@ instance (MonadPollRead m) =>
         MM.lookupM getLastConfirmedSV appName =<< use pmConfirmedL
     getProposal upId = ether $
         MM.lookupM getProposal upId =<< use pmActivePropsL
-    getProposalsByApp app = ether $ do
+    getProposalsByApp logTrace app = ether $ do
         let eqApp = (== app) . svAppName . upSoftwareVersion . psProposal . snd
         props <- uses pmActivePropsL (filter eqApp . MM.insertions)
-        dbProps <- map (first (hash . psProposal) . join (,)) <$> getProposalsByApp app
+        dbProps <- map (first (hash . psProposal) . join (,)) <$> getProposalsByApp logTrace app
         pure . toList . HM.fromList $ dbProps ++ props -- squash props with same upId
     getConfirmedProposals = ether $
         MM.valuesM
@@ -339,17 +340,16 @@ instance (MonadPollRead m) =>
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (MonadPollRead m) =>
+instance (MonadIO m, MonadPollRead m) =>
          MonadPoll (PollT m) where
     putBVState bv st = ether $ pmBVsL %= MM.insert bv st
     delBVState bv = ether $ pmBVsL %= MM.delete bv
-    setAdoptedBV bv = ether $ do
+    setAdoptedBV logTrace bv = ether $ do
         bvs <- getBVState bv
         adoptedBVD <- getAdoptedBVData
         case bvs of
             Nothing ->
-                --logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
-                return ()
+                liftIO $ logWarning logTrace $ "setAdoptedBV: unknown version " <> (pretty bv) -- can't happen actually
             Just (bvsModifier -> bvm) ->
                 pmAdoptedBVFullL .= Just (bv, applyBVM bvm adoptedBVD)
     setLastConfirmedSV SoftwareVersion {..} = ether $

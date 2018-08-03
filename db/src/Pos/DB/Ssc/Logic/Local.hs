@@ -54,8 +54,7 @@ import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen, tryGetSscRichmen)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning, natTrace)
 import           Pos.Util.Trace.Writer (writerTrace)
 
 -- | Get local payload to be put into main block and for given

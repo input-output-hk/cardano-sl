@@ -21,6 +21,7 @@ import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Data.Default (Default (def))
 import           Formatting (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
+import           UnliftIO (UnliftIO (..), askUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HasSlogGState (..))
@@ -67,8 +68,8 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
 import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
-import           Pos.Util.Trace (natTrace, noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfoS)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfoS, natTrace)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
@@ -435,7 +436,8 @@ getRawPayload :: MonadCreateBlock ctx m
 getRawPayload logTrace tip slotId = do
     localTxs <- txGetPayload logTrace tip -- result is topsorted
     sscData <- sscGetLocalPayload logTrace slotId
-    usPayload <- usPreparePayload logTrace tip slotId
+    un <- askUnliftIO
+    usPayload <- usPreparePayload (natTrace (unliftIO un) logTrace) tip slotId
     dlgPayload <- getDlgMempool
     let rawPayload =
             RawPayload

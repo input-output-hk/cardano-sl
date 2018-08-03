@@ -1,27 +1,10 @@
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UndecidableInstances       #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Safe/secure logging
 
 module Pos.Core.Util.LogSafe
        ( -- * Logging functions
-         SelectiveLogWrapped(..)
-       , logMessageS
+         logMessageS
        , logDebugS
        , logInfoS
        , logNoticeS
@@ -61,11 +44,7 @@ module Pos.Core.Util.LogSafe
        , BuildableSafeGen (..)
        , SecuredText
        , buildUnsecure
-       , getSecuredText
        , deriveSafeBuildable
-       , selectPublicLogs
-       , selectSecretLogs
-       , logMCond
        ) where
 
 -- Universum has its own Rube Goldberg variant of 'Foldable' which we do not
@@ -76,18 +55,17 @@ module Pos.Core.Util.LogSafe
 -- what's going on.
 import           Universum
 
--- import           Formatting (bprint, build, fconst, later, mapf, (%))
 import qualified Formatting.Buildable
--- import           Formatting.Internal (Format (..))
 
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
 
+-- this is where LogSafe internals are implemented
 import           Pos.Util.Log.LogSafe
 
--- | additional instances
+-- | additional instances for
 
 instance Buildable (SecureLog Text) where
     build _ = "<hidden>"

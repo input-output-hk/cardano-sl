@@ -18,6 +18,8 @@ import           Pos.Chain.Update (BlockVersionState (..),
 import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update.Poll.PollState as Poll
+--import           Pos.Util.Trace.Named (TraceNamed, logDebug, logWarning,
+--                     natTrace)
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: StateT Poll.PollState Identity a
@@ -27,11 +29,6 @@ runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState)
 runPurePollWithLogger ps pp =
     let innerMonad = usingStateT ps . getPurePoll $ pp
     in  (\((a, finalState)) -> (a, finalState)) . runIdentity $ innerMonad
-
-{-
-evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
-evalPurePollWithLogger r = view _1 . runPurePollWithLogger r
--}
 
 execPurePollWithLogger :: Poll.PollState -> PurePoll a -> Poll.PollState
 execPurePollWithLogger r = view _2 . runPurePollWithLogger r
@@ -44,7 +41,7 @@ instance MonadPollRead PurePoll where
     getAdoptedBVFull = PurePoll $ use $ Poll.psAdoptedBV
     getLastConfirmedSV an = PurePoll $ use $ Poll.psConfirmedANs . at an
     getProposal ui = PurePoll $ use $ Poll.psActiveProposals . at ui
-    getProposalsByApp an = PurePoll $ do
+    getProposalsByApp _ an = PurePoll $ do
         activeProposalsIndices <- use Poll.psActivePropsIdx
         activeProposals        <- use Poll.psActiveProposals
         propGetByApp activeProposalsIndices activeProposals
@@ -52,15 +49,15 @@ instance MonadPollRead PurePoll where
         propGetByApp appHashmap upIdHashmap =
             case HM.lookup an appHashmap of
                 Nothing -> do
-                    {-liftIO $ traceWith (logDebug trace) $  --TODO
-                        "getProposalsByApp: unknown application name " <> pretty an-}
+                    --logDebug logTrace $    -- TODO
+                    --    "getProposalsByApp: unknown application name " <> pretty an
                     pure []
                 Just hashset -> do
                     let uidList = toList hashset
                         propStateList = map (\u -> (u, HM.lookup u upIdHashmap)) uidList
                     fromMaybe [] . traverse snd <$> filterM filterFun propStateList
         filterFun ({-uid-}_, Nothing) = do
-            {-liftIO $ traceWith (logWarning trace) $ "getProposalsByApp: unknown update id " <> pretty uid-} --TODO
+            --logWarning logTrace $ "getProposalsByApp: unknown update id " <> pretty uid  -- TODO
             pure False
         filterFun (_, Just _) = pure True
     getConfirmedProposals = PurePoll $ use $ Poll.psConfirmedProposals . to HM.elems
@@ -86,13 +83,13 @@ instance MonadPollRead PurePoll where
 instance MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
     delBVState bv = PurePoll $ Poll.psBlockVersions . at bv .= Nothing
-    setAdoptedBV bv = do
+    setAdoptedBV _ bv = do
         bvs <- getBVState bv
         case bvs of
             Nothing ->
-                return ()
-                --Log.logWarning $
+                --logWarning logTrace $    -- TODO
                 --    "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+                return ()
             Just (bvsModifier -> bvm) -> PurePoll $ do
                 Poll.psAdoptedBV . _1 .= bv
                 Poll.psAdoptedBV . _2 %= applyBVM bvm

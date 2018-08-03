@@ -21,6 +21,7 @@ import           Control.Monad.Except (ExceptT (ExceptT),
                      MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (sformat, shown, (%))
+import           UnliftIO (UnliftIO (..), askUnliftIO)
 
 import           Pos.Chain.Block (ApplyBlocksException (..), Blund,
                      RollbackException (..), Undo (..),
@@ -50,8 +51,8 @@ import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import           Pos.DB.Update (getAdoptedBVFull, usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     natTrace)
 import           Pos.Util.Util (HasLens (..))
 
 -- -- CHECK: @verifyBlocksLogic
@@ -105,8 +106,9 @@ verifyBlocksPrefix logTrace0 pm ctx blocks = do
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ tgsVerifyBlocks logTrace dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks pm blocks
+    un <- lift askUnliftIO
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ usVerifyBlocks logTrace pm dataMustBeKnown (vbcBlockVersion ctx) (map toUpdateBlock blocks)
+        ExceptT $ usVerifyBlocks (natTrace (unliftIO un) logTrace) pm dataMustBeKnown (vbcBlockVersion ctx) (map toUpdateBlock blocks)
 
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $

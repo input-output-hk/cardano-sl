@@ -40,7 +40,8 @@ import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
 import           Pos.DB.Update.Poll.Logic.Version (verifyAndApplyProposalBVS,
                      verifyBlockVersion, verifySoftwareVersion)
 import           Pos.Util.Some (Some (..))
-import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logNotice)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo, logNotice,
+                     natTrace)
 
 type ApplyMode m =
     ( MonadError PollVerFailure m
@@ -63,7 +64,7 @@ type ApplyMode m =
 -- checked.
 verifyAndApplyUSPayload ::
        (MonadIO m, ApplyMode m, HasProtocolConstants)
-    => TraceNamed m
+    => TraceNamed IO
     -> ProtocolMagic
     -> BlockVersion
     -> Bool
@@ -92,7 +93,7 @@ verifyAndApplyUSPayload logTrace pm lastAdopted verifyAllIsKnown slotOrHeader up
         let cd = case slotOrHeader of
                 Left  _ -> Nothing
                 Right h -> Just (h ^. difficultyL, h ^. headerHashG)
-        mapM_ (verifyAndApplyVotesGroup cd) otherGroups
+        mapM_ (verifyAndApplyVotesGroup logTrace cd) otherGroups
     -- If we are applying payload from block, we also check implicit
     -- agreement rule and depth of decided proposals (they can become
     -- confirmed/discarded).
@@ -156,7 +157,7 @@ resolveVoteStake epoch totalStake vote = do
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
     :: (MonadIO m, MonadError PollVerFailure m, MonadPoll m)
-    => TraceNamed m
+    => TraceNamed IO
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
@@ -194,7 +195,7 @@ verifyAndApplyProposal logTrace verifyAllIsKnown slotOrHeader votes
     -- When necessary, we also check that proposal itself has enough
     -- positive votes to be included into block.
     when (isRight slotOrHeader) $
-        verifyProposalStake logTrace totalStake votesAndStakes upId
+        verifyProposalStake (natTrace liftIO logTrace) totalStake votesAndStakes upId
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
@@ -230,9 +231,10 @@ verifyProposalStake logTrace totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: ApplyMode m
-    => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
-verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
+    :: (MonadIO m, ApplyMode m)
+    => TraceNamed IO
+    -> Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
+verifyAndApplyVotesGroup logTrace cd votes = mapM_ verifyAndApplyVote votes
   where
     upId = uvProposalId $ NE.head votes
     verifyAndApplyVote vote = do
@@ -242,21 +244,22 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
         case ps of
             PSDecided _     -> throwError
                                    $ PollProposalIsDecided upId stakeholderId
-            PSUndecided ups -> verifyAndApplyVoteDo cd ups vote
+            PSUndecided ups -> verifyAndApplyVoteDo (natTrace liftIO logTrace) cd ups vote
 
 -- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVoteDo
     :: ApplyMode m
-    => Maybe (ChainDifficulty, HeaderHash)
+    => TraceNamed m
+    -> Maybe (ChainDifficulty, HeaderHash)
     -> UndecidedProposalState
     -> UpdateVote
     -> m ()
-verifyAndApplyVoteDo cd ups vote = do
+verifyAndApplyVoteDo logTrace cd ups vote = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
     voteStake <- resolveVoteStake e totalStake vote
     newUPS@UndecidedProposalState {..} <-
-        voteToUProposalState (uvKey vote) voteStake (uvDecision vote) ups
+        voteToUProposalState logTrace (uvKey vote) voteStake (uvDecision vote) ups
     let newPS
             | Just decision <-
                  isDecided
@@ -280,7 +283,7 @@ verifyAndApplyVoteDo cd ups vote = do
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
     :: (MonadIO m, MonadPoll m, HasProtocolConstants)
-    => TraceNamed m
+    => TraceNamed IO
     -> SlotId -> ChainDifficulty -> HeaderHash
     -> m ()
 applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
@@ -297,7 +300,7 @@ applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
         let upId = hash $ upsProposal ups
             status | dpsDecision decided = "approved"
                    | otherwise = "rejected"
-        logInfo logTrace $
+        logInfo (natTrace liftIO logTrace) $
             sformat ("Proposal "%build%" is implicitly "%builder)
                                upId status
     makeImplicitlyDecided ups@UndecidedProposalState {..} =
@@ -314,7 +317,7 @@ applyImplicitAgreement logTrace (flattenSlotId -> slotId) cd hh = do
 -- discarded).
 applyDepthCheck
     :: forall m . (MonadIO m, ApplyMode m, HasProtocolConstants)
-    => TraceNamed m
+    => TraceNamed IO
     -> EpochIndex -> HeaderHash -> ChainDifficulty
     -> m ()
 applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
@@ -354,6 +357,7 @@ applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
       | otherwise =
           compare  (upsSlot $ dpsUndecided b) (upsSlot $ dpsUndecided a)
 
+    applyDepthCheckDo :: DecidedProposalState -> m ()
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
             sv = upSoftwareVersion upsProposal
@@ -381,14 +385,14 @@ applyDepthCheck logTrace epoch hh (ChainDifficulty cd)
                     , cpsAdopted = Nothing
                     }
             addConfirmedProposal cps
-            proposals <- getProposalsByApp $ upsAppName dpsUndecided
+            proposals <- getProposalsByApp (natTrace liftIO logTrace) $ upsAppName dpsUndecided
             mapM_ (deactivateProposal . hash . psProposal) proposals
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
                confirmBlockVersion epoch bv
-               logInfo logTrace $ sformat (build%" is competing now") bv
+               logInfo (natTrace liftIO logTrace) $ sformat (build%" is competing now") bv
            | otherwise -> do
                delBVState bv
-               logInfo logTrace $ sformat ("State of "%build%" is deleted") bv
+               logInfo (natTrace liftIO logTrace) $ sformat ("State of "%build%" is deleted") bv
         deactivateProposal upId
-        logNotice logTrace $ sformat ("Proposal "%shortHashF%" is "%builder) upId status
+        logNotice (natTrace liftIO logTrace) $ sformat ("Proposal "%shortHashF%" is "%builder) upId status

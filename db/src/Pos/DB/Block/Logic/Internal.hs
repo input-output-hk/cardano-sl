@@ -30,7 +30,7 @@ import           Control.Lens (each, _Wrapped)
 import qualified Crypto.Random as Rand
 import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
-import           UnliftIO (MonadUnliftIO)
+import           UnliftIO (MonadUnliftIO, UnliftIO (..), askUnliftIO)
 
 import           Pos.Chain.Block (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Chain.Delegation (DlgBlock, DlgBlund, MonadDelegation)
@@ -64,8 +64,7 @@ import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
 import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
                      usNormalize, usRollbackBlocks)
 import           Pos.Util (Some (..), spanSafe)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
@@ -136,7 +135,8 @@ normalizeMempool logTrace pm txpConfig = do
     -- within block application.
     sscNormalize logTrace pm
     txpNormalize logTrace pm txpConfig
-    usNormalize logTrace
+    un <- askUnliftIO
+    usNormalize (natTrace (unliftIO un) logTrace)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -192,23 +192,24 @@ applyBlocksDbUnsafeDo
     -> m ()
 applyBlocksDbUnsafeDo logTrace pm bv bvd scb blunds pModifier = do
     let blocks = fmap fst blunds
+        logTrace' = natTrace liftIO logTrace
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks logTrace scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks
-                                (natTrace liftIO logTrace)
-                                pm
-                                bv
-                                (map toUpdateBlock blocks)
-                                pModifier
+                                 logTrace
+                                 pm
+                                 bv
+                                 (map toUpdateBlock blocks)
+                                 pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks
-                                        (natTrace liftIO logTrace)
-                                        (map toDlgBlund blunds)
-    txpBatch <- tgsApplyBlocks (natTrace liftIO logTrace) $ map toTxpBlund blunds
+                                       logTrace'
+                                       (map toDlgBlund blunds)
+    txpBatch <- tgsApplyBlocks logTrace' $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks (natTrace liftIO logTrace) pm bvd (map toSscBlock blocks) Nothing
+        sscApplyBlocks logTrace' pm bvd (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -229,14 +230,15 @@ rollbackBlocksUnsafe
     -> NewestFirst NE Blund
     -> m ()
 rollbackBlocksUnsafe logTrace pm bsc scb toRollback = do
+    let logTrace' = natTrace liftIO logTrace
     slogRoll <- slogRollbackBlocks logTrace bsc scb toRollback
-    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (natTrace liftIO logTrace) (map toDlgBlund toRollback)
-    usRoll <- SomeBatchOp <$> usRollbackBlocks (natTrace liftIO logTrace)
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks logTrace' (map toDlgBlund toRollback)
+    usRoll <- SomeBatchOp <$> usRollbackBlocks logTrace
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    txRoll <- tgsRollbackBlocks (natTrace liftIO logTrace) $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (natTrace liftIO logTrace)
+    txRoll <- tgsRollbackBlocks logTrace' $ map toTxpBlund toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks logTrace'
         (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll

@@ -34,8 +34,7 @@ import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Some (Some)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logError)
+import           Pos.Util.Trace.Named (TraceNamed, logError, natTrace)
 import           Pos.Util.Util (sortWithMDesc)
 
 -- | Verify 'SscPayload' with respect to data provided by

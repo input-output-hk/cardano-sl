@@ -53,9 +53,8 @@ import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getAdoptedBVFull, getCompetingBVStates)
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
-                     logWarning)
+                     logWarning, natTrace)
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------

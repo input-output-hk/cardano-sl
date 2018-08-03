@@ -61,14 +61,15 @@ withdraw wr = withSublogger (LoggerName "withdraw") $ do
             logError "Withdrawal queue is full"
             throwError $ err503 { errBody = "Withdrawal queue is full" }
         Right wdResp -> do
-            whenJust (wdResp ^? _WithdrawalSuccess) $ \txn -> do
-              let amount = unV1 $ txAmount txn
-              logInfo ((txn ^. to show . packed) <> " withdrew: "
-                                                <> (amount ^. to show . packed))
-              incWithDrawn amount
-            whenJust (wdResp  ^? _WithdrawalError) $ \err -> do
-                logError ("Error from wallet: " <> err)
-                throwError $ err503 { errBody = (fromStrict err) ^. re utf8 }
+            case wdResp of
+                WithdrawalSuccess txn -> do
+                  let amount = unV1 $ txAmount txn
+                  logInfo ((txn ^. to show . packed) <> " withdrew: "
+                                                    <> (amount ^. to show . packed))
+                  incWithDrawn amount
+                WithdrawalError err -> do
+                  logError ("Error from wallet: " <> err)
+                  throwError $ err503 { errBody = (fromStrict err) ^. re utf8 }
             return wdResp
 
 -- | Get the address to return ADA to

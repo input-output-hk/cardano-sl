@@ -35,6 +35,7 @@ library
                        Pos.Chain.Block.Types
                        Pos.Chain.Block.Slog.Types
                        Pos.Chain.Block.Logic.Integrity
+                       Pos.Chain.Block.JsonLog
 
                        Pos.Chain.Delegation.Cede
                        Pos.Chain.Delegation.Cede.Class

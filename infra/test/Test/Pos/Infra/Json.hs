@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Test.Pos.Infra.Json
        ( tests
@@ -6,16 +7,24 @@ module Test.Pos.Infra.Json
 
 import           Universum
 
+import           Data.Map
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+import           Network.Broadcast.OutboundQueue (MaxBucketSize (..))
+import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
+import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Infra.Network.Types (NodeName (..))
+import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
+                     NodeMetadata (..), NodeRegion (..), NodeRoutes (..),
+                     Topology (..))
 
 import           Test.Pos.Infra.Gen (genAllStaticallyKnownPeers, genDnsDomains,
                      genDomain, genMaxBucketSize, genNodeAddr,
                      genNodeAddrMaybe, genNodeMetaData, genNodeName,
                      genNodeRegion, genNodeRoutes, genNodeType, genTopology)
-import           Test.Pos.Util.Golden (eachOf)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 
 --------------------------------------------------------------------------------
@@ -118,10 +127,67 @@ roundTripAllStaticallyKnownPeers =
 -- Topology
 --------------------------------------------------------------------------------
 
+golden_TopologyBehindNAT :: Property
+golden_TopologyBehindNAT =
+    goldenTestJSON exampleTopologyBehindNAT "test/golden/TopologyBehindNAT"
+
+golden_TopologyStatic :: Property
+golden_TopologyStatic =
+    goldenTestJSON exampleTopologyStatic "test/golden/TopologyStatic"
+
+golden_TopologyP2P :: Property
+golden_TopologyP2P =
+    goldenTestJSON exampleTopologyP2P "test/golden/TopologyP2P"
+
+golden_TopologyTraditional :: Property
+golden_TopologyTraditional =
+    goldenTestJSON exampleTopologyTraditional "test/golden/TopologyTraditional"
+
 roundTripTopology :: Property
 roundTripTopology =
     eachOf 1000 genTopology roundTripsAesonShow
 
-tests :: IO Bool
-tests =  H.checkParallel $$discoverRoundTrip
+--------------------------------------------------------------------------------
+-- Example golden datatypes
+--------------------------------------------------------------------------------
 
+exampleTopologyBehindNAT :: Topology
+exampleTopologyBehindNAT =
+    TopologyBehindNAT
+        42
+        50
+        $ DnsDomains [[NodeAddrExact "185.255.111.139" (Just 65413)]
+                     ,[NodeAddrDNS "QGrCxCYPaqJgFFympdkGamCUQSsTWv" (Just 53415)]
+                     ,[NodeAddrDNS "wcrSGCKclFbbZUnTypSGJnvZcOlGTdVgWuAfUiUKFDtKEGfPcQKWSFfZbTbgPAKewXbXaGcqdFSdDYqsbyKQZIBlUcxNqonGMVIEYBiM" (Just 19071)]]
+
+exampleTopologyP2P :: Topology
+exampleTopologyP2P = TopologyP2P 42 50 (BucketSizeMax 100)
+
+exampleTopologyStatic :: Topology
+exampleTopologyStatic = TopologyStatic $
+    AllStaticallyKnownPeers $
+        fromList [(NodeName "m1ZDkWY"
+                 , NodeMetadata NodeCore
+                                (NodeRegion "4XKfn3F2N")
+                                (NodeRoutes [[NodeName "TOORKIKeT"]
+                                           ,[NodeName "7fm"]
+                                           ,[NodeName "eue2vV1hi"]
+                                           ,[NodeName "mFFL"]
+                                           ,[NodeName "84v"]
+                                           ,[NodeName "8N"]
+                                           ,[NodeName "xBD75E"]
+                                           ,[NodeName "Yd78Fb"]])
+                                (DnsDomains [])
+                                1
+                                1
+                                (NodeAddrDNS (Just "ekKxWFhuqyvriOtsMUMQfUkhffLkpd") (Just 16071))
+                                True
+                                False
+                                BucketSizeUnlimited)]
+
+exampleTopologyTraditional :: Topology
+exampleTopologyTraditional = TopologyTraditional 42 50 (BucketSizeMax 100)
+
+tests :: IO Bool
+tests = (&&) <$> H.checkSequential $$discoverGolden
+             <*> H.checkParallel $$discoverRoundTrip

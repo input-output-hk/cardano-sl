@@ -51,27 +51,35 @@ import           Pos.Util.Util (aesonError, toAesonError)
 -- describes the entire network topology (all statically known nodes), not just
 -- the topology from the point of view of the current node.
 data Topology =
-    TopologyStatic {
-        topologyAllPeers :: !AllStaticallyKnownPeers
-      }
+    -- | TopologyStatic topologyAllPeers
+    TopologyStatic !AllStaticallyKnownPeers
 
-  | TopologyBehindNAT {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyDnsDomains :: !(DnsDomains DNS.Domain)
-      }
+    -- | TopologyBehindNAT
+    --       topologyValency
+    --       topologyFallbacks
+    --       topologyDnsDomains
+  | TopologyBehindNAT
+        !Valency
+        !Fallbacks
+        !(DnsDomains DNS.Domain)
 
-  | TopologyP2P {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyMaxSubscrs :: !OQ.MaxBucketSize
-      }
+    -- | TopologyP2P
+    --       topologyValency
+    --       topologyFallbacks
+    --       topologyMaxSubscrs
+  | TopologyP2P
+        !Valency
+        !Fallbacks
+        !OQ.MaxBucketSize
 
-  | TopologyTraditional {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyMaxSubscrs :: !OQ.MaxBucketSize
-      }
+    -- | TopologyTraditional
+    --       topologyValency
+    --       topologyFallbacks
+    --       topologyMaxSubscrs
+  | TopologyTraditional
+        !Valency
+        !Fallbacks
+        !OQ.MaxBucketSize
   deriving (Eq, Generic, Show)
 
 -- | All statically known peers in the newtork
@@ -405,7 +413,10 @@ instance FromJSON Topology where
                   topologyDnsDomains <- walletObj .:  "relays"
                   topologyValency    <- walletObj .:? "valency"   .!= 1
                   topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
-                  return TopologyBehindNAT{..}
+                  return $ TopologyBehindNAT
+                              topologyValency
+                              topologyFallbacks
+                              topologyDnsDomains
           (Nothing, Nothing, Just p2p) ->
               flip (A.withObject "P2P") p2p $ \p2pObj -> do
                   variantTxt         <- p2pObj .: "variant"
@@ -413,8 +424,14 @@ instance FromJSON Topology where
                   topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
                   topologyMaxSubscrs <- mBucketSize <$> p2pObj .:? "maxSubscrs"
                   flip (A.withText "P2P variant") variantTxt $ toAesonError . \case
-                      "traditional" -> Right TopologyTraditional{..}
-                      "normal"      -> Right TopologyP2P{..}
+                      "traditional" -> Right $ TopologyTraditional
+                                                   topologyValency
+                                                   topologyFallbacks
+                                                   topologyMaxSubscrs
+                      "normal"      -> Right $ TopologyP2P
+                                                   topologyValency
+                                                   topologyFallbacks
+                                                   topologyMaxSubscrs
                       _             -> Left "P2P variant: expected \
                                             \'traditional' or 'normal'"
           _ ->

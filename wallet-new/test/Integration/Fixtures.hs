@@ -8,7 +8,7 @@ module Integration.Fixtures
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
+import           Pos.Core.Configuration (generatedSecrets)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret,
                      poorSecretToEncKey)
@@ -44,7 +44,7 @@ generateInitialState = do
     wallets <- generatedSecretsToWalletSecrets <$> getGeneratedSecrets
     forM_ wallets (uncurry importWalletDo)
   where
-    getGeneratedSecrets :: (MonadFail m, HasGeneratedSecrets) => m GeneratedSecrets
+    getGeneratedSecrets :: (MonadFail m) => m GeneratedSecrets
     getGeneratedSecrets = do
         let msg = "Couldn't find GeneratedSecrets. To fix this, make sure you \
                   \run the following program with a `TestnetInitializer`."

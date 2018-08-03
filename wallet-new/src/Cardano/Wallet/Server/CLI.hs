@@ -5,7 +5,6 @@ module Cardano.Wallet.Server.CLI where
 
 import           Universum
 
-import           Data.Maybe (fromJust)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,

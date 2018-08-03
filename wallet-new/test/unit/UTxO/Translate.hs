@@ -32,7 +32,7 @@ import           Pos.Chain.Block
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
-import           Pos.Core.Block (Block, GenesisBlock, GenesisBlockHeader,
+import           Pos.Chain.Block (Block, GenesisBlock, GenesisBlockHeader,
                      HeaderHash, MainBlock, gbBody, gbHeader, gbLeaders,
                      headerHashG)
 import           Pos.Core.Chrono

@@ -31,7 +31,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Block (VerifyHeaderParams (..), verifyHeader)
 import           Pos.Core (blkSecurityParam, difficultyL, epochIndexL,
                      getEpochOrSlot)
-import           Pos.Core.Block (BlockHeader (..), HeaderHash, headerHash,
+import           Pos.Chain.Block (BlockHeader (..), HeaderHash, headerHash,
                      headerHashG, headerSlotL, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)

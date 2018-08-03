@@ -1,10 +1,11 @@
 {-# OPTIONS_GHC -Wno-redundant-constraints #-} -- for the Getter instances
 
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
 -- | Union of blockchain types.
 
-module Pos.Core.Block.Union.Types
+module Pos.Chain.Block.Union.Types
        ( BlockHeader (..)
        , _BlockHeaderGenesis
        , _BlockHeaderMain
@@ -43,8 +44,8 @@ module Pos.Core.Block.Union.Types
        , IsGenesisHeader
        , IsMainHeader (..)
 
-       , module Pos.Core.Block.Genesis.Types
-       , module Pos.Core.Block.Main.Types
+       , module Pos.Chain.Block.Genesis.Types
+       , module Pos.Chain.Block.Main.Types
 
        -- ** Lenses
        -- * MainToSign
@@ -116,14 +117,14 @@ import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,
                      encodeListLen, enforceSize)
-import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
+import           Pos.Chain.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbBody, gbExtra, gbHeader,
                      gbPrevBlock, gbhBodyProof, gbhConsensus, gbhExtra,
                      gbhPrevBlock)
-import           Pos.Core.Block.Genesis.Types (GenesisBody (..),
+import           Pos.Chain.Block.Genesis.Types (GenesisBody (..),
                      GenesisConsensusData (..), GenesisExtraBodyData (..),
                      GenesisExtraHeaderData (..), GenesisProof (..), gcdEpoch)
-import           Pos.Core.Block.Main.Types (BlockBodyAttributes,
+import           Pos.Chain.Block.Main.Types (BlockBodyAttributes,
                      BlockHeaderAttributes, MainBody (..), MainExtraBodyData,
                      MainExtraHeaderData, MainProof (..))
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))

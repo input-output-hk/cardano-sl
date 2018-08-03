@@ -37,7 +37,7 @@ import           Pos.Chain.Update (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
                      epochIndexL, flattenSlotId)
-import           Pos.Core.Block (Block, genBlockLeaders, headerHash,
+import           Pos.Chain.Block (Block, genBlockLeaders, headerHash,
                      headerHashG, mainBlockSlot, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)

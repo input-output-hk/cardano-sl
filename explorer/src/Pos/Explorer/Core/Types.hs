@@ -9,7 +9,7 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core (Timestamp)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Chrono (NewestFirst)
 import           Pos.Core.Txp (TxId, TxUndo)
 

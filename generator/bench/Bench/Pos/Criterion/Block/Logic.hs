@@ -17,7 +17,7 @@ import           System.Wlog (LoggerName (..))
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Block (VerifyBlockParams (..),
                      VerifyHeaderParams (..), verifyBlock, verifyHeader)
-import           Pos.Core.Block (Block, getBlockHeader)
+import           Pos.Chain.Block (Block, getBlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,

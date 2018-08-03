@@ -76,7 +76,7 @@ import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
                      getSlotIndex, mkCoin, sumCoins, timestampToPosix,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin,
                      unsafeSubCoin)
-import           Pos.Core.Block (MainBlock, gbHeader, gbhConsensus, headerHash,
+import           Pos.Chain.Block (MainBlock, gbHeader, gbhConsensus, headerHash,
                      mainBlockSlot, mainBlockTxPayload, mcdSlot, prevBlockL)
 import           Pos.Core.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,

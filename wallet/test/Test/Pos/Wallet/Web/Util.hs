@@ -42,7 +42,7 @@ import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
                      genesisSecretsPoor)
-import           Pos.Core.Block (blockHeader, headerHashG)
+import           Pos.Chain.Block (blockHeader, headerHashG)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)

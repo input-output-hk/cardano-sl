@@ -29,13 +29,6 @@ library
 
                        Pos.Core.NetworkAddress
 
-                       Pos.Core.Block
-                       Pos.Core.Block.Blockchain
-                       Pos.Core.Block.Genesis
-                       Pos.Core.Block.Main
-                       Pos.Core.Block.Union
-                       Pos.Core.Block.Constructors
-
                        Pos.Core.Common
                        Pos.Core.Configuration
                        Pos.Core.Constants
@@ -80,15 +73,6 @@ library
 
                        -- Binary
                        Pos.Core.Binary.Orphans
-
-                       -- Block
-                       Pos.Core.Block.Genesis.Lens
-                       Pos.Core.Block.Genesis.Instances
-                       Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Instances
-                       Pos.Core.Block.Main.Types
-                       Pos.Core.Block.Union.ComponentBlock
-                       Pos.Core.Block.Union.Types
 
                        -- Common
                        Pos.Core.Common.AddrAttributes

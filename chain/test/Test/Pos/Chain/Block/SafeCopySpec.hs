@@ -9,7 +9,7 @@ module Test.Pos.Chain.Block.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
-import qualified Pos.Core.Block as Core
+import qualified Pos.Chain.Block as Core
 import           Pos.Core.Configuration (defaultCoreConfiguration,
                      withGenesisSpec)
 

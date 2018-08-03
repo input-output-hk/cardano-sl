@@ -22,7 +22,7 @@ import qualified Pos.Chain.Block as Block
 import           Pos.Core (EpochIndex (..), GenesisHash (..), HasConfiguration,
                      SlotId (..), difficultyL, genesisHash)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Block (BlockHeader (..), BlockSignature (..),
+import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
                      GenericBlockHeader (..), GenesisBlockchain,
                      GenesisBody (..), GenesisConsensusData (..),
                      GenesisExtraHeaderData (..), MainBlockchain,

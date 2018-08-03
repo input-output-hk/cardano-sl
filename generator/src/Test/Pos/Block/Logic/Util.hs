@@ -28,7 +28,7 @@ import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core (BlockCount, HasGenesisData, HasProtocolConstants,
                      SlotId (..), epochIndexL, genesisData)
-import           Pos.Core.Block (Block)
+import           Pos.Chain.Block (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Crypto (ProtocolMagic)

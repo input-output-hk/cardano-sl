@@ -27,7 +27,7 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
                      difficultyL, epochIndexL, flattenSlotId, sumCoins,
                      unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Attributes (areAttributesKnown)
-import           Pos.Core.Block (HeaderHash, IsMainHeader (..), headerHashG,
+import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG,
                      headerSlotL)
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),

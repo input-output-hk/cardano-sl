@@ -34,7 +34,7 @@ import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
                      blkSecurityParam, difficultyL, epochOrSlotToSlot,
                      epochSlots, flattenSlotId, getEpochOrSlot,
                      getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
-import           Pos.Core.Block (gbHeader)
+import           Pos.Chain.Block (gbHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Core.JsonLog (CanJsonLog (..))

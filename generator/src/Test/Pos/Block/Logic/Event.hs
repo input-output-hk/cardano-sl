@@ -22,7 +22,7 @@ import qualified GHC.Exts as IL
 
 import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core.Block (Block, HeaderHash)
+import           Pos.Chain.Block (Block, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Exception (CardanoFatalError (..))

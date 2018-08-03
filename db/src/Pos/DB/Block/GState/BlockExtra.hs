@@ -31,7 +31,7 @@ import           Pos.Chain.Block (LastBlkSlots, noLastBlkSlots)
 import           Pos.Core (FlatSlotId, HasCoreConfiguration,
                      HasProtocolConstants, genesisHash, slotIdF,
                      unflattenSlotId)
-import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
+import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
                      headerHash)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (shortHashF)

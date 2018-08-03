@@ -31,7 +31,9 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable,
                      choose, counterexample, forAll, generate, property,
                      suchThat)
 
-import           Pos.Chain.Block (Blund, SlogUndo (..), Undo (..))
+import           Pos.Chain.Block (Block, BlockHeader, Blund, GenesisBlock,
+                     HeaderHash, MainBlock, SlogUndo (..), Undo (..),
+                     getBlockHeader, headerHash, mkGenesisBlock)
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
@@ -42,9 +44,6 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      LocalSlotIndex (..), SlotId (..), SlotLeaders,
                      StakeholderId, difficultyL, genesisHash,
                      makePubKeyAddressBoot)
-import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, HeaderHash,
-                     MainBlock, getBlockHeader, headerHash)
-import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))

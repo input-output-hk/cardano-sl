@@ -33,7 +33,7 @@ import qualified Formatting.Buildable
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (ChainDifficulty)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')

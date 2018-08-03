@@ -18,10 +18,10 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Chain.Block.Slog.Types (SlogUndo (..))
+import           Pos.Chain.Block.Union (Block, BlockHeader, HasHeaderHash (..))
 import           Pos.Chain.Delegation (DlgUndo)
 import           Pos.Chain.Update (USUndo)
 import           Pos.Core (HasConfiguration, HasDifficulty (..))
-import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..))
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Util.Util (HasLens (..))
 

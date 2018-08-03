@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Core (GenesisHash (..), SlotCount, genesisHash)
-import           Pos.Core.Block (genesisBlock0, headerHash)
+import           Pos.Chain.Block (genesisBlock0, headerHash)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (prepareBlockDB)

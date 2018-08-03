@@ -65,7 +65,7 @@ import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
 import           Pos.Chain.Block (Blund)
 import           Pos.Core (Address)
-import           Pos.Core.Block (Block, HeaderHash, mainBlockTxPayload)
+import           Pos.Chain.Block (Block, HeaderHash, mainBlockTxPayload)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
                      txpTxs)

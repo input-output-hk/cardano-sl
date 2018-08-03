@@ -24,7 +24,10 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Block (BlockHeader (..), Blockchain (..),
+                     GenesisBlock, HasSlogGState (..), HeaderHash, MainBlock,
+                     MainBlockchain, headerHash, mkGenesisBlock, mkMainBlock)
+import qualified Pos.Chain.Block as BC
 import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
@@ -34,11 +37,6 @@ import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
                      SlotId (..), chainQualityThreshold, epochIndexL,
                      epochSlots, flattenSlotId, getEpochOrSlot)
-import           Pos.Core.Block (BlockHeader (..), Blockchain (..),
-                     GenesisBlock, HeaderHash, MainBlock, MainBlockchain,
-                     headerHash)
-import qualified Pos.Core.Block as BC
-import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.JsonLog (CanJsonLog (..))

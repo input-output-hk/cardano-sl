@@ -20,7 +20,7 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (difficultyL, isMoreDifficult)
-import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
+import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Core.Conc (delay)

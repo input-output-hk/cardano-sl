@@ -37,7 +37,7 @@ import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
 import           Pos.Core (ProtocolConstants (..), difficultyL)
-import           Pos.Core.Block (Block, BlockHeader (..), HeaderHash,
+import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
                      MainBlockHeader, blockHeader, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)

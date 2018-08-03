@@ -27,6 +27,18 @@ library
 
   other-modules:
 
+                       Pos.Chain.Block.Blockchain
+                       Pos.Chain.Block.Genesis
+                       Pos.Chain.Block.Genesis.Lens
+                       Pos.Chain.Block.Genesis.Instances
+                       Pos.Chain.Block.Genesis.Types
+                       Pos.Chain.Block.Main
+                       Pos.Chain.Block.Main.Instances
+                       Pos.Chain.Block.Main.Types
+                       Pos.Chain.Block.Union
+                       Pos.Chain.Block.Union.ComponentBlock
+                       Pos.Chain.Block.Union.Types
+                       Pos.Chain.Block.Constructors
                        Pos.Chain.Block.BHelpers
                        Pos.Chain.Block.Configuration
                        Pos.Chain.Block.Error
@@ -110,6 +122,8 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , cborg
+                     , cereal
                      , conduit
                      , containers
                      , cryptonite
@@ -132,6 +146,7 @@ library
                      , neat-interpolation
                      , parsec
                      , plutus-prototype
+                     , safecopy
                      , safe-exceptions
                      , serokell-util
                      , reflection
@@ -183,8 +198,10 @@ test-suite test
 
   other-modules:       Spec
                        Test.Pos.Chain.Block.Arbitrary
+                       Test.Pos.Chain.Block.Bi
                        Test.Pos.Chain.Block.BlockSpec
                        Test.Pos.Chain.Block.CborSpec
+                       Test.Pos.Chain.Block.Gen
                        Test.Pos.Chain.Block.SafeCopySpec
                        Test.Pos.Chain.Delegation.Arbitrary
                        Test.Pos.Chain.Lrc.FtsSpec

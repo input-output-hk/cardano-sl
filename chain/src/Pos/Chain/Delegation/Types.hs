@@ -18,8 +18,8 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Chain.Block.Union (ComponentBlock (..))
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Block (ComponentBlock (..))
 import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo,
                      ProxySKHeavy, checkDlgPayload)
 import           Pos.Crypto (ProxySecretKey, PublicKey, isSelfSignedPsk)

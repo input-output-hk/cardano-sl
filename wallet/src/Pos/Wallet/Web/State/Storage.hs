@@ -128,7 +128,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
                      VssMinTTL (..))
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Txp (TxAux, TxId)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes

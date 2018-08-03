@@ -31,7 +31,7 @@ import           Pos.Chain.Block (ApplyBlocksException, Blund,
                      LastKnownHeaderTag)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (isMoreDifficult)
-import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
+import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash, blockHeader, gbHeader, headerHashG,
                      prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),

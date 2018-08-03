@@ -30,7 +30,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Core (HasCoreConfiguration, HasGenesisData,
                      HasProtocolConstants, epochIndexL, epochOrSlotG)
-import           Pos.Core.Block (ComponentBlock (..), HeaderHash, headerHash)
+import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)

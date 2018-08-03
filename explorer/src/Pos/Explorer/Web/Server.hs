@@ -63,7 +63,7 @@ import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
                      isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot,
                      sumCoins, timestampToPosix, unsafeAddCoin,
                      unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Block (Block, HeaderHash, MainBlock, gbHeader,
+import           Pos.Chain.Block (Block, HeaderHash, MainBlock, gbHeader,
                      gbhConsensus, mainBlockSlot, mainBlockTxPayload, mcdSlot)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxIn (..), TxOutAux (..),

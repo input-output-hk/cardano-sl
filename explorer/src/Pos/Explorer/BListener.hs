@@ -33,7 +33,7 @@ import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (topsortTxs)
 import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
                      difficultyL, epochIndexL, getChainDifficulty)
-import           Pos.Core.Block (Block, HeaderHash, MainBlock, headerHash,
+import           Pos.Chain.Block (Block, HeaderHash, MainBlock, headerHash,
                      mainBlockSlot, mainBlockTxPayload)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst)

@@ -23,7 +23,7 @@ import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
                      reportUnexpectedError, runPollT)
 import           Pos.Core (HasCoreConfiguration, HasProtocolConstants,
                      ProtocolMagic, StakeholderId, addressHash, epochIndexL)
-import           Pos.Core.Block (ComponentBlock (..), headerHashG,
+import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
                      headerLeaderKeyL, headerSlotL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)

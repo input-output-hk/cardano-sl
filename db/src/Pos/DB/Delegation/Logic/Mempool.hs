@@ -30,7 +30,7 @@ import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
                      dwProxySKPool, dwTip, emptyCedeModifier, isRevokePsk,
                      pskToDlgEdgeAction)
 import           Pos.Core (addressHash, epochIndexL)
-import           Pos.Core.Block (headerHash)
+import           Pos.Chain.Block (headerHash)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Update (bvdMaxBlockSize)

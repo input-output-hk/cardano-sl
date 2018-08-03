@@ -29,7 +29,7 @@ import           Pos.Chain.Block (ApplyBlocksException (..), Blund,
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
-import           Pos.Core.Block (Block, HeaderHash, headerHashG, prevBlockL)
+import           Pos.Chain.Block (Block, HeaderHash, headerHashG, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)

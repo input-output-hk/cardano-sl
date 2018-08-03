@@ -27,7 +27,7 @@ import           Data.Word (Word32)
 import           Formatting.Buildable (Buildable (..))
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
+import           Pos.Chain.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
                      mbWitnesses)
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), TxOut,
                      TxOutAux (..), txInputs, txOutputs)

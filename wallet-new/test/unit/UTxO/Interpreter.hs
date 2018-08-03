@@ -48,7 +48,7 @@ import           Pos.Chain.Txp (Utxo, txOutStake)
 import           Pos.Chain.Update
 import           Pos.Client.Txp
 import           Pos.Core
-import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
+import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
 import           Pos.Core.Chrono
 import           Pos.Core.Delegation (DlgPayload (..))

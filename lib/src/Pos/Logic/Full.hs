@@ -24,7 +24,7 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
 import           Pos.Chain.Txp (MemPool (..), TxpConfiguration)
 import           Pos.Communication (NodeId)
 import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
-import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)

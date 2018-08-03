@@ -21,7 +21,7 @@ import qualified Data.Map as M
 import           Pos.Chain.Txp (TxId, UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core (Address, ChainDifficulty, ProtocolConstants)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId,
                      CTxId, CTxMeta, Wal)

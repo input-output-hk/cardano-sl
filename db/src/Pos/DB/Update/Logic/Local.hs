@@ -40,7 +40,7 @@ import           Pos.Chain.Update (HasUpdateConfiguration,
                      execPollT, getAdoptedBV, modifyPollModifier, psVotes,
                      reportUnexpectedError, runPollT)
 import           Pos.Core (ProtocolMagic, SlotId (..), slotIdF)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Update (BlockVersionData (..), UpId,
                      UpdatePayload (..), UpdateProposal, UpdateVote (..))

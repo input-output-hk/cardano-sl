@@ -48,7 +48,7 @@ import           Universum
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
 import           Pos.Core
-import           Pos.Core.Block (BlockHeader (..), GenesisBlock, HeaderHash,
+import           Pos.Chain.Block (BlockHeader (..), GenesisBlock, HeaderHash,
                      blockHeaderHash, genesisBlock0, _gbHeader)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis (GeneratedSecrets (..), GenesisData (..),

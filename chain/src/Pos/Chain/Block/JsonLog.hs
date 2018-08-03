@@ -6,12 +6,12 @@ module Pos.Chain.Block.JsonLog
 import           Formatting (sformat)
 import           Universum
 
+import           Pos.Chain.Block.Blockchain (gbHeader, gbhPrevBlock)
+import           Pos.Chain.Block.Genesis (genBlockEpoch)
+import           Pos.Chain.Block.Union (Block, HeaderHash, headerHash,
+                     headerHashF, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Core (HasConfiguration, SlotId (..), getEpochIndex,
                      getSlotIndex, mkLocalSlotIndex)
-import           Pos.Core.Block (Block, HeaderHash, gbHeader, gbhPrevBlock,
-                     headerHash, headerHashF, mainBlockTxPayload)
-import           Pos.Core.Block.Genesis (genBlockEpoch)
-import           Pos.Core.Block.Union (mainBlockSlot)
 import           Pos.Core.JsonLog.LogEvents (JLBlock (..), JLEvent (..))
 import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)

@@ -27,7 +27,7 @@ import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
                      genesisData)
-import           Pos.Core.Block (headerHash)
+import           Pos.Chain.Block (headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
                      splitAtNewestFirst, toNewestFirst, _NewestFirst)

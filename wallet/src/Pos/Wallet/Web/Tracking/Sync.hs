@@ -61,7 +61,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..),
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HasDifficulty (..), HasProtocolConstants, Timestamp (..),
                      blkSecurityParam, genesisHash, timestampToPosix)
-import           Pos.Core.Block (BlockHeader (..), HeaderHash, MainBlock,
+import           Pos.Chain.Block (BlockHeader (..), HeaderHash, MainBlock,
                      getBlockHeader, headerHash, headerSlotL,
                      mainBlockTxPayload)
 import           Pos.Core.Chrono (getNewestFirst)

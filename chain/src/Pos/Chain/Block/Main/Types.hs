@@ -1,6 +1,6 @@
 -- | Types defining the main blockchain.
 
-module Pos.Core.Block.Main.Types
+module Pos.Chain.Block.Main.Types
        ( MainProof (..)
        , MainExtraHeaderData (..)
        , MainBody (..)
@@ -54,7 +54,7 @@ instance Bi MainProof where
                          decode <*>
                          decode
 
-instance SafeCopy SscProof => SafeCopy MainProof where
+instance SafeCopy MainProof where
     getCopy = contain $ do
         mpTxProof <- safeGet
         mpMpcProof      <- safeGet
@@ -128,8 +128,7 @@ instance Bi MainBody where
 
 instance NFData MainBody
 
-instance SafeCopy SscPayload =>
-         SafeCopy MainBody where
+instance SafeCopy MainBody where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
         _mbSscPayload    <- safeGet

@@ -38,7 +38,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
-import           Pos.Core.Block (Block, ComponentBlock (..), GenesisBlock,
+import           Pos.Chain.Block (Block, ComponentBlock (..), GenesisBlock,
                      IsGenesisHeader, MainBlock, gbHeader, headerHash,
                      mainBlockDlgPayload, mainBlockSscPayload,
                      mainBlockTxPayload, mainBlockUpdatePayload)

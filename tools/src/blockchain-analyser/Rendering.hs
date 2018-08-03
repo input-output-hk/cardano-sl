@@ -14,7 +14,7 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Undo)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
                      SlotId (..), getEpochIndex, getEpochOrSlot)
-import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash,
+import           Pos.Chain.Block (Block, BlockHeader (..), blockHeaderHash,
                      getBlockHeader, mbTxs, _gbBody, _gbhConsensus,
                      _mcdLeaderKey)
 import           Pos.Core.Txp (Tx)

@@ -19,7 +19,7 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.Block (Block, HeaderHash, prevBlockL)
+import           Pos.Chain.Block (Block, HeaderHash, prevBlockL)
 import           Pos.DB (MonadDBRead (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB

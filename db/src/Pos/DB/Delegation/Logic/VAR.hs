@@ -34,7 +34,7 @@ import           Pos.Chain.Delegation (CedeModifier (..), DlgBlund,
 import           Pos.Chain.Lrc (RichmenSet)
 import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
                      epochIndexL, siEpoch)
-import           Pos.Core.Block (Block, ComponentBlock (..), gbHeader,
+import           Pos.Chain.Block (Block, ComponentBlock (..), gbHeader,
                      headerHash, mainBlockDlgPayload, mainBlockSlot,
                      prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))

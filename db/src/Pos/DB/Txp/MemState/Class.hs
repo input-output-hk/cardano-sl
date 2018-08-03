@@ -31,7 +31,7 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Txp (MemPool (..), ToilVerFailure, TxpConfiguration,
                      UndoMap, UtxoModifier)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.Core.Txp (TxAux, TxId)

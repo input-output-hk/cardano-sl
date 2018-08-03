@@ -21,6 +21,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
+import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
 import           Pos.Chain.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId,
                      isSharesId, verifySignedCommitment, vssThreshold)
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
@@ -30,7 +31,6 @@ import qualified Pos.Chain.Ssc.VssCertData as VCD
 import           Pos.Core (EpochIndex (..), HasGenesisData,
                      HasProtocolConstants, SlotId (..), StakeholderId,
                      genesisVssCerts)
-import           Pos.Core.Block (IsMainHeader, headerSlotL)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (..), SscPayload (..),
                      VssCertificatesMap)

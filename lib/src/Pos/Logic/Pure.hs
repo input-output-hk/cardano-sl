@@ -16,7 +16,7 @@ import           Pos.Chain.Txp (emptyTxPayload)
 import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Core.Block (Block, BlockHeader (..), BlockHeaderAttributes,
+import           Pos.Chain.Block (Block, BlockHeader (..), BlockHeaderAttributes,
                      BlockSignature (..), ExtraBodyData, ExtraHeaderData,
                      GenericBlock (..), GenericBlockHeader (..), HeaderHash,
                      MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),

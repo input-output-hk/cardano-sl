@@ -33,7 +33,7 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      mpLocalTxs, normalizeToil, processTx, topsortTxs,
                      utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)

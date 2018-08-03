@@ -64,7 +64,7 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 import           Pos.Core (BlockCount, EpochIndex, StakeholderId,
                      coinPortionToDouble)
-import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
+import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      GenesisBlockHeader, MainBlock, MainBlockHeader)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..),

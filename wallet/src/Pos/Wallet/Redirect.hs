@@ -32,7 +32,7 @@ import           Pos.Chain.Update (ConfirmedProposalState)
 import qualified Pos.Context as PC
 import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp,
                      difficultyL, getCurrentTimestamp)
-import           Pos.Core.Block (BlockHeader)
+import           Pos.Chain.Block (BlockHeader)
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (ProtocolMagic, WithHash (..))
 import qualified Pos.DB.BlockIndex as DB

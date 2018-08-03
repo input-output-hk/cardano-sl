@@ -308,7 +308,7 @@ certificate that has been published to the blockchain.
 
 Concretely, for a pointer address, $\beta$ is a _certificate pointer_,
 given by the tuple $(N_\text{block}, N_\text{tx}, N_\text{cert})$,
-where $N_\text{block}$ is the number of a blockin the chain, and
+where $N_\text{block}$ is the number of a block in the chain, and
 $N_\text{tx}$ is the number of a transaction within that block. This
 transaction should, as its $N_\text{cert}$s metadata, contain a
 stakepool registration certificate[^pointer-heavyweight] (see
@@ -330,10 +330,10 @@ which control, but not own, large amounts of Ada.
 For enterprise addresses, $\beta$ is set to a fixed constant value,
 making them easily distinguishable from other types of addresses.
 
-When determining the stake distribution for the follow the Satoshi
+When determining the stake distribution for the Follow the Satoshi
 algorithm, enterprise addresses are completely ignored.  Thus, holding
 funds in an enterprise address will not increase the chances for being
-elected as slot leader.  Note however, that this effectively decreases
+elected as a slot leader.  Note however, that this effectively decreases
 the total amount of stake, which plays into the hands of the
 adversary.
 
@@ -1093,7 +1093,7 @@ epoch
 
 The second criterion is meant to prevent large stake pools or
 stakeholders from being considered inactive if they experience a
-temporary outage outage that is shorter than an epoch, but long enough
+temporary outage that is shorter than an epoch, but long enough
 to cover 10 slots for which they were elected.
 
 Inactive stake keys will not be considered during leader
@@ -1300,7 +1300,7 @@ If the wallet consists of base addresses using the same staking key
 
 : the wallet should look up this staking key in the list of heavyweight
     delegation certificates. If there is a certificate for this key,
-    and it points to am active staking pool, the wallet should set its
+    and it points to an active staking pool, the wallet should set its
     delegation preference to use base addresses with the same staking
     key, and inform the user of this choice. If there is none, it
     should inform the user that the stake is currently undelegated,
@@ -1325,7 +1325,7 @@ centre to make sure that this choice is still competitive.
 ### Transition from Bootstrap Phase
 
 As of the time this document is written, Cardano is in the "bootstrap
-pahse", where the network is not decentralised, but federated.  All
+phase", where the network is not decentralised, but federated.  All
 stake is automatically delegated to seven stakeholders, by requiring
 that all the outputs of transactions are to bootstrap addresses (see
 \ref{bootstrap-address})[^TODO]. Those stakeholders have posted one

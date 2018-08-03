@@ -2360,3 +2360,262 @@ In the following, we describe how the requirements listed in
 : The goal of having reasonably short addresses has guided the design
     of delegation, and we do not see an obvious way of making them
     even shorter, while still satisfying the rest of the requirements.
+
+\appendix
+
+Assessment of Rewards Sharing Mechanisms
+========================================
+
+## General Considerations
+
+1. We use HD Wallets to provide some level of anonymity to stakeholders.
+   We would not like to abandon this anonymity for the ability to share rewards.
+    * To preserve this level of anonymity HD wallet users will need to
+       associate separate staking keys with each HD wallet generated address.
+2. We wish to avoid arbitrary growth in the UTxO (or any other globally
+   replicated record, eg contents of epoch boundary blocks).
+    * This is potentially at odds with the rewarding of all stakeholders
+      at all epochs
+
+3. We want to avoid creating dust (entries in the UTxO that are so small that
+   including them in a transaction is not economical, since their balance is
+   close to or even less than the increase in fees resulting from including
+   another input).
+     * The systemic issue is that dust is likely to have an unbounded lifetime
+       in the UTxO
+     * Transaction fee structure could be modified to remove the transaction cost
+       constraint. The requirement on action by the receiver still remains.
+4. The network has a finite capacity to process transactions. We should avoid
+   using a significant fraction of this capacity for sharing rewards. In
+   particular, we want to avoid causing unreasonable spikes in the transaction
+   rate.  Those could either bring the system down on their own, or act as an
+   invitation to a timed DoS attack.
+5. The stake pool operator should not be required to take an action to initiate
+   sharing rewards with members.
+6. Verifying that a reward is legitimate will require a node to access some
+   information (like the leader schedule of the epoch in which the reward was
+   earned, as well as the delegation pattern at the time the leader election for
+   that epoch took place). The time and space complexity for this should be
+   constant in the size of the blockchain and/or the UTxO of non-reward entries.
+
+Unless we want to give up on anonymity (1.), each address has to separately
+receive rewards. Together with 2., 3., and 4., this severely restricts any
+approach that distributes rewards using ordinary transactions.
+
+### Hierarchy of desirability of reward distribution
+
+* Reward stakeholders on the basis of their holding at an epoch boundary
+    * Stakeholders are not explicitly represented - there can be a proxy
+    * One representation of stake delegation (direct to stake pool) which
+      has the property of anonymity-via-aggregation. This, combined with the
+      desire to not require stakepools to do the distribution a UTxO centric
+      reward distribution mechanism.
+* Reward stakeholders that  maintain a UTxO/stake over the total epoch length.
+    * This may be seen a “regressive” property in that it would not reward
+      those stakeholders who engage in high-velocity value movements (e.g make
+      use of the HD wallet).
+    * This is a property of certain solutions.
+
+### Summary of key points of when rewards are calculated
+
+* Point in Time
+    * Just considers addresses at an epoch boundary
+* Duration in Time
+    * Set of stakeholder address and pool arrangement is fixed at an epoch
+      boundary (say epoch $N-1$ to epoch $N$)
+    * Rewards are calculated at the transition from epoch $N$ to epoch $N+1$
+    * Only stakeholder addresses that have non-zero associated value at the
+      epoch $N$ to $N+1$ boundary (i.e have  value at both the epoch $N-1$ to $N$ and
+      the epoch $N$ to $N+1$ boundaries) will be eligible to receive rewards
+        * Noting that this could interact badly with HD wallet users
+
+## Approaches that are Ruled Out
+
+### Manual Sharing
+
+In this approach, only stake pool operators are rewarded directly by the system,
+and it is their responsibility to share rewards with members of the pool.
+
+This approach has been ruled out, since it:
+
+1. requires additional trust in stake pool operators to do this correctly (5.)
+2. requires at least stake pool operators to group the addresses of each member,
+   to keep the volume of transactions somewhat reasonable (1., 2., 3., and 4.)
+3. The rewards for members that did not contribute much stake are likely to be
+   dust (3.)
+
+### Automatically Issue Transactions Each Epoch
+
+In this approach, the system automatically distributes rewards at the end of an
+epoch, by sending transactions with outputs to every address that delegated to
+a stake pool that produced at least one block during that epoch.
+
+This approach has been ruled out, since it:
+
+1. Leads to a super-linear growth of the UTxO, creating an output per address
+   per epoch (2.)
+2. Is likely to create lots of dust for small stakeholders (3.)
+3. Will lead to a huge burst of transactions, proportional to the number of
+   addresses with non-zero balance in the system (4.). This could be lessened
+   somewhat by sending the transactions over the course of the following epoch,
+   but it would still use up a large fraction of the system’s ability to process
+   transactions (4.)
+
+#### Complexity
+
+* Creates one "UTxO" per non-zero address at the boundary/duration - this would
+  create (today) ~650k transactions per epoch
+
+### Let Members Collect Rewards
+
+An alternative is to let every stake pool member be responsible for collecting
+their own rewards. This approach has the virtue that members could wait several
+epochs until they had accumulated enough rewards to warrant a transaction.  The
+overall rate of transactions for sharing rewards would be reduced, the transactions
+would not come in bursts, and the problem of creating dust could be avoided.
+
+However, this approach has been ruled out, since it:
+
+1. Requires nodes to cache or quickly retrieve the whole history of leader schedules,
+   as well as the delegation configurations at the time of each leader selection (6.)
+
+## Feasible Approaches
+
+### Automatic UTxO Updates
+
+This unique approach circumvents the problems of transaction rates, dust
+entries, and UTxO growth, at the expense of introducing an implicit modification
+of the UTxO set.
+
+After an epoch, each UTxO entry that delegated to a stake pool will have its
+balance updated to reflect the rewards that it earned. Since the update can be
+derived from information that every node has (leader schedule and delegation
+pattern at the last election), it can be carried out by each node individually.
+
+Sadly, this approach does come with its own drawbacks:
+
+1. It is not yet clear how a lightweight wallet would determine the correct UTxO set.
+2. It introduces an implicit update of each UTxO entry, a huge moving part that
+   makes it much harder to reason about the system.
+3. Transactions that are formed before an update, but included after it, will
+   have a larger total input than the issuer anticipated.
+4. (Public Perception) This may be perceived as subverting the notion of
+   immutability of the blockchain (at least in its UTxO model)
+
+### Lotteries per Stakepool
+
+A variation of "Automatically Issue Transactions Each Epoch", this approach
+avoids dust and creating a huge number of transactions by performing one
+lottery per stake pool. A number of winning addresses is determined, and the
+rewards are distributed amongst those addresses. The probability of any address
+winning the lottery is proportional to the stake that that address contributed
+to the pool. Benefits of this approach are:
+
+1. The number of transactions will be proportional to the number of stake pools
+   that signed at least one block, which is nicely bounded by the number of
+   slots in an epoch.
+2. The chances of creating dust entries is fairly low, since each winning
+   address will receive a sizeable fraction of the pools rewards.
+3. There is no need to group addresses per stake pool member.
+4. Possibly -- this would have to be investigated by legal -- this could make
+   Ada less like a security.
+
+The remaining drawbacks are:
+
+1. It will still create a burst of transactions. This could be prevented by
+   staggering the transactions that share rewards
+2. An individual stake pool member will on average receive the same rewards
+   as with any of the other approaches, but it will be much less predictable.
+   This might be problematic from a Public Perception perspective.
+3. (Public Perception) although (in the limit) this is the same outcome as
+   sharing, apparently most humans don’t see things that way - see Prospect
+   Theory (https://en.wikipedia.org/wiki/Prospect_theory) - they would prefer
+   known outputs (even if smaller) than unknown ones.  An additional indicator
+   of human response might be to look at a similar mechanism (random rewards
+   for depositing a fixed stake) has run since 1956.  Premium Bonds
+   (https://en.wikipedia.org/wiki/Premium_Bond) - computer nerds / crypto nuts
+   should note who helped create the original ERNIE). The public might like the
+   gambling aspect, businesses might not!
+
+### Reward accounts per stake key
+
+This is in some sense a variation of the "Automatic UTxO updates",
+but trying to address its shortcomings.
+
+Add a new class of address, reward addresses, based on a stake key.
+These addresses have special rules:
+
+* Account style accumulation, not UTxO style
+* Paid into only by reward payout mechanism, never by normal Txs.
+* Withdrawn from by normal Txs, using the stake key as the witness.
+
+At the end of an epoch once the pool rewards are known, identify all the
+stake keys that contribute to a pool and the rewards per stake key. The system
+implicitly issues a transaction/state-change to pay out rewards to each stake
+key reward account. These rewards accumulate if they are not withdrawn.
+
+It is to be decided if value held in a reward account contributes to stake
+that is delegated to a stake pool and hence itself attracts rewards. Doing
+so would reduce the incentive to withdraw early and would mean the stake
+corresponding to the reward is not effectively offline. It should be possible
+to do so since the value in the reward account is identified with the stake key,
+and the delegation of the stake key is known.
+
+Withdrawal of rewards is done similarly to the withdrawal transaction from the
+Chimeric Ledgers paper. This uses the stake key as the witness, which reveals
+the public part of the stake key. Note that this also requires a nonce to
+prevent replay attacks. One simplifying approach here might be to use the epoch
+number as the nonce, and to require the whole reward be withdrawn, and hence
+this could only be valid once within the epoch.
+
+This aggregation of rewards -- account style -- is the key to resolving the
+UTxO storage asymptotic complexity problem. It is the same fundamental approach
+as the “Automatic UTxO updates” approach, but putting the aggregation off to
+into a separate class of addresses, so that normal addresses remain in a pure
+UTxO style.
+
+The asymptotic storage complexity of the ledger state (ie UTxO size) is linear
+in the number of stake keys, but is unrelated to the number of epochs that
+have passed. This is in contrast to approaches that create UTxO entries for
+rewards on every epoch.
+
+An important constraint for this approach is that is relies on stake keys
+belonging to stakeholders. This means every stakeholder address must be
+associated with some stake key belonging to the stakeholder. This means it is
+not possible to use addresses that point directly to a stakepool and still be
+able to have a corresponding reward address, since there is not stake key to
+use for that reward address. There are alternatives to using addresses that
+point directly to pools, but these either reduce privacy or increase fees. One
+alternative that reduces privacy is for all addresses in a wallet to share the
+same stake key (either as base addresses, or a base address and pointer
+addresses to that stake key). This reduces privacy since all addresses in the
+wallet can be tied together by using the same stake key. Another alternative
+is to use a separate stake key for every address. This means using one
+delegation certificate per address. This increases the fees for creating
+addresses in a wallet following this policy, and for changing delegation
+choices. In principle there’s a sliding scale between the two previous option
+, using a number of stake keys, more than one but fewer than the number of
+addresses.
+
+* stake in reward accounts is ordinary stake, and hence is counted in delegation
+  to stake pools, or can be used directly in creating blocks.
+* There is a potential interaction with UTxO deposit/refund approach. It may
+  be that (because the refund is smaller than the reward) that negative values
+  need to be stored. Though this may be able to done by some registration cost.
+
+Advantages:
+
+* doesn’t “mutate” the UTxO. This reduces conceptual and implementation
+  complexity. It does not disrupt wallets and other things based on the UTxO model.
+
+Disadvantages:
+
+* introduces limited degree of account style chimeric ledgers. This adds a
+  degree of conceptual and implementation complexity.
+* cannot use pointer addresses directly to stake pools. Increases fee and
+  complexity cost of maintaining wallet privacy.
+* unless people stick to a single staking key (which would immediately mean
+  they give up all privacy, not a choice most people would be comfortable
+  with I suspect), we basically end up creating lots of staking keys, to
+  which we would only deposit once, and withdraw from once -- in other words,
+  we’d have reinvented UTxO entries, and the accumulation does not help.

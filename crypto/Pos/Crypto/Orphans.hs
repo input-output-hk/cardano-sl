@@ -8,14 +8,12 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import           Codec.CBOR.Decoding (Decoder)
 import qualified Codec.CBOR.Encoding as E
 import           Crypto.Error (CryptoFailable (..))
 import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Crypto.SCRAPE as Scrape
 import           Crypto.Scrypt (EncryptedPass (..))
 import           Data.Aeson (FromJSON (..), ToJSON (..))
-import           Data.Aeson.Types (Parser)
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
@@ -72,18 +70,15 @@ deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
 deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
 
-fromCryptoToDecoder :: T.Text -> CryptoFailable a -> Decoder s a
-fromCryptoToDecoder item (CryptoFailed e) = fail $ T.unpack $ "Pos.Crypto.Orphan.decode " <> item <> " failed because " <> show e
-fromCryptoToDecoder _ (CryptoPassed r) = return r
+fromCryptoFailable :: MonadFail m => T.Text -> CryptoFailable a -> m a
+fromCryptoFailable item (CryptoFailed e) = fail $ T.unpack $ "Pos.Crypto.Orphan." <> item <> " failed because " <> show e
+fromCryptoFailable _ (CryptoPassed r) = return r
 
-fromCryptoToAeson :: T.Text -> CryptoFailable a -> Parser a
-fromCryptoToAeson item (CryptoFailed e) = fail $ T.unpack $ "Pos.Crypto.Orphan.parseJSON "  <> item <> " failed because " <> show e
-fromCryptoToAeson _ (CryptoPassed r) = return r
 
 instance FromJSON Ed25519.PublicKey where
     parseJSON v = do
         res <- Ed25519.publicKey . fromByteStringToBytes . getJsonByteString <$> parseJSON v
-        fromCryptoToAeson "Ed25519.PublicKey" res
+        fromCryptoFailable "parseJSON Ed25519.PublicKey" res
 
 instance ToJSON Ed25519.PublicKey where
     toJSON = toJSON . JsonByteString . toByteString
@@ -91,7 +86,7 @@ instance ToJSON Ed25519.PublicKey where
 instance FromJSON Ed25519.Signature where
     parseJSON v = do
         res <- Ed25519.signature . fromByteStringToBytes . getJsonByteString <$> parseJSON v
-        fromCryptoToAeson "Ed25519.Signature" res
+        fromCryptoFailable "parseJSON Ed25519.Signature" res
 
 instance ToJSON Ed25519.Signature where
     toJSON = toJSON . JsonByteString . toByteString
@@ -103,19 +98,19 @@ instance Bi Ed25519.PublicKey where
     encode =  E.encodeBytes . toByteString
     decode = do
         res <- Ed25519.publicKey . fromByteStringToBytes <$> decode
-        fromCryptoToDecoder "Ed25519.PublicKey" res
+        fromCryptoFailable "decode Ed25519.PublicKey" res
 
 instance Bi Ed25519.SecretKey where
     encode sk = E.encodeBytes $ BS.append (toByteString sk) (toByteString $ Ed25519.toPublic sk)
     decode = do
         res <- Ed25519.secretKey . fromByteStringToScrubbedBytes . BS.take Ed25519.secretKeySize <$> decode
-        fromCryptoToDecoder "Ed25519.SecretKey" res
+        fromCryptoFailable "decode Ed25519.SecretKey" res
 
 instance Bi Ed25519.Signature where
     encode =  E.encodeBytes . toByteString
     decode = do
         res <- Ed25519.signature . fromByteStringToBytes <$> decode
-        fromCryptoToDecoder "Ed25519.Signature" res
+        fromCryptoFailable "decode Ed25519.Signature" res
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape

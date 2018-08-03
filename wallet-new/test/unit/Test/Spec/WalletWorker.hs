@@ -122,7 +122,6 @@ actionToStackOp = \case
     Actions.ApplyBlocks    bs -> mapM_ push bs
     Actions.RollbackBlocks bs -> mapM_ (const pop) bs
     Actions.LogMessage _      -> return ()
-    Actions.Shutdown          -> return ()
   where
     push = interpStackOp . Push
     pop  = interpStackOp Pop

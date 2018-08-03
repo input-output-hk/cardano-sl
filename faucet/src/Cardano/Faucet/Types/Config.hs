@@ -11,7 +11,7 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# OPTIONS_GHC -Wall #-}
+
 module Cardano.Faucet.Types.Config (
    FaucetConfig(..)
  , HasFaucetConfig(..)

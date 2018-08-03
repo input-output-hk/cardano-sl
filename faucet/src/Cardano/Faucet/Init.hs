@@ -12,7 +12,7 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
-{-# OPTIONS_GHC -Wall #-}
+
 module Cardano.Faucet.Init (initEnv) where
 
 import           Control.Concurrent (forkIO, threadDelay)

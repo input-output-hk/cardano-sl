@@ -5,7 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# OPTIONS_GHC -Wall #-}
+
 module Cardano.Faucet.Endpoints (
     FaucetAPI
   , faucetServer

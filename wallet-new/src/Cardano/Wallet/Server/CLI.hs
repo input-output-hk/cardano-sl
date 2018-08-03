@@ -12,12 +12,11 @@ import           Options.Applicative (Parser, auto, execParser, footerDoc,
                      metavar, option, progDesc, strOption, switch, value)
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
+import qualified Pos.Client.CLI as CLI
 import           Pos.Core.NetworkAddress (NetworkAddress, localhost)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
                      compileInfo)
 import           Pos.Web (TlsParams (..))
-
-import qualified Pos.Client.CLI as CLI
 
 
 -- | The options parsed from the CLI when starting up this wallet node.

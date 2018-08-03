@@ -24,7 +24,10 @@ import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
 import           System.Wlog (WithLogger, logInfo)
 
+import qualified Data.ByteString.Char8 as BS8
+
 import           Ntp.Client (NtpStatus)
+
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
 import           Pos.Core.NetworkAddress (NetworkAddress)
@@ -45,9 +48,6 @@ import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWallet)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Web (TlsParams, serveDocImpl, serveImpl)
-
-import qualified Data.ByteString.Char8 as BS8
-
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
 

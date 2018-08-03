@@ -29,7 +29,6 @@ import           Universum
 import           Control.Concurrent (Chan, newChan, readChan, writeChan)
 import           Control.Exception.Safe (try)
 import qualified Data.ByteString.Char8 as BS.C8
-import           Data.Default (Default (..))
 import           Data.IP (IPv4)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
@@ -156,17 +155,6 @@ listenNetworkAddressOption na =
 ----------------------------------------------------------------------------
 -- Defaults
 ----------------------------------------------------------------------------
-
-instance Default NetworkConfigOpts where
-    def = NetworkConfigOpts
-        { ncoTopology        = Nothing
-        , ncoKademlia        = Nothing
-        , ncoSelf            = Nothing
-        , ncoPort            = 3000
-        , ncoPolicies        = Nothing
-        , ncoBindAddress     = Nothing
-        , ncoExternalAddress = Nothing
-        }
 
 -- | The topology we assume when no topology file is specified
 defaultTopology :: Y.Topology

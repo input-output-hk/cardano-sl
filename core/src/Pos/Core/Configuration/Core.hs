@@ -17,7 +17,6 @@ module Pos.Core.Configuration.Core
 
        -- * For testing - Should probably be moved from the library
        , defaultCoreConfiguration
-       , defaultGenesisSpec
        ) where
 
 import           Universum

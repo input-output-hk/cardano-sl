@@ -21,7 +21,7 @@ module Pos.Client.CLI.Options
 
 import           Universum
 
-import           Data.Default (Default (..))
+import           Data.Default (def)
 import           Data.Time.Units (fromMicroseconds)
 import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
@@ -41,15 +41,6 @@ data CommonArgs = CommonArgs
     , updateServers        :: ![Text]
     , configurationOptions :: !ConfigurationOptions
     } deriving Show
-
-instance Default CommonArgs where
-    def = CommonArgs
-        { logConfig            = Nothing
-        , logPrefix            = Nothing
-        , reportServers        = mempty
-        , updateServers        = mempty
-        , configurationOptions = def
-        }
 
 commonArgsParser :: Opt.Parser CommonArgs
 commonArgsParser = do

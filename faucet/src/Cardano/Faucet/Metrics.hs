@@ -13,7 +13,6 @@
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.Faucet.Metrics (
    incWithDrawn
- , decrWithDrawn
  , setWalletBalance
  ) where
 
@@ -42,20 +41,6 @@ incWithDrawn (Coin (fromIntegral -> c)) = do
     Counter.add wd c
     Counter.inc wc
     Gauge.subtract bal c
-
---------------------------------------------------------------------------------
--- | Record a deposit
---
--- * Subtracts from 'feWalletBalance'
-decrWithDrawn :: (MonadReader e m, HasFaucetEnv e, MonadIO m) => Coin -> m ()
-decrWithDrawn (Coin (fromIntegral -> c)) = do
-  -- wd <- view feWithdrawn
-  -- wc <- view feNumWithdrawn
-  bal <- view feWalletBalance
-  liftIO $ do
-    -- Counter.subtract wd c
-    -- Counter.inc wc
-    Gauge.add bal c
 
 --------------------------------------------------------------------------------
 -- | Resets the wallet balance in 'feWalletBalance'

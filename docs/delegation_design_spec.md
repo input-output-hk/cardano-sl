@@ -304,22 +304,15 @@ of $sks$.
 
 A pointer address indirectly specifies the staking key that should
 control the stake of the address.  It does so by referencing a
-certificate that has been published to the blockchain.
+delegation certificate that has been published to the blockchain.
 
 Concretely, for a pointer address, $\beta$ is a _certificate pointer_,
 given by the tuple $(N_\text{block}, N_\text{tx}, N_\text{cert})$,
 where $N_\text{block}$ is the number of a block in the chain, and
 $N_\text{tx}$ is the number of a transaction within that block. This
 transaction should, as its $N_\text{cert}$s metadata, contain a
-stakepool registration certificate[^pointer-heavyweight] (see
+heavyweight delegation certificate[^pointer-heavyweight] (see
 \ref{certificates-on-the-blockchain} below).
-
-[^pointer-heavyweight]: The research paper also allows pointer
-addresses to heavyweight certificates, but this is only needed for
-offline user wallets with cold staking and enhanced security. This is
-also the same case that requires a more relaxed version of chain
-delegation, which we decided to drop. So we can also restrict pointer
-addresses to point to registration certificates only.
 
 ### Enterprise Address
 
@@ -395,13 +388,12 @@ Stakepool Registration Certificates
     - the public staking key, $vks_\text{delegate}$
     - the parameters that specify the reward sharing function of the
     stake pool (cost and margin of the pool)[^incentives]
-	- the minimal amount of Ada that the stake pool operator promises
+    - the minimal amount of Ada that the stake pool operator promises
     to deposit to the stake pool
-	- an address to which the rewards for the stake pool operator will
+    - an address to which the rewards for the stake pool operator will
       be sent[^stakepool-piggyback]
     - optionally, a stake pool can include an address to which the
       rewards of the pool that exceed the costs and margin are sent.
-
       If they do, the stake pool members will not get rewards for
       delegating, and their share will go to the specified address
       instead. This will allow stakeholders who do not want to get
@@ -455,16 +447,14 @@ Heavyweight Delegation Certificates
 
     It must be signed by $sks_\text{source}$.
 
-[^heavyweight-pointer]: It might make sense to use a certificate
-pointer here instead?
-
 Delegation Revocation Certificate
 
 :   Users might want to take control of stake that they had previously
     delegated.  They can do that by posting a _delegation revocation
     certificate_, containing the key for which they want to invalidate
     previously posted delegation certificates. It must be signed by
-    the corresponding secret key.
+    the corresponding secret key. A pointer address which points to a
+    revoked certificate will not be included for leader election.
 
 ### Lightweight Delegation Certificates
 
@@ -553,9 +543,9 @@ defined and are used below.
   another.
 
 - Revocation certificates revoke the effect of older (but not newer)
-  heavyweight certificates. So users can join a staking pool, leave
-  it and control their stake directly, and still have the opportunity
-  to join a staking pool at a later point in time.
+  heavyweight certificates. So users with base addresses can join a
+  staking pool, leave it and control their stake directly, and still
+  have the opportunity to join a staking pool at a later point in time.
 
 #### Lightweight Delegation Certificates
 
@@ -623,15 +613,17 @@ The Follow the Satoshi algorithm for leader election needs a list of
 staking keys and their associated balances.
 
 For rewards sharing, we need, for each staking pool, a list of all the
-pointer addresses with their balances that delegated directly to the
-stake pool. We will also need to have the amount of stake that each
-heavyweight certificate contributed to the pool.
+base addresses with their balances that delegated directly to the
+stake pool by not using a delegation certificate.  We will also need
+to have the amount of stake that each heavyweight delegation
+certificate contributed to the pool (both from pointer addresses and
+base addresses).
 
 To achieve both, nodes will maintain a database that contains, for
 every staking key, the addresses that are directly -- i.e., ignoring
-heavyweight certificates -- controlled by it (both pointer and base
-addresses), as well as their balances. Together with the active
-heavyweight certificates, this gives us everything we need for leader
+heavyweight certificates -- controlled by it, as well as their balances,
+together with the active heavyweight certificates and their balances.
+This gives us everything we need for leader
 election and rewards sharing.
 
 Note that directly tracking the stake for each key, including
@@ -829,10 +821,11 @@ the end of the list.
 
 ### Basic Delegation
 
-When a user has chosen a stake pool $P$ to delegate to, new addresses
-that the wallet generates will be pointer addresses
-(\ref{pointer-address}) pointing to the registration certificate of
-$P$. This will cause all the funds that the wallet will receive to
+When a user has chosen a stake pool $P$ to delegate to,
+a heavyweight delegate certificate must be created and registered.
+New addresses that the wallet generates will be pointer addresses
+(\ref{pointer-address}) pointing to this delegation certificate.
+This will cause all the funds that the wallet will receive to
 those addresses to be delegated to $P$.
 
 Additionally, the wallet will provide the option to automatically
@@ -959,11 +952,20 @@ Let $t_0$ be the point in time at which the leader election for the
 epoch took place. For each staking key that had been selected as slot
 leader for at least one slot during the epoch, calculate the pool
 rewards $\hat{f}$, based on the performance during the epoch,
-and the stake deposit and delegated stake at $t_0$. Note that the
-stake that the leader contributed to the pool can be differentiated
-from the stake that pool members delegated: the former uses base
-addresses with the pool's staking key, the latter either pointer
-addresses or delegation certificates.
+and the stake deposit and delegated stake at $t_0$. We will determine
+which UTxO are owned by the pool leader based on the whether the
+stake key which owns a UTxO matches the key in the stake certificate.
+
+Note that is is possible for a non-pool-leader to create a base
+address which uses any pool's staking key. Funds belonging to such
+addresses would be counted towards the stake pool's pledge,
+though the non-pool-leader would not have the private stake key
+needed to spend the rewards attched to this address.
+Since such behavior does not change the incentive model, this
+behaviour is perfectly acceptible[^encourage-third-party-pool-help].
+
+[^encourage-third-party-pool-help]: We can decide whether or not our
+wallet should make this an option.
 
 Pool Member Rewards
 
@@ -1005,11 +1007,12 @@ Pool Leader Rewards
     to be signed. Its validity can be checked by every node, since it
     can be derived deterministically from the blockchain.
 
-Charity Pools
+Pools with the optional reward address
 
-: The member rewards for charity pools can also not be handled by the
-    UTxO update, and are instead included in the transaction that
-    distributes the pool leader rewards.
+: Stakepool can optionally specify an address where rewards in excess
+    of the costs and margins can go. The member rewards for such pools
+    can also not be handled by the UTxO update, and are instead included
+    in the transaction that distributes the pool leader rewards.
 
 Individual Stakeholders
 
@@ -1322,6 +1325,17 @@ After setting the delegation preferences of the newly restored wallet,
 the wallet software should encourage the user to visit the delegation
 centre to make sure that this choice is still competitive.
 
+#### Maximal Address Gap
+
+As explained above, the wallet recovery process depends on a
+defined constant for the maximal address gap.
+A value of $i>0$ allows a wallet owner to create several addresses
+at once which do not have to be processed in order.
+The wallet software needs to be aware of this constant so that
+it will not create undiscoverable addresses and so that it can
+warn the owner when it reaches the limit.
+
+
 ### Transition from Bootstrap Phase
 
 As of the time this document is written, Cardano is in the "bootstrap
@@ -1463,8 +1477,6 @@ registration:
  - The pool leader _margin_ (in $[0,1]$), indicating the additional share the
    pool leader will take from pool rewards before splitting rewards amongst
    members (see [below](#pool-leader-reward)).
- - Proof of _ADA pledged to the pool_. This could be provided as a list of
-   addresses, signed by the corresponding secret spending keys.
 
 There will be no lower bound on the amount of ADA that has to be pledged, but
 we will see [below](#pool-rewards) that pool rewards will increase with

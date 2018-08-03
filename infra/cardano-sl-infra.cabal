@@ -164,7 +164,6 @@ library
                       , universum
                       , unliftio
                       , unordered-containers
-                      , vector
                       , yaml
 
   if !os(windows)

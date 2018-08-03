@@ -100,8 +100,21 @@ instance FromJSON AllStaticallyKnownPeers where
 newtype NodeRegion = NodeRegion Text
     deriving (Show, Generic, Ord, Eq, IsString)
 
+instance ToJSON NodeRegion where
+    toEncoding (NodeRegion text) = A.text text
+
+instance FromJSON NodeRegion where
+    parseJSON = fmap NodeRegion . parseJSON
+
 newtype NodeRoutes = NodeRoutes [[NodeName]]
     deriving (Eq, Generic, Show)
+
+instance ToJSON NodeRoutes where
+    toEncoding (NodeRoutes nameList) = A.list toEncoding nameList
+
+instance FromJSON NodeRoutes where
+    parseJSON = fmap NodeRoutes . parseJSON
+
 
 data NodeMetadata = NodeMetadata
     { -- | Node type
@@ -208,28 +221,6 @@ instance ToJSON KademliaAddress where
 -- JSON instances
 ----------------------------------------------------------------------------
 
-instance ToJSON NodeRegion where
-    toEncoding (NodeRegion text) = A.text text
-
-instance FromJSON NodeRegion where
-    parseJSON = fmap NodeRegion . parseJSON
-
-instance ToJSON NodeRoutes where
-    toEncoding (NodeRoutes nameList) = A.list toEncoding nameList
-
-instance FromJSON NodeRoutes where
-    parseJSON = fmap NodeRoutes . parseJSON
-
-instance FromJSON OQ.Precedence where
-    parseJSON = A.withText "Precedence" $ \typ -> do
-        toAesonError $ case toString typ of
-          "lowest"   -> Right OQ.PLowest
-          "low"      -> Right OQ.PLow
-          "medium"   -> Right OQ.PMedium
-          "high"     -> Right OQ.PHigh
-          "highest"  -> Right OQ.PHighest
-          _otherwise -> Left $ "Invalid Precedence" <> show typ
-
 instance ToJSON NodeMetadata where
     toEncoding
         (NodeMetadata
@@ -334,6 +325,16 @@ instance FromJSON NodeMetadata where
        defaultInPublicDNS NodeCore  = False
        defaultInPublicDNS NodeRelay = True
        defaultInPublicDNS NodeEdge  = False
+
+instance FromJSON OQ.Precedence where
+    parseJSON = A.withText "Precedence" $ \typ -> do
+        toAesonError $ case toString typ of
+          "lowest"   -> Right OQ.PLowest
+          "low"      -> Right OQ.PLow
+          "medium"   -> Right OQ.PMedium
+          "high"     -> Right OQ.PHigh
+          "highest"  -> Right OQ.PHighest
+          _otherwise -> Left $ "Invalid Precedence" <> show typ
 
 instance ToJSON Topology where
     toEncoding (TopologyStatic (AllStaticallyKnownPeers pMap)) =

@@ -113,6 +113,7 @@ import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
 
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Util (aesonError)
 
 import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
                      (MultiQueue)
@@ -1349,23 +1350,17 @@ data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
   deriving (Show, Generic, Eq)
 
 instance A.ToJSON MaxBucketSize where
-  toEncoding BucketSizeUnlimited   = A.null_
-    --A.pairs $ A.pairStr "maxSubscrs" A.null_
-  toEncoding (BucketSizeMax bSize) = A.int bSize
-    --A.pairs $ A.pairStr "maxSubscrs" (A.int bSize)
+    toEncoding BucketSizeUnlimited   = A.null_
+    toEncoding (BucketSizeMax bSize) = A.int bSize
 
 instance A.FromJSON MaxBucketSize where
-  parseJSON (A.Null) = pure BucketSizeUnlimited
-  parseJSON (A.Number sNum) =
-    case toBoundedInteger sNum of
-        Just int -> pure $ BucketSizeMax int
-        Nothing  -> error "Please provide an integer for MaxBucketSize"
+    parseJSON (A.Null) = pure BucketSizeUnlimited
+    parseJSON (A.Number sNum) =
+      case toBoundedInteger sNum of
+          Just int -> pure $ BucketSizeMax int
+          Nothing  -> aesonError "Please provide an integer for MaxBucketSize"
 
-  parseJSON invalid = A.typeMismatch "MaxBucketSize" invalid
-
---maybeBucketSize :: Maybe Int -> MaxBucketSize
---maybeBucketSize Nothing  = BucketSizeUnlimited
---maybeBucketSize (Just n) = BucketSizeMax n
+    parseJSON invalid = A.typeMismatch "MaxBucketSize" invalid
 
 exceedsBucketSize :: Int -> MaxBucketSize -> Bool
 exceedsBucketSize _ BucketSizeUnlimited = False

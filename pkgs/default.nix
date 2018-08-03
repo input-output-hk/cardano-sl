@@ -16703,7 +16703,6 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unliftio
 , unordered-containers
-, vector
 , yaml
 }:
 mkDerivation {
@@ -16768,7 +16767,6 @@ universum
 unix
 unliftio
 unordered-containers
-vector
 yaml
 ];
 libraryToolDepends = [

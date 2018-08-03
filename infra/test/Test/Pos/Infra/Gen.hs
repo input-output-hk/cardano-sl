@@ -26,7 +26,7 @@ module Test.Pos.Infra.Gen
         , genMaxBucketSize
         , genNodeAddr
         , genNodeAddrMaybe
-        , genNodeMetaData
+        , genNodeMetadata
         , genNodeName
         , genNodeType
         , genNodeRoutes
@@ -101,7 +101,7 @@ genSlottingData =
   where
     -- Constructing a SlottingData requires at least two epochs
     -- or else 'createSlottingDataUnsafe' will throw an error.
-    range = Range.constant 2 100
+    range = Range.linear 2 100
 
 genEpochIndexDataMap
     :: Range Word64
@@ -131,7 +131,7 @@ genHandlerSpec = Gen.choice [ ConvHandler <$> genWord16
                               -- 0 is reserved for ConvHandler tag.
                               -- See HandlerSpec Bi instance.
                             , UnknownHandler
-                                  <$> Gen.word8 (Range.constant 1 255)
+                                  <$> Gen.word8 (Range.linear 1 255)
                                   <*> gen32Bytes
                             ]
 
@@ -140,53 +140,52 @@ genHandlerSpec = Gen.choice [ ConvHandler <$> genWord16
 ----------------------------------------------------------------------------
 
 genDomain :: Gen DNS.Domain
-genDomain = Gen.utf8 (Range.constant 1 127) Gen.alpha
+genDomain = Gen.utf8 (Range.linear 1 127) Gen.alpha
 
 genDnsDomains :: Gen (DnsDomains DNS.Domain)
-genDnsDomains = DnsDomains <$> Gen.list (Range.constant 1 10) singletonNA
+genDnsDomains = DnsDomains <$> Gen.list (Range.linear 1 10) singletonNA
   where
     singletonNA = Gen.list (Range.singleton 1) (genNodeAddr genDomain)
 
 genMaxBucketSize :: Gen MaxBucketSize
 genMaxBucketSize = Gen.choice
     [ pure BucketSizeUnlimited
-    , BucketSizeMax <$> Gen.int (Range.constant 1 100)
+    , BucketSizeMax <$> Gen.int (Range.linear 1 100)
     ]
 
 genNodeAddr :: (Gen a) -> Gen (NodeAddr a)
 genNodeAddr genA = Gen.choice
-    [ NodeAddrExact <$> genIP <*> (Just <$> (Gen.word16 Range.constantBounded))
-    , NodeAddrDNS <$> genA <*> (Just <$> (Gen.word16 Range.constantBounded))
+    [ NodeAddrExact <$> genIP <*> (Just <$> (Gen.word16 Range.linearBounded))
+    , NodeAddrDNS <$> genA <*> (Just <$> (Gen.word16 Range.linearBounded))
     ]
   where
     genIP =
         Gen.choice
             [ IPv4 .toIPv4 <$> Gen.list
                                    (Range.singleton 4)
-                                   (Gen.int (Range.constant 1 300))
+                                   (Gen.int (Range.linear 1 300))
             , IPv6 .toIPv6 <$> Gen.list
                                    (Range.singleton 8)
-                                   (Gen.int (Range.constant 1 300))
+                                   (Gen.int (Range.linear 1 300))
             ]
 
 -- | NodeAddrDNS constructor's serialization will error if no
 -- hostname is given, therefore we only generate Just values for
 -- Maybe DNS.Domain. See ToJSON instance of NodeAddr (Maybe DNS.Domain).
-
 genNodeAddrMaybe :: Gen (NodeAddr (Maybe DNS.Domain))
 genNodeAddrMaybe = genNodeAddr (Just <$> genDomain)
 
-genNodeMetaData :: Gen NodeMetadata
-genNodeMetaData = do
+genNodeMetadata :: Gen NodeMetadata
+genNodeMetadata = do
     nmType'       <- genNodeType
     nmRegion'     <- genNodeRegion
-    nmValency'    <- Gen.int (Range.constant 1 10)
-    nmFallbacks'  <- Gen.int (Range.constant 1 10)
+    nmValency'    <- Gen.int (Range.linear 1 10)
+    nmFallbacks'  <- Gen.int (Range.linear 1 10)
     nmAddress'    <- genNodeAddr (Just <$> genDomain)
     nmKademlia'   <- Gen.bool
     nmPublicDNS'  <- Gen.bool
     nmMaxSubscrs' <- genMaxBucketSize
-    choiceInt <- Gen.int8 (Range.constant 1 10)
+    choiceInt <- Gen.int8 (Range.linear 1 10)
     -- Below generates a NodeMetaData with either an empty DnsDomains or
     -- empty NodeRoutes. Either occurs ~50% of the time; see FromJSON
     -- NodeMetadata instance for more details.
@@ -219,7 +218,7 @@ genNodeMetaData = do
                        nmMaxSubscrs'
 
 genNodeName :: Gen NodeName
-genNodeName = NodeName <$> Gen.text (Range.constant 1 10) Gen.alphaNum
+genNodeName = NodeName <$> Gen.text (Range.linear 1 10) Gen.alphaNum
 
 genNodeType :: Gen NodeType
 genNodeType = Gen.choice [ pure NodeCore
@@ -228,30 +227,30 @@ genNodeType = Gen.choice [ pure NodeCore
                          ]
 
 genNodeRoutes :: Gen NodeRoutes
-genNodeRoutes = NodeRoutes <$> Gen.list (Range.constant 1 10) singletonNN
+genNodeRoutes = NodeRoutes <$> Gen.list (Range.linear 1 10) singletonNN
   where
     singletonNN = Gen.list (Range.singleton 1) genNodeName
 
 genNodeRegion :: Gen NodeRegion
-genNodeRegion = NodeRegion <$> Gen.text (Range.constant 1 10) Gen.alphaNum
+genNodeRegion = NodeRegion <$> Gen.text (Range.linear 1 10) Gen.alphaNum
 
 genAllStaticallyKnownPeers :: Gen AllStaticallyKnownPeers
 genAllStaticallyKnownPeers =
-    AllStaticallyKnownPeers <$> customMapGen genNodeName genNodeMetaData
+    AllStaticallyKnownPeers <$> customMapGen genNodeName genNodeMetadata
 
 genTopology :: Gen Topology
 genTopology = Gen.choice [ TopologyStatic <$> genAllStaticallyKnownPeers
                          , TopologyBehindNAT
-                               <$> (Gen.int (Range.constant 1 100))
-                               <*> (Gen.int (Range.constant 1 100))
+                               <$> (Gen.int (Range.linear 1 100))
+                               <*> (Gen.int (Range.linear 1 100))
                                <*> genDnsDomains
                          , TopologyP2P
-                               <$> (Gen.int (Range.constant 1 100))
-                               <*> (Gen.int (Range.constant 1 100))
+                               <$> (Gen.int (Range.linear 1 100))
+                               <*> (Gen.int (Range.linear 1 100))
                                <*> genMaxBucketSize
                          , TopologyTraditional
-                               <$> (Gen.int (Range.constant 1 100))
-                               <*> (Gen.int (Range.constant 1 100))
+                               <$> (Gen.int (Range.linear 1 100))
+                               <*> (Gen.int (Range.linear 1 100))
                                <*> genMaxBucketSize
                          ]
 

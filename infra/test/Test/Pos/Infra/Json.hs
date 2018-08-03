@@ -22,7 +22,7 @@ import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
 
 import           Test.Pos.Infra.Gen (genAllStaticallyKnownPeers, genDnsDomains,
                      genDomain, genMaxBucketSize, genNodeAddr,
-                     genNodeAddrMaybe, genNodeMetaData, genNodeName,
+                     genNodeAddrMaybe, genNodeMetadata, genNodeName,
                      genNodeRegion, genNodeRoutes, genNodeType, genTopology)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
@@ -31,9 +31,13 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 -- NodeMetaData
 --------------------------------------------------------------------------------
 
+golden_NodeMetadata :: Property
+golden_NodeMetadata =
+    goldenTestJSON exampleNodeMetadata "test/golden/NodeMetadata"
+
 roundTripNodeMetaData :: Property
 roundTripNodeMetaData =
-    eachOf 1000 genNodeMetaData roundTripsAesonShow
+    eachOf 1000 genNodeMetadata roundTripsAesonShow
 
 --------------------------------------------------------------------------------
 -- NodeName
@@ -158,7 +162,32 @@ exampleTopologyBehindNAT =
         50
         $ DnsDomains [[NodeAddrExact "185.255.111.139" (Just 65413)]
                      ,[NodeAddrDNS "QGrCxCYPaqJgFFympdkGamCUQSsTWv" (Just 53415)]
-                     ,[NodeAddrDNS "wcrSGCKclFbbZUnTypSGJnvZcOlGTdVgWuAfUiUKFDtKEGfPcQKWSFfZbTbgPAKewXbXaGcqdFSdDYqsbyKQZIBlUcxNqonGMVIEYBiM" (Just 19071)]]
+                     ,[NodeAddrDNS "wcrSGCKclFbbZUnTypSGJnvZcOlGTdVgWuAfUiUKFDtK\
+                                   \EGfPcQKWSFfZbTbgPAKewXbXaGcqdFSdDYqsbyKQZIBl\
+                                   \UcxNqonGMVIEYBiM" (Just 19071)]]
+
+exampleNodeMetadata :: NodeMetadata
+exampleNodeMetadata =
+    NodeMetadata
+        NodeCore
+        (NodeRegion "4WM8")
+        (NodeRoutes [[NodeName "YBQX"]
+                    ,[NodeName "iXAP0JNYwx"]
+                    ,[NodeName "c5"]
+                    ,[NodeName "9YWMZZMcXA"]
+                    ,[NodeName "QCQeWoFE"]
+                    ,[NodeName "Mh4N3zyduO"]
+                    ,[NodeName "JXSlSLRV"]])
+        (DnsDomains [])
+        2
+        1
+        (NodeAddrDNS (Just "BTemPBYBLBxVdLLzugXEdLfNHOICYZEXsmLGUUVnLvVitDZixHVJBX\
+                           \eJbAddwugsFhFXSFxxdzJWRkwpySNAlLhrxHsyfQdLmrmkBmGWsiiu\
+                           \FMuwpIdDRwdRXK") (Just 6732))
+        True
+        True
+        BucketSizeUnlimited
+
 
 exampleTopologyP2P :: Topology
 exampleTopologyP2P = TopologyP2P 42 50 (BucketSizeMax 100)
@@ -180,7 +209,9 @@ exampleTopologyStatic = TopologyStatic $
                                 (DnsDomains [])
                                 1
                                 1
-                                (NodeAddrDNS (Just "ekKxWFhuqyvriOtsMUMQfUkhffLkpd") (Just 16071))
+                                (NodeAddrDNS
+                                    (Just "ekKxWFhuqyvriOtsMUMQfUkhffLkpd")
+                                    (Just 16071))
                                 True
                                 False
                                 BucketSizeUnlimited)]

@@ -202,9 +202,9 @@ spec = describe "Wallets" $ do
 
                             Right allAccounts <- WalletLayer.getAccounts layer wId
 
-                            foldM (check isRight) () allAccounts
+                            foldM_ (check isRight) () allAccounts
                             void (WalletLayer.deleteWallet layer wId)
-                            foldM (check isLeft)  () allAccounts
+                            foldM_ (check isLeft)  () allAccounts
 
             prop "fails if the wallet doesn't exists" $ withMaxSuccess 50 $ do
                 monadicIO $ do
@@ -413,7 +413,7 @@ spec = describe "Wallets" $ do
                     rqs <- map (\rq -> rq { V1.newwalOperation = V1.CreateWallet })
                                <$> pick (vectorOf 5 arbitrary)
                     withLayer $ \layer _ -> do
-                        void (forM rqs (WalletLayer.createWallet layer))
+                        forM_ rqs (WalletLayer.createWallet layer)
                         res <- WalletLayer.getWallets layer
                         (IxSet.size res) `shouldBe` 5
 
@@ -424,7 +424,7 @@ spec = describe "Wallets" $ do
                                <$> pick (vectorOf 5 arbitrary)
                     withLayer $ \ layer _ -> do
                         liftIO $ do
-                            void (forM rqs (runExceptT . runHandler' . Handlers.newWallet layer))
+                            forM_ rqs (runExceptT . runHandler' . Handlers.newWallet layer)
                             let params = API.RequestParams (API.PaginationParams (API.Page 1) (API.PerPage 10))
                             res <- runExceptT . runHandler' $ Handlers.listWallets layer params API.NoFilters API.NoSorts
                             case res of

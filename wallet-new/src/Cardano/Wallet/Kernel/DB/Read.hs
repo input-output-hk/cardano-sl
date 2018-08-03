@@ -20,14 +20,13 @@ import           Pos.Core (Address, Coin)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId, HdAddress,
-                     HdWallets)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdAccountId,
+                     HdAddress, HdRootId, HdWallets)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
-                     readAddressesByAccountId, readHdAccountCurrentCheckpoint)
+                     readAccountsByRootId, readAddressesByAccountId,
+                     readHdAccountCurrentCheckpoint)
 import           Cardano.Wallet.Kernel.DB.Spec (checkpointAddressMeta)
 
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdRootId)
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAccountsByRootId)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 

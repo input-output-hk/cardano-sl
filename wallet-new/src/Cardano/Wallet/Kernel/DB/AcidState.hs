@@ -412,9 +412,8 @@ deleteHdAccount accId = do
             case status of
                  Left _ -> return status -- avoid work
                  Right () -> do
-                     res <- runUpdate' . zoom dbHdWallets $
+                     runUpdate' . zoom dbHdWallets $
                          HD.deleteHdAddress (address ^. hdAddressId)
-                     return res
 
 {-----------------------------------------------------------------------------
   Cascading deletions
@@ -462,10 +461,8 @@ deleteHdWallet rootId = do
                -> Update DB (Either UnknownHdAccount ())
         delete status account = do
             case status of
-                 Left _ -> return status -- avoid work
-                 Right () -> do
-                     res <- deleteHdAccount (account ^. hdAccountId)
-                     return res
+                 Left _   -> return status -- avoid work
+                 Right () -> deleteHdAccount (account ^. hdAccountId)
 
 {-------------------------------------------------------------------------------
   Acid-state magic

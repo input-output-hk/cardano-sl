@@ -45,8 +45,6 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Ssc (SscPayload)
-import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
-                     modifyStateLock)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Core.Util.LogSafe (logInfoS)
@@ -62,6 +60,8 @@ import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Delegation (clearDlgMemPool, getDlgMempool)
+import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
+                     modifyStateLock)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Ssc (sscGetLocalPayload, sscResetLocal)

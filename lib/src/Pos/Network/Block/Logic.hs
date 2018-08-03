@@ -42,12 +42,12 @@ import           Pos.Core.Exception (cardanoExceptionFromException,
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
-import           Pos.Core.StateLock (Priority (..), modifyStateLock)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.DB.Block as L
 import qualified Pos.DB.Block as DB
+import           Pos.DB.GState.Lock (Priority (..), modifyStateLock)
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion

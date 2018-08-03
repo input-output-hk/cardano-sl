@@ -63,4 +63,4 @@ getInfo Diffusion{..} ntpStatus ntpCheck = do
         s <- readTVar ntpStatus
         case s of
             NtpSyncPending -> checkNtpBlocking
-            state          -> newTVar state
+            _              -> newTVar s

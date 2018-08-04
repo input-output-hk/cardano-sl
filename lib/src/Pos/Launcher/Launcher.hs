@@ -23,8 +23,7 @@ import           Pos.Launcher.Resource (NodeResources (..),
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 

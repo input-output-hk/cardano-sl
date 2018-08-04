@@ -50,8 +50,8 @@ import           Pos.Logic.Types (Logic, hoistLogic)
 import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Trace (natTrace, noTrace)
-import           Pos.Util.Trace.Named (TraceNamed, appendName)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, natTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 

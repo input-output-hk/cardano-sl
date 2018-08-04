@@ -89,8 +89,7 @@ import           Servant.Swagger (HasSwagger (toSwagger))
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.LogSafe (BuildableSafe, SecureLog, SecuredText,
                      buildSafe, plainOrSecureF, secretOnlyF)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, logInfoSP)
+import           Pos.Util.Trace.Named (TraceNamed, logInfoSP, natTrace)
 
 -------------------------------------------------------------------------
 -- Utility functions

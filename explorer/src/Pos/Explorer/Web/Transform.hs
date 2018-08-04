@@ -31,8 +31,8 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener,
@@ -62,8 +62,8 @@ instance HasConfiguration =>
 
 instance HasConfiguration =>
          MonadTxpLocal ExplorerProd where
-    txpNormalize = txpNormalize
-    txpProcessTx logTrace pm txpConfig = txpProcessTx logTrace pm txpConfig
+    txpNormalize _ pm = lift . lift . txpNormalize noTrace pm
+    txpProcessTx _ pm txpConfig = lift . lift . txpProcessTx noTrace pm txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.

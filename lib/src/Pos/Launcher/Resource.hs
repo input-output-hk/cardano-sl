@@ -62,13 +62,12 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithTrace, newInitFuture)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (natTrace)
 #ifdef linux_HOST_OS
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
-                     logInfo, logWarning)
+                     logInfo, logWarning, natTrace)
 #else
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
-                     logInfo)
+                     logInfo, natTrace)
 #endif
 
 #ifdef linux_HOST_OS

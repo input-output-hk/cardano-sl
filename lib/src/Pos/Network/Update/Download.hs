@@ -36,9 +36,8 @@ import           Pos.DB.Update (UpdateContext (..), isUpdateInstalled)
 import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Listener.Update (UpdateMode)
 import           Pos.Util.Concurrent (withMVar)
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
-                     logWarning)
+                     logWarning, natTrace)
 import           Pos.Util.Util (HasLens (..), (<//>))
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.

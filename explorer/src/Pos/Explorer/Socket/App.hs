@@ -40,9 +40,8 @@ import           Pos.Core (addressF, siEpoch)
 import           Pos.Core.Conc (withAsync)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
-                     logInfo, logWarning)
+                     logInfo, logWarning, natTrace)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)

@@ -38,9 +38,8 @@ import           Pos.Network.Block.Logic (BlockNetLogicException (..),
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,
                      BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logInfo,
-                     logWarning)
+                     logWarning, natTrace)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join

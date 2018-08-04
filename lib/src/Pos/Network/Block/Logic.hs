@@ -56,9 +56,9 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Trace (natTrace, noTrace)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
-                     logWarning)
+                     logWarning, natTrace)
 import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------

@@ -64,9 +64,9 @@ import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logDebugS,
-                     logError, logInfo, logInfoS, logWarning, logWarningS)
+                     logError, logInfo, logInfoS, logWarning, logWarningS,
+                     natTrace)
 
 ----------------------------------------------------------------------------
 -- All workers

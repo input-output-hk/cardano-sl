@@ -45,8 +45,7 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      defaultPageSize, findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 
 ----------------------------------------------------------------------------
@@ -79,8 +78,8 @@ instance ( MonadDBRead m
          , HasConfiguration
          )
          => MonadBListener (ExplorerBListener m) where
-    onApplyBlocks tr = onApplyCallGeneral $ natTrace liftIO tr
-    onRollbackBlocks tr = onRollbackCallGeneral $ natTrace liftIO tr
+    onApplyBlocks logTrace bs    = onApplyCallGeneral (natTrace liftIO logTrace) bs
+    onRollbackBlocks logTrace bs = onRollbackCallGeneral (natTrace liftIO logTrace) bs
 
 
 ----------------------------------------------------------------------------

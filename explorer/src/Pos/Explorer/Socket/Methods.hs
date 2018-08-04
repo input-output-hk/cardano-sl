@@ -77,9 +77,8 @@ import           Pos.DB.Txp (getTxOut)
 import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Trace (natTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
-                     logWarning)
+                     logWarning, natTrace)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)

@@ -39,8 +39,8 @@ import           Pos.Launcher.Resource (getRealLoggerConfig)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (natTrace)
-import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace,
+                     natTrace)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Worker.Update (updateTriggerWorker)
 

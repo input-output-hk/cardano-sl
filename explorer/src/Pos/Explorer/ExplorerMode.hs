@@ -264,10 +264,6 @@ instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbDelete = DB.dbDeletePureDefault
     dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
--- instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
---     askLoggerName = askLoggerNameDefault
---     modifyLoggerName = modifyLoggerNameDefault
-
 instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
     jsonLog = jsonLogDefault
 

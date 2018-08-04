@@ -62,7 +62,7 @@ genBlockGenParams
     -> EnableTxPayload
     -> InplaceDB
     -> PropertyM m BlockGenParams
-genBlockGenParams logTrace pm blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
+genBlockGenParams _ pm blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     allSecrets_ <- lift $ getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     let genBlockGenParamsF s =

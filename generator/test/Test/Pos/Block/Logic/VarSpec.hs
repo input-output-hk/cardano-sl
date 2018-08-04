@@ -103,7 +103,8 @@ verifyEmptyMainBlock :: HasConfigurations
                      => TxpConfiguration
                      -> BlockProperty ()
 verifyEmptyMainBlock txpConfig = do
-    emptyBlock <- fst <$> bpGenBlock dummyProtocolMagic
+    emptyBlock <- fst <$> bpGenBlock noTrace
+                                     dummyProtocolMagic
                                      txpConfig
                                      (EnableTxPayload False)
                                      (InplaceDB False)
@@ -118,7 +119,8 @@ verifyValidBlocks
     -> BlockProperty ()
 verifyValidBlocks txpConfig = do
     bpGoToArbitraryState
-    blocks <- map fst . toList <$> bpGenBlocks dummyProtocolMagic
+    blocks <- map fst . toList <$> bpGenBlocks noTrace
+                                               dummyProtocolMagic
                                                txpConfig
                                                Nothing
                                                (EnableTxPayload True)
@@ -190,7 +192,8 @@ applyByOneOrAllAtOnce
     -> BlockProperty ()
 applyByOneOrAllAtOnce txpConfig applier = do
     bpGoToArbitraryState
-    blunds <- getOldestFirst <$> bpGenBlocks dummyProtocolMagic
+    blunds <- getOldestFirst <$> bpGenBlocks noTrace
+                                             dummyProtocolMagic
                                              txpConfig
                                              Nothing
                                              (EnableTxPayload True)

@@ -136,7 +136,8 @@ lrcCorrectnessProp txpConfig = do
     -- anything similar, because we don't want to rely on the code,
     -- but rather want to use our knowledge.
     let blkCount0 = 8 * k - 1
-    () <$ bpGenBlocks dummyProtocolMagic
+    () <$ bpGenBlocks noTrace
+                      dummyProtocolMagic
                       txpConfig
                       (Just blkCount0)
                       (EnableTxPayload False)
@@ -153,7 +154,8 @@ lrcCorrectnessProp txpConfig = do
     -- sure that stable blocks are indeed stable. Note that we have
     -- already applied 1 blocks, hence 'pred'.
     blkCount1 <- pred <$> pick (choose (k, 2 * k))
-    () <$ bpGenBlocks dummyProtocolMagic
+    () <$ bpGenBlocks noTrace
+                      dummyProtocolMagic
                       txpConfig
                       (Just blkCount1)
                       (EnableTxPayload False)
@@ -253,7 +255,8 @@ genAndApplyBlockFixedTxs :: HasConfigurations
                          -> BlockProperty ()
 genAndApplyBlockFixedTxs txpConfig txs = do
     let txPayload = mkTxPayload txs
-    emptyBlund <- bpGenBlock dummyProtocolMagic
+    emptyBlund <- bpGenBlock noTrace
+                             dummyProtocolMagic
                              txpConfig
                              (EnableTxPayload False)
                              (InplaceDB False)
@@ -304,7 +307,8 @@ lessThanKAfterCrucialProp txpConfig = do
     -- LRC should succeed iff number of blocks in last '2 * k' slots is
     -- at least 'k'.
     let shouldSucceed = inLast2K >= k
-    () <$ bpGenBlocks dummyProtocolMagic
+    () <$ bpGenBlocks noTrace
+                      dummyProtocolMagic
                       txpConfig
                       (Just toGenerate)
                       (EnableTxPayload False)

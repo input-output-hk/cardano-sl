@@ -32,8 +32,8 @@ instance {-# OVERLAPPABLE #-}
     ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)) =>
         MonadBListener (t m)
   where
-    onApplyBlocks = onApplyBlocks
-    onRollbackBlocks = onRollbackBlocks
+    onApplyBlocks logTrace bs = lift $ onApplyBlocks logTrace bs
+    onRollbackBlocks logTrace bs = lift $ onRollbackBlocks logTrace bs
 
 onApplyBlocksStub
     :: MonadIO m

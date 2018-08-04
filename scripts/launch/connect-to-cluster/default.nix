@@ -18,6 +18,7 @@
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
+, useStackBinaries ? false
 }:
 
 with localLib;
@@ -51,8 +52,9 @@ let
     };
   };
   executables =  {
-    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
+    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
+    explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
+    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
   iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };
@@ -92,14 +94,14 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   ${utf8LocaleSetting}
   if [ ! -d ${stateDir}/tls ]; then
     mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
-    ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
+    ${executables.x509gen}                                     \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
       ${configurationArgs}
   fi
   ''}
 
-  ${executables.${executable}}                                     \
+  exec ${executables.${executable}}                                     \
     ${configurationArgs}                                           \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
     ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \

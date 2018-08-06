@@ -1,6 +1,7 @@
 https://github.com/avieth/plutus-prototype d094be301195fcd8ab864d793f114970426a4478 . 1s932rghn4zn441waansp408b5bwk20rc1wsa5693a2nwnp4dijw plutus-prototype .stack.nix/plutus-prototype.nix
 https://github.com/input-output-hk/cardano-report-server.git 81eea7361a75923f9402fcb7840fb36722dbf88e . 0chhbnrl68aqjfhkqvq53v572zsg52mj8pjxl3n7nnbc006cqs49 cardano-report-server .stack.nix/cardano-report-server.nix
 https://github.com/input-output-hk/cardano-crypto 33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf . 1v165n4cmp4g272406vaaan7bwvrw2m55jwcbz8qqjxslxv1l63p cardano-crypto .stack.nix/cardano-crypto.nix
+https://github.com/andrewthad/haskell-ip 9bb453139aa82cc973125091800422a523e1eb8f . 199mfpbgca7rvwvwk2zsmcpibc0sk0ni7c5zlf4gk3cps8s85gyr ip .stack.nix/ip.nix
 https://github.com/well-typed/cborg 3d274c14ca3077c3a081ba7ad57c5182da65c8c1 cborg 1w06annk6nm01brd60hzl15143cvjvsaam9lhwzpmppyvgb0cdyz cborg .stack.nix/cborg.nix
 https://github.com/serokell/time-units.git 6c3747c1ac794f952de996dd7ba8a2f6d63bf132 . 0psdr1if0rgnn24698x3583m0603rwd3sd7yb9whj03hskmkwpgs time-units .stack.nix/time-units.nix
 https://github.com/serokell/kademlia.git 7120bb4d28e708acd52dfd61d3dca7914fac7d7f . 1k1wp9dwhzzqfivxc28vhxfqplnyh916crr7bhsiv829d6qifhw1 kademlia .stack.nix/kademlia.nix

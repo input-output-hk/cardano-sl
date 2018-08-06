@@ -21,7 +21,7 @@ let buildHaskellPackages = pkgs.buildPackages.haskellPackages; in rec
       unset configureFlags
       PORT=$((5000 + $RANDOM % 5000))
       echo "---> Starting remote-iserv on port $PORT"
-      WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
+      WINEDEBUG=-all WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
       echo "---| remote-iserv should have started on $PORT"
       RISERV_PID=$!
     '';
@@ -48,4 +48,18 @@ let buildHaskellPackages = pkgs.buildPackages.haskellPackages; in rec
       if hostPlatform.isWindows
       then appendPatch pkg p
       else pkg;
+
+  dontCheckMingw = pkg:
+    with pkg.stdenv;
+      if hostPlatform.isWindows
+      then dontCheck pkg
+      else pkg;
+
+  # force setting doCheck this is required to force checking of cross compiled
+  # packages for now.
+  #
+  # See
+  # https://github.com/NixOS/nixpkgs/blob/a38a2ba7780b77aafaf994655f57fd59b3688a76/pkgs/stdenv/generic/make-derivation.nix#L136-L138
+  # which prevents doCheck otherwise.
+  forceCheck = pkg: pkg.overrideDerivation (_: { doCheck = true; });
 }

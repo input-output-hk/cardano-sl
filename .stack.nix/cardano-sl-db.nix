@@ -43,6 +43,7 @@
           (hsPkgs.directory)
           (hsPkgs.ekg-core)
           (hsPkgs.ether)
+          (hsPkgs.exceptions)
           (hsPkgs.filepath)
           (hsPkgs.formatting)
           (hsPkgs.lens)

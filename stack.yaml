@@ -211,13 +211,6 @@ packages:
     commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
   extra-dep: true
 
-# LTS-12 doesn't have purescript, we do however build it in CI.
-# See https://github.com/purescript/purescript/pull/3372 for the ghc 8.4 compat
-- location:
-    git: https://github.com/purescript/purescript.git
-    commit: 94327051aa311b369a58214a594eb00109912cd8 # the ghc-8.4.2 branch.
-  extra-dep: true
-
 - location:
     git: https://github.com/luite/hfsevents.git
     commit: 25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f
@@ -316,6 +309,10 @@ extra-deps:
 - o-clock-0.1.1
 # missing from lgs-12
 - beam-sqlite-0.3.2.2
+
+# for `ip`.
+- quickcheck-classes-0.4.14.1
+- semirings-0.2.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

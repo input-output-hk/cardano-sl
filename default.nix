@@ -53,7 +53,7 @@ let
             scientific = dontCheck super.scientific;
             statistics = dontCheck super.statistics;
             dlist = dontCheck super.dlist;
-            hspec = super.hspec.override { hsPkgs = { stringbuilder = dontCheck self.stringbuilder; }; };
+            hspec = dontCheck (super.hspec.override { hsPkgs = { stringbuilder = dontCheck self.stringbuilder; }; });
             # missing: bytestring-handle, hashable-time
             aeson = dontCheck super.aeson;
             mwc-random = dontCheck super.mwc-random;
@@ -67,7 +67,6 @@ let
             mockery = dontCheck super.mockery;
             DRBG = dontCheck super.DRBG;
             math-functions = dontCheck super.math-functions;
-            HTF = dontCheck super.HTF;
 
             # case sensitivity issue?
             rocksdb-haskell-ng = dontCheck super.rocksdb-haskell-ng;
@@ -115,9 +114,71 @@ let
             swagger2 = dontCheck super.swagger2;
             servant-swagger = dontCheck super.servant-swagger;
             aeson-diff = dontCheck super.aeson-diff;
+            loc = dontCheck super.loc;
+            ip = dontCheck super.ip;
 
+            # this will fail with doTemplateHaskell.
+            # due to some object-file reloading issue
+            # in iserv.
+            vector = dontCheck super.vector;
+            
+            hspec-discover        = dontCheck super.hspec-discover;
+            hspec-core            = dontCheck super.hspec-core;
+            # most of these fail due to depending on hspec-discover
+            # at test-build time.          
+            base-orphans          = addBuildTools super.base-orphans          [ self.buildPackages.hspec-discover ];
+            safe-exceptions       = addBuildTools super.safe-exceptions       [ self.buildPackages.hspec-discover ];
+            wai                   = addBuildTools super.wai                   [ self.buildPackages.hspec-discover ];
+            constraints           = addBuildTools super.constraints           [ self.buildPackages.hspec-discover ];
+            unliftio              = addBuildTools super.unliftio              [ self.buildPackages.hspec-discover ];
+            streaming-commons     = addBuildTools super.streaming-commons     [ self.buildPackages.hspec-discover ];
+            # this one hits a bug in iserv! See https://ghc.haskell.org/trac/ghc/ticket/15481
+            th-abstraction        = addBuildTools (dontCheck super.th-abstraction) [ self.buildPackages.hspec-discover ];
+            base-compat-batteries = addBuildTools super.base-compat-batteries [ self.buildPackages.hspec-discover ];
+            word8                 = addBuildTools super.word8                 [ self.buildPackages.hspec-discover ];
+            fast-logger           = addBuildTools super.fast-logger           [ self.buildPackages.hspec-discover ];
+            logging-facade        = addBuildTools super.logging-facade        [ self.buildPackages.hspec-discover ];
+            newtype-generics      = addBuildTools super.newtype-generics      [ self.buildPackages.hspec-discover ];
+            string-conversions    = addBuildTools super.string-conversions    [ self.buildPackages.hspec-discover ];
+            bifunctors            = addBuildTools super.bifunctors            [ self.buildPackages.hspec-discover ];
+            deriving-compat       = addBuildTools super.deriving-compat       [ self.buildPackages.hspec-discover ];
+            generic-deriving      = addBuildTools super.generic-deriving      [ self.buildPackages.hspec-discover ];
+            invariant             = addBuildTools super.invariant             [ self.buildPackages.hspec-discover ];
+            adjunctions           = addBuildTools super.adjunctions           [ self.buildPackages.hspec-discover ];
+            th-utilities          = addBuildTools super.th-utilities          [ self.buildPackages.hspec-discover ];
+            HTF                   = addBuildTools (dontCheck super.HTF)       [ self.buildPackages.cpphs          ];
+            servant-client-core   = addBuildTools super.servant-client-core   [ self.buildPackages.hspec-discover ];
+            serokell-util         = addBuildTools super.serokell-util         [ self.buildPackages.hspec-discover ];
+            wai-extra             = addBuildTools super.wai-extra             [ self.buildPackages.hspec-discover ];
+            neat-interpolation    = addBuildTools super.neat-interpolation    [ self.buildPackages.HTF            ];
+            conduit-extra         = addBuildTools super.conduit-extra         [ self.buildPackages.hspec-discover ];
+            yaml                  = addBuildTools super.yaml                  [ self.buildPackages.hspec-discover ];
+            log-warper            = addBuildTools super.log-warper            [ self.buildPackages.hspec-discover ];
+            cardano-report-server = addBuildTools super.cardano-report-server [ self.buildPackages.hspec-discover ];
+            servant-client        = addBuildTools super.servant-client        [ self.buildPackages.hspec-discover ];
+            cardano-sl-util       = addBuildTools super.cardano-sl-util       [ self.buildPackages.hspec-discover ];
+            cardano-sl-binary     = addBuildTools super.cardano-sl-binary     [ self.buildPackages.hspec-discover ];
+            cardano-sl-crypto     = addBuildTools super.cardano-sl-crypto     [ self.buildPackages.hspec-discover ];
+            cardano-sl-core       = addBuildTools super.cardano-sl-core       [ self.buildPackages.hspec-discover ];
+            cardano-sl-chain      = addBuildTools super.cardano-sl-chain      [ self.buildPackages.hspec-discover ];
+            cardano-sl-networking = addBuildTools super.cardano-sl-networking [ self.buildPackages.hspec-discover ];
+            cardano-sl-client     = addBuildTools super.cardano-sl-client     [ self.buildPackages.hspec-discover ];
+            cardano-sl-generator  = addBuildTools super.cardano-sl-generator  [ self.buildPackages.hspec-discover ];
+            cardano-sl-wallet     = addBuildTools super.cardano-sl-wallet     [ self.buildPackages.hspec-discover ];
+            cardano-sl-auxx       = addBuildTools super.cardano-sl-auxx       [ self.buildPackages.hspec-discover ];
+            cardano-sl-explorer   = addBuildTools super.cardano-sl-explorer   [ self.buildPackages.hspec-discover ];
+            servant-docs          = addBuildTools super.servant-docs          [ self.buildPackages.hspec-discover ];
+            servant-quickcheck    = addBuildTools super.servant-quickcheck    [ self.buildPackages.hspec-discover ];
+            # can't check cardano-sl due to an iserv bug
+            cardano-sl            = addBuildTools (dontCheck super.cardano-sl) [ self.buildPackages.hspec-discover ];
+            fclabels              = dontCheck super.fclabels;
+
+            # test/sample/bar\baz: openBinaryFile: does not exist (No such file or directory)
+            file-embed = dontCheck super.file-embed;
+          
             stm-delay = dontCheck super.stm-delay; # https://hydra.iohk.io/build/193506/nixlog/14
             hspec-expectations-pretty-diff = dontCheck super.hspec-expectations-pretty-diff; # https://hydra.iohk.io/build/193533/nixlog/1
+            simple-sendfile       = dontCheck super.simple-sendfile; # the test depends on `unix` and thus fails to test on windows.
           }; }; };
 in
 { system ? builtins.currentSystem
@@ -170,7 +231,7 @@ let
         pkgs.haskellPackages.override (old:
         let new_overrides = self: super: rec {
         
-          inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw;
+          inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw forceCheck;
       
           # TODO: Why is `network` not properly propagated from `libiserv`?
           remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
@@ -188,10 +249,11 @@ let
       
           x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;#) (drv: { postPatch = ":"; });
           conduit               = appendPatchMingw super.conduit            ./conduit-1.3.0.2.patch;
-          file-embed-lzma       = appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch;
+          double-conversion     = appendPatchMingw super.double-conversion  ./double-conversion-2.0.2.0.patch;
+          file-embed-lzma       = doTemplateHaskell (appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch);
           
           ether                 = doTemplateHaskell super.ether;
-          generics-sop          = doTemplateHaskell super.generics-sop;
+          generics-sop          = doTemplateHaskell (dontCheck super.generics-sop);
           th-lift-instances     = doTemplateHaskell super.th-lift-instances;
           math-functions        = doTemplateHaskell super.math-functions;
           wreq                  = doTemplateHaskell super.wreq;
@@ -201,42 +263,71 @@ let
           wai-app-static        = doTemplateHaskell super.wai-app-static;
           purescript-bridge     = doTemplateHaskell super.purescript-bridge;
       
-          cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
-          cardano-sl-auxx       = doTemplateHaskell super.cardano-sl-auxx;
-          cardano-sl-crypto     = doTemplateHaskell super.cardano-sl-crypto;
-          cardano-sl-crypto-test= doTemplateHaskell super.cardano-sl-crypto-test;
-          cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;
-          cardano-sl-core       = doTemplateHaskell super.cardano-sl-core;
-          cardano-sl-core-test  = doTemplateHaskell super.cardano-sl-core-test;
+          cardano-sl-util       = forceCheck (doTemplateHaskell super.cardano-sl-util);
+          cardano-sl-auxx       = forceCheck (doTemplateHaskell super.cardano-sl-auxx);
+          cardano-sl-crypto     = forceCheck (doTemplateHaskell super.cardano-sl-crypto);
+          cardano-sl-crypto-test= forceCheck (doTemplateHaskell super.cardano-sl-crypto-test);
+          cardano-sl-networking = forceCheck (doTemplateHaskell super.cardano-sl-networking);
+          cardano-sl-core       = forceCheck (doTemplateHaskell super.cardano-sl-core);
+          cardano-sl-core-test  = forceCheck (doTemplateHaskell super.cardano-sl-core-test);
+
+          cardano-sl-chain      = forceCheck (doTemplateHaskell super.cardano-sl-chain);
+          cardano-sl-chain-test = forceCheck (doTemplateHaskell super.cardano-sl-chain-test);
           
-          cardano-sl-db         = doTemplateHaskell super.cardano-sl-db;
-          cardano-sl-lrc        = doTemplateHaskell super.cardano-sl-lrc;
-          cardano-sl-infra      = doTemplateHaskell super.cardano-sl-infra;
-          cardano-sl-txp        = doTemplateHaskell super.cardano-sl-txp;
-          cardano-sl-delegation = doTemplateHaskell super.cardano-sl-delegation;
-          cardano-sl-update     = doTemplateHaskell super.cardano-sl-update;
-          cardano-sl-ssc        = doTemplateHaskell super.cardano-sl-ssc;
-          cardano-sl            = doTemplateHaskell super.cardano-sl;
+          cardano-sl-db         = forceCheck (doTemplateHaskell super.cardano-sl-db);
+          cardano-sl-db-test    = forceCheck (doTemplateHaskell super.cardano-sl-db-test);
+          cardano-sl-infra      = forceCheck (doTemplateHaskell super.cardano-sl-infra);
+          cardano-sl            = forceCheck (doTemplateHaskell super.cardano-sl);
       
           fclabels              = doTemplateHaskell super.fclabels;
           servant-docs          = doTemplateHaskell super.servant-docs;
           wai-websockets        = doTemplateHaskell super.wai-websockets;
           servant-swagger-ui    = doTemplateHaskell super.servant-swagger-ui;
           servant-swagger-ui-redoc = doTemplateHaskell super.servant-swagger-ui-redoc;
-          cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
-          cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
-          cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
+          cardano-sl-client     = forceCheck (doTemplateHaskell super.cardano-sl-client);
+          cardano-sl-generator  = forceCheck (doTemplateHaskell super.cardano-sl-generator);
+          cardano-sl-wallet     = forceCheck (doTemplateHaskell super.cardano-sl-wallet);
       
-          cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
-          cardano-sl-ssc-test   = doTemplateHaskell super.cardano-sl-ssc-test;
-          cardano-sl-infra-test = doTemplateHaskell super.cardano-sl-infra-test;
-          cardano-sl-explorer   = doTemplateHaskell super.cardano-sl-explorer;
+          cardano-sl-wallet-new = (doTemplateHaskell super.cardano-sl-wallet-new).overrideAttrs( old: { NIX_DEBUG = 1; });
+          cardano-sl-infra-test = forceCheck (doTemplateHaskell super.cardano-sl-infra-test);
+          cardano-sl-explorer   = forceCheck (doTemplateHaskell super.cardano-sl-explorer);
+          cardano-sl-binary     = forceCheck (doTemplateHaskell super.cardano-sl-binary);
       
           trifecta              = doTemplateHaskell super.trifecta;
           cardano-sl-tools      = doTemplateHaskell super.cardano-sl-tools;
           hedgehog              = doTemplateHaskell super.hedgehog;
           th-abstraction        = doTemplateHaskell super.th-abstraction;
-      
+          th-expand-syns        = doTemplateHaskell super.th-expand-syns;
+          file-embed            = doTemplateHaskell super.file-embed;
+          QuickCheck            = doTemplateHaskell (dontCheck super.QuickCheck);
+          optparse-applicative  = doTemplateHaskell super.optparse-applicative;
+          quickcheck-text       = doTemplateHaskell super.quickcheck-text;
+          
+          th-reify-many         = doTemplateHaskell super.th-reify-many;
+          vector                = doTemplateHaskell super.vector;
+          tasty-th              = doTemplateHaskell super.tasty-th;
+          lifted-async          = doTemplateHaskell super.lifted-async;
+          vector-th-unbox       = doTemplateHaskell super.vector-th-unbox;
+
+          th-lift               = doTemplateHaskell super.th-lift;
+          microlens-th          = doTemplateHaskell super.microlens-th;
+          micro-recursion-schemes = doTemplateHaskell super.micro-recursion-schemes;
+          bifunctors            = doTemplateHaskell super.bifunctors;
+          deriving-compat       = doTemplateHaskell super.deriving-compat;
+          generic-deriving      = doTemplateHaskell super.generic-deriving;
+          uri-bytestring        = doTemplateHaskell super.uri-bytestring;
+          invariant             = doTemplateHaskell super.invariant;
+          th-utilities          = doTemplateHaskell super.th-utilities;
+          HTF                   = doTemplateHaskell super.HTF;
+          safecopy              = doTemplateHaskell super.safecopy;
+          yaml                  = doTemplateHaskell super.yaml;
+          neat-interpolation    = doTemplateHaskell super.neat-interpolation;
+          monad-par             = doTemplateHaskell super.monad-par;
+          statistics            = doTemplateHaskell super.statistics;
+          edit-distance-vector  = doTemplateHaskell super.edit-distance-vector;
+          ixset-typed           = doTemplateHaskell super.ixset-typed;
+          sqlite-simple         = doTemplateHaskell super.sqlite-simple;
+
           cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };
           time-locale-compat    = super.time-locale-compat.override { flags = { old-locale = false; }; };
       
@@ -277,7 +368,7 @@ let
       shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { inherit src; };
       hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
       stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
-      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests; };
       swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {

@@ -189,7 +189,7 @@
             (hsPkgs.deepseq)
             (hsPkgs.formatting)
             (hsPkgs.network-transport)
-            (hsPkgs.network-transport-tcp)
+            (hsPkgs.network-transport-inmemory)
             (hsPkgs.optparse-applicative)
             (hsPkgs.time-units)
             (hsPkgs.universum)

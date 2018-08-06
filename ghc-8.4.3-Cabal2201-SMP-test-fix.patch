@@ -1,0 +1,13 @@
+diff --git a/libraries/Cabal/Cabal/tests/HackageTests.hs b/libraries/Cabal/Cabal/tests/HackageTests.hs
+index 3b32147..d3e2f31 100644
+--- a/libraries/Cabal/Cabal/tests/HackageTests.hs
++++ b/libraries/Cabal/Cabal/tests/HackageTests.hs
+@@ -89,6 +89,8 @@ readFieldTest fpath bsl = case Parsec.readFields $ bslToStrict bsl of
+ -- | Map with unionWith monoid
+ newtype M k v = M (Map.Map k v)
+     deriving (Show)
++instance (Ord k, Semigroup v) => Semigroup (M k v) where
++    M a <> M b = M (Map.unionWith (<>) a b)
+ instance (Ord k, Monoid v) => Monoid (M k v) where
+     mempty = M Map.empty
+     mappend (M a) (M b) = M (Map.unionWith mappend a b)

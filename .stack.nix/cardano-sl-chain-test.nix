@@ -30,6 +30,7 @@
           (hsPkgs.base)
           (hsPkgs.bytestring)
           (hsPkgs.cardano-crypto)
+          (hsPkgs.cardano-sl-binary-test)
           (hsPkgs.cardano-sl-binary)
           (hsPkgs.cardano-sl-chain)
           (hsPkgs.cardano-sl-core)

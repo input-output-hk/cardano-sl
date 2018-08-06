@@ -88,6 +88,7 @@
         "test" = {
           depends  = [
             (hsPkgs.QuickCheck)
+            (hsPkgs.aeson)
             (hsPkgs.async)
             (hsPkgs.base)
             (hsPkgs.bytestring)
@@ -100,13 +101,17 @@
             (hsPkgs.cardano-sl-crypto)
             (hsPkgs.cardano-sl-crypto-test)
             (hsPkgs.cardano-sl-infra)
+            (hsPkgs.cardano-sl-networking)
             (hsPkgs.cardano-sl-util-test)
             (hsPkgs.containers)
+            (hsPkgs.dns)
             (hsPkgs.generic-arbitrary)
             (hsPkgs.hedgehog)
             (hsPkgs.hspec)
+            (hsPkgs.iproute)
             (hsPkgs.kademlia)
             (hsPkgs.universum)
+            (hsPkgs.unordered-containers)
           ];
         };
       };

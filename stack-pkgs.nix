@@ -48,6 +48,8 @@
       "servant-server" = hsPkgs.servant-server."0.13.0.1";
       "o-clock" = hsPkgs.o-clock."0.1.1";
       "beam-sqlite" = hsPkgs.beam-sqlite."0.3.2.2";
+      "quickcheck-classes" = hsPkgs.quickcheck-classes."0.4.14.1";
+      "semirings" = hsPkgs.semirings."0.2.0.1";
     };
   packages = hsPkgs:
     {
@@ -81,6 +83,7 @@
       plutus-prototype = ./.stack.nix/plutus-prototype.nix;
       cardano-report-server = ./.stack.nix/cardano-report-server.nix;
       cardano-crypto = ./.stack.nix/cardano-crypto.nix;
+      ip = ./.stack.nix/ip.nix;
       cborg = ./.stack.nix/cborg.nix;
       time-units = ./.stack.nix/time-units.nix;
       kademlia = ./.stack.nix/kademlia.nix;

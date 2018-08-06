@@ -67,12 +67,20 @@ spaces:
             ./dll-loader-8.4.2.patch
             ./outputtable-assert-8.4.2.patch
             ./0001-Stop-the-linker-panic.patch
+            ./ghc-8.4.3-Cabal2201-SMP-test-fix.patch
+            ./ghc-8.4.3-Cabal2201-no-hackage-tests.patch
+            ./ghc-8.4.3-Cabal2201-allow-test-wrapper.patch
+            ./ghc-8.4.3-Cabal2201-response-file-support.patch
           ];
           postPatch = (drv.postPath or "") + ''
           autoreconf
           ''; 
         });
-        packages.ghc843 = (ps.haskell.packages.ghc843.override {
+        packages.ghc843 = let winTestWrapper = ps.writeScriptBin "test-wrapper" ''
+        #!${ps.stdenv.shell}
+        set -euxo pipefail
+        WINEDEBUG=-all WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 $@*
+        ''; in (ps.haskell.packages.ghc843.override {
           overrides = self: super: rec {
             mkDerivation = drv: super.mkDerivation (drv // {
               # # fast builds -- the logic is as follows:
@@ -89,6 +97,22 @@ spaces:
               doHoogle = false;
               doCheck = true; #false;
               configureFlags = (drv.configureFlags or []) ++ [ spaces ];
+            } // lib.optionalAttrs ps.stdenv.hostPlatform.isWindows {
+              preCheck = ''
+              echo "================================================================================"
+              echo "RUNNING TESTS for ${drv.pname}"
+              echo "================================================================================"
+              '';
+              postCheck = ''
+              for log in dist/test/*.log; do
+                echo $a
+                cat "$log"
+              done
+              echo "================================================================================"
+              echo "END RUNNING TESTS for ${drv.pname}"
+              echo "================================================================================"
+              '';
+              testTarget =  "--verbose --test-wrapper ${winTestWrapper}/bin/test-wrapper";
             });
           };
         });

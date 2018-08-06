@@ -28,7 +28,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
                      NewAccount (..), NewAddress, NewWallet (..),
                      PasswordUpdate, V1 (..), Wallet, WalletId,
-                     WalletOperation (..), WalletUpdate)
+                     WalletOperation (..), WalletType (..), WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))

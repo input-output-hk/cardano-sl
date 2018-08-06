@@ -82,7 +82,7 @@ accountSpecs wc = do
                                           invalidAddress
 
             void $ action `shouldFailWith` ClientWalletError
-              (InvalidAddressFormat {weMsg = "Invalid base58 representation of address"})
+              (InvalidAddressFormat "Invalid base58 representation of address")
 
   where
     randomAddress :: IO Address

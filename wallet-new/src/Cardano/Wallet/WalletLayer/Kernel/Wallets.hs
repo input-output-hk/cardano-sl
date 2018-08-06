@@ -87,6 +87,7 @@ createWallet wallet (V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword 
                                      , walCreatedAt                  = V1 createdAt
                                      , walAssuranceLevel             = v1AssuranceLevel
                                      , walSyncState                  = V1.Synced
+                                     , walType                       = V1.WalletRegular
                                    }
 
 -- | Updates the 'SpendingPassword' for this wallet.

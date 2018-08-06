@@ -51,7 +51,7 @@ import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, fitLeft, formatToString,
-                     later, sformat, (%), (%.))
+                     later, sformat, stext, (%), (%.))
 import qualified Formatting.Buildable as B
 import           Data.Maybe (fromJust)
 import           Prelude (show)

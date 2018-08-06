@@ -31,7 +31,6 @@ import           Control.Exception.Safe (onException)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
-import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, later, (%))
 import           System.Directory (doesFileExist)
 import           System.Directory (renameFile)
@@ -54,6 +53,7 @@ import           Pos.Util.UserKeyError (UserPublicError (..))
 import           Test.Pos.Crypto.Arbitrary ()
 
 #ifdef POSIX
+import qualified Formatting.Buildable
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX
 import qualified System.Posix.Types as PSX (FileMode)

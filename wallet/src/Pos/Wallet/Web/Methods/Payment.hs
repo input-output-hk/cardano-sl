@@ -31,13 +31,14 @@ import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Client.Txp.Network (prepareMTx)
+import           Pos.Client.Txp.Network (prepareMTx, prepareUnsignedTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
                      runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
-import           Pos.Core.Txp (TxAux (..), TxOut (..), _txOutputs)
+import           Pos.Core.Txp (Tx, TxAux (..), TxIn (..), TxOut (..), TxOutAux (..),
+                     TxInWitness (..), TxSigData, _txInputs, _txOutputs)
 import           Pos.Crypto (PassPhrase, PublicKey (..), ProtocolMagic, SafeSigner,
                      Signature (..), ShouldCheckPassphrase (..), checkPassMatches, hash,
                      withSafeSignerUnsafe)
@@ -313,12 +314,13 @@ createNewUnsignedTransaction pm moneySource dstDistr policy changeAddress = do
 submitSignedTransaction
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> CId Wal
     -> Tx
     -> [(Address, Signature TxSigData, PublicKey)]
     -> m CTx
-submitSignedTransaction pm submitTx srcWalletId tx srcAddrsWithProofs = do
+submitSignedTransaction pm txpConfig submitTx srcWalletId tx srcAddrsWithProofs = do
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation (including externally-signed one) is disabled by configuration!"
@@ -356,7 +358,7 @@ submitSignedTransaction pm submitTx srcWalletId tx srcAddrsWithProofs = do
 
         ptx <- mkPendingTx ws srcWalletId txHash txAux th
 
-        th <$ submitAndSaveNewPtx pm db submitTx ptx
+        th <$ submitAndSaveNewPtx pm txpConfig db submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

@@ -24,6 +24,8 @@ handlers w =  deleteAccount w
          :<|> newAccount w
          :<|> updateAccount w
          :<|> redeemAda w
+         :<|> newAddressPath w
+         :<|> storeNewAddress w
 
 deleteAccount :: PassiveWalletLayer IO
               -> WalletId
@@ -43,8 +45,8 @@ getAccount :: PassiveWalletLayer IO
 getAccount layer wId accIdx = do
     res <- liftIO $ WalletLayer.getAccount layer wId accIdx
     case res of
-         Left e        -> throwM e
-         Right account -> return $ single account
+         Left e    -> throwM e
+         Right acc -> return $ single acc
 
 listAccounts :: PassiveWalletLayer IO
              -> WalletId
@@ -70,8 +72,8 @@ newAccount :: PassiveWalletLayer IO
 newAccount layer wId newAccountRequest = do
     res <- liftIO $ WalletLayer.createAccount layer wId newAccountRequest
     case res of
-         Left e        -> throwM e
-         Right account -> return $ single account
+         Left e    -> throwM e
+         Right acc -> return $ single acc
 
 updateAccount :: PassiveWalletLayer IO
               -> WalletId
@@ -92,3 +94,16 @@ redeemAda :: PassiveWalletLayer IO
           -> Handler (WalletResponse Transaction)
 redeemAda _layer _wId _accIdx _redemption =
     error "unimplemented, see [CBR-349]"
+
+newAddressPath :: PassiveWalletLayer IO
+               -> WalletId
+               -> AccountIndex
+               -> Handler (WalletResponse AddressPath)
+newAddressPath _walletId _accountIndex = error ""
+
+storeNewAddress :: PassiveWalletLayer IO
+                -> WalletId
+                -> AccountIndex
+                -> Text
+                -> Handler NoContent
+storeNewAddress _walletId _accountIndex _newAddressAsText = error ""

@@ -2,10 +2,6 @@ module WalletSpecs (internalWalletSpecs, externalWalletSpecs) where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors
-                     (WalletError (WalletAlreadyExists, WalletNotFound))
-import           Pos.Crypto (SecretKey, encToPublic, noPassEncrypt)
-import           Cardano.Wallet.Client.Http
 import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists, WalletNotFound))
 import           Cardano.Wallet.Client.Http
 import           Pos.Wallet.Web.Util (walletRootPKToIdText)

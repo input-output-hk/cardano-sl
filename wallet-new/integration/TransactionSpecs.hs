@@ -15,17 +15,8 @@ import           Pos.Crypto.HD (ShouldCheckPassphrase (..))
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
 
-import           Control.Concurrent (threadDelay)
-import           Text.Show.Pretty (ppShow)
 import           Util
 
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
-log :: MonadIO m => Text -> m ()
-log = putStrLn . mappend "[TEST-LOG] "
-
-ppShowT :: Show a => a -> Text
-ppShowT = fromString . ppShow
 
 transactionSpecs
      :: HasCallStack
@@ -65,92 +56,18 @@ testPostTransaction wc (genesisWallet, wallet) = do
                         }
                     , pmtDestinations = pure PaymentDistribution
                         { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
+                        , pdAmount = halfOf (accAmount fromAcct)
                         }
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) =
-                    V1 (Core.mkCoin (max 1 (Core.getCoin c `div` 10)))
+        halfOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 2))
 
-            etxn <- postTransaction wc payment
-
-            txn <- fmap wrData etxn `shouldPrism` _Right
-
-            eresp <- getTransactionIndex
-                wc
-                (Just (walId wallet))
-                (Just (accIndex toAcct))
-                Nothing
-            resp <- fmap wrData eresp `shouldPrism` _Right
-
-            map txId resp `shouldContain` [txId txn]
-
-        it ( "asset-locked wallets can receive funds and transactions are "
-           <> "confirmed in index"
-           ) $ do
-            genesis <- genesisWallet wc
-            (fromAcct, _) <- firstAccountAndId wc genesis
-
-            wallet <- genesisAssetLockedWallet wc
-            (toAcct, toAddr) <- firstAccountAndId wc wallet
-
-            let payment = Payment
-                    { pmtSource =  PaymentSource
-                        { psWalletId = walId genesis
-                        , psAccountIndex = accIndex fromAcct
-                        }
-                    , pmtDestinations = pure PaymentDistribution
-                        { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
-                        }
-                    , pmtGroupingPolicy = Nothing
-                    , pmtSpendingPassword = Nothing
-                    }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
-
-            txn <- fmap wrData $ shouldReturnRight $ postTransaction wc payment
-
-            threadDelay 120000000
-            resp <- fmap wrData $ shouldReturnRight $
+    txn <- fmap wrData $ shouldReturnRight $ postTransaction wc payment
+    resp <- fmap wrData $ shouldReturnRight $
                          getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
 
-            map txId resp `shouldContain` [txId txn]
-            let txnEntry: _ = filter ( \x -> (txId x) == (txId txn)) resp
-            log $ "Resp   : " <> ppShowT txnEntry
-            txConfirmations txnEntry `shouldNotBe` 0
-
-        it "sending from asset-locked address in wallet with no ther addresses gets 0 confirmations from core nodes" $ do
-            genesis <- genesisAssetLockedWallet wc
-            (fromAcct, _) <- firstAccountAndId wc genesis
-
-            wallet <- sampleWallet wRef wc
-            (toAcct, toAddr) <- firstAccountAndId wc wallet
-
-            let payment = Payment
-                    { pmtSource =  PaymentSource
-                        { psWalletId = walId genesis
-                        , psAccountIndex = accIndex fromAcct
-                        }
-                    , pmtDestinations = pure PaymentDistribution
-                        { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
-                        }
-                    , pmtGroupingPolicy = Nothing
-                    , pmtSpendingPassword = Nothing
-                    }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
-
-            etxn <- postTransaction wc payment
-
-            txn <- fmap wrData etxn `shouldPrism` _Right
-
-            threadDelay 120000000
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
-            resp <- fmap wrData eresp `shouldPrism` _Right :: IO [ Transaction]
-            let txnEntry : _ = filter ( \x -> (txId x) == (txId txn)) resp
-            log $ "Resp   : " <> ppShowT txnEntry
-            txConfirmations txnEntry `shouldBe` 0
+    map txId resp `shouldContain` [txId txn]
 
 estimateTransactionFees :: HasCallStack => WalletClient IO -> IO ()
 estimateTransactionFees wc = do

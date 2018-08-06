@@ -13,9 +13,8 @@ import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (Tx, TxAux, TxSigData (..))
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Txp (Tx, TxAux, TxSigData (..))
 import           Pos.Crypto (ProtocolMagic, Signature (..), PublicKey,
                      decodeBase58PublicKey, hash)
 import qualified Pos.Util.Servant as V0
@@ -48,7 +47,7 @@ handlers pm txpConfig submitTx =
         :<|> allTransactions
         :<|> estimateFees pm
         :<|> newUnsignedTransaction pm
-        :<|> newSignedTransaction pm submitTx
+        :<|> newSignedTransaction pm txpConfig submitTx
 
 newTransaction
     :: forall ctx m
@@ -181,10 +180,11 @@ newUnsignedTransaction pm paymentWithChangeAddress = do
 newSignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => ProtocolMagic
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> SignedTransaction
     -> m (WalletResponse Transaction)
-newSignedTransaction pm submitTx (SignedTransaction encodedRootPK txAsHex addrsWithProofsAsText) = do
+newSignedTransaction pm txpConfig submitTx (SignedTransaction encodedRootPK txAsHex addrsWithProofsAsText) = do
     rootPK <- case decodeBase58PublicKey encodedRootPK of
         Left problem -> throwM (InvalidPublicKey $ sformat build problem)
         Right rootPK -> return rootPK
@@ -202,7 +202,7 @@ newSignedTransaction pm submitTx (SignedTransaction encodedRootPK txAsHex addrsW
     addrsWithProofs <- mapM checkAddressProof addrsWithProofsAsText
 
     -- Submit signed transaction as pending one.
-    cTx <- V0.submitSignedTransaction pm submitTx walletId tx addrsWithProofs
+    cTx <- V0.submitSignedTransaction pm txpConfig submitTx walletId tx addrsWithProofs
     single <$> migrate cTx
   where
     checkAddressProof

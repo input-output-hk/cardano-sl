@@ -22,12 +22,12 @@ import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy,
                      PendingAddresses (..), TxCreateMode, TxError (..),
-                     createMTx, createRedemptionTx)
+                     createMTx, createRedemptionTx, createUnsignedTx)
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
                      unsafeAddCoin)
-import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..), TxOut (..),
-                     TxOutAux (..), txaF)
+import           Pos.Core.Txp (TxAux (..), Tx, TxId, TxMsgContents (..),
+                     TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
                      redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)

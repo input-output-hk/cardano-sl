@@ -11,11 +11,11 @@ module Error
 
 import           Universum
 
-import           Formatting (bprint, stext, (%))
 import qualified Formatting.Buildable
+import           Formatting (bprint, stext, (%))
 
-import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees,
-                     Transaction, V1, Wallet, WalletAddress)
+import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, V1,
+                                              Wallet, WalletAddress)
 
 import           Cardano.Wallet.Client (ClientError)
 import qualified Pos.Core as Core

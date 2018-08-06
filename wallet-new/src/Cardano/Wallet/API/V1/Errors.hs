@@ -173,6 +173,22 @@ instance ToJSON WalletError where
         pairs $ pairStr "status" (toEncoding $ String "error")
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "TxFailedToStabilize"
+    toEncoding (InvalidPublicKey weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "InvalidPublicKey"
+    toEncoding (UnsignedTxCreationError) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "UnsignedTxCreationError"
+    toEncoding (TooBigTransaction) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TooBigTransaction"
+    toEncoding (SignedTxSubmitError weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "SignedTxSubmitError"
     toEncoding (TxRedemptionDepleted) =
         pairs $ pairStr "status" (toEncoding $ String "error")
              <> pairStr "diagnostic" (pairs $ mempty)
@@ -187,6 +203,10 @@ instance ToJSON WalletError where
              <> pairStr "diagnostic"
                  (pairs $ pairStr "params" (toEncoding requiredParams))
              <> "message" .= String "MissingRequiredParams"
+    toEncoding (CannotCreateAddress weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "CannotCreateAddress"
     toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
         toEncoding $ toJSON weStillRestoring
     toEncoding (NodeIsStillSyncing wenssStillSyncing) =
@@ -196,36 +216,44 @@ instance FromJSON WalletError where
     parseJSON (Object o)
         | HMS.member "message" o =
               case HMS.lookup "message" o of
-                Just "NotEnoughMoney"        ->
+                Just "NotEnoughMoney"          ->
                     NotEnoughMoney
                         <$> ((o .: "diagnostic") >>= (.: "needMore"))
-                Just "OutputIsRedeem"        ->
+                Just "OutputIsRedeem"          ->
                     OutputIsRedeem <$> ((o .: "diagnostic") >>= (.: "address"))
-                Just "MigrationFailed"       ->
+                Just "MigrationFailed"         ->
                     MigrationFailed
                         <$> ((o .: "diagnostic") >>= (.: "description"))
-                Just "JSONValidationFailed"  ->
+                Just "JSONValidationFailed"    ->
                     JSONValidationFailed
                         <$> ((o .: "diagnostic") >>= (.: "validationError"))
-                Just "UnknownError"          ->
+                Just "UnknownError"            ->
                     UnknownError <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "InvalidAddressFormat"  ->
+                Just "InvalidAddressFormat"    ->
                     InvalidAddressFormat
                         <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "WalletNotFound"        -> pure WalletNotFound
-                Just "WalletAlreadyExists"   -> pure WalletAlreadyExists
-                Just "AddressNotFound"       -> pure AddressNotFound
-                Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
-                Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
-                Just "TxSafeSignerNotFound"  ->
+                Just "WalletNotFound"          -> pure WalletNotFound
+                Just "WalletAlreadyExists"     -> pure WalletAlreadyExists
+                Just "AddressNotFound"         -> pure AddressNotFound
+                Just "TxFailedToStabilize"     -> pure TxFailedToStabilize
+                Just "InvalidPublicKey"        ->
+                    InvalidPublicKey <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "UnsignedTxCreationError" -> pure UnsignedTxCreationError
+                Just "TooBigTransaction"       -> pure TooBigTransaction
+                Just "SignedTxSubmitError"     ->
+                    SignedTxSubmitError <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "TxRedemptionDepleted"    -> pure TxRedemptionDepleted
+                Just "TxSafeSignerNotFound"    ->
                     TxSafeSignerNotFound
                         <$> ((o .: "diagnostic") >>= (.: "address"))
-                Just "MissingRequiredParams" ->
+                Just "MissingRequiredParams"   ->
                     MissingRequiredParams
                         <$> ((o .: "diagnostic") >>= (.: "params"))
-                Just _                       ->
+                Just "CannotCreateAddress"     ->
+                    CannotCreateAddress <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just _                         ->
                     fail "Incorrect JSON encoding for WalletError"
-                Nothing                      ->
+                Nothing                        ->
                     fail "Incorrect JSON encoding for WalletError"
         -- WalletIsNotReadyToProcessPayments
         | HMS.member "estimatedCompletionTime" o = do

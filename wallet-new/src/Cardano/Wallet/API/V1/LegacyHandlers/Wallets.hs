@@ -28,7 +28,6 @@ import qualified Data.IxSet.Typed as IxSet
 import           Pos.Chain.Update ()
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeBase58PublicKey)
-import           Pos.Update.Configuration ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 

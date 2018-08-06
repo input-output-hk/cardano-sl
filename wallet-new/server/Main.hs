@@ -29,8 +29,8 @@ import           Pos.Launcher.Configuration (AssetLockPath (..),
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
-                     getWalletAddresses, runWRealMode)
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB,
+                     getKeyById, getWalletAddresses, runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot,
                      flushWalletStorage)

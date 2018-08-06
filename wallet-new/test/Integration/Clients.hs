@@ -3,7 +3,8 @@
 module Integration.Clients
     (
     -- * Start a cluster of wallet nodes
-    startCluster
+      startCluster
+    , waitForNode
 
     -- * WalletClient (run requests against the API)
     , WalletClient
@@ -12,7 +13,7 @@ module Integration.Clients
 
 import           Universum hiding (takeWhile)
 
-import           Control.Concurrent (ThreadId, forkIO)
+import           Control.Concurrent (ThreadId, forkIO, threadDelay)
 import           Data.Attoparsec.ByteString.Char8 (IResult (..), parse,
                      skipWhile, string, takeWhile)
 import           Data.List (elemIndex, stripPrefix)
@@ -25,9 +26,11 @@ import           Options.Applicative.Help.Chunk (Chunk (..))
 import           System.Environment (getEnv, getEnvironment, lookupEnv, setEnv,
                      withArgs)
 
+import           Cardano.Wallet.Client (ClientError (..),
+                     ServantError (ConnectionError), WalletClient (..))
 import           Cardano.Wallet.Client.Http (BaseUrl (..), Scheme (..),
-                     WalletClient, credentialLoadX509, liftClient,
-                     mkHttpClient, mkHttpsManagerSettings, newManager)
+                     credentialLoadX509, liftClient, mkHttpClient,
+                     mkHttpsManagerSettings, newManager)
 import           Cardano.Wallet.Launcher (runWWebMode, startWalletNode)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      WalletBackendParams (..), WalletDBOptions (..),
@@ -46,6 +49,8 @@ import qualified Data.List as List
 import qualified Text.Parsec as Parsec
 
 
+-- | Start a cluster of wallet nodes in different thread with the given NodeIds.
+-- Node gets their argument from the ENVironment.
 startCluster :: String -> [String] -> IO [ThreadId]
 startCluster prefix nodes = do
     let cVars = varFromParser commonNodeArgsParser prefix
@@ -100,6 +105,7 @@ startCluster prefix nodes = do
             startWalletNode nArgs wOpts lArgs
 
 
+-- | Create a Wallet Http Client using some ENVironment variables
 mkWHttpClient :: MonadIO m => String -> IO (WalletClient m)
 mkWHttpClient prefix = do
     tlsClientCertPath <- getEnvD (prefix <> "TLSCERT_CLIENT") (toStateFolder prefix <> "/tls/client.crt") getEnv
@@ -121,6 +127,21 @@ mkWHttpClient prefix = do
                 either (fail . ("Error decoding X509 certificates: " <>)) return
         in
             credentialLoadX509 path >=> orFail
+
+
+-- | Make HttpRequest continuously to wait after the node
+waitForNode :: WalletClient IO -> IO ()
+waitForNode wc = do
+    resp <- getNodeInfo wc
+    case resp of
+        Right _ ->
+            return ()
+
+        Left (ClientHttpError ConnectionError{}) ->
+            threadDelay 1000000 >> waitForNode wc
+
+        Left err ->
+            fail (show err)
 
 
 --

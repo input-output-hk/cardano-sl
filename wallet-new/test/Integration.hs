@@ -4,11 +4,10 @@ module Main where
 
 import           Universum
 
-import           Control.Concurrent (threadDelay)
 import           NeatInterpolation (text)
 import           Test.Hspec (describe, hspec)
 
-import           Integration.Clients (mkWHttpClient, startCluster)
+import           Integration.Clients (mkWHttpClient, startCluster, waitForNode)
 
 import qualified Integration.Specs.Addresses as Addresses
 
@@ -68,12 +67,9 @@ and talk to `127.0.0.1:8090'.
     -- NOTE Always WalletNode in the end as its options conflicts with the core nodes.
     -- Also, there should be only one edge node. In the end, this would deserve
     -- a better data-structure I guess. For this sake, a list is fine,
-    cluster <- startCluster prefix [ "node0", "node1", "node2" ]
-    wc <- mkWHttpClient prefix
+    wc <- startCluster prefix [ "node0", "node1", "node2" ] >> mkWHttpClient prefix
 
-
-    -- FIXME Try to make that nicer using some sort of MVar lock
-    putText "\nWaiting for cluster to start...\n" >> threadDelay 15000000
+    putText "\nWaiting for cluster to start...\n" >> waitForNode wc
 
     hspec $ describe "Integration Tests" $
         describe "Addresses" $ Addresses.spec wc

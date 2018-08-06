@@ -45,7 +45,7 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -123,7 +123,7 @@ withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server" <> "outboundqueue"))
+                 noTrace --("server" <> "outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -151,7 +151,7 @@ withServer transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 2048
-        , fdcTrace = wlogTrace ("server" <> "diffusion")
+        , fdcTrace = noTrace --("server" <> "diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -167,7 +167,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 noTrace --("client" <> "outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -197,7 +197,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = streamWindow
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = noTrace --("client" <> "diffusion")
         }
 
 

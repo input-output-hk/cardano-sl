@@ -28,10 +28,9 @@ import qualified Data.Map as M
 import           Data.Text (Text)
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (sformat, shown, (%))
-import           Network.EngineIO.Wai (WaiMonad)
 
 import qualified Network.SocketIO as S
-import           System.Wlog (CanLog (..), WithLogger, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
 
 -- * Provides type-safety for event names in some socket-io functions.
 
@@ -71,19 +70,14 @@ on :: (MonadState S.RoutingTable m, FromJSON event, EventName name)
    => name -> (event -> S.EventHandler a) -> m ()
 on eventName = S.on (toName eventName)
 
--- * Instances
-
-instance CanLog WaiMonad where
-    dispatchMessage logName sev msg = liftIO $ dispatchMessage logName sev msg
-
 -- * Misc
 
 -- | Runs an action periodically.
 -- Action is launched with state. If action fails, state remains unmodified.
 runPeriodically
-    :: (MonadIO m, MonadCatch m, WithLogger m, TimeUnit t)
-    => t -> s -> StateT s m () -> m ()
-runPeriodically delay initState action =
+    :: (MonadIO m, MonadCatch m, TimeUnit t)
+    => TraceNamed m -> t -> s -> StateT s m () -> m ()
+runPeriodically logTrace delay initState action =
     let loop st = do
             st' <- execStateT action st
                 `catchAny` \e -> handler e $> st
@@ -92,7 +86,7 @@ runPeriodically delay initState action =
             loop st'
     in  loop initState
   where
-    handler = logWarning . sformat ("Periodic action failed: "%shown)
+    handler = (logWarning logTrace) . sformat ("Periodic action failed: " % shown)
 
 regroupBySnd
     :: forall a b l. (Ord b, Container l, Element l ~ b)

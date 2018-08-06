@@ -9,13 +9,11 @@ module Pos.Client.KeyStorage
        , modifySecretPureDefault
        , modifySecretDefault
 
-       , getPrimaryKey
        , getSecretKeys
        , getSecretKeysPlain
        , addSecretKey
        , deleteAllSecretKeys
        , deleteSecretKeyBy
-       , newSecretKey
        , KeyData
        , KeyError (..)
        , AllUserSecrets (..)
@@ -27,10 +25,10 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
 
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash,
-                     runSecureRandom, safeKeyGen)
+import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, usKeys,
-                     usPrimKey, writeUserSecret)
+                     writeUserSecret)
+
 
 type KeyData = TVar UserSecret
 
@@ -68,9 +66,6 @@ modifySecretDefault f = do
 -- Helpers
 ----------------------------------------------------------------------
 
-getPrimaryKey :: MonadKeysRead m => m (Maybe SecretKey)
-getPrimaryKey = view usPrimKey <$> getSecret
-
 newtype AllUserSecrets = AllUserSecrets
     { getAllUserSecrets :: [EncryptedSecretKey]
     } deriving (Container)
@@ -92,13 +87,6 @@ deleteAllSecretKeys = modifySecret (usKeys .~ [])
 
 deleteSecretKeyBy :: MonadKeys m => (EncryptedSecretKey -> Bool) -> m ()
 deleteSecretKeyBy predicate = modifySecret (usKeys %~ filter (not . predicate))
-
--- | Helper for generating a new secret key
-newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
-newSecretKey pp = do
-    (_, sk) <- liftIO $ runSecureRandom $ safeKeyGen pp
-    addSecretKey sk
-    pure sk
 
 ------------------------------------------------------------------------
 -- Common functions

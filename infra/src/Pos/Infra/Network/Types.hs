@@ -50,6 +50,7 @@ import           Universum
 
 import           Data.IP (IPv4)
 import qualified Data.Set as Set (null)
+import qualified Data.Text as T
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -57,9 +58,9 @@ import           Network.DNS (DNSError)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
+import           Pos.Util.Log (LoggerName)
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog (LoggerName (..))
 
 import           Pos.Core.Metrics.Constants (cardanoNamespace)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
@@ -67,7 +68,7 @@ import qualified Pos.Infra.Network.DnsDomains as DnsDomains
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName)
 import           Pos.Util.Util (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
@@ -435,12 +436,13 @@ data Bucket =
 -- You can choose what name to give it.
 initQueue :: (MonadIO m, FormatMsg msg)
           => NetworkConfig kademlia
+          -> TraceNamed IO
           -> LoggerName
           -> Maybe Monitoring.Store -- ^ EKG store (if used)
           -> m (OutboundQ msg NodeId Bucket)
-initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
+initQueue NetworkConfig{..} logTrace loggerName mStore = liftIO $ do
     let NodeName selfName = fromMaybe (NodeName "self") ncSelfName
-        oqTrace           = wlogTrace (loggerName <> LoggerName selfName)
+        oqTrace           = appendName (loggerName `T.append` selfName) logTrace
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy

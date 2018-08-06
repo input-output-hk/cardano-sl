@@ -56,7 +56,7 @@ module Pos.Util.Util
        , buildListBounds
        , multilineBounds
        , logException
-       , bracketWithLogging
+       , bracketWithTrace
 
        -- * Misc
        , mconcatPair
@@ -105,11 +105,11 @@ import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
+import qualified Pos.Util.Log as Log
+import qualified Pos.Util.Trace.Named as TN
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError,
-                     logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
@@ -327,32 +327,33 @@ multilineBounds maxSize = F.later formatList
    remaining = maxSize' - half
 
 -- | Catch and log an exception, then rethrow it
-logException :: LoggerName -> IO a -> IO a
+logException :: (MonadCatch m, Log.WithLogger m) => Log.LoggerName -> m a -> m a
 logException name = E.handleAsync (\e -> handler e >> E.throw e)
   where
-    handler :: E.SomeException -> IO ()
+    handler :: (MonadCatch m, Log.WithLogger m) => E.SomeException -> m ()
     handler exc = do
-        let message = "logException: " <> pretty exc
-        usingLoggerName name (logError message) `E.catchAny` \loggingExc -> do
+        let message = name <> " logException: " <> pretty exc
+        Log.logError message `E.catchAny` \loggingExc -> do
             putStrLn message
-            putStrLn $
-                "logException failed to use logging: " <> pretty loggingExc
+            putStrLn $ "logException failed to use logging: " <> pretty loggingExc
 
 -- | 'bracket' which logs given message after acquiring the resource
 -- and before calling the callback with 'Info' severity.
-bracketWithLogging ::
-       (MonadMask m, WithLogger m)
-    => Text
+bracketWithTrace
+    :: (MonadMask m)
+    => TN.TraceNamed m
+    -> Text
     -> m a
     -> (a -> m b)
     -> (a -> m c)
     -> m c
-bracketWithLogging msg acquire release = bracket acquire release . addLogging
+bracketWithTrace logTrace msg acquire release =
+  bracket acquire release . addLogging
   where
     addLogging callback resource = do
-        logInfo $ "<bracketWithLogging:before> " <> msg
+        TN.logInfo logTrace $ "<bracketWithTrace:before> " <> msg
         callback resource <*
-            logInfo ("<bracketWithLogging:after> " <> msg)
+            TN.logInfo logTrace ("<bracketWithTrace:after> " <> msg)
 
 ----------------------------------------------------------------------------
 -- Misc
@@ -435,16 +436,16 @@ sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
 
 -- | 'tMeasure' with 'logDebug'.
-tMeasureLog :: (MonadIO m, WithLogger m) => Text -> m a -> m a
-tMeasureLog label = fmap fst . tMeasure logDebug label
+tMeasureLog :: MonadIO m => TN.TraceNamed m -> Text -> m a -> m a
+tMeasureLog logTrace label = fmap fst . tMeasure (TN.logDebug logTrace) label
 
 -- | 'tMeasure' with 'putText'. For places you don't have
 -- 'WithLogger' constraint.
-tMeasureIO :: (MonadIO m) => Text -> m a -> m a
+tMeasureIO :: MonadIO m => Text -> m a -> m a
 tMeasureIO label = fmap fst . tMeasure putText label
 
-timed :: (MonadIO m, WithLogger m) => Text -> m a -> m (a, Microsecond)
-timed = tMeasure logDebug
+timed :: MonadIO m => TN.TraceNamed m -> Text -> m a -> m (a, Microsecond)
+timed logTrace = tMeasure (TN.logDebug logTrace)
 
 -- | Takes the first time sample, executes action (forcing its
 -- result), takes the second time sample, logs it.

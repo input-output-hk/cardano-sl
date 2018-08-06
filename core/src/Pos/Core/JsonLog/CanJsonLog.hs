@@ -19,19 +19,25 @@ module Pos.Core.JsonLog.CanJsonLog
 
 import           Prelude
 
+import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader (ReaderT)
 import           Control.Monad.State (StateT)
 import           Control.Monad.Trans.Class (MonadTrans (..))
 import           Control.Monad.Trans.Identity (IdentityT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
+import           Data.Aeson (encode)
 import           Data.Aeson.Types (ToJSON)
+import qualified Data.ByteString.Lazy as B
+import           Data.Text.Encoding (decodeUtf8)
 import qualified Ether
-import           System.Wlog.LoggerNameBox (LoggerNameBox)
+
+import qualified Pos.Util.Log as Log
+
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.
-class Monad m => CanJsonLog m where
+class MonadIO m => CanJsonLog m where
 
     -- | @'jsonLog' x@ serializes @x@ to JSON and
     -- writes the resulting JSON value to the JSON log.
@@ -49,7 +55,8 @@ instance CanJsonLog m => CanJsonLog (IdentityT m)
 instance CanJsonLog m => CanJsonLog (ReaderT r m)
 instance CanJsonLog m => CanJsonLog (StateT s m)
 instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
-instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
+instance CanJsonLog (Log.LogContextT IO) where
+    jsonLog a = Log.logMessage Log.Info $ decodeUtf8 $ B.toStrict $ encode a
 deriving instance CanJsonLog (t m) => CanJsonLog (Ether.TaggedTrans tag t m)

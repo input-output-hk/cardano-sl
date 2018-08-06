@@ -4,8 +4,9 @@ synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          Serokell <hi@serokell.io>
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -173,7 +174,6 @@ library
                       , http-client-tls
                       , http-conduit
                       , lens
-                      , log-warper >= 1.1.1
                       , memory
                       , mmorph
                       , monad-control
@@ -323,7 +323,6 @@ test-suite cardano-test
                      , generic-arbitrary
                      , hspec
                      , lens
-                     , log-warper
                      , network-transport
                      , network-transport-inmemory
                      , pvss

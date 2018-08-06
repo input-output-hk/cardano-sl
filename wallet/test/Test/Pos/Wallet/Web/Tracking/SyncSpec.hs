@@ -25,6 +25,7 @@ import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Trace (noTrace)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
@@ -67,7 +68,7 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
     sks <- lift getSecretKeysPlain
-    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain noTrace (newSyncRequest (eskToWalletDecrCredentials s))
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
@@ -89,9 +90,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
-    lift $ rollbackBlocks dummyProtocolMagic to1Rollback
+    lift $ rollbackBlocks noTrace dummyProtocolMagic to1Rollback
     after1RollbackDB <- lift WS.askWalletSnapshot
-    lift $ rollbackBlocks dummyProtocolMagic to2Rollback
+    lift $ rollbackBlocks noTrace dummyProtocolMagic to2Rollback
     after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"

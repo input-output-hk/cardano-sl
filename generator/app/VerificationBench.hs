@@ -13,9 +13,6 @@ import           Formatting (int, sformat, shown, (%))
 import qualified Options.Applicative as Opts
 import           System.Directory (doesFileExist)
 import           System.Random (newStdGen)
-import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
-                     debugPlus, defaultHandleAction, logError, logInfo,
-                     setupLogging, termSeveritiesOutB)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
@@ -41,6 +38,11 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
                      withConfigurationsM)
 import           Pos.Util.CompileInfo (withCompileInfo)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo,
+                     setupLogging)
 import           Pos.Util.Util (realTime)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..),
@@ -69,18 +71,19 @@ balance = TestnetBalanceOptions
     }
 
 generateBlocks :: HasConfigurations
-               => ProtocolMagic
+               => TraceNamed IO
+               -> ProtocolMagic
                -> TxpConfiguration
                -> BlockCount
                -> BlockTestMode (OldestFirst NE Block)
-generateBlocks pm txpConfig bCount = do
+generateBlocks logTrace pm txpConfig bCount = do
     g <- liftIO $ newStdGen
     let secretKeys =
             case genesisSecretKeys of
                 Nothing ->
                     error "generateBlocks: no genesisSecretKeys"
                 Just ks -> ks
-    bs <- flip evalRandT g $ genBlocks pm txpConfig
+    bs <- flip evalRandT g $ genBlocks (natTrace liftIO logTrace) pm txpConfig
             (BlockGenParams
                 { _bgpSecrets = mkAllSecretsSimple secretKeys
                 , _bgpBlockCount = bCount
@@ -183,7 +186,8 @@ readBlocks path = do
 
 main :: IO ()
 main = do
-    setupLogging Nothing loggerConfig
+    logTrace <- setupLogging loggerConfig "verification-bench"
+    let logTrace' = natTrace liftIO logTrace
     args <- Opts.execParser
         $ Opts.info
             (benchArgsParser <**> Opts.helper)
@@ -200,21 +204,21 @@ main = do
         fn :: GenesisData -> GenesisData
         fn gd = gd { gdProtocolConsts = (gdProtocolConsts gd) { gpcK = baK args } }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !pm !txpConfig !_ ->
+        withConfigurationsM logTrace {-(LoggerName "verification-bench")-} Nothing cfo fn $ \ !pm !txpConfig !_ ->
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
                     , _tpBlockVersionData = genesisBlockVersionData
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }
-            in runBlockTestMode tp $ do
+            in runBlockTestMode logTrace tp $ do
                 -- initialize databasea
                 initNodeDBs pm slotSecurityParam
                 bs <- case baBlockCache args of
                     Nothing -> do
                         -- generate blocks and evaluate them to normal form
-                        logInfo "Generating blocks"
-                        generateBlocks pm txpConfig (baBlockCount args)
+                        logInfo logTrace' "Generating blocks"
+                        generateBlocks (natTrace liftIO logTrace) pm txpConfig (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
                         mbs <- if fileExists
@@ -223,21 +227,21 @@ main = do
                         case mbs of
                             Nothing -> do
                                 -- generate blocks and evaluate them to normal form
-                                logInfo "Generating blocks"
-                                bs <- generateBlocks pm txpConfig (baBlockCount args)
+                                logInfo logTrace' "Generating blocks"
+                                bs <- generateBlocks logTrace pm txpConfig (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
                             Just bs -> return bs
 
                 satisfySlotCheck bs $ do
-                    logInfo "Verifying blocks"
+                    logInfo logTrace' "Verifying blocks"
                     let bss = force $ zip ([1..] :: [Int]) $ replicate (baRuns args) bs
                     (times, errs) <- fmap unzip $ forM bss
                         $ \(idx, blocks) -> do
-                            logInfo $ sformat ("Pass: "%int) idx
+                            logInfo logTrace' $ sformat ("Pass: "%int) idx
                             (if baApply args
-                                then validateAndApply pm txpConfig blocks
-                                else validate pm blocks)
+                                then validateAndApply (natTrace liftIO logTrace) pm txpConfig blocks
+                                else validate logTrace pm blocks)
 
                     let -- drop first three results (if there are more than three results)
                         itimes :: [Float]
@@ -248,48 +252,50 @@ main = do
                         -- standard deviation of the execution time distribution
                         stddev :: Float
                         stddev = sqrt . (\x -> x / realToFrac (length itimes - 1)) . avarage . map ((**2) . (-) mean) $ itimes
-                    logInfo $ sformat ("verification and application mean time: "%shown%"μs stddev: "%shown) mean stddev
+                    logInfo logTrace' $ sformat ("verification and application mean time: "%shown%"μs stddev: "%shown) mean stddev
 
                     -- print errors
                     let errs' = catMaybes errs
                         errno = length errs'
                     when (errno > 0) $ do
-                        logError $ sformat ("Verification/Application errors ("%shown%"):") errno
-                        traverse_ (logError . show) errs
+                        logError logTrace' $ sformat ("Verification/Application errors ("%shown%"):") errno
+                        traverse_ (logError logTrace' . show) errs
     where
-        loggerConfig :: LoggerConfig
-        loggerConfig = termSeveritiesOutB debugPlus
-                <> consoleActionB defaultHandleAction
+        loggerConfig :: Log.LoggerConfig
+        loggerConfig = defaultInteractiveConfiguration Log.Debug
 
         avarage :: [Float] -> Float
         avarage as = sum as / realToFrac (length as)
 
         validate
             :: HasConfigurations
-            => ProtocolMagic
+            => TraceNamed IO
+            -> ProtocolMagic
             -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validate pm blocks = do
+        validate logTrace pm blocks = do
             verStart <- realTime
             -- omitting current slot for simplicity
             ctx <- getVerifyBlocksContext' Nothing
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm ctx blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix (natTrace liftIO logTrace) pm ctx blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
         validateAndApply
             :: HasConfigurations
-            => ProtocolMagic
+            => TraceNamed IO
+            -> ProtocolMagic
             -> TxpConfiguration
             -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validateAndApply pm txpConfig blocks = do
+        validateAndApply logTrace pm txpConfig blocks = do
+            let logTrace' = natTrace liftIO logTrace
             verStart <- realTime
             ctx <- getVerifyBlocksContext' Nothing
-            res <- force <$> verifyAndApplyBlocks pm txpConfig ctx False blocks
+            res <- force <$> verifyAndApplyBlocks logTrace' pm txpConfig ctx False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()
                 Right (_, blunds)
-                    -> whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
+                    -> whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks logTrace' pm)
             return (verEnd - verStart, either (Just . Right) (const Nothing) res)

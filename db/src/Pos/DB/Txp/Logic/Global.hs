@@ -45,6 +45,7 @@ import           Pos.DB.Txp.Stakes (StakesOp (..))
 import           Pos.DB.Txp.Utxo (UtxoOp (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Trace.Named (TraceNamed)
 
 ----------------------------------------------------------------------------
 -- Settings
@@ -55,9 +56,9 @@ import qualified Pos.Util.Modifier as MM
 txpGlobalSettings :: HasGenesisData => ProtocolMagic -> TxpConfiguration -> TxpGlobalSettings
 txpGlobalSettings pm txpConfig =
     TxpGlobalSettings
-    { tgsVerifyBlocks = verifyBlocks pm txpConfig
-    , tgsApplyBlocks = applyBlocksWith pm txpConfig (processBlundsSettings False applyToil)
-    , tgsRollbackBlocks = rollbackBlocks
+    { tgsVerifyBlocks = \_ -> verifyBlocks pm txpConfig
+    , tgsApplyBlocks = \logTrace -> applyBlocksWith logTrace pm txpConfig (processBlundsSettings False applyToil)
+    , tgsRollbackBlocks = \_ -> rollbackBlocks
     }
 
 ----------------------------------------------------------------------------
@@ -115,6 +116,7 @@ data ProcessBlundsSettings extraEnv extraState m = ProcessBlundsSettings
     -- should turn known outputs of transactions into 'Utxo'.
     }
 
+
 processBlunds ::
        forall extraEnv extraState m. (TxpCommonMode m, Default extraState)
     => ProcessBlundsSettings extraEnv extraState m
@@ -165,17 +167,18 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith pm txpConfig settings blunds = do
+applyBlocksWith logTrace pm txpConfig settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
         verdict <- verifyBlocks pm txpConfig False blocks
         whenLeft verdict $
-            assertionFailed .
+            assertionFailed logTrace .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     processBlunds settings (getOldestFirst blunds)
 

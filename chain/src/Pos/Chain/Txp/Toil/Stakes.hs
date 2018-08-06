@@ -14,7 +14,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (logDebug)
 
 import           Pos.Chain.Txp.Base (txOutStake)
 import           Pos.Chain.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
@@ -23,6 +22,8 @@ import           Pos.Core (HasGenesisData, StakesList, coinToInteger,
                      genesisData, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (logDebug)
 
 -- | Apply transactions to stakes.
 applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
@@ -56,7 +57,7 @@ recomputeStakes plusDistr minusDistr = do
     let resolvedStakes = map fst resolvedStakesRaw
     let createdStakes = concatMap snd resolvedStakesRaw
     unless (null createdStakes) $
-        logDebug $ sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes
+        logDebug noTrace $ sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes
     totalStake <- getTotalStake
     let (positiveDelta, negativeDelta) = (sumCoins plusCoins, sumCoins minusCoins)
         newTotalStake = unsafeIntegerToCoin $

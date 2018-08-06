@@ -45,7 +45,7 @@ import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems,
 import           Formatting (bprint, build, formatToString, (%))
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
-import           Pos.Infra.Util.LogSafe (SecureLog)
+import           Pos.Util.Log.LogSafe (SecureLog)
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Gen (vectorOf)
 

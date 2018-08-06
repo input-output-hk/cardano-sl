@@ -489,8 +489,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "Chart-diagrams";
-version = "1.8.2";
-sha256 = "ca181dec04bac1029101dd75951f48710ebc42f5333e06c57943e3245bba9f41";
+version = "1.8.3";
+sha256 = "beed1e3d4ef96be26921d058bc8d3510641514eb3c4539258e8ecf1efabc3adc";
 enableSeparateDataOutput = true;
 libraryHaskellDepends = [
 base
@@ -14747,7 +14747,6 @@ license = stdenv.lib.licenses.bsd3;
 , http-client-tls
 , http-conduit
 , lens
-, log-warper
 , memory
 , mmorph
 , monad-control
@@ -14842,7 +14841,6 @@ http-client
 http-client-tls
 http-conduit
 lens
-log-warper
 memory
 mmorph
 monad-control
@@ -14915,7 +14913,6 @@ formatting
 generic-arbitrary
 hspec
 lens
-log-warper
 network-transport
 network-transport-inmemory
 pvss
@@ -14956,6 +14953,7 @@ time-units
 universum
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL main implementation";
 license = stdenv.lib.licenses.mit;
 
@@ -14992,7 +14990,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , loc
-, log-warper
 , megaparsec
 , MonadRandom
 , mtl
@@ -15059,7 +15056,6 @@ generic-arbitrary
 haskeline
 lens
 loc
-log-warper
 megaparsec
 MonadRandom
 mtl
@@ -15098,7 +15094,6 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 formatting
-log-warper
 network-transport-tcp
 safe-exceptions
 temporary
@@ -15119,6 +15114,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - Auxx";
 license = stdenv.lib.licenses.mit;
 
@@ -15250,6 +15246,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - binary serialization";
 license = stdenv.lib.licenses.mit;
 
@@ -15324,6 +15321,7 @@ libraryToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - binary serializarion (tests)";
 license = stdenv.lib.licenses.mit;
 
@@ -15348,11 +15346,13 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , conduit
 , containers
+, contravariant
 , cpphs
 , criterion
 , cryptonite
 , data-default
 , deepseq
+, dlist
 , ekg-core
 , ether
 , exceptions
@@ -15364,7 +15364,6 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
-, log-warper
 , lrucache
 , memory
 , mmorph
@@ -15411,9 +15410,11 @@ cardano-sl-crypto
 cardano-sl-util
 conduit
 containers
+contravariant
 cryptonite
 data-default
 deepseq
+dlist
 ekg-core
 ether
 exceptions
@@ -15422,7 +15423,6 @@ formatting
 free
 hashable
 lens
-log-warper
 lrucache
 memory
 mmorph
@@ -15550,6 +15550,7 @@ universum
 unordered-containers
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - arbitrary instances for cardano-sl-chain";
 license = stdenv.lib.licenses.mit;
 
@@ -15574,7 +15575,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , mtl
 , QuickCheck
 , safe-exceptions
@@ -15609,7 +15609,6 @@ containers
 data-default
 formatting
 lens
-log-warper
 mtl
 QuickCheck
 safe-exceptions
@@ -15645,6 +15644,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL client modules";
 license = stdenv.lib.licenses.mit;
 
@@ -15691,7 +15691,6 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
-, log-warper
 , memory
 , mmorph
 , monad-control
@@ -15764,7 +15763,6 @@ fmt
 formatting
 hashable
 lens
-log-warper
 memory
 mmorph
 monad-control
@@ -15831,6 +15829,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - core";
 license = stdenv.lib.licenses.mit;
 
@@ -16020,6 +16019,7 @@ universum
 unordered-containers
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - cryptography primitives";
 license = stdenv.lib.licenses.mit;
 
@@ -16072,6 +16072,7 @@ quickcheck-instances
 universum
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - arbitrary instances for cardano-sl-crypto";
 license = stdenv.lib.licenses.mit;
 
@@ -16090,16 +16091,17 @@ license = stdenv.lib.licenses.mit;
 , concurrent-extra
 , conduit
 , containers
+, contravariant
 , cpphs
 , cryptonite
 , data-default
 , directory
+, dlist
 , ekg-core
 , ether
 , filepath
 , formatting
 , lens
-, log-warper
 , lrucache
 , memory
 , mmorph
@@ -16141,15 +16143,16 @@ cardano-sl-util
 concurrent-extra
 conduit
 containers
+contravariant
 cryptonite
 data-default
 directory
+dlist
 ekg-core
 ether
 filepath
 formatting
 lens
-log-warper
 lrucache
 memory
 mmorph
@@ -16172,6 +16175,7 @@ libraryToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - basic DB interfaces";
 license = stdenv.lib.licenses.mit;
 
@@ -16220,6 +16224,7 @@ universum
 unordered-containers
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - arbitrary instances for cardano-sl-db";
 license = stdenv.lib.licenses.mit;
 
@@ -16260,7 +16265,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , http-types
 , lens
-, log-warper
 , memory
 , mmorph
 , mtl
@@ -16334,7 +16338,6 @@ formatting
 free
 http-types
 lens
-log-warper
 memory
 mmorph
 mtl
@@ -16376,7 +16379,6 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 lens
-log-warper
 optparse-applicative
 optparse-simple
 purescript-bridge
@@ -16406,7 +16408,6 @@ engine-io
 generic-arbitrary
 hspec
 lens
-log-warper
 QuickCheck
 universum
 warp
@@ -16427,6 +16428,7 @@ benchmarkToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano explorer";
 license = stdenv.lib.licenses.mit;
 
@@ -16463,7 +16465,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , lrucache
 , monad-control
 , MonadRandom
@@ -16515,7 +16516,6 @@ ether
 exceptions
 formatting
 lens
-log-warper
 monad-control
 MonadRandom
 QuickCheck
@@ -16555,7 +16555,6 @@ directory
 ether
 formatting
 lens
-log-warper
 lrucache
 MonadRandom
 mtl
@@ -16618,7 +16617,6 @@ cryptonite
 data-default
 ether
 lens
-log-warper
 lrucache
 MonadRandom
 mtl
@@ -16634,6 +16632,7 @@ benchmarkToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - arbitrary data generation";
 license = stdenv.lib.licenses.mit;
 
@@ -16681,7 +16680,6 @@ license = stdenv.lib.licenses.mit;
 , iproute
 , kademlia
 , lens
-, log-warper
 , lzma-conduit
 , mtl
 , network-info
@@ -16747,7 +16745,6 @@ http-client-tls
 iproute
 kademlia
 lens
-log-warper
 lzma-conduit
 mtl
 network-info
@@ -16794,6 +16791,7 @@ QuickCheck
 universum
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - infrastructural";
 license = stdenv.lib.licenses.mit;
 
@@ -16851,6 +16849,7 @@ QuickCheck
 universum
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - generators for cardano-sl-infra";
 license = stdenv.lib.licenses.mit;
 
@@ -16879,7 +16878,6 @@ license = stdenv.lib.licenses.mit;
 , hspec-core
 , kademlia
 , lens
-, log-warper
 , monad-control
 , mtl
 , mwc-random
@@ -16933,7 +16931,6 @@ formatting
 hashable
 kademlia
 lens
-log-warper
 monad-control
 mtl
 network
@@ -16971,7 +16968,6 @@ containers
 hspec
 hspec-core
 lens
-log-warper
 mtl
 network-transport
 network-transport-inmemory
@@ -17010,7 +17006,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cpphs
-, log-warper
 , stdenv
 , universum
 }:
@@ -17035,13 +17030,13 @@ cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-log-warper
 universum
 ];
 executableToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL simple node executable";
 license = stdenv.lib.licenses.mit;
 
@@ -17055,7 +17050,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , Cabal
 , cardano-sl-infra
-, log-warper
+, cardano-sl-util
 , mtl
 , stdenv
 , universum
@@ -17077,11 +17072,12 @@ binary
 bytestring
 Cabal
 cardano-sl-infra
-log-warper
+cardano-sl-util
 mtl
 universum
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -17130,7 +17126,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , lifted-async
-, log-warper
 , mtl
 , neat-interpolation
 , network-transport-tcp
@@ -17193,7 +17188,6 @@ containers
 data-default
 directory
 filepath
-log-warper
 network-transport-tcp
 optparse-applicative
 optparse-generic
@@ -17245,7 +17239,6 @@ Glob
 hourglass
 lens
 lifted-async
-log-warper
 mtl
 neat-interpolation
 network-transport-tcp
@@ -17288,6 +17281,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - Tools";
 license = stdenv.lib.licenses.mit;
 
@@ -17317,10 +17311,11 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, katip
 , lens
-, log-warper
 , lrucache
 , megaparsec
+, mmorph
 , mtl
 , optparse-applicative
 , parsec
@@ -17340,10 +17335,13 @@ license = stdenv.lib.licenses.mit;
 , time
 , time-units
 , transformers
+, transformers-base
 , transformers-lift
 , universum
+, unliftio
 , unliftio-core
 , unordered-containers
+, yaml
 }:
 mkDerivation {
 
@@ -17373,10 +17371,12 @@ file-embed
 filepath
 formatting
 hashable
+hspec
+katip
 lens
-log-warper
 lrucache
 megaparsec
+mmorph
 mtl
 optparse-applicative
 parsec
@@ -17392,10 +17392,13 @@ text
 time
 time-units
 transformers
+transformers-base
 transformers-lift
 universum
+unliftio
 unliftio-core
 unordered-containers
+yaml
 ];
 libraryToolDepends = [
 cpphs
@@ -17411,6 +17414,7 @@ filepath
 formatting
 hedgehog
 hspec
+katip
 pretty-show
 QuickCheck
 quickcheck-instances
@@ -17426,6 +17430,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - general utilities";
 license = stdenv.lib.licenses.mit;
 
@@ -17498,6 +17503,7 @@ libraryToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - general utilities (tests)";
 license = stdenv.lib.licenses.mit;
 
@@ -17543,7 +17549,6 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hspec
 , lens
-, log-warper
 , memory
 , monad-control
 , MonadRandom
@@ -17621,7 +17626,6 @@ formatting
 hashable
 hspec
 lens
-log-warper
 memory
 monad-control
 mtl
@@ -17681,7 +17685,6 @@ ether
 formatting
 hspec
 lens
-log-warper
 MonadRandom
 mtl
 QuickCheck
@@ -17697,6 +17700,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - wallet";
 license = stdenv.lib.licenses.mit;
 
@@ -17755,7 +17759,6 @@ license = stdenv.lib.licenses.mit;
 , ixset-typed
 , json-sop
 , lens
-, log-warper
 , memory
 , mtl
 , mwc-random
@@ -17861,7 +17864,6 @@ http-types
 ixset-typed
 json-sop
 lens
-log-warper
 memory
 mtl
 mwc-random
@@ -17925,7 +17927,6 @@ hspec
 http-client
 http-types
 lens
-log-warper
 mtl
 optparse-applicative
 pretty-show
@@ -17970,7 +17971,6 @@ hedgehog
 hspec
 ixset-typed
 lens
-log-warper
 mtl
 normaldistribution
 optparse-applicative
@@ -18020,7 +18020,7 @@ vector
 yaml
 ];
 doHaddock = false;
-homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "The Wallet Backend for a Cardano node";
 license = stdenv.lib.licenses.mit;
 
@@ -18052,6 +18052,7 @@ serokell-util
 universum
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - wallet (Arbitrary instances)";
 license = stdenv.lib.licenses.mit;
 
@@ -25022,10 +25023,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-lib";
-version = "1.4.2";
-sha256 = "e9d41742ed3a92b9dff847c3936746e5a95cc4e187b7e4c35c3e3068c842afe5";
-revision = "1";
-editedCabalFile = "0vz16br2gn4agi35k92qw84cja2dqj63g7q3ak64jhc8r99bd4a1";
+version = "1.4.2.2";
+sha256 = "470bbb94e942c173afae9837723dc151b627cc15e81aebfa22c88622a60bd6e5";
+revision = "3";
+editedCabalFile = "033w27x3w0s567hsifb7nxc1msv9fvzz8idl88n8d5pifpgxg803";
 libraryHaskellDepends = [
 active
 adjunctions
@@ -25077,7 +25078,6 @@ license = stdenv.lib.licenses.bsd3;
 , diagrams-core
 , diagrams-lib
 , dlist
-, filepath
 , hashable
 , lens
 , monoid-extras
@@ -25090,10 +25090,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-postscript";
-version = "1.4";
-sha256 = "fe58f0010520716f66802adb0c1f70f48e77e9c4fcea5441e5343f4c1a5f8db4";
+version = "1.4.1";
+sha256 = "a758191d99c30bd663dc0df2dedef13cd735a33c143e77906aa88baceb282c9c";
 revision = "1";
-editedCabalFile = "0vmiv3b74nml0ahb7dicq0m0vz2lahzfapln9aby0jb2saa0sf58";
+editedCabalFile = "0z0rh7lwyr3vx6llq6q9s5f1vzqk4zxpcg5ibfn5jdp274kfd7r1";
 libraryHaskellDepends = [
 base
 containers
@@ -25101,7 +25101,6 @@ data-default-class
 diagrams-core
 diagrams-lib
 dlist
-filepath
 hashable
 lens
 monoid-extras
@@ -25166,8 +25165,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-svg";
-version = "1.4.1.1";
-sha256 = "c80668c6ac1bf62b108016d36bfe3e603897ca8e331522b0e80b77152915daaa";
+version = "1.4.2";
+sha256 = "5455b68d92826a5405d51490976870cc0fa5b8b56aef0a8f56982b5f48efded2";
+revision = "1";
+editedCabalFile = "1mb2fdfvy0c1v7nahspq2cisfqrn37xjh4a6xhqr3b36pfz8rwnd";
 libraryHaskellDepends = [
 base
 base64-bytestring
@@ -29973,8 +29974,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "fgl";
-version = "5.6.0.0";
-sha256 = "94722e1eb3dca66069e26a2d4b072c558bc896816ee016fc99521f3e16b9ccc4";
+version = "5.5.4.0";
+sha256 = "5176891dc0a898a87df53e1b27db5eba7474f08207405a1ea06c988c09a97211";
 libraryHaskellDepends = [
 array
 base
@@ -47735,6 +47736,81 @@ doHaddock = false;
 doCheck = false;
 homepage = "https://github.com/fosskers/kanji";
 description = "Perform 漢字検定 (Japan Kanji Aptitude Test) level analysis on Japanese Kanji";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"katip" = callPackage
+({
+  mkDerivation
+, aeson
+, async
+, auto-update
+, base
+, bytestring
+, containers
+, either
+, hostname
+, microlens
+, microlens-th
+, monad-control
+, mtl
+, old-locale
+, resourcet
+, safe-exceptions
+, scientific
+, semigroups
+, stdenv
+, stm
+, string-conv
+, template-haskell
+, text
+, time
+, transformers
+, transformers-base
+, transformers-compat
+, unix
+, unliftio-core
+, unordered-containers
+}:
+mkDerivation {
+
+pname = "katip";
+version = "0.5.5.1";
+sha256 = "0b0c5b66fda945ea56522724aadb25980d5d1cac83999b45c6a11b9ba59ce260";
+libraryHaskellDepends = [
+aeson
+async
+auto-update
+base
+bytestring
+containers
+either
+hostname
+microlens
+microlens-th
+monad-control
+mtl
+old-locale
+resourcet
+safe-exceptions
+scientific
+semigroups
+stm
+string-conv
+template-haskell
+text
+time
+transformers
+transformers-base
+transformers-compat
+unix
+unliftio-core
+unordered-containers
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/Soostone/katip";
+description = "A structured logging framework";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};

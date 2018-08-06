@@ -15,14 +15,14 @@ import           Pos.Infra.DHT.Real.Real (kademliaGetKnownPeers)
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.Infra.Network.Types (Bucket (..), NodeType, choosePeers)
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logNotice)
 
 
 -- | This worker will update the known peers every time the Kademlia peers
 -- change.
 dhtSubscriptionWorker
     :: forall pack .
-       Trace IO (Severity, Text)
+       TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> KademliaDHTInstance
     -> NodeType
@@ -30,17 +30,18 @@ dhtSubscriptionWorker
     -> Int -- ^ fallbacks
     -> SendActions
     -> IO ()
-dhtSubscriptionWorker logTrace oq kademliaInst peerType valency fallbacks _sendActions = do
-    traceWith logTrace (Notice, "Kademlia subscription worker started")
+dhtSubscriptionWorker logTrace0 oq kademliaInst peerType valency fallbacks _sendActions = do
+    logNotice logTrace "Kademlia subscription worker started"
     updateForeverNoSubscribe mempty
   where
+    logTrace = appendName "dhtSubscriptionWorker" logTrace0
     updateForeverNoSubscribe
         :: Peers NodeId
         -> IO ()
     updateForeverNoSubscribe peers = do
         -- Will block until at least one of the current best peers changes.
         peers' <- atomically $ updateFromKademliaNoSubscribe peers
-        traceWith logTrace $ ((,) Notice) $
+        logNotice logTrace $
             sformat ("Kademlia peer set changed to "%shown) peers'
         void $ OQ.updatePeersBucket oq BucketKademliaWorker (const peers')
         updateForeverNoSubscribe peers'

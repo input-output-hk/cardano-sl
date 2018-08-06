@@ -247,6 +247,7 @@ library
                      , vector
                      , wai
                      , wai-cors
+                     , wai-middleware-throttle
                      , warp
                      , x509
                      , x509-store

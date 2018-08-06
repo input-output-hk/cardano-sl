@@ -270,6 +270,7 @@ $errors
     , mkRow fmtErr $ WalletIsNotReadyToProcessPayments genExample
     , mkRow fmtErr $ NodeIsStillSyncing genExample
     , mkRow fmtErr $ CannotCreateAddress "Cannot create derivation path for new address in external wallet."
+    , mkRow fmtErr $ RequestThrottled 42
 
     -- 'MigrationError'
     , mkRow fmtErr $ MigrationFailed "Migration failed."

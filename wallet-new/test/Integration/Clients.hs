@@ -42,34 +42,30 @@ import           Pos.Launcher (LoggingParams (..))
 
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Char as Char
+import qualified Data.List as List
 import qualified Text.Parsec as Parsec
 
 
-prefix :: String
-prefix =
-    "INTEGRATION_TESTS_"
-
-
-startCluster :: [String] -> IO [ThreadId]
-startCluster nodes = do
+startCluster :: String -> [String] -> IO [ThreadId]
+startCluster prefix nodes = do
     let cVars = varFromParser commonNodeArgsParser prefix
     let nVars = varFromParser nodeArgsParser prefix
     let wVars = varFromParser walletBackendParamsParser prefix
 
     (prefix <> "REBUILD_DB")         `as` "True"
     (prefix <> "LISTEN")             `as` "127.0.0.1:3000"
-    (prefix <> "TOPOLOGY")           `as` "state-integration-tests/topology.yaml"
-    (prefix <> "TLSCERT")            `as` "state-integration-tests/tls/server.crt"
-    (prefix <> "TLSKEY")             `as` "state-integration-tests/tls/server.key"
-    (prefix <> "TLSCA")              `as` "state-integration-tests/tls/ca.crt"
+    (prefix <> "TOPOLOGY")           `as` (toStateFolder prefix <> "/topology.yaml")
+    (prefix <> "TLSCERT")            `as` (toStateFolder prefix <> "/tls/server.crt")
+    (prefix <> "TLSKEY")             `as` (toStateFolder prefix <> "/tls/server.key")
+    (prefix <> "TLSCA")              `as` (toStateFolder prefix <> "/tls/ca.crt")
     (prefix <> "WALLET_REBUILD_DB")  `as` "True"
     (prefix <> "WALLET_ADDRESS")     `as` "127.0.0.1:8090"
     (prefix <> "CONFIGURATION_FILE") `as` "../lib/configuration.yaml"
     (prefix <> "CONFIGURATION_KEY")  `as` "default"
     (prefix <> "SYSTEM_START")       `as` "0"
-    (prefix <> "DB_PATH")            `as` "state-integration-tests/db/"
-    (prefix <> "WALLET_DB_PATH")     `as` "state-integration-tests/wallet-db/"
-    (prefix <> "LOG_CONFIG")         `as` "state-integration-tests/logs/"
+    (prefix <> "DB_PATH")            `as` (toStateFolder prefix <> "/db/")
+    (prefix <> "WALLET_DB_PATH")     `as` (toStateFolder prefix <> "/wallet-db/")
+    (prefix <> "LOG_CONFIG")         `as` (toStateFolder prefix <> "/logs/")
 
     dbPath       <- getEnv       (prefix <> "DB_PATH")
     walletDbPath <- getEnv       (prefix <> "WALLET_DB_PATH")
@@ -104,12 +100,12 @@ startCluster nodes = do
             startWalletNode nArgs wOpts lArgs
 
 
-mkWHttpClient :: MonadIO m => IO (WalletClient m)
-mkWHttpClient = do
-    tlsClientCertPath <- getEnvD (prefix <> "TLSCERT_CLIENT") "state-integration-tests/tls/client.crt"  getEnv
-    tlsClientKeyPath  <- getEnvD (prefix <> "TLSKEY_CLIENT")  "state-integration-tests/tls/client.key"  getEnv
-    tlsCACertPath     <- getEnvD (prefix <> "TLSCA")          "state-integration-tests/tls/ca.crt"      getEnv
-    (host, port)      <- getEnvD (prefix <> "WALLET_ADDRESS") "127.0.0.1:8090"                          getNtwrkAddr
+mkWHttpClient :: MonadIO m => String -> IO (WalletClient m)
+mkWHttpClient prefix = do
+    tlsClientCertPath <- getEnvD (prefix <> "TLSCERT_CLIENT") (toStateFolder prefix <> "/tls/client.crt") getEnv
+    tlsClientKeyPath  <- getEnvD (prefix <> "TLSKEY_CLIENT")  (toStateFolder prefix <> "/tls/client.key") getEnv
+    tlsCACertPath     <- getEnvD (prefix <> "TLSCA")          (toStateFolder prefix <> "/tls/ca.crt")     getEnv
+    (host, port)      <- getEnvD (prefix <> "WALLET_ADDRESS") "127.0.0.1:8090"                            getNtwrkAddr
 
     let serverId = (B8.unpack host, B8.pack $ show port)
     caChain <- readSignedObject tlsCACertPath
@@ -188,14 +184,24 @@ unsafeStripPrefix :: String -> String -> String
 unsafeStripPrefix p =
     fromJust . stripPrefix p
 
+-- | kebab-case to UPPER_SNAKE_CASE
+kToS :: String -> String
+kToS = map (Char.toUpper . replaceIf '-' '_')
+
+-- | UPPER_SNAKE_CASE to kebab-case
+sToK :: String -> String
+sToK = map (Char.toLower . replaceIf '_' '-')
+
+-- | Convert a prefix to a state folder name
+toStateFolder :: String -> String
+toStateFolder =
+    ("state-" <>) . sToK . List.init
+
 -- | Convert a string argument to its corresponding ENV var
 argToVar :: String -> (String, ArgType)
 argToVar arg = case elemIndex ' ' arg of
     Nothing -> (kToS (drop 2 arg), Flag)
     Just i  -> (kToS (drop 2 (take i arg)), Arg)
-  where
-    kToS :: String -> String
-    kToS = map (Char.toUpper . replaceIf '-' '_')
 
 -- | Convert an environment variable to its argument, with value. Returns
 -- 'Nothing' when Flags are given and turned off. 'Just arg' otherwise.
@@ -204,9 +210,6 @@ varToArg = \case
     (key, Flag, "True") -> Just ("--" <> sToK key)
     (_, Flag, _)        -> Nothing
     (key, Arg, val)     -> Just ("--" <> sToK key <> "=" <> val)
-  where
-    sToK :: String -> String
-    sToK = map (Char.toLower . replaceIf '_' '-')
 
 -- | Run a parser from environment variables rather than command-line arguments
 execParserEnv

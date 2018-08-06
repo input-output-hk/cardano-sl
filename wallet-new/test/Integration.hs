@@ -47,6 +47,8 @@ In a similar fashion, nodes expose their wallet API on the following addresses:
     - node1: localhost@8091
     - node2: localhost@8092
 
+Note that the documentation server listens on the wallet's port plus 100,
+e.g. 8190 (resp. 8191 and 8192).
 
 #### Configuring Http Client
 
@@ -61,11 +63,14 @@ By default, it will use certificates generated in 'wallet-new/state-integration-
 and talk to `127.0.0.1:8090'.
 
 |] >> do
+    let prefix = "INTEGRATION_TESTS_"
+
     -- NOTE Always WalletNode in the end as its options conflicts with the core nodes.
     -- Also, there should be only one edge node. In the end, this would deserve
     -- a better data-structure I guess. For this sake, a list is fine,
-    _ <- startCluster [ "node0", "node1", "node2" ]
-    wc <- mkWHttpClient
+    cluster <- startCluster prefix [ "node0", "node1", "node2" ]
+    wc <- mkWHttpClient prefix
+
 
     -- FIXME Try to make that nicer using some sort of MVar lock
     putText "\nWaiting for cluster to start...\n" >> threadDelay 15000000

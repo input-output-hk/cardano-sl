@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
 
   exposed-modules:     Cardano.Wallet.API
+                       Cardano.Wallet.Demo
                        Cardano.Wallet.API.Development
                        Cardano.Wallet.API.Development.Handlers
                        Cardano.Wallet.API.Development.Helpers
@@ -140,6 +141,7 @@ library
                      , aeson-options
                      , aeson-pretty
                      , async
+                     , attoparsec
                      , beam-core
                      , beam-migrate
                      , beam-sqlite
@@ -184,6 +186,7 @@ library
                      , neat-interpolation
                      , network-transport
                      , optparse-applicative
+                     , parsec
                      , QuickCheck
                      , mwc-random
                      , reflection
@@ -644,6 +647,24 @@ benchmark cardano-sl-wallet-new-bench
                         TemplateHaskell
                         ScopedTypeVariables
 
+test-suite demo
+  default-language:   Haskell2010
+  ghc-options:        -Wall
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  main-is:            Demo.hs
+
+  default-extensions: NoImplicitPrelude
+                      FlexibleContexts
+                      OverloadedStrings
+                      RecordWildCards
+                      ScopedTypeVariables
+
+  build-depends:      base
+                    , async
+                    , cardano-sl-wallet-new
+                    , universum
+
 test-suite integration
   default-language:   Haskell2010
   ghc-options:        -Wall
@@ -666,7 +687,6 @@ test-suite integration
                       ScopedTypeVariables
 
   build-depends:      base
-                    , cardano-sl-demo
                     , cardano-sl-wallet-new
                     , hspec
                     , neat-interpolation

@@ -47,7 +47,6 @@ packages:
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
 - acid-state-exts
-- demo
 
 # IOHK projects:
 
@@ -325,4 +324,3 @@ ghc-options:
   cardano-sl-wallet:      -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-wallet-new:  -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node-ipc:    -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-demo:        -Werror -Wcompat -fwarn-redundant-constraints

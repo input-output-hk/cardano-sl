@@ -16285,84 +16285,6 @@ description = "Cardano SL - delegation (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-demo" = callPackage
-({
-  mkDerivation
-, async
-, attoparsec
-, base
-, bytestring
-, cardano-sl
-, cardano-sl-core
-, cardano-sl-crypto
-, cardano-sl-infra
-, cardano-sl-util
-, cardano-sl-wallet
-, cardano-sl-wallet-new
-, containers
-, http-client
-, http-types
-, lens
-, log-warper
-, mtl
-, optparse-applicative
-, parsec
-, random
-, stdenv
-, stm
-, time
-, time-units
-, universum
-, x509-store
-}:
-mkDerivation {
-
-pname = "cardano-sl-demo";
-version = "1.0.0";
-src = ./../demo;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Wcompat"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-async
-attoparsec
-base
-bytestring
-cardano-sl
-cardano-sl-core
-cardano-sl-crypto
-cardano-sl-infra
-cardano-sl-util
-cardano-sl-wallet
-cardano-sl-wallet-new
-containers
-http-client
-http-types
-lens
-log-warper
-mtl
-optparse-applicative
-parsec
-random
-stm
-time
-time-units
-universum
-x509-store
-];
-testHaskellDepends = [
-async
-base
-universum
-];
-doHaddock = false;
-homepage = "https://github.com/input-output-hk/cardano-sl/tree/demo/README.md";
-description = "Tooling to easily run a local demo cluster";
-license = stdenv.lib.licenses.mit;
-
-}) {};
 "cardano-sl-explorer" = callPackage
 ({
   mkDerivation
@@ -18374,6 +18296,7 @@ license = stdenv.lib.licenses.mit;
 , aeson-options
 , aeson-pretty
 , async
+, attoparsec
 , base
 , beam-core
 , beam-migrate
@@ -18388,7 +18311,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-delegation
-, cardano-sl-demo
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
@@ -18430,6 +18352,7 @@ license = stdenv.lib.licenses.mit;
 , network-transport
 , normaldistribution
 , optparse-applicative
+, parsec
 , pretty-show
 , QuickCheck
 , quickcheck-instances
@@ -18488,6 +18411,7 @@ aeson
 aeson-options
 aeson-pretty
 async
+attoparsec
 base
 beam-core
 beam-migrate
@@ -18534,6 +18458,7 @@ mwc-random
 neat-interpolation
 network-transport
 optparse-applicative
+parsec
 QuickCheck
 reflection
 retry
@@ -18601,6 +18526,7 @@ x509-store
 testHaskellDepends = [
 acid-state
 aeson
+async
 base
 bytestring
 cardano-crypto
@@ -18612,7 +18538,6 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-delegation
-cardano-sl-demo
 cardano-sl-lrc
 cardano-sl-ssc
 cardano-sl-txp

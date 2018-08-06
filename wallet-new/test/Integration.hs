@@ -19,7 +19,7 @@ Integration tests run using a local cluster of 3 core nodes with wallet enabled.
 
 To do so, they rely on `cardano-sl-demo` to setup the environment and the HTTP
 client used for testing. These are slightly configurable via ENV var, following
-what's explained in `demo/README.md`.
+what's explained in `wallet-new/README.md`.
 
 Note that the prefix used here is `INTEGRATION_TESTS_` and that everything
 related to the execution is stored in `wallet-new/state-integration-tests`. For

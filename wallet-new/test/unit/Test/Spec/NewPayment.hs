@@ -21,7 +21,6 @@ import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
 import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      safeDeterministicKeyGen)
-import           Pos.Util.Trace (Trace, noTrace)
 
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genPayee, genUtxoWithAtLeast)

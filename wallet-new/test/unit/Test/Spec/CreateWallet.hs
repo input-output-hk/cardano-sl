@@ -15,7 +15,6 @@ import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 import           Data.Coerce (coerce)
 
 import           Pos.Crypto (emptyPassphrase)
-import           Pos.Util.Trace (Trace, noTrace)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),

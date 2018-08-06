@@ -132,7 +132,7 @@ sscNormalizeU pm (epoch, stake) bvd gs = do
     let multiRichmen = HM.fromList [(epoch, stake)]
         logTrace = contramap DList.singleton writerTrace
     newModifier <-
-        evalPureTossWithLogger gs logTrace $ supplyPureTossEnv (multiRichmen, bvd) $
+        evalPureTossWithLogger logTrace gs $ supplyPureTossEnv (multiRichmen, bvd) $
         execTossT mempty $ normalizeToss
         (natTrace lift pureTossWithEnvTrace)
         pm epoch oldModifier
@@ -171,7 +171,7 @@ sscIsDataUseful logTrace tag id =
         gs <- sscRunGlobalQuery ask
         ld <- sscRunLocalQuery ask
         let modifier = ld ^. ldModifier
-        evalPureTossWithLogger gs logTrace $ evalTossT modifier action
+        evalPureTossWithLogger logTrace gs $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
 ---- Data processing
@@ -296,13 +296,13 @@ sscProcessDataDo logTrace pm richmenData bvd gs payload =
         oldTM <-
             if | not exhausted -> use ldModifier
                | otherwise ->
-                   evalPureTossWithLogger gs (natTrace lift logTrace) .
+                   evalPureTossWithLogger (natTrace lift logTrace) gs .
                    supplyPureTossEnv (multiRichmen, bvd) .
                    execTossT mempty . refreshToss (natTrace lift pureTossWithEnvTrace) pm givenEpoch =<<
                    use ldModifier
         newTM <-
             ExceptT $
-            evalPureTossWithLogger gs logTrace $
+            evalPureTossWithLogger logTrace gs $
             supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
             execTossT oldTM $

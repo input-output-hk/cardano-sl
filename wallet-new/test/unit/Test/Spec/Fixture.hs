@@ -37,7 +37,7 @@ withLayer :: MonadIO m
           => (PassiveWalletLayer m -> PassiveWallet -> IO a)
           -> PropertyM IO a
 withLayer cc = do
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
         WalletLayer.bracketKernelPassiveWallet noTrace keystore rocksDBNotAvailable $ \layer wallet -> do
             cc layer wallet
 
@@ -50,7 +50,7 @@ withPassiveWalletFixture :: MonadIO m
                          -> PropertyM IO a
 withPassiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
         WalletLayer.bracketKernelPassiveWallet noTrace keystore rocksDBNotAvailable $ \layer wallet -> do
             fixtures <- generateFixtures wallet
             cc keystore layer wallet fixtures
@@ -61,7 +61,7 @@ withActiveWalletFixture :: MonadIO m
                         -> PropertyM IO a
 withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
         WalletLayer.bracketKernelPassiveWallet noTrace keystore rocksDBNotAvailable $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \pm -> do
                 WalletLayer.bracketKernelActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do

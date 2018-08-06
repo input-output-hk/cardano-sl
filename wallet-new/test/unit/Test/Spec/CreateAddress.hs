@@ -17,7 +17,6 @@ import           Data.Acid (update)
 import           Formatting (build, sformat)
 
 import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
-import           Pos.Util.Trace (Trace, noTrace)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState

@@ -78,7 +78,7 @@ instance MonadState ConnectionsState NotifierLogger where
     get = NotifierLogger $ get
     put newState = NotifierLogger $ put newState
 instance MonadIO NotifierLogger where
-    liftIO = liftIO
+    liftIO = liftIO    -- instance needed for compiler, but used?
 
 notifierHandler
     :: ( MonadState RoutingTable m

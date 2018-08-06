@@ -274,14 +274,11 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 
 newtype SubscriptionTestMode a = SubscriptionTestMode
     { runSubscriptionTestMode :: (StateT ConnectionsState IO a)
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadState ConnectionsState)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadState ConnectionsState)
 
 runSubTestMode :: ConnectionsState -> SubscriptionTestMode a -> IO (a, ConnectionsState)
 runSubTestMode connectionsState m =
     runStateT (runSubscriptionTestMode m) connectionsState
-
-instance MonadIO SubscriptionTestMode where
-    liftIO = liftIO
 
 ----------------------------------------------------------------------------
 -- Property

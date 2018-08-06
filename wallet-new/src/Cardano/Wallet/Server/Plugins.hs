@@ -19,6 +19,22 @@ module Cardano.Wallet.Server.Plugins (
 
 import           Universum
 
+import           Control.Exception (fromException)
+import           Data.Aeson
+import           Formatting (build, sformat, (%))
+import           Network.HTTP.Types.Status (badRequest400)
+import           Network.Wai (Application, Middleware, Response, responseLBS)
+import           Network.Wai.Handler.Warp (defaultSettings,
+                     setOnExceptionResponse)
+import           Network.Wai.Middleware.Cors (cors, corsMethods,
+                     corsRequestHeaders, simpleCorsResourcePolicy,
+                     simpleMethods)
+import qualified Network.Wai.Middleware.Throttle as Throttle
+import           Ntp.Client (NtpStatus)
+import qualified Servant
+import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
+
+import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
 import qualified Cardano.Wallet.API.V1.Errors as V1
 import           Cardano.Wallet.Kernel (PassiveWallet)
@@ -31,47 +47,31 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      walletAcidInterval, walletDbOptions)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer, bracketKernelActiveWallet)
-import qualified Pos.Wallet.Web.Error.Types as V0
-
-import           Control.Exception (fromException)
-import           Data.Aeson
-import           Formatting (build, sformat, (%))
-import           Network.HTTP.Types.Status (badRequest400)
-import           Network.Wai (Application, Middleware, Response, responseLBS)
-import           Network.Wai.Handler.Warp (defaultSettings,
-                     setOnExceptionResponse)
-import           Network.Wai.Middleware.Cors (cors, corsMethods,
-                     corsRequestHeaders, simpleCorsResourcePolicy,
-                     simpleMethods)
-import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Configuration (walletProductionApi,
+                     walletTxCreationDisabled)
+import           Pos.Context (HasNodeContext)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util (lensOf)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
+import qualified Pos.Wallet.Web.Error.Types as V0
+import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
+import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl,
+                     walletServeImpl)
 import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets,
                      upgradeApplicationWS)
-import qualified Servant
-import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
-
-import           Pos.Context (HasNodeContext)
-import           Pos.Crypto (ProtocolMagic)
-import           Pos.Util (lensOf)
-
-import           Cardano.NodeIPC (startNodeJsIPC)
-import           Pos.Configuration (walletProductionApi,
-                     walletTxCreationDisabled)
-import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
-import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl,
-                     walletServeImpl)
 import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.WorkMode (WorkMode)
+
 
 
 -- A @Plugin@ running in the monad @m@.
@@ -110,7 +110,7 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
     application :: WalletWebMode Application
     application = do
         let app = Servant.serve API.walletDocAPI LegacyServer.walletDocServer
-        return $ withMiddleware walletRunMode app
+        withMiddleware walletRunMode app
     tls =
         if isDebugMode walletRunMode then Nothing else walletTLSParams
 
@@ -123,22 +123,25 @@ legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     -> Plugin WalletWebMode
 legacyWalletBackend pm txpConfig WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
-      logInfo $ sformat ("Production mode for API: "%build)
-        walletProductionApi
-      logInfo $ sformat ("Transaction submission disabled: "%build)
-        walletTxCreationDisabled
+        logInfo $ sformat ("Production mode for API: "%build)
+            walletProductionApi
+        logInfo $ sformat ("Transaction submission disabled: "%build)
+            walletTxCreationDisabled
 
-      ctx <- view shutdownContext
-      let
-        portCallback :: Word16 -> IO ()
-        portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-      walletServeImpl
-        (getApplication diffusion)
-        walletAddress
-        -- Disable TLS if in debug mode.
-        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-        (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
-        (Just portCallback)
+        ctx <- view shutdownContext
+        let
+            portCallback :: Word16 -> IO ()
+            portCallback port =
+                usingLoggerName "NodeIPC"
+                $ flip runReaderT ctx
+                $ startNodeJsIPC port
+        walletServeImpl
+            (getApplication diffusion)
+            walletAddress
+            -- Disable TLS if in debug mode.
+            (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+            (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
+            (Just portCallback)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
@@ -146,8 +149,7 @@ legacyWalletBackend pm txpConfig WalletBackendParams {..} ntpStatus = pure $ \di
         logInfo "Wallet Web API has STARTED!"
         wsConn <- getWalletWebSockets
         ctx <- V0.walletWebModeContext
-        return
-            $ withMiddleware walletRunMode
+        withMiddleware walletRunMode
             $ upgradeApplicationWS wsConn
             $ Servant.serve API.walletAPI
             $ LegacyServer.walletServer
@@ -204,23 +206,23 @@ walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (pa
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
         bracketKernelActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
-          ctx <- view shutdownContext
-          let
-            portCallback :: Word16 -> IO ()
-            portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-          walletServeImpl
-            (getApplication active)
-            walletAddress
-            -- Disable TLS if in debug modeit .
-            (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-            Nothing
-            (Just portCallback)
+            ctx <- view shutdownContext
+            let
+                portCallback :: Word16 -> IO ()
+                portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
+            walletServeImpl
+                (getApplication active)
+                walletAddress
+                -- Disable TLS if in debug modeit .
+                (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+                Nothing
+                (Just portCallback)
   where
     getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
-      logInfo "New wallet API has STARTED!"
-      return $ withMiddleware walletRunMode $
-        Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
+        logInfo "New wallet API has STARTED!"
+        withMiddleware walletRunMode $
+            Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env IO a -> IO a
     lower env m = runReaderT m env
@@ -246,10 +248,14 @@ syncWalletWorker = pure $ const $
 -- | "Attaches" the middleware to this 'Application', if any.
 -- When running in debug mode, chances are we want to at least allow CORS to test the API
 -- with a Swagger editor, locally.
-withMiddleware :: RunMode -> Application -> Application
-withMiddleware wrm app
-  | isDebugMode wrm = corsMiddleware app
-  | otherwise = app
+withMiddleware :: MonadIO m => RunMode -> Application -> m Application
+withMiddleware wrm app = do
+    st <- liftIO $ Throttle.initThrottler
+    pure
+        . (if isDebugMode wrm then corsMiddleware else identity)
+        . Throttle.throttle Throttle.defaultThrottleSettings st
+        $ app
+
 
 corsMiddleware :: Middleware
 corsMiddleware = cors (const $ Just policy)

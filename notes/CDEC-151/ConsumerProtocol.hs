@@ -1,30 +1,26 @@
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeApplications           #-}
 module ConsumerProtocol where
 
-import           Data.List (foldl', tails)
-import           Data.Word
---import Data.Maybe
-import           Data.Hashable
---import qualified Data.Set as Set
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.PriorityQueue.FingerTree (PQueue)
-import qualified Data.PriorityQueue.FingerTree as PQueue
-
+-- import           Data.Word
 import           Control.Applicative
 import           Control.Concurrent.STM (STM, retry)
 import           Control.Exception (assert)
 import           Control.Monad
 import           Control.Monad.ST.Lazy
+import           Control.Monad.Free (Free (..))
+import           Control.Monad.Free as Free
 import           Data.STRef.Lazy
 import           System.Random (StdGen, mkStdGen, randomR)
 
@@ -32,13 +28,27 @@ import           Test.QuickCheck
 
 import           ChainExperiment2
 import           MonadClass
-import           Sim (Chan (..), SimM, flipChan)
+import           Sim (SimChan (..), SimM, flipSimChan)
 
 --
 -- IPC based protocol
 --
 
+data SendRecvF (chan :: * -> * -> *) a where
+  NewChanF :: (chan s r -> a) -> SendRecvF chan a
+  SendMsgF :: chan s r -> s -> a -> SendRecvF chan a
+  RecvMsgF :: chan s r -> (r -> a) -> SendRecvF chan a
 
+instance Functor (SendRecvF chan) where
+  fmap f (NewChanF k)     = NewChanF (f . k)
+  fmap f (SendMsgF c s a) = SendMsgF c s (f a)
+  fmap f (RecvMsgF c k)   = RecvMsgF c (f . k)
+
+instance MonadSendRecv (Free (SendRecvF chan)) where
+  type BiChan (Free (SendRecvF chan)) = chan
+  newChan        = Free.liftF $ NewChanF id
+  sendMsg chan s = Free.liftF $ SendMsgF chan s ()
+  recvMsg chan   = Free.liftF $ RecvMsgF chan id
 
 -- | In this protocol the consumer always initiates things and the producer
 -- replies. This is the type of messages that the consumer sends.
@@ -235,12 +245,11 @@ exampleConsumer chainvar = ConsumerHandlers {..}
 -- | Given two sides of a protocol, ...
 --
 simulateWire
-  :: (Chan s p c -> SimM s ())
-  -> (Chan s c p -> SimM s ())
+  :: (SimChan s p c -> SimM s ())
+  -> (SimChan s c p -> SimM s ())
   -> SimM s ()
 simulateWire protocolSideA protocolSideB = do
     chan <- newChan
     fork $ protocolSideA chan
-    fork $ protocolSideB (flipChan chan)
+    fork $ protocolSideB (flipSimChan chan)
     return ()
-

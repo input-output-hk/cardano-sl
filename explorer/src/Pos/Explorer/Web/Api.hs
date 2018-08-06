@@ -23,8 +23,9 @@ import           Servant.Server (ServantErr (..))
 import           Pos.Core (EpochIndex)
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress,
                      CAddressSummary, CAddressesFilter, CBlockEntry,
-                     CBlockSummary, CGenesisAddressInfo, CGenesisSummary,
-                     CHash, CTxBrief, CTxEntry, CTxId, CTxSummary, CUtxo)
+                     CBlockSummary, CByteString, CGenesisAddressInfo,
+                     CGenesisSummary, CHash, CTxBrief, CTxEntry, CTxId,
+                     CTxSummary, CUtxo)
 import           Pos.Explorer.Web.Error (ExplorerError)
 import           Pos.Util.Servant (DQueryParam, ModifiesApiRes (..), VerbMod)
 
@@ -107,6 +108,13 @@ data ExplorerApiRecord route = ExplorerApiRecord
         :> "summary"
         :> Capture "txid" CTxId
         :> ExRes Get CTxSummary
+
+  , _txsRaw :: route
+        :- Summary "Get summary information about a transaction."
+        :> "txs"
+        :> "raw"
+        :> Capture "txid" CTxId
+        :> ExRes Get CByteString
 
   , _addressSummary :: route
         :- Summary "Get summary information about an address."

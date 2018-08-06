@@ -1,0 +1,8 @@
+printOutput: False
+rotation:
+    logLimit: 104857600 # 100 MB
+    keepFiles: 1
+loggerTree:
+  severity: Debug+
+  files:
+    - ./state-demo/logs/node1.log

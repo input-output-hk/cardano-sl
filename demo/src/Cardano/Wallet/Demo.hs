@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Integration.Clients
+module Cardano.Wallet.Demo
     (
     -- * Start a cluster of wallet nodes
       startCluster
@@ -9,11 +9,15 @@ module Integration.Clients
     -- * WalletClient (run requests against the API)
     , WalletClient
     , mkWHttpClient
+
+    -- * Bootstraping nodes
+    , generateInitialState
     ) where
 
 import           Universum hiding (takeWhile)
 
-import           Control.Concurrent (ThreadId, forkIO, threadDelay)
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.Async (Async, async)
 import           Data.Attoparsec.ByteString.Char8 (IResult (..), parse,
                      skipWhile, string, takeWhile)
 import           Data.List (elemIndex, stripPrefix)
@@ -35,12 +39,19 @@ import           Cardano.Wallet.Launcher (runWWebMode, startWalletNode)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      WalletBackendParams (..), WalletDBOptions (..),
                      WalletStartupOptions (..), walletBackendParamsParser)
-import           Integration.Fixtures (generateInitialState)
 import           Pos.Client.CLI.NodeOptions (commonNodeArgsParser,
                      nodeArgsParser)
 import           Pos.Client.CLI.Params (loggingParams)
+import           Pos.Core.Configuration (generatedSecrets)
+import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret,
+                     poorSecretToEncKey)
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
-import           Pos.Launcher (LoggingParams (..))
+import           Pos.Crypto.Signing (PassPhrase)
+import           Pos.Launcher (HasConfigurations, LoggingParams (..))
+import           Pos.Util.UserSecret (WalletUserSecret (..))
+import           Pos.Wallet.Web.Methods (importWalletDo)
+import           Pos.Wallet.Web.Mode (WalletWebMode)
 
 
 import qualified Data.ByteString.Char8 as B8
@@ -51,7 +62,7 @@ import qualified Text.Parsec as Parsec
 
 -- | Start a cluster of wallet nodes in different thread with the given NodeIds.
 -- Node gets their argument from the ENVironment.
-startCluster :: String -> [String] -> IO [ThreadId]
+startCluster :: String -> [String] -> IO [Async ()]
 startCluster prefix nodes = do
     let cVars = varFromParser commonNodeArgsParser prefix
     let nVars = varFromParser nodeArgsParser prefix
@@ -72,6 +83,11 @@ startCluster prefix nodes = do
     (prefix <> "WALLET_DB_PATH")     `as` (toStateFolder prefix <> "/wallet-db/")
     (prefix <> "LOG_CONFIG")         `as` (toStateFolder prefix <> "/logs/")
 
+    -- NOTE
+    -- Variables below are treated a bit differently because they're different
+    -- for each node. We use the initial ENV var as a starting point and then
+    -- adjust the variable's value in function of the current node, incrementing
+    -- between each step.
     dbPath       <- getEnv       (prefix <> "DB_PATH")
     walletDbPath <- getEnv       (prefix <> "WALLET_DB_PATH")
     logConfig    <- getEnv       (prefix <> "LOG_CONFIG")
@@ -93,6 +109,14 @@ startCluster prefix nodes = do
         nArgs <- execParserEnv nVars prefix (info nodeArgsParser mempty)
         wArgs <- execParserEnv wVars prefix (info walletBackendParamsParser mempty)
 
+        -- NOTE
+        -- We manually force two things here:
+        --   - No logging in the console (the 'printOutput' parameter from the
+        --     logger yaml config file is overwritten by code).
+        --
+        --   - We do not rebuild the wallet DB because we initialize it just
+        --     before with 'generateInitialState'. Note that the db is cleared
+        --     anyway when the demo is restarted.
         let lArgs = (loggingParams (fromString nodeId) cArgs) { lpConsoleLog = Just False }
         let wOpts = WalletStartupOptions cArgs (WalletLegacy $ wArgs
                 { walletDbOptions = (walletDbOptions wArgs)
@@ -100,7 +124,7 @@ startCluster prefix nodes = do
                     }
                 })
 
-        forkIO $ do
+        async $ do
             runWWebMode cArgs nArgs wArgs generateInitialState
             startWalletNode nArgs wOpts lArgs
 
@@ -142,6 +166,36 @@ waitForNode wc = do
 
         Left err ->
             fail (show err)
+
+
+-- | Generate an initial state containing wallet with already some coins. Those
+-- wallets come from the genesis state coming along with a TestnetInitializer.
+generateInitialState :: HasConfigurations => WalletWebMode ()
+generateInitialState = do
+    wallets <- generatedSecretsToWalletSecrets <$> getGeneratedSecrets
+    forM_ wallets (uncurry importWalletDo)
+  where
+    getGeneratedSecrets :: (MonadFail m) => m GeneratedSecrets
+    getGeneratedSecrets = do
+        let msg = "Couldn't find GeneratedSecrets. To fix this, make sure you \
+                  \run the following program with a `TestnetInitializer`."
+        maybe (fail msg) return generatedSecrets
+
+    generatedSecretsToWalletSecrets :: GeneratedSecrets -> [(PassPhrase, WalletUserSecret)]
+    generatedSecretsToWalletSecrets secrets =
+        map poorSecretToWalletUserSecrets (gsPoorSecrets secrets)
+
+    poorSecretToWalletUserSecrets :: PoorSecret -> (PassPhrase, WalletUserSecret)
+    poorSecretToWalletUserSecrets secret =
+        let
+            walUserSecret = WalletUserSecret
+                { _wusRootKey    = poorSecretToEncKey secret
+                , _wusWalletName = "Genesis Wallet (Poor)"
+                , _wusAccounts   = [(accountGenesisIndex, "Genesis Account")]
+                , _wusAddrs      = [(accountGenesisIndex, wAddressGenesisIndex)]
+                }
+        in
+            (mempty, walUserSecret)
 
 
 --

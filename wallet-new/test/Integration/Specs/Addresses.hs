@@ -2,6 +2,7 @@ module Integration.Specs.Addresses (spec) where
 
 import           Universum
 
+import           Cardano.Wallet.Client (WalletClient)
 import           Cardano.Wallet.Client.Http
 import           Test.Hspec (Spec, it)
 

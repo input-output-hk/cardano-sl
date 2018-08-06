@@ -1,6 +1,4 @@
-module Integration.Expectations
-    ( MonadIntegrationExpectations(..)
-    ) where
+module Integration.Expectations (MonadIntegrationExpectations(..)) where
 
 import           Universum
 
@@ -25,6 +23,7 @@ instance MonadIntegrationExpectations (ReaderT (WalletClient IO) IO) where
 -- INTERNALS
 --
 
+-- | lifted 'Hspec.shouldContain'
 shouldContain :: (HasCallStack, Show a, Eq a) => [a] -> [a] -> ReaderT r IO ()
 shouldContain xs =
     lift . Hspec.shouldContain xs

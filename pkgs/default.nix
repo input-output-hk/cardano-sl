@@ -14756,7 +14756,6 @@ license = stdenv.lib.licenses.bsd3;
 , network
 , network-transport
 , network-transport-inmemory
-, network-transport-tcp
 , optparse-applicative
 , parsec
 , pvss
@@ -14950,7 +14949,7 @@ criterion
 deepseq
 formatting
 network-transport
-network-transport-tcp
+network-transport-inmemory
 optparse-applicative
 QuickCheck
 time-units

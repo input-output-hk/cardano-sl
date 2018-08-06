@@ -404,7 +404,7 @@ benchmark cardano-bench-criterion
                      , deepseq
                      , formatting
                      , network-transport
-                     , network-transport-tcp
+                     , network-transport-inmemory
                      , optparse-applicative
                      , time-units
                      , universum >= 0.1.11

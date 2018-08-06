@@ -11,13 +11,8 @@ module Cardano.Faucet.Swagger
     ) where
 
 import           Control.Lens ((?~))
-import           Control.Monad.Except
-import           Data.Aeson
-import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Proxy
-import           Data.String (fromString)
 import           Data.Swagger
-import           Data.Tagged (retag)
 import qualified Data.Text as T
 import           NeatInterpolation
 import           Servant
@@ -26,14 +21,10 @@ import           Servant.Swagger.UI (SwaggerSchemaUI)
 import           Universum
 
 import           Cardano.Wallet.API.V1.Swagger
-import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
                      compileInfo)
 
 import           Cardano.Faucet.Endpoints
-import           Cardano.Faucet.Types
-import           Servant
 
 --------------------------------------------------------------------------------
 -- | Swagger UI type
@@ -67,11 +58,11 @@ mkSwagger :: HasSwagger a
     => CompileTimeInfo
     -> Proxy a
     -> Swagger
-mkSwagger compileInfo walletAPI = toSwagger walletAPI
+mkSwagger ci walletAPI = toSwagger walletAPI
   & info.title   .~ "Cardano Faucet API"
   & info.version .~ cardanoVersion
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (faucetMD compileInfo)
+  & info.description ?~ (faucetMD ci)
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
 
 --------------------------------------------------------------------------------

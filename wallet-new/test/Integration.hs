@@ -28,9 +28,6 @@ example, logs are accessible in this folder.
 |] >> do
     let prefix = "INTEGRATION_TESTS_"
 
-    -- NOTE Always WalletNode in the end as its options conflicts with the core nodes.
-    -- Also, there should be only one edge node. In the end, this would deserve
-    -- a better data-structure I guess. For this sake, a list is fine,
     wc <- startCluster prefix [ "node0", "node1", "node2" ] >> mkWHttpClient prefix
 
     putText "\nWaiting for cluster to start...\n" >> waitForNode wc

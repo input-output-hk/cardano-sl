@@ -60,11 +60,8 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withConfigurations blPath conf $ \ntpConfig pm ->
     withCompileInfo $ do
         CLI.printInfoOnStart cArgs ntpConfig
-        logInfo $ "Explorer is enabled!"
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
-
-        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        logInfo "Explorer is enabled!"
+        (currentParams, Just sscParams) <- getNodeParams loggerName cArgs nodeArgs
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =

@@ -229,10 +229,10 @@ getRealLoggerConfig LoggingParams{..} = do
     pure $ overrideConsoleLog $ cfg <> cfgBuilder
   where
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
-    overrideConsoleLog = case lpConsoleLog of
-        Nothing    -> identity
-        Just True  -> (<>) (consoleActionB defaultHandleAction)
-        Just False -> (<>) (consoleActionB (\_ _ -> pass))
+    overrideConsoleLog src = case lpConsoleLog of
+        Nothing    -> src
+        Just True  -> src <> consoleActionB defaultHandleAction
+        Just False -> src <> consoleActionB (\_ _ -> pass)
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params

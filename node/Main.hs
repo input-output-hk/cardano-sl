@@ -53,11 +53,7 @@ action
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
     CLI.printInfoOnStart cArgs ntpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
-    currentParams <- CLI.getNodeParams loggerName cArgs nArgs
-
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
-
+    (currentParams, Just sscParams) <- CLI.getNodeParams loggerName cArgs nArgs
     actionWithoutWallet pm sscParams currentParams
 
 main :: IO ()

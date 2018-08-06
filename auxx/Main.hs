@@ -102,7 +102,7 @@ action opts@AuxxOptions {..} command = do
         printAction "Mode: with-config"
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
-            correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
+            (correctNodeParams opts . fst) =<< CLI.getNodeParams loggerName cArgs nArgs
 
         let toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do

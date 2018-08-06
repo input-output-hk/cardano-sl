@@ -104,9 +104,7 @@ newRealModeContext pm dbs confOpts secretKeyPath = do
          , cnaDumpConfiguration   = False
          }
     loggerName <- askLoggerName
-    nodeParams <- getNodeParams loggerName cArgs nodeArgs
-    let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
-    let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+    (nodeParams, Just gtParams) <- getNodeParams loggerName cArgs nodeArgs
     bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState

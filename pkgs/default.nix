@@ -18100,7 +18100,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
-, cardano-sl-node-ipc
 , cardano-sl-ssc
 , cardano-sl-txp
 , cardano-sl-update
@@ -18186,7 +18185,6 @@ cardano-sl-generator
 cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-node-ipc
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-update
@@ -18298,6 +18296,7 @@ license = stdenv.lib.licenses.mit;
 , aeson-options
 , aeson-pretty
 , async
+, attoparsec
 , base
 , beam-core
 , beam-migrate
@@ -18353,6 +18352,7 @@ license = stdenv.lib.licenses.mit;
 , network-transport
 , normaldistribution
 , optparse-applicative
+, parsec
 , pretty-show
 , QuickCheck
 , quickcheck-instances
@@ -18411,6 +18411,7 @@ aeson
 aeson-options
 aeson-pretty
 async
+attoparsec
 base
 beam-core
 beam-migrate
@@ -18457,6 +18458,7 @@ mwc-random
 neat-interpolation
 network-transport
 optparse-applicative
+parsec
 QuickCheck
 reflection
 retry
@@ -18471,6 +18473,7 @@ servant-swagger
 servant-swagger-ui
 sqlite-simple
 sqlite-simple-errors
+stm
 swagger2
 text
 time
@@ -18496,14 +18499,10 @@ base
 bytestring
 cardano-sl
 cardano-sl-core
-cardano-sl-crypto
-cardano-sl-infra
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
 cardano-sl-util
 cardano-sl-wallet
 containers
+data-default
 exceptions
 formatting
 hspec
@@ -18519,7 +18518,6 @@ servant
 servant-client
 servant-quickcheck
 servant-server
-stm
 swagger2
 text
 universum
@@ -18528,6 +18526,7 @@ x509-store
 testHaskellDepends = [
 acid-state
 aeson
+async
 base
 bytestring
 cardano-crypto
@@ -18559,6 +18558,7 @@ ixset-typed
 lens
 log-warper
 mtl
+neat-interpolation
 normaldistribution
 optparse-applicative
 QuickCheck

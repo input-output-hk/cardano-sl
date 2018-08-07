@@ -4,8 +4,9 @@ synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -48,7 +49,6 @@ executable dbgen
                      , cardano-sl-wallet
                      , containers
                      , data-default
-                     , log-warper
                      , network-transport-tcp >= 0.6
                      , optparse-generic
                      , stm
@@ -144,12 +144,12 @@ executable cardano-keygen
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-util
                      , directory
                      , filepath
                      , formatting
                      , Glob
                      , lens
-                     , log-warper
                      , optparse-applicative >= 0.12
                      , serokell-util >= 0.1
                      , text
@@ -215,7 +215,6 @@ executable cardano-launcher
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper
                      , neat-interpolation
                      , optparse-applicative
                      , process
@@ -373,6 +372,7 @@ executable cardano-post-mortem
                        , fgl
                        , filepath
                        , foldl
+                       , formatting
                        , graphviz
                        , optparse-applicative
                        , pipes
@@ -567,7 +567,6 @@ library
                      , data-default
                      , directory
                      , filepath
-                     , log-warper
                      , network-transport-tcp >= 0.6
                      , optparse-applicative
                      , optparse-generic

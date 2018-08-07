@@ -20,6 +20,7 @@ import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Trace (noTrace)
 
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
@@ -53,7 +54,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
     ws <- askWalletSnapshot
     wid <- expectedOne "wallet addresses" $ getWalletAddresses ws
     accId <- lift $ decodeCTypeOrFail . caId
-         =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
+         =<< newAccount noTrace (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
     address <- generator accId passphrase
 
     largeAddress <- lift getFakeChangeAddress

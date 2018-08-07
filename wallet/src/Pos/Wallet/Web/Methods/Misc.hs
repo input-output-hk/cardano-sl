@@ -39,7 +39,6 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..),
                      OctetStream)
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Ntp.Client (NtpStatus (..))
@@ -54,9 +53,9 @@ import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
-import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
+import           Pos.Util.Trace.Named (TraceNamed, logInfoUnsafeP)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates,
@@ -129,9 +128,10 @@ applyUpdate :: ( MonadIO m
                , WalletDbReader ctx m
                , MonadUpdates m
                )
-            => m NoContent
-applyUpdate = askWalletDB >>= removeNextUpdate
-              >> applyLastUpdate >> return NoContent
+            => TraceNamed m
+            -> m NoContent
+applyUpdate logTrace = askWalletDB >>= removeNextUpdate
+              >> applyLastUpdate logTrace >> return NoContent
 
 ----------------------------------------------------------------------------
 -- System
@@ -143,25 +143,26 @@ requestShutdown ::
        ( MonadIO m
        , MonadUnliftIO m
        , MonadReader ctx m
-       , WithLogger m
        , HasShutdownContext ctx
        )
-    => m NoContent
-requestShutdown = NoContent <$ async (delay (1 :: Second) >> triggerShutdown)
+    => TraceNamed m
+    -> m NoContent
+requestShutdown logTrace = NoContent <$ async (delay (1 :: Second) >> triggerShutdown logTrace)
 
 ----------------------------------------------------------------------------
 -- Sync progress
 ----------------------------------------------------------------------------
 
 syncProgress
-    :: (MonadIO m, WithLogger m, MonadBlockchainInfo m)
-    => m SyncProgress
-syncProgress = do
+    :: (MonadIO m, MonadBlockchainInfo m)
+    => TraceNamed m
+    -> m SyncProgress
+syncProgress logTrace = do
     _spLocalCD <- localChainDifficulty
     _spNetworkCD <- networkChainDifficulty
     _spPeers <- connectedPeers
     -- servant already logs this, but only to secret logs
-    logInfoUnsafeP $
+    logInfoUnsafeP logTrace $
         sformat ("Current sync progress: "%build%"/"%build)
         _spLocalCD _spNetworkCD
     return SyncProgress{..}

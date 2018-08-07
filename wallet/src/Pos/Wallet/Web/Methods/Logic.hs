@@ -39,7 +39,6 @@ import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (build, sformat, (%))
 import           Servant.API.ContentTypes (NoContent (..))
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
@@ -54,6 +53,7 @@ import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Util (maybeThrow)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AddrGenSeed, findKey,
@@ -85,7 +85,6 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 type MonadWalletLogicRead ctx m =
     ( MonadIO m
     , MonadThrow m
-    , WithLogger m
     , MonadRandom m
     , MonadSlots ctx m
     , MonadKeysRead m
@@ -126,19 +125,22 @@ getAccountMod ws accMod accId = do
             unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
-getAccount :: MonadWalletLogicRead ctx m => AccountId -> m CAccount
-getAccount accId = do
+getAccount :: MonadWalletLogicRead ctx m
+    => TraceNamed m
+    -> AccountId -> m CAccount
+getAccount logTrace accId = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey accId
+    accMod <- txMempoolToModifier logTrace ws mps . eskToWalletDecrCredentials =<< findKey accId
     getAccountMod ws accMod accId
 
 getAccountsIncludeUnready
     :: MonadWalletLogicRead ctx m
-    => WalletSnapshot
+    => TraceNamed m
+    -> WalletSnapshot
     -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
-getAccountsIncludeUnready ws mps includeUnready mCAddr = do
+getAccountsIncludeUnready logTrace ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
       void $ maybeThrow (noWallet cAddr) $
         getWalletMetaIncludeUnready ws includeUnready cAddr
@@ -146,7 +148,7 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) -> do
-      accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey wid
+      accMod <- txMempoolToModifier logTrace ws mps . eskToWalletDecrCredentials =<< findKey wid
       mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
@@ -156,21 +158,23 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
 
 getAccounts
     :: MonadWalletLogicRead ctx m
-    => Maybe (CId Wal) -> m [CAccount]
-getAccounts mCAddr = do
+    => TraceNamed m
+    -> Maybe (CId Wal) -> m [CAccount]
+getAccounts logTrace mCAddr = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    getAccountsIncludeUnready ws mps False mCAddr
+    getAccountsIncludeUnready logTrace ws mps False mCAddr
 
 getWalletIncludeUnready :: MonadWalletLogicRead ctx m
-                        => WalletSnapshot
+                        => TraceNamed m
+                        -> WalletSnapshot
                         -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
                         -> Bool -> CId Wal -> m CWallet
-getWalletIncludeUnready ws mps includeUnready cAddr = do
+getWalletIncludeUnready logTrace ws mps includeUnready cAddr = do
     meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
-    accounts   <- getAccountsIncludeUnready ws mps includeUnready (Just cAddr)
+    accounts   <- getAccountsIncludeUnready logTrace ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
-    accMod     <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey cAddr
+    accMod     <- txMempoolToModifier logTrace ws mps . eskToWalletDecrCredentials =<< findKey cAddr
     balance    <- computeBalance accMod
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- maybeThrow noWallet (getWalletPassLU ws cAddr)
@@ -185,26 +189,31 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
     noWallet = RequestError $
         sformat ("getWalletIncludeUnready: No wallet with address "%build%" found") cAddr
 
-getWallet :: MonadWalletLogicRead ctx m => CId Wal -> m CWallet
-getWallet wid = do
+getWallet :: MonadWalletLogicRead ctx m
+    => TraceNamed m
+    -> CId Wal -> m CWallet
+getWallet logTrace wid = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    getWalletIncludeUnready ws mps False wid
+    getWalletIncludeUnready logTrace ws mps False wid
 
-getWallets ::  MonadWalletLogicRead ctx m => m [CWallet]
-getWallets = do
+getWallets ::  MonadWalletLogicRead ctx m
+    => TraceNamed m
+    -> m [CWallet]
+getWallets logTrace = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
+    mapM (getWalletIncludeUnready logTrace ws mps False) (getWalletAddresses ws)
 
 getWalletsWithInfo
     :: MonadWalletLogicRead ctx m
-    => WalletSnapshot
+    => TraceNamed m
+    -> WalletSnapshot
     -> m [(CWallet, WalletInfo)]
-getWalletsWithInfo ws = do
+getWalletsWithInfo logTrace ws = do
     mps <- withTxpLocalData getMempoolSnapshot
     forM (getWalletInfos ws) $ \(cid, walInfo) -> do
-        wal <- getWalletIncludeUnready ws mps False cid
+        wal <- getWalletIncludeUnready logTrace ws mps False cid
         pure (wal, walInfo)
 
 ----------------------------------------------------------------------------
@@ -235,30 +244,36 @@ newAddress_ ws addGenSeed passphrase accId = do
 
 newAddress
     :: MonadWalletLogic ctx m
-    => AddrGenSeed
+    => TraceNamed m
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
+newAddress logTrace addGenSeed passphrase accId = do
     mps <- withTxpLocalData getMempoolSnapshot
     ws <- askWalletSnapshot
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
-    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey accId
+    accMod <- txMempoolToModifier logTrace ws mps . eskToWalletDecrCredentials =<< findKey accId
     return $ getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
-    => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
+    => TraceNamed m
+    -> Bool
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
+    -> m CAccount
+newAccountIncludeUnready logTrace includeUnready addGenSeed passphrase CAccountInit {..} = do
     mps <- withTxpLocalData getMempoolSnapshot
     db <- askWalletDB
     ws <- getWalletSnapshot db
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
-    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey caInitWId
+    accMod <- txMempoolToModifier logTrace ws mps . eskToWalletDecrCredentials =<< findKey caInitWId
     -- check wallet exists
-    _ <- getWalletIncludeUnready ws mps includeUnready caInitWId
+    _ <- getWalletIncludeUnready logTrace ws mps includeUnready caInitWId
 
     cAddr <- genUniqueAccountId ws addGenSeed caInitWId
     cAddrMeta <- genUniqueAddress ws addGenSeed passphrase cAddr
@@ -272,13 +287,21 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
 
 newAccount
     :: MonadWalletLogic ctx m
-    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccount = newAccountIncludeUnready False
+    => TraceNamed m
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
+    -> m CAccount
+newAccount logTrace = newAccountIncludeUnready logTrace False
 
 createWalletSafe
     :: MonadWalletLogic ctx m
-    => CId Wal -> CWalletMeta -> Bool -> m CWallet
-createWalletSafe cid wsMeta isReady = do
+    => TraceNamed m
+    -> CId Wal
+    -> CWalletMeta
+    -> Bool
+    -> m CWallet
+createWalletSafe logTrace cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     db <- askWalletDB
     ws <- getWalletSnapshot db
@@ -290,7 +313,7 @@ createWalletSafe cid wsMeta isReady = do
     createWallet db cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
     ws' <- getWalletSnapshot db
-    getWalletIncludeUnready ws' mps True cid
+    getWalletIncludeUnready logTrace ws' mps True cid
 
 markWalletReady
   :: MonadWalletLogic ctx m
@@ -327,17 +350,20 @@ deleteAccount accId = do
 -- Modifiers
 ----------------------------------------------------------------------------
 
-updateWallet :: MonadWalletLogic ctx m => CId Wal -> CWalletMeta -> m CWallet
-updateWallet wId wMeta = do
+updateWallet :: MonadWalletLogic ctx m
+    => TraceNamed m -> CId Wal -> CWalletMeta -> m CWallet
+updateWallet logTrace wId wMeta = do
     db <- askWalletDB
     setWalletMeta db wId wMeta
-    getWallet wId
+    getWallet logTrace wId
 
-updateAccount :: MonadWalletLogic ctx m => AccountId -> CAccountMeta -> m CAccount
-updateAccount accId wMeta = do
+updateAccount :: MonadWalletLogic ctx m
+    => TraceNamed m
+    -> AccountId -> CAccountMeta -> m CAccount
+updateAccount logTrace accId wMeta = do
     db <- askWalletDB
     setAccountMeta db accId wMeta
-    getAccount accId
+    getAccount logTrace accId
 
 changeWalletPassphrase
     :: MonadWalletLogic ctx m

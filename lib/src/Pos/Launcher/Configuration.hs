@@ -31,15 +31,12 @@ import           Data.Time.Units (fromMicroseconds)
 
 import           Data.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
-import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
-                     usingLoggerName)
 
 import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Slotting (Timestamp (..))
-import           Pos.Util.Config (parseYamlConfig)
 
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation
@@ -48,6 +45,8 @@ import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Configuration
 import           Pos.Core.Configuration
+import           Pos.Util.Config (parseYamlConfig)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
@@ -113,7 +112,7 @@ instance Default ConfigurationOptions where
 -- configuration at a given key.
 withConfigurationsM
     :: forall m r. (MonadThrow m, MonadIO m)
-    => LoggerName
+    => TraceNamed m
     -> Maybe AssetLockPath
     -> ConfigurationOptions
     -> (GenesisData -> GenesisData)
@@ -121,7 +120,7 @@ withConfigurationsM
     -- comand line arguments for some tools (profiling executables, benchmarks).
     -> (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
-withConfigurationsM logName mAssetLockPath cfo fn act = do
+withConfigurationsM logTrace mAssetLockPath cfo fn act = do
     logInfo' ("using configurations: " <> show cfo)
     cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
     assetLock <- case mAssetLockPath of
@@ -137,17 +136,17 @@ withConfigurationsM logName mAssetLockPath cfo fn act = do
 
     where
     logInfo' :: Text -> m ()
-    logInfo' = liftIO . usingLoggerName logName . logInfo
+    logInfo' = logInfo logTrace
 
 withConfigurations
-    :: (WithLogger m, MonadThrow m, MonadIO m)
-    => Maybe AssetLockPath
+    :: (MonadThrow m, MonadIO m)
+    => TraceNamed m
+    -> Maybe AssetLockPath
     -> ConfigurationOptions
     -> (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
-withConfigurations mAssetLockPath cfo act = do
-    loggerName <- askLoggerName
-    withConfigurationsM loggerName mAssetLockPath cfo id act
+withConfigurations logTrace mAssetLockPath cfo act = do
+    withConfigurationsM logTrace mAssetLockPath cfo id act
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
 addAssetLock bset tcfg =

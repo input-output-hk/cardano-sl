@@ -5,13 +5,13 @@ module Test.Pos.Launcher.ConfigurationSpec
 import           Universum
 
 import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           System.Wlog (LoggerName (..))
 import           Test.Hspec (Spec, describe, it, shouldSatisfy)
 
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      defaultConfigurationOptions, withConfigurationsM)
 import           Pos.Util.Config (ConfigurationException)
+import           Pos.Util.Trace (noTrace)
 
 spec :: Spec
 spec = describe "Pos.Launcher.Configuration" $ do
@@ -25,7 +25,7 @@ spec = describe "Pos.Launcher.Configuration" $ do
             let catchFn :: ConfigurationException -> IO (Maybe ConfigurationException)
                 catchFn e = return $ Just e
             res  <- liftIO $ catch
-                (withConfigurationsM (LoggerName "test") Nothing cfo id (\_ _ _ -> return Nothing))
+                (withConfigurationsM noTrace {-(LoggerName "test")-} Nothing cfo id (\_ _ _ -> return Nothing))
                 catchFn
             res `shouldSatisfy` isNothing
 

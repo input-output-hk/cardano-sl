@@ -69,9 +69,9 @@ import           Servant.API (FromHttpApiData (..))
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary (biSize)
-import           Pos.Chain.Block (Undo (..))
-import           Pos.Chain.Block (MainBlock, gbHeader, gbhConsensus, headerHash,
-                     mainBlockSlot, mainBlockTxPayload, mcdSlot, prevBlockL)
+import           Pos.Chain.Block (MainBlock, Undo (..), gbHeader, gbhConsensus,
+                     headerHash, mainBlockSlot, mainBlockTxPayload, mcdSlot,
+                     prevBlockL)
 import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
                      SlotId (..), StakeholderId, Timestamp, addressF,
                      coinToInteger, decodeTextAddress, getEpochIndex,

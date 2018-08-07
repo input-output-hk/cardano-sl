@@ -27,11 +27,9 @@ import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Chain.Block (ApplyBlocksException, Blund,
-                     LastKnownHeaderTag)
-import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
-                     HeaderHash, blockHeader, gbHeader, headerHashG,
-                     prevBlockL)
+import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
+                     Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
+                     blockHeader, gbHeader, headerHashG, prevBlockL)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (isMoreDifficult)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),

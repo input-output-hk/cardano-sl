@@ -31,10 +31,9 @@ import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
 
-import           Pos.Chain.Block (Blund, HasSlogGState, SlogUndo (..),
-                     Undo (..), verifyBlocks)
-import           Pos.Chain.Block (Block, genBlockLeaders, headerHash,
-                     headerHashG, mainBlockSlot, prevBlockL)
+import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
+                     Undo (..), genBlockLeaders, headerHash, headerHashG,
+                     mainBlockSlot, prevBlockL, verifyBlocks)
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,

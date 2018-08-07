@@ -32,9 +32,9 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Block (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Chain.Block (Block, ComponentBlock (..), GenesisBlock,
-                     IsGenesisHeader, MainBlock, gbHeader, headerHash,
+import           Pos.Chain.Block (Block, Blund, ComponentBlock (..),
+                     GenesisBlock, IsGenesisHeader, MainBlock,
+                     Undo (undoDlg, undoTx, undoUS), gbHeader, headerHash,
                      mainBlockDlgPayload, mainBlockSscPayload,
                      mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Chain.Delegation (DlgBlock, DlgBlund, MonadDelegation)

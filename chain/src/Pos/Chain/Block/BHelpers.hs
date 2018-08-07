@@ -25,9 +25,9 @@ import           Pos.Chain.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbExtra)
 import           Pos.Chain.Block.Main (MainBody (..), MainExtraHeaderData (..),
                      MainProof)
-import           Pos.Chain.Block.Union (Block, GenesisBlockchain,
-                     MainBlockchain, MainConsensusData (..), MainToSign (..))
-import           Pos.Chain.Block.Union (BlockHeader (..), BlockSignature (..),
+import           Pos.Chain.Block.Union (Block, BlockHeader (..),
+                     BlockSignature (..), GenesisBlockchain, MainBlockchain,
+                     MainConsensusData (..), MainToSign (..),
                      mainBlockEBDataProof)
 import           Pos.Chain.Ssc (verifySscPayload)
 import           Pos.Core.Configuration (HasProtocolConstants)

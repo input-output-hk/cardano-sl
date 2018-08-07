@@ -3,8 +3,9 @@ module Pos.Chain.Block.JsonLog
        , jlAdoptedBlock
        ) where
 
-import           Formatting (sformat)
 import           Universum
+
+import           Formatting (sformat)
 
 import           Pos.Chain.Block.Blockchain (gbHeader, gbhPrevBlock)
 import           Pos.Chain.Block.Genesis (genBlockEpoch)

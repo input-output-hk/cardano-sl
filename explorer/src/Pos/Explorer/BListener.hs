@@ -29,9 +29,8 @@ import qualified Ether
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Block (Blund)
-import           Pos.Chain.Block (Block, HeaderHash, MainBlock, headerHash,
-                     mainBlockSlot, mainBlockTxPayload)
+import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock,
+                     headerHash, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Chain.Txp (topsortTxs)
 import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
                      difficultyL, epochIndexL, getChainDifficulty)

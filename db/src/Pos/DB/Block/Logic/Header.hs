@@ -28,9 +28,9 @@ import           Serokell.Util.Verify (VerificationRes (..))
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Block (VerifyHeaderParams (..), verifyHeader)
-import           Pos.Chain.Block (BlockHeader (..), HeaderHash, headerHash,
-                     headerHashG, headerSlotL, prevBlockL)
+import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
+                     VerifyHeaderParams (..), headerHash, headerHashG,
+                     headerSlotL, prevBlockL, verifyHeader)
 import           Pos.Core (blkSecurityParam, difficultyL, epochIndexL,
                      getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),

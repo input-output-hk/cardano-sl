@@ -22,8 +22,6 @@ import qualified Data.List.NonEmpty as NE
 import           System.Wlog
 
 import           Pos.Chain.Block
-import           Pos.Chain.Block (Block, ComponentBlock (..), HeaderHash,
-                     genBlockLeaders, mainBlockSlot, prevBlockL)
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Txp
 import           Pos.Chain.Update

@@ -23,8 +23,7 @@ import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre, run)
 import           Test.QuickCheck.Random (QCGen)
 
-import           Pos.Chain.Block (Blund)
-import           Pos.Chain.Block (headerHash)
+import           Pos.Chain.Block (Blund, headerHash)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
                      genesisData)

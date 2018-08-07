@@ -21,13 +21,12 @@ import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
-                     criticalCQBootstrap, fixedTimeCQSec, networkDiameter,
-                     nonCriticalCQ, nonCriticalCQBootstrap,
+                     criticalCQBootstrap, fixedTimeCQSec, gbHeader,
+                     networkDiameter, nonCriticalCQ, nonCriticalCQBootstrap,
                      scCQFixedMonitorState, scCQOverallMonitorState,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
-import           Pos.Chain.Block (gbHeader)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,

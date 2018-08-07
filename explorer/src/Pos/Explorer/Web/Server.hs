@@ -56,9 +56,9 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (Blund, Undo)
-import           Pos.Chain.Block (Block, HeaderHash, MainBlock, gbHeader,
-                     gbhConsensus, mainBlockSlot, mainBlockTxPayload, mcdSlot)
+import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
+                     gbHeader, gbhConsensus, mainBlockSlot, mainBlockTxPayload,
+                     mcdSlot)
 import           Pos.Chain.Txp (TxMap, mpLocalTxs, topsortTxs)
 import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
                      Timestamp, coinToInteger, difficultyL, getChainDifficulty,

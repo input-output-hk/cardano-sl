@@ -27,9 +27,8 @@ import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Block (LastBlkSlots, noLastBlkSlots)
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                     headerHash)
+                     LastBlkSlots, headerHash, noLastBlkSlots)
 import           Pos.Core (FlatSlotId, HasCoreConfiguration,
                      HasProtocolConstants, genesisHash, slotIdF,
                      unflattenSlotId)

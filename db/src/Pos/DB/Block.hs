@@ -46,8 +46,8 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class (decodeFull', serialize')
-import           Pos.Chain.Block (SlogUndo (..), Undo (..))
-import           Pos.Chain.Block (Block, GenesisBlock, HeaderHash, headerHash)
+import           Pos.Chain.Block (Block, GenesisBlock, HeaderHash,
+                     SlogUndo (..), Undo (..), headerHash)
 import qualified Pos.Chain.Block as CB
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Crypto (hashHexF)

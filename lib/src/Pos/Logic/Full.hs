@@ -15,8 +15,8 @@ import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Chain.Block (HasBlockConfiguration)
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
+import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
+                     HeaderHash)
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),

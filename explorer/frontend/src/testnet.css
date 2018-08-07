@@ -1,0 +1,40 @@
+.align-right {
+  text-align:right;
+}
+.testnet-logo {
+  width:1.5em;
+}
+
+.nav-search {
+  margin-top:.75em;
+}
+
+.pure-table {
+  border: 0;
+}
+
+.pure-table a {
+  color: #832dc4;
+}
+
+.pure-table td {
+  color: #A7A8B3;
+}
+
+.pure-table thead {
+  background:transparent;
+}
+
+.pure-table th {
+  color: #A7A8B3;
+}
+
+.pure-table-horizontal td, .pure-table-horizontal th {
+  border-bottom: 2px dotted rgba(163, 128, 188, 0.5)
+}
+
+@media (max-width: 47.999em) {
+  .mob-align-center {
+    text-align:center;
+  }
+}

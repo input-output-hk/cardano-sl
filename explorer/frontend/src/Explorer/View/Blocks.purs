@@ -39,9 +39,9 @@ import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (a, div, span, h3, p) as S
-import Text.Smolder.HTML.Attributes (className, href) as S
-import Text.Smolder.Markup (text) as S
+import Text.Smolder.HTML as S
+import Text.Smolder.HTML.Attributes as SA
+import Text.Smolder.Markup as SM
 import Text.Smolder.Markup ((#!), (!))
 
 maxBlockRows :: Int
@@ -54,11 +54,11 @@ minBlockRows = 3
 epochBlocksView :: State -> P.HTML Action
 epochBlocksView state =
     let lang' = state ^. lang in
-    S.div ! S.className "explorer-blocks"
-          $ S.div ! S.className "explorer-blocks__wrapper"
-                  $ S.div ! S.className "explorer-blocks__container" $ do
-                        S.h3  ! S.className "headline"
-                              $ S.text (( translate (I18nL.common <<< I18nL.cEpoch) lang')
+    S.div ! SA.className "explorer-blocks"
+          $ S.div ! SA.className "explorer-blocks__wrapper"
+                  $ S.div ! SA.className "explorer-blocks__container" $ do
+                        S.h3  ! SA.className "headline"
+                              $ SM.text (( translate (I18nL.common <<< I18nL.cEpoch) lang')
                                           <> " / " <>
                                           (translate (I18nL.common <<< I18nL.cSlot) lang')
                                         )
@@ -75,14 +75,7 @@ blocksView :: State -> P.HTML Action
 blocksView state =
     S.div do
         blocksHeaderView blocks lang'
-        S.div ! S.className CSS.blocksBodyWrapper $ do
-            S.div ! S.className CSS.blocksBody
-                  $ for_ blocks (blockRow state)
-            S.div ! S.className (CSS.blocksBodyCover <>  if  loadingBlocks then " show" else "")
-                  $ S.p ! S.className CSS.blocksBodyCoverLabel
-                        $ S.text (translate (I18nL.common <<< I18nL.cLoading) lang')
-        S.div ! S.className CSS.blocksFooter
-              $ paginationView paginationViewProps
+        S.tbody $ for_ blocks (blockRow state)
     where
         lang' = state ^. lang
         loadingBlocks = state ^. (viewStates <<< blocksViewState <<< blsViewLoadingPagination)
@@ -101,23 +94,22 @@ blocksView state =
 
 emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
-    S.div ! S.className "blocks-message"
-          $ S.text message
+    S.div ! SA.className "blocks-message"
+          $ SM.text message
 
 messageBackView :: Language -> String -> P.HTML Action
 messageBackView lang message =
     S.div do
-        S.p ! S.className CSS.blocksMessageBack
-            $ S.text message
-        S.a ! S.href (toUrl Dashboard)
+        S.p ! SA.className CSS.blocksMessageBack
+            $ SM.text message
+        S.a ! SA.href (toUrl Dashboard)
             #! P.onClick (Navigate $ toUrl Dashboard)
-            ! S.className "btn-back"
-            $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
+            ! SA.className "btn-back"
+            $ SM.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
 
 blockRow :: State -> CBlockEntry -> P.HTML Action
 blockRow state (CBlockEntry entry) =
-    S.div ! S.className CSS.blocksBodyRow
-          ! P.key ((show $ entry ^. cbeEpoch) <> "-" <> (show $ entry ^. cbeSlot)) $ do
+    S.tr $ do
           blockColumn { label: show $ entry ^. cbeEpoch
                       , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
                       , clazz: CSS.blocksColumnEpoch
@@ -171,16 +163,16 @@ blockColumn :: BlockColumnProps -> P.HTML Action
 blockColumn props =
     let tag = case props.mRoute of
                   Just route ->
-                      S.a ! S.href (toUrl route)
+                      S.a ! SA.href (toUrl route)
                           #! P.onClick (Navigate $ toUrl route)
                   Nothing ->
                       S.div
     in
-    tag ! S.className props.clazz
+    S.td $ tag ! SA.className props.clazz
         $ if isJust props.mCurrency
-              then S.span ! S.className (currencyCSSClass props.mCurrency)
-                          $ S.text props.label
-              else S.text props.label
+              then S.span ! SA.className (currencyCSSClass props.mCurrency)
+                          $ SM.text props.label
+              else SM.text props.label
 
 type BlocksHeaderProps =
     { id :: String
@@ -222,11 +214,8 @@ mkBlocksHeaderProps lang =
 
 blocksHeaderView :: CBlockEntries -> Language -> P.HTML Action
 blocksHeaderView blocks lang =
-    S.div ! S.className (CSS.blocksHeader <> if null blocks then " hide" else "")
-          $ for_ (mkBlocksHeaderProps lang) blockHeaderItemView
+    S.thead $ S.tr $ for_ (mkBlocksHeaderProps lang) blockHeaderItemView
 
 blockHeaderItemView :: BlocksHeaderProps -> P.HTML Action
 blockHeaderItemView props =
-    S.div ! S.className props.clazz
-          ! P.key props.id
-          $ S.text props.label
+    S.th $ SM.text props.label

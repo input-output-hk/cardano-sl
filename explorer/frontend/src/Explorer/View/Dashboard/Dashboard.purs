@@ -4,8 +4,8 @@ import Prelude
 
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
+import Explorer.View.CSS as CSS
 import Explorer.View.Dashboard.Blocks (dashBoardBlocksView)
-import Explorer.View.Dashboard.Hero (heroView)
 import Explorer.View.Dashboard.Transactions (transactionsView)
 
 import Pux.DOM.HTML (HTML) as P
@@ -17,10 +17,8 @@ import Text.Smolder.Markup ((!))
 -- since they don't have any meaningful data
 dashboardView :: State -> P.HTML Action
 dashboardView state =
-    S.div ! S.className "explorer-dashboard" $ do
-        heroView state
-        -- networkView state
+    S.div ! S.className CSS.pureGContainer $ do
         dashBoardBlocksView state
-        transactionsView state
+        -- transactionsView state
         -- offerView state
         -- apiView state

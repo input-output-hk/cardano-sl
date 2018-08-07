@@ -5,7 +5,7 @@ import Prelude
 import Data.Maybe (Maybe(..))
 
 import Pux.DOM.HTML (HTML) as P
-import Text.Smolder.HTML (div, h3) as S
+import Text.Smolder.HTML (div, h2, i) as S
 import Text.Smolder.HTML.Attributes (className) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((!))
@@ -17,9 +17,9 @@ import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 
 headerView :: State -> HeaderOptions -> P.HTML Action
 headerView state (HeaderOptions options) =
-    S.div ! S.className "explorer-dashboard__header" $ do
-          S.h3  ! S.className "headline"
-                $ S.text options.headline
+      S.h2 $
+        S.i ! S.className "fa fa-cube" $
+        S.text options.headline
         -- S.div
             -- ! S.className "more__container"
             -- $ linkView options.link

@@ -23,6 +23,9 @@ module Explorer.View.CSS
   , moveIn
   , moveOut
   , route
+  , contentWrapper
+  , pureG
+  , pureGContainer
   )
   where
 
@@ -166,3 +169,19 @@ route (Block hash) = routePrefix <> slotLit
 route GenesisBlock = routePrefix <> genesisBlockLit
 route Playground = routePrefix <> playgroundLit
 route NotFound = routePrefix <> notFoundLit
+
+
+--------------------------------------------------------------------------------
+-- PureCSS
+--------------------------------------------------------------------------------
+classes :: String -> String -> String
+classes a b = a <> " " <> b
+
+contentWrapper :: String
+contentWrapper = "content-wrapper"
+
+pureG :: String
+pureG = "pure-g"
+
+pureGContainer :: String
+pureGContainer = classes pureG "main-container"

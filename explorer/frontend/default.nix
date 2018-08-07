@@ -95,7 +95,12 @@ let
     mkYarnPackage {
       name = "cardano-explorer-frontend";
       src = generatedSrc;
-      extraBuildInputs = [ purescript regen-script ];
+      extraBuildInputs = [
+        oldHaskellPackages.purescript-derive-lenses
+        cardano-sl-explorer
+        purescript
+        regen-script
+      ];
       passthru = { inherit bowerComponents; };
       installPhase = ''
         # run the build:prod script

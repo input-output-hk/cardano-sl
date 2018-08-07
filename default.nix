@@ -124,6 +124,8 @@ let
              name: type: let baseName = baseNameOf (toString name); in ! (
                # Filter out .git repo
                (type == "directory" && baseName == ".git") ||
+               # Filter out the front end directory from explorer
+               (type == "directory" && baseName == "frontend") ||
                # Filter out editor backup / swap files.
                lib.hasSuffix "~" baseName ||
                builtins.match "^\\.sw[a-z]$" baseName != null ||

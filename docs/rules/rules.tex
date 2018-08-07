@@ -1098,7 +1098,7 @@ The secret-sharing phases are defined as:
 \label{sec:extending-blockchain}
 
 \info{In this section we will specify the rules used by a slot-leader
-  to create a new block. The state is a single chain, plus outstanding
+  to create a new regular block. The state is a single chain, plus outstanding
   transactions.}
 
 In this section we are parametrised by the current slot, a valid chain
@@ -1131,12 +1131,17 @@ And build the following block:
     \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-170}{CDEC-170}.}
 \item[delegation certificates] \improvement{Specify where the delegation
     certificates come from.}
+\item[seed computation] \improvement{Specify where the ssc messages come from.}
 \end{record}
-\improvement{TODO: updates, ssc messages, and where they come from}
+\improvement{TODO: updates and where they come from}
 \improvement{TODO: block size limits}
-\improvement{Should we specify the state of the mempool, and the
-  various message pools as well?}
-\unsure{Maybe this section should move to after the longest-chain selection}
+
+\info{Issuing a block doesn't extend the blockchain. Instead, the
+  issued block is immediately received using the process of
+  Section~\ref{sec:adding-block}. Issued block have the property that
+  they are always valid on top of the current chain, but this
+  simplifies the specification, and gives an opportunity to test the
+  specification itself.}
 
 \section{Entering the mempool}
 \label{sec:entering-mempool}
@@ -1148,11 +1153,12 @@ new block (see Section~\ref{sec:extending-blockchain}) are taken
 from. Many changes are considered to this section, and are discussed
 in Appendix~\ref{sec:appendix-mempool}.
 
-Let $b₁,…,b_m$ be the selected chain (see
-Section~\ref{sec:chain-selection}). The mempool is a list of
-transactions $τ₁,…,τ_n$.
+The mempool is only valid relatively to a given selected chain (see
+Section~\ref{sec:chain-selection}). Every time the selected chain
+changes (whenever a block is received), the mempool is emptied.
 
-We define a \emph{valid} mempool by induction:
+Let $b₁,…,b_m$ be the selected chain. The mempool is a list of
+transactions $τ₁,…,τ_n$. We define a \emph{valid} mempool by induction:
 \begin{itemize}
 \item The empty mempool $\emptylist$ is valid
 \item $τ₁,…,τ_{n+1}$ is valid if $τ₁,…,τ_n$ is valid, and $τ_{n+1}$ is

@@ -36,7 +36,6 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
 import           Pos.Crypto (PassPhrase)
-
 import           Pos.Util (HasLens')
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Account (GenSeed (..))

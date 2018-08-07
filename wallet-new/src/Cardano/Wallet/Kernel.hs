@@ -66,6 +66,7 @@ import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
                      newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 
 import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 

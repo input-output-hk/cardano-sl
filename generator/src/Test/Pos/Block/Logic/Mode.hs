@@ -23,7 +23,6 @@ module Test.Pos.Block.Logic.Mode
        -- Lens
        , btcGStateL
        , btcSystemStartL
-       , btcLoggerNameL
        , btcSSlottingStateVarL
        , btcUpdateContextL
        , btcSscStateL
@@ -51,7 +50,6 @@ import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
-import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll,
                      ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
@@ -109,8 +107,8 @@ import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
+import           Pos.Util.Trace (natTrace, noTrace)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode (EmptyMempoolExt)
 
@@ -219,7 +217,6 @@ newtype PureDBSnapshotsVar = PureDBSnapshotsVar
 data BlockTestContext = BlockTestContext
     { btcGState            :: !GS.GStateContext
     , btcSystemStart       :: !Timestamp
-    , btcLoggerName        :: !LoggerName
     , btcSSlottingStateVar :: !SimpleSlottingStateVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !SscState
@@ -251,10 +248,11 @@ initBlockTestContext ::
        ( HasConfiguration
        , HasDlgConfiguration
        )
-    => TestParams
+    => TraceNamed IO
+    -> TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
-initBlockTestContext tp@TestParams {..} callback = do
+initBlockTestContext logTrace0 tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
@@ -268,16 +266,15 @@ initBlockTestContext tp@TestParams {..} callback = do
                 slottingState
                 systemStart
                 futureLrcCtx
-        initBlockTestContextDo = do
+        initBlockTestContextDo logTrace = do
             initNodeDBs dummyProtocolMagic epochSlots
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
-            let btcLoggerName = "testing"
             lcLrcSync <- mkLrcSyncData >>= newTVarIO
             let _gscLrcContext = LrcContext {..}
             putLrcCtx _gscLrcContext
             btcUpdateContext <- mkUpdateContext
-            btcSscState <- mkSscState
+            btcSscState <- mkSscState (natTrace liftIO logTrace)
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic _tpTxpConfiguration
@@ -292,9 +289,10 @@ initBlockTestContext tp@TestParams {..} callback = do
                             error "initBlockTestContext: no genesisSecretKeys"
                         Just ks -> ks
             let btcAllSecrets = mkAllSecretsSimple secretKeys
-            let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
+            let btCtx = BlockTestContext
+                        {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
-    sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo
+    sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo logTrace0
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -311,12 +309,13 @@ runBlockTestMode ::
        ( HasDlgConfiguration
        , HasConfiguration
        )
-    => TestParams
+    => TraceNamed IO
+    -> TestParams
     -> BlockTestMode a
     -> IO a
-runBlockTestMode tp action =
+runBlockTestMode logTrace tp action =
     runEmulation (getTimestamp $ tp ^. tpStartTime) $
-    initBlockTestContext tp (runReaderT action)
+    initBlockTestContext logTrace tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -328,13 +327,14 @@ type BlockProperty = PropertyM BlockTestMode
 -- 'TestParams'.
 blockPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
-    => Gen TestParams
+    => TraceNamed IO
+    -> Gen TestParams
     -> (HasConfiguration => BlockProperty a)
     -> Property
-blockPropertyToProperty tpGen blockProperty =
+blockPropertyToProperty logTrace tpGen blockProperty =
     forAll tpGen $ \tp ->
         withTestParams tp $ \_ ->
-        monadic (ioProperty . runBlockTestMode tp) blockProperty
+        monadic (ioProperty . runBlockTestMode logTrace tp) blockProperty
 
 -- | Simplified version of 'blockPropertyToProperty' which uses
 -- 'Arbitrary' instance to generate 'TestParams'.
@@ -352,7 +352,7 @@ blockPropertyTestable ::
        (HasDlgConfiguration, Testable a)
     => (HasConfiguration => BlockProperty a)
     -> Property
-blockPropertyTestable = blockPropertyToProperty arbitrary
+blockPropertyTestable = blockPropertyToProperty noTrace arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances
@@ -412,9 +412,6 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
 instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
     lensOf = btcPureDBSnapshotsL
 
-instance HasLens LoggerName BlockTestContext LoggerName where
-      lensOf = btcLoggerNameL
-
 instance HasLens LrcContext BlockTestContext LrcContext where
     lensOf = GS.gStateContext . GS.gscLrcContext
 
@@ -458,15 +455,8 @@ instance HasLens DelegationVar BlockTestContext DelegationVar where
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData EmptyMempoolExt) where
     lensOf = btcTxpMemL
 
-instance HasLoggerName' BlockTestContext where
-    loggerName = lensOf @LoggerName
-
 instance HasNodeType BlockTestContext where
     getNodeType _ = NodeCore -- doesn't really matter, it's for reporting
-
-instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
 
 type TestSlottingContext ctx m =
     ( MonadSimpleSlotting ctx m

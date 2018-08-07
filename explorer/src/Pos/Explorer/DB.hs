@@ -38,7 +38,6 @@ import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (sformat, (%))
 import           Serokell.Util (Color (Red), colorize, mapJson)
-import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
@@ -57,6 +56,7 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Txp (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
+import           Pos.Util.Trace.Named (TraceNamed, logError)
 import           Pos.Util.Util (maybeThrow)
 
 
@@ -383,9 +383,9 @@ instance DBIteratorClass EpochsIter where
 -- WARNING: this is potentially expensive operation, it shouldn't be
 -- used in production.
 sanityCheckBalances
-    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
-    => m ()
-sanityCheckBalances = do
+    :: (MonadDBRead m, MonadUnliftIO m)
+    => TraceNamed m -> m ()
+sanityCheckBalances logTrace = do
     let utxoBalancesSource =
             mapOutput ((txOutAddress &&& txOutValue) . toaOut . snd) utxoSource
     storedMap <- runConduitRes $ balancesSource .| balancesSink
@@ -395,8 +395,8 @@ sanityCheckBalances = do
              %mapJson%".\nUtxo version is: "%mapJson%"\n")
     let msg = sformat fmt storedMap computedFromUtxoMap
     unless (storedMap == computedFromUtxoMap) $ do
-        logError $ colorize Red msg
-        logError . colorize Red . sformat ("Actual utxo is: " %utxoF) =<<
+        logError logTrace $ colorize Red msg
+        logError logTrace . colorize Red . sformat ("Actual utxo is: " %utxoF) =<<
             getAllPotentiallyHugeUtxo
         throwM $ DBMalformed msg
 

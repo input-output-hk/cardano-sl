@@ -17,7 +17,6 @@ module Pos.Explorer.ExplorerMode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary,
                      forAll, ioProperty)
@@ -40,6 +39,7 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      mkSimpleSlottingStateVar)
 import qualified Pos.Infra.Slotting as Slot
 import           Pos.Util (postfixLFields)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
@@ -52,8 +52,6 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
 import           Pos.WorkMode (MinWorkMode)
 
 -- Need Emulation because it has instance Mockable CurrentTime
@@ -113,7 +111,7 @@ data ExplorerTestContext = ExplorerTestContext
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
     , etcTxpLocalData :: !(GenericTxpLocalData ExplorerExtraModifier)
-    , etcLoggerName   :: !LoggerName
+    , etcLoggerName   :: !Log.LoggerName
     , etcParams       :: !ExplorerTestParams
     }
 
@@ -224,11 +222,8 @@ type instance MempoolExt ExplorerExtraTestMode = ExplorerExtraModifier
 instance HasLens TxpHolderTag ExplorerTestContext (GenericTxpLocalData ExplorerExtraModifier) where
     lensOf = etcTxpLocalData_L
 
-instance HasLens LoggerName ExplorerTestContext LoggerName where
+instance HasLens Log.LoggerName ExplorerTestContext Log.LoggerName where
       lensOf = etcLoggerName_L
-
-instance HasLoggerName' ExplorerTestContext where
-    loggerName = lensOf @LoggerName
 
 instance HasJsonLogConfig ExplorerTestContext where
     jsonLogConfig = jsonLogConfig
@@ -269,10 +264,6 @@ instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbDelete = DB.dbDeletePureDefault
     dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
-instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
-
 instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
     jsonLog = jsonLogDefault
 
@@ -283,15 +274,11 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 
 newtype SubscriptionTestMode a = SubscriptionTestMode
     { runSubscriptionTestMode :: (StateT ConnectionsState IO a)
-    } deriving (Functor, Applicative, Monad, MonadThrow, CanLog, MonadState ConnectionsState)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadState ConnectionsState)
 
 runSubTestMode :: ConnectionsState -> SubscriptionTestMode a -> IO (a, ConnectionsState)
 runSubTestMode connectionsState m =
     runStateT (runSubscriptionTestMode m) connectionsState
-
-instance HasLoggerName SubscriptionTestMode where
-    askLoggerName        = pure "explorer-subscription-test"
-    modifyLoggerName _ a = a
 
 ----------------------------------------------------------------------------
 -- Property

@@ -25,7 +25,7 @@ import Explorer.View.Common (emptyView)
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onChange, onClick, onFocus, onBlur, onKeyDown, targetValue) as P
 
-import Text.Smolder.HTML (div, input, label, li, ul) as S
+import Text.Smolder.HTML (div, input, label, li, ul, form) as S
 import Text.Smolder.HTML.Attributes (className, for, id, maxlength, name, placeholder, type', value) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
@@ -47,12 +47,12 @@ searchInputView (ElementId viewId) state =
         focusedClazz = if dbViewSearchInputFocused then " focused " else ""
         searchTimeQuery = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
-    S.div ! S.className ("explorer-search__container" <> focusedClazz)
-          ! S.id viewId $ do
+    S.ul ! S.className "pure-menu-list nav-search"
+         ! S.id viewId $
+       S.form $ do
           (S.input !? dbViewSearchInputFocused) (S.placeholder $ translate (I18nL.hero <<< I18nL.hrSearch) lang')
-                  ! S.className ("explorer-search__input explorer-search__input--address-tx"
-                                    <> addrHiddenClazz <> focusedClazz)
                   ! S.type' "text"
+                  ! S.id "search-box"
                   ! S.value (state ^. (viewStates <<< globalViewState <<< gViewSearchQuery))
                   #! P.onFocus (const $ if mobileMenuOpened
                                             then GlobalFocusSearchInput true
@@ -62,6 +62,9 @@ searchInputView (ElementId viewId) state =
                                           else NoOp)
                   #! P.onChange (GlobalUpdateSearchValue <<< P.targetValue)
                   #! P.onKeyDown (\event -> if enterKeyPressed event then GlobalSearch event else NoOp)
+          S.input ! S.type' "submit"
+                  ! S.value "Search"
+                  ! S.id "search-btn"
           S.div ! S.className ("explorer-search__wrapper" <> epochHiddenClazz) $ do
               S.label ! S.className "explorer-search__label"
                       ! S.for inputEpochName

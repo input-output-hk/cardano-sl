@@ -1,10 +1,11 @@
 // styles
-import './index.css';
 
-// import 'purecss/build/pure-min.css';
-// import 'purecss/build/grids-responsive-min.css';
-// import 'font-awesome/css/font-awesome.min.css';
-// import 'pure-extras/css/pure-extras.css';
+import 'purecss/build/pure-min.css';
+import 'purecss/build/grids-responsive-min.css';
+import 'font-awesome/css/font-awesome.min.css';
+import 'pure-extras/css/pure-extras.css';
+
+import './index.css';
 
 // app
 import Main from './Main.purs';

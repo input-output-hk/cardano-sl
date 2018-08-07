@@ -19,6 +19,6 @@ dashboardView :: State -> P.HTML Action
 dashboardView state =
     S.div ! S.className CSS.pureGContainer $ do
         dashBoardBlocksView state
-        -- transactionsView state
+        transactionsView state
         -- offerView state
         -- apiView state

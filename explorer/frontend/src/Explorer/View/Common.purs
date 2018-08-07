@@ -18,7 +18,6 @@ module Explorer.View.Common (
     , txEmptyContentView
     , noData
     , logoView
-    , clickableLogoView
     , langItems
     , langView
     ) where
@@ -33,8 +32,8 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
-import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
-import Explorer.Lenses.State (lang)
+import Explorer.I18n.Lenses (common, cDateFormat, cTitle) as I18nL
+import Explorer.Lenses.State (lang, route, testnet)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
@@ -49,10 +48,10 @@ import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.DOM.Events (DOMEvent, onBlur, onChange, onFocus, onKeyDown, onClick, targetValue) as P
 import Pux.DOM.HTML (HTML) as P
-import Text.Smolder.HTML (a, div, p, span, input, option, select) as S
+import Text.Smolder.HTML (a, div, p, span, input, option, select, ul, li, small) as S
 import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
-import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup (text, empty) as S
 
 
 
@@ -342,32 +341,30 @@ txEmptyContentView message =
 -- logo
 -- -----------------
 
-logoView' :: Maybe Route -> Boolean -> P.HTML Action
-logoView' mRoute isTestnet =
-    let logoContentTag = case mRoute of
-                              Just route ->
-                                  S.a ! S.href (toUrl route)
-                                      #! P.onClick (Navigate $ toUrl route)
-                              Nothing ->
-                                  S.div
+logoView :: State -> P.HTML Action
+logoView state =
+    let route' = state ^. route
+        lang' = state ^. lang
+        isTestnet = state ^. testnet
+        logoContentTag = S.a ! S.href "/"
+                              #! P.onClick (Navigate $ toUrl Dashboard)
+                              ! S.className "pure-menu-link"
 
         iconHiddenClazz = if isTestnet then "" else " hide"
+        title = (translate (I18nL.common <<< I18nL.cTitle) lang')
     in
-    S.div
-        ! S.className "logo__container"
-        $ S.div
-            ! S.className "logo__wrapper"
+    S.ul ! S.className "pure-menu-list" $ do
+      S.li ! S.className "pure-menu-item"
             $ logoContentTag
-                ! S.className "logo__img bg-logo"
                 $ S.div
                     ! S.className ("testnet-icon" <> iconHiddenClazz)
                     $ S.text ("Testnet")
-
-logoView :: Boolean -> P.HTML Action
-logoView isTestnet = logoView' Nothing isTestnet
-
-clickableLogoView :: Route -> Boolean -> P.HTML Action
-clickableLogoView route isTestnet = logoView' (Just route) isTestnet
+      S.li ! S.className "pure-menu-item" $ do
+        logoContentTag $ do
+          S.text title
+          if isTestnet
+            then S.small $ S.text " - testnet"
+            else S.empty
 
 -- -----------------
 -- lang

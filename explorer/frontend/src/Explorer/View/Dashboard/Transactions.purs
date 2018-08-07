@@ -31,7 +31,7 @@ import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CT
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick, DOMEvent) as P
 
-import Text.Smolder.HTML (a, div, span) as S
+import Text.Smolder.HTML (a, div, span, table, thead, tbody, tr, td, th) as S
 import Text.Smolder.HTML.Attributes (className, href) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!))
@@ -44,17 +44,21 @@ minTransactionRows = 5
 
 transactionsView :: State -> P.HTML Action
 transactionsView state =
-    S.div ! S.className "explorer-dashboard__wrapper"
-          $ S.div ! S.className "explorer-dashboard__container" $ do
-              headerView state headerOptions
-              S.div ! S.className ("transactions__waiting" <> visibleWaitingClazz)
-                    $ S.text (translate (I18nL.common <<< I18nL.cNoData) lang')
-              S.div ! S.className ("transactions__container" <> visibleTxClazz)
-                    $ for_ transactions' (transactionRow state)
-              S.div ! S.className ("transactions__footer" <> visibleTxClazz)
-                    $ S.div ! S.className ("btn-expand" <> visibleBtnExpandClazz)
-                            #! P.onClick clickHandler
-                            $ S.text expandLabel
+  S.div ! S.className "pure-u-1-1" $ do
+    headerView state headerOptions
+    S.div ! S.className ("transactions__waiting" <> visibleWaitingClazz)
+          $ S.text (translate (I18nL.common <<< I18nL.cNoData) lang')
+    S.table ! S.className "pure-table pure-table-horizontal" $ do
+      S.thead $
+        S.tr $ do
+          S.th $ S.text "Hash"
+          S.th $ S.text "Date"
+          S.th $ S.text "Value"
+      S.tbody $ for_ transactions' (transactionRow state)
+    S.div ! S.className ("transactions__footer" <> visibleTxClazz)
+          $ S.div ! S.className ("btn-expand" <> visibleBtnExpandClazz)
+                  #! P.onClick clickHandler
+                  $ S.text expandLabel
     where
       lang' = state ^. lang
       expanded = state ^. dashboardTransactionsExpanded
@@ -67,6 +71,7 @@ transactionsView state =
           , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreTransactions) lang'
                                     , action: NoOp
                                     }
+          , icon: Just "fa-exchange"
           }
       transactions = case state ^. latestTransactions of
                         Success txs -> txs
@@ -94,14 +99,11 @@ transactionRow state (CTxEntry entry) =
         dateValue = fromMaybe noData $ prettyDate format =<< entry ^. cteTimeIssued
         txRoute = Tx $ entry ^. cteId
     in
-    S.div ! S.className "transactions__row" $ do
-        S.div ! S.className "transactions__column--hash-container"
-              $ S.a ! S.href (toUrl txRoute)
-                    #! P.onClick (Navigate $ toUrl txRoute)
-                    ! S.className "hash"
-                    $ S.text (entry ^. (cteId <<< _CTxId <<< _CHash))
-        S.div ! S.className "transactions__column--date"
-              $ S.text dateValue
-        S.div ! S.className "transactions__column--currency"
-              $ S.span  ! S.className (currencyCSSClass $ Just ADA)
-                        $ S.text (formatADA (entry ^. cteAmount) lang')
+    S.tr $ do
+        S.td $
+          S.a ! S.href (toUrl txRoute)
+              #! P.onClick (Navigate $ toUrl txRoute)
+            $ S.text (entry ^. (cteId <<< _CTxId <<< _CHash))
+        S.td $ S.text dateValue
+        S.td $ S.span  ! S.className (currencyCSSClass $ Just ADA)
+          $ S.text (formatADA (entry ^. cteAmount) lang')

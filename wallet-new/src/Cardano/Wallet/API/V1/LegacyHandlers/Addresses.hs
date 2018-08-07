@@ -15,6 +15,7 @@ import           Servant
 import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase)
 import qualified Pos.DB.Txp as V0 (withTxpLocalData)
+import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes as V0
 import           Pos.Wallet.Web.ClientTypes.Types (CAccount (..))
@@ -40,10 +41,11 @@ import           Cardano.Wallet.API.V1.Types
 
 handlers
     :: V0.MonadWalletLogic ctx m
-    => ServerT Addresses.API m
-handlers =  listAddresses
-       :<|> newAddress
-       :<|> getAddress
+    => TraceNamed m
+    -> ServerT Addresses.API m
+handlers logTrace = (listAddresses logTrace)
+       :<|> (newAddress logTrace)
+       :<|> (getAddress logTrace)
 
 -- | This is quite slow. What happens when we have 50k addresses?
 -- TODO(ks): One idea I have is to persist the length of the
@@ -56,9 +58,10 @@ handlers =  listAddresses
 -- but I have an idea or two how that can be fixed.
 listAddresses
     :: forall ctx m. (MonadThrow m, V0.MonadWalletLogic ctx m)
-    => RequestParams
+    => TraceNamed m
+    -> RequestParams
     -> m (WalletResponse [WalletAddress])
-listAddresses params = do
+listAddresses logTrace params = do
 
     wdb <- askWalletDB
     ws  <- getWalletSnapshot wdb
@@ -75,26 +78,27 @@ listAddresses params = do
     runStreamAddresses ws =
         runConduit   $ CL.sourceList (getWalletAddresses ws)
                     .| CL.map Just
-                    .| CL.concatMapM V0.getAccounts
+                    .| CL.concatMapM (V0.getAccounts logTrace)
                     .| CL.concatMap caAddresses
                     .| CL.mapM migrate
                     .| CL.fold (\x a -> IxSet.updateIx (addrId a) a x) IxSet.empty
 
 newAddress
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)
-    => NewAddress -> m (WalletResponse WalletAddress)
-newAddress NewAddress {..} = do
+    => TraceNamed m -> NewAddress -> m (WalletResponse WalletAddress)
+newAddress logTrace NewAddress {..} = do
     let (V1 password) = fromMaybe (V1 emptyPassphrase) newaddrSpendingPassword
     accountId <- migrate (newaddrWalletId, newaddrAccountIndex)
-    fmap single $ V0.newAddress V0.RandomSeed password accountId
+    fmap single $ V0.newAddress logTrace V0.RandomSeed password accountId
               >>= migrate
 
 -- | Verifies that an address is base58 decodable.
 getAddress
     :: (MonadThrow m , V0.MonadWalletLogic ctx m)
-    => Text
+    => TraceNamed m
+    -> Text
     -> m (WalletResponse WalletAddress)
-getAddress addrText = do
+getAddress logTrace addrText = do
     addr <- either
         (throwM . InvalidAddressFormat)
         pure
@@ -126,6 +130,6 @@ getAddress addrText = do
         Just (_walletMeta, V0.AddressInfo{..}) -> do
             let accId = adiWAddressMeta ^. V0.wamAccount
             mps <- V0.withTxpLocalData V0.getMempoolSnapshot
-            accMod <- V0.txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< V0.findKey accId
+            accMod <- V0.txMempoolToModifier logTrace ws mps . eskToWalletDecrCredentials =<< V0.findKey accId
             let caddr = V0.getWAddress ws accMod adiWAddressMeta
             single <$> migrate caddr

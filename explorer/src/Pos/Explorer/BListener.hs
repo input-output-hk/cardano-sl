@@ -26,7 +26,6 @@ import           Data.List ((\\))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Ether
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock,
@@ -45,6 +44,7 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
                      defaultPageSize, findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 
 ----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ runExplorerBListener = coerce
 
 -- Type alias, remove duplication
 type MonadBListenerT m =
-    ( WithLogger m
+    ( MonadIO m
     , MonadCatch m
     , MonadDBRead m
     , MonadUnliftIO m
@@ -73,12 +73,12 @@ type MonadBListenerT m =
 instance ( MonadDBRead m
          , MonadUnliftIO m
          , MonadCatch m
-         , WithLogger m
+         , MonadIO m
          , HasConfiguration
          )
          => MonadBListener (ExplorerBListener m) where
-    onApplyBlocks     blunds = onApplyCallGeneral blunds
-    onRollbackBlocks  blunds = onRollbackCallGeneral blunds
+    onApplyBlocks logTrace bs    = onApplyCallGeneral (natTrace liftIO logTrace) bs
+    onRollbackBlocks logTrace bs = onRollbackCallGeneral (natTrace liftIO logTrace) bs
 
 
 ----------------------------------------------------------------------------
@@ -88,25 +88,27 @@ instance ( MonadDBRead m
 
 onApplyCallGeneral
     :: MonadBListenerT m
-    => OldestFirst NE Blund
+    => TraceNamed m
+    -> OldestFirst NE Blund
     -> m SomeBatchOp
-onApplyCallGeneral    blunds = do
+onApplyCallGeneral logTrace blunds = do
     epochBlocks <- onApplyEpochBlocksExplorer blunds
     pageBlocks  <- onApplyPageBlocksExplorer blunds
     lastTxs     <- onApplyLastTxsExplorer blunds
-    inAssertMode DB.sanityCheckBalances
+    inAssertMode $ DB.sanityCheckBalances logTrace
     pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 
 onRollbackCallGeneral
     :: MonadBListenerT m
-    => NewestFirst NE Blund
+    => TraceNamed m
+    -> NewestFirst NE Blund
     -> m SomeBatchOp
-onRollbackCallGeneral blunds = do
+onRollbackCallGeneral logTrace blunds = do
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
     lastTxs     <- onRollbackLastTxsExplorer blunds
-    inAssertMode DB.sanityCheckBalances
+    inAssertMode $ DB.sanityCheckBalances logTrace
     pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 

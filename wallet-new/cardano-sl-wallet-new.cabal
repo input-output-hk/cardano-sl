@@ -177,6 +177,7 @@ library
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-test
+                     , cereal
                      , conduit
                      , connection
                      , containers
@@ -184,6 +185,7 @@ library
                      , data-default
                      , data-default-class
                      , directory
+                     , ed25519
                      , exceptions
                      , formatting
                      , formatting

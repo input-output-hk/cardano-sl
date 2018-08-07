@@ -4,8 +4,9 @@ synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -131,16 +132,17 @@ library
                      , concurrent-extra
                      , conduit
                      , containers
+                     , contravariant
                      , cryptonite
                      , data-default
                      , directory
+                     , dlist
                      , ekg-core
                      , ether >= 0.5
                      , exceptions
                      , filepath
                      , formatting
                      , lens
-                     , log-warper
                      , lrucache
                      , memory
                      , mmorph

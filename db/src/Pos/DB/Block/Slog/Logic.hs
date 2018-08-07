@@ -29,7 +29,6 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      Undo (..), genBlockLeaders, headerHash, headerHashG,
@@ -40,7 +39,7 @@ import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
                      epochIndexL, flattenSlotId)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
-import           Pos.Core.Exception (assertionFailed, reportFatalError)
+import           Pos.Core.Exception (assertionFailed, traceFatalError)
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -59,6 +58,7 @@ import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -105,7 +105,6 @@ type MonadSlogBase ctx m =
     ( MonadSlots ctx m
     , MonadIO m
     , MonadDBRead m
-    , WithLogger m
     , HasUpdateConfiguration
     )
 
@@ -218,10 +217,11 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
     :: MonadSlogApply ctx m
-    => ShouldCallBListener
+    => TraceNamed IO
+    -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp
-slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
+slogApplyBlocks logTrace (ShouldCallBListener callBListener) blunds = do
     -- Note: it's important to put blunds first. The invariant is that
     -- the sequence of blocks corresponding to the tip must exist in
     -- BlockDB. If program is interrupted after we put blunds and
@@ -231,7 +231,7 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- If the program is interrupted at this point (after putting blunds
     -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
-    bListenerBatch <- if callBListener then onApplyBlocks blunds
+    bListenerBatch <- if callBListener then onApplyBlocks logTrace blunds
                       else pure mempty
 
     let newestBlock = NE.last $ getOldestFirst blunds
@@ -286,13 +286,16 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
        MonadSlogApply ctx m
-    => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    => TraceNamed IO
+    -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m SomeBatchOp
-slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
+slogRollbackBlocks logTrace (BypassSecurityCheck bypassSecurity)
+                   (ShouldCallBListener callBListener) blunds = do
+    let logTrace' = natTrace liftIO logTrace
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
-        assertionFailed $
+        assertionFailed logTrace' $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     -- We should never allow a situation when we summarily roll back by more
     -- than 'k' blocks
@@ -307,10 +310,11 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
             -- no rollback further than k blocks
             maxSeenDifficulty - resultingDifficulty <= fromIntegral blkSecurityParam
     unless (bypassSecurity || secure) $
-        reportFatalError "slogRollbackBlocks: the attempted rollback would \
+        traceFatalError logTrace'
+                         "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."
-    bListenerBatch <- if callBListener then onRollbackBlocks blunds
+    bListenerBatch <- if callBListener then onRollbackBlocks logTrace blunds
                       else pure mempty
     let putTip =
             SomeBatchOp $ GS.PutTip $

@@ -1262,7 +1262,15 @@ those of the selected chain) when
 \subsection{Delegation mempool}
 \label{sec:delegation-mempool}
 
-\improvement{TODO}
+We define a \emph{valid} delegation mempool $c₁,…,c_n$ by induction:
+\begin{itemize}
+\item The empty mempool $\emptylist$ is valid
+\item $c₁,…,c_{n+1}$ is valid if $c₁,…,c_n$ is valid, and $c_{n+1}$ is
+  a \emph{valid extension} of $c₁,…,c_n$
+\end{itemize}
+
+A delegation message $c$ is a valid extension of $c_1,…,c_n$ if
+$∀1⩽i⩽n. \delegator{c}≠\delegator{c_i}$.
 
 \subsection{Seed mempool}
 \label{sec:seed-mempool}

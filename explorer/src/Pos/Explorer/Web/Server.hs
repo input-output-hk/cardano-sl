@@ -46,7 +46,6 @@ import qualified Serokell.Util.Base64 as B64
 import           Servant.Generic (AsServerT, toServant)
 import           Servant.Server (Server, ServerT, err405, errReasonPhrase,
                      serve)
-import           System.Wlog (logDebug)
 
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
@@ -72,6 +71,7 @@ import           Pos.DB.Txp (MonadTxpMem, getFilteredUtxo, getLocalTxs,
                      getMemPool, withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
 import           Pos.Util (divRoundUp, maybeThrow)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
@@ -125,8 +125,8 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers
     :: forall ctx m. ExplorerMode ctx m
-    => Diffusion m -> ServerT ExplorerApi m
-explorerHandlers _diffusion =
+    => TraceNamed m -> Diffusion m -> ServerT ExplorerApi m
+explorerHandlers logTrace _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
         , _blocksPages        = getBlocksPage
@@ -134,8 +134,8 @@ explorerHandlers _diffusion =
         , _blocksSummary      = getBlockSummary
         , _blocksTxs          = getBlockTxs
         , _txsLast            = getLastTxs
-        , _txsSummary         = getTxSummary
-        , _addressSummary     = getAddressSummary
+        , _txsSummary         = getTxSummary logTrace
+        , _addressSummary     = getAddressSummary logTrace
         , _addressUtxoBulk    = getAddressUtxoBulk
         , _epochPages         = getEpochPage
         , _epochSlots         = getEpochSlot
@@ -337,9 +337,10 @@ getBlockTxs cHash mLimit mSkip = do
 -- @UnknownAddressType@.
 getAddressSummary
     :: ExplorerMode ctx m
-    => CAddress
+    => TraceNamed m
+    -> CAddress
     -> m CAddressSummary
-getAddressSummary cAddr = do
+getAddressSummary logTrace cAddr = do
     addr <- cAddrToAddr cAddr
 
     when (isUnknownAddressType addr) $
@@ -357,7 +358,7 @@ getAddressSummary cAddr = do
 
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
-        tx <- getTxMain id extra
+        tx <- getTxMain logTrace id extra
         pure $ makeTxBrief tx extra
 
     pure CAddressSummary {
@@ -417,9 +418,10 @@ getAddressUtxoBulk cAddrs = do
 -- are transactions that have to be written in the blockchain.
 getTxSummary
     :: ExplorerMode ctx m
-    => CTxId
+    => TraceNamed m
+    -> CTxId
     -> m CTxSummary
-getTxSummary cTxId = do
+getTxSummary logTrace cTxId = do
     -- There are two places whence we can fetch a transaction: MemPool and DB.
     -- However, TxExtra should be added in the DB when a transaction is added
     -- to MemPool. So we start with TxExtra and then figure out whence to fetch
@@ -433,7 +435,7 @@ getTxSummary cTxId = do
     -- anything on the blockchain, we go searching in the @MemPool@.
     if isJust txExtra
       then getTxSummaryFromBlockchain cTxId
-      else getTxSummaryFromMemPool cTxId
+      else getTxSummaryFromMemPool logTrace cTxId
 
   where
     -- Get transaction from blockchain (the database).
@@ -497,17 +499,18 @@ getTxSummary cTxId = do
     -- Get transaction from mempool (the memory).
     getTxSummaryFromMemPool
         :: (ExplorerMode ctx m)
-        => CTxId
+        => TraceNamed m
+        -> CTxId
         -> m CTxSummary
-    getTxSummaryFromMemPool cTxId' = do
-        txId                   <- cTxIdToTxId cTxId'
-        tx                     <- fetchTxFromMempoolOrFail txId
+    getTxSummaryFromMemPool logTrace' cTxId' = do
+        txId <- cTxIdToTxId cTxId'
+        tx   <- fetchTxFromMempoolOrFail logTrace' txId
 
-        let inputOutputs        = NE.toList . _txOutputs $ taTx tx
-        let txOutputs           = convertTxOutputs inputOutputs
+        let inputOutputs = NE.toList . _txOutputs $ taTx tx
+        let txOutputs    = convertTxOutputs inputOutputs
 
-        let totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
-        let totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
+        let totalInput   = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        let totalOutput  = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
 
         -- Verify that strange things don't happen with transactions
         when (totalOutput > totalInput) $
@@ -812,12 +815,12 @@ unwrapOrThrow :: ExplorerMode ctx m => Either Text a -> m a
 unwrapOrThrow = either (throwM . Internal) pure
 
 -- | Get transaction from memory (STM) or throw exception.
-fetchTxFromMempoolOrFail :: ExplorerMode ctx m => TxId -> m TxAux
-fetchTxFromMempoolOrFail txId = do
+fetchTxFromMempoolOrFail :: ExplorerMode ctx m => TraceNamed m -> TxId -> m TxAux
+fetchTxFromMempoolOrFail logTrace txId = do
     memPoolTxs        <- localMemPoolTxs
     let memPoolTxsSize = HM.size memPoolTxs
 
-    logDebug $ sformat ("Mempool size "%int%" found!") memPoolTxsSize
+    logDebug logTrace $ sformat ("Mempool size "%int%" found!") memPoolTxsSize
 
     let maybeTxAux = memPoolTxs ^. at txId
     maybeThrow (Internal "Transaction missing in MemPool!") maybeTxAux
@@ -911,9 +914,9 @@ getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
   where
     exception = Internal "Transaction not found"
 
-getTxMain :: ExplorerMode ctx m => TxId -> TxExtra -> m Tx
-getTxMain id TxExtra {..} = case teBlockchainPlace of
-    Nothing -> taTx <$> fetchTxFromMempoolOrFail id
+getTxMain :: ExplorerMode ctx m => TraceNamed m -> TxId -> TxExtra -> m Tx
+getTxMain logTrace id TxExtra {..} = case teBlockchainPlace of
+    Nothing -> taTx <$> fetchTxFromMempoolOrFail logTrace id
     Just (hh, idx) -> do
         mb <- getMainBlock hh
         maybeThrow (Internal "TxExtra return tx index that is out of bounds") $

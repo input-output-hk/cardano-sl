@@ -12,7 +12,6 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                      getExplorerNodeOptions)
@@ -34,15 +33,19 @@ import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
                      NodeParams (..), NodeResources (..), bracketNodeResources,
-                     loggerBracket, runNode, runRealMode, withConfigurations)
+                     runNode, runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
+import           Pos.Launcher.Resource (getRealLoggerConfig)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace,
+                     natTrace)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Worker.Update (updateTriggerWorker)
 
-loggerName :: LoggerName
-loggerName = "node"
+loggerName :: Log.LoggerName
+loggerName = "explorer"
 
 ----------------------------------------------------------------------------
 -- Main action
@@ -52,16 +55,25 @@ main :: IO ()
 main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
-    loggerBracket loggingParams . logException "node" $ do
-        logInfo "[Attention] Software is built with explorer part"
-        action args
+    lh <- Log.setupLogging =<< getRealLoggerConfig loggingParams
+    let logTrace = appendName loggerName $ namedTrace lh
+    Log.loggerBracket lh loggerName . logException loggerName $ do
+        Log.logInfo "[Attention] Software is built with explorer part"
+        action (natTrace liftIO logTrace) args
 
-action :: ExplorerNodeArgs -> IO ()
-action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath conf $ \pm txpConfig ntpConfig ->
+action
+    :: ( MonadIO m
+       , MonadCatch m
+       , Log.WithLogger m
+       )
+    => TraceNamed IO
+    -> ExplorerNodeArgs
+    -> m ()
+action logTrace (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
+    withConfigurations logTrace' blPath conf $ \pm txpConfig ntpConfig ->
     withCompileInfo $ do
-        CLI.printInfoOnStart cArgs ntpConfig txpConfig
-        logInfo $ "Explorer is enabled!"
+        CLI.printInfoOnStart logTrace' cArgs ntpConfig txpConfig
+        Log.logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
@@ -69,15 +81,17 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =
-                [ explorerPlugin webPort
-                , notifierPlugin NotifierSettings{ nsPort = notifierPort }
-                , updateTriggerWorker
+                [ explorerPlugin logTrace webPort
+                , notifierPlugin logTrace NotifierSettings{ nsPort = notifierPort }
+                , updateTriggerWorker (natTrace liftIO logTrace)
                 ]
-        bracketNodeResources currentParams sscParams
-            (explorerTxpGlobalSettings pm txpConfig)
+        liftIO $ bracketNodeResources logTrace currentParams sscParams
+            (explorerTxpGlobalSettings logTrace pm txpConfig)
             (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
-                runExplorerRealMode pm txpConfig nr (runNode pm txpConfig nr plugins)
+                runExplorerRealMode pm txpConfig nr (runNode logTrace pm txpConfig nr plugins)
   where
+
+    logTrace' = natTrace liftIO logTrace
 
     blPath :: Maybe AssetLockPath
     blPath = AssetLockPath <$> cnaAssetLockPath
@@ -96,7 +110,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
-         in runRealMode pm txpConfig nr $ \diffusion ->
+         in runRealMode logTrace pm txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
 
     nodeArgs :: NodeArgs

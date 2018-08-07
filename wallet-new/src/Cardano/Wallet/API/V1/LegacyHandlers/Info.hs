@@ -2,8 +2,6 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Info where
 
 import           Universum
 
-import           System.Wlog (WithLogger)
-
 import           Cardano.Wallet.API.Response (WalletResponse, single)
 import qualified Cardano.Wallet.API.V1.Info as Info
 import           Cardano.Wallet.API.V1.Migration
@@ -16,31 +14,32 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 
 import qualified Pos.Core as Core
+import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 
 -- | All the @Servant@ handlers for settings-specific operations.
-handlers :: ( HasConfigurations
-            )
-         => Diffusion MonadV1
+handlers :: HasConfigurations
+         => TraceNamed MonadV1
+         -> Diffusion MonadV1
          -> TVar NtpStatus
          -> ServerT Info.API MonadV1
-handlers = getInfo
+handlers logTrace = getInfo logTrace
 
 -- | Returns the @dynamic@ settings for this wallet node,
 -- like the local time difference (the NTP drift), the sync progress,
 -- etc.
 getInfo :: ( MonadIO m
-           , WithLogger m
            , MonadMask m
            , MonadBlockchainInfo m
            )
-        => Diffusion MonadV1
+        => TraceNamed m
+        -> Diffusion MonadV1
         -> TVar NtpStatus
         -> m (WalletResponse NodeInfo)
-getInfo Diffusion{..} ntpStatus = do
+getInfo logTrace Diffusion{..} ntpStatus = do
     subscribers <- readTVarIO (ssMap subscriptionStates)
-    spV0 <- V0.syncProgress
+    spV0 <- V0.syncProgress logTrace
     syncProgress   <- migrate spV0
     timeDifference <- V0.localTimeDifference ntpStatus
     return $ single NodeInfo

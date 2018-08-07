@@ -13,13 +13,12 @@ module UTxO.Verify
 
 import           Universum
 
-import           Control.Lens ((%=), (.=), _Wrapped)
+import           Control.Lens ((.=), _Wrapped)
 import           Control.Monad.Except
 import           Control.Monad.State.Strict (mapStateT)
 import           Data.Default (def)
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
-import           System.Wlog
 
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation (DlgUndo (..))
@@ -33,6 +32,7 @@ import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens
+import qualified Pos.Util.Log as Log
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify
 
@@ -52,13 +52,13 @@ data VerifyEnv = UnsafeVerifyEnv {
     , venvInitStakes       :: StakesMap
     , venvInitTotal        :: Coin
     , venvBlockVersionData :: BlockVersionData
-    , venvLoggerName       :: LoggerName
+    , venvLoggerName       :: Log.LoggerName
     }
 
 verifyEnv' :: HasGenesisData
            => Utxo
            -> BlockVersionData
-           -> LoggerName
+           -> Log.LoggerName
            -> VerifyEnv
 verifyEnv' utxo bvd lname = UnsafeVerifyEnv {
       venvInitUtxo         =                     utxo
@@ -90,13 +90,6 @@ withVerifyEnv env a = runReader (unWithVerifyEnv a) env
 instance MonadGState WithVerifyEnv where
   gsAdoptedBVData = WithVerifyEnv $ venvBlockVersionData <$> ask
 
-instance HasLoggerName WithVerifyEnv where
-  askLoggerName        = WithVerifyEnv $ venvLoggerName <$> ask
-  modifyLoggerName f x = WithVerifyEnv $ local f' (unWithVerifyEnv x)
-    where
-      f' :: VerifyEnv -> VerifyEnv
-      f' env = env { venvLoggerName = f (venvLoggerName env) }
-
 {-------------------------------------------------------------------------------
   Verification monad
 
@@ -111,7 +104,7 @@ instance HasLoggerName WithVerifyEnv where
 newtype Verify e a = Verify {
       --    StateT st (ErrorT e (Reader env)) a
       -- == st -> env -> Either e (a, st)
-      unVerify :: StateT (GlobalToilState, [LogEvent]) (ExceptT e WithVerifyEnv) a
+      unVerify :: StateT GlobalToilState (ExceptT e WithVerifyEnv) a
     }
   deriving (Functor, Applicative, Monad)
 
@@ -121,31 +114,21 @@ newtype Verify e a = Verify {
 verify :: HasConfiguration => Utxo -> Verify e a -> Either e (a, Utxo)
 verify utxo ma =
     second finalUtxo <$>
-    verify' (defGlobalToilState, []) (verifyEnv utxo) ma
+    verify' defGlobalToilState (verifyEnv utxo) ma
   where
-    finalUtxo :: (GlobalToilState, [LogEvent]) -> Utxo
-    finalUtxo (gts, _) = MM.modifyMap (gts ^. gtsUtxoModifier) utxo
+    finalUtxo :: GlobalToilState -> Utxo
+    finalUtxo gts = MM.modifyMap (gts ^. gtsUtxoModifier) utxo
 
-verify' :: (GlobalToilState, [LogEvent])
+verify' :: GlobalToilState
         -> VerifyEnv
         -> Verify e a
-        -> Either e (a, (GlobalToilState, [LogEvent]))
+        -> Either e (a, GlobalToilState)
 verify' st env ma = withVerifyEnv env
                   $ runExceptT
                   $ runStateT (unVerify ma) st
 
 deriving instance MonadGState     (Verify e)
 deriving instance (MonadError e)  (Verify e)
-
--- Possible due to HasLoggerName instance for 'StateT'' in "Pos.Util.Orphans"
-deriving instance HasLoggerName (Verify e)
-
-instance CanLog (Verify e) where
-  dispatchMessage lname sev txt = Verify $
-      _2 %= (logEvent :)
-    where
-      logEvent :: LogEvent
-      logEvent = LogEvent lname sev txt
 
 mapVerifyErrors :: (e -> e') -> Verify e a -> Verify e' a
 mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
@@ -370,12 +353,12 @@ tgsVerifyBlocks pm newChain = do
     nat action =
         Verify $ do
             baseUtxo <- lift . lift $ venvInitUtxo <$> WithVerifyEnv ask
-            utxoModifier <- use (_1 . gtsUtxoModifier)
+            utxoModifier <- use (gtsUtxoModifier)
             case runUtxoM utxoModifier (utxoToLookup baseUtxo) $
                  runExceptT action of
                 (Left err, _) -> throwError err
                 (Right res, newModifier) ->
-                    res <$ (_1 . gtsUtxoModifier .= newModifier)
+                    res <$ (gtsUtxoModifier .= newModifier)
 
 -- | Check all data
 --

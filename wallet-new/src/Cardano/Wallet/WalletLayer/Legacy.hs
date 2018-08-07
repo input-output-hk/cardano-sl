@@ -38,6 +38,7 @@ import           Pos.Core (ChainDifficulty)
 import           Pos.Crypto (PassPhrase)
 
 import           Pos.Util (HasLens')
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..),
                      CWallet (..), CWalletInit (..), CWalletMeta (..))
@@ -70,25 +71,26 @@ type MonadLegacyWallet ctx m =
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall ctx m n a. (MonadMask n, MonadLegacyWallet ctx m)
-    => (PassiveWalletLayer m -> n a) -> n a
-bracketPassiveWallet =
+    => TraceNamed m
+    -> (PassiveWalletLayer m -> n a) -> n a
+bracketPassiveWallet logTrace =
     bracket
         (pure passiveWalletLayer)
         (\_ -> return ())
   where
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet          = pwlCreateWallet
+        { _pwlCreateWallet          = pwlCreateWallet logTrace
         , _pwlGetWallets            = pwlGetWallets
-        , _pwlGetWallet             = pwlGetWallet
-        , _pwlUpdateWallet          = pwlUpdateWallet
+        , _pwlGetWallet             = pwlGetWallet logTrace
+        , _pwlUpdateWallet          = pwlUpdateWallet logTrace
         , _pwlUpdateWalletPassword  = pwlUpdateWalletPassword
         , _pwlDeleteWallet          = pwlDeleteWallet
 
-        , _pwlCreateAccount         = pwlCreateAccount
-        , _pwlGetAccounts           = pwlGetAccounts
-        , _pwlGetAccount            = pwlGetAccount
-        , _pwlUpdateAccount         = pwlUpdateAccount
+        , _pwlCreateAccount         = pwlCreateAccount logTrace
+        , _pwlGetAccounts           = pwlGetAccounts logTrace
+        , _pwlGetAccount            = pwlGetAccount logTrace
+        , _pwlUpdateAccount         = pwlUpdateAccount logTrace
         , _pwlDeleteAccount         = pwlDeleteAccount
 
         , _pwlCreateAddress         = pwlCreateAddress
@@ -129,9 +131,10 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 
 pwlCreateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => NewWallet
+    => TraceNamed m
+    -> NewWallet
     -> m (Either CreateWalletError Wallet)
-pwlCreateWallet NewWallet{..} = do
+pwlCreateWallet logTrace NewWallet{..} = do
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
     let backupPhrase     = CBackupPhrase $ unBackupPhrase newwalBackupPhrase
 
@@ -146,15 +149,15 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    res <- pwlGetWallet wId
+    res <- pwlGetWallet logTrace wId
     case res of
          Left _  -> throwM (WalletNotFound wId)
          Right w -> return $ Right w
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
-    newWalletHandler CreateWallet  = newWallet
-    newWalletHandler RestoreWallet = restoreWalletFromSeed
+    newWalletHandler CreateWallet  = newWallet logTrace
+    newWalletHandler RestoreWallet = restoreWalletFromSeed logTrace
     -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
@@ -179,13 +182,14 @@ pwlGetWallets = do
 
 pwlGetWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> m (Either GetWalletError Wallet)
-pwlGetWallet wId = do
+pwlGetWallet logTrace wId = do
     ws          <- askWalletSnapshot
 
     cWId        <- migrate wId
-    wallet      <- V0.getWallet cWId
+    wallet      <- V0.getWallet logTrace cWId
 
     let mbWallet = do walletInfo  <- getWalletInfo cWId ws
                       migrate (wallet, walletInfo, Nothing @ChainDifficulty)
@@ -197,10 +201,11 @@ pwlGetWallet wId = do
 
 pwlUpdateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> WalletUpdate
     -> m (Either UpdateWalletError Wallet)
-pwlUpdateWallet wId wUpdate = do
+pwlUpdateWallet logTrace wId wUpdate = do
     walletDB    <- askWalletDB
 
     cWId        <- migrate wId
@@ -210,7 +215,7 @@ pwlUpdateWallet wId wUpdate = do
     setWalletMeta walletDB cWId cWMeta
 
     -- Get wallet or throw if missing.
-    res <- pwlGetWallet wId
+    res <- pwlGetWallet logTrace wId
     case res of
          Left _  -> throwM (UpdateWalletErrorNotFound wId)
          Right w -> return (Right w)
@@ -240,47 +245,51 @@ pwlDeleteWallet wId = do
 
 pwlCreateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> NewAccount
     -> m (Either CreateAccountError Account)
-pwlCreateAccount wId newAcc@NewAccount{..} = do
+pwlCreateAccount logTrace wId newAcc@NewAccount{..} = do
 
     let spendingPassword = fromMaybe mempty . fmap coerce $ naccSpendingPassword
 
     accInit     <- migrate (wId, newAcc)
-    cAccount    <- V0.newAccount RandomSeed spendingPassword accInit
+    cAccount    <- V0.newAccount logTrace RandomSeed spendingPassword accInit
 
     Right <$> migrate cAccount
 
 pwlGetAccounts
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> m (Either GetAccountsError (IxSet Account))
-pwlGetAccounts wId = do
+pwlGetAccounts logTrace wId = do
     cWId        <- migrate wId
-    cAccounts   <- V0.getAccounts $ Just cWId
+    cAccounts   <- V0.getAccounts logTrace $ Just cWId
     Right . IxSet.fromList <$> migrate cAccounts
 
 pwlGetAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> AccountIndex
     -> m (Either GetAccountError Account)
-pwlGetAccount wId aId = do
+pwlGetAccount logTrace wId aId = do
     accId       <- migrate (wId, aId)
-    account     <- V0.getAccount accId
+    account     <- V0.getAccount logTrace accId
     Right <$> migrate account
 
 pwlUpdateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> AccountIndex
     -> AccountUpdate
     -> m (Either UpdateAccountError Account)
-pwlUpdateAccount wId accIdx accUpdate = do
+pwlUpdateAccount logTrace wId accIdx accUpdate = do
     newAccId    <- migrate (wId, accIdx)
     accMeta     <- migrate accUpdate
-    cAccount    <- V0.updateAccount newAccId accMeta
+    cAccount    <- V0.updateAccount logTrace newAccId accMeta
     Right <$> migrate cAccount
 
 pwlDeleteAccount

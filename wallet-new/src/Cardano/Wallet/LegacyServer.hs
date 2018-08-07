@@ -16,6 +16,7 @@ import           Pos.Chain.Update (curSoftwareVersion)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util.CompileInfo (compileInfo)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 
 import qualified Cardano.Wallet.API.Internal.Handlers as Internal
@@ -27,23 +28,24 @@ import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 -- | This function has the tricky task of plumbing different versions of the API,
 -- with potentially different monadic stacks into a uniform @Server@ we can use
 -- with Servant.
-walletServer :: (HasConfigurations, HasCompileInfo)
+walletServer :: ( HasConfigurations, HasCompileInfo )
              => (forall a. WalletWebMode a -> Handler a)
+             -> TraceNamed WalletWebMode
              -> ProtocolMagic
              -> TxpConfiguration
              -> Diffusion WalletWebMode
              -> TVar NtpStatus
              -> RunMode
              -> Server WalletAPI
-walletServer natV0 pm txpConfig diffusion ntpStatus runMode =
+walletServer natV0 logTrace pm txpConfig diffusion ntpStatus runMode =
          v0Handler
     :<|> v0Handler
     :<|> v1Handler
     :<|> internalHandler
   where
-    v0Handler       = V0.handlers natV0 pm txpConfig diffusion ntpStatus
-    v1Handler       = V1.handlers natV0 pm txpConfig diffusion ntpStatus
-    internalHandler = Internal.handlers natV0 runMode
+    v0Handler       = V0.handlers logTrace natV0 pm txpConfig diffusion ntpStatus
+    v1Handler       = V1.handlers logTrace natV0 pm txpConfig diffusion ntpStatus
+    internalHandler = Internal.handlers logTrace natV0 runMode
 
 
 walletDocServer

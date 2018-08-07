@@ -3,6 +3,7 @@ module Cardano.Wallet.API.V0.Handlers where
 
 import qualified Cardano.Wallet.API.V0 as V0
 import           Ntp.Client (NtpStatus)
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -20,10 +21,11 @@ import           Universum
 handlers :: ( MonadFullWalletWebMode ctx m, HasCompileInfo )
          => (forall a. m a -> Handler a)
          -> ProtocolMagic
+         -> TxpConfiguration
          -> Diffusion m
          -> TVar NtpStatus
          -> Server V0.API
-handlers naturalTransformation pm diffusion ntpStatus = hoistServer
+handlers naturalTransformation pm txpConfig diffusion ntpStatus = hoistServer
     (Proxy @V0.API)
     naturalTransformation
-    (V0.servantHandlers pm ntpStatus (sendTx diffusion))
+    (V0.servantHandlers pm txpConfig ntpStatus (sendTx diffusion))

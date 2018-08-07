@@ -10,8 +10,8 @@ import           Universum
 
 import           Control.Lens ((?~))
 import           Data.Swagger (Swagger, description, info, title, version)
-import           Data.Text.Buildable (build)
 import           Data.Version (showVersion)
+import           Formatting.Buildable (build)
 import qualified Paths_cardano_sl as CSL
 import           Servant.Swagger (toSwagger)
 

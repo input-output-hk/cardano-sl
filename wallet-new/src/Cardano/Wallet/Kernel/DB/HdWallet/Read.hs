@@ -27,6 +27,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
   , readHdAccount
   , readHdAccountCurrentCheckpoint
   , readHdAddress
+  , readHdAddressByCardanoAddress
   ) where
 
 import           Universum hiding (toList)
@@ -34,7 +35,7 @@ import           Universum hiding (toList)
 import           Control.Lens (at)
 import           Data.Foldable (toList)
 
-import           Pos.Core (Coin, sumCoins)
+import           Pos.Core (Address, Coin, sumCoins)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Spec
@@ -136,10 +137,16 @@ readHdRoot rootId = aux . view (at rootId) . readAllHdRoots
 
 -- | Look up the specified account
 readHdAccount :: HdAccountId -> HdQueryErr UnknownHdAccount HdAccount
-readHdAccount accId = aux . view (at accId) . readAllHdAccounts
-  where
-    aux :: Maybe a -> Either UnknownHdAccount a
-    aux = maybe (Left (UnknownHdAccount accId)) Right
+readHdAccount accId = do
+    res <- view (at accId) . readAllHdAccounts
+    case res of
+         Just account -> return (Right account)
+         Nothing -> do
+             let rootId = accId ^. hdAccountIdParent
+             -- Offer a better diagnostic on what went wrong.
+             either (\_ -> Left (UnknownHdAccountRoot rootId))
+                    (\_ -> Left (UnknownHdAccount accId))
+                   <$> readHdRoot rootId
 
 -- | Look up the specified account and return the current checkpoint
 readHdAccountCurrentCheckpoint :: HdAccountId -> HdQueryErr UnknownHdAccount Checkpoint
@@ -152,3 +159,13 @@ readHdAddress addrId = aux . view (at addrId) . readAllHdAddresses
   where
     aux :: Maybe a -> Either UnknownHdAddress a
     aux = maybe (Left (UnknownHdAddress addrId)) Right
+
+-- | Look up the specified address by its associated Cardano's 'Address'.
+readHdAddressByCardanoAddress :: Address -> HdQueryErr UnknownHdAddress HdAddress
+readHdAddressByCardanoAddress cardanoAddr = do
+    aux . IxSet.getEQ cardanoAddr . readAllHdAddresses
+  where
+    aux :: IxSet HdAddress -> Either UnknownHdAddress HdAddress
+    aux ixset = case IxSet.getOne ixset of
+                     Just x  -> Right x
+                     Nothing -> Left (UnknownHdCardanoAddress cardanoAddr)

@@ -11,7 +11,6 @@ module Wallet.Abstract (
   , walletBoot
   , applyBlocks
     -- * Auxiliary operations
-  , balance
   , txIns
   , txOuts
   , updateUtxo
@@ -24,12 +23,12 @@ import           Universum
 import qualified Data.Foldable as Fold
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
 import           Formatting (bprint)
+import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 
-import           Util
+import           Cardano.Wallet.Kernel.Util (disjoint)
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------
@@ -130,8 +129,8 @@ mkDefaultWallet l self st = Wallet {
     , change    = utxoRestrictToOurs (ours this) (txOuts (pending this))
     , total     = available this `utxoUnion` change this
       -- Balance
-    , availableBalance = balance $ available this
-    , totalBalance     = balance $ total     this
+    , availableBalance = utxoBalance $ available this
+    , totalBalance     = utxoBalance $ total     this
       -- Debugging
     , dumpState  = pretty st
       -- Functions without a default
@@ -152,9 +151,6 @@ walletBoot mkWallet p boot = applyBlock (mkWallet p) (OldestFirst [boot])
 {-------------------------------------------------------------------------------
   Auxiliary operations
 -------------------------------------------------------------------------------}
-
-balance :: Utxo h a -> Value
-balance = sum . map outVal . Map.elems . utxoToMap
 
 txIns :: (Hash h a, Foldable f) => f (Transaction h a) -> Set (Input h a)
 txIns = Set.unions . map trIns . Fold.toList

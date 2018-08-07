@@ -41,10 +41,11 @@ module Pos.Crypto.Hashing
 import           Universum
 
 import           Control.Lens (makeLensesFor)
-import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
+import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm,
+                     hashDigestSize)
 import qualified Crypto.Hash as Hash
-import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
-                             ToJSONKey (..))
+import           Data.Aeson (FromJSON (..), FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSON (..), ToJSONKey (..))
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
@@ -52,14 +53,16 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection (reifyNat)
-import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (SafeCopy (..))
 import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe (unsafeDupablePerformIO)
 
-import           Pos.Binary.Class (Bi (..), Raw)
+import           Pos.Binary.Class (Bi (..), Raw, withWordSize)
 import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Util.Util (parseJSONWithRead, toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
@@ -86,11 +89,16 @@ instance Ord a => Ord (WithHash a) where
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
     decode = withHash <$> decode
+    encodedSizeExpr size pxy = size (whData <$> pxy)
 
 withHash :: Bi a => a -> WithHash a
 withHash a = WithHash a (force h)
   where
     h = hash a
+
+instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 -- | Hash wrapper with phantom type for more type-safety.
 -- Made abstract in order to support different algorithms in
@@ -138,6 +146,13 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
         toCborError $ case Hash.digestFromByteString bs of
             Nothing -> Left "AbstractHash.decode: invalid digest"
             Just x  -> Right (AbstractHash x)
+    encodedSizeExpr _ _ =
+        let realSz = hashDigestSize (error "unused, I hope!" :: algo)
+        in fromInteger (toInteger (withWordSize realSz + realSz))
+
+instance (HashAlgorithm algo, Typeable algo, Typeable a) => SafeCopy (AbstractHash algo a) where
+   putCopy = putCopyBi
+   getCopy = getCopyBi
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo

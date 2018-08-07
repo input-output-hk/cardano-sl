@@ -15,8 +15,9 @@ import qualified Data.Text.Lazy.IO as TL
 import           Data.Version (showVersion)
 import           Formatting (Format, format, mapf, text, (%))
 import qualified NeatInterpolation as NI (text)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, option, progDesc, short)
+import           Options.Applicative (Parser, execParser, footerDoc, fullDesc,
+                     header, help, helper, info, infoOption, long, metavar,
+                     option, progDesc, short)
 import           Options.Applicative.Types (readerAsk)
 import           System.Exit (ExitCode (ExitFailure))
 import           System.FilePath (normalise, takeFileName, (<.>), (</>))

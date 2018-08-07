@@ -29,21 +29,23 @@ import qualified Ether
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
-                           difficultyL, epochIndexL, getChainDifficulty, headerHash, mainBlockSlot)
-import           Pos.Core.Block (Block, MainBlock, mainBlockTxPayload)
+import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (topsortTxs)
+import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
+                     difficultyL, epochIndexL, getChainDifficulty)
+import           Pos.Core.Block (Block, HeaderHash, MainBlock, headerHash,
+                     mainBlockSlot, mainBlockTxPayload)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toNewestFirst)
 import           Pos.Core.Txp (Tx, txpTxs)
 import           Pos.Crypto (withHash)
 import           Pos.DB.BatchOp (SomeBatchOp (..))
+import           Pos.DB.Block (MonadBListener (..))
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageSize,
-                                  findEpochMaxPages, numOfLastTxs)
+import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
+                     defaultPageSize, findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
-import           Pos.Txp (topsortTxs)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
 
 
 ----------------------------------------------------------------------------

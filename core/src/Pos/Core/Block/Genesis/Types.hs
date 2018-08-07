@@ -8,17 +8,27 @@ module Pos.Core.Block.Genesis.Types
        , GenesisBodyAttributes
        , GenesisExtraHeaderData (..)
        , GenesisHeaderAttributes
+
+       -- * GenesisConsensusData Lenses
+       , gcdEpoch
+       , gcdDifficulty
        ) where
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import           Control.Lens (makeLenses)
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable as Buildable
 
-import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown)
+import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..),
+                     SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (Hash)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 -- [CSL-199]: maybe we should use ADS.
 -- | Proof of GenesisBody is just a hash of slot leaders list.
@@ -31,6 +41,19 @@ instance NFData GenesisProof
 instance Buildable GenesisProof where
     build (GenesisProof h) = Buildable.build h
 
+instance Bi GenesisProof where
+    encode (GenesisProof h) = encode h
+    decode = GenesisProof <$> decode
+
+instance SafeCopy GenesisProof where
+    getCopy =
+        contain $
+        do x <- safeGet
+           return $! GenesisProof x
+    putCopy (GenesisProof x) =
+        contain $
+        do safePut x
+
 data GenesisConsensusData = GenesisConsensusData
     { -- | Index of the slot for which this genesis block is relevant.
       _gcdEpoch      :: !EpochIndex
@@ -39,6 +62,30 @@ data GenesisConsensusData = GenesisConsensusData
     } deriving (Generic, Show, Eq)
 
 instance NFData GenesisConsensusData
+
+instance Bi GenesisConsensusData where
+    encode bc =  encodeListLen 2
+              <> encode (_gcdEpoch bc)
+              <> encode (_gcdDifficulty bc)
+    decode = do
+      enforceSize "ConsensusData GenesisBlockchain" 2
+      GenesisConsensusData <$> decode <*> decode
+
+instance SafeCopy GenesisConsensusData where
+    getCopy =
+        contain $
+        do _gcdEpoch <- safeGet
+           _gcdDifficulty <- safeGet
+           return $! GenesisConsensusData {..}
+    putCopy GenesisConsensusData {..} =
+        contain $
+        do safePut _gcdEpoch
+           safePut _gcdDifficulty
+
+makeLenses 'GenesisConsensusData
+
+instance HasDifficulty GenesisConsensusData where
+    difficultyL = gcdDifficulty
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()
@@ -62,7 +109,20 @@ data GenesisBody = GenesisBody
     { _gbLeaders :: !SlotLeaders
     } deriving (Generic, Show, Eq)
 
+instance Bi GenesisBody where
+    encode = encode . _gbLeaders
+    decode = GenesisBody <$> decode
+
 instance NFData GenesisBody
+
+instance SafeCopy GenesisBody where
+    getCopy =
+        contain $
+        do _gbLeaders <- safeGet
+           return $! GenesisBody {..}
+    putCopy GenesisBody {..} =
+        contain $
+        do safePut _gbLeaders
 
 -- | Represents genesis block header attributes.
 type GenesisBodyAttributes = Attributes ()
@@ -79,3 +139,16 @@ instance Buildable GenesisExtraBodyData where
     build (GenesisExtraBodyData attrs)
         | areAttributesKnown attrs = "no extra data"
         | otherwise = bprint ("extra data has attributes: "%build) attrs
+
+deriveSimpleBi ''GenesisExtraHeaderData [
+    Cons 'GenesisExtraHeaderData [
+        Field [| _gehAttributes :: GenesisHeaderAttributes |]
+    ]]
+
+deriveSimpleBi ''GenesisExtraBodyData [
+    Cons 'GenesisExtraBodyData [
+        Field [| _gebAttributes :: GenesisBodyAttributes |]
+    ]]
+
+deriveSafeCopySimple 0 'base ''GenesisExtraHeaderData
+deriveSafeCopySimple 0 'base ''GenesisExtraBodyData

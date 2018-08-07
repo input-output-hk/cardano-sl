@@ -33,41 +33,43 @@ import           Universum
 
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import qualified Data.Text.Buildable
 import           Data.Time.Units (Second, toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Delay, LowLevelAsync, Mockables, async, delay)
+import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
-import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
+import           Servant.API.ContentTypes (MimeRender (..), NoContent (..),
+                     OctetStream)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Ntp.Client (NtpStatus (..))
 
+import           Pos.Chain.Txp (TxId, TxIn, TxOut)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
+import           Pos.Core (HasConfiguration, SlotId)
+import           Pos.Core.Conc (async, delay)
+import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
-import           Pos.Txp (TxId, TxIn, TxOut)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
-import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
-                                        connectedPeers, localChainDifficulty,
-                                        networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CProfile (..), CPtxCondition,
-                                             CTxId (..), CUpdateInfo (..), SyncProgress (..),
-                                             cIdToAddress)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates,
+                     applyLastUpdate, connectedPeers, localChainDifficulty,
+                     networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CProfile (..),
+                     CPtxCondition, CTxId (..), CUpdateInfo (..),
+                     SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (WalletDbReader, WalletSnapshot, askWalletDB,
-                                       askWalletSnapshot, cancelApplyingPtxs,
-                                       cancelSpecificApplyingPtx, getNextUpdate, getProfile,
-                                       removeNextUpdate, resetFailedPtxs,
-                                       setProfile, testReset)
+import           Pos.Wallet.Web.State (WalletDbReader, WalletSnapshot,
+                     askWalletDB, askWalletSnapshot, cancelApplyingPtxs,
+                     cancelSpecificApplyingPtx, getNextUpdate, getProfile,
+                     removeNextUpdate, resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------
@@ -139,10 +141,10 @@ applyUpdate = askWalletDB >>= removeNextUpdate
 -- needed in order for http request to succeed.
 requestShutdown ::
        ( MonadIO m
+       , MonadUnliftIO m
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
-       , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
 requestShutdown = NoContent <$ async (delay (1 :: Second) >> triggerShutdown)

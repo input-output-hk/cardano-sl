@@ -18,8 +18,10 @@ import           Data.Default (Default (def))
 import           Data.Time.Units (Microsecond, Second)
 import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadGState (..))
-import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
-import           Pos.Wallet.Web.ClientTypes (spLocalCD, spNetworkCD, spPeers, toCUpdateInfo)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
+                     MonadUpdates (..))
+import           Pos.Wallet.Web.ClientTypes (spLocalCD, spNetworkCD, spPeers,
+                     toCUpdateInfo)
 import           Pos.Wallet.Web.Mode (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (..))

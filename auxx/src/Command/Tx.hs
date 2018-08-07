@@ -12,7 +12,9 @@ module Command.Tx
 
 import           Universum
 
-import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
+import qualified Control.Concurrent.MVar as Conc
+import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue,
+                     writeTQueue)
 import           Control.Exception.Safe (Exception (..), try)
 import           Control.Monad (when)
 import           Control.Monad.Except (runExceptT)
@@ -27,24 +29,29 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
-import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
-                           forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
+import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Txp (topsortTxAuxes)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
-import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
-                           Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
-import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase, encToPublic,
-                             fakeSigner, hash, safeToPublic, toPublic, withSafeSigners)
+import           Pos.Core (IsBootstrapEraAddr (..), Timestamp (..),
+                     deriveFirstHDAddress, makePubKeyAddress, mkCoin)
+import           Pos.Core.Conc (concurrently, currentTime, delay,
+                     forConcurrently, modifySharedAtomic, newSharedAtomic)
+import           Pos.Core.Configuration (genesisBlockVersionData,
+                     genesisSecretKeys)
+import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
+                     TxOutAux (..), txaF)
+import           Pos.Core.Update (BlockVersionData (..))
+import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,
+                     encToPublic, fakeSigner, hash, safeToPublic, toPublic,
+                     withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Txp (topsortTxAuxes)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
@@ -71,7 +78,7 @@ data TxCount = TxCount
       -- How many threads are still sending transactions.
     , _txcThreads   :: !Int }
 
-addTxSubmit :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
+addTxSubmit :: MonadUnliftIO m => Conc.MVar TxCount -> m ()
 addTxSubmit =
     flip modifySharedAtomic
         (\(TxCount submitted sending) ->
@@ -240,7 +247,7 @@ send pm diffusion idx outputs = do
     takeSecret :: m EncryptedSecretKey
     takeSecret
         | idx == -1 = do
-            _userSecret <- view userSecret >>= atomically . readTVar
+            _userSecret <- view userSecret >>= readTVarIO
             pure $ maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
         | otherwise = (!! idx) <$> getSecretKeysPlain
 

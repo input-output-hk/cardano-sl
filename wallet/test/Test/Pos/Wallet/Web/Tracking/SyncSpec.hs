@@ -11,24 +11,25 @@ import           Universum
 
 import qualified Data.HashSet as HS
 import           Data.List (intersect, (\\))
+import qualified Data.Set as Set
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Test.Hspec (Spec, describe, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
-                                  vectorOf, (===))
+import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
+                     sublistOf, suchThat, vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
-import           Pos.Block.Logic (rollbackBlocks)
+import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
+import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
-
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (evalChange, syncWalletWithBlockchain)
+import           Pos.Wallet.Web.Tracking.Sync (evalChange,
+                     syncWalletWithBlockchain)
 import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 
 -- import           Pos.Wallet.Web.ClientTypes ()
@@ -37,15 +38,17 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 -- import           Pos.Wallet.Web.Tracking.Sync (evalChange)
 
 
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
+                     InplaceDB (..))
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
+import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ -> do
+spec = withDefConfigurations $ \_ _ _ -> do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
     xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
@@ -70,12 +73,15 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
+    let txpConfig = TxpConfiguration 200 Set.empty
     blunds1 <- wpGenBlocks dummyProtocolMagic
+                           txpConfig
                            (Just $ BlockCount applyBlocksCnt1)
                            (EnableTxPayload True)
                            (InplaceDB True)
     after1ApplyDB <- lift WS.askWalletSnapshot
     blunds2 <- wpGenBlocks dummyProtocolMagic
+                           txpConfig
                            (Just $ BlockCount applyBlocksCnt2)
                            (EnableTxPayload True)
                            (InplaceDB True)

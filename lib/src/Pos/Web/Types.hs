@@ -8,6 +8,8 @@ module Pos.Web.Types
 
 import           Universum
 
+import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+
 -- | Stages of SSC.
 -- Also called GodTossing algorithm.
 -- GodTossing is a coin tossing with guaranteed output delivery.
@@ -21,6 +23,8 @@ data SscStage
     | SharesStage
     | OrdinaryStage
 
+deriveToJSON defaultOptions ''SscStage
+
 -- | TLS Transport Layer Security file paths.
 data TlsParams = TlsParams
     { tpCertPath   :: FilePath
@@ -31,3 +35,5 @@ data TlsParams = TlsParams
 
 newtype CConfirmedProposalState = CConfirmedProposalState Text
     deriving (Show, Generic, Buildable)
+
+deriveToJSON defaultOptions ''CConfirmedProposalState

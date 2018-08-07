@@ -4,10 +4,10 @@ module UTxO.Translate (
     TranslateT
   , Translate
   , runTranslateT
+  , runTranslateTNoErrors
   , runTranslate
   , runTranslateNoErrors
   , withConfig
-  , withProtocolMagic
   , mapTranslateErrors
   , catchTranslateErrors
   , catchSomeTranslateErrors
@@ -28,14 +28,16 @@ import           Control.Monad.Except
 import           Data.Constraint (Dict (..))
 import           Universum
 
-import           Pos.Block.Error
-import           Pos.Block.Types
+import           Pos.Chain.Block
+import           Pos.Chain.Txp
+import           Pos.Chain.Update
 import           Pos.Core
+import           Pos.Core.Block (Block, GenesisBlock, GenesisBlockHeader,
+                     HeaderHash, MainBlock, gbBody, gbHeader, gbLeaders,
+                     headerHashG)
 import           Pos.Core.Chrono
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
-import           Pos.Txp.Toil
-import           Pos.Update
 
 import           Util.Validated
 import           UTxO.Context
@@ -49,7 +51,8 @@ import qualified UTxO.Verify as Verify
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration,
+                     withDefUpdateConfiguration)
 
 {-------------------------------------------------------------------------------
   Translation monad
@@ -59,11 +62,15 @@ import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConf
   (Eventually we may wish to do this differently.)
 -------------------------------------------------------------------------------}
 
+-- | Translation environment
+--
+-- NOTE: As we reduce the scope of 'HasConfiguration' and
+-- 'HasUpdateConfiguration', those values should be added into the
+-- 'CardanoContext' instead.
 data TranslateEnv = TranslateEnv {
-      teContext       :: TransCtxt
-    , teProtocolMagic :: ProtocolMagic
-    , teConfig        :: Dict HasConfiguration
-    , teUpdate        :: Dict HasUpdateConfiguration
+      teContext :: TransCtxt
+    , teConfig  :: Dict HasConfiguration
+    , teUpdate  :: Dict HasUpdateConfiguration
     }
 
 newtype TranslateT e m a = TranslateT {
@@ -102,7 +109,6 @@ runTranslateT (TranslateT ta) =
       let env :: TranslateEnv
           env = TranslateEnv {
                     teContext       = initContext (initCardanoContext pm)
-                  , teProtocolMagic = pm
                   , teConfig        = Dict
                   , teUpdate        = Dict
                   }
@@ -110,6 +116,10 @@ runTranslateT (TranslateT ta) =
             case ma of
               Left  e -> throw  e
               Right a -> return a
+
+-- | Specialised form of 'runTranslateT' when there can be no errors
+runTranslateTNoErrors :: Monad m => TranslateT Void m a -> m a
+runTranslateTNoErrors = runTranslateT
 
 -- | Specialization of 'runTranslateT'
 runTranslate :: Exception e => Translate e a -> a
@@ -127,11 +137,6 @@ withConfig f = do
     Dict <- TranslateT $ asks teConfig
     Dict <- TranslateT $ asks teUpdate
     f
-
--- | Pull the ProtocolMagic from the TranslateEnv
-withProtocolMagic
-    :: Monad m => (ProtocolMagic -> TranslateT e m a) -> TranslateT e m a
-withProtocolMagic = (TranslateT (asks teProtocolMagic) >>=)
 
 -- | Map errors
 mapTranslateErrors :: Functor m
@@ -159,18 +164,17 @@ catchSomeTranslateErrors act = do
 -------------------------------------------------------------------------------}
 
 -- | Slot ID of the first block
-translateFirstSlot :: Monad m => TranslateT Text m SlotId
-translateFirstSlot = withConfig $ do
-    SlotId 0 <$> mkLocalSlotIndex 0
+translateFirstSlot :: SlotId
+translateFirstSlot = SlotId 0 localSlotIndexMinBound
 
 -- | Increment slot ID
 --
 -- TODO: Surely a function like this must already exist somewhere?
-translateNextSlot :: Monad m => SlotId -> TranslateT Text m SlotId
+translateNextSlot :: Monad m => SlotId -> TranslateT e m SlotId
 translateNextSlot (SlotId epoch lsi) = withConfig $
-    case addLocalSlotIndex 1 lsi of
-      Just lsi' -> return $ SlotId epoch lsi'
-      Nothing   -> SlotId (epoch + 1) <$> mkLocalSlotIndex 0
+    return $ case addLocalSlotIndex 1 lsi of
+               Just lsi' -> SlotId epoch       lsi'
+               Nothing   -> SlotId (epoch + 1) localSlotIndexMinBound
 
 -- | Genesis block header
 translateGenesisHeader :: Monad m => TranslateT e m GenesisBlockHeader
@@ -189,19 +193,128 @@ verify ma = withConfig $ do
     return $ validatedFromEither (Verify.verify utxo ma)
 
 -- | Wrapper around 'UTxO.Verify.verifyBlocksPrefix'
+--
+-- NOTE: This assumes right now that we verify starting from the genesis block.
+-- If that assumption is not valid, we need to pass in the slot leaders here.
+-- Probably easier is to always start from an epoch boundary block; in such a
+-- case in principle we don't need to pass in the set of leaders all, since the
+-- the core of the block verification code ('verifyBlocks' from module
+-- "Pos.Chain.Block") will then take the set of leaders from the
+-- genesis/epoch boundary block itself. In practice, however, the passed in set
+-- of leaders is verified 'slogVerifyBlocks', so we'd have to modify the
+-- verification code a bit.
+
+--   It is not required that all blocks are from the same epoch. This will
+--   split the chain into epochs and validate each epoch individually
 verifyBlocksPrefix
-  :: Monad m
+  :: forall e' m.  Monad m
   => OldestFirst NE Block
   -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
-verifyBlocksPrefix blocks = do
-    CardanoContext{..} <- asks tcCardano
-    let tip         = ccHash0
-        currentSlot = Nothing
-    withProtocolMagic $ \pm ->
-      verify $ Verify.verifyBlocksPrefix
-          pm
-          tip
-          currentSlot
-          ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
-          (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
-          blocks
+verifyBlocksPrefix blocks =
+    case splitEpochs blocks of
+      ESREmptyEpoch _          ->
+        validatedFromExceptT . throwError $ VerifyBlocksError "Whoa! Empty epoch!"
+      ESRStartsOnBoundary _    ->
+        validatedFromExceptT . throwError $ VerifyBlocksError "No genesis epoch!"
+      ESRValid genEpoch (OldestFirst succEpochs) -> do
+        CardanoContext{..} <- asks tcCardano
+        verify $ validateGenEpoch ccMagic ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
+          epochUndos <- sequence $ validateSuccEpoch ccMagic <$> succEpochs
+          return $ foldl' (\a b -> a <> b) genUndos epochUndos
+
+  where
+    validateGenEpoch :: ProtocolMagic
+                     -> HeaderHash
+                     -> SlotLeaders
+                     -> OldestFirst NE MainBlock
+                     -> ( HasConfiguration
+                          => Verify VerifyBlocksException (OldestFirst NE Undo))
+    validateGenEpoch pm ccHash0 ccInitLeaders geb = do
+      Verify.verifyBlocksPrefix
+        pm
+        ccHash0
+        Nothing
+        ccInitLeaders
+        (OldestFirst [])
+        (Right <$> geb ::  OldestFirst NE Block)
+    validateSuccEpoch :: ProtocolMagic
+                      -> EpochBlocks NE
+                      -> ( HasConfiguration
+                           => Verify VerifyBlocksException (OldestFirst NE Undo))
+    validateSuccEpoch pm (SuccEpochBlocks ebb emb) = do
+      Verify.verifyBlocksPrefix
+        pm
+        (ebb ^. headerHashG)
+        Nothing
+        (ebb ^. gbBody . gbLeaders)
+        (OldestFirst []) -- ^ TODO pass these?
+        (Right <$> emb)
+
+-- | Blocks inside an epoch
+data EpochBlocks a = SuccEpochBlocks !GenesisBlock !(OldestFirst a MainBlock)
+
+-- | Try to convert the epoch into a non-empty epoch
+neEpoch :: EpochBlocks [] -> Maybe (EpochBlocks NE)
+neEpoch (SuccEpochBlocks ebb (OldestFirst mbs)) = case nonEmpty mbs of
+  Nothing   -> Nothing
+  Just mbs' -> Just $ SuccEpochBlocks ebb (OldestFirst mbs')
+
+-- | Epoch splitting result. This validates that the chain follow the pattern
+--   `m(m*)(b(m+))*`, where `m` denotes a main block, and `b` a boundary block.
+--
+--   Either we have a valid splitting of the chain into epochs, or at some point
+--   we have an empty epoch, in which case we return the successive boundary
+--   blocks, or we have that the chain starts on a boundary block.
+--
+--   This does not catch the case where blocks are in the wrong epoch, which
+--   will be detected by slot leaders being incorrect.
+data EpochSplitResult
+  = ESRValid !(OldestFirst NE MainBlock) !(OldestFirst [] (EpochBlocks NE))
+  | ESREmptyEpoch !GenesisBlock
+  | ESRStartsOnBoundary !GenesisBlock
+
+-- | Split a non-empty set of blocks into the genesis epoch (which does not start with
+--   an epoch boundary block) and a set of successive epochs, starting with an EBB.
+splitEpochs :: OldestFirst NE Block
+            -> EpochSplitResult
+splitEpochs blocks = case spanEpoch blocks of
+  (Left (SuccEpochBlocks ebb _), _) -> ESRStartsOnBoundary ebb
+  (Right genEpoch, OldestFirst rem') -> go [] (OldestFirst <$> nonEmpty rem') where
+    go !acc Nothing = ESRValid genEpoch (OldestFirst $ reverse acc)
+    go !acc (Just neRem) = case spanEpoch neRem of
+      (Right _, _) -> error "Impossible!"
+      (Left ebs@(SuccEpochBlocks ebb _), OldestFirst newRem) -> case neEpoch ebs of
+        Nothing   -> if null newRem
+                     then ESRValid genEpoch (OldestFirst $ reverse acc)
+                     else ESREmptyEpoch ebb
+        Just ebs' -> go (ebs' :  acc) (OldestFirst <$> nonEmpty newRem)
+
+-- | Span the epoch until the next epoch boundary block.
+--
+--   - If the list of blocks starts with an EBB, this will return 'Left
+--     EpochBlocks' containing the EBB and the successive blocks.
+--   - If the list of blocks does not start with an EBB, this will return
+--     `Right (OldestFirst NE Block)` containg all blocks before the next
+--     EBB.
+--
+--   In either case, it will also return any remainng blocks, which will either be
+--   empty or start with an EBB.
+spanEpoch :: OldestFirst NE Block
+          -> (Either (EpochBlocks []) (OldestFirst NE MainBlock), OldestFirst [] Block)
+spanEpoch (OldestFirst (x:|xs)) = case x of
+  Left ebb -> over _1 (Left . SuccEpochBlocks ebb . OldestFirst)
+              . over _2 OldestFirst
+              $ spanMaybe rightToMaybe xs
+  -- Take until we find an EBB
+  Right mb -> over _1 (Right . OldestFirst . (mb :|))
+       . over _2 OldestFirst
+       $ spanMaybe rightToMaybe xs
+
+-- | Returns the maximal prefix of the input list mapped to `Just`, along with
+-- the remainder.
+spanMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
+spanMaybe = go [] where
+  go !acc _ [] = (reverse acc, [])
+  go !acc f (x:xs) = case f x of
+    Just x' -> go (x':acc) f xs
+    Nothing -> (reverse acc, x:xs)

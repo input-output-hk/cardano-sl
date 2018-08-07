@@ -106,34 +106,38 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
+import qualified Data.Acid as Acid
+
 import           Control.Arrow ((***))
-import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non', to, toListOf,
-                               traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non',
+                     to, toListOf, traversed, (%=), (+=), (.=), (<<.=), (?=),
+                     _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
-import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple, extension)
-import qualified Data.Text.Buildable
+import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple,
+                     extension)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
+import qualified Formatting.Buildable
+import           Pos.Chain.Txp (AddrCoinMap, Utxo, UtxoModifier,
+                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
-                           Timestamp, ProtocolConstants(..), VssMinTTL(..),
-                           VssMaxTTL(..))
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
+                     ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
+                     VssMinTTL (..))
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.SafeCopy ()
-import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
-                          utxoToAddressCoinMap)
-import           Pos.Util.BackupPhrase (BackupPhrase)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
-                                               ptxCond, ptxSubmitTiming, _PtxCreating)
-import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
-                                              mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
-                                              resetFailedPtx)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
+                     PtxSubmitTiming (..), ptxCond, ptxSubmitTiming,
+                     _PtxCreating)
+import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx,
+                     incPtxSubmitTimingPure, mkPtxSubmitTiming,
+                     ptxMarkAcknowledgedPure, resetFailedPtx)
 import           Serokell.Util (zoom')
 
 -- | Type alias for indices which are used to maintain order
@@ -233,8 +237,8 @@ data WalletSyncState
 
 instance NFData WalletSyncState where
     rnf x = case x of
-        NotSynced -> ()
-        SyncedWith h -> rnf h
+        NotSynced         -> ()
+        SyncedWith h      -> rnf h
         RestoringFrom a b -> a `deepseq` b `deepseq` ()
 
 -- The 'SyncThroughput' is computed during the syncing phase in terms of
@@ -305,7 +309,7 @@ makeLenses ''WalletInfo
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap Address HeaderHash
 
--- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
+-- | Alias for 'Pos.Chain.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
 type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
@@ -318,7 +322,7 @@ data WalletStorage = WalletStorage
       -- | Non-wallet-specific client metadata.
     , _wsProfile         :: !WebTypes.CProfile
       -- | List of descriptions of approved and downloaded updates, waiting
-      -- for user action. See "Pos.Update.Download" and @updateNotifier@ in
+      -- for user action. See "Pos.Network.Update.Download" and @updateNotifier@ in
       -- "Pos.Wallet.Web.Sockets.Notifier" for more info of how updates work.
     , _wsReadyUpdates    :: [WebTypes.CUpdateInfo]
       -- | For every wallet ID (@CId Wal@) stores metadata for transactions in
@@ -380,8 +384,8 @@ instance Default WalletStorage where
         , _wsBalances        = mempty
         }
 
-type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (MonadState WalletStorage m) => m a
+type Query a = forall m. MonadReader WalletStorage m => m a
+type Update a = forall m. MonadState WalletStorage m => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -720,7 +724,7 @@ removeNextUpdate :: Update ()
 removeNextUpdate = wsReadyUpdates %= drop 1
 
 -- | Reset the whole database to clean state completely. Used only in testing and debugging.
-testReset :: Update ()
+testReset :: Acid.Update WalletStorage ()
 testReset = put def
 
 -- | Legacy transaction, no longer used. For existing Db tx logs only. Now use
@@ -856,7 +860,6 @@ deriveSafeCopySimple 0 'base ''WebTypes.CHash
 deriveSafeCopySimple 0 'base ''WebTypes.CId
 deriveSafeCopySimple 0 'base ''WebTypes.Wal
 deriveSafeCopySimple 0 'base ''WebTypes.Addr
-deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''WebTypes.AccountId
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletAssurance
 deriveSafeCopySimple 0 'base ''WebTypes.CAccountMeta

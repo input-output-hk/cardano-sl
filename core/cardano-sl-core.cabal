@@ -19,19 +19,15 @@ flag asserts
 library
   hs-source-dirs:      src
   exposed-modules:
-                       Pos.Aeson.Core
-                       Pos.Aeson.Core.Configuration
-                       Pos.Aeson.Fee
-                       Pos.Aeson.Genesis
-
-                       Pos.Binary.Core
-                       Pos.Binary.Merkle
-
                        Pos.Core
+                       Pos.Core.Aeson
+                       Pos.Core.Binary
                        Pos.Core.Chrono
                        Pos.Core.Limits
 
                        Pos.Core.ProtocolConstants
+
+                       Pos.Core.NetworkAddress
 
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
@@ -46,40 +42,53 @@ library
                        Pos.Core.Context
                        Pos.Core.Delegation
                        Pos.Core.Genesis
+
+                       -- JsonLog (moved from networking in
+                       -- the `sinbin` shuffle). All modules
+                       -- must be exposed so that `networking`
+                       -- can import & re-export them.
+                       Pos.Core.JsonLog
+                       Pos.Core.JsonLog.CanJsonLog
+                       Pos.Core.JsonLog.Event
+                       Pos.Core.JsonLog.JsonLogT
+                       Pos.Core.JsonLog.LogEvents
+
+                       -- Concurrency operations, previously
+                       -- in `Mockable`.
+                       Pos.Core.Conc
+
+                       Pos.Core.Reporting
+
                        Pos.Core.Script
                        Pos.Core.Slotting
+                       Pos.Core.StateLock
                        Pos.Core.Ssc
                        Pos.Core.Txp
                        Pos.Core.Update
 
-                       Pos.Data.Attributes
-                       Pos.Exception
-                       Pos.Merkle
+                       Pos.Core.Util.LogSafe
+                       Pos.Core.Util.TimeLimit
 
-                       Pos.System.Metrics.Constants
+                       Pos.Core.Attributes
+                       Pos.Core.Exception
+                       Pos.Core.Merkle
+
+                       Pos.Core.Metrics.Constants
 
   other-modules:
+                       -- Aeson
+                       Pos.Core.Aeson.Orphans
+
                        -- Binary
-                       Pos.Binary.Core.Address
-                       Pos.Binary.Core.Block
-                       Pos.Binary.Core.Blockchain
-                       Pos.Binary.Core.Common
-                       Pos.Binary.Core.Delegation
-                       Pos.Binary.Core.Fee
-                       Pos.Binary.Core.Script
-                       Pos.Binary.Core.Slotting
-                       Pos.Binary.Core.Ssc
-                       Pos.Binary.Core.Txp
-                       Pos.Binary.Core.Update
+                       Pos.Core.Binary.Orphans
 
                        -- Block
                        Pos.Core.Block.Genesis.Lens
                        Pos.Core.Block.Genesis.Instances
                        Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Lens
                        Pos.Core.Block.Main.Instances
                        Pos.Core.Block.Main.Types
-                       Pos.Core.Block.Union.Instances
+                       Pos.Core.Block.Union.ComponentBlock
                        Pos.Core.Block.Union.Types
 
                        -- Common
@@ -139,6 +148,15 @@ library
                        Pos.Core.Slotting.SlotId
                        Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
+                       Pos.Core.Slotting.Class
+                       Pos.Core.Slotting.MemState
+                       Pos.Core.Slotting.Types
+                       Pos.Core.Slotting.Util
+
+                       -- Reporting
+                       Pos.Core.Reporting.MemState
+                       Pos.Core.Reporting.Methods
+                       Pos.Core.Reporting.Metrics
 
                        -- SSC
                        Pos.Core.Ssc.Commitment
@@ -156,6 +174,7 @@ library
                        -- Txp
                        Pos.Core.Txp.Tx
                        Pos.Core.Txp.TxAux
+                       Pos.Core.Txp.TxMsg
                        Pos.Core.Txp.TxOutAux
                        Pos.Core.Txp.TxPayload
                        Pos.Core.Txp.TxProof
@@ -170,30 +189,33 @@ library
                        Pos.Core.Update.Data
                        Pos.Core.Update.Payload
                        Pos.Core.Update.Proof
-                       Pos.Core.Update.Proposal
                        Pos.Core.Update.SoftforkRule
                        Pos.Core.Update.SoftwareVersion
                        Pos.Core.Update.SystemTag
                        Pos.Core.Update.Vote
-                       Pos.Core.Update.VoteId
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-terminal
+                     , async
                      , base
                      , base58-bytestring
                      , bytestring
                      , Cabal
                      , canonical-json
+                     , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
                      , cardano-sl-crypto
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , cborg
+                     , cereal
                      , containers
                      , cryptonite
                      , data-default
                      , deepseq
                      , deriving-compat
+                     , ekg-core
+                     , ether >= 0.5
                      , exceptions
                      , extra
                      , filepath
@@ -202,20 +224,31 @@ library
                      , hashable
                      , lens
                      , log-warper >= 1.0.3
+                     , parsec
                      , memory
+                     , mmorph
+                     , monad-control
                      , mtl
                      , plutus-prototype
                      , random
                      , reflection
+                     , resourcet
+                     , safecopy
                      , safe-exceptions
                      , serokell-util
+                     , servant >= 0.8.1
+                     , stm
                      , template-haskell
                      , text
-                     , text-format
                      , th-lift-instances
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
+                     , unliftio
+                     , unliftio-core
                      , unordered-containers
                      , vector
 
@@ -230,6 +263,7 @@ library
                        MultiParamTypeClasses
                        FunctionalDependencies
                        DefaultSignatures
+                       InstanceSigs
                        NoImplicitPrelude
                        OverloadedStrings
                        RankNTypes
@@ -247,8 +281,9 @@ library
                        ScopedTypeVariables
                        MonadFailDesugaring
 
-  ghc-options:         -Wall
+  ghc-options:
                        -O2
+                       -Wall
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -264,16 +299,27 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.Bi
+                       Test.Pos.Core.CborSpec
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.EnumEmpTest
+                       Test.Pos.Core.Gen
+                       Test.Pos.Core.Json
                        Test.Pos.Core.LimitsSpec
+                       Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
 
                        Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
+                     , base16-bytestring
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-core
@@ -282,9 +328,15 @@ test-suite test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cryptonite
+                     , deepseq
+                     , ed25519
                      , formatting
                      , generic-arbitrary
+                     , hedgehog
                      , hspec
+                     , hedgehog
+                     , pvss
                      , QuickCheck
                      , quickcheck-instances
                      , random
@@ -293,10 +345,13 @@ test-suite test
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
+                     , vector
 
-  ghc-options:         -threaded
+  ghc-options:
+                       -threaded
                        -rtsopts
                        -Wall
+
 
   -- linker speed up for linux
   if os(linux)

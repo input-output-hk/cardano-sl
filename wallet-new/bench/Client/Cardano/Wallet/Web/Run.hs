@@ -6,17 +6,17 @@ module Client.Cardano.Wallet.Web.Run
 
 import           Universum
 
-import           Servant.Client             (ClientM, ClientEnv (..), runClientM)
-import           Servant.Client.Core        (BaseUrl (..), Scheme (..))
+import           Servant.Client (ClientEnv (..), ClientM, runClientM)
+import           Servant.Client.Core (BaseUrl (..), Scheme (..))
 
-import           Data.Default               (def)
-import           Network.Connection         (TLSSettings (..))
-import           Network.HTTP.Client        (Manager, newManager)
-import           Network.HTTP.Client.TLS    (mkManagerSettings)
-import           Network.TLS                (ClientParams (..), credentialLoadX509FromMemory,
-                                             defaultParamsClient, onCertificateRequest,
-                                             onServerCertificate, supportedCiphers)
-import           Network.TLS.Extra.Cipher   (ciphersuite_default)
+import           Data.Default (def)
+import           Network.Connection (TLSSettings (..))
+import           Network.HTTP.Client (Manager, newManager)
+import           Network.HTTP.Client.TLS (mkManagerSettings)
+import           Network.TLS (ClientParams (..), credentialLoadX509FromMemory,
+                     defaultParamsClient, onCertificateRequest,
+                     onServerCertificate, supportedCiphers)
+import           Network.TLS.Extra.Cipher (ciphersuite_default)
 
 import           Bench.Cardano.Wallet.Types (CompleteConfig (..))
 

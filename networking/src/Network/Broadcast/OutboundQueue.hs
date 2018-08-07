@@ -23,10 +23,10 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE RecursiveDo               #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE RecursiveDo               #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Network.Broadcast.OutboundQueue (
@@ -85,18 +85,17 @@ module Network.Broadcast.OutboundQueue (
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception (Exception, SomeException, catch, throwIO, displayException,
-                                    finally, mask_)
+import           Control.Exception (Exception, SomeException, catch,
+                     displayException, finally, mask_, throwIO)
 import           Control.Lens
 import           Control.Monad
 import           Data.Either (rights)
 import           Data.Foldable (fold)
-import           Data.List (intercalate, sortBy)
+import           Data.List (intercalate, sortOn)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe, maybeToList, mapMaybe)
+import           Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import           Data.Monoid ((<>))
-import           Data.Ord (comparing)
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Text (Text)
@@ -108,9 +107,10 @@ import qualified System.Metrics as Monitoring
 import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
 
-import           Pos.Util.Trace (Trace, traceWith, Severity (..))
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
-import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
+import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+                     (MultiQueue)
 import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
 import           Network.Broadcast.OutboundQueue.Types
 
@@ -161,19 +161,12 @@ newtype MaxAhead = MaxAhead Int
 data Enqueue =
     -- | For /all/ forwarding sets of the specified node type, chose /one/
     -- alternative to send the message to
-    EnqueueAll {
-        enqNodeType   :: NodeType
-      , enqMaxAhead   :: MaxAhead
-      , enqPrecedence :: Precedence
-      }
-
+    --EnqueueAll enqNodeType enqMaxAhead enqPrecedence
+    EnqueueAll !NodeType !MaxAhead !Precedence
     -- | Choose /one/ alternative of /one/ forwarding set of any of the
     -- specified node types (listed in order of preference)
-  | EnqueueOne {
-        enqNodeTypes  :: [NodeType]
-      , enqMaxAhead   :: MaxAhead
-      , enqPrecedence :: Precedence
-      }
+    -- EnqueueOne enqNodeTypes enqMaxAhead enqPrecedence
+  | EnqueueOne ![NodeType] !MaxAhead !Precedence
   deriving (Show)
 
 -- | The enqueuing policy
@@ -738,7 +731,7 @@ intEnqueue :: forall msg nid buck a.
 intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
     forM (qEnqueuePolicy msgType) $ \case
 
-      enq@EnqueueAll{..} -> do
+      enq@(EnqueueAll enqNodeType enqMaxAhead enqPrecedence) -> do
         let fwdSets :: AllOf (Alts nid)
             fwdSets = removeOrigin (msgOrigin msgType) $
                         peersRoutes peers ^. routesOfType enqNodeType
@@ -770,7 +763,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
         return enqueued
 
-      enq@EnqueueOne{..} -> do
+      enq@(EnqueueOne enqNodeTypes enqMaxAhead enqPrecedence) -> do
         let fwdSets :: [(NodeType, Alts nid)]
             fwdSets = concatMap
                         (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $
@@ -885,7 +878,7 @@ pickAlt outQ@OutQ{} (MaxAhead maxAhead) prec alts = do
                return Nothing
            | otherwise -> do
                return $ Just nstatsId
-      | NodeWithStats{..} <- sortBy (comparing ((+) <$> nstatsAhead <*> nstatsInFlight)) alts'
+      | NodeWithStats{..} <- sortOn ((+) <$> nstatsAhead <*> nstatsInFlight) alts'
       ]
   where
     debugFailure :: nid -> Text
@@ -1148,8 +1141,8 @@ enqueueSync' outQ msgType msg = do
     waitForDequeue (nid, tvar) = do
       it <- readTVar tvar
       case it of
-        PacketEnqueued -> retry
-        PacketAborted -> pure (nid, Nothing)
+        PacketEnqueued        -> retry
+        PacketAborted         -> pure (nid, Nothing)
         PacketDequeued thread -> pure (nid, Just thread)
 
 -- | Queue a message and wait for it to have been sent
@@ -1268,7 +1261,7 @@ cherish outQ act =
     maxNumIterations = 4
 
 successes :: [(nid, Maybe (Either SomeException a))] -> [a]
-successes = rights . mapMaybe id . map snd
+successes = rights . mapMaybe snd
 
 {-------------------------------------------------------------------------------
   Dequeue thread

@@ -1,4 +1,4 @@
--- | Specification for Pos.Ssc.GodTossing.Toss.Pure
+-- | Specification for Pos.Chain.Ssc.GodTossing.Toss.Pure
 
 module Test.Pos.Ssc.Toss.PureSpec
        ( spec
@@ -10,18 +10,20 @@ import qualified Crypto.Random as Rand
 import           Data.Default (def)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf, suchThat, (===))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf,
+                     suchThat, (===))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Arbitrary.Ssc ()
-import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap, Opening, SignedCommitment,
-                           StakeholderId, VssCertificate (..), addressHash)
-import qualified Pos.Ssc.Toss.Class as Toss
-import qualified Pos.Ssc.Toss.Pure as Toss
-import qualified Pos.Ssc.Types as Toss
+import qualified Pos.Chain.Ssc as Toss
+import           Pos.Core (EpochOrSlot, HasConfiguration, StakeholderId,
+                     addressHash)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate (..))
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Toss" $ do

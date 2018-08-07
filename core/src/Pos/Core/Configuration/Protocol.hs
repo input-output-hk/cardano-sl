@@ -19,7 +19,8 @@ import           Universum
 import           Data.Reflection (Given (..), give)
 
 import           Pos.Core.Common (BlockCount (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                     VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.SlotCount (SlotCount)
 
 type HasProtocolConstants = Given ProtocolConstants

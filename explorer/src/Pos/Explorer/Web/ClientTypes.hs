@@ -17,6 +17,7 @@ module Pos.Explorer.Web.ClientTypes
        , CAddressType (..)
        , CAddressSummary (..)
        , CTxBrief (..)
+       , CUtxo  (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
        , CGenesisSummary (..)
@@ -29,6 +30,7 @@ module Pos.Explorer.Web.ClientTypes
        , LocalSlotIndex (..)
        , StakeholderId
        , Byte
+       , CByteString (..)
        , mkCCoin
        , mkCCoinMB
        , toCHash
@@ -67,23 +69,28 @@ import           Servant.API (FromHttpApiData (..))
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary (biSize)
-import           Pos.Block.Types (Undo (..))
-import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotId (..), StakeholderId,
-                           Timestamp, addressF, coinToInteger, decodeTextAddress, gbHeader,
-                           gbhConsensus, getEpochIndex, getSlotIndex, headerHash, mkCoin,
-                           prevBlockL, sumCoins, timestampToPosix, unsafeAddCoin, unsafeGetCoin,
-                           unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
-import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo, txpTxs, _txOutputs)
+import           Pos.Chain.Block (Undo (..))
+import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
+                     SlotId (..), StakeholderId, Timestamp, addressF,
+                     coinToInteger, decodeTextAddress, getEpochIndex,
+                     getSlotIndex, mkCoin, sumCoins, timestampToPosix,
+                     unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin,
+                     unsafeSubCoin)
+import           Pos.Core.Block (MainBlock, gbHeader, gbhConsensus, headerHash,
+                     mainBlockSlot, mainBlockTxPayload, mcdSlot, prevBlockL)
+import           Pos.Core.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
+import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
+                     txpTxs, _txOutputs)
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
+import qualified Pos.DB.Lrc as LrcDB (getLeader)
 import qualified Pos.GState as GS
-import qualified Pos.Lrc as Lrc (getLeader)
-import           Pos.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..))
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
+
+
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------
@@ -213,7 +220,7 @@ toBlockEntry (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- Lrc.getLeader $ SlotId epochIndex slotIndex
+    epochSlotLeader   <- LrcDB.getLeader $ SlotId epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
@@ -304,6 +311,18 @@ data CTxBrief = CTxBrief
     , ctbInputSum   :: !CCoin
     , ctbOutputSum  :: !CCoin
     } deriving (Show, Generic)
+
+data CUtxo = CUtxo
+    { cuId       :: !CTxId
+    , cuOutIndex :: !Int
+    , cuAddress  :: !CAddress
+    , cuCoins    :: !CCoin
+    }
+    | CUtxoUnknown
+    { cuTag  :: !Int
+      , cuBs :: !CByteString
+    }
+    deriving (Show, Generic)
 
 newtype CNetworkAddress = CNetworkAddress Text
     deriving (Show, Generic)
@@ -427,6 +446,12 @@ sumCoinOfInputsOutputs addressListMB
             addressCoinList = addressCoins <$> addressList
         mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
     | otherwise = mkCCoinMB Nothing
+
+newtype CByteString = CByteString ByteString
+    deriving (Generic)
+
+instance Show CByteString where
+    show (CByteString bs) = (show . toString) bs
 
 --------------------------------------------------------------------------------
 -- Arbitrary instances

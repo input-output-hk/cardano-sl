@@ -25,15 +25,17 @@ import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
-import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses, wamAddress)
+import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses,
+                     wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
-import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
+import           Test.Pos.Wallet.Web.Util (importSingleWallet,
+                     mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ ->
+spec = withDefConfigurations $ \_ _ _ ->
     describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $

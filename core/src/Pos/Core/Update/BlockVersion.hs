@@ -5,10 +5,13 @@ module Pos.Core.Update.BlockVersion
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, shown)
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Util.Some (Some, liftLensSome)
 
 -- | Communication protocol version.
@@ -34,3 +37,14 @@ class HasBlockVersion a where
 
 instance HasBlockVersion (Some HasBlockVersion) where
     blockVersionL = liftLensSome blockVersionL
+
+deriveJSON defaultOptions ''BlockVersion
+
+deriveSimpleBi ''BlockVersion [
+    Cons 'BlockVersion [
+        Field [| bvMajor :: Word16 |],
+        Field [| bvMinor :: Word16 |],
+        Field [| bvAlt   :: Word8  |]
+    ]]
+
+deriveSafeCopySimple 0 'base ''BlockVersion

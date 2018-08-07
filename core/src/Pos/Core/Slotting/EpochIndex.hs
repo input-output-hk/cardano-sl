@@ -7,9 +7,17 @@ module Pos.Core.Slotting.EpochIndex
 import           Universum
 
 import           Control.Lens (choosing)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Ix (Ix)
-import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
+import qualified Formatting.Buildable as Buildable
+import           Servant.API (FromHttpApiData)
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
+
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Util.Some (Some, liftLensSome)
 
 -- | Index of epoch.
@@ -20,6 +28,21 @@ newtype EpochIndex = EpochIndex
 instance Buildable EpochIndex where
     build = bprint ("#"%int)
 
+instance Bi EpochIndex where
+    encode (EpochIndex epoch) = encode epoch
+    decode = EpochIndex <$> decode
+
+deriving instance FromHttpApiData EpochIndex
+
+-- Note that it will be encoded as string, because 'EpochIndex'
+-- doesn't necessary fit into JS number.
+instance Monad m => ToJSON m EpochIndex where
+    toJSON = toJSON . getEpochIndex
+
+deriving instance Aeson.FromJSON EpochIndex
+
+deriving instance Aeson.ToJSON EpochIndex
+
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
@@ -29,6 +52,11 @@ instance HasEpochIndex (Some HasEpochIndex) where
 instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
+
+
+
+instance ReportSchemaErrors m => FromJSON m EpochIndex where
+    fromJSON = fmap EpochIndex . fromJSON
 
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
 -- from the epoch specified as the epoch that unlocks stakes:
@@ -48,3 +76,5 @@ isBootstrapEra
     -> Bool
 isBootstrapEra unlockStakeEpoch epoch =
     epoch < unlockStakeEpoch
+
+deriveSafeCopySimple 0 'base ''EpochIndex

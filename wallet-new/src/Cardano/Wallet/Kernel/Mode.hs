@@ -11,38 +11,37 @@ module Cardano.Wallet.Kernel.Mode
 import           Control.Lens (makeLensesWith)
 import           Universum
 
-import           Mockable
-import           Pos.Block.BListener
-import           Pos.Block.Slog
-import           Pos.Block.Types
+import           Pos.Chain.Block
+import           Pos.Chain.Txp
 import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
-import           Pos.DB.Block
+import           Pos.DB.Block hiding (applyBlocks, rollbackBlocks)
 import           Pos.DB.DB
+import           Pos.DB.Txp.Logic
+import           Pos.DB.Txp.MemState
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Network.Types
 import           Pos.Infra.Reporting
 import           Pos.Infra.Shutdown
 import           Pos.Infra.Slotting
 import           Pos.Infra.Util.JsonLog.Events
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher
-import           Pos.Txp.Configuration
-import           Pos.Txp.Logic
-import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..),
+                     applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
 -------------------------------------------------------------------------------}
 
 data WalletContext = WalletContext {
-      wcWallet          :: !(PassiveWalletLayer Production)
+      wcWallet          :: !(PassiveWalletLayer IO)
     , wcRealModeContext :: !(RealModeContext EmptyMempoolExt)
     }
 
@@ -50,11 +49,11 @@ data WalletContext = WalletContext {
 --
 -- NOTE: I'd prefer to @newtype@ this but it's just too painful (too many
 -- constraints cannot be derived, there are a /lot/ of them).
-type WalletMode = ReaderT WalletContext Production
+type WalletMode = ReaderT WalletContext IO
 
 makeLensesWith postfixLFields ''WalletContext
 
-getWallet :: WalletMode (PassiveWalletLayer Production)
+getWallet :: WalletMode (PassiveWalletLayer IO)
 getWallet = view wcWallet_L
 
 {-------------------------------------------------------------------------------
@@ -65,7 +64,7 @@ getWallet = view wcWallet_L
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletApplyBlocks :: PassiveWalletLayer Production
+walletApplyBlocks :: PassiveWalletLayer IO
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
@@ -78,7 +77,7 @@ walletApplyBlocks _w _bs = do
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletRollbackBlocks :: PassiveWalletLayer Production
+walletRollbackBlocks :: PassiveWalletLayer IO
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
 walletRollbackBlocks _w _bs = do
@@ -97,15 +96,16 @@ instance MonadBListener WalletMode where
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               => ProtocolMagic
+              -> TxpConfiguration
               -> NodeResources ()
-              -> PassiveWalletLayer Production
+              -> PassiveWalletLayer IO
               -> (Diffusion WalletMode -> WalletMode a)
-              -> Production a
-runWalletMode pm nr wallet action =
-    Production $ runRealMode pm nr $ \diffusion ->
-        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
+              -> IO a
+runWalletMode pm txpConfig nr wallet action =
+    runRealMode pm txpConfig nr $ \diffusion ->
+        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
-walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
+walletModeToRealMode :: forall a. PassiveWalletLayer IO -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
     rmc <- ask
     let env = WalletContext {
@@ -196,7 +196,7 @@ instance HasConfiguration => MonadGState WalletMode where
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasTxpConfiguration)
+instance HasConfiguration
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

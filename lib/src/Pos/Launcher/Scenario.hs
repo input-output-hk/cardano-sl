@@ -13,14 +13,17 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
-import           Mockable (mapConcurrently)
 import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
+import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (getOurPublicKey)
-import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
-                           GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
-                           gdFtsSeed, genesisData)
+import           Pos.Core (addressHash, genesisData)
+import           Pos.Core.Conc (mapConcurrently)
+import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation (..),
+                     GenesisWStakeholders (..), gdFtsSeed)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
@@ -29,9 +32,6 @@ import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (waitSystemStart)
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Txp (bootDustThreshold)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
-                                           lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Worker (allWorkers)
@@ -61,7 +61,7 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
-        bootDustThreshold
+        (bootDustThreshold genesisStakeholders)
         genesisStakeholders
 
     let genesisDelegation = gdHeavyDelegation genesisData
@@ -107,12 +107,13 @@ runNode
        , WorkMode ctx m
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode pm nr plugins = runNode' nr workers' plugins
+runNode pm txpConfig nr plugins = runNode' nr workers' plugins
   where
-    workers' = allWorkers pm nr
+    workers' = allWorkers pm txpConfig nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

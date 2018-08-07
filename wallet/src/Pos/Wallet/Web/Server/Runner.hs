@@ -19,17 +19,18 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production (..), runProduction)
 import           Network.Wai (Application)
-import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
+import           Ntp.Client (NtpStatus)
+
 import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (runRealMode)
@@ -38,9 +39,10 @@ import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
-                                      WalletWebModeContextTag, realModeToWalletWebMode,
-                                      walletWebModeToRealMode)
-import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
+                     WalletWebModeContextTag, realModeToWalletWebMode,
+                     walletWebModeToRealMode)
+import           Pos.Wallet.Web.Server.Launcher (walletApplication,
+                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -53,29 +55,31 @@ runWRealMode
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> WalletDB
     -> ConnectionsVar
     -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
-    -> Production a
-runWRealMode pm db conn syncRequests res action = Production $
-    runRealMode pm res $ \diffusion ->
+    -> IO a
+runWRealMode pm txpConfig db conn syncRequests res action =
+    runRealMode pm txpConfig res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
-            action (hoistDiffusion realModeToWalletWebMode diffusion)
+            action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
 walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
     -> Bool                    -- ^ whether to include genesis keys
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull pm txpConfig diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
     let
       portCallback :: Word16 -> IO ()
@@ -89,7 +93,7 @@ walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
 
         wwmc <- walletWebModeContext
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode pm diffusion ntpStatus (convertHandler wwmc)
+            walletServer @WalletWebModeContext @WalletWebMode pm txpConfig diffusion ntpStatus (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)
@@ -103,7 +107,7 @@ convertHandler wwmc handler =
   where
 
     walletRunner :: forall a . WalletWebMode a -> IO a
-    walletRunner act = runProduction $
+    walletRunner act =
         Mtl.runReaderT act wwmc
 
     excHandlers = [E.Handler catchServant]

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE KindSignatures            #-}
@@ -6,9 +7,14 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 
--- GHC gives a false positive.
--- See inline note [redundant constraints]
-{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#if __GLASGOW_HASKELL__ >= 804
+{-# LANGUAGE PolyKinds                 #-}
+#endif
+
+-- Redundant constraint: api ~ someApiType n a
+-- in `apiArgName`
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 
 -- | Some utilites for more flexible servant usage.
 
@@ -64,25 +70,26 @@ import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
-                             string, (%))
+import           Formatting (bprint, build, builder, fconst, formatToString,
+                     sformat, shown, stext, string, (%))
+import qualified Formatting.Buildable
 import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
-import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
-                              ReflectMethod (..), ReqBody, Summary, Verb)
+import           Servant.API ((:<|>) (..), (:>), Capture, Description,
+                     QueryParam, ReflectMethod (..), ReqBody, Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
-import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
+import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
+                     Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Infra.Util.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe,
-                                         logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Infra.Util.LogSafe (BuildableSafe, SecureLog, SecuredText,
+                     buildSafe, logInfoSP, plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -514,7 +521,8 @@ paramRouteWithLog =
                 \sl -> sformat (string%": "%stext) paramName (paramVal sl)
         in addParamLogInfo paramInfo
 
-instance ( HasServer (subApi :> res) ctx
+instance {-# OVERLAPPABLE #-}
+         ( HasServer (subApi :> res) ctx
          , HasServer (subApi :> LoggingApiRec config res) ctx
          , ApiHasArg subApi res
          , ApiHasArg subApi (LoggingApiRec config res)
@@ -525,11 +533,13 @@ instance ( HasServer (subApi :> res) ctx
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog = paramRouteWithLog
 
-instance HasLoggingServer config res ctx =>
+instance {-# OVERLAPPING #-}
+         HasLoggingServer config res ctx =>
          HasLoggingServer config (Summary s :> res) ctx where
     routeWithLog = inRouteServer @(Summary s :> LoggingApiRec config res) route identity
 
-instance HasLoggingServer config res ctx =>
+instance {-# OVERLAPPING #-}
+         HasLoggingServer config res ctx =>
          HasLoggingServer config (Description d :> res) ctx where
     routeWithLog = inRouteServer @(Description d :> LoggingApiRec config res) route identity
 

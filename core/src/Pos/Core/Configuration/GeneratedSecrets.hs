@@ -15,8 +15,8 @@ import           Universum
 
 import           Data.Reflection (Given (..), give)
 
-import           Pos.Core.Genesis.Generate (GeneratedSecrets (..), PoorSecret (..),
-                                            RichSecrets (..), poorSecretToKey)
+import           Pos.Core.Genesis.Generate (GeneratedSecrets (..),
+                     PoorSecret (..), RichSecrets (..), poorSecretToKey)
 import           Pos.Crypto.Signing (SecretKey)
 
 -- | 'GeneratedSecrets' are known only when 'GenesisSpec' with

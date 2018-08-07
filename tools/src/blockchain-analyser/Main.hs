@@ -4,25 +4,25 @@ module Main where
 
 import           Universum
 
-import           Mockable (Production, runProduction)
-import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
-                                   withCurrentDirectory)
+import           System.Directory (canonicalizePath, doesDirectoryExist,
+                     getFileSize, listDirectory, withCurrentDirectory)
 
-import           Pos.Block.Types (Undo)
+import           Pos.Chain.Block (Undo)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
-import           Pos.Core.Block (Block)
+import           Pos.Core (HasConfiguration)
+import           Pos.Core.Block (Block, HeaderHash, headerHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
-import qualified Pos.DB.Block.Load as DB
+import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (getBlock)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)
-import           Types (BlockchainInspector, DBFolderStat, initBlockchainAnalyser, prevBlock)
+import           Types (BlockchainInspector, DBFolderStat,
+                     initBlockchainAnalyser, prevBlock)
 
 -- | Like Unix's `du -s`, but works across all the major platforms and
 -- returns the total number of bytes the directory occupies on disk.
@@ -84,12 +84,11 @@ analyseBlockchainEagerly cli currentTip = do
 main :: IO ()
 main = do
     args <- getOptions
-    runProduction $ do
-        CLI.printFlags
-        action args
+    CLI.printFlags
+    action args
 
-action :: CLIOptions -> Production ()
-action cli@CLIOptions{..} = withConfigurations conf $ \_ _ -> do
+action :: CLIOptions -> IO ()
+action cli@CLIOptions{..} = withConfigurations Nothing conf $ \_ _ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
     liftIO $ putText $ render uom printMode sizes

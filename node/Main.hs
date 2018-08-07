@@ -11,21 +11,24 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
+import           Ntp.Client (NtpConfiguration)
+
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
+import           Pos.Chain.Ssc (SscParams)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
+                     SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
-                               withConfigurations)
-import           Pos.Ssc.Types (SscParams)
-import           Pos.Update.Worker (updateTriggerWorker)
+import           Pos.Launcher (HasConfigurations, NodeParams (..),
+                     loggerBracket, runNodeReal, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Worker.Update (updateTriggerWorker)
 
 loggerName :: LoggerName
 loggerName = "node"
@@ -35,34 +38,37 @@ actionWithoutWallet
        , HasCompileInfo
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> SscParams
     -> NodeParams
-    -> Production ()
-actionWithoutWallet pm sscParams nodeParams =
-    Production $ runNodeReal pm nodeParams sscParams [updateTriggerWorker]
+    -> IO ()
+actionWithoutWallet pm txpConfig sscParams nodeParams =
+    runNodeReal pm txpConfig nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations
        , HasCompileInfo
        )
     => SimpleNodeArgs
-    -> NtpConfiguration
     -> ProtocolMagic
-    -> Production ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig pm = do
-    CLI.printInfoOnStart cArgs ntpConfig
+    -> TxpConfiguration
+    -> NtpConfiguration
+    -> IO ()
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) pm txpConfig ntpConfig = do
+    CLI.printInfoOnStart cArgs ntpConfig txpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet pm sscParams currentParams
+    actionWithoutWallet pm txpConfig sscParams currentParams
 
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-    loggerBracket loggingParams . logException "node" . runProduction $
-        withConfigurations conf $ action args
+    let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
+    loggerBracket loggingParams . logException "node" $
+        withConfigurations blPath conf $ action args

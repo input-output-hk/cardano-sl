@@ -1,8 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 module Test.Pos.Helpers
        ( canonicalJsonTest
        ) where
@@ -16,7 +14,8 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Core.Genesis (SchemaError)
 
-import           Test.Pos.Binary.Helpers (IdTestingRequiredClassesAlmost, identityTest)
+import           Test.Pos.Binary.Helpers (IdTestingRequiredClassesAlmost,
+                     identityTest)
 
 ----------------------------------------------------------------------------
 -- From/to tests

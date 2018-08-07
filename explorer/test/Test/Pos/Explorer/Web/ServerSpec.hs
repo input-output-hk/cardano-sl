@@ -16,19 +16,19 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import qualified Pos.Communication ()
 import           Pos.Core (EpochIndex (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
-import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
-                                        generateValidExplorerMockableMode, leftToCounter)
+import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx,
+                     makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (emptyBlk,
+                     generateValidBlocksSlotsNumber,
+                     generateValidExplorerMockableMode, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
-import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
-                                          getBlocksPagesTotal, getBlocksTotal, getEpochPage,
-                                          getEpochSlot)
+import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage,
+                     getBlocksPage, getBlocksPagesTotal, getBlocksTotal,
+                     getEpochPage, getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
--- Orphan mockable instances.
-import           Pos.Util.Mockable ()
 
-import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 
@@ -40,7 +40,7 @@ import           Test.Pos.Configuration (withDefConfigurations)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
 spec :: Spec
-spec = withDefConfigurations $ \_ _ -> do
+spec = withDefConfigurations $ \_ _ _ -> do
     describe "Pos.Explorer.Web.Server" $ do
         blocksTotalSpec
         blocksPagesTotalSpec

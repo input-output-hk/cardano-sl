@@ -63,7 +63,7 @@ steps:
       #   >     (concat, foldl, foldr, head, init, last, length)
       #
       # Default: after_alias
-      list_align: after_alias
+      list_align: with_module_name
 
       # Right-pad the module names to align imports in a group:
       #
@@ -194,11 +194,7 @@ steps:
 
 # A common setting is the number of columns (parts of) code will be wrapped
 # to. Different steps take this into account. Default: 80.
-#
-# Note: we tend to write code which fits into 80 characters, in some cases
-# 100 is acceptable. For imports we always permit 100 characters because it
-# decreases verbosity of diffs and makes merging easier.
-columns: 100
+columns: 80
 
 # By default, line endings are converted according to the OS. You can override
 # preferred format here.
@@ -226,6 +222,7 @@ language_extensions:
   - DefaultSignatures
   - DeriveDataTypeable
   - DeriveGeneric
+  - ExistentialQuantification
   - FlexibleContexts
   - FlexibleInstances
   - FunctionalDependencies
@@ -245,3 +242,4 @@ language_extensions:
   - TypeApplications
   - TypeFamilies
   - ViewPatterns
+  - ExplicitNamespaces

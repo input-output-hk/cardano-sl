@@ -6,6 +6,8 @@ module Pos.Core.Genesis.Spec
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson.TH (deriveJSON)
 import qualified Data.HashMap.Strict as HM
 import           Serokell.Util (allDistinct)
 
@@ -33,7 +35,9 @@ data GenesisSpec = UnsafeGenesisSpec
     -- ^ Other constants which affect consensus.
     , gsInitializer       :: !GenesisInitializer
     -- ^ Other data which depend on genesis type.
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
+
+deriveJSON defaultOptions ''GenesisSpec
 
 -- | Safe constructor for 'GenesisSpec'. Throws error if something
 -- goes wrong.

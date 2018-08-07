@@ -18,10 +18,11 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, stext, (%))
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), PendingAddresses (..),
-                                      isCheckedTxError)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
+                     PendingAddresses (..), isCheckedTxError)
 import           Pos.Core.Chrono (getNewestFirst, toNewestFirst)
 import           Pos.Core.Common (Coin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
@@ -32,10 +33,12 @@ import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Methods.History (MonadWalletHistory)
 import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary (..))
 import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending (PendingTx (..), TxSubmissionMode, allPendingAddresses,
-                                         isPtxInBlocks, ptxFirstSubmissionHandler, sortPtxsChrono)
+import           Pos.Wallet.Web.Pending (PendingTx (..), TxSubmissionMode,
+                     allPendingAddresses, isPtxInBlocks,
+                     ptxFirstSubmissionHandler, sortPtxsChrono)
 import           Pos.Wallet.Web.Pending.Submission (submitAndSavePtx)
-import           Pos.Wallet.Web.State (WalletDB, WalletSnapshot, askWalletSnapshot, getPendingTxs)
+import           Pos.Wallet.Web.State (WalletDB, WalletSnapshot,
+                     askWalletSnapshot, getPendingTxs)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
 
@@ -72,12 +75,13 @@ coinDistrToOutputs distr = do
 submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
     => ProtocolMagic
+    -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PendingTx
     -> m ()
-submitAndSaveNewPtx pm db submit =
-    submitAndSavePtx pm db submit ptxFirstSubmissionHandler
+submitAndSaveNewPtx pm txpConfig db submit =
+    submitAndSavePtx pm txpConfig db submit ptxFirstSubmissionHandler
 
 gatherPendingTxsSummary :: MonadWalletWebMode ctx m => m [PendingTxsSummary]
 gatherPendingTxsSummary =

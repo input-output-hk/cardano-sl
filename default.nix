@@ -20,38 +20,20 @@ in
 , enableDebugging ? false
 , enableBenchmarks ? true
 , allowCustomConfig ? true
+, useStackBinaries ? false
 }:
 
 with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
-  addGitRev = subject:
-    subject.overrideAttrs (
-      drv: {
-        GITREV = gitrev;
-        librarySystemDepends = (drv.librarySystemDepends or []) ++ [ pkgs.git ];
-        executableSystemDepends = (drv.executableSystemDepends or []) ++ [ pkgs.git ];
-      }
-    );
+  justStaticExecutablesGitRev = import ./scripts/set-git-rev {
+    inherit pkgs gitrev;
+    inherit (cardanoPkgs) ghc;
+  };
   addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
-    testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
-    preCheck = ''
-      mkdir -p dist/test
-      touch dist/test/test.log
-      tail -F dist/test/test.log &
-      export TAILPID=$!
-    '';
-    postCheck = ''
-      sleep 10
-      kill $TAILPID
-    '';
+    testTarget = "--show-details=streaming";
   });
-  # Enables building but not running of benchmarks when
-  # enableBenchmarks argument is true.
-  buildWithBenchmarks = drv: if enableBenchmarks
-    then doBenchmark (appendConfigureFlag drv "--enable-benchmarks")
-    else drv;
 
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
@@ -65,7 +47,7 @@ let
         ];
       });
 
-      cardano-sl = overrideCabal (buildWithBenchmarks super.cardano-sl) (drv: {
+      cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
@@ -77,24 +59,19 @@ let
         };
       });
 
-      cardano-sl-networking = buildWithBenchmarks super.cardano-sl-networking;
-      cardano-sl-block-bench = buildWithBenchmarks super.cardano-sl-block-bench;
-      cardano-sl-explorer = buildWithBenchmarks super.cardano-sl-explorer;
-      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-wallet-static = justStaticExecutablesGitRev super.cardano-sl-wallet;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
-      # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
-      cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
-      cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
-      cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
+      cardano-sl-auxx = justStaticExecutablesGitRev super.cardano-sl-auxx;
+      cardano-sl-wallet-new = justStaticExecutablesGitRev super.cardano-sl-wallet-new;
+      cardano-sl-tools = justStaticExecutablesGitRev (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-      })));
+      }));
 
-      cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
-      cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
-      cardano-report-server-static = justStaticExecutables self.cardano-report-server;
+      cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
+      cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
+      cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin
       # This is needed for macOS binary not to fail during update system (using http-client-tls)
@@ -118,30 +95,16 @@ let
         # This will be the default in nixpkgs since
         # https://github.com/NixOS/nixpkgs/issues/29011
         enableSharedExecutables = false;
-      } // optionalAttrs (args ? src) {
-        src = let
-           cleanSourceFilter = with pkgs.stdenv;
-             name: type: let baseName = baseNameOf (toString name); in ! (
-               # Filter out .git repo
-               (type == "directory" && baseName == ".git") ||
-               # Filter out editor backup / swap files.
-               lib.hasSuffix "~" baseName ||
-               builtins.match "^\\.sw[a-z]$" baseName != null ||
-               builtins.match "^\\..*\\.sw[a-z]$" baseName != null ||
-
-               # Filter out locally generated/downloaded things.
-               baseName == "dist" ||
-
-               # Filter out the files which I'm editing often.
-               lib.hasSuffix ".nix" baseName ||
-               # Filter out nix-build result symlinks
-               (type == "symlink" && lib.hasPrefix "result" baseName)
-             );
-
-          in
-            if (builtins.typeOf args.src) == "path"
-              then builtins.filterSource cleanSourceFilter args.src
-              else args.src or null;
+      } // optionalAttrs (enableBenchmarks && localLib.isCardanoSL args.pname) ({
+        # Enables building but not running of benchmarks for all
+        # cardano-sl packages when enableBenchmarks argument is true.
+        doBenchmark = true;
+        configureFlags = (args.configureFlags or []) ++ ["--enable-benchmarks"];
+      } // optionalAttrs (localLib.isBenchmark args) {
+        # Provide a dummy installPhase for benchmark packages.
+        installPhase = "mkdir -p $out";
+      }) // optionalAttrs (args ? src) {
+        src = localLib.cleanSourceTree args.src;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;
@@ -155,18 +118,36 @@ let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
-      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
   other = rec {
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
-    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
-    shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
-    swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
-    buildWalletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; };
+    demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; disableClientAuth = true; numImportedWallets = 0; };
+    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev useStackBinaries;
+      launchGenesis = true;
+      configurationKey = "testnet_full";
+      runWallet = false;
+    };
+    tests = let
+      src = localLib.cleanSourceTree ./.;
+    in {
+      shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { inherit src; };
+      hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
+      stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
+      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+      swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
+    };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
     });
+    all-cardano-sl = pkgs.buildEnv {
+      name = "all-cardano-sl";
+      paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
+      ignoreCollisions = true;
+    };
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "avieth";
@@ -177,35 +158,45 @@ let
     inherit (pkgs) purescript;
     connectScripts = {
       mainnet = {
-        wallet = connect {};
+        wallet = connect { };
         explorer = connect { executable = "explorer"; };
       };
       staging = {
         wallet = connect { environment = "mainnet-staging"; };
         explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
       };
+      testnet = {
+        wallet = connect { environment = "testnet"; };
+        explorer = connect { executable = "explorer"; environment = "testnet"; };
+      };
       demoWallet = connect { environment = "demo"; };
     };
     dockerImages = {
       mainnet.wallet = mkDocker { environment = "mainnet"; };
       staging.wallet = mkDocker { environment = "mainnet-staging"; };
+      testnet.wallet = mkDocker { environment = "testnet"; };
     };
 
+    cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''
+      mkdir -p $out/lib
+      cp -R ${./log-configs} $out/log-configs
+      cp ${./lib}/configuration.yaml $out/lib
+      cp ${./lib}/*genesis*.json $out/lib
+    '';
     daedalus-bridge = let
       inherit (cardanoPkgs.cardano-sl-node) version;
     in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
-      inherit version;
+      inherit version gitrev buildId;
     } ''
       # Generate daedalus-bridge
-      mkdir -p $out/bin $out/config
+      mkdir -p $out/bin
       cd $out
       ${optionalString (buildId != null) "echo ${buildId} > build-id"}
       echo ${gitrev} > commit-id
       echo ${version} > version
 
-      cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
-      cp ${./lib}/configuration.yaml config
-      cp ${./lib}/*genesis*.json config
+      cp --no-preserve=mode -R ${cardano-sl-config}/lib config
+      cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
       cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin

@@ -5,32 +5,43 @@
 , runExplorer ? false
 , numCoreNodes ? 4
 , numRelayNodes ? 1
+, numImportedWallets ? 11
+, assetLockAddresses ? []
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , keepAlive ? true
+, launchGenesis ? false
+, configurationKey ? "default"
+, useStackBinaries ? false
+, disableClientAuth ? false
 }:
 
 with localLib;
 
 let
-  executables =  {
-    corenode = "${iohkPkgs.cardano-sl-node-static}/bin/cardano-node-simple";
-    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
-    keygen = "${iohkPkgs.cardano-sl-tools}/bin/cardano-keygen";
-    explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
-  };
-  demoClusterDeps = with pkgs; (with iohkPkgs; [ jq coreutils pkgs.curl gnused openssl cardano-sl-tools cardano-sl-wallet-new cardano-sl-node-static ]);
+  stackExec = optionalString useStackBinaries "stack exec -- ";
+  cardanoDeps = with iohkPkgs; [ cardano-sl-tools cardano-sl-wallet-new cardano-sl-node-static ];
+  demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl ];
+  allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   walletConfig = {
-    inherit stateDir;
+    inherit stateDir disableClientAuth;
     topologyFile = walletTopologyFile;
+    environment = "demo";
   };
-  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; debug = false; environment = "demo"; } // walletConfig);
-  ifWallet = localLib.optionalString (runWallet);
-  ifKeepAlive = localLib.optionalString (keepAlive);
+  walletEnvironment = if launchGenesis then {
+    environment = "override";
+    relays = "127.0.0.1";
+    confKey = "testnet_full";
+    confFile = "${stateDir}/configuration.yaml";
+  } else {
+    environment = "demo";
+  };
+  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev useStackBinaries; debug = false; } // walletEnvironment // walletConfig);
+  ifWallet = optionalString (runWallet);
+  ifKeepAlive = optionalString (keepAlive);
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
   src = ./../../..;
   topologyFile = import ./make-topology.nix { inherit (pkgs) lib; cores = numCoreNodes; relays = numRelayNodes; };
@@ -41,16 +52,24 @@ let
       fallbacks = 1;
     };
   });
+  assetLockFile = pkgs.writeText "asset-lock-file" (intersperse "\n" assetLockAddresses);
+  ifAssetLock = optionalString (assetLockAddresses != []);
   configFiles = pkgs.runCommand "cardano-config" {} ''
-    mkdir -pv $out
-    cd $out
-    cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-  '';
+      mkdir -pv $out
+      cd $out
+      cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
+      cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
+      cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
+    '';
+  prepareGenesis = import ../../prepare-genesis {
+    inherit config system pkgs gitrev numCoreNodes;
+    configurationKey = "testnet_full";
+    configurationKeyLaunch = "testnet_launch";
+  };
+
 in pkgs.writeScript "demo-cluster" ''
   #!${pkgs.stdenv.shell}
-  export PATH=${pkgs.lib.makeBinPath demoClusterDeps}
+  export PATH=${pkgs.lib.makeBinPath allDeps}:$PATH
   # Set to 0 (passing) by default. Tests using this cluster can set this variable
   # to force the `stop_cardano` function to exit with a different code.
   EXIT_STATUS=0
@@ -83,70 +102,81 @@ in pkgs.writeScript "demo-cluster" ''
 
   # Remove previous state
   rm -rf ${stateDir}
-  mkdir -p ${stateDir}
-  echo "Creating genesis keys..."
-  cardano-keygen --system-start 0 generate-keys-by-spec --genesis-out-dir ${stateDir}/genesis-keys --configuration-file ${configFiles}/configuration.yaml
+  mkdir -p ${stateDir}/logs
+
+  ${if launchGenesis then ''
+    echo "Creating genesis data and keys using external method..."
+    config_files=${stateDir}
+    ${prepareGenesis} $config_files
+  '' else ''
+    echo "Creating genesis keys..."
+    config_files=${configFiles}
+    ${stackExec}cardano-keygen --system-start 0 generate-keys-by-spec --genesis-out-dir ${stateDir}/genesis-keys --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey}
+  ''}
 
   trap "stop_cardano" INT TERM
   echo "Launching a demo cluster..."
   for i in {1..${builtins.toString numCoreNodes}}
   do
-    node_args="--db-path ${stateDir}/core-db''${i} --rebuild-db --genesis-secret ''${i} --listen 127.0.0.1:300''${i} --json-log ${stateDir}/logs/node''${i}.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core''${i} --topology ${topologyFile} --configuration-file ${configFiles}/configuration.yaml"
-    echo Launching core node $i with args: $node_args
-    cardano-node-simple $node_args &> /dev/null &
+    node_args="--db-path ${stateDir}/core-db$i --rebuild-db ${if launchGenesis then "--keyfile ${stateDir}/genesis-keys/generated-keys/rich/key$((i - 1)).sk" else "--genesis-secret $i"} --listen 127.0.0.1:$((3000 + i)) --json-log ${stateDir}/logs/core$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey} ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
+    echo Launching core node $i: cardano-node-simple $node_args
+    ${stackExec}cardano-node-simple $node_args &> ${stateDir}/logs/core$i.log &
     core_pid[$i]=$!
 
   done
   for i in {1..${builtins.toString numRelayNodes}}
   do
-    node_args="--db-path ${stateDir}/relay-db''${i} --rebuild-db --listen 127.0.0.1:310''${i} --json-log ${stateDir}/logs/node''${i}.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id relay''${i} --topology ${topologyFile} --configuration-file ${configFiles}/configuration.yaml"
-    echo Launching relay node $i with args: $node_args
-    cardano-node-simple $node_args &> /dev/null &
+    node_args="--db-path ${stateDir}/relay-db$i --rebuild-db --listen 127.0.0.1:$((3100 + i)) --json-log ${stateDir}/logs/relay$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id relay$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey}"
+    echo Launching relay node $i: cardano-node-simple $node_args
+    ${stackExec}cardano-node-simple $node_args &> ${stateDir}/logs/relay$i.log &
     relay_pid[$i]=$!
 
   done
   ${ifWallet ''
-    export LC_ALL=C.UTF-8
+    ${utf8LocaleSetting}
     echo Launching wallet node: ${demoWallet}
-    ${demoWallet} --runtime-args "--system-start $system_start" &> /dev/null &
+    ${demoWallet} --runtime-args "--system-start $system_start" &> ${stateDir}/logs/wallet.log &
     wallet_pid=$!
-  ''}
-  # Query node info until synced
-  SYNCED=0
-  while [[ $SYNCED != 100 ]]
-  do
-    PERC=$(curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://localhost:8090/api/v1/node-info | jq .data.syncProgress.quantity)
-    if [[ $PERC == "100" ]]
-    then
-      echo Blockchain Synced: $PERC%
-      SYNCED=100
-    elif [[ $SYNCED -ge 20 ]]
-    then
-      echo Blockchain Syncing: $PERC%
-      echo "Sync Failed, Exiting!"
-      EXIT_STATUS=1
-      stop_cardano
-    else
-      echo Blockchain Syncing: $PERC%
-      SYNCED=$((SYNCED + 1))
-      sleep 5
-    fi
-  done
-  echo Blockchain Synced: $PERC%
-  # import keys
-  echo "Importing poor HD keys/wallet..."
 
-  for i in {0..11}
-  do
-      echo "Importing key$i.sk ..."
-      curl https://localhost:8090/api/wallets/keys \
-      --cacert ${stateDir}/tls/client/ca.crt \
-      --cert ${stateDir}/tls/client/client.pem \
-      -X POST \
-      -H 'cache-control: no-cache' \
-      -H 'content-type: application/json' \
-      -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
-  done
+    # Query node info until synced
+    SYNCED=0
+    while [[ $SYNCED != 100 ]]
+    do
+      PERC=$(curl --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${demoWallet.walletListen}/api/v1/node-info | jq .data.syncProgress.quantity)
+      echo "PERC=$PERC"
+      if [[ $PERC == "100" ]]
+      then
+        echo Blockchain Synced: $PERC%
+        SYNCED=100
+      elif [[ $SYNCED -ge 20 ]]
+      then
+        echo Blockchain Syncing: $PERC%
+        echo "Sync Failed, Exiting!"
+        EXIT_STATUS=1
+        stop_cardano
+      else
+        echo Blockchain Syncing: $PERC%
+        SYNCED=$((SYNCED + 1))
+        sleep 5
+      fi
+    done
+    echo Blockchain Synced: $PERC%
+    if [ ${builtins.toString numImportedWallets} -gt 0 ]
+    then
+      echo "Importing ${builtins.toString numImportedWallets} poor HD keys/wallet..."
+      for i in {0..${builtins.toString numImportedWallets}}
+      do
+          echo "Importing key$i.sk ..."
+          curl https://${demoWallet.walletListen}/api/wallets/keys \
+          --cacert ${stateDir}/tls/client/ca.crt \
+          --cert ${stateDir}/tls/client/client.pem \
+          -X POST \
+          -H 'cache-control: no-cache' \
+          -H 'content-type: application/json' \
+          -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
+      done
+    fi
+  ''}
   ${ifKeepAlive ''
     sleep infinity
   ''}

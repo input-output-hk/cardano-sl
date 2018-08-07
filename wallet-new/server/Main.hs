@@ -10,39 +10,49 @@ import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
-import           Ntp.Client (NtpStatus, withNtpClient)
+import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
+                     withNtpClient)
+import           Pos.Chain.Ssc (SscParams)
+import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
+import           Pos.Context (ncUserSecret)
 import           Pos.Core (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
-import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
-                               bracketNodeResources, loggerBracket, lpDefaultName, runNode,
-                               withConfigurations)
-import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
-import           Pos.Ssc.Types (SscParams)
-import           Pos.Txp (txpGlobalSettings)
+import           Pos.Launcher (NodeParams (..), NodeResources (..),
+                     bpLoggingParams, bracketNodeResources, loggerBracket,
+                     lpDefaultName, runNode, withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..),
+                     ConfigurationOptions, HasConfigurations)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                                 runWRealMode)
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
+                     getWalletAddresses, runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot,
+                     flushWalletStorage)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
-import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
+import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage,
+                     usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
-import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
-                                            WalletBackendParams (..), WalletStartupOptions (..),
-                                            getWalletNodeOptions, walletDbPath, walletFlushDb,
-                                            walletRebuildDb)
+import           Cardano.Wallet.Kernel (PassiveWallet)
+import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.MonadDBReadAdaptor
+                     (newMonadDBReadAdaptor)
+import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
+                     NewWalletBackendParams (..), WalletBackendParams (..),
+                     WalletStartupOptions (..), getWalletNodeOptions,
+                     walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer,
+                     bracketKernelPassiveWallet)
 
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
@@ -57,20 +67,21 @@ defaultLoggerName = "node"
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  => ProtocolMagic
+                 -> TxpConfiguration
                  -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> WalletBackendParams
-                 -> Production ()
-actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
+                 -> IO ()
+actionWithWallet pm txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
-                (txpGlobalSettings pm)
+                (txpGlobalSettings pm txpConfig)
                 (initNodeDBs pm epochSlots) $ \nr@NodeResources {..} -> do
                     syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-                    runWRealMode pm db conn syncQueue nr (mainAction ntpStatus nr)
+                    runWRealMode pm txpConfig db conn syncQueue nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
@@ -85,7 +96,7 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
 
     runNodeWithInit ntpStatus init' nr diffusion = do
         _ <- init'
-        runNode pm nr (plugins ntpStatus) diffusion
+        runNode pm txpConfig nr (plugins ntpStatus) diffusion
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -96,50 +107,59 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
     plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
-                , Plugins.legacyWalletBackend pm wArgs ntpStatus
+                , Plugins.legacyWalletBackend pm txpConfig wArgs ntpStatus
                 , Plugins.walletDocumentation wArgs
                 , Plugins.acidCleanupWorker wArgs
                 , Plugins.syncWalletWorker
-                , Plugins.resubmitterPlugin pm
+                , Plugins.resubmitterPlugin pm txpConfig
                 , Plugins.notifierPlugin
                 ]
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => ProtocolMagic
+                    -> TxpConfiguration
                     -> SscParams
                     -> NodeParams
                     -> NewWalletBackendParams
-                    -> Production ()
-actionWithNewWallet pm sscParams nodeParams params =
+                    -> IO ()
+actionWithNewWallet pm txpConfig sscParams nodeParams params =
     bracketNodeResources
         nodeParams
         sscParams
-        (txpGlobalSettings pm)
+        (txpGlobalSettings pm txpConfig)
         (initNodeDBs pm epochSlots) $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelPassiveWallet logMessage' $ \wallet -> do
-        liftIO $ logMessage' Info "Wallet kernel initialized"
-        Kernel.Mode.runWalletMode pm nr wallet (mainAction wallet nr)
+      userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
+      let rocksDB = newMonadDBReadAdaptor (nrDBs nr)
+      liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
+          bracketKernelPassiveWallet logMessage' keystore rocksDB $ \walletLayer passiveWallet -> do
+            Kernel.init passiveWallet
+            Kernel.Mode.runWalletMode pm
+                                      txpConfig
+                                      nr
+                                      walletLayer
+                                      (mainAction (walletLayer, passiveWallet) nr)
   where
     mainAction
-        :: PassiveWalletLayer Production
+        :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
-        :: PassiveWalletLayer Production
+        :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
-    runNodeWithInit w nr = runNode pm nr (plugins w)
+    runNodeWithInit w nr = runNode pm txpConfig nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: PassiveWalletLayer Production -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w = mconcat [ Plugins.walletBackend params w ]
+    plugins :: (PassiveWalletLayer IO, PassiveWallet)
+            -> Plugins.Plugin Kernel.Mode.WalletMode
+    plugins w = mconcat [ Plugins.walletBackend pm params w ]
 
     -- Extract the logger name from node parameters
     --
@@ -155,30 +175,36 @@ actionWithNewWallet pm sscParams nodeParams params =
 -- | Runs an edge node plus its wallet backend API.
 startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
-              -> Production ()
-startEdgeNode WalletStartupOptions{..} =
-  withConfigurations conf $ \ntpConfig pm -> do
-      (sscParams, nodeParams) <- getParameters ntpConfig
-      case wsoWalletBackendParams of
+              -> IO ()
+startEdgeNode wso =
+  withConfigurations blPath conf $ \pm txpConfig ntpConfig -> do
+      (sscParams, nodeParams) <- getParameters txpConfig ntpConfig
+      case wsoWalletBackendParams wso of
         WalletLegacy legacyParams ->
-          actionWithWallet pm sscParams nodeParams ntpConfig legacyParams
+          actionWithWallet pm txpConfig sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet pm sscParams nodeParams newParams
+          actionWithNewWallet pm txpConfig sscParams nodeParams newParams
   where
-    getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
-    getParameters ntpConfig = do
+    getParameters :: HasConfigurations
+                  => TxpConfiguration
+                  -> NtpConfiguration
+                  -> IO (SscParams, NodeParams)
+    getParameters txpConfig ntpConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
+      currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-      let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
+      let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart wsoNodeArgs ntpConfig
+      CLI.printInfoOnStart (wsoNodeArgs wso) ntpConfig txpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)
 
     conf :: ConfigurationOptions
-    conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
+    conf = CLI.configurationOptions $ CLI.commonArgs (wsoNodeArgs wso)
+
+    blPath :: Maybe AssetLockPath
+    blPath = AssetLockPath <$> CLI.cnaAssetLockPath (wsoNodeArgs wso)
 
     nodeArgs :: CLI.NodeArgs
     nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }
@@ -186,10 +212,10 @@ startEdgeNode WalletStartupOptions{..} =
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     cfg <- getWalletNodeOptions
     putText "Wallet is starting..."
     let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)
-    loggerBracket loggingParams . logException "node" . runProduction $ do
+    loggerBracket loggingParams . logException "node" $ do
         logInfo "[Attention] Software is built with the wallet backend"
         startEdgeNode cfg

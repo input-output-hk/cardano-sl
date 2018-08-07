@@ -67,6 +67,7 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
+    printT "Starting deterministic tests."
     withArgs [] . hspec $ deterministicTests wRef walletClient manager
   where
     orFail :: MonadFail m => Either String a -> m a
@@ -77,7 +78,7 @@ main = do
     actionDistribution = do
         (PostWallet, Weight 2)
             :| (PostTransaction, Weight 5)
-            : fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
+            : fmap (, Weight 1) [minBound .. maxBound]
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do

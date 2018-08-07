@@ -13,7 +13,8 @@ module Pos.Util.Concurrent.PriorityLock
        , withPriorityLock
        ) where
 
-import           Control.Concurrent.STM (TMVar, newEmptyTMVar, putTMVar, takeTMVar)
+import           Control.Concurrent.STM (TMVar, newEmptyTMVar, putTMVar,
+                     takeTMVar)
 import           Universum
 
 import           Pos.Util.Queue (Q, dequeue, enqueue, queue)

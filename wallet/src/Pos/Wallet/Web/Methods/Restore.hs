@@ -26,24 +26,27 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
+                     firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
-import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
-                                      mkGenesisWalletUserSecret, readUserSecret, usWallet,
-                                      wusAccounts, wusWalletName)
-import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
-import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), WalletBackup (..),
-                                        WalletMetaBackup (..))
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
-                                             CFilePath (..), CId, CWallet (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal, encToCId)
+import           Pos.Util.UserSecret (UserSecretDecodingError (..),
+                     WalletUserSecret (..), mkGenesisWalletUserSecret,
+                     readUserSecret, usWallet, wusAccounts, wusWalletName)
+import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey,
+                     genUniqueAccountId)
+import           Pos.Wallet.Web.Backup (AccountMetaBackup (..),
+                     WalletBackup (..), WalletMetaBackup (..))
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..),
+                     CAccountMeta (..), CBackupPhrase (..), CFilePath (..),
+                     CId, CWallet (..), CWalletInit (..), CWalletMeta (..),
+                     Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB, askWalletSnapshot,
-                                       createAccount, getAccountWAddresses, getWalletMeta,
-                                       removeHistoryCache, setWalletSyncTip)
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB,
+                     askWalletSnapshot, createAccount, getAccountWAddresses,
+                     getWalletMeta, removeHistoryCache, setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -61,7 +64,7 @@ mkWallet
 mkWallet passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
-    skey <- genSaveRootKey passphrase cwBackupPhrase
+    skey <- genSaveRootKey passphrase (bpToList cwBackupPhrase)
     let cAddr = encToCId skey
 
     CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady

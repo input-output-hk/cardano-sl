@@ -14,15 +14,15 @@ import qualified Prelude
 import           Universum
 
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, formatToString, sformat)
+import qualified Formatting.Buildable
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                                         buildSafe, secure, unsecure)
+                     buildSafe, secure, unsecure)
 import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 import           Servant
 import           Servant.Client

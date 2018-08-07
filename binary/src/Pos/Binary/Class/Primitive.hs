@@ -1,5 +1,7 @@
 -- | Useful functions for serialization/deserialization.
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Binary.Class.Primitive
        ( serialize
        , serializeWith
@@ -27,10 +29,13 @@ module Pos.Binary.Class.Primitive
        -- * CBOR in CBOR
        , encodeKnownCborDataItem
        , encodeUnknownCborDataItem
+       , knownCborDataItemSizeExpr
+       , unknownCborDataItemSizeExpr
        , decodeKnownCborDataItem
        , decodeUnknownCborDataItem
        -- * Cyclic redundancy check
        , encodeCrcProtected
+       , encodedCrcProtectedSizeExpr
        , decodeCrcProtected
        ) where
 
@@ -42,17 +47,25 @@ import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString as BS
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder.Extra as Builder
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.Digest.CRC32 (CRC32 (..))
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Typeable (typeOf)
-import           Formatting (sformat, shown, (%))
+import           Formatting (formatToString, sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base64 (base64F)
+import qualified Serokell.Util.Base64 as B64
+import           Text.JSON.Canonical (FromJSON (..), JSValue (..),
+                     ReportSchemaErrors, ToJSON (..))
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError)
+import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
+                     enforceSize, toCborError, withWordSize)
+import           Pos.Util.Json.Parse (tryParseString)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -187,6 +200,22 @@ newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
     } deriving (Show, Eq, Ord, Hashable, NFData)
 
+instance SafeCopy (AsBinary a) where
+    getCopy = contain $ AsBinary <$> safeGet
+    putCopy = contain . safePut . getAsBinary
+
+instance Monad m => ToJSON m (AsBinary smth) where
+    toJSON = pure . JSString . formatToString base64F . getAsBinary
+
+instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
+    fromJSON = fmap AsBinary . tryParseString B64.decode
+
+instance Aeson.ToJSON (AsBinary w) where
+    toJSON = Aeson.toJSON . B64.JsonByteString . getAsBinary
+
+instance Aeson.FromJSON (AsBinary w) where
+    parseJSON v = AsBinary . B64.getJsonByteString <$> Aeson.parseJSON v
+
 -- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where
     asBinary :: a -> AsBinary a
@@ -214,6 +243,12 @@ encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize
 -- indeed to valid, previously-serialised CBOR data.
 encodeUnknownCborDataItem :: BSL.ByteString -> E.Encoding
 encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
+
+knownCborDataItemSizeExpr :: Size -> Size
+knownCborDataItemSizeExpr x = 2 + apMono "withWordSize" withWordSize x + x
+
+unknownCborDataItemSizeExpr :: Size -> Size
+unknownCborDataItemSizeExpr x = 2 + apMono "withWordSize" withWordSize x + x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.
@@ -250,6 +285,11 @@ encodeCrcProtected x =
     E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
     body = serialize x
+
+encodedCrcProtectedSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
+encodedCrcProtectedSizeExpr size pxy =
+    2 + unknownCborDataItemSizeExpr (size pxy)
+      + size (pure $ crc32 (serialize (error "unused" :: a)))
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a

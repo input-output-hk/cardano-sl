@@ -12,19 +12,23 @@ module Pos.Logic.Types
 
 import           Universum
 
+import           Data.Conduit (ConduitT, transPipe)
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
 
-import           Pos.Block.Logic (GetHashesRangeError, GetHeadersFromManyToError)
-import           Pos.Communication (NodeId, TxMsgContents)
-import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Core.Txp (TxId)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
+import           Pos.Chain.Security (SecurityParams (..))
+import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
+                     MCVssCertificate)
+import           Pos.Communication (NodeId)
+import           Pos.Core (StakeholderId)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Txp (TxId, TxMsgContents)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
+                     UpdateVote, VoteId)
+import           Pos.DB.Block (GetHashesRangeError, GetHeadersFromManyToError)
 import           Pos.DB.Class (SerializedBlock)
-import           Pos.Security.Params (SecurityParams (..))
-import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
@@ -33,6 +37,7 @@ data Logic m = Logic
       ourStakeholderId   :: StakeholderId
       -- | Get serialized block, perhaps from a database.
     , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+    , streamBlocks       :: HeaderHash -> ConduitT () SerializedBlock m ()
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
@@ -48,12 +53,12 @@ data Logic m = Logic
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
                          -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-      -- | Compute LCA with the main chain.
-      -- FIXME rename.
-      -- In fact, it computes the suffix of the input list such that all of them
-      -- are not in the current main chain (hazards w.r.t. DB consistency
-      -- obviously in play depending on the implementation...).
-    , getLcaMainChain    :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+      -- | Compute LCA with the main chain: the first component are those hashes
+      -- which are in the main chain, second is those which are not.
+      -- Input is assumed to be a valid chain: if some element is not in the
+      -- chain, then none of the later elements are.
+    , getLcaMainChain    :: OldestFirst [] HeaderHash
+                         -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
       -- | Cheaper version of 'headerHash <$> getTip'.
@@ -96,9 +101,15 @@ data Logic m = Logic
     , securityParams     :: SecurityParams
     }
 
-hoistLogic :: (forall x . m x -> n x) -> Logic m -> Logic n
+-- | The Monad constraint arises due to `transPipe` from Conduit.
+--   The transformation function `foo :: (forall x. m x -> n x)` must be a
+--   *monad morphism* and not just any natural transformation. This means,
+--   roughly, that `foo a >> foo b` should behave the same as `foo (a >> b)`.
+--   `foo = flip evalState 1`, for example, does not satisfy this requirement.
+hoistLogic :: Monad m => (forall x . m x -> n x) -> Logic m -> Logic n
 hoistLogic nat logic = logic
     { getSerializedBlock = nat . getSerializedBlock logic
+    , streamBlocks = transPipe nat . streamBlocks logic
     , getBlockHeader = nat . getBlockHeader logic
     , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
@@ -172,13 +183,14 @@ dummyKeyVal = KeyVal
     }
 
 -- | A diffusion layer that does nothing, and probably crashes the program.
-dummyLogic :: Applicative m => Logic m
+dummyLogic :: Monad m => Logic m
 dummyLogic = Logic
     { ourStakeholderId   = error "dummy: no stakeholder id"
     , getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
+    , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
-    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+    , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])
     , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
     , getTip             = pure (error "dummy: can't get tip")
     , getTipHeader       = pure (error "dummy: can't get tip header")

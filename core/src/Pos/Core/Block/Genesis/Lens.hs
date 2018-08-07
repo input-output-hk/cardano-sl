@@ -40,13 +40,15 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
-import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
-                                            gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisBodyAttributes,
-                                               GenesisConsensusData (..), GenesisExtraBodyData (..),
-                                               GenesisExtraHeaderData (..), GenesisHeaderAttributes,
-                                               GenesisProof (..))
-import           Pos.Core.Block.Union.Types (GenesisBlock, GenesisBlockHeader, HeaderHash)
+import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader,
+                     gbPrevBlock, gbhBodyProof, gbhConsensus, gbhExtra,
+                     gbhPrevBlock)
+import           Pos.Core.Block.Genesis.Types (GenesisBody (..),
+                     GenesisBodyAttributes, GenesisExtraBodyData (..),
+                     GenesisExtraHeaderData (..), GenesisHeaderAttributes,
+                     GenesisProof (..), gcdDifficulty, gcdEpoch)
+import           Pos.Core.Block.Union.Types (GenesisBlock, GenesisBlockHeader,
+                     HeaderHash)
 import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex (..))
 
@@ -60,8 +62,6 @@ makeLenses ''GenesisExtraBodyData
 ----------------------------------------------------------------------------
 -- ConsensusData
 ----------------------------------------------------------------------------
-
-makeLenses 'GenesisConsensusData
 
 ----------------------------------------------------------------------------
 -- GenesisBlockHeader

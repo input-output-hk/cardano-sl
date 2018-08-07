@@ -41,10 +41,12 @@ import           Numeric.Half (Half (..))
 import qualified Numeric.Half as Half
 import           System.IO.Unsafe (unsafeDupablePerformIO)
 
-import           Test.QuickCheck.Arbitrary (Arbitrary (..), arbitraryBoundedIntegral)
-import           Test.QuickCheck.Gen (Gen, choose, elements, frequency, oneof, resize, sized,
-                                      suchThat, vectorOf)
-import           Test.QuickCheck.Property (Property, conjoin, property, (.&&.), (===))
+import           Test.QuickCheck.Arbitrary (Arbitrary (..),
+                     arbitraryBoundedIntegral)
+import           Test.QuickCheck.Gen (Gen, choose, elements, frequency, oneof,
+                     resize, sized, suchThat, vectorOf)
+import           Test.QuickCheck.Property (Property, conjoin, property, (.&&.),
+                     (===))
 
 serialise :: Term -> LBS.ByteString
 serialise = LBS.pack . encodeTerm

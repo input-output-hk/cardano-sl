@@ -6,10 +6,11 @@ module Pos.Core.Ssc.Proof
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Fmt (genericF)
+import qualified Formatting.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi, Cons (..), Field (..), deriveIndexedBi)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (Hash, hash)
 
@@ -20,6 +21,7 @@ import           Pos.Core.Ssc.Payload
 import           Pos.Core.Ssc.SharesMap
 import           Pos.Core.Ssc.VssCertificate
 import           Pos.Core.Ssc.VssCertificatesMap
+import           Pos.Util.Util (cborError)
 
 -- Note: we can't use 'VssCertificatesMap', because we serialize it as
 -- a 'HashSet', but in the very first version of mainnet this map was
@@ -33,16 +35,16 @@ type VssCertificatesHash = Hash (HashMap StakeholderId VssCertificate)
 -- | Proof that SSC payload is correct (it's included into block header)
 data SscProof
     = CommitmentsProof
-        { sprComms :: !(Hash CommitmentsMap)
-        , sprVss   :: !VssCertificatesHash }
+        !(Hash CommitmentsMap)
+        !VssCertificatesHash
     | OpeningsProof
-        { sprOpenings :: !(Hash OpeningsMap)
-        , sprVss      :: !VssCertificatesHash }
+        !(Hash OpeningsMap)
+        !VssCertificatesHash
     | SharesProof
-        { sprShares :: !(Hash SharesMap)
-        , sprVss    :: !VssCertificatesHash }
+        !(Hash SharesMap)
+        !VssCertificatesHash
     | CertificatesProof
-        { sprVss    :: !VssCertificatesHash }
+        !VssCertificatesHash
     deriving (Eq, Show, Generic)
 
 instance Buildable SscProof where
@@ -52,8 +54,7 @@ instance NFData SscProof
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.
 mkSscProof
-    :: ( Bi CommitmentsMap
-       , Bi Opening
+    :: ( Bi Opening
        , Bi VssCertificate
        ) => SscPayload -> SscProof
 mkSscProof payload =
@@ -69,3 +70,21 @@ mkSscProof payload =
   where
     proof constr hm (getVssCertificatesMap -> certs) =
         constr (hash hm) (hash certs)
+
+-- TH-generated instances go to the end of the file
+
+deriveIndexedBi ''SscProof [
+    Cons 'CommitmentsProof [
+        Field [| 0 :: Hash CommitmentsMap |],
+        Field [| 1 :: VssCertificatesHash |] ],
+    Cons 'OpeningsProof [
+        Field [| 0 :: Hash OpeningsMap    |],
+        Field [| 1 :: VssCertificatesHash |] ],
+    Cons 'SharesProof [
+        Field [| 0 :: Hash SharesMap      |],
+        Field [| 1 :: VssCertificatesHash |] ],
+    Cons 'CertificatesProof [
+        Field [| 0 :: VssCertificatesHash |] ]
+    ]
+
+deriveSafeCopySimple 0 'base ''SscProof

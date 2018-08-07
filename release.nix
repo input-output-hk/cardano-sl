@@ -37,7 +37,9 @@ let
     cardano-sl-tools = supportedSystems;
     cardano-sl-wallet = supportedSystems;
     cardano-sl-wallet-new = supportedSystems;
+    all-cardano-sl = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
+    cardano-sl-explorer-frontend = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
     stack2nix = supportedSystems;
     purescript = supportedSystems;
@@ -48,6 +50,8 @@ let
     connectScripts.mainnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.explorer = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.testnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
   };
   mapped = mapTestOn platforms;
   mapped' = mapTestOn platforms';
@@ -56,9 +60,7 @@ let
     inherit (mapped'.connectScripts."${cluster}") wallet explorer;
   };
   nixosTests = import ./nixos-tests;
-  shellcheckTests = iohkPkgs.shellcheckTests;
-  swaggerSchemaValidation = iohkPkgs.swaggerSchemaValidation;
-  walletIntegrationTests = iohkPkgs.buildWalletIntegrationTests;
+  tests = iohkPkgs.tests;
   makeRelease = cluster: {
     name = cluster;
     value = {
@@ -67,7 +69,7 @@ let
     };
   };
 in mapped // {
-  inherit walletIntegrationTests swaggerSchemaValidation shellcheckTests;
+  inherit tests;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out

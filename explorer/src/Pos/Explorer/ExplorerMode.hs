@@ -19,42 +19,44 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))
 
-import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
+import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary,
+                     forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
-import           Pos.Block.Slog (mkSlogGState)
 import           Pos.Core (SlotId, Timestamp (..), epochSlots)
+import           Pos.Core.Conc (currentTime)
 import           Pos.DB (MonadGState (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Block (mkSlogGState)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
+import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
+import           Pos.DB.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
+                     TxpHolderTag, mkTxpLocalData)
 import qualified Pos.GState as GS
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
+                     MonadSlotsData, SimpleSlottingStateVar,
+                     mkSimpleSlottingStateVar)
 import qualified Pos.Infra.Slotting as Slot
-import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
-import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
-                          mkTxpLocalData)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.Mockable ()
 import           Pos.Util.Util (HasLens (..))
 
-import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
-                                            HasGenesisRedeemAddressInfo, makeExtraCtx,
-                                            runExtraContextT)
+import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
+                     HasExplorerCSLInterface, HasGenesisRedeemAddressInfo,
+                     makeExtraCtx, runExtraContextT)
 import           Pos.Explorer.Socket.Holder (ConnectionsState)
 import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
--- Need Emulation because it has instance Mockable CurrentTime
-import           Mockable (Production, currentTime, runProduction)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
+                     jsonLogDefault)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                                      modifyLoggerNameDefault)
+                     modifyLoggerNameDefault)
 import           Pos.WorkMode (MinWorkMode)
 
+-- Need Emulation because it has instance Mockable CurrentTime
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
@@ -130,10 +132,10 @@ data ExplorerTestInitContext = ExplorerTestInitContext
 
 makeLensesWith postfixLFields ''ExplorerTestInitContext
 
-type ExplorerTestInitMode = ReaderT ExplorerTestInitContext Production
+type ExplorerTestInitMode = ReaderT ExplorerTestInitContext IO
 
 runTestInitMode :: ExplorerTestInitContext -> ExplorerTestInitMode a -> IO a
-runTestInitMode ctx = runProduction . usingReaderT ctx
+runTestInitMode ctx = usingReaderT ctx
 
 initExplorerTestContext
     :: (HasConfigurations, MonadIO m)

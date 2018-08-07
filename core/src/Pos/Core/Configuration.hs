@@ -26,11 +26,14 @@ import           Pos.Core.Configuration.GeneratedSecrets as E
 import           Pos.Core.Configuration.GenesisData as E
 import           Pos.Core.Configuration.GenesisHash as E
 import           Pos.Core.Configuration.Protocol as E
-import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation, GenesisInitializer (..),
-                                   GenesisProtocolConstants (..), GenesisSpec (..),
-                                   genesisProtocolConstantsToProtocolConstants, mkGenesisDelegation)
+import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation,
+                     GenesisInitializer (..), GenesisProtocolConstants (..),
+                     GenesisSpec (..),
+                     genesisProtocolConstantsToProtocolConstants,
+                     mkGenesisDelegation)
 import           Pos.Core.Genesis.Canonical (SchemaError)
-import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
+import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..),
+                     generateGenesisData)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
@@ -76,6 +79,8 @@ withCoreConfigurations
        , MonadIO m
        )
     => CoreConfiguration
+    -> (GenesisData -> GenesisData)
+    -- ^ Update @'GenesisData'@ before passing its parts to @'given'@.
     -> FilePath
     -- ^ Directory where 'configuration.yaml' is stored.
     -> Maybe Timestamp
@@ -86,7 +91,7 @@ withCoreConfigurations
     -- provided.
     -> (HasConfiguration => ProtocolMagic -> m r)
     -> m r
-withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act = case ccGenesis of
+withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed act = case ccGenesis of
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.
@@ -103,7 +108,7 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         theGenesisData <- case Canonical.fromJSON gdataJSON of
             Left err -> throwM $ GenesisDataSchemaError err
-            Right it -> return it
+            Right it -> return $ fn it
 
         let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
             pc = genesisProtocolConstantsToProtocolConstants (gdProtocolConsts theGenesisData)
@@ -141,14 +146,15 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
-        withGenesisSpec theSystemStart theConf act
+        withGenesisSpec theSystemStart theConf fn act
 
 withGenesisSpec
     :: Timestamp
     -> CoreConfiguration
+    -> (GenesisData -> GenesisData)
     -> (HasConfiguration => ProtocolMagic -> r)
     -> r
-withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
+withGenesisSpec theSystemStart conf@CoreConfiguration{..} fn val = case ccGenesis of
     GCSrc {} -> error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
         withProtocolConstants pc $
@@ -165,7 +171,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                     (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
 
                 -- Construct the final value
-                theGenesisData =
+                theGenesisData = fn $
                    GenesisData
                       { gdBootStakeholders = ggdBootStakeholders
                       , gdHeavyDelegation  = finalHeavyDelegation

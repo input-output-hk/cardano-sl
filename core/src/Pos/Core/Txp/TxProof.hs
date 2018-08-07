@@ -5,12 +5,13 @@ module Pos.Core.Txp.TxProof
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Fmt (genericF)
+import qualified Formatting.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Core.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 import           Pos.Crypto (Hash, hash)
-import           Pos.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Core.Txp.Tx
 import           Pos.Core.Txp.TxPayload
@@ -25,15 +26,28 @@ data TxProof = TxProof
 instance Buildable TxProof where
     build = genericF
 
+instance Bi TxProof where
+    encode proof =  encodeListLen 3
+                 <> encode (txpNumber proof)
+                 <> encode (txpRoot proof)
+                 <> encode (txpWitnessesHash proof)
+    decode = do
+        enforceSize "TxProof" 3
+        TxProof <$> decode <*>
+                    decode <*>
+                    decode
+
 instance NFData TxProof
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 -- This will construct a merkle tree, which can be very expensive. Use with
 -- care. Bi constraints arise because we need to hash these things.
-mkTxProof :: (Bi Tx,  Bi TxInWitness) => TxPayload -> TxProof
+mkTxProof :: Bi TxInWitness => TxPayload -> TxProof
 mkTxProof UnsafeTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)
     , txpRoot = mtRoot (mkMerkleTree _txpTxs)
     , txpWitnessesHash = hash _txpWitnesses
     }
+
+deriveSafeCopySimple 0 'base ''TxProof

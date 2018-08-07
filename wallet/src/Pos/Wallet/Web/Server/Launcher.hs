@@ -28,20 +28,22 @@ import qualified Data.ByteString.Char8 as BS8
 
 import           Ntp.Client (NtpStatus)
 
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
-import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode, MonadWalletWebMode,
-                                      MonadWalletWebSockets)
+import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode,
+                     MonadWalletWebMode, MonadWalletWebSockets)
 import           Pos.Wallet.Web.Server.Handlers (servantHandlersWithSwagger)
-import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections, getWalletWebSockets,
-                                         initWSConnections, upgradeApplicationWS)
+import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections,
+                     getWalletWebSockets, initWSConnections,
+                     upgradeApplicationWS)
 import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWallet)
@@ -82,13 +84,14 @@ walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m, HasCompileInfo )
     => ProtocolMagic
+    -> TxpConfiguration
     -> Diffusion m
     -> TVar NtpStatus
     -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer pm diffusion ntpStatus nat = do
+walletServer pm txpConfig diffusion ntpStatus nat = do
     mapM_ (findKey >=> syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
-    return $ servantHandlersWithSwagger pm ntpStatus submitTx nat
+    return $ servantHandlersWithSwagger pm txpConfig ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.
     submitTx = sendTx diffusion

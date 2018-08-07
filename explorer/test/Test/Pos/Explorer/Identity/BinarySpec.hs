@@ -8,9 +8,10 @@ import           Universum
 
 import           Test.Hspec (Spec, describe)
 
-import           Pos.Arbitrary.Explorer ()
 import           Pos.Explorer.Core (TxExtra)
+
 import           Test.Pos.Binary.Helpers (binaryTest)
+import           Test.Pos.Explorer.Arbitrary ()
 
 spec :: Spec
 spec = describe "Explorer types" $ do

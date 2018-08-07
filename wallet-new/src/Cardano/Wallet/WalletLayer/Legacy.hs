@@ -14,14 +14,21 @@ import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
+                     CreateAccountError (..), CreateAddressError (..),
+                     CreateWalletError, DeleteAccountError, GetAccountError,
+                     GetAccountsError, PassiveWalletLayer (..),
+                     UpdateAccountError)
 
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
-import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
-                                              NewAccount (..), NewWallet (..), V1 (..), Wallet,
-                                              WalletId, WalletOperation (..), WalletUpdate)
+import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
+                     AccountUpdate, Address, BackupPhrase (..),
+                     NewAccount (..), NewAddress, NewWallet (..), V1 (..),
+                     Wallet, WalletId, WalletOperation (..), WalletUpdate)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
@@ -29,18 +36,20 @@ import           Pos.Crypto (PassPhrase)
 
 import           Pos.Util (HasLens', maybeThrow)
 import           Pos.Wallet.Web.Account (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
+import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..),
+                     CWallet (..), CWalletInit (..), CWalletMeta (..))
 import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import qualified Pos.Wallet.Web.Methods.Logic as V0
-import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWalletFromSeed)
-import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
-                                             getWalletAddresses, setWalletMeta)
+import           Pos.Wallet.Web.Methods.Restore (newWallet,
+                     restoreWalletFromSeed)
+import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB,
+                     askWalletSnapshot, getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
-import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- | Let's unify all the requirements for the legacy wallet.
@@ -78,6 +87,7 @@ bracketPassiveWallet =
         , _pwlUpdateAccount  = pwlUpdateAccount
         , _pwlDeleteAccount  = pwlDeleteAccount
 
+        , _pwlCreateAddress  = pwlCreateAddress
         , _pwlGetAddresses   = pwlGetAddresses
 
         , _pwlApplyBlocks    = pwlApplyBlocks
@@ -94,8 +104,19 @@ bracketActiveWallet
     -> (ActiveWalletLayer m -> n a) -> n a
 bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
-      (return ActiveWalletLayer{..})
+      (return activeWalletLayer)
       (\_ -> return ())
+  where
+    notUsed = "The activeWalletLayer is not used for the legacy handlers, " <>
+              "for historical reasons. However, if you wish to use it, simply " <>
+              "move the concrete implementation of your LegacyHandler(s) into " <>
+              "this function."
+    activeWalletLayer :: ActiveWalletLayer m
+    activeWalletLayer = ActiveWalletLayer {
+          walletPassiveLayer = walletPassiveLayer
+        , pay          = \_ _ _ -> error notUsed
+        , estimateFees = \_ _ _ -> error notUsed
+        }
 
 ------------------------------------------------------------
 -- Wallet
@@ -104,11 +125,10 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 pwlCreateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => NewWallet
-    -> m Wallet
+    -> m (Either CreateWalletError Wallet)
 pwlCreateWallet NewWallet{..} = do
-
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
-    let backupPhrase     = coerce newwalBackupPhrase
+    let backupPhrase     = CBackupPhrase $ unBackupPhrase newwalBackupPhrase
 
     initMeta    <- CWalletMeta  <$> pure newwalName
                                 <*> migrate newwalAssuranceLevel
@@ -121,7 +141,8 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    w <- maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    return $ Right w
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
@@ -196,7 +217,7 @@ pwlCreateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> NewAccount
-    -> m Account
+    -> m (Either CreateAccountError Account)
 pwlCreateAccount wId newAcc@NewAccount{..} = do
 
     let spendingPassword = fromMaybe mempty . fmap coerce $ naccSpendingPassword
@@ -204,51 +225,55 @@ pwlCreateAccount wId newAcc@NewAccount{..} = do
     accInit     <- migrate (wId, newAcc)
     cAccount    <- V0.newAccount RandomSeed spendingPassword accInit
 
-    migrate cAccount
+    Right <$> migrate cAccount
 
 pwlGetAccounts
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m [Account]
+    -> m (Either GetAccountsError (IxSet Account))
 pwlGetAccounts wId = do
     cWId        <- migrate wId
     cAccounts   <- V0.getAccounts $ Just cWId
-    migrate cAccounts
+    Right . IxSet.fromList <$> migrate cAccounts
 
 pwlGetAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
-    -> m (Maybe Account)
+    -> m (Either GetAccountError Account)
 pwlGetAccount wId aId = do
     accId       <- migrate (wId, aId)
     account     <- V0.getAccount accId
-    Just <$> migrate account
+    Right <$> migrate account
 
 pwlUpdateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
     -> AccountUpdate
-    -> m Account
+    -> m (Either UpdateAccountError Account)
 pwlUpdateAccount wId accIdx accUpdate = do
     newAccId    <- migrate (wId, accIdx)
     accMeta     <- migrate accUpdate
     cAccount    <- V0.updateAccount newAccId accMeta
-    migrate cAccount
+    Right <$> migrate cAccount
 
 pwlDeleteAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
-    -> m Bool
+    -> m (Either DeleteAccountError ())
 pwlDeleteAccount wId accIdx = do
     accId <- migrate (wId, accIdx)
-    catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
+    _ <- catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
+    return $ Right ()
 
 ------------------------------------------------------------
 -- Address
 ------------------------------------------------------------
+
+pwlCreateAddress :: NewAddress -> m (Either CreateAddressError Address)
+pwlCreateAddress = error "Not implemented!"
 
 pwlGetAddresses :: WalletId -> m [Address]
 pwlGetAddresses = error "Not implemented!"

@@ -3,8 +3,8 @@
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Cardano.Wallet.API.V1.Migration.Types (
-      Migrate(..)
+module Cardano.Wallet.API.V1.Migration.Types
+    ( Migrate(..)
     , migrate
     ) where
 
@@ -21,13 +21,14 @@ import           Formatting (sformat)
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Pos.Chain.Txp as V0
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
-import qualified Pos.Core.Txp as Core
+import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
-import qualified Pos.Txp.Toil.Types as V0
+import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -121,7 +122,11 @@ instance Migrate V0.CCoin (V1 Core.Coin) where
 instance Migrate (V1 Core.Coin) V0.CCoin where
     eitherMigrate (V1 c) = pure (V0.encodeCType c)
 
---
+instance (n ~ m, n ~ 12)
+    => Migrate (Mnemonic n) (V0.CBackupPhrase m) where
+    eitherMigrate =
+        Right . V0.CBackupPhrase
+
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
 
@@ -241,7 +246,7 @@ instance Migrate (V0.CId V0.Addr, Core.Coin) V1.PaymentDistribution where
         pdAddress <- eitherMigrate cIdAddr
         pure $ V1.PaymentDistribution pdAddress (V1 coin)
 
-instance Migrate V0.CTxId (V1 Core.TxId) where
+instance Migrate V0.CTxId (V1 Txp.TxId) where
     eitherMigrate (V0.CTxId (V0.CHash h)) =
         let err = Left . Errors.MigrationFailed . mappend "Error migrating a TxId: "
         in either err (pure . V1) (decodeHash h)
@@ -285,7 +290,7 @@ instance Migrate V0.CPtxCondition V1.TransactionStatus where
             V1.Persisted
 
 -- | The migration instance for migrating history to a list of transactions
-instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where
+instance Migrate (Map Txp.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where
     eitherMigrate txsMap = mapM (eitherMigrate . fst) (elems txsMap)
 
 instance Migrate (V1 V0.InputSelectionPolicy) V0.InputSelectionPolicy where

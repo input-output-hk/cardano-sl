@@ -12,45 +12,51 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
-                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
-                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
-                           unsafeCoinPortionFromDouble)
-import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
-                                 MainBlockHeader, MainBlockchain, MainBody (..),
-                                 MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..))
+import           Pos.Chain.Txp (emptyTxPayload)
+import           Pos.Core (StakeholderId, TxFeePolicy (..),
+                     unsafeCoinPortionFromDouble)
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Core.Block (Block, BlockHeader (..), BlockHeaderAttributes,
+                     BlockSignature (..), ExtraBodyData, ExtraHeaderData,
+                     GenericBlock (..), GenericBlockHeader (..), HeaderHash,
+                     MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),
+                     MainConsensusData (..), MainExtraBodyData (..),
+                     MainExtraHeaderData (..), MainProof (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
-import           Pos.Core.Ssc (SscPayload (..), SscProof (..), VssCertificatesMap (..))
+import           Pos.Core.Merkle (MerkleRoot (..))
+import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
+                     SlotId (..))
+import           Pos.Core.Ssc (SscPayload (..), SscProof (..),
+                     VssCertificatesMap (..))
 import           Pos.Core.Txp (TxProof (..))
-import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..), UpdatePayload (..), UpdateProof)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
-                                     deterministicKeyGen, signRaw)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
-import           Pos.Merkle (MerkleRoot (..))
-import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
+import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
+                     Signature (..), deterministicKeyGen, signRaw)
+import           Pos.DB.Class (Serialized (..), SerializedBlock)
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
 -- | Serves up a single (invalid but well-formed) block and block header for
 -- any request.
 pureLogic
-    :: ( Applicative m )
+    :: ( Monad m )
     => Logic m
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
     , getSerializedBlock = \_ -> pure (Just serializedBlock)
+    , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+      -- This definition of getLcaMainChain decides that all of the input
+      -- hashes are *not* in the chain.
+    , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
@@ -150,10 +156,10 @@ blockBody = MainBody
 -- the fewest fields...
 emptySscPayload :: SscPayload
 emptySscPayload = CertificatesPayload
-    { spVss = UnsafeVssCertificatesMap
+    (UnsafeVssCertificatesMap
           { getVssCertificatesMap = mempty
           }
-    }
+    )
 
 emptyDlgPayload :: DlgPayload
 emptyDlgPayload = UnsafeDlgPayload
@@ -206,8 +212,7 @@ txProof = TxProof
 
 sscProof :: SscProof
 sscProof = CertificatesProof
-    { sprVss = unsafeMkAbstractHash mempty
-    }
+    (unsafeMkAbstractHash mempty)
 
 dlgProof :: Hash DlgPayload
 dlgProof = unsafeMkAbstractHash mempty

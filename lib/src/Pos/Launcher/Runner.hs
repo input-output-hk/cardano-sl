@@ -19,33 +19,42 @@ import           Universum
 import           Control.Concurrent.Async (race)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
-import           JsonLog (jsonLog)
-import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
 
 import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
-import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
+import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
+                     streamWindow)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration,
+                     lastKnownBlockVersion)
+import           Pos.Configuration (HasNodeConfiguration,
+                     networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
-import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
+import           Pos.Core.Configuration (HasProtocolConstants,
+                     protocolConstants)
+import           Pos.Core.JsonLog (jsonLog)
 import           Pos.Crypto (ProtocolMagic, toPublic)
-import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
-import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..), hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
-import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
+import           Pos.DB.Txp (MonadTxpLocal)
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
+                     diffusionLayerFull)
+import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..),
+                     hoistDiffusion)
+import           Pos.Infra.Network.Types (NetworkConfig (..),
+                     topologyRoute53HealthCheckEnabled)
+import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
+                     registerEkgMetrics, withEkgServer)
 import           Pos.Infra.Reporting.Statsd (withStatsd)
 import           Pos.Infra.Shutdown (ShutdownContext, waitForShutdown)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
+                     NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Logic.Full (logicFull)
 import           Pos.Logic.Types (Logic, hoistLogic)
-import           Pos.Recovery.Instance ()
-import           Pos.Reporting.Production (ProductionReporterParams (..), productionReporter)
-import           Pos.Txp (MonadTxpLocal)
-import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Reporting.Production (ProductionReporterParams (..),
+                     productionReporter)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
@@ -68,10 +77,11 @@ runRealMode
        -- though they should use only @RealModeContext@
        )
     => ProtocolMagic
+    -> TxpConfiguration
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode pm nr@NodeResources {..} act = runServer
+runRealMode pm txpConfig nr@NodeResources {..} act = runServer
     pm
     ncNodeParams
     (EkgNodeMetrics nrEkgStore)
@@ -85,16 +95,16 @@ runRealMode pm nr@NodeResources {..} act = runServer
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull pm ourStakeholderId securityParams jsonLog
+    logic = logicFull pm txpConfig ourStakeholderId securityParams jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO diffusion
+        let diffusion' = hoistDiffusion liftIO (elimRealMode pm nr diffusion) diffusion
          in elimRealMode pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
--- resources provided to eliminate the RealMode, yielding a Production (IO).
+-- resources provided to eliminate the RealMode, yielding an IO.
 elimRealMode
     :: forall t ext
      . HasCompileInfo
@@ -103,7 +113,7 @@ elimRealMode
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode pm NodeResources {..} diffusion action = runProduction $ do
+elimRealMode pm NodeResources {..} diffusion action = do
     Mtl.runReaderT action (rmc nrJsonLogConfig)
   where
     NodeContext {..} = nrContext
@@ -170,6 +180,7 @@ runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShut
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
         , fdcTrace = wlogTrace "diffusion"
+        , fdcStreamWindow = streamWindow
         }
     exitOnShutdown action = do
         _ <- race (waitForShutdown shdnContext) action

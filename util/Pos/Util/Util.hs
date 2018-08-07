@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE PolyKinds     #-}
 {-# LANGUAGE RankNTypes    #-}
@@ -73,6 +74,8 @@ module Pos.Util.Util
        , tMeasureLog
        , tMeasureIO
        , timed
+
+       , realTime
        ) where
 
 import           Universum
@@ -93,9 +96,10 @@ import qualified Data.Map as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
-import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
-import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import           Data.Time.Units (Microsecond, toMicroseconds, fromMicroseconds)
+import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
+                     getCurrentTime)
+import           Data.Time.Clock.POSIX (getPOSIXTime, posixSecondsToUTCTime)
+import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
@@ -104,7 +108,8 @@ import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, usingLoggerName)
+import           System.Wlog (LoggerName, WithLogger, logDebug, logError,
+                     logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
@@ -241,7 +246,11 @@ instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
 ----------------------------------------------------------------------------
 
 newtype MinMax a = MinMax (Smg.Option (Smg.Min a, Smg.Max a))
-    deriving (Monoid)
+#if MIN_VERSION_base(4,9,0)
+  deriving (Smg.Semigroup, Monoid)
+#else
+  deriving (Monoid)
+#endif
 
 _MinMax :: Iso' (MinMax a) (Maybe (a, a))
 _MinMax = coerced
@@ -452,3 +461,7 @@ tMeasure logAction label action = do
     let d2 = d0 `mod` 10
     logAction $ "tMeasure " <> label <> ": " <> show d1 <> "." <> show d2 <> "ms"
     pure (x, fromMicroseconds (round $ 1000000 * toRational diff))
+
+{-# INLINE realTime #-}
+realTime :: MonadIO m => m Microsecond
+realTime = liftIO $ round . (* 1000000) <$> getPOSIXTime

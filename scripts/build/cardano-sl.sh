@@ -41,7 +41,7 @@ set -o pipefail
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
 # Note: this list should be topologically sorted.
-projects="networking binary util crypto core db lrc infra ssc txp update delegation block lib node client generator auxx tools explorer wallet wallet-new"
+projects="networking binary util crypto core db chain infra lib node client generator auxx tools explorer wallet wallet-new"
 
 # Returns name of a stack project to build, given the alias.
 function pkgNameToProject {

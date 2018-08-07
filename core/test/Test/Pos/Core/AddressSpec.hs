@@ -11,16 +11,18 @@ import           Formatting (formatToString, int, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Test.Hspec (Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll, frequency, vectorOf)
+import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll,
+                     frequency, vectorOf)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair,
-                           largestHDAddressBoot, largestPubKeyAddressBoot,
-                           largestPubKeyAddressSingleKey, makePubKeyAddress, makePubKeyAddressBoot,
-                           makePubKeyHdwAddress)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, SecretKey (..),
-                             ShouldCheckPassphrase (..), deterministicKeyGen, emptyPassphrase,
-                             mkEncSecretUnsafe, noPassEncrypt, toPublic)
+                     largestHDAddressBoot, largestPubKeyAddressBoot,
+                     largestPubKeyAddressSingleKey, makePubKeyAddress,
+                     makePubKeyAddressBoot, makePubKeyHdwAddress)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+                     SecretKey (..), ShouldCheckPassphrase (..),
+                     deterministicKeyGen, emptyPassphrase, mkEncSecretUnsafe,
+                     noPassEncrypt, toPublic)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 
 import           Test.Pos.Core.Arbitrary ()

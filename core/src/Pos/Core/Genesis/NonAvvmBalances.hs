@@ -5,14 +5,22 @@ module Pos.Core.Genesis.NonAvvmBalances
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util (mapJson)
+import           Data.Semigroup ()
 
-import           Pos.Core.Common (Address, Coin, decodeTextAddress, unsafeAddCoin,
-                                  unsafeIntegerToCoin)
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
+import qualified Data.HashMap.Strict as HM
+import           Formatting (bprint, (%))
+import qualified Formatting.Buildable as Buildable
+import           Serokell.Util (mapJson)
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
+
+import           Pos.Core.Common (Address, Coin, decodeTextAddress,
+                     unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
+import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Util (toAesonError)
+
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
@@ -24,7 +32,25 @@ instance (Hashable Address) =>
     build (GenesisNonAvvmBalances m) =
         bprint ("GenesisNonAvvmBalances: " %mapJson) m
 
+deriving instance Hashable Address => Semigroup GenesisNonAvvmBalances
 deriving instance Hashable Address => Monoid GenesisNonAvvmBalances
+
+instance Monad m => ToJSON m GenesisNonAvvmBalances where
+    toJSON = toJSON . getGenesisNonAvvmBalances
+
+instance ReportSchemaErrors m => FromJSON m GenesisNonAvvmBalances where
+    fromJSON = fmap GenesisNonAvvmBalances . fromJSON
+
+instance Aeson.ToJSON GenesisNonAvvmBalances where
+    toJSON = Aeson.toJSON . convert . getGenesisNonAvvmBalances
+      where
+        convert :: HashMap Address Coin -> HashMap Text Integer
+        convert = HM.fromList . map f . HM.toList
+        f :: (Address, Coin) -> (Text, Integer)
+        f = bimap pretty (toInteger . unsafeGetCoin)
+
+instance Aeson.FromJSON GenesisNonAvvmBalances where
+    parseJSON = toAesonError . convertNonAvvmDataToBalances <=< Aeson.parseJSON
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in

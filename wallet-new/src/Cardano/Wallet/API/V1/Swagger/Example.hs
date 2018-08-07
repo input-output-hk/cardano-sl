@@ -2,18 +2,18 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
-
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Data.Default (Default (def))
 import           Node (NodeId (..))
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
+
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 
 import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
@@ -30,6 +30,9 @@ instance Example a => Example (NonEmpty a)
 -- NOTE: we don't want to see empty list examples in our swagger doc :)
 instance Example a => Example [a] where
     example = listOf1 example
+
+instance (IxSet.Indexable a, Example a) => Example (IxSet.IxSet a) where
+    example = IxSet.fromList <$> listOf1 example
 
 -- NOTE: we don't want to see "null" examples in our swagger doc :)
 instance Example a => Example (Maybe a) where
@@ -66,13 +69,12 @@ instance Example (V1 Address) where
                     ]
 
 instance Example BackupPhrase where
-    example = pure def
+    example = pure (BackupPhrase def)
 
 instance Example Address
 instance Example Metadata
 instance Example AccountIndex
 instance Example WalletId
-instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
 instance Example SyncPercentage
 instance Example BlockchainHeight

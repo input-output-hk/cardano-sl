@@ -7,12 +7,14 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, throwError)
 import           Data.Default (Default (def))
-import qualified Data.Text.Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
+import qualified Formatting.Buildable
 import           Serokell.Util (allDistinct, listJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), validateProxySecretKey)
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..),
+                     validateProxySecretKey)
 
 import           Pos.Core.Delegation.HeavyDlgIndex
 
@@ -31,8 +33,12 @@ instance Buildable DlgPayload where
             ("proxy signing keys ("%int%" items): "%listJson%"\n")
             (length psks) psks
 
-checkDlgPayload ::
-       (MonadError Text m, Bi HeavyDlgIndex)
+instance Bi DlgPayload where
+    encode = encode . getDlgPayload
+    decode = UnsafeDlgPayload <$> decode
+
+checkDlgPayload
+    :: MonadError Text m
     => ProtocolMagic
     -> DlgPayload
     -> m ()
@@ -40,3 +46,5 @@ checkDlgPayload protocolMagic (UnsafeDlgPayload proxySKs) = do
     unless (allDistinct $ map pskIssuerPk proxySKs) $
         throwError "Some of block's PSKs have the same issuer, which is prohibited"
     forM_ proxySKs (validateProxySecretKey protocolMagic)
+
+deriveSafeCopySimple 0 'base ''DlgPayload

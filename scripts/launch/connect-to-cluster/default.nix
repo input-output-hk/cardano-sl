@@ -7,16 +7,18 @@
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
-, walletListen ? "127.0.0.1:8090"
-, walletDocListen ? "127.0.0.1:8091"
-, ekgListen ? "127.0.0.1:8000"
+, walletListen ? "localhost:8090"
+, walletDocListen ? "localhost:8091"
+, ekgListen ? "localhost:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
+, confFile ? null
 , confKey ? null
 , relays ? null
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
+, useStackBinaries ? false
 }:
 
 with localLib;
@@ -37,17 +39,22 @@ let
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
     };
+    testnet = {
+      relays = "relays.cardano-testnet.iohkdev.io";
+      confKey = "testnet_full";
+    };
     demo = {
       confKey = "dev";
       relays = "127.0.0.1";
     };
     override = {
-      inherit relays confKey;
+      inherit relays confKey confFile;
     };
   };
   executables =  {
-    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
+    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
+    explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
+    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
   iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };
@@ -58,15 +65,12 @@ let
       valency: 1
       fallbacks: 7
   '';
-  configFiles = pkgs.runCommand "cardano-config" {} ''
-    mkdir -pv $out
-    cd $out
-    cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.srcroot + "/log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
-    cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
-  '';
+  configFiles = iohkPkgs.cardano-sl-config;
+  configurationArgs = pkgs.lib.concatStringsSep " " [
+    "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
+    "--configuration-key ${environments.${environment}.confKey}"
+  ];
+
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   #!${pkgs.stdenv.shell} -e
 
@@ -81,33 +85,29 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   else
     RUNTIME_ARGS=""
   fi
-  export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
 
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs
 
   echo "Launching a node connected to '${environment}' ..."
   ${ifWallet ''
-  export LC_ALL=en_GB.UTF-8
-  export LANG=en_GB.UTF-8
+  ${utf8LocaleSetting}
   if [ ! -d ${stateDir}/tls ]; then
     mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
-    ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
+    ${executables.x509gen}                                     \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
-      --configuration-key ${environments.${environment}.confKey} \
-      --configuration-file ${configFiles}/configuration.yaml
+      ${configurationArgs}
   fi
   ''}
 
-  ${executables.${executable}}                                     \
-    --configuration-file ${configFiles}/configuration.yaml         \
-    --configuration-key ${environments.${environment}.confKey}     \
+  exec ${executables.${executable}}                                     \
+    ${configurationArgs}                                           \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
     ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
     ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
-    --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
-    --topology "${configFiles}/topology.yaml"                      \
+    --log-config ${configFiles}/log-configs/connect-to-cluster.yaml \
+    --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
@@ -120,4 +120,4 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     +RTS ${ghcRuntimeArgs} -RTS                                    \
     ${additionalNodeArgs}                                          \
     $RUNTIME_ARGS
-''
+'' // { inherit walletListen walletDocListen ekgListen; }

@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Execution mode used by blockchain generator.
 
 module Pos.Generator.Block.Mode
@@ -24,45 +22,45 @@ import           Universum
 
 import           Control.Lens (lens)
 import           Control.Lens.TH (makeLensesWith)
-import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Random.Strict (RandT)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
-import           Mockable (MonadMockable, Promise)
 import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration, HasPrimaryKey (..),
-                           SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
-                           largestPubKeyAddressBoot)
+import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
+                     SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
+                     largestPubKeyAddressBoot)
+import           Pos.Core.Exception (reportFatalError)
+import           Pos.Core.Genesis (GenesisWStakeholders (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
-import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
-                               dbPutSerBlundsSumDefault)
+import           Pos.DB.Block (MonadBListener (..), dbGetSerBlockSumDefault,
+                     dbGetSerUndoSumDefault, dbPutSerBlundsSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
-import           Pos.Exception (reportFatalError)
-import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
-                                            HasTxGenParams (..))
+import           Pos.DB.Delegation (mkDelegationVar)
+import           Pos.DB.Lrc (HasLrcContext, LrcContext (..))
+import           Pos.DB.Ssc (mkSscState)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings,
+                     TxpHolderTag, mkTxpLocalData)
+import           Pos.DB.Update (UpdateContext, mkUpdateContext)
+import           Pos.Generator.Block.Param (BlockGenParams (..),
+                     HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, currentTimeSlottingSimple)
+                     MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Lrc (HasLrcContext, LrcContext (..))
-import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings, TxpHolderTag,
-                          mkTxpLocalData)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
 
 
@@ -77,8 +75,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , MonadMockable m
-       , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        , HasConfiguration
        , HasUpdateConfiguration
        , HasSscConfiguration
@@ -142,9 +138,6 @@ type BlockGenMode ext m = ReaderT (BlockGenContext ext) m
 
 -- | Block generation mode with random
 type BlockGenRandMode ext g m = RandT g (BlockGenMode ext m)
-
-instance MonadThrow m => MonadThrow (RandT g m) where
-    throwM = lift . UnsafeExc.throwM
 
 ----------------------------------------------------------------------------
 -- Context creation

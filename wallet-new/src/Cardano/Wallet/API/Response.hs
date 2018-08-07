@@ -19,27 +19,29 @@ import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger as S
-import qualified Data.Text.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 import           GHC.Generics (Generic)
-import qualified Serokell.Aeson.Options as Serokell
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
-                                           OctetStream)
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
+                     MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
-import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
-                                                        PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Request.Pagination (Page (..),
+                     PaginationMetadata (..), PaginationParams (..),
+                     PerPage (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
-import           Cardano.Wallet.API.V1.Errors (WalletError (JSONValidationFailed))
+import           Cardano.Wallet.API.V1.Errors
+                     (WalletError (JSONValidationFailed))
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata

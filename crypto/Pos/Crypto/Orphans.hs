@@ -4,19 +4,20 @@ module Pos.Crypto.Orphans
        (
        ) where
 
-import           Prelude (show)
-import           Universum hiding (show)
+import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
+import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.SCRAPE as Scrape
 import           Crypto.Scrypt (EncryptedPass (..))
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Hashable (Hashable)
-import qualified Data.Hashable as Hashable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
+import           Pos.Binary.Class (Bi (..), Size, decodeBinary, encodeBinary,
+                     withWordSize)
 
 instance Hashable Ed25519.PublicKey
 instance Hashable Ed25519.SecretKey
@@ -25,6 +26,10 @@ instance Hashable Ed25519.Signature
 instance NFData Ed25519.PublicKey
 instance NFData Ed25519.SecretKey
 instance NFData Ed25519.Signature
+
+deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
+deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
+deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
 instance FromJSON Ed25519.PublicKey where
     parseJSON v = Ed25519.PublicKey . getJsonByteString <$> parseJSON v
@@ -41,26 +46,21 @@ instance ToJSON Ed25519.Signature where
 instance Bi Ed25519.PublicKey where
     encode (Ed25519.PublicKey k) = encode k
     decode = Ed25519.PublicKey <$> decode
+    encodedSizeExpr _ _ = bsSize 32
 
 instance Bi Ed25519.SecretKey where
     encode (Ed25519.SecretKey k) = encode k
     decode = Ed25519.SecretKey <$> decode
+    encodedSizeExpr _ _ = bsSize 64
 
 instance Bi Ed25519.Signature where
     encode (Ed25519.Signature s) = encode s
     decode = Ed25519.Signature <$> decode
+    encodedSizeExpr _ _ = bsSize 64
 
-instance Eq CC.XPub where
-    a == b = CC.unXPub a == CC.unXPub b
-
-instance Ord CC.XPub where
-    compare = comparing CC.unXPub
-
-instance Show CC.XPub where
-    show = show . CC.unXPub
-
-instance Hashable CC.XPub where
-    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
+-- Helper for encodedSizeExpr in Bi instances
+bsSize :: Int -> Size
+bsSize x = fromIntegral (x + withWordSize x)
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape
@@ -105,3 +105,13 @@ instance Bi Scrape.ParallelProofs where
 instance Bi EncryptedPass where
     encode (EncryptedPass ep) = encode ep
     decode = EncryptedPass <$> decode
+
+
+deriveSafeCopySimple 0 'base ''CC.ChainCode
+deriveSafeCopySimple 0 'base ''CC.EncryptedKey
+
+deriveSafeCopySimple 0 'base ''CC.XSignature
+deriveSafeCopySimple 0 'base ''CC.XPub
+deriveSafeCopySimple 0 'base ''CC.XPrv
+
+

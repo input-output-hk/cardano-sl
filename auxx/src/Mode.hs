@@ -26,47 +26,49 @@ import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
-import           Data.Default (def)
-import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
 
-import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
-                                        modifySecretDefault)
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Ssc (HasSscContext (..))
+import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
+                     getSecretDefault, modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo,
-                                          getOwnUtxosGenesis)
-import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
-                                         getLocalHistoryDefault, saveTxDefault)
+import           Pos.Client.Txp.Balances (MonadBalances (..),
+                     getBalanceFromUtxo, getOwnUtxosGenesis)
+import           Pos.Client.Txp.History (MonadTxHistory (..),
+                     getBlockHistoryDefault, getLocalHistoryDefault,
+                     saveTxDefault)
 import           Pos.Context (HasNodeContext (..))
-import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
-                           deriveFirstHDAddress, largestPubKeyAddressBoot,
-                           largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
+import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
+                     IsBootstrapEraAddr (..), deriveFirstHDAddress,
+                     largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
+                     makePubKeyAddress, siEpoch)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
+                     MonadReporting (..))
+import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
-import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
+import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs,
+                     gsIsBootstrapEra)
+import           Pos.DB.Block (MonadBListener (..))
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), txNormalize,
+                     txProcessTransaction, txProcessTransactionNoLock)
+import           Pos.DB.Txp.Utxo (getFilteredUtxo)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Infra.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..))
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), txNormalize,
-                          txProcessTransaction, txProcessTransactionNoLock)
-import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
-type AuxxMode = ReaderT AuxxContext Production
+type AuxxMode = ReaderT AuxxContext IO
 
 class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
 instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
@@ -199,9 +201,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance ( HasConfiguration
-         , HasTxpConfiguration
-         ) =>
+instance HasConfiguration =>
          MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -225,17 +225,15 @@ instance MonadKeys AuxxMode where
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
-instance ( HasConfiguration
-         , HasTxpConfiguration
-         ) =>
+instance HasConfiguration =>
          MonadTxpLocal AuxxMode where
-    txpNormalize = withReaderT acRealModeContext . txNormalize
-    txpProcessTx pm = withReaderT acRealModeContext . txProcessTransaction pm
+    txpNormalize pm = withReaderT acRealModeContext . txNormalize pm
+    txpProcessTx pm txpConfig = withReaderT acRealModeContext . txProcessTransaction pm txpConfig
 
-instance (HasConfigurations) =>
+instance HasConfigurations =>
          MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where
-    txpNormalize = withCompileInfo def $ txNormalize
-    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+    txpNormalize = withCompileInfo $ txNormalize
+    txpProcessTx = withCompileInfo $ txProcessTransactionNoLock
 
 -- | In order to create an 'Address' from a 'PublicKey' we need to
 -- choose suitable stake distribution. We want to pick it based on

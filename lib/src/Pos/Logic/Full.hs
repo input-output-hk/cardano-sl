@@ -9,54 +9,53 @@ module Pos.Logic.Full
 import           Universum hiding (id)
 
 import           Control.Lens (at, to)
+import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import qualified Pos.Block.Logic as Block
-import qualified Pos.Block.Network as Block
-import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..), SscTag (..),
+                     TossModifier, ldModifier, sscRunLocalQuery,
+                     tmCertificates, tmCommitments, tmOpenings, tmShares)
+import           Pos.Chain.Txp (MemPool (..), TxpConfiguration)
 import           Pos.Communication (NodeId)
-import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,
-                           ProxySKHeavy, StakeholderId, TxAux (..), addressHash, getCertId,
-                           lookupVss)
+import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
+import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Ssc (getCommitmentsMap)
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
+import           Pos.Core.Txp (TxAux (..), TxMsgContents (..))
+import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
+                     UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)
+import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
-import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..), SerializedBlock)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
+                     SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
-import           Pos.Delegation.Listeners (DlgListenerConstraint)
-import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
+import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
+                     sscProcessCommitment, sscProcessOpening, sscProcessShares)
+import           Pos.DB.Txp.MemState (getMemPool, withTxpLocalData)
+import           Pos.DB.Update (getLocalProposalNVotes, getLocalVote,
+                     isProposalNeeded, isVoteNeeded)
+import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.JsonLog.Events (JLEvent)
+import           Pos.Listener.Delegation (DlgListenerConstraint)
+import qualified Pos.Listener.Delegation as Delegation (handlePsk)
+import           Pos.Listener.Txp (TxpMode)
+import qualified Pos.Listener.Txp as Txp (handleTxDo)
+import           Pos.Listener.Update (UpdateMode, handleProposal, handleVote)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
+import qualified Pos.Network.Block.Logic as Block
+import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Security.Util (shouldIgnorePkAddress)
-import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate, sscProcessCommitment,
-                                sscProcessOpening, sscProcessShares)
-import           Pos.Ssc.Mem (sscRunLocalQuery)
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..))
-import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmCommitments, tmOpenings,
-                               tmShares)
-import           Pos.Ssc.Types (ldModifier)
-import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (getMemPool, withTxpLocalData)
-import           Pos.Txp.Network.Listeners (TxpMode)
-import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
-import           Pos.Txp.Network.Types (TxMsgContents (..))
-import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLocalVote,
-                                                   isProposalNeeded, isVoteNeeded)
-import           Pos.Update.Mode (UpdateMode)
-import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
@@ -82,7 +81,7 @@ type LogicWorkMode ctx m =
     , MonadBlockDBRead m
     , MonadDBRead m
     , MonadGState m
-    , MonadRecoveryInfo m
+    , MonadRecoveryInfo ctx m
     , MonadSlots ctx m
     , HasLens RecoveryHeaderTag ctx RecoveryHeader
     , BlockWorkMode ctx m
@@ -97,14 +96,18 @@ logicFull
     :: forall ctx m .
        ( LogicWorkMode ctx m )
     => ProtocolMagic
+    -> TxpConfiguration
     -> StakeholderId
     -> SecurityParams
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull pm ourStakeholderId securityParams jsonLogTx =
+logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
+
+        streamBlocks :: HeaderHash -> ConduitT () SerializedBlock m ()
+        streamBlocks = Block.streamBlocks DB.dbGetSerBlock Block.resolveForwardLink
 
         getTip :: m Block
         getTip = DB.getTipBlock
@@ -135,7 +138,9 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             -> m (Either Block.GetHeadersFromManyToError (NewestFirst NE BlockHeader))
         getBlockHeaders = Block.getHeadersFromManyTo
 
-        getLcaMainChain :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+        getLcaMainChain
+            :: OldestFirst [] HeaderHash
+            -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
         getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()
@@ -148,23 +153,23 @@ logicFull pm ourStakeholderId securityParams jsonLogTx =
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm txpConfig jsonLogTx txAux
             }
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
-            , handleInv = Update.isProposalNeeded . unTagged
-            , handleReq = Update.getLocalProposalNVotes . unTagged
-            , handleData = Update.handleProposal pm
+            , handleInv = isProposalNeeded . unTagged
+            , handleReq = getLocalProposalNVotes . unTagged
+            , handleData = handleProposal pm
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
 
         postVote = KeyVal
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
-            , handleInv = \(Tagged (id, pk, dec)) -> Update.isVoteNeeded id pk dec
-            , handleReq = \(Tagged (id, pk, dec)) -> Update.getLocalVote id pk dec
-            , handleData = Update.handleVote pm
+            , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
+            , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
+            , handleData = handleVote pm
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)

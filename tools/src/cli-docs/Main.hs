@@ -9,8 +9,9 @@ import           Data.List (intersperse)
 import           Data.Text (Text)
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
-import           Options.Applicative (Parser, execParser, footer, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, progDesc, strOption)
+import           Options.Applicative (Parser, execParser, footer, fullDesc,
+                     header, help, helper, info, infoOption, long, metavar,
+                     progDesc, strOption)
 import           System.Directory (doesDirectoryExist, listDirectory)
 import           System.Environment (getProgName)
 import           System.FilePath.Posix ((<.>), (</>))

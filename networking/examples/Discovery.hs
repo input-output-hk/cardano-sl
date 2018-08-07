@@ -9,8 +9,6 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 module Main where
 
 import           Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
@@ -21,7 +19,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Set as S
-import           Data.Void (Void, absurd)
+import           Data.Void (Void)
 import           GHC.Generics (Generic)
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
@@ -39,10 +37,6 @@ deriving instance Show Pong
 instance Binary Pong where
 
 type Packing = BinaryP
-
-instance Message Void where
-    messageCode _ = 0
-    formatMessage = absurd
 
 worker
     :: NodeId

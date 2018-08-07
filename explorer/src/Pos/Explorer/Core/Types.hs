@@ -7,9 +7,11 @@ module Pos.Explorer.Core.Types
 
 import           Universum
 
-import           Pos.Core (HeaderHash, Timestamp)
-import           Pos.Core.Txp (TxId, TxUndo)
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core (Timestamp)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NewestFirst)
+import           Pos.Core.Txp (TxId, TxUndo)
 
 type AddrHistory = NewestFirst [] TxId
 
@@ -19,3 +21,10 @@ data TxExtra = TxExtra
     -- non-strict on purpose, see comment in `processTxDo` in Pos.Explorer.Txp.Local
     , teInputOutputs    :: TxUndo
     } deriving (Show, Generic, Eq)
+
+deriveSimpleBi ''TxExtra [
+    Cons 'TxExtra [
+        Field [| teBlockchainPlace :: Maybe (HeaderHash, Word32) |],
+        Field [| teReceivedTime    :: Maybe Timestamp            |],
+        Field [| teInputOutputs    :: TxUndo                     |]
+    ]]

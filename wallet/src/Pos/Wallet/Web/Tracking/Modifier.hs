@@ -26,18 +26,18 @@ import           Data.DList (DList)
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson, listJsonIndent)
 
+import           Pos.Chain.Txp (UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core (Address, HeaderHash)
+import           Pos.Core (Address)
+import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Txp (TxId)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
-                                         deriveSafeBuildable, secretOnlyF,
-                                         secureListF)
-import           Pos.Txp.Toil (UtxoModifier)
+                     deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Modifier (MapModifier)
 import qualified Pos.Util.Modifier as MM
 
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
-import           Pos.Wallet.Web.State         (WAddressMeta)
+import           Pos.Wallet.Web.State (WAddressMeta)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.

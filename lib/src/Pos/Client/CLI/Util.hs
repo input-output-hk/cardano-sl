@@ -17,31 +17,31 @@ import           Universum hiding (try)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
-import           Mockable (CurrentTime, Mockable, currentTime)
-import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
-                              productionB)
+import           System.Wlog (LoggerConfig (..), WithLogger, logInfo,
+                     parseLoggerConfig, productionB)
 import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
-import           Pos.Binary.Core ()
-import           Pos.Block.Configuration (blockConfiguration)
+import           Ntp.Client (NtpConfiguration)
+import           Pos.Chain.Block (blockConfiguration)
+import           Pos.Chain.Delegation (dlgConfiguration)
+import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
+import           Pos.Chain.Ssc (sscConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
 import           Pos.Core (StakeholderId, Timestamp (..))
-import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson, coreConfiguration,
-                                         genesisData, prettyGenesisJson)
+import           Pos.Core.Conc (currentTime)
+import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
+                     coreConfiguration, genesisData, prettyGenesisJson)
 import           Pos.Core.Genesis (gdStartTime)
+import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
-import           Pos.Delegation.Configuration (dlgConfiguration)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Infra.Util.TimeWarp (addrParser)
-import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
-import           Pos.Security.Params (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.Configuration (sscConfiguration)
-import           Pos.Txp.Configuration (txpConfiguration)
-import           Pos.Update.Configuration (updateConfiguration)
+import           Pos.Launcher.Configuration (Configuration (..),
+                     HasConfigurations)
 import           Pos.Util.AssertMode (inAssertMode)
 
 printFlags :: WithLogger m => m ()
@@ -49,13 +49,14 @@ printFlags = do
     inAssertMode $ logInfo "Asserts are ON"
 
 printInfoOnStart ::
-       (HasConfigurations, WithLogger m, Mockable CurrentTime m, MonadIO m)
+       (HasConfigurations, WithLogger m, MonadIO m)
     => CommonNodeArgs
     -> NtpConfiguration
+    -> TxpConfiguration
     -> m ()
-printInfoOnStart CommonNodeArgs {..} ntpConfig = do
+printInfoOnStart CommonNodeArgs {..} ntpConfig txpConfig = do
     whenJust cnaDumpGenesisDataPath $ dumpGenesisData True
-    when cnaDumpConfiguration $ dumpConfiguration ntpConfig
+    when cnaDumpConfiguration $ dumpConfiguration ntpConfig txpConfig
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -106,8 +107,9 @@ dumpGenesisData canonical path = do
 dumpConfiguration
     :: (HasConfigurations, MonadIO m)
     => NtpConfiguration
+    -> TxpConfiguration
     -> m ()
-dumpConfiguration ntpConfig = do
+dumpConfiguration ntpConfig txpConfig = do
     let conf =
             Configuration
             { ccCore = coreConfiguration
@@ -115,7 +117,7 @@ dumpConfiguration ntpConfig = do
             , ccUpdate = updateConfiguration
             , ccSsc = sscConfiguration
             , ccDlg = dlgConfiguration
-            , ccTxp = txpConfiguration
+            , ccTxp = txpConfig
             , ccBlock = blockConfiguration
             , ccNode = nodeConfiguration
             }

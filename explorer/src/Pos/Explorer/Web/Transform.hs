@@ -19,29 +19,30 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Ssc (HasSscConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Mockable ()
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
-import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
-import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
-                                            runExtraContextT)
+import           Pos.Explorer.BListener (ExplorerBListener,
+                     runExplorerBListener)
+import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
+                     makeExtraCtx, runExtraContextT)
 import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
-import           Pos.Explorer.Txp (ExplorerExtraModifier, eTxNormalize, eTxProcessTransaction)
+import           Pos.Explorer.Txp (ExplorerExtraModifier, eTxNormalize,
+                     eTxProcessTransaction)
 import           Pos.Explorer.Web.Api (explorerApi)
-import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explorerServeImpl)
+import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
+                     explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
@@ -52,15 +53,15 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
-instance (HasConfiguration, HasTxpConfiguration) =>
+instance HasConfiguration =>
          MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasTxpConfiguration) =>
+instance HasConfiguration =>
          MonadTxpLocal ExplorerProd where
-    txpNormalize = lift . lift . txpNormalize
-    txpProcessTx pm = lift . lift . txpProcessTx pm
+    txpNormalize pm = lift . lift . txpNormalize pm
+    txpProcessTx pm txpConfig = lift . lift . txpProcessTx pm txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.
@@ -121,7 +122,7 @@ convertHandler rctx handler =
     in liftIO ioAction `E.catches` excHandlers
   where
     realRunner :: forall t . RealModeE t -> IO t
-    realRunner act = runProduction $ Mtl.runReaderT act rctx
+    realRunner act = Mtl.runReaderT act rctx
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError

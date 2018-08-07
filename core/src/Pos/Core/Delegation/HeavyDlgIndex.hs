@@ -7,9 +7,14 @@ module Pos.Core.Delegation.HeavyDlgIndex
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (bprint, build)
+import qualified Formatting.Buildable
+import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
+                     ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProxySecretKey (..), ProxySignature, PublicKey)
 
@@ -27,11 +32,44 @@ instance Hashable HeavyDlgIndex
 instance Buildable HeavyDlgIndex where
     build (HeavyDlgIndex i) = bprint build i
 
+instance Bi HeavyDlgIndex where
+    encode = encode . getHeavyDlgIndex
+    decode = HeavyDlgIndex <$> decode
+
+instance SafeCopy HeavyDlgIndex where
+    getCopy = contain $ HeavyDlgIndex <$> safeGet
+    putCopy x = contain $ safePut $ getHeavyDlgIndex x
+
+instance Aeson.FromJSON HeavyDlgIndex where
+    parseJSON v = HeavyDlgIndex <$> Aeson.parseJSON v
+
+instance Aeson.ToJSON HeavyDlgIndex where
+    toJSON = Aeson.toJSON . getHeavyDlgIndex
+
 -- | Simple proxy signature without ttl/epoch index constraints.
 type ProxySigHeavy a = ProxySignature HeavyDlgIndex a
 
 -- | Heavy delegation PSK.
 type ProxySKHeavy = ProxySecretKey HeavyDlgIndex
+
+instance Monad m => ToJSON m ProxySKHeavy where
+    toJSON psk =
+        -- omega is encoded as a number, because in genesis we always
+        -- set it to 0.
+        mkObject
+            [ ("omega", pure (JSNum . fromIntegral . getHeavyDlgIndex $ pskOmega psk))
+            , ("issuerPk", toJSON $ pskIssuerPk psk)
+            , ("delegatePk", toJSON $ pskDelegatePk psk)
+            , ("cert", toJSON $ pskCert psk)
+            ]
+
+instance ReportSchemaErrors m => FromJSON m ProxySKHeavy where
+    fromJSON obj = do
+        pskOmega <- HeavyDlgIndex . fromIntegral @Int54 <$> fromJSField obj "omega"
+        pskIssuerPk <- fromJSField obj "issuerPk"
+        pskDelegatePk <- fromJSField obj "delegatePk"
+        pskCert <- fromJSField obj "cert"
+        pure UnsafeProxySecretKey{..}
 
 -- | Heavyweight PSK with real leader public key (because heavyweight
 -- psks have redelegation feature, so pskIssuerPk hPsk /= leader in

@@ -1,4 +1,4 @@
--- | Specification for submodules of Pos.Update.Poll
+-- | Specification for submodules of Pos.Chain.Update
 
 module Test.Pos.Update.PollSpec
        ( spec
@@ -10,22 +10,26 @@ import           Control.Lens (at)
 import qualified Data.HashSet as HS
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat,
-                                  (===))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin,
+                     forAll, listOf, suchThat, (===))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Arbitrary.Update ()
-import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
-                           HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
-import           Pos.Core.Update (UpId, UpdateProposal (..))
+import           Pos.Chain.Update (applyBVM)
+import qualified Pos.Chain.Update as Poll
+import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
+import           Pos.Core.Update (ApplicationName, BlockVersion (..),
+                     BlockVersionData (..), SoftwareVersion (..), UpId,
+                     UpdateProposal (..))
 import           Pos.Crypto (hash)
+import qualified Pos.DB.Update as Poll
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Update.BlockVersion (applyBVM)
-import qualified Pos.Update.Poll as Poll
 import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Binary.Helpers ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.DB.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec

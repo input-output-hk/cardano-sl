@@ -7,31 +7,34 @@ import           Universum
 import           Control.Exception.Safe (handle)
 import           Data.Maybe (fromMaybe)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production (..), runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
+import           Ntp.Client (NtpConfiguration)
+
+import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (ConfigurationError, epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                          topologyEnqueuePolicy, topologyFailurePolicy)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
-                               bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               runRealMode, withConfigurations)
-import           Pos.Txp (txpGlobalSettings)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                     topologyDequeuePolicy, topologyEnqueuePolicy,
+                     topologyFailurePolicy)
+import           Pos.Launcher (HasConfigurations, NodeParams (..),
+                     NodeResources (..), bracketNodeResources, loggerBracket,
+                     lpConsoleLog, runNode, runRealMode, withConfigurations)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
+import           AuxxOptions (AuxxAction (..), AuxxOptions (..),
+                     AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (PrintAction, WithCommandAction (..), withAuxxRepl)
@@ -41,12 +44,12 @@ loggerName = "auxx"
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
-correctNodeParams :: AuxxOptions -> NodeParams -> Production (NodeParams, Bool)
+correctNodeParams :: AuxxOptions -> NodeParams -> IO (NodeParams, Bool)
 correctNodeParams AuxxOptions {..} np = do
     (dbPath, isTempDbUsed) <- case npDbPathM np of
         Nothing -> do
-            tempDir <- liftIO $ Temp.getCanonicalTemporaryDirectory
-            dbPath <- liftIO $ Temp.createTempDirectory tempDir "nodedb"
+            tempDir <- Temp.getCanonicalTemporaryDirectory
+            dbPath <- Temp.createTempDirectory tempDir "nodedb"
             logInfo $ sformat ("Temporary db created: "%shown) dbPath
             return (dbPath, True)
         Just dbPath -> do
@@ -73,13 +76,14 @@ correctNodeParams AuxxOptions {..} np = do
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
     => ProtocolMagic
+    -> TxpConfiguration
     -> NodeResources EmptyMempoolExt
     -> (Diffusion AuxxMode -> AuxxMode ())
     -> Diffusion AuxxMode -> AuxxMode ()
-runNodeWithSinglePlugin pm nr plugin =
-    runNode pm nr [plugin]
+runNodeWithSinglePlugin pm txpConfig nr plugin =
+    runNode pm txpConfig nr [plugin]
 
-action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
+action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> IO ()
 action opts@AuxxOptions {..} command = do
     let pa = either printAction (const putText) command
     case aoStartMode of
@@ -87,19 +91,19 @@ action opts@AuxxOptions {..} command = do
             ->
                 handle @_ @ConfigurationException (\_ -> runWithoutNode pa)
               . handle @_ @ConfigurationError (\_ -> runWithoutNode pa)
-              $ withConfigurations conf (runWithConfig pa)
+              $ withConfigurations Nothing conf (runWithConfig pa)
         Light
             -> runWithoutNode pa
-        _   -> withConfigurations conf (runWithConfig pa)
+        _   -> withConfigurations Nothing conf (runWithConfig pa)
 
   where
-    runWithoutNode :: PrintAction Production -> Production ()
-    runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing opts Nothing command
+    runWithoutNode :: PrintAction IO -> IO ()
+    runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing Nothing opts Nothing command
 
-    runWithConfig :: HasConfigurations => PrintAction Production -> NtpConfiguration -> ProtocolMagic -> Production ()
-    runWithConfig printAction ntpConfig pm = do
+    runWithConfig :: HasConfigurations => PrintAction IO -> ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> IO ()
+    runWithConfig printAction pm txpConfig ntpConfig = do
         printAction "Mode: with-config"
-        CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
+        CLI.printInfoOnStart aoCommonNodeArgs ntpConfig txpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
 
@@ -115,14 +119,14 @@ action opts@AuxxOptions {..} command = do
                               (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
-        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \nr -> Production $
+        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \nr ->
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
-                           then runNodeWithSinglePlugin pm nr
+                           then runNodeWithSinglePlugin pm txpConfig nr
                            else identity
-                auxxModeAction = modifier (auxxPlugin pm opts command)
-             in runRealMode pm nr $ \diffusion ->
-                    toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx diffusion))
+                auxxModeAction = modifier (auxxPlugin pm txpConfig opts command)
+             in runRealMode pm txpConfig nr $ \diffusion ->
+                    toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
@@ -130,7 +134,7 @@ action opts@AuxxOptions {..} command = do
         CLI.NodeArgs {behaviorConfigPath = Nothing}
 
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main = withCompileInfo $ do
     opts <- getAuxxOptions
     let disableConsoleLog
             | Repl <- aoAction opts =
@@ -144,7 +148,7 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
         loggingParams = disableConsoleLog $
             CLI.loggingParams loggerName (aoCommonNodeArgs opts)
     loggerBracket loggingParams . logException "auxx" $ do
-        let runAction a = runProduction $ action opts a
+        let runAction a = action opts a
         case aoAction opts of
             Repl    -> withAuxxRepl $ \c -> runAction (Left c)
             Cmd cmd -> runAction (Right cmd)

@@ -9,7 +9,9 @@
 % \usepackage{parskip} % very ugly with lemmas, invariants, etc without intervening text
 \usepackage[disable]{todonotes}
 \usepackage{slashed}
-\usepackage{tikz}
+% \usepackage{tikz}
+\usepackage{gnuplot-lua-tikz}
+\usepackage{pgfplots}
 \usepackage{forest}
 \usepackage{IEEEtrantools}
 
@@ -24,6 +26,10 @@
   urlbordercolor={white}
 }
 \usepackage[capitalise,noabbrev,nameinlink]{cleveref}
+
+% https://tex.stackexchange.com/questions/7953/how-to-expand-texs-main-memory-size-pgfplots-memory-overload
+\usepgfplotslibrary{external}
+\tikzexternalize
 
 % https://tex.stackexchange.com/questions/132823/ieeetrantools-clash-with-cleveref
 \makeatletter
@@ -68,12 +74,12 @@
 \begin{document}
 
 \title{Formal specification for a Cardano wallet \\
-       {\small (Version 1.1)} \\
+       {\small (Version 1.2)} \\
        {\large \sc An IOHK technical report}}
 \author{Duncan Coutts \\ {\small \texttt{duncan@well-typed.com}} \\
                          {\small \texttt{duncan.coutts@iohk.io}}
    \and Edsko de Vries \\ {\small \texttt{edsko@well-typed.com}}}
-\date{May 15, 2018}
+\date{July 16, 2018}
 
 \maketitle
 
@@ -212,6 +218,9 @@ device or special hardware and may require user confirmation.
 $\mathsf{updateExpected}$ (Figure~\ref{fig:model_with_expected_UTxO}), added
 missing value of $\mathit{txInfo}$ in $\mathsf{rollback}$
 (Figure~\ref{fig:tracking_metadata}), minor corrections to the text.
+
+\item[Version 1.2, July 12, 2018] Included conclusions from our study of
+input selection. Minor grammatical and stylistic corrections to the text.
 \end{description}
 
 \pagebreak
@@ -275,7 +284,7 @@ basis that we use cryptographically strong hash functions so that computing
 clashes is computationally impractical.} so that a transaction ID uniquely
 identifies a transaction. Transaction indexes, used to index transaction
 outputs, will typically be natural numbers, but this is not necessary. Currency
-values are numeric values supporting 0 and addition.
+values are essentially just natural numbers.
 
 Addresses stand for cryptographic public keys. In this presentation we can keep
 them quite abstract, it is merely a large set of distinct values. The predicate
@@ -520,7 +529,7 @@ specification.
 \begin{definition}[Dependence]
 We say that transaction $t_2$ \emph{depends on} transaction $t_1$ if and only if
 \begin{equation*}
-\exists \mathit{ix} \ldotp (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ t_2
+\exists \mathit{ix} \ldotp (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ \{ t_2 \}
 \end{equation*}
 \end{definition}
 
@@ -597,7 +606,7 @@ and atomic updates; we emphasise that the latter should be `atomic' because
 although in a purely mathematical specification this is not particularly
 meaningful, in a real implementation if such updates consist of multiple
 smaller updates, the intermediate states should not be observable. For many
-instantiations will will specify state invariants that are expected to be
+instantiations we will specify state invariants that are expected to be
 preserved by all state updates.
 
 \begin{figure}
@@ -664,6 +673,7 @@ understand the abstract model: it is not useful to consider implementation
 details until we have a good understanding of the requirements.
 
 \subsection{Updating the UTxO}
+\label{sec:UpdatingUtxo}
 
 In order to update the UTxO, $\mathsf{updateUTxO}$ first adds the new outputs
 from the block, and then removes the inputs spent in the block. It would be
@@ -686,7 +696,7 @@ we can define a function that computes only the `new' outputs from a block
 \end{equation*}
 \end{definition}
 %
-We can then prove that $\mathsf{updateUtxo}$ adds precisely the new outputs
+We can then prove that $\mathsf{updateUTxO}$ adds precisely the new outputs
 of a block to the UTxO:
 %
 \begin{lemma} \label{lem:update_remove_dom}
@@ -705,7 +715,7 @@ of a block to the UTxO:
 \end{align*}
 \end{proof}
 %
-This proofs relies on the precondition to $\mathsf{applyBlock}$, which simply
+This proof relies on the precondition to $\mathsf{applyBlock}$, which simply
 says that new transactions in a new block should have transaction IDs that do
 not occur in the UTxO of the existing chain (or wallet); this should be a
 straightforward property of the blockchain.
@@ -717,13 +727,14 @@ blocks and not the pending transactions.
 \subsection{Update the pending set}
 \label{sec:updatePending}
 
-The definition of $\mathsf{updatePending}$ is pleasantly simple; the fact that
-it could be made so simple was an ``ah hah'' moment in the early development of
-this specification. Note that this definition covers the case of one of our own
-transactions being committed, as well as transactions submitted by other
-instances of our wallet invalidating our pending transactions. Both are covered
-because all we are doing is removing pending transactions that have had any (or
-indeed all) of their inputs spent.
+The definition of $\mathsf{updatePending}$ is pleasantly simple: the definition
+covers the case of one of our own transactions being committed, as well as
+transactions submitted by other instances of our wallet invalidating our pending
+transactions. Both are covered because all we are doing is removing pending
+transactions that have had any (or indeed all) of their inputs spent. The fact
+that it could be made so simple (without making special provisions for these
+specific cases) was an ``ah hah'' moment in the early development of this
+specification.
 
 The precondition to $\mathsf{newPending}$ states that new pending transactions
 can only spend outputs in the wallet's current UTxO. Alternatively, we could
@@ -770,7 +781,7 @@ set of the pending includes change addresses that are not yet in the wallet
 UTxO. Additionally, as we will see in \cref{sec:rollback}, once we add
 rollback then this invariant no longer holds.
 
-\begin{invariant}[The wallet UTxO only covers addresses that belongs to the wallet]
+\begin{invariant}[The wallet UTxO only covers addresses that belong to the wallet]
 %
 \begin{equation*}
 \range \mathit{utxo} \subseteq \mathsf{TxOut_{ours}}
@@ -906,12 +917,12 @@ given in \cref{fig:basic_model_complexity}.
 \caption{\label{fig:basic_model_complexity}Algorithmic complexity of the operations in the basic model}
 \end{figure}
 
-It is worth knowing that the expected
+It is worth knowing the expected
 order of magnitudes of the sizes of the UTxO and pending sets. The UTxO can be
 quite large, for example $|\mathit{utxo}| \leq 10^6$, while the pending set will
 typically be small, usually around $|\mathit{pending}| \leq 3$, while $|\mathit{pending}| = 100$
 would be extreme. Similarly, the number of inputs and outputs in any individual
-transaction is not large. The current bound on the total size of a transaction
+transaction is not large (at most a few hundred, and typically much less than that). The current bound on the total size of a transaction
 is 64kB.
 
 \todo[inline]{Justify some of these bounds (see comments in the \TeX{} file).}
@@ -1306,7 +1317,7 @@ the pending set but never decrease it.
 \end{figure}
 
 The basic model with support for rollback is shown in
-\cref{fig:basic_rollback_model}. In this model the wallet state is a list
+\cref{fig:basic_rollback_model}. In this model the wallet state is a non-empty list
 of \emph{checkpoints}, the value of the wallet at various times throughout its
 lifetime; each call to $\mathsf{applyBlock}$ introduces a new checkpoint. The
 initial wallet is the singleton list; We cannot roll back a wallet that contains
@@ -1479,6 +1490,50 @@ solution is to set a time bound. However, since all these $\mathsf{applyBlocks}$
 will come very close together (\emph{maybe} even as a single call), in practice
 this can probably work reasonably well.
 
+\subsection{Omitting checkpoints}
+
+Not all wallets are created at the start of the blockchain, of course.
+
+\begin{lemma}
+A wallet created after $n$ blocks have already been created will have checkpoints
+%
+\begin{equation*}
+  \underbrace{ (\emptyset, \emptyset)
+             : \cdots
+             : (\emptyset, \emptyset)
+             }_{\text{$n$ empty checkpoints}}
+: \underbrace{ (\emptyset, \emptyset)
+             }_{\text{initial checkpoint}}
+\end{equation*}
+\label{lem:wallet_later_created}
+\end{lemma}
+
+\begin{proof}[Proof (sketch)]
+We can assume that there have been no calls to $\mathtt{newPending}$. Each call
+to $\mathtt{applyBlock}$ will create a new empty checkpoint, because
+$\mathtt{updateUTxO}$ will not consider any of the addresses in those blocks to
+be ``$\mathtt{ours}$'' (and there are no pending transactions to remove for
+$\mathtt{updatePending}$). Similarly, if there have been previous rollbacks,
+those would simply have stripped off empty checkpoints.
+\end{proof}
+
+\cref{lem:wallet_later_created} gives us a very useful optimisation opportunity:
+we can simply leave all the empty checkpoints as implicit, adding a single
+case to rollback:
+%
+\begin{equation*}
+\mathtt{rollback} ~ [(\emptyset, \emptyset)] = [(\emptyset, \emptyset)]
+\end{equation*}
+%
+Perhaps this seems like a trivial fact, but it's not vacuous: it does put
+constraints on what we can and cannot record in checkpoints. Looking ahead, we
+have to make sure that when we add in the expected UTxO
+(\cref{fig:model_with_expected_UTxO}) and block metadata
+(\cref{fig:tracking_metadata}), or when we choose a concrete instantiation of
+the block metadata (\cref{sec:confirmations}), we don't break this property.
+Fortunately, the expected UTxO is subset of the UTxO and must therefore also be
+empty, and the block metadata only records information about transactions that
+affect this wallet and about addresses that the wallet owns.
 
 \section{Minimum Balance}
 \label{sec:tracking_expected_UTxO}
@@ -1548,7 +1603,7 @@ removed from the expected UTxO.
 \emph{Wallet state}
 %
 \begin{align*}
-& \mathit{checkpoints} \in [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{Utxo}] \\
+& \mathit{checkpoints} \in [\mathsf{UTxO} \times \mathsf{Pending} \times \mathsf{UTxO}] \\
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset, \emptyset)]
 \end{align*}
 %
@@ -1583,8 +1638,10 @@ A trivial fact we need later is that
 \end{math}
 \end{lemma}
 
-When we roll back a block but remember the UTxO we used to have, we
-can, in a sense, `anticipate' what we think the future might look like:
+When we roll back a block but remember the UTxO we used to have, we can, in a
+sense, `anticipate' what we think the future might look like; in other words, we
+add the new outputs in that block to our expected UTxO ($\mathtt{new}$ was
+defined in Section~\ref{sec:UpdatingUtxo}):
 
 \begin{definition}[Anticipate a block]
 \begin{equation*}
@@ -1683,16 +1740,16 @@ conservatively\footnote{ Note that the absence of some dependency information
 only gives us \emph{more} freedom in picking the elements of this set; thus,
 missing dependency information may make the lower bound that we establish less
 accurate, but it will still be a lower bound.} estimate the minimum balance as
-%
+
 \begin{definition}[Minimum balance]
 \begin{equation*}
   \mathsf{minimumBalance} ~ (\mathit{utxo}, \mathit{pending}, \mathit{expected})
-= \left.
-  \minimum_{\begin{smallmatrix}
-              e & \sqsubseteq & \mathit{expected} \\
-              p & \subseteq   & \mathit{pending}
-            \end{smallmatrix}}
-  \right|_{\mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}}
+=
+  \minimum_{\begin{smallmatrix*}[l]
+              e \sqsubseteq \mathit{expected} \\
+              p \subseteq   \mathit{pending} \\
+              \mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}
+            \end{smallmatrix*}}
   ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup e, p)
 \end{equation*}
 \end{definition}
@@ -1708,12 +1765,11 @@ accurate, but it will still be a lower bound.} estimate the minimum balance as
 \begin{proof}
 \begin{align*}
     & ~ \mathsf{minimumBalance} ~ (\mathit{utxo}, \mathit{pending}, \mathit{expected}) \\
-=   & ~ \left.
-        \minimum_{\begin{smallmatrix}
-                    e & \sqsubseteq & \mathit{expected} \\
-                    p & \subseteq   & \mathit{pending}
-                  \end{smallmatrix}}
-        \right|_{\mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}}
+=   & ~ \minimum_{\begin{smallmatrix*}[l]
+                    e \sqsubseteq \mathit{expected} \\
+                    p \subseteq   \mathit{pending} \\
+                    \mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}
+                  \end{smallmatrix*}}
         ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup e, p) \\
 =   & ~ \minimum \Bigr\{ \ldots, \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending}), \ldots \Bigr\}
     & \text{\{ \cref{inv:txins_in_dom_utxo_expected_pending} \}} \\
@@ -1803,7 +1859,7 @@ back, in order to be able to resubmit expected transactions the wallet would
 have to keep track of the entire blockchain. Even if we take into account the
 security parameter $k$, it would mean that in the worst case the wallet would
 have to keep track of the last $k$ blocks \emph{in their entirety} (as opposed
-to just the inputs from and outputs to addressed owned by the wallet).
+to just the inputs from and outputs to addresses owned by the wallet).
 
 \section{Efficiency of $\mathsf{minimumBalance}$}
 \label{sec:computing_minimum_balance}
@@ -2019,9 +2075,10 @@ balance from the expected transactions.
 Given an expected UTxO $e$, computing
 %
 \begin{equation*}
-  \left.
-  \minimum_{p \subseteq \mathit{pending}}
-  \right|_{\mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}}
+  \minimum_{\begin{smallmatrix*}[l]
+              p \subseteq \mathit{pending} \\
+              \mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}
+            \end{smallmatrix*}}
   ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup e, p)
 \end{equation*}
 %
@@ -2060,7 +2117,7 @@ expected transactions separately.
 \begin{lemma}
 The complexity of $\mathsf{minimumBalance}$ is given by
 \begin{math}
-\order{e + 2^g + p}
+\order{e \cdot (2^g + p)}
 \end{math}
 with $e$ the number of groups of expected transactions
 (\cref{lem:group_expected}), $g$ the size of the largest such group,
@@ -2124,7 +2181,7 @@ So, let's consider the smallest more interesting example: let's suppose
 we find a set $\{e_1, e_2\}$ of two expected transactions such that these
 two expected transactions, together with the pending transactions that
 depend \emph{only} on those two transactions, decrease our balance. Furthermore,
-let's assume that there is at least one other expected transactions that we
+let's assume that there is at least one other expected transaction that we
 may wish to include. Let's denote this visually as
 %
 \begin{equation}
@@ -2283,7 +2340,7 @@ well as the actual UTxO.
 \emph{Wallet state}
 %
 \begin{align*}
-& \mathit{checkpoints} \in [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{Utxo} \times \mathsf{Coin}] \\
+& \mathit{checkpoints} \in [\mathsf{UTxO} \times \mathsf{Pending} \times \mathsf{UTxO} \times \mathsf{Coin}] \\
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset, \emptyset, 0)]
 \end{align*}
 %
@@ -2367,7 +2424,7 @@ on rollback we simply revert to the previous value of the block metadata.
 %
 \begin{align*}
 & \mathsf{TxInfo} = \mathsf{TxId} \mapsto \mathsf{TxMeta}    \\
-& \mathsf{Wallet} = [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{BlockMeta}] \times \mathsf{TxInfo}
+& \mathsf{Wallet} = [\mathsf{UTxO} \times \mathsf{Pending} \times \mathsf{BlockMeta}] \times \mathsf{TxInfo}
 \end{align*}
 %
 \emph{Atomic updates}
@@ -2579,7 +2636,7 @@ that the current wallet does not have).
 
   \node[main node,style={circle}] (LStart) {};
   \node[main node] (LApplying)      [below=1cm of LStart] {\texttt{Applying}};
-  \node[main node] (LInNewestBlock) [below left=1cm and 0.5cm of LApplying] {\texttt{InNewestBlock}};
+  \node[main node] (LInNewestBlock) [below left=1cm and 0.5cm of LApplying] {\texttt{InNewestBlocks}};
   \node[main node] (LWontApply)     [below right=1cm and 0.5cm of LApplying] {\texttt{WontApply}};
   \node[main node] (LPersisted)     [below =1cm of LInNewestBlock] {\texttt{Persisted}};
 
@@ -2591,17 +2648,17 @@ that the current wallet does not have).
       edge node {$\mathsf{newPending}$} (LApplying)
     (LApplying)
       edge [bend right=30] node[left=1mm] {$\mathsf{applyBlock}$} (LInNewestBlock)
-      edge [bend left=30]  node[right=1mm] {$\mathsf{applyBlock}^*$} (LWontApply)
+      edge [bend left=30]  node[right=1mm] {$\mathsf{applyBlock}^\dagger$} (LWontApply)
     (LInNewestBlock)
       edge [loop left]     node {$\mathsf{applyBlock}$} (LInNewestBlock)
       edge [bend right=30] node[left=1mm] {$\mathsf{rollback}$} (LApplying)
       edge node {$\mathsf{applyBlock}$} (LPersisted)
     (LWontApply)
-      edge [bend left=30] node[right=1mm] {$\mathsf{rollback}^*$} (LApplying)
+      edge [bend left=30] node[right=1mm] {$\mathsf{rollback}^\dagger$} (LApplying)
     ;
 
   \node[main node,style={circle}] (RStart) [right=5.5cm of LStart] {};
-  \node[main node] (RInNewestBlock) [below=1cm of RStart] {\texttt{InNewestBlock}};
+  \node[main node] (RInNewestBlock) [below=1cm of RStart] {\texttt{InNewestBlocks}};
   \node[main node] (RPersisted)     [below=1cm of RInNewestBlock] {\texttt{Persisted}};
 
   \path[every node/.style={font=\sffamily\scriptsize,
@@ -2616,7 +2673,7 @@ that the current wallet does not have).
       edge node {$\mathsf{applyBlock}$} (RPersisted)
     ;
 \end{tikzpicture}
-\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right})}
+\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right}). We will come back to the marked transitions ($\dagger$) in Section~\ref{sec:submission_interface}.}
 \end{figure}
 
 \section{Transaction Submission}
@@ -2682,9 +2739,9 @@ wallet's state.}, however, a rollback won't reintroduce it into
 $\mathit{pending}$; if the user wants to explicitly tell the wallet to try this
 transaction again they will need to call $\mathsf{newPending}$. Effectively,
 $\mathsf{cancel}$ becomes a secondary way in which a transaction may go from
-$\texttt{Applying}$ to $\texttt{WontApply}$ (arrow $\mathsf{applyBlock}^*$), and
+$\texttt{Applying}$ to $\texttt{WontApply}$ (arrow marked $\mathsf{applyBlock}^\dagger$), and
 $\mathsf{newPending}$ a secondary way to get back from $\texttt{WontApply}$ to
-$\texttt{Applying}$ (arrow $\mathsf{rollback}^*$).
+$\texttt{Applying}$ (arrow marked $\mathsf{rollback}^\dagger$).
 
 \subsection{Implementation}
 \label{sec:submission_implementation}
@@ -2703,7 +2760,7 @@ each transaction.
 \begin{itemize}
 \item When the submission layer is notified of new pending transactions,
 it adds those to its $\mathit{pending}$ set and schedules them to be submitted
-in the next slot, recording a initial submission count of 0.
+in the next slot, recording an initial submission count of 0.
 \item When the wallet tells the submission layer that some transactions are
 no longer pending (because they have been confirmed, because they have become
 invalid, or for other reasons), the submission layer simply removes them
@@ -2863,7 +2920,7 @@ we just make a few observations:
 \begin{itemize}
 \item Once a TTL has been introduced, the core wallet \emph{itself} can remove
 transactions from its $\mathit{pending}$ set once the TTL has expired.
-\item This means that the submission layer does not need to implement expiry
+\item This means that the submission layer does not  need to implement expiry
 anymore, although it may still wish to keep track of a submission count so that
 it can implement exponential back-off.
 \item Persistence for the submission layer becomes even less important.
@@ -2873,18 +2930,18 @@ and moreover once a transaction \emph{is} expired it cannot be resubmitted again
 \end{itemize}
 
 \section{Input selection}
-\label{sec:input_selection}
 
 In this wallet specification we assume that new transactions to be submitted are
 provided to $\mathsf{newPending}$ fully formed. In reality this is preceded by a
-process known as \emph{input selection} which, given a set of desired outputs
-(that is, a \emph{payment} that the user wishes to make), selects one or more
-inputs from the wallet's UTxO to cover that payment and the transaction fee,
-returning any change back to the wallet. The result of input selection is a
-fully formed transaction which can then be passed to $\mathsf{newPending}$. This
-is summarised more formally in \cref{fig:input_selection_sig}.
+process known as \emph{input selection} or \emph{coin selection} which, given a
+set of desired outputs (that is, a \emph{payment} that the user wishes to make),
+selects one or more inputs from the wallet's UTxO to cover that payment and the
+transaction fee, returning any change back to the wallet. The result of input
+selection is a fully formed transaction which can then be passed to
+$\mathsf{newPending}$. This is summarised more formally in
+\cref{fig:input_selection_sig}.
 
-\begin{figure}[b]
+\begin{figure}[tb]
 \begin{align*}
 & \mathsf{selectInputs} \in \mathsf{UTxO} \to \mathbb{P}(\mathsf{TxOut}) \to \mathsf{Maybe} ~ \mathsf{Tx} \\
 \\
@@ -2901,21 +2958,23 @@ is summarised more formally in \cref{fig:input_selection_sig}.
 
 Input selection is a large topic which merits a detailed study in its own right.
 Moreover, since input selection has multiple mutually incompatible goals, there
-is no single one-size-fits-all input selection algorithm.  We will therefore
-defer a detailed and formal discussion of input selection to a separate study.
-Here we will merely list the goals of input selection, and list some
-properties that a good input selection algorithm will have. We will also
-briefly consider what kind of data structure can be used to make sure that
-the asymptotic complexity of input selection is acceptable.
+is no single one-size-fits-all input selection algorithm. We will start with
+listing some goals that an input selection algorithm may have in
+Section~\ref{sec:inputselection_goals}, and some different use cases in
+Section~\ref{sec:input_selection_use_cases}. The remainder of this section will
+then continue by describing the algorithm we propose to use in the wallet, along
+with a detailed analysis (by means of simulation) of how the algorithm performs
+under various circumstances.
 
 \subsection{Goals}
+\label{sec:inputselection_goals}
 
 In this section we list some goals that a particular input selection algorithm
 may have. As is well-known \citep{lopp:challenges}, many of these goals compete
-with each other; it will therefore be important that wallet users can influence
-this process, prioritising some goals over others.
+with each other. We may therefore wish to give wallet users some influence over
+this process, enabling them to prioritise some goals over others.
 
-\emph{Low transaction fees.}
+\paragraph{Low transaction fees.}
 Transactions must include a transaction fee, which is based on the size of the
 transaction (\cref{app:transaction_fees}). A good input selection
 algorithm will attempt to keep these transaction fees low. One complication here
@@ -2924,10 +2983,11 @@ the transaction may depend on the fee since we may need to add more inputs to
 the transaction in order to cover the fee. Thus fee calculation and input
 selection are interdependent. There are situations where it is not immediately
 obvious that there is a terminating algorithm for selecting inputs and fees
-optimally. Note that minimising transaction fees over time does not necessarily
-mean that every individual transaction will be as small as possible.
+optimally. Note that minimising transaction fees \emph{over time} does not
+necessarily mean that \emph{every individual} transaction will be as small as
+possible.
 
-\emph{Cryptographic security.}
+\paragraph{Cryptographic security.}
 Once an input at an address has been spent, its public key is publicly
 known and is arguably no longer suitable for very long term storage of funds due
 to the evolution of cryptography. The standard solution with input selection is
@@ -2936,10 +2996,10 @@ that were output to the same address. This results in no more funds remaining at
 the address (assuming an address non-reuse strategy such that there are no later
 payments to that address).
 
-\emph{Privacy.}
+\paragraph{Privacy.}
 The privacy goal is to make it impractical for other people observing the
 transactions in the ledger to tie an identity to all the funds belonging to that
-identity. For instance, it is preferable to have a transactions with single
+identity. For instance, it is preferable to have transactions with single
 inputs only, since otherwise attackers can reasonably assume\footnote{In systems
 such as Bitcoin there are services known as ``laundry services'', ``mixers'' or
 ``tumblers'' \citep{10.1007/978-3-319-70290-2_18}, which are trusted
@@ -2953,7 +3013,7 @@ systems give users the ability to override input selection on a per-transaction
 bases (sometimes known as ``coin control''), since some transactions are more
 sensitive than others.
 
-\emph{UTxO size.}
+\paragraph{UTxO size.}
 A transaction with a single input and two outputs will increase the size of the
 global UTxO by one entry, and (provided one of those is a change address), leave
 the size of the wallet's own UTxO unchanged; since incoming transactions will
@@ -2965,7 +3025,7 @@ grow the wallet's UTxO by $n$ entries on average, and the ratio of incoming
 transactions to outgoing transactions is $r : 1$, then ideally outgoing
 transactions should shrink the wallet's UTxO by $r \times n$ entries on average.
 
-\emph{Distribution of magnitude of unspent outputs.}
+\paragraph{Distribution of magnitude of unspent outputs.}
 Input selection can try to keep the distribution of the magnitude of unspent
 outputs close some ideal distribution. An obvious example is to avoid ``dust'':
 many tiny unspent outputs that result from change outputs. More generally,
@@ -3009,38 +3069,538 @@ are somewhat concerned with keeping fees reasonably low. Users may want the
 ability to `empty their wallet' (i.e., create a single transaction that
 spends all of the wallet's UTxO, sending it to a single output address.)
 
-\subsection{Implementation notes}
+\subsection{Self organisation}
+\label{sec:selforganisation}
 
-A key operation required by input selection, independent of the specific policy,
-will be to choose inputs from the UTxO of (roughly) a certain size. The easiest
-way to do this is to keep the UTxO sorted by size, so that we can do binary
-search for outputs within a certain range in $\order{n \log n}$ time. When an
-unspent of a certain size is not available, there are two choices:
+The term `self organisation' refers to the emergence of complex behaviour
+(typically in biological systems) from simple rules and random fluctuations.
+In this section we will see how we can take advantage of self organisation
+to design a simple yet effective coin selection algorithm.
+
+In this section we present the conclusions of an in-depth study of coin
+selection that we have done as part of the the redesign of the Cardano wallet.
+We will describe some of the problems and trade-offs that need to be made. We
+then propose a novel coin selection algorithm. The algorithm is efficient and
+straight-forward to implement, and through studying simulations of the algorithm
+under various conditions we will see that it is very effective.
+As our starting point, we will use the random algorithm described by Mark
+Erhardt in his masters thesis \citep{Erhardt:thesis}.
+
+\subsection{Dust}
+
+An obvious strategy that many coin selection algorithms use in some form or
+other is ``try to get as close to the requested value as possible''. The problem
+with such an approach is that it tends to create a lot of \emph{dust}: small
+unspent outputs that remain unused in the user's wallet because they're not
+particularly useful. For example, consider the `largest first' algorithm: a
+simple algorithm which considers all unspent outputs of the wallet in order of
+size, adding them to a running total until it has covered the requested amount.
+
+Figure~\ref{fig:inputselection:normal_3to1_largest} shows the effect of this
+algorithm. In order to evaluate a coin selection policy we need an ``event
+stream'' of deposits and withdrawals to evaluate it against. For the particular
+simulation shown in Figure~\ref{fig:inputselection:normal_3to1_largest} we use a
+3:1 ratio between deposits and withdrawals (i.e., 3 times more deposits than
+withdrawals), with both deposits and withdrawals normally distributed. We will
+consider many more different event streams later in this section.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-3to1-largest.tex} &
+\input{spec/normal-3to1-largest-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_3to1_largest}
+  Simulation of largest-first coin selection. Main histogram shows UTxO entries;
+  inset graph shows UTxO balance in blue and UTxO size in red, histogram
+  top-right shows number of inputs per transaction, graph bottom right shows the
+  change:payment ratio (more on that below). Graph on the far right shows the
+  distribution of deposits (blue, right axis) versus payments (red, left axis).
+  In this case, both are normally distributed with a mean of 1000 and 3000
+  respectively, and we have a deposit:payment ratio of 3:1; modelling a
+  situation where we have frequent smaller deposits, and less frequent but
+  larger payments (withdrawals). The wallet starts with an initial balance of
+  1M.
+}
+\end{figure}
+
+There are various things to see in this graph, but for now we want to focus
+on the UTxO histogram and its size. Note that as time passes, the size of the
+UTxO increases and increases, up to about 60k entries after about 1M
+cycles (with 3 deposits and 1 payment per cycle). A wallet with 60k entries
+is \emph{huge}, and looking at the UTxO histogram we can see why this happens:
+virtually all of these entries are dust. We get more and more small outputs,
+and those small outputs are getting smaller and smaller.
+
+\subsection{Cleaning up}
+
+Erhardt makes the following very astute observation:
+
+\begin{quote}
+``If 90\% of the UTxO is dust, then if we pick an unspent output
+\emph{randomly}, we have a 90\% change of picking a dust output.''
+\end{quote}
+
+He concludes that this means that a coin selection algorithm that simply picks
+unspent outputs \emph{at random} might be pretty effective; in particular,
+effective at collecting dust. Indeed, it is. Consider the simulation shown in
+Figure~\ref{fig:inputselection:normal_3to1_largeThenRandom}.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-3to1-largeThenRandom.tex} &
+\input{spec/normal-3to1-largeThenRandom-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_3to1_largeThenRandom}
+  Same distribution and ratio as in
+  Figure~\ref{fig:inputselection:normal_3to1_largest}; we run the largest-first
+  algorithm for 1M cycles, and then random coin selection for another 150k
+  cycles.
+}
+\end{figure}
+
+Notice quite how rapidly the random coin selection reduces the size of the UTxO
+once it kicks in. If you look at the inputs-per-transaction histogram, you can see
+that when the random input selection takes over, it first creates a bunch of
+transactions with 10 inputs (we limited transaction size to 10 for this
+simulation), rapidly collecting dust. Once the dust is gone, the number of
+inputs shrinks to about 3 or 4, which makes perfect sense given the 3:1 ratio of
+deposits and withdrawals.
+
+We will restate Erhardt's observation as our first self organisation principle:
 %
-\begin{itemize}
-\item Use a larger unspent output. The larger the unspent output we choose,
-the larger the change value, endangering privacy concerns.
-\item Use multiple smaller unspent outputs. This allows us to be more
-accurate, but will lead to larger transactions and hence larger transaction
-fees. In the extreme case the entire UTxO contains only small unspent outputs,
-and we need to do a linear sweep over the UTxO to construct the transaction.
-\end{itemize}
+\begin{quote}
+\textbf{Self organisation principle 1}. Random selection has a high probability
+of picking dust outputs \emph{precisely when} there is a lot of dust in the UTxO.
+\end{quote}
 %
-This is thus a tradeoff between privacy on the one hand and transaction size
-and performance on the other.
+It provides a very promising starting point for an effective coin selection
+algorithm, but there are some improvements we can make.
 
-Transaction fees can be (closely) approximated based on only the number of
-inputs and outputs. Assuming that the UTxO has sufficiently many outputs
-available that we do not need any of the fallback strategies, the number of
-inputs and outputs is determined by the number of payments that the transactions
-need to make, the privacy policy, and the UTxO maintenance policy. We can
-therefore guess the transaction fee up-front, make sure to include it when we
-select input amounts, and once we construct the final transaction shift any
-excess into the change address(es).  If we do end up having to use the fallback
-strategies, we will need to iterate this process (indeed, the added fee itself
-might \emph{trigger} the need for a fallback).
+\subsection{Active UTxO management}
 
-\appendix
+Figure~\ref{fig:inputselection:normal_1to1_randomOff} shows a simulation of a
+pure ``select randomly until we reach the target value'' coin selection algorithm.
+The first observation is that this algorithm is doing \emph{much} better than
+the largest-first policy in terms of the size of the UTxO, which is about
+\emph{2 orders of magnitude} smaller: a dramatic improvement. However, if we
+look at the UTxO histogram, we can see that there is room for improvement:
+although this algorithm is good at collecting dust, it's also still
+\emph{generating} quite a bit of dust. The UTxO histogram has two peaks. The
+first one is approximately normally distributed around 1000, which are the
+deposits that are being made. The second one is near 0, which are all the dust
+outputs that are being created.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-1to1-randomOff.tex} &
+\input{spec/normal-1to1-randomOff-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_1to1_randomOff}
+  Random-until-value-reached, for a 1:1 ratio of deposits
+  and withdrawals, both drawn from a normal distribution with mean 1000.
+}
+\end{figure}
+
+This brings us to the topic of active UTxO management. In an ideal case, coin
+selection algorithms should, over time, create a UTxO that has ``useful'' outputs;
+that is, outputs that allow us to process future payments with a minimum number
+of inputs. We can take advantage of self organisation again:
+%
+\begin{quote}
+\textbf{Self organisation principle 2}. If for each payment request for value
+$x$ we create a change output roughly of the same value $x$, then we will end up
+with a lot of change outputs in our UTxO of size $x$ \emph{precisely when} we
+have a lot of payment requests of size $x$.
+\end{quote}
+%
+We will consider some details of how to achieve this in the next section. For
+now, Figure~\ref{fig:inputselection:normal_1to1_randomOn} shows what the effect
+of this is on the UTxO. The graph in the bottom right, which we've ignored so
+far, records the change:payment ratio. A value near zero means a very small
+change output (i.e., dust); a very high value would be the result of using a
+huge UTxO entry for a much smaller payment. A value around 1 is perfect, and
+means that we are generating change outputs of equal value as the payments.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-1to1-randomOn.tex} &
+\input{spec/normal-1to1-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_1to1_randomOn}
+  Same deposits and withdrawals as in
+  Figure~\ref{fig:inputselection:normal_1to1_randomOff}, but now using the
+  ``pick randomly until we have a change output roughly equal to the payment''
+  algorithm.
+}
+\end{figure}
+
+Note that the UTxO now follows precisely the distribution of payment requests,
+and we're not generating dust anymore. One advantage of this is that because
+we have no dust, the average number of inputs per transaction can be lower
+than in the basic algorithm.
+
+Just to illustrate this again,
+Figure~\ref{fig:inputselection:normal_3to1_randomOn} shows the result of the
+algorithm but now with a 3:1 ratio of deposits and withdrawals. We have two
+bumps now: one normally distributed around 1000, corresponding to the the
+deposits, and one normally distributed around 3000, corresponding to the payment
+requests that are being made. As before, the median change:payment ratio is a
+satisfying round 1.0.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-3to1-randomOn.tex} &
+\input{spec/normal-3to1-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_3to1_randomOn}
+Same algorithm as in Figure~\ref{fig:inputselection:normal_1to1_randomOn}, but
+now with 3:1 deposits:payments (i.e., many small deposits, fewer but larger
+payments).
+}
+\end{figure}
+
+\clearpage
+
+\subsection{The \texttt{Random-Improve} algorithm}
+
+We are now ready to present the coin selection algorithm we propose. The basic
+idea is simple: we will randomly pick UTxO entries until we have reached
+the required value, and then continue randomly picking UTxO entries to try and
+reach a total value such that the the change value is roughly equal to the
+payment.
+
+This presents a dilemma though. Suppose we have already covered the minimum
+value required, and we're trying to improve the change output. We pick an
+output from the UTxO, and it turns out to be huge. What do we do? One option
+is to discard it and continue searching, but this would result in coin selection
+frequently traversing the entire UTxO, resulting in poor performance.
+
+Fortunately, self organisation comes to the rescue again. We can set an upper
+bound on the size of the change output we still consider acceptable (we will
+set it to twice the payment value). Then we take advantage of the following
+property.
+%
+\begin{quote}
+\textbf{Self organisation principle 3.} Searching the UTxO for additional
+entries to improve our change output is only useful if the UTxO contains entries
+that are sufficiently small enough. But \emph{precisely when} the UTxO contains
+many small entries, it is less likely that a randomly chosen UTxO entry will
+push the total above the upper bound we set.
+\end{quote}
+%
+In other words, our answer to ``what do we do when we happen to pick a huge UTxO
+entry?'' is ``we stop trying to improve our selection''.
+Figure~\ref{fig:RandomImprove} shows the full algorithm.
+
+\begin{figure}[t]
+\begin{enumerate}
+\item Randomly select outputs from the UTxO until the payment value is covered. \\
+(In the rare case that this fails because the maximum number of transaction
+inputs has been exceeded, fall-back on the largest-first algorithm for this
+step.)
+\item Randomly select outputs from the UTxO, considering for each output if that
+output is an \emph{improvement}. If it is, add it to the transaction, and keep
+going. An output is considered an improvement when:
+\begin{enumerate}
+\item It doesn't exceed the specified upper limit
+\item Adding the new output gets us closer to the ideal change value
+\item It doesn't exceed the maximum number of transaction inputs.
+\end{enumerate}
+\end{enumerate}
+\caption{\label{fig:RandomImprove}
+  The \texttt{Random-Improve} algorithm. Side note for point (2a): we  use twice
+  the value of the payment as the upper limit. Side note for point (2b): it
+  might be that without the new output we are slightly below the ideal value,
+  and with the new output we are slightly above; that is fine, as long as the
+  absolute distance decreases.
+}
+\end{figure}
+
+\subsection{Evaluation}
+
+The algorithm (Figure~\ref{fig:RandomImprove}) is deceptively simple. Do the
+self organisation principles we isolated really mean that order will emerge from
+chaos? Simulations suggest, yes, it does. We already mentioned how random input
+selection does a great job at cleaning up dust in
+Figure~\ref{fig:inputselection:normal_3to1_largeThenRandom}; what we didn't
+emphasise in that section is that the algorithm we simulated there is actually
+our \texttt{Random-Improve} algorithm. Notice how the median change:payment
+ratio is initially very low (indicative of a coin selection algorithm that is
+generating a lot of dust outputs), but climbs rapidly back to 1 as soon as
+\texttt{Random-Improve} kicks in. We already observed that it does indeed do an
+excellent job at cleaning up the dust, quickly reducing the size of the UTxO.
+The simulations in Figures~\ref{fig:inputselection:normal_1to1_randomOn}
+and~\ref{fig:inputselection:normal_3to1_randomOn} are also the result of the
+\texttt{Random-Improve} algorithm.
+
+That said, of course the long term effects of a coin selection algorithm
+can depend strongly on the nature of the distribution of deposits and payments.
+It is therefore important that we evaluate the algorithm against a number
+of different distributions.
+
+\subsubsection{Normal distribution, 10:1 deposit:payment ratio}
+
+We already evaluated `Random-Improve` against normally distributed payments and
+deposits with a 1:1 ratio and a 3:1 ratio; perhaps more typical for exchange
+nodes might be even higher ratios.
+Figure~\ref{fig:inputselection:normal_10to1_randomOn} shows is a 10:1 ratio.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-10to1-randomOn.tex} &
+\input{spec/normal-10to1-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_10to1_randomOn}
+  \texttt{Random-Improve} with a 10:1 deposit:payment ratio, both normally
+  distributed.
+}
+\end{figure}
+
+We see a very similar picture as we did in
+Figure~\ref{fig:inputselection:normal_3to1_randomOn}. Since the deposits and
+payments are randomly drawn (from normal distributions), the UTxO balance
+naturally fluctuates up and down. What is satisfying to see however is that the
+\emph{size} of the UTxO tracks the balance rather precisely; this is about as
+good as we can hope for. Notice also that the change:payment ratio is a nice
+round 1, and the average number of transaction inputs covers around 10 or 11,
+which is what we'd expect for a 10:1 ratio of deposits:payments.
+
+\subsubsection{Exponential distribution, 1:1 deposit:payment ratio}
+\label{sec:inputselection:erlang1_1to1_randomOn}
+
+What if the payments and deposits are not normally distributed?
+Figure~\ref{fig:inputselection:erlang1_1to1_randomOn} shows
+\texttt{Random-Improve} on exponentially distributed inputs. In an exponential
+distribution we have a lot of values near 0; for such values it will be hard to
+achieve a `good' change output, as we are likely to overshoot the range. Partly
+due to this reason the algorithm isn't quite achieving a 1.0 change:payment
+ratio, but at 1.5 it is still generating useful change outputs. Furthermore, we
+can see that the size of the UTxO tracks the UTxO balance nicely, and the
+average number of transaction inputs is low, with roughly 53\% having just one
+input. Moreover, when we increase the deposit:payment ratio to 3:1 and then
+10:0, the change:payment ratio drops to about 1.1 and then back to 1.0 (graphs
+omitted).
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/erlang1-1to1-randomOn.tex} &
+\input{spec/erlang1-1to1-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:erlang1_1to1_randomOn}
+  \texttt{Random-Improve}, 1:1 deposit:payment ratio, deposits and payments
+  both drawn from an exponential distribution with scale 1000.
+}
+\end{figure}
+
+\subsubsection{Erlang}
+
+The exponential distribution results in many very small deposits and payments.
+The algorithm does better on slightly more realistic distributions such as the
+Erlang-$k$ distributions (for $k > 1$)\footnote{The exponential distribution
+discussed in Section~\ref{sec:inputselection:erlang1_1to1_randomOn} is the
+Erlang-1 case, of course.}.
+Figure~\ref{fig:inputselection:erlang3_3to1_randomOn} shows the results for the
+3:1 deposit:payment ratio using the Erlang-3 distribution; the results for other
+ratios (including 1:1) and other values of $k$ (we additionally simulated for $k =
+2$ and $k = 10$) are similar.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/erlang3-3to1-randomOn.tex} &
+\input{spec/erlang3-3to1-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:erlang3_3to1_randomOn}
+  \texttt{Random-Improve}, 3:1 deposit:payment ratio, deposits
+  drawn from an Erlang-3 distribution with scale 1000 and payments drawn from
+  Erlang-3 distribution with scale 3000.
+}
+\end{figure}
+
+\subsubsection{More payments than deposits}
+
+We have been focusing on the case where we have more deposits and fewer (but
+larger) payments. Figure~\ref{fig:inputselection:normal_1to10_randomOn} shows
+what happens if the ratio is reversed. In this case we are unable to achieve
+that perfect 1.0 change:payment ratio, but this is expected: when we have large
+deposits, then we frequently have no choice but to use those, leading to large
+change outputs.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/normal-1to10-randomOn.tex} &
+\input{spec/normal-1to10-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:normal_1to10_randomOn}
+  \texttt{Random-Improve}, 1:10 deposit:payment ratio, deposits and
+  payments drawn from a normal distribution with mean 10k and 1k, respectively.
+  1M cycles.
+}
+\end{figure}
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{l}
+\input{spec/constant-1to10-randomOn.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:constant_1to10_randomOn}
+  \texttt{Random-Improve}, 1:10 deposit:payment ratio, all deposits exactly
+  10k, all payments exactly 1k (no randomness). First 100 cycles only.
+}
+\end{figure}
+
+We can see this more clearly
+when we slow things right down, and remove any source of randomness. Figure~\ref{fig:inputselection:constant_1to10_randomOn} shows the
+same 1:10 ratio again, but now only the first 100 cycles, and all deposits
+exactly 10k and all payments exactly 1k.
+We can see the large value being deposited, and then shifting to the left in the
+histogram as it is getting used for deposits, each time decreasing that large
+output by 1k. Indeed, this takes 10 slots on average, which makes sense given
+the 10:1 ratio; moreover, the \emph{average value} of the ``large output'' in such a
+10-slot cycle is 5k, explaining why we are getting 5.0 change:payment ratio.
+
+The algorithm however is \emph{not} creating dust outputs; the 1k change outputs
+it is generating \emph{are} getting used, and the size of the UTxO is perfectly
+stable. Indeed, back in Figure~\ref{fig:inputselection:normal_1to10_randomOn} we
+can see that the size of the UTxO tracks the balance perfectly; moreover, the
+vast majority of transactions only use a single input, which is what we'd expect
+for a 10:0 deposit:payment ratio.
+
+\subsubsection{Real data}
+
+\paragraph{\texttt{MoneyPot.com}}
+
+Ideally, of course, we run the simulation against \emph{real} event streams from
+existing wallets. Unfortunately, such data is hard to come by. Erhardt was able
+to find one such dataset, provided by \texttt{MoneyPot.com}
+\citep{MoneyPotdataset}. Figure~\ref{fig:inputselection:MoneyPot_randomOn} shows
+the results of running our algorithm on this dataset.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/MoneyPot-randomOn.tex} &
+\input{spec/MoneyPot-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:MoneyPot_randomOn}
+  \texttt{Random-Improve}, using the MoneyPot data set. There is a roughly 2:1
+  deposit:payment ratio. Values have been scaled. Log scale on the x-axis.
+}
+\end{figure}
+
+A few observations are in order here. First, there are quite a few deposits and
+payments close to 0, just like in an exponential distribution. Moreover,
+although we have many values close to 0, we also have some \emph{huge} outliers; the
+payments are closely clustered together, but there is a $10^9$ difference between
+the smallest and largest deposit, and moreover a $10^5$ difference between the
+largest deposit and the largest payment. It is therefore not surprising that we
+end up with a relatively large change:payment ratio. Nonetheless, the algorithm
+is behaving well, with the size of the UTxO tracking the balance nicely, with an
+average UTxO size of 130 entries. The average number of outputs is 3.03, with
+50\% of transactions using just one input, and 90\% using 6 or fewer.
+
+\paragraph{Cardano Exchange}
+
+One of the large Cardano exchange node has also helped us with
+some anonymised data (deposits and payments), similar in nature to the
+MoneyPot dataset albeit significantly larger. Coming from an exchange node,
+however, this dataset is \emph{very much} skewed towards deposits, with a
+deposit:payment ratio of roughly 30:1. Under these circumstances
+(Figure~\ref{fig:inputselection:CardanoExchange_randomOn}) our coin selection
+algorithm cannot keep the UTxO size small on its own (exchanges have additional
+infrastructure in place to address this problem). The UTxO here also contains
+some truly enormous outputs, which is pushing the change:payment ratio up,
+although as more withdrawals are being made the algorithm is able to push it
+down.
+
+\begin{figure}[p]
+\begin{center}
+\scriptsize
+\begin{tabular}{ll}
+\input{spec/CardanoExchange-randomOn.tex} &
+\input{spec/CardanoExchange-randomOn-distr.tex}
+\end{tabular}
+\end{center}
+\caption{\label{fig:inputselection:CardanoExchange_randomOn}
+  \texttt{Random-Improve}, using data set from a large Cardano exchange.
+  There is a roughly 30:1 deposit:payment ratio. Values have been scaled.
+  Log scale on the x-axis.
+}
+\end{figure}
+
+
+\subsection{Conclusions}
+
+The choice of coin selection algorithm has far reaching consequences on the long
+term behaviour of a cryptocurrency wallet. To a large extent the coin selection
+algorithm determines, over time, the shape of the UTxO. Moreover, the performance
+of the algorithm can be of crucial importance to high-traffic wallets such as
+exchange nodes.
+
+In his thesis, Erhardt proposes ``Branch and Bound'' as his preferred coin
+selection algorithm. Branch and Bound in essence is a limited backtracking
+algorithm that tries to find an exact match, so that no change output needs
+to be generated at all. When the backtracking cannot find an exact match within
+its bounds, the algorithm then falls back on random selection. It does not,
+however, attempt our ``improvement'' step, and instead just attempts to reach
+a minimum but fixed change size, to avoid generating dust. It is hard to compare
+the two algorithms directly, but on the MoneyPot dataset at least the results
+are comparable; Erhardt ends up with a slightly smaller average UTxO (109
+versus our 130), and a slightly smaller average number of inputs (2.7 versus
+our 3.0). In principle we could modify our \texttt{Random-Improve} algorithm to
+start with bounded backtracking to find an exact match, just like Erhardt does;
+we have not done this however because it adds complexity to the algorithm and
+reduces performance. Erhardt reports that his algorithm is able to find
+exact matches in 30\% of the time. This is \emph{very} high, and at least partly
+explains why his UTxO and average number of change outputs is lower; in the
+Cardano blockchain, we would not expect that there \emph{exist} exact matches
+anywhere near that often (never mind \emph{finding} them).
+
+Instead our proposed \texttt{Random-Improve} does no search at all, instead purely
+relying on self organisation principles, the first of which was stated by
+Erhardt, and the other two we identified as part of this research. Although
+in the absence of more real data it is hard to evaluate any coin selection
+algorithm, we have shown that the algorithm performs well across a large
+variety of different distributions and deposit:payment ratios. Moreover it is
+straight-forward to implement and has high performance.
+
+One improvement we may wish to consider is that \emph{when} there are very large
+deposits, we could occasionally issue a ``reorganisation transaction'' that
+splits those large deposits into smaller chunks. This would bring the
+change:payment ratio down, which would improve the evolution of the UTxO over
+time and is beneficial also for other, more technical reasons (it reduces the
+need for dependent transactions). Such reorganisation is largely orthogonal to
+this algorithm, however, and can be implemented independently.
 
 \section{Appendix: Transaction fees}
 \label{app:transaction_fees}

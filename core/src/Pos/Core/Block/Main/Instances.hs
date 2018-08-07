@@ -8,56 +8,28 @@ module Pos.Core.Block.Main.Instances
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, stext, (%))
+import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (Color (Magenta), colorize, listJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))
-import           Pos.Core.Block.Main.Lens (mainBlockBlockVersion, mainBlockDifficulty,
-                                           mainBlockSlot, mainBlockSoftwareVersion,
-                                           mainHeaderBlockVersion, mainHeaderDifficulty,
-                                           mainHeaderLeaderKey, mainHeaderSlot,
-                                           mainHeaderSoftwareVersion, mbTxs, mcdDifficulty,
-                                           mehBlockVersion, mehSoftwareVersion)
-import           Pos.Core.Block.Main.Types (MainBody (..), MainExtraHeaderData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..), HasHeaderHash (..), HeaderHash,
-                                             IsHeader, IsMainHeader (..), MainBlock,
-                                             MainBlockHeader, MainConsensusData (..),
-                                             blockHeaderHash)
+import           Pos.Core.Block.Blockchain (GenericBlock (..))
+import           Pos.Core.Block.Main.Types (MainBody (..),
+                     MainExtraHeaderData (..))
+import           Pos.Core.Block.Union.Types (BlockHeader (..),
+                     HasHeaderHash (..), IsHeader, IsMainHeader (..),
+                     MainBlock, MainBlockHeader, MainConsensusData (..),
+                     blockHeaderHash, mainBlockBlockVersion, mainBlockSlot,
+                     mainBlockSoftwareVersion, mainHeaderBlockVersion,
+                     mainHeaderLeaderKey, mainHeaderSlot,
+                     mainHeaderSoftwareVersion, mbTxs, mcdDifficulty,
+                     mehBlockVersion, mehSoftwareVersion)
 import           Pos.Core.Common (HasDifficulty (..))
-import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                                    slotIdF)
+import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..))
 import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..))
-import           Pos.Crypto (hashHexF)
 
 instance NFData MainBlock
 
-instance Bi BlockHeader => Buildable MainBlockHeader where
-    build gbh@UnsafeGenericBlockHeader {..} =
-        bprint
-            ("MainBlockHeader:\n"%
-             "    hash: "%hashHexF%"\n"%
-             "    previous block: "%hashHexF%"\n"%
-             "    slot: "%slotIdF%"\n"%
-             "    difficulty: "%int%"\n"%
-             "    leader: "%build%"\n"%
-             "    signature: "%build%"\n"%
-             build
-            )
-            gbhHeaderHash
-            _gbhPrevBlock
-            _mcdSlot
-            _mcdDifficulty
-            _mcdLeaderKey
-            _mcdSignature
-            _gbhExtra
-      where
-        gbhHeaderHash :: HeaderHash
-        gbhHeaderHash = blockHeaderHash $ BlockHeaderMain gbh
-        MainConsensusData {..} = _gbhConsensus
-
-instance (Bi BlockHeader) => Buildable MainBlock where
+instance Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -83,35 +55,17 @@ instance (Bi BlockHeader) => Buildable MainBlock where
 instance HasEpochIndex MainBlock where
     epochIndexL = mainBlockSlot . epochIndexL
 
-instance HasEpochIndex MainBlockHeader where
-    epochIndexL = mainHeaderSlot . epochIndexL
-
-instance HasEpochOrSlot MainBlockHeader where
-    getEpochOrSlot = EpochOrSlot . Right . view mainHeaderSlot
-
 instance HasEpochOrSlot MainBlock where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
 
--- NB. it's not a mistake that these instances require @Bi BlockHeader@
--- instead of @Bi MainBlockHeader@. We compute header's hash by
--- converting it to a BlockHeader first.
-
-instance Bi BlockHeader =>
-         HasHeaderHash MainBlockHeader where
+instance HasHeaderHash MainBlockHeader where
     headerHash = blockHeaderHash . BlockHeaderMain
 
-instance Bi BlockHeader =>
-         HasHeaderHash MainBlock where
+instance HasHeaderHash MainBlock where
     headerHash = blockHeaderHash . BlockHeaderMain . _gbHeader
 
 instance HasDifficulty MainConsensusData where
     difficultyL = mcdDifficulty
-
-instance HasDifficulty MainBlockHeader where
-    difficultyL = mainHeaderDifficulty
-
-instance HasDifficulty MainBlock where
-    difficultyL = mainBlockDifficulty
 
 instance HasBlockVersion MainExtraHeaderData where
     blockVersionL = mehBlockVersion
@@ -131,8 +85,8 @@ instance HasBlockVersion MainBlockHeader where
 instance HasSoftwareVersion MainBlockHeader where
     softwareVersionL = mainHeaderSoftwareVersion
 
-instance Bi BlockHeader => IsHeader MainBlockHeader
+instance IsHeader MainBlockHeader
 
-instance Bi BlockHeader => IsMainHeader MainBlockHeader where
+instance IsMainHeader MainBlockHeader where
     headerSlotL = mainHeaderSlot
     headerLeaderKeyL = mainHeaderLeaderKey

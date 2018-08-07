@@ -117,13 +117,17 @@ under these URLs:
 
 ## Testing
 
-Wallet tests can be run using this command (from the project *root* directory):
+Wallet unit tests can be run using this command (from the project *root* directory):
 
 ```
 $ stack test cardano-sl-wallet-new
 ```
 
-Tests can be run by running `stack test cardano-sl-wallet-new` from the project *root* directory.
+Wallet integration tests can be run using this command (from the project *root* directory):
+
+```
+$ nix-build release.nix -A walletIntegrationTests
+```
 
 ## Developing
 

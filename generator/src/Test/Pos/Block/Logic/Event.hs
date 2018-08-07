@@ -6,6 +6,7 @@ module Test.Pos.Block.Logic.Event
          runBlockEvent
        , runBlockScenario
        , BlockScenarioResult(..)
+       , lastSlot
 
        -- * Exceptions
        , SnapshotMissingEx(..)
@@ -17,22 +18,29 @@ import           Universum
 import           Control.Exception.Safe (fromException)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified GHC.Exts as IL
 
-import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks, verifyAndApplyBlocks)
-import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash)
-import           Pos.Core.Chrono (NE, OldestFirst)
-import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump, dbPureReset)
-import           Pos.Exception (CardanoFatalError (..))
-import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, BlockEvent' (..),
-                                           BlockRollbackFailure (..), BlockRollbackResult (..),
-                                           BlockScenario, BlockScenario' (..), SnapshotId,
-                                           SnapshotOperation (..), beaInput, beaOutValid, berInput,
-                                           berOutValid)
-import           Pos.Txp (MonadTxpLocal)
+import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core.Block (Block, HeaderHash)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Exception (CardanoFatalError (..))
+import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
+import           Pos.DB.Block (BlockLrcMode, getVerifyBlocksContext',
+                     rollbackBlocks, verifyAndApplyBlocks)
+import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
+                     dbPureReset)
+import           Pos.DB.Txp (MonadTxpLocal)
+import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent,
+                     BlockEvent' (..), BlockRollbackFailure (..),
+                     BlockRollbackResult (..), BlockScenario,
+                     BlockScenario' (..), SnapshotId, SnapshotOperation (..),
+                     beaInput, beaOutValid, berInput, berOutValid)
 import           Pos.Util.Util (eitherToThrow, lensOf)
 
-import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
+import           Test.Pos.Block.Logic.Mode (BlockTestContext,
+                     PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
@@ -53,17 +61,31 @@ data BlockEventResult
     | BlockEventFailure IsExpected SomeException
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
+lastSlot :: [Block] -> Maybe SlotId
+lastSlot bs =
+    case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
+        [] -> Nothing
+        ss -> Just $ maximum ss
+
 verifyAndApplyBlocks' ::
        ( HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => OldestFirst NE Blund
+    => TxpConfiguration
+    -> OldestFirst NE Blund
     -> m ()
-verifyAndApplyBlocks' blunds = do
+verifyAndApplyBlocks' txpConfig blunds = do
+    let -- We cannot simply take `getCurrentSlot` since blocks are generated in
+        --`MonadBlockGen` which locally changes its current slot.  We just take
+        -- the last slot of all generated blocks.
+        curSlot :: Maybe SlotId
+        curSlot = lastSlot (map fst . IL.toList $ blunds)
+    ctx <- getVerifyBlocksContext' curSlot
+
     satisfySlotCheck blocks $ do
-        (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic True blocks
+        _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
+            verifyAndApplyBlocks dummyProtocolMagic txpConfig ctx True blocks
         return ()
   where
     blocks = fst <$> blunds
@@ -73,11 +95,12 @@ runBlockEvent ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => BlockEvent
+    => TxpConfiguration
+    -> BlockEvent
     -> m BlockEventResult
 
-runBlockEvent (BlkEvApply ev) =
-    (onSuccess <$ verifyAndApplyBlocks' (ev ^. beaInput))
+runBlockEvent txpConfig (BlkEvApply ev) =
+    (onSuccess <$ verifyAndApplyBlocks' txpConfig (ev ^. beaInput))
         `catch` (return . onFailure)
   where
     onSuccess = case ev ^. beaOutValid of
@@ -87,7 +110,7 @@ runBlockEvent (BlkEvApply ev) =
         BlockApplySuccess -> BlockEventFailure (IsExpected False) e
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
-runBlockEvent (BlkEvRollback ev) =
+runBlockEvent _ (BlkEvRollback ev) =
     (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
        `catch` (return . onFailure)
   where
@@ -109,7 +132,7 @@ runBlockEvent (BlkEvRollback ev) =
             in
                 BlockEventFailure (IsExpected isExpected) e
 
-runBlockEvent (BlkEvSnap ev) =
+runBlockEvent _ (BlkEvSnap ev) =
     (onSuccess <$ runSnapshotOperation ev)
         `catch` (return . onFailure)
   where
@@ -155,15 +178,16 @@ runBlockScenario ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => BlockScenario
+    => TxpConfiguration
+    -> BlockScenario
     -> m BlockScenarioResult
-runBlockScenario (BlockScenario []) =
+runBlockScenario _ (BlockScenario []) =
     return BlockScenarioFinishedOk
-runBlockScenario (BlockScenario (ev:evs)) = do
-    runBlockEvent ev >>= \case
+runBlockScenario txpConfig (BlockScenario (ev:evs)) = do
+    runBlockEvent txpConfig ev >>= \case
         BlockEventSuccess (IsExpected isExp) ->
             if isExp
-                then runBlockScenario (BlockScenario evs)
+                then runBlockScenario txpConfig (BlockScenario evs)
                 else return BlockScenarioUnexpectedSuccess
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp

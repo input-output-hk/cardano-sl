@@ -44,7 +44,8 @@ import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 
 import qualified Serokell.Util.Base64 as B64
 import           Servant.Generic (AsServerT, toServant)
-import           Servant.Server (Server, ServerT, serve)
+import           Servant.Server (Server, ServerT, err405, errReasonPhrase,
+                     serve)
 import           System.Wlog (logDebug)
 
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
@@ -55,41 +56,49 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Types (Blund, Undo)
-import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex, HeaderHash, Timestamp,
-                           coinToInteger, difficultyL, gbHeader, gbhConsensus, getChainDifficulty,
-                           isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot, sumCoins,
-                           timestampToPosix, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
-import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx, txOutValue, txpTxs,
-                               _txOutputs)
-import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
-import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs,
-                          withTxpLocalData)
-import           Pos.Util (divRoundUp, maybeThrow)
+import           Pos.Chain.Block (Blund, Undo)
+import           Pos.Chain.Txp (TxMap, mpLocalTxs, topsortTxs)
+import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
+                     Timestamp, coinToInteger, difficultyL, getChainDifficulty,
+                     isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot,
+                     sumCoins, timestampToPosix, unsafeAddCoin,
+                     unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Block (Block, HeaderHash, MainBlock, gbHeader,
+                     gbhConsensus, mainBlockSlot, mainBlockTxPayload, mcdSlot)
 import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxIn (..), TxOutAux (..),
+                     taTx, txOutAddress, txOutValue, txpTxs, _txOutputs)
+import           Pos.DB.Txp (MonadTxpMem, getFilteredUtxo, getLocalTxs,
+                     getMemPool, withTxpLocalData)
+import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
+import           Pos.Util (divRoundUp, maybeThrow)
 import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Core (TxExtra (..))
-import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddrHistory,
-                                  getLastTransactions, getTxExtra, getUtxoSum)
+import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance,
+                     getAddrHistory, getLastTransactions, getTxExtra,
+                     getUtxoSum)
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
-                                            HasGenesisRedeemAddressInfo (..))
-import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..), explorerApi)
-import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
-                                               CAddressType (..), CAddressesFilter (..),
-                                               CBlockEntry (..), CBlockSummary (..),
-                                               CGenesisAddressInfo (..), CGenesisSummary (..),
-                                               CHash, CTxBrief (..), CTxEntry (..), CTxId (..),
-                                               CTxSummary (..), TxInternal (..), convertTxOutputs,
-                                               convertTxOutputsMB, fromCAddress, fromCHash,
-                                               fromCTxId, getEpochIndex, getSlotIndex, mkCCoin,
-                                               mkCCoinMB, tiToTxEntry, toBlockEntry, toBlockSummary,
-                                               toCAddress, toCHash, toCTxId, toTxBrief)
+                     HasGenesisRedeemAddressInfo (..))
+import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..),
+                     explorerApi)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
+                     CAddressSummary (..), CAddressType (..),
+                     CAddressesFilter (..), CBlockEntry (..),
+                     CBlockSummary (..), CByteString (..),
+                     CGenesisAddressInfo (..), CGenesisSummary (..), CHash,
+                     CTxBrief (..), CTxEntry (..), CTxId (..), CTxSummary (..),
+                     CUtxo (..), TxInternal (..), convertTxOutputs,
+                     convertTxOutputsMB, fromCAddress, fromCHash, fromCTxId,
+                     getEpochIndex, getSlotIndex, mkCCoin, mkCCoinMB,
+                     tiToTxEntry, toBlockEntry, toBlockSummary, toCAddress,
+                     toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
 
+import qualified Data.Map as M
+import           Pos.Configuration (explorerExtendedApi)
 
 
 ----------------------------------------------------------------
@@ -127,6 +136,7 @@ explorerHandlers _diffusion =
         , _txsLast            = getLastTxs
         , _txsSummary         = getTxSummary
         , _addressSummary     = getAddressSummary
+        , _addressUtxoBulk    = getAddressUtxoBulk
         , _epochPages         = getEpochPage
         , _epochSlots         = getEpochSlot
         , _genesisSummary     = getGenesisSummary
@@ -365,6 +375,42 @@ getAddressSummary cAddr = do
             ATScript     -> CScriptAddress
             ATRedeem     -> CRedeemAddress
             ATUnknown {} -> CUnknownAddress
+
+
+getAddressUtxoBulk
+    :: (ExplorerMode ctx m)
+    => [CAddress]
+    -> m [CUtxo]
+getAddressUtxoBulk cAddrs = do
+    unless explorerExtendedApi $
+        throwM err405
+        { errReasonPhrase = "Explorer extended API is disabled by configuration!"
+        }
+
+    let nAddrs = length cAddrs
+
+    when (nAddrs > 10) $
+        throwM err405
+        { errReasonPhrase = "Maximum number of addresses you can send to fetch Utxo in bulk is 10!"
+        }
+
+    addrs <- mapM cAddrToAddr cAddrs
+    utxo <- getFilteredUtxo addrs
+
+    pure . map futxoToCUtxo . M.toList $ utxo
+  where
+    futxoToCUtxo :: (TxIn, TxOutAux) -> CUtxo
+    futxoToCUtxo ((TxInUtxo txInHash txInIndex), txOutAux) = CUtxo {
+        cuId = toCTxId txInHash,
+        cuOutIndex = fromIntegral txInIndex,
+        cuAddress = toCAddress . txOutAddress . toaOut $ txOutAux,
+        cuCoins = mkCCoin . txOutValue . toaOut $ txOutAux
+    }
+    futxoToCUtxo ((TxInUnknown tag bs), _) = CUtxoUnknown {
+        cuTag = fromIntegral tag,
+        cuBs = CByteString bs
+    }
+
 
 -- | Get transaction summary from transaction id. Looks at both the database
 -- and the memory (mempool) for the transaction. What we have at the mempool

@@ -16,8 +16,8 @@ in
 with pkgs;
 let
   hsPkgs = haskell.packages.ghc822;
-in
-  haskell.lib.buildStackProject {
+  iohkPkgs = import ./. {inherit config system pkgs; };
+  cardanoSL = haskell.lib.buildStackProject {
      name = "cardano-sl";
      ghc = hsPkgs.ghc;
      buildInputs = [
@@ -29,4 +29,25 @@ in
      # See https://github.com/NixOS/nixpkgs/issues/21200
      ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ])
        ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
-  }
+  };
+  fixStylishHaskell = stdenv.mkDerivation {
+    name = "fix-stylish-haskell";
+    buildInputs = [ iohkPkgs.stylish-haskell git ];
+    shellHook = ''
+      git diff > pre-stylish.diff
+      find . -type f -name "*hs" -not -path '.git' -not -path '*.stack-work*' -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
+      git diff > post-stylish.diff
+      diff pre-stylish.diff post-stylish.diff > /dev/null
+      if [ $? != 0 ]
+      then
+        echo "Changes by stylish have been made. Please commit them."
+      else
+        echo "No stylish changes were made."
+      fi
+      rm pre-stylish.diff post-stylish.diff
+      exit
+    '';
+  };
+in cardanoSL // {
+  inherit fixStylishHaskell;
+}

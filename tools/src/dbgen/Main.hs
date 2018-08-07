@@ -15,24 +15,27 @@ import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Data.Time.Units (fromMicroseconds)
-import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
-import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
-                                 gtSscParams)
+
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
+                     NodeArgs (..), getNodeParams, gtSscParams)
 import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                          topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                     topologyDequeuePolicy, topologyEnqueuePolicy,
+                     topologyFailurePolicy)
 import           Pos.Infra.Reporting (noReporter)
 import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
-                               bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
-                               npUserSecret, withConfigurations)
-import           Pos.Txp (txpGlobalSettings)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
+                     NodeResources (..), bracketNodeResources,
+                     defaultConfigurationOptions, npBehaviorConfig,
+                     npUserSecret, withConfigurations)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
@@ -40,11 +43,11 @@ import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
-import           CLI (CLI (..))
-import           Lib (generateWalletDB, loadGenSpec)
-import           Rendering (bold, say)
-import           Stats (showStatsAndExit, showStatsData)
-import           Types (UberMonad)
+import           Pos.Tools.Dbgen.CLI (CLI (..))
+import           Pos.Tools.Dbgen.Lib (generateWalletDB, loadGenSpec)
+import           Pos.Tools.Dbgen.Rendering (bold, say)
+import           Pos.Tools.Dbgen.Stats (showStatsAndExit, showStatsData)
+import           Pos.Tools.Dbgen.Types (UberMonad)
 
 defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {
@@ -60,11 +63,12 @@ defaultNetworkConfig ncTopology = NetworkConfig {
 newRealModeContext
     :: HasConfigurations
     => ProtocolMagic
+    -> TxpConfiguration
     -> NodeDBs
     -> ConfigurationOptions
     -> FilePath
-    -> Production (RealModeContext ())
-newRealModeContext pm dbs confOpts secretKeyPath = do
+    -> IO (RealModeContext ())
+newRealModeContext pm txpConfig dbs confOpts secretKeyPath = do
     let nodeArgs = NodeArgs {
       behaviorConfigPath = Nothing
     }
@@ -80,6 +84,7 @@ newRealModeContext pm dbs confOpts secretKeyPath = do
     let cArgs@CommonNodeArgs {..} = CommonNodeArgs {
            dbPath                 = Just "node-db"
          , rebuildDB              = True
+         , cnaAssetLockPath       = Nothing
          , devGenesisSecretI      = Nothing
          , keyfilePath            = secretKeyPath
          , networkConfigOpts      = networkOps
@@ -104,7 +109,7 @@ newRealModeContext pm dbs confOpts secretKeyPath = do
     nodeParams <- getNodeParams loggerName cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
+    bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState
                         <*> pure nrTxpState
@@ -119,17 +124,18 @@ newRealModeContext pm dbs confOpts secretKeyPath = do
 walletRunner
     :: HasConfigurations
     => ProtocolMagic
+    -> TxpConfiguration
     -> ConfigurationOptions
     -> NodeDBs
     -> FilePath
     -> WalletDB
     -> UberMonad a
     -> IO a
-walletRunner pm confOpts dbs secretKeyPath ws act = runProduction $ do
+walletRunner pm txpConfig confOpts dbs secretKeyPath ws act = do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
                                  <*> liftIO newTQueueIO
-                                 <*> newRealModeContext pm dbs confOpts secretKeyPath
+                                 <*> newRealModeContext pm txpConfig dbs confOpts secretKeyPath
     runReaderT act wwmc
 
 newWalletState :: MonadIO m => Bool -> FilePath -> m WalletDB
@@ -137,10 +143,6 @@ newWalletState recreate walletPath =
     -- If the user passed the `--add-to` option, it means we don't have
     -- to rebuild the DB, but rather append stuff into it.
     liftIO $ openState (not recreate) walletPath
-
-instance HasLoggerName IO where
-    askLoggerName = pure $ LoggerName "dbgen"
-    modifyLoggerName _ x = x
 
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
 newConfig :: CLI -> ConfigurationOptions
@@ -157,7 +159,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ \_ pm -> do
+    withConfigurations Nothing cfg $ \pm txpConfig _ -> do
         when showStats (showStatsAndExit walletPath)
 
         say $ bold "Starting the modification of the wallet..."
@@ -169,7 +171,7 @@ main = do
         ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
         let generatedWallet = generateWalletDB cli spec
-        walletRunner pm cfg dbs secretKeyPath ws generatedWallet
+        walletRunner pm txpConfig cfg dbs secretKeyPath ws generatedWallet
         closeState ws
 
         showStatsData "after" walletPath

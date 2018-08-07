@@ -9,6 +9,13 @@ if ! [ -n "$TMUX" ]; then
   exit 1
 fi
 
+# Check the `--nix` option (must be first option)
+nix=""
+if [[ $1 == "--nix" ]]; then
+  shift
+  nix="--nix"
+fi
+
 # Make sure we're using proper version of tmux.
 tmux_actual_version=$(tmux -V | awk '{print $2}')
 # All tmux versions contain two numbers only.
@@ -136,7 +143,7 @@ while [[ $i -lt $panesCnt ]]; do
   conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
-  x509GenTool=$(find_binary cardano-x509-certificates)
+  x509GenTool=$(find_binary cardano-x509-certificates ${nix})
   if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG
@@ -171,15 +178,19 @@ while [[ $i -lt $panesCnt ]]; do
   fi
   if [[ $i -lt $n ]]; then
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "$config_dir" "$conf_file" "$run_dir" "$run_dir/logs")"
-    node_=$(find_binary $exec_name)
+    node_=$(find_binary $exec_name $nix)
     if [[ $WALLET_TEST != "" ]] && [[ $i -ge $((n-2)) ]]; then
         updater_file="$config_dir/updater$i.sh"
-        launcher_=$(find_binary cardano-launcher)
+        launcher_=$(find_binary cardano-launcher $nix)
 
         ensure_run $run_dir
 
         # shellcheck disable=SC2154
         full_node_args="$node_args $reb $no_ntp $keys_args $rts_opts"
+        if [[ $WALLET_CLIENT_AUTH_DISABLE != "" ]]; then
+            # shellcheck disable=SC2154
+            full_node_args="$full_node_args --no-client-auth"
+        fi
 
         CONFIG_PATH="$run_dir/launcher-config-$i.yaml"
 

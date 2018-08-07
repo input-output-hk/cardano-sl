@@ -6,7 +6,7 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 data ResponseStatus =

@@ -12,7 +12,6 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (convertUnit)
 import           Serokell.Util.Verify (isVerSuccess)
 import           System.Random (newStdGen)
-import           System.Wlog (LoggerName (..))
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Block (Block, VerifyBlockParams (..),
@@ -40,6 +39,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
                      withConfigurationsM)
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (realTime)
 
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
@@ -90,9 +90,9 @@ verifyBlocksBenchmark
     -> Benchmark
 verifyBlocksBenchmark !pm !tp !ctx =
     bgroup "block verification"
-        [ env (runBlockTestMode tp (genEnv (BlockCount 100)))
+        [ env (runBlockTestMode noTrace tp (genEnv (BlockCount 100)))
             $ \ ~(vctx, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB vctx blocks)
-        , env (runBlockTestMode tp (genEnv (BlockCount 1)))
+        , env (runBlockTestMode noTrace tp (genEnv (BlockCount 1)))
             $ \ ~(vctx, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB vctx blocks)
         ]
     where
@@ -103,7 +103,7 @@ verifyBlocksBenchmark !pm !tp !ctx =
         let secretKeys = case genesisSecretKeys of
                 Nothing -> error "verifyAndApplyBlocksBenchmark: no genesisSecretKeys"
                 Just ks -> ks
-        bs <- flip evalRandT g $ genBlocks pm (_tpTxpConfiguration tp)
+        bs <- flip evalRandT g $ genBlocks noTrace pm (_tpTxpConfiguration tp)
                 (BlockGenParams
                     { _bgpSecrets = mkAllSecretsSimple secretKeys
                     , _bgpBlockCount = bCount
@@ -132,10 +132,10 @@ verifyBlocksBenchmark !pm !tp !ctx =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ verifyAndApplyBlocks pm (_tpTxpConfiguration tp) verifyBlocksCtx False blocks >>= \case
+            $ verifyAndApplyBlocks noTrace pm (_tpTxpConfiguration tp) verifyBlocksCtx False blocks >>= \case
                     Left err -> return (Just err)
                     Right (_, blunds) -> do
-                        whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
+                        whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks noTrace pm)
                         return Nothing
 
     verifyBlocksPrefixB
@@ -146,7 +146,7 @@ verifyBlocksBenchmark !pm !tp !ctx =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ map fst <$> verifyBlocksPrefix pm verifyBlocksCtx blocks
+            $ map fst <$> verifyBlocksPrefix noTrace pm verifyBlocksCtx blocks
 
 -- | Benchmark which runs `verifyHeader`
 verifyHeaderBenchmark
@@ -154,7 +154,7 @@ verifyHeaderBenchmark
     => ProtocolMagic
     -> TestParams
     -> Benchmark
-verifyHeaderBenchmark !pm !tp = env (runBlockTestMode tp genEnv)
+verifyHeaderBenchmark !pm !tp = env (runBlockTestMode noTrace tp genEnv)
         $ \ ~(block, params) -> bgroup "block verification"
             [ bench "verifyHeader" $ benchHeaderVerification
                 (getBlockHeader block, vbpVerifyHeader params)
@@ -189,7 +189,7 @@ verifyHeaderBenchmark !pm !tp = env (runBlockTestMode tp genEnv)
             blockGenCtx <- lift $ mkBlockGenContext blockGenParams
             tipHeader <- lift $ getTipHeader
             mapRandT (flip runReaderT blockGenCtx)
-                $ genBlockNoApply pm (_tpTxpConfiguration tp) eos tipHeader
+                $ genBlockNoApply noTrace pm (_tpTxpConfiguration tp) eos tipHeader
         let !block = fromMaybe (error "verifyHeaderBench: failed to generate a header") mblock
 
         let !verifyHeaderParams = VerifyHeaderParams
@@ -223,7 +223,7 @@ runBenchmark = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo id $ \pm txpConfig _ -> do
+        withConfigurationsM noTrace Nothing cfo id $ \pm txpConfig _ -> do
                 let tp = TestParams
                         { _tpStartTime = Timestamp (convertUnit startTime)
                         , _tpBlockVersionData = genesisBlockVersionData
@@ -231,7 +231,7 @@ runBenchmark = do
                         , _tpTxpConfiguration = txpConfig
                         }
                 runEmulation startTime
-                    $ initBlockTestContext tp $ \ctx ->
+                    $ initBlockTestContext noTrace tp $ \ctx ->
                         sudoLiftIO $ defaultMainWith config
                             [ verifyBlocksBenchmark pm tp ctx
                             , verifyHeaderBenchmark pm tp

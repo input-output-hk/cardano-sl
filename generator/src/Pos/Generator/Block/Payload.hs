@@ -43,6 +43,7 @@ import           Pos.Generator.Block.Orphans ()
 import           Pos.Generator.Block.Param (HasBlockGenParams (..),
                      HasTxGenParams (..))
 import qualified Pos.Util.Modifier as Modifier
+import           Pos.Util.Trace (noTrace)
 
 ----------------------------------------------------------------------------
 -- Tx payload generation
@@ -224,7 +225,7 @@ genTxPayload pm txpConfig = do
         let txId = hash tx
         let txIns = _txInputs tx
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
-        res <- lift . lift $ txpProcessTx pm txpConfig (txId, txAux)
+        res <- lift . lift $ txpProcessTx noTrace pm txpConfig (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do

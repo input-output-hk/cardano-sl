@@ -26,11 +26,11 @@ import           Formatting (sformat, (%))
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Blund, Undo (..))
-import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
-                     HasGenesisHash)
 import           Pos.Chain.Block (Block, BlockHeader, HasPrevBlock (..),
                      HeaderHash)
 import qualified Pos.Chain.Block as CB
+import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
+                     HasGenesisHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)

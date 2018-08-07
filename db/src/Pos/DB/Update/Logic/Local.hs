@@ -33,6 +33,7 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      MonadPoll (deactivateProposal),
                      MonadPollRead (getProposal), PollModifier,
@@ -40,7 +41,6 @@ import           Pos.Chain.Update (HasUpdateConfiguration,
                      execPollT, getAdoptedBV, modifyPollModifier, psVotes,
                      reportUnexpectedError, runPollT)
 import           Pos.Core (ProtocolMagic, SlotId (..), slotIdF)
-import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Update (BlockVersionData (..), UpId,
                      UpdatePayload (..), UpdateProposal, UpdateVote (..))

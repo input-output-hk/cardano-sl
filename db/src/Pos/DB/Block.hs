@@ -47,9 +47,9 @@ import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Chain.Block (SlogUndo (..), Undo (..))
-import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Block (Block, GenesisBlock, HeaderHash, headerHash)
 import qualified Pos.Chain.Block as CB
+import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..),

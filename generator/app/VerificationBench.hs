@@ -20,8 +20,8 @@ import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, VerifyBlocksException)
-import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Chain.Block (Block)
+import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,

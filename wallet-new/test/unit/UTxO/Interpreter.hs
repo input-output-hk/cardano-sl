@@ -42,14 +42,14 @@ import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
 
+import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
+                     MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
 import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (Utxo, txOutStake)
 import           Pos.Chain.Update
 import           Pos.Client.Txp
 import           Pos.Core
-import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
-                     MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
 import           Pos.Core.Chrono
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,

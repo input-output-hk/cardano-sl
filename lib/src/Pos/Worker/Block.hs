@@ -27,6 +27,7 @@ import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
+import           Pos.Chain.Block (gbHeader)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
@@ -34,7 +35,6 @@ import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
                      blkSecurityParam, difficultyL, epochOrSlotToSlot,
                      epochSlots, flattenSlotId, getEpochOrSlot,
                      getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
-import           Pos.Chain.Block (gbHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Core.JsonLog (CanJsonLog (..))

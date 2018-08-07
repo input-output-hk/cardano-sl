@@ -25,12 +25,12 @@ import qualified Data.HashMap.Strict as HM
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
                      MonadDelegation, cmPskMods, dwMessageCache, dwPoolSize,
                      dwProxySKPool, dwTip, emptyCedeModifier, isRevokePsk,
                      pskToDlgEdgeAction)
 import           Pos.Core (addressHash, epochIndexL)
-import           Pos.Chain.Block (headerHash)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Update (bvdMaxBlockSize)

@@ -33,12 +33,12 @@ import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
+import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
+                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
 import           Pos.Core (ProtocolConstants (..), difficultyL)
-import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
-                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Exception (cardanoExceptionFromException,

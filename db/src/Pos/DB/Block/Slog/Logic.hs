@@ -33,12 +33,12 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (Blund, HasSlogGState, SlogUndo (..),
                      Undo (..), verifyBlocks)
+import           Pos.Chain.Block (Block, genBlockLeaders, headerHash,
+                     headerHashG, mainBlockSlot, prevBlockL)
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (FlatSlotId, blkSecurityParam, difficultyL,
                      epochIndexL, flattenSlotId)
-import           Pos.Chain.Block (Block, genBlockLeaders, headerHash,
-                     headerHashG, mainBlockSlot, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)

@@ -16,6 +16,7 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),
@@ -24,7 +25,6 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
 import           Pos.Chain.Txp (MemPool (..), TxpConfiguration)
 import           Pos.Communication (NodeId)
 import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)

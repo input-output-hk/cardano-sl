@@ -26,10 +26,10 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (HasBlockConfiguration, HasSlogGState,
                      fixedTimeCQ)
-import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
-                     Timestamp (..), difficultyL, flattenSlotId)
 import           Pos.Chain.Block (BlockHeader, HeaderHash, headerHash,
                      prevBlockL)
+import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
+                     Timestamp (..), difficultyL, flattenSlotId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Exception (reportFatalError)

@@ -29,11 +29,11 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Chain.Block (ApplyBlocksException, Blund,
                      LastKnownHeaderTag)
-import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core (isMoreDifficult)
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash, blockHeader, gbHeader, headerHashG,
                      prevBlockL)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core (isMoreDifficult)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)

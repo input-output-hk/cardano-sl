@@ -25,10 +25,10 @@ import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Block (Block)
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core (BlockCount, HasGenesisData, HasProtocolConstants,
                      SlotId (..), epochIndexL, genesisData)
-import           Pos.Chain.Block (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Crypto (ProtocolMagic)

@@ -57,14 +57,14 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Blund, Undo)
+import           Pos.Chain.Block (Block, HeaderHash, MainBlock, gbHeader,
+                     gbhConsensus, mainBlockSlot, mainBlockTxPayload, mcdSlot)
 import           Pos.Chain.Txp (TxMap, mpLocalTxs, topsortTxs)
 import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
                      Timestamp, coinToInteger, difficultyL, getChainDifficulty,
                      isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot,
                      sumCoins, timestampToPosix, unsafeAddCoin,
                      unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Chain.Block (Block, HeaderHash, MainBlock, gbHeader,
-                     gbhConsensus, mainBlockSlot, mainBlockTxPayload, mcdSlot)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxIn (..), TxOutAux (..),
                      taTx, txOutAddress, txOutValue, txpTxs, _txOutputs)

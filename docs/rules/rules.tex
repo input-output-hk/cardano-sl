@@ -1126,15 +1126,17 @@ And build the following block:
 \item[slot number] The slot number is set to the current slot
 \item[issuer] The block issuer is $a$
 \item[transactions] The list of transactions is set to be the entire
-  mempool\improvement{In fact this is limited by the block size
+  transaction mempool (see Section~\ref{sec:entering-mempool})\improvement{In fact this is limited by the block size
     somehow. See
     \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-170}{CDEC-170}.}
-\item[delegation certificates] \improvement{Specify where the delegation
-    certificates come from.}
-\item[seed computation] \improvement{Specify where the ssc messages come from.}
+\item[delegation certificates] The list of delegation certificate is
+  set to be the entire delegation mempool (see
+  Section~\ref{sec:entering-mempool}).\unsure{Limited by block size?}
+\item[seed computation] The list of seed computation messages is set
+  to be the entire seed mempool (see
+  Section~\ref{sec:entering-mempool}).\unsure{Limited by block size?}\unsure{There is probably an issue here where the mempool contains previously correct delegation messages, but the appropriate phase has since passed.}
 \end{record}
 \improvement{TODO: updates and where they come from}
-\improvement{TODO: block size limits}
 
 \info{Issuing a block doesn't extend the blockchain. Instead, the
   issued block is immediately received using the process of
@@ -1157,8 +1159,18 @@ The mempool is only valid relatively to a given selected chain (see
 Section~\ref{sec:chain-selection}). Every time the selected chain
 changes (whenever a block is received), the mempool is emptied.
 
-Let $b₁,…,b_m$ be the selected chain. The mempool is a list of
-transactions $τ₁,…,τ_n$. We define a \emph{valid} mempool by induction:
+Let $b₁,…,b_m$ be the selected chain. The mempool is a tuple comprised of:
+\begin{description}
+\item[transaction mempool] a list of transaction
+\item[delegation mempool] a list of delegation certificates
+\item[seed mempool] a list of seed computation messages, all of the
+  same type (either commitments, openings, or recovery)
+\end{description}
+
+\subsection{Transaction mempool}
+\label{sec:transaction-mempool}
+
+We define a \emph{valid} transaction mempool $τ₁,…,τ_n$ by induction:
 \begin{itemize}
 \item The empty mempool $\emptylist$ is valid
 \item $τ₁,…,τ_{n+1}$ is valid if $τ₁,…,τ_n$ is valid, and $τ_{n+1}$ is
@@ -1246,6 +1258,16 @@ those of the selected chain) when
     \end{description}
 
 \end{description}
+
+\subsection{Delegation mempool}
+\label{sec:delegation-mempool}
+
+\improvement{TODO}
+
+\subsection{Seed mempool}
+\label{sec:seed-mempool}
+
+\improvement{TODO}
 
 \section{Selecting the longest chain}
 \label{sec:chain-selection}

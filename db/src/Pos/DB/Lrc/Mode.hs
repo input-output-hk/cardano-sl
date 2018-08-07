@@ -8,7 +8,6 @@ module Pos.DB.Lrc.Mode
 
 import           Universum
 
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDB, MonadGState)
@@ -16,8 +15,7 @@ import           Pos.DB.Lrc.Context (HasLrcContext)
 
 -- | Set of constraints used by LRC.
 type LrcMode ctx m
-     = ( WithLogger m
-       , MonadMask m
+     = ( MonadMask m
        , MonadGState m
        , MonadDB m
        , MonadIO m

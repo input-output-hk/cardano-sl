@@ -19,6 +19,7 @@ import           Pos.Core (EpochIndex (..), SharedSeed)
 import           Pos.Core.Ssc (VssCertificatesMap (..), vcVssKey)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 ----------------------------------------------------------------------------
 -- Seed
@@ -32,20 +33,21 @@ sscCalculateSeed
        , HasLrcContext ctx
        , MonadIO m
        )
-    => EpochIndex
+    => TraceNamed m
+    -> EpochIndex
     -> m (Either SscSeedError SharedSeed)
-sscCalculateSeed epoch = do
+sscCalculateSeed logTrace epoch = do
     -- We take richmen for the previous epoch because during N-th epoch we
     -- were using richmen for N-th epoch for everything – so, when we are
     -- calculating the seed for N+1-th epoch, we should still use data from
     -- N-th epoch.
     richmen <- getSscRichmen "sscCalculateSeed" (epoch - 1)
-    sscRunGlobalQuery $ sscCalculateSeedQ richmen
+    sscRunGlobalQuery $ sscCalculateSeedQ richmen logTrace
 
 sscCalculateSeedQ
     :: RichmenStakes
     -> SscGlobalQuery (Either SscSeedError SharedSeed)
-sscCalculateSeedQ richmen =
+sscCalculateSeedQ richmen _ =
     calculateSeed
     <$> view sgsCommitments
     <*> (map vcVssKey . getVssCertificatesMap . Ssc.certs <$>

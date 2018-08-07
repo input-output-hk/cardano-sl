@@ -1,4 +1,5 @@
 -- | Logic of local data processing in Update System.
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Pos.DB.Update.Logic.Global
        ( UpdateBlock
@@ -13,7 +14,6 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
-import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
@@ -26,7 +26,7 @@ import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
 import           Pos.Core (HasCoreConfiguration, HasProtocolConstants,
                      ProtocolMagic, StakeholderId, addressHash, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Exception (reportFatalError)
+import           Pos.Core.Exception (traceFatalError)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlotsData, SlottingData, slottingVar)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
@@ -44,6 +44,7 @@ import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Trace.Named (TraceNamed, appendName, natTrace)
 
 
 ----------------------------------------------------------------------------
@@ -57,8 +58,7 @@ type UpdateBlock = ComponentBlock UpdatePayload
 ----------------------------------------------------------------------------
 
 type USGlobalVerifyMode ctx m =
-    ( WithLogger m
-    , MonadIO m
+    ( MonadIO m
     , MonadReader ctx m
     , HasLrcContext ctx
     , HasUpdateConfiguration
@@ -76,8 +76,8 @@ type USGlobalApplyMode ctx m =
 -- Implementation
 ----------------------------------------------------------------------------
 
-withUSLogger :: WithLogger m => m a -> m a
-withUSLogger = modifyLoggerName (<> "us")
+withUSLogger :: TraceNamed m -> TraceNamed m
+withUSLogger = appendName "us"
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread
@@ -95,43 +95,45 @@ withUSLogger = modifyLoggerName (<> "us")
 -- will never change. Also note that we store slotting data for all
 -- epochs in memory, so adding new one can't make anything worse.
 usApplyBlocks
-    :: ( MonadThrow m
-       , USGlobalApplyMode ctx m
-       )
-    => ProtocolMagic
+    :: forall ctx m. (MonadThrow m, USGlobalApplyMode ctx m)
+    => TraceNamed IO
+    -> ProtocolMagic
     -> BlockVersion
     -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks pm bv blocks modifierMaybe =
-    withUSLogger $
+usApplyBlocks logTrace0 pm bv blocks modifierMaybe =
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- usVerifyBlocks pm False bv blocks
+            verdict <- usVerifyBlocks logTrace pm False bv blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- usVerifyBlocks pm False bv blocks
+                verdict <- usVerifyBlocks logTrace pm False bv blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
+    logTrace = withUSLogger logTrace0
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
-        reportFatalError msg
+        traceFatalError (natTrace liftIO logTrace) msg
 
 -- | Revert application of given blocks to US part of GState DB and US local
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
 -- head.
 usRollbackBlocks
-    :: USGlobalApplyMode ctx m
-    => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
-usRollbackBlocks blunds =
-    withUSLogger $
+    :: (USGlobalApplyMode ctx m)
+    => TraceNamed IO
+    -> NewestFirst NE (UpdateBlock, USUndo)
+    -> m [DB.SomeBatchOp]
+usRollbackBlocks logTrace0 blunds =
     processModifier =<<
-    (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
+        (runDBPoll . execPollT def $ mapM_ ((rollbackUS logTrace) . snd) blunds)
+  where
+    logTrace = withUSLogger logTrace0
 
 -- This function takes a 'PollModifier' corresponding to a sequence of
 -- blocks, updates in-memory slotting data and converts this modifier
@@ -164,18 +166,19 @@ usVerifyBlocks ::
        , MonadUnliftIO m
        , MonadReporting m
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> Bool
     -> BlockVersion
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks pm verifyAllIsKnown adoptedBV blocks =
-    withUSLogger $
+usVerifyBlocks logTrace0 pm verifyAllIsKnown adoptedBV blocks =
     reportUnexpectedError $
-    processRes <$> run (runExceptT action)
+        processRes <$> run (runExceptT action)
   where
+    logTrace = withUSLogger logTrace0
     action = do
-        mapM (verifyBlock pm adoptedBV verifyAllIsKnown) blocks
+        mapM (verifyBlock logTrace pm adoptedBV verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::
@@ -186,12 +189,13 @@ usVerifyBlocks pm verifyAllIsKnown adoptedBV blocks =
 
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolConstants)
-    => ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
-verifyBlock _ _ _ (ComponentBlockGenesis genBlk) =
-    execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock pm lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
+    => TraceNamed IO -> ProtocolMagic -> BlockVersion -> Bool -> UpdateBlock -> m USUndo
+verifyBlock logTrace _ _ _ (ComponentBlockGenesis genBlk) =
+    execRollT $ processGenesisBlock logTrace (genBlk ^. epochIndexL)
+verifyBlock logTrace pm lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload
+            logTrace
             pm
             lastAdopted
             verifyAllIsKnown
@@ -211,8 +215,7 @@ verifyBlock pm lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) 
 -- | Checks whether our software can create block according to current
 -- global state.
 usCanCreateBlock ::
-       ( WithLogger m
-       , MonadUnliftIO m
+       ( MonadUnliftIO m
        , DB.MonadDBRead m
        , MonadReader ctx m
        , HasLrcContext ctx
@@ -220,7 +223,7 @@ usCanCreateBlock ::
        )
     => m Bool
 usCanCreateBlock =
-    withUSLogger $ runDBPoll $ do
+    runDBPoll $ do
         lastAdopted <- getAdoptedBV
         canCreateBlockBV lastAdopted lastKnownBlockVersion
 

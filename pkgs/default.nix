@@ -16424,10 +16424,10 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , bytestring
-, cardano-sl-chain
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
+, cardano-sl-update
 , cardano-sl-util
 , cardano-sl-wallet
 , cardano-sl-wallet-new
@@ -16492,9 +16492,9 @@ aeson-pretty
 base
 base16-bytestring
 bytestring
-cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
@@ -16543,9 +16543,9 @@ executableHaskellDepends = [
 aeson
 base
 bytestring
-cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
+cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new

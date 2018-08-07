@@ -12,7 +12,6 @@ module Pos.GState.Context
 import           Universum
 
 import           Control.Lens (lens, makeClassy)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (HasSlogGState (..), SlogGState)
 import           Pos.DB.Block (cloneSlogGState)
@@ -21,6 +20,7 @@ import           Pos.DB.Pure (cloneDBPure)
 import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
                      cloneSlottingVar, slottingVar)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | This type contains DB and in-memory contexts which basically
@@ -66,21 +66,20 @@ getGStateImplicit = lens getter setter
 -- | Create a new 'GStateContext' which is a copy of the given context
 -- and can be modified independently.
 cloneGStateContext ::
-       (MonadIO m, WithLogger m, MonadThrow m)
+       (MonadIO m, MonadThrow m)
     => GStateContext
     -> m GStateContext
 cloneGStateContext GStateContext {..} = case _gscDB of
     RealDB _ -> error "You may not copy RealDB" -- TODO maybe exception?
     PureDB pdb -> GStateContext <$>
         (PureDB <$> cloneDBPure pdb) <*>
-        cloneLrcContext _gscLrcContext <*>
+        cloneLrcContext noTrace _gscLrcContext <*>
         cloneSlogGState _gscSlogGState <*>
         cloneSlottingVar _gscSlottingVar
 
 -- | Make a full copy of GState and run given action with this copy.
 withClonedGState ::
        ( MonadIO m
-       , WithLogger m
        , MonadThrow m
        , MonadReader ctx m
        , HasGStateContext ctx

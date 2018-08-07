@@ -17,7 +17,6 @@ import           Universum
 
 import           Control.Concurrent.Async (Concurrently (..))
 import qualified Control.Concurrent.STM as STM
-import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (Format)
@@ -82,7 +81,7 @@ import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
-import           Pos.Util.Trace (Severity (Error), Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 {-# ANN module ("HLint: ignore Use whenJust" :: Text) #-}
@@ -95,7 +94,7 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
     , fdcStreamWindow           :: !Word32
-    , fdcTrace                  :: !(Trace IO (Severity, Text))
+    , fdcTrace                  :: !(TraceNamed IO)
     }
 
 data RunFullDiffusionInternals = RunFullDiffusionInternals
@@ -129,7 +128,7 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
     oq :: OQ.OutboundQ EnqueuedConversation NodeId Bucket <-
         -- NB: <> it's not Text semigroup append, it's LoggerName append, which
         -- puts a "." in the middle.
-        initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
+        initQueue networkConfig (fdcTrace fdconf) ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
     let topology = ncTopology networkConfig
         mSubscriptionWorker = topologySubscriptionWorker topology
         mSubscribers = topologySubscribers topology
@@ -138,8 +137,8 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
         -- Transport needs a Trace IO Text. We re-use the 'Trace' given in
         -- the configuration at severity 'Error' (when transport has an
         -- exception trying to 'accept' a new connection).
-        logTrace :: Trace IO Text
-        logTrace = contramap ((,) Error) (fdcTrace fdconf)
+        logTrace :: TraceNamed IO
+        logTrace = fdcTrace fdconf
     bracketTransportTCP logTrace (fdcConvEstablishTimeout fdconf) (ncTcpAddr networkConfig) $ \transport -> do
         rec (fullDiffusion, internals) <-
                 diffusionLayerFullExposeInternals fdconf
@@ -407,7 +406,7 @@ diffusionLayerFullExposeInternals fdconf
 -- | Create kademlia, network-transport, and run the outbound queue's
 -- dequeue thread.
 runDiffusionLayerFull
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Transport
     -> OQ.OutboundQ EnqueuedConversation NodeId Bucket
     -> Microsecond -- ^ Conversation establish timeout
@@ -489,7 +488,7 @@ sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
 
 -- | Bring up a time-warp node. It will come down when the continuation ends.
 timeWarpNode
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Transport
     -> Microsecond -- Timeout.
     -> VerInfo
@@ -511,7 +510,7 @@ timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners k = do
 ----------------------------------------------------------------------------
 
 createKademliaInstance
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> IO KademliaDHTInstance
@@ -523,7 +522,7 @@ createKademliaInstance logTrace kp defaultPort =
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> (KademliaParams, Bool)
     -> Word16
     -> ((KademliaDHTInstance, Bool) -> IO a)
@@ -533,7 +532,7 @@ bracketKademliaInstance logTrace (kp, mustJoin) defaultPort action =
         action (kinst, mustJoin)
 
 maybeBracketKademliaInstance
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Maybe (KademliaParams, Bool)
     -> Word16
     -> (Maybe (KademliaDHTInstance, Bool) -> IO a)
@@ -543,7 +542,7 @@ maybeBracketKademliaInstance logTrace (Just kp) defaultPort k =
     bracketKademliaInstance logTrace kp defaultPort (k . Just)
 
 -- | Join the Kademlia network.
-joinKademlia :: Trace IO (Severity, Text) -> (KademliaDHTInstance, Bool) -> IO ()
+joinKademlia :: TraceNamed IO -> (KademliaDHTInstance, Bool) -> IO ()
 joinKademlia logTrace (kInst, mustJoin) = case mustJoin of
     True  -> kademliaJoinNetworkRetry logTrace kInst (kdiInitialPeers kInst) retryInterval
     False -> kademliaJoinNetworkNoThrow logTrace kInst (kdiInitialPeers kInst)

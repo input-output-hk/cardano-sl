@@ -24,12 +24,11 @@ import           Network.HTTP.Simple (getResponseBody, getResponseStatus,
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 import           System.Directory (doesFileExist)
-import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      UpdateParams (..), curSoftwareVersion, ourSystemTag)
-import           Pos.Core.Exception (reportFatalError)
+import           Pos.Core.Exception (traceFatalError)
 import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
                      UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
@@ -37,6 +36,8 @@ import           Pos.DB.Update (UpdateContext (..), isUpdateInstalled)
 import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Listener.Update (UpdateMode)
 import           Pos.Util.Concurrent (withMVar)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
+                     logWarning, natTrace)
 import           Pos.Util.Util (HasLens (..), (<//>))
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
@@ -58,24 +59,27 @@ installerHash = castHash . hash
 -- 1. This update is for our software.
 -- 2. This update is for our system (according to system tag).
 -- 3. This update brings newer software version than our current version.
-downloadUpdate :: forall ctx m . UpdateMode ctx m => ConfirmedProposalState -> m ()
-downloadUpdate cps = do
+downloadUpdate
+    :: forall ctx m . UpdateMode ctx m
+    => TraceNamed m
+    -> ConfirmedProposalState -> m ()
+downloadUpdate logTrace cps = do
     downloadLock <- ucDownloadLock <$> view (lensOf @UpdateContext)
     withMVar downloadLock $ \() -> do
         downloadedUpdateMVar <-
             ucDownloadedUpdate <$> view (lensOf @UpdateContext)
         tryReadMVar downloadedUpdateMVar >>= \case
             Nothing -> do
-                updHash <- getUpdateHash cps
+                updHash <- getUpdateHash logTrace cps
                 installed <- isUpdateInstalled updHash
                 if installed
                     then onAlreadyInstalled
-                    else downloadUpdateDo updHash cps
+                    else downloadUpdateDo logTrace updHash cps
             Just existingCPS -> onAlreadyDownloaded existingCPS
   where
     proposalToDL = cpsUpdateProposal cps
     onAlreadyDownloaded ConfirmedProposalState {..} =
-        logInfo $
+        logInfo logTrace $
         sformat
             ("We won't download an update for proposal "%build%
              ", because we have already downloaded another update: "%build%
@@ -83,24 +87,28 @@ downloadUpdate cps = do
             proposalToDL
             cpsUpdateProposal
     onAlreadyInstalled =
-        logInfo $
+        logInfo logTrace $
         sformat
             ("We won't download an update for proposal "%build%
              ", because it's already installed")
             proposalToDL
 
-getUpdateHash :: UpdateMode ctx m => ConfirmedProposalState -> m (Hash Raw)
-getUpdateHash ConfirmedProposalState{..} = do
+getUpdateHash
+    :: UpdateMode ctx m
+    => TraceNamed m
+    -> ConfirmedProposalState
+    -> m (Hash Raw)
+getUpdateHash logTrace ConfirmedProposalState{..} = do
     useInstaller <- views (lensOf @UpdateParams) upUpdateWithPkg
 
     let data_ = upData cpsUpdateProposal
         dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = dataHash <$> HM.lookup ourSystemTag data_
 
-    logDebug $ sformat ("Proposal's upData: "%mapJson) data_
+    logDebug logTrace $ sformat ("Proposal's upData: "%mapJson) data_
 
     -- It must be enforced by the caller.
-    maybe (reportFatalError $ sformat
+    maybe (traceFatalError logTrace $ sformat
             ("We are trying to download an update not for our "%
             "system, update proposal is: "%build)
             cpsUpdateProposal)
@@ -108,11 +116,16 @@ getUpdateHash ConfirmedProposalState{..} = do
         mupdHash
 
 -- Download and save archive update by given `ConfirmedProposalState`
-downloadUpdateDo :: UpdateMode ctx m => Hash Raw -> ConfirmedProposalState -> m ()
-downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
+downloadUpdateDo
+    :: UpdateMode ctx m
+    => TraceNamed m
+    -> Hash Raw
+    -> ConfirmedProposalState
+    -> m ()
+downloadUpdateDo logTrace0 updHash cps@ConfirmedProposalState {..} = do
     updateServers <- views (lensOf @UpdateParams) upUpdateServers
 
-    logInfo $ sformat ("We are going to start downloading an update for "%build)
+    logInfo logTrace0 $ sformat ("We are going to start downloading an update for "%build)
               cpsUpdateProposal
     res <- handleAny handleErr $ runExceptT $ do
         let updateVersion = upSoftwareVersion cpsUpdateProposal
@@ -121,7 +134,7 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
         -- explicitly request only new updates. This invariant must be
         -- ensure by the caller of 'downloadUpdate'.
         unless (isVersionAppropriate updateVersion) $
-            reportFatalError $
+            traceFatalError logTrace $
             sformat ("Update #"%build%" hasn't been downloaded: "%
                     "its version is not newer than current software "%
                     "software version or it's not for our "%
@@ -131,25 +144,26 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 
-        logInfo "Downloading update..."
-        file <- ExceptT $ downloadHash updateServers updHash <&>
+        logInfo logTrace "Downloading update..."
+        file <- ExceptT $ downloadHash logTrace0 updateServers updHash <&>
                 first (sformat ("Update download (hash "%build%
                                 ") has failed: "%stext) updHash)
 
-        logInfo $ "Update was downloaded, saving to " <> show updPath
+        logInfo logTrace $ "Update was downloaded, saving to " <> show updPath
 
         liftIO $ BSL.writeFile updPath file
-        logInfo $ "Update was downloaded, saved to " <> show updPath
+        logInfo logTrace $ "Update was downloaded, saved to " <> show updPath
         downloadedMVar <- views (lensOf @UpdateContext) ucDownloadedUpdate
         putMVar downloadedMVar cps
-        logInfo "Update MVar filled, wallet is notified"
+        logInfo logTrace "Update MVar filled, wallet is notified"
 
     whenLeft res logDownloadError
   where
+    logTrace = natTrace lift logTrace0
     handleErr e =
-        Left (pretty e) <$ reportOrLogW "Update downloading failed: " e
+        Left (pretty e) <$ reportOrLogW logTrace0 "Update downloading failed: " e
     logDownloadError e =
-        logWarning $ sformat
+        logWarning logTrace0 $ sformat
             ("Failed to download update proposal "%build%": "%stext)
             cpsUpdateProposal e
     -- Check that we really should download an update with given
@@ -162,17 +176,18 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
 --
 -- Tries all servers in turn, fails if none of them work.
 downloadHash ::
-       (MonadIO m, WithLogger m)
-    => [Text]
+       (MonadIO m)
+    => TraceNamed m
+    -> [Text]
     -> Hash Raw
     -> m (Either Text LByteString)
-downloadHash updateServers h = do
+downloadHash logTrace updateServers h = do
     manager <- liftIO $ newManager tlsManagerSettings
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
             let uri = toString serv <//> showHash h
-            logDebug $ "Trying url " <> show uri
+            logDebug logTrace $ "Trying url " <> show uri
             liftIO (downloadUri manager uri h) >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)

@@ -25,11 +25,11 @@ import           Pos.Infra.Communication.Relay (InvReqDataParams (..),
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Util.Trace (Severity, Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- Send UpdateVote to given addresses.
 sendVote
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> EnqueueMsg
     -> UpdateVote
     -> IO ()
@@ -44,7 +44,7 @@ sendVote logTrace enqueue vote =
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> EnqueueMsg
     -> UpId
     -> UpdateProposal
@@ -60,7 +60,7 @@ sendUpdateProposal logTrace enqueue upid proposal votes = do
         (proposal, votes)
 
 updateListeners
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg

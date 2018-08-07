@@ -22,18 +22,22 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import           Distribution.System (OS (Windows), buildOS)
 import           GHC.Generics (Generic)
 import           GHC.IO.Handle.FD (fdToHandle)
-import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
-import           Pos.Infra.Shutdown.Logic (triggerShutdown)
-import           Pos.Infra.Shutdown.Types (ShutdownContext)
 import           System.Environment (lookupEnv)
 import           System.IO (hFlush, hGetLine, hSetNewlineMode,
                      noNewlineTranslation)
 import           System.IO.Error (IOError, isEOFError)
-import           System.Wlog (WithLogger, logError, logInfo)
-import           System.Wlog.LoggerNameBox (usingLoggerName)
 import           Universum
 
-data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError Text deriving (Show, Eq, Generic)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
+import           Pos.Infra.Shutdown.Logic (triggerShutdown)
+import           Pos.Infra.Shutdown.Types (ShutdownContext)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
+                     logInfo)
+
+data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong
+            | ParseError Text
+            deriving (Show, Eq, Generic)
 
 opts :: Options
 opts = defaultOptions { sumEncoding = ObjectWithSingleField }
@@ -45,19 +49,52 @@ instance ToJSON Packet where
   toEncoding = genericToEncoding opts
 
 startNodeJsIPC ::
-    (MonadIO m, WithLogger m, MonadReader ctx m, HasShutdownContext ctx)
-    => Word16 -> m ()
-startNodeJsIPC port = void $ runMaybeT $ do
+    (MonadIO m, MonadReader ctx m, HasShutdownContext ctx)
+    => TraceNamed IO
+    -> Word16 -> m ()
+startNodeJsIPC logTrace0 port = void $ runMaybeT $ do
   ctx <- view shutdownContext
   fdstring <- liftIO (lookupEnv "NODE_CHANNEL_FD") >>= (pure >>> MaybeT)
   case readEither fdstring of
-    Left err -> lift $ logError $ "unable to parse NODE_CHANNEL_FD: " <> err
+    Left err -> liftIO $ logError logTrace $ "unable to parse NODE_CHANNEL_FD: " <> err
     Right fd -> liftIO $ do
         handle <- fdToHandle fd
-        void $ forkIO $ startIpcListener ctx handle port
+        void $ forkIO $ startIpcListener logTrace ctx handle port
+  where
+    logTrace = appendName "node-ipc" logTrace0
 
-startIpcListener :: ShutdownContext -> Handle -> Word16 -> IO ()
-startIpcListener ctx handle port = usingLoggerName "NodeIPC" $ flip runReaderT ctx (ipcListener handle port)
+startIpcListener :: TraceNamed IO -> ShutdownContext -> Handle -> Word16 -> IO ()
+startIpcListener logTrace ctx handle port =
+    flip runReaderT ctx $ ipcListener (natTrace liftIO logTrace) handle port
+
+ipcListener ::
+    forall m ctx . (MonadCatch m, MonadIO m, MonadReader ctx m, HasShutdownContext ctx)
+    => TraceNamed m
+    -> Handle -> Word16 -> m ()
+ipcListener logTrace handle port = do
+  liftIO $ hSetNewlineMode handle noNewlineTranslation
+  let send :: Packet -> m ()
+      send cmd = liftIO $ sendMessage handle $ encode cmd
+      action :: Packet -> m ()
+      action QueryPort = send $ ReplyPort port
+      action Ping      = send Pong
+      action foo       = logInfo logTrace $ "Unhandled IPC msg: " <> show foo
+  let loop :: m ()
+      loop = do
+          send Started
+          forever $ do
+              line <- readMessage logTrace handle
+              let handlePacket :: Either String Packet -> m ()
+                  handlePacket (Left err)  = send $ ParseError $ toText err
+                  handlePacket (Right cmd) = action cmd
+              handlePacket $ eitherDecode line
+      handler :: IOError -> m ()
+      handler err = do
+          logError logTrace $ "exception caught in NodeIPC: " <> (show err)
+          when (isEOFError err) $ logError logTrace "its an eof"
+          liftIO $ hFlush stdout
+          triggerShutdown logTrace
+  catch loop handler
 
 readInt64 :: Handle -> IO Word64
 readInt64 hnd = do
@@ -69,12 +106,12 @@ readInt32 hnd = do
     bs <- BSL.hGet hnd 4
     pure $ runGet getWord32le bs
 
-readMessage :: (MonadIO m, WithLogger m) => Handle -> m BSL.ByteString
-readMessage handle = do
+readMessage :: MonadIO m => TraceNamed m -> Handle -> m BSL.ByteString
+readMessage logTrace handle = do
     if buildOS == Windows
         then do
             (int1, int2, blob) <- liftIO $ windowsReadMessage handle
-            logInfo $ "int is: " <> (show [int1, int2]) <> " and blob is: " <> (show blob)
+            logInfo logTrace $ "int is: " <> (show [int1, int2]) <> " and blob is: " <> (show blob)
             return blob
         else
             liftIO $ linuxReadMessage handle
@@ -105,34 +142,3 @@ sendWindowsMessage handle int1 int2 blob = do
 
 sendLinuxMessage :: Handle -> BSL.ByteString -> IO ()
 sendLinuxMessage = BSLC.hPutStrLn
-
-ipcListener ::
-    forall m ctx . (MonadCatch m, MonadIO m, WithLogger m, MonadReader ctx m, HasShutdownContext ctx)
-    => Handle -> Word16 -> m ()
-ipcListener handle port = do
-  liftIO $ hSetNewlineMode handle noNewlineTranslation
-  let
-    send :: Packet -> m ()
-    send cmd = liftIO $ sendMessage handle $ encode cmd
-    action :: Packet -> m ()
-    action QueryPort = send $ ReplyPort port
-    action Ping      = send Pong
-    action foo       = logInfo $ "Unhandled IPC msg: " <> show foo
-  let
-    loop :: m ()
-    loop = do
-      send Started
-      forever $ do
-        line <- readMessage handle
-        let
-          handlePacket :: Either String Packet -> m ()
-          handlePacket (Left err)  = send $ ParseError $ toText err
-          handlePacket (Right cmd) = action cmd
-        handlePacket $ eitherDecode line
-    handler :: IOError -> m ()
-    handler err = do
-      logError $ "exception caught in NodeIPC: " <> (show err)
-      when (isEOFError err) $ logError "its an eof"
-      liftIO $ hFlush stdout
-      triggerShutdown
-  catch loop handler

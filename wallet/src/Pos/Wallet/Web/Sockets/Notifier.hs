@@ -18,6 +18,7 @@ import           Data.Default (Default (def))
 import           Data.Time.Units (Microsecond, Second)
 import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadGState (..))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      MonadUpdates (..))
 import           Pos.Wallet.Web.ClientTypes (spLocalCD, spNetworkCD, spPeers,
@@ -27,11 +28,9 @@ import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (..))
 import           Pos.Wallet.Web.State (WalletDbReader, addUpdate, askWalletDB)
 import           Servant.Server (Handler, runHandler)
-import           System.Wlog (WithLogger, logDebug)
 
 type MonadNotifier ctx m =
-    ( WithLogger m
-    , WalletDbReader ctx m
+    ( WalletDbReader ctx m
     , MonadWalletWebSockets ctx m
     , MonadBlockchainInfo m
     , MonadUpdates m
@@ -42,9 +41,10 @@ type MonadNotifier ctx m =
 -- FIXME: this is really inefficient. Temporary solution
 launchNotifier
     :: MonadNotifier ctx m
-    => (forall x. m x -> Handler x)
+    => TraceNamed m
+    -> (forall x. m x -> Handler x)
     -> m ()
-launchNotifier nat =
+launchNotifier logTrace nat =
     void . liftIO $ mapConcurrently startNotifier
         [ dificultyNotifier
         , updateNotifier
@@ -93,7 +93,7 @@ launchNotifier nat =
         cps <- waitForUpdate
         bvd <- gsAdoptedBVData
         addUpdate db $ toCUpdateInfo bvd cps
-        logDebug "Added update to wallet storage"
+        logDebug logTrace "Added update to wallet storage"
         notifyAll UpdateAvailable
 
     -- historyNotifier :: WalletWebMode m => m ()

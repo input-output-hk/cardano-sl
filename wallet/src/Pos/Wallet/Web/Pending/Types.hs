@@ -37,7 +37,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Slotting (FlatSlotId, SlotId)
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.Infra.Util.LogSafe (LogSecurityLevel, SecureLog,
+import           Pos.Util.Log.LogSafe (LogSecurityLevel, SecureLog,
                      getSecureLog, secure, unsecure)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 

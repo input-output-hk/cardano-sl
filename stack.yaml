@@ -92,6 +92,11 @@ packages:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
   extra-dep: true
+  # to be removed when haskell-ip is in the current stackage version
+- location:
+    git: https://github.com/andrewthad/haskell-ip
+    commit: 9bb453139aa82cc973125091800422a523e1eb8f
+  extra-dep: true
 
 # Required for explorer.
 # We forked it because it has some unacceptable version bounds. We didn't

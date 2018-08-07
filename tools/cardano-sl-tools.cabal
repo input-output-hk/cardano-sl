@@ -499,18 +499,21 @@ executable cardano-x509-certificates
                , aeson
                , asn1-encoding
                , asn1-types
-               , bytestring
                , base64-bytestring
+               , bytestring
                , cryptonite
+               , data-default-class
                , filepath
                , hourglass
+               , ip
+               , network-transport
                , optparse-applicative
+               , text
                , universum
                , unordered-containers
                , x509
-               , x509-validation
                , x509-store
-               , data-default-class
+               , x509-validation
                , yaml
 
   default-extensions:   DeriveGeneric

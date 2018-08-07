@@ -4,8 +4,9 @@ synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -206,7 +207,6 @@ library
                      , formatting
                      , hashable
                      , lens
-                     , log-warper >= 1.0.3
                      , parsec
                      , memory
                      , mmorph
@@ -237,32 +237,32 @@ library
 
   default-language:    Haskell2010
 
-  default-extensions:  DeriveDataTypeable
+  default-extensions:  BangPatterns
+                       ConstraintKinds
+                       DefaultSignatures
+                       DeriveDataTypeable
                        DeriveGeneric
-                       GeneralizedNewtypeDeriving
-                       StandaloneDeriving
                        FlexibleContexts
                        FlexibleInstances
-                       MultiParamTypeClasses
                        FunctionalDependencies
-                       DefaultSignatures
+                       GeneralizedNewtypeDeriving
                        InstanceSigs
+                       LambdaCase
+                       MonadFailDesugaring
+                       MultiParamTypeClasses
+                       MultiWayIf
                        NoImplicitPrelude
                        OverloadedStrings
                        RankNTypes
                        RecordWildCards
+                       ScopedTypeVariables
+                       StandaloneDeriving
+                       TemplateHaskell
+                       TupleSections
                        TypeApplications
                        TypeFamilies
-                       TupleSections
-                       ViewPatterns
-                       LambdaCase
-                       MultiWayIf
-                       ConstraintKinds
                        UndecidableInstances
-                       BangPatterns
-                       TemplateHaskell
-                       ScopedTypeVariables
-                       MonadFailDesugaring
+                       ViewPatterns
 
   ghc-options:
                        -O2

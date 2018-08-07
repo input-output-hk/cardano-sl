@@ -29,26 +29,26 @@ import           Pos.Infra.Network.DnsDomains (NodeAddr)
 import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..),
                      NodeId (..), NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
+                     logNotice)
 
 -- | Resolve a fixed list of names to a NodeId (using a given port) repeatedly.
 -- If the resolution may give more than one address, the addresses are given
 -- in-order, and a new resolution will take place once they have all been
 -- consumed.
 dnsSubscriptionTarget
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> IO Microsecond -- ^ How long to wait if a DNS resolution fails
                       -- (IOError or DNSError).
     -> Word16 -- ^ The port to use, to construct a 'NodeId'.
     -> [NodeAddr DNS.Domain] -- ^ Domain names to resolve
     -> SubscriptionTarget IO NodeId
-dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
+dnsSubscriptionTarget logTrace0 timeoutError defaultPort addrs =
     SubscriptionTarget (resolve >>= listTargets)
-
   where
-
+    logTrace = appendName "dnsTarget" logTrace0
     listTargets :: [NodeId] -> IO (Maybe (NodeId, SubscriptionTarget IO NodeId))
-    listTargets [] = getSubscriptionTarget (dnsSubscriptionTarget logTrace timeoutError defaultPort addrs)
+    listTargets [] = getSubscriptionTarget (dnsSubscriptionTarget logTrace0 timeoutError defaultPort addrs)
     listTargets (nodeId : nodeIds) = pure (Just (nodeId, SubscriptionTarget (listTargets nodeIds)))
 
     resolve :: IO [NodeId]
@@ -58,7 +58,7 @@ dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
             `catch` handleIoError
         case outcome of
             Left err -> do
-                traceWith logTrace (Error, formatErr err)
+                logError logTrace $ formatErr err
                 timeoutError >>= threadDelay . fromIntegral
                 resolve
             Right nodeIds -> pure nodeIds
@@ -77,16 +77,17 @@ dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
 -- and we forget the boundaries, but all of the addresses for a given name
 -- are adjacent.
 resolveOne
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Word16
     -> [NodeAddr DNS.Domain]
     -> IO [NodeId]
-resolveOne logTrace defaultPort nodeAddrs = do
+resolveOne logTrace0 defaultPort nodeAddrs = do
     mNodeIds <- resolveDnsDomains defaultPort nodeAddrs
     let (errs, nids_) = partitionEithers mNodeIds
         nids = mconcat nids_
-    when (null nids)   $ traceWith logTrace (Error, msgNoRelays)
-    unless (null errs) $ traceWith logTrace (Error, msgDnsFailure errs)
+        logTrace = appendName "resolveOne" logTrace0
+    when (null nids)   $ logError logTrace msgNoRelays
+    unless (null errs) $ logError logTrace (msgDnsFailure errs)
     return nids
 
   where
@@ -122,7 +123,7 @@ retryInterval d slotDur =
 -- 'DnsDomains' which cycles through alternatives.
 dnsSubscriptionWorker
     :: forall pack.
-       Trace IO (Severity, Text)
+       TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> Word16 -- ^ Default port to use for addresses resolved from DNS domains.
     -> DnsDomains DNS.Domain
@@ -131,16 +132,17 @@ dnsSubscriptionWorker
     -> SubscriptionStates NodeId
     -> SendActions
     -> IO ()
-dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slotDuration subStatus sendActions = do
+dnsSubscriptionWorker logTrace0 oq defaultPort DnsDomains {..} keepaliveTimer slotDuration subStatus sendActions = do
     -- Shared state between threads, used to set the outbound queue known
     -- peers.
     peersVar <- newMVar Map.empty
-    traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: valency "%int) (length dnsDomains))
+    logNotice logTrace $ sformat ("dnsSubscriptionWorker: valency "%int) (length dnsDomains)
     forConcurrently_ dnsDomains $ \domain -> do
         subscriber (subscribeTo peersVar)
                    (dnsSubscriptionTarget logTrace timeoutError defaultPort domain)
-    traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length dnsDomains))
+    logNotice logTrace $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length dnsDomains)
   where
+    logTrace = appendName "dnsWorker" logTrace0
 
     subscribeTo :: MVar (Map (NodeType, NodeId) Int) -> SubscribeTo IO NodeId
     subscribeTo peersVar nodeId = do

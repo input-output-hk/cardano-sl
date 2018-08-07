@@ -1,7 +1,7 @@
 module.exports = {
   plugins: [
     require('postcss-import'),
-    require('postcss-css-reset'),
+    // require('postcss-css-reset'),
     require('postcss-custom-properties'),
     require('postcss-nested'),
     require('postcss-extend'),

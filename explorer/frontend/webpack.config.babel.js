@@ -122,8 +122,8 @@ module.exports = {
         // 1) Enable HMR w/o using ExtractTextPlugin in dev mode
         use: isProd ? undefined : [
           'style-loader',
-          'css-loader?importLoaders=1&minimize?true',
-          'postcss-loader?sourceMap'
+          'css-loader?importLoaders=1&minimize?false',
+          // 'postcss-loader?sourceMap'
         ],
         // 2) Use ExtractTextPlugin in prod mode, only
         loader: isProd ? ExtractTextPlugin.extract({

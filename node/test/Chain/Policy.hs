@@ -7,6 +7,8 @@ import Chain.Validation
 import qualified UTxO.DSL as DSL
 import Universum
 
+data BlockModifierException
+
 -- | Control whether to construct valid or invalid blocks.
 data GenValidity
   = Valid

@@ -94,9 +94,11 @@ data IntCtxt h = IntCtxt {
 
       -- | Checkpoints
     , _icCheckpoints :: !(NonEmpty (IntCheckpoint h))
+
+      -- | Block modifiers
+    , _icBlockMods :: ![BlockModifier (IntT h BlockModifierException Identity) h Addr]
     }
 
-makeLenses ''IntCtxt
 
 {-------------------------------------------------------------------------------
   The interpretation monad
@@ -123,6 +125,7 @@ liftTranslateInt :: Monad m
                  -> IntT h e m a
 liftTranslateInt ta =  IntT $ lift $ mapTranslateErrors Left ta
 
+makeLenses ''IntCtxt
 {-------------------------------------------------------------------------------
   Dealing with the transactions
 -------------------------------------------------------------------------------}

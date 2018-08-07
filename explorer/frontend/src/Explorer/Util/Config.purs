@@ -2,6 +2,7 @@ module Explorer.Util.Config where
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Monad.Eff (Eff)
 import DOM (DOM)
 import DOM.HTML (window)
@@ -52,4 +53,7 @@ syncByPolling = (==) SyncByPolling
 
 isTestnet :: String -> Boolean
 isTestnet location =
-  isJust $ search (unsafeRegex "testnet\\." noFlags) location
+  isJust $
+    (search (unsafeRegex "testnet\\." noFlags) location
+    <|>
+    search (unsafeRegex "localhost" noFlags) location)

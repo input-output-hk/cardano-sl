@@ -72,6 +72,8 @@ import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
+
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
 -------------------------------------------------------------------------------}
@@ -81,16 +83,16 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 -- Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => (Severity -> Text -> IO ())
+                     => TraceNamed IO
                      -> Keystore
                      -> NodeStateAdaptor IO
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet logMsg keystore node f =
+bracketPassiveWallet logTrace keystore node f =
     bracket (liftIO $ handlesOpen)
             (liftIO . handlesClose)
             (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore handles node)
+                  (liftIO $ initPassiveWallet logTrace keystore handles node)
                   (\_ -> return ())
                   f)
 
@@ -122,13 +124,13 @@ withKeystore pw action = action (pw ^. walletKeystore)
 -------------------------------------------------------------------------------}
 
 -- | Initialise Passive Wallet with empty Wallets collection
-initPassiveWallet :: (Severity -> Text -> IO ())
+initPassiveWallet :: TraceNamed IO
                   -> Keystore
                   -> WalletHandles
                   -> NodeStateAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore Handles{..} node = do
-    return $ PassiveWallet logMessage keystore hAcid hMeta node
+initPassiveWallet logTrace keystore Handles{..} node = do
+    return $ PassiveWallet logTrace keystore hAcid hMeta node
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -136,7 +138,7 @@ initPassiveWallet logMessage keystore Handles{..} node = do
 -- called when the node is initialized (when run in the node proper).
 init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
-    _walletLogMessage Info $ "Passive Wallet kernel initialized."
+    logInfo _walletLogMessage $ "Passive Wallet kernel initialized."
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation
@@ -212,7 +214,7 @@ bracketActiveWallet walletProtocolMagic walletPassive walletDiffusion runActiveW
     bracket
       (return ActiveWallet{..})
       (\_ -> liftIO $ do
-                 (_walletLogMessage walletPassive) Error "stopping the wallet submission layer..."
+                 logError (_walletLogMessage walletPassive) "stopping the wallet submission layer..."
                  cancel submissionLayerTicker
       )
       runActiveWallet

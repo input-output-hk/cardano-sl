@@ -6,17 +6,18 @@ module Pos.Infra.Shutdown.Logic
 import           Universum
 
 import           Control.Concurrent.STM (check, readTVar, writeTVar)
-import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..),
                      shdnIsTriggered)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 triggerShutdown
-    :: (MonadIO m, MonadReader ctx m, WithLogger m, HasShutdownContext ctx)
-    => m ()
-triggerShutdown = do
-    logInfo "NODE SHUTDOWN TRIGGERED, WAITING FOR WORKERS TO TERMINATE"
+    :: (MonadIO m, MonadReader ctx m, HasShutdownContext ctx)
+    => TraceNamed m
+    -> m ()
+triggerShutdown logTrace = do
+    logInfo logTrace "NODE SHUTDOWN TRIGGERED, WAITING FOR WORKERS TO TERMINATE"
     view (shutdownContext . shdnIsTriggered) >>= atomically . flip writeTVar True
 
 -- | Wait for the shutdown var to be true.

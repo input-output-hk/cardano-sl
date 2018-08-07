@@ -76,13 +76,8 @@ data BlockMeta = BlockMeta {
     } deriving Eq
 
 makeLenses ''BlockMeta
-
--- TODO @uroboros/ryan [CBR 305] Implement Safecopy instances independently from legacy wallet
-instance SafeCopy (InDb (Map Core.Address AddressMeta)) where
-    putCopy (InDb h) = contain $ safePut h
-    getCopy = contain $ InDb <$> safeGet
-
 deriveSafeCopy 1 'base ''BlockMeta
+
 -- | Address metadata for the specified address
 --
 -- When the block metadata does not contain any information about this address,

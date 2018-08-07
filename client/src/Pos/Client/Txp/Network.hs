@@ -14,7 +14,6 @@ module Pos.Client.Txp.Network
 import           Universum
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (logInfo)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
@@ -32,6 +31,7 @@ import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
 import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.WorkMode.Class (MinWorkMode)
 
@@ -79,12 +79,14 @@ prepareRedemptionTx pm rsk output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m)
-    => Diffusion m -> TxAux -> m Bool
-submitTxRaw diffusion txAux@TxAux {..} = do
+    :: MinWorkMode m
+    => TraceNamed m
+    -> Diffusion m -> TxAux
+    -> m Bool
+submitTxRaw logTrace diffusion txAux@TxAux {..} = do
     let txId = hash taTx
-    logInfo $ sformat ("Submitting transaction: "%txaF) txAux
-    logInfo $ sformat ("Transaction id: "%build) txId
+    logInfo logTrace $ sformat ("Submitting transaction: "%txaF) txAux
+    logInfo logTrace $ sformat ("Transaction id: "%build) txId
     sendTx diffusion txAux
 
 sendTxOuts :: OutSpecs

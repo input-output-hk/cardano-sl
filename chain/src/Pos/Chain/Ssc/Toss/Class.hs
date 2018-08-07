@@ -12,7 +12,6 @@ import           Universum hiding (id)
 
 import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans (MonadTrans)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core (EpochIndex, EpochOrSlot, StakeholderId)
@@ -27,7 +26,7 @@ import           Pos.Core.Update (BlockVersionData)
 
 -- | Type class which provides functions necessary for read-only
 -- verification of SSC data.
-class (Monad m, WithLogger m) =>
+class Monad m =>
       MonadTossRead m where
     -- | Get 'CommitmentsMap' with all commitments.
     getCommitments :: m CommitmentsMap

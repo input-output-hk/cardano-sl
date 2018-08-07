@@ -35,7 +35,6 @@ import           Data.Default (def)
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
-import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Property, Testable (..),
@@ -59,7 +58,6 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..),
                      largestHDAddressBoot)
-import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -67,6 +65,8 @@ import qualified Pos.DB as DB
 import           Pos.DB.Block (MonadBListener (..))
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics (..),
+                     newStateLock)
 import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Pure (DBPureVar)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
@@ -84,14 +84,11 @@ import           Pos.Infra.Shutdown (HasShutdownContext (..),
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, SimpleSlottingStateVar,
                      mkSimpleSlottingStateVar)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
-                     newStateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                     JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
+                     JsonLogConfig (..), MemPoolModifyReason)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
@@ -198,7 +195,7 @@ initWalletTestContext ::
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
 initWalletTestContext WalletTestParams {..} callback =
-    initBlockTestContext _wtpBlockTestParams $ \wtcBlockTestContext -> do
+    initBlockTestContext noTrace _wtpBlockTestParams $ \wtcBlockTestContext -> do
         wtc <- liftIO $ do
             wtcWalletState <- openMemState
             wtcUserPublic <- STM.newTVarIO def
@@ -208,7 +205,7 @@ initWalletTestContext WalletTestParams {..} callback =
             tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
             wtcStateLock <- newStateLock tip
             store <- liftIO $ Metrics.newStore
-            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store (txpMemPool $ btcTxpMem wtcBlockTestContext)
+            wtcStateLockMetrics <- liftIO $ recordTxpMetrics noTrace store (txpMemPool $ btcTxpMem wtcBlockTestContext)
             wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
@@ -317,21 +314,11 @@ instance HasLens UpdateContext WalletTestContext UpdateContext where
 instance HasJsonLogConfig WalletTestContext where
     jsonLogConfig = lens (const JsonLogDisabled) const
 
-instance {-# OVERLAPPING #-} CanJsonLog WalletTestMode where
-    jsonLog = jsonLogDefault
-
-instance HasLoggerName' WalletTestContext where
-    loggerName = wtcBlockTestContext_L . lensOf @LoggerName
-
 instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData WalletMempoolExt) where
     lensOf = wtcBlockTestContext_L . btcTxpMemL
 
 instance HasLens SimpleSlottingStateVar WalletTestContext SimpleSlottingStateVar where
     lensOf = wtcSlottingStateVar_L
-
-instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
 
 instance HasConfiguration => MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
@@ -413,8 +400,8 @@ instance MonadUpdates WalletTestMode where
     applyLastUpdate = applyLastUpdateWebWallet
 
 instance (HasConfigurations) => MonadBListener WalletTestMode where
-    onApplyBlocks = onApplyBlocksWebWallet
-    onRollbackBlocks = onRollbackBlocksWebWallet
+    onApplyBlocks tr = onApplyBlocksWebWallet $ natTrace liftIO tr
+    onRollbackBlocks tr = onRollbackBlocksWebWallet $ natTrace liftIO tr
 
 instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
     networkChainDifficulty = networkChainDifficultyWebWallet

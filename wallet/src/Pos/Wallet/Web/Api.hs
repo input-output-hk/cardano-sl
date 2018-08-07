@@ -66,6 +66,7 @@ import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam,
                      CReqBody, DCQueryParam, DReqBody, LoggingApi,
                      ModifiesApiRes (..), ReportDecodeError (..), VerbMod,
                      serverHandlerL')
+import           Pos.Util.Trace (noTrace)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId,
                      CAccountInit, CAccountMeta, CAddress, CCoin, CFilePath,
                      CId, CInitialized, CPaperVendWalletRedeem, CPassPhrase,
@@ -86,7 +87,7 @@ type WalletVerb verb = VerbMod WalletVerbTag verb
 
 instance ModifiesApiRes WalletVerbTag where
     type ApiModifiedRes WalletVerbTag a = Either WalletError a
-    modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
+    modifyApiResult _ = try . (catchEndpointErrors noTrace) . (either throwM pure =<<)
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'

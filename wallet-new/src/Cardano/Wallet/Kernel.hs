@@ -43,6 +43,7 @@ import qualified Data.Map.Strict as Map
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), DB, NewForeign (..), NewForeignError,
@@ -67,9 +68,6 @@ import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
                      newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
-import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
-
-import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management

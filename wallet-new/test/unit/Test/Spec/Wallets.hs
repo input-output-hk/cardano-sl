@@ -19,7 +19,6 @@ import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase, hash)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
-import           Cardano.Wallet.Kernel.DB.AcidState (DeleteHdWalletError (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HdRootId (..), UnknownHdRoot (..), WalletName (..),
                      hdRootId)
@@ -202,9 +201,18 @@ spec = describe "Wallets" $ do
 
                             Right allAccounts <- WalletLayer.getAccounts layer wId
 
+                            -- We should have 1 account, and fetching it must
+                            -- succeed.
+                            IxSet.size allAccounts `shouldBe` 1
                             foldM_ (check isRight) () allAccounts
-                            void (WalletLayer.deleteWallet layer wId)
-                            foldM_ (check isLeft)  () allAccounts
+
+                            -- Deletion should still return 'Right'.
+                            res <- (WalletLayer.deleteWallet layer wId)
+                            (bimap STB STB res) `shouldSatisfy` isRight
+
+                            -- Fetching the old, not-existing-anymore accounts
+                            -- should fail.
+                            foldM_ (check isLeft) () allAccounts
 
             prop "fails if the wallet doesn't exists" $ withMaxSuccess 50 $ do
                 monadicIO $ do
@@ -213,7 +221,7 @@ spec = describe "Wallets" $ do
                         liftIO $ do
                             res <- WalletLayer.deleteWallet layer wId
                             case res of
-                                 Left (WalletLayer.DeleteWalletError (V1 (DeleteHdWalletUnknownRoot _))) ->
+                                 Left (WalletLayer.DeleteWalletError (V1 (UnknownHdRoot _))) ->
                                      return ()
                                  Left unexpectedErr ->
                                      fail $ "expecting different failure than " <> show unexpectedErr

@@ -15,6 +15,7 @@ import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
 
 import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -24,6 +25,7 @@ import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
@@ -61,24 +63,34 @@ createWallet wallet (V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword 
                       Left kernelError ->
                           return (Left $ CreateWalletError kernelError)
                       Right hdRoot -> do
-                          let (hasSpendingPassword, mbLastUpdate) =
-                                  case hdRoot ^. HD.hdRootHasPassword of
-                                       HD.NoSpendingPassword -> (False, Nothing)
-                                       HD.HasSpendingPassword lu -> (True, Just (lu ^. fromDb))
-                          now <- liftIO getCurrentTimestamp
-                          let lastUpdate = fromMaybe now mbLastUpdate
-                          let createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
-                          let walletId = hdRoot ^. HD.hdRootId . to (sformat build . _fromDb . HD.getHdRootId)
-                          return $ Right V1.Wallet {
-                              walId                         = (V1.WalletId walletId)
-                            , walName                       = v1WalletName
-                            , walBalance                    = V1 (mkCoin 0)
-                            , walHasSpendingPassword        = hasSpendingPassword
-                            , walSpendingPasswordLastUpdate = V1 lastUpdate
-                            , walCreatedAt                  = V1 createdAt
-                            , walAssuranceLevel             = v1AssuranceLevel
-                            , walSyncState                  = V1.Synced
-                          }
+                          let rootId = hdRoot ^. HD.hdRootId
+                          -- Populate this wallet with an account by default
+                          newAccount <- liftIO $ Kernel.createAccount spendingPassword
+                                                                      (HD.AccountName "Default account")
+                                                                      (WalletIdHdRnd rootId)
+                                                                      wallet
+                          case newAccount of
+                               Left accCreationFailed ->
+                                   return (Left $ CreateWalletFirstAccountCreationFailed accCreationFailed)
+                               Right _ -> do
+                                   let (hasSpendingPassword, mbLastUpdate) =
+                                           case hdRoot ^. HD.hdRootHasPassword of
+                                                HD.NoSpendingPassword -> (False, Nothing)
+                                                HD.HasSpendingPassword lu -> (True, Just (lu ^. fromDb))
+                                   now <- liftIO getCurrentTimestamp
+                                   let lastUpdate = fromMaybe now mbLastUpdate
+                                   let createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
+                                   let walletId = hdRoot ^. HD.hdRootId . to (sformat build . _fromDb . HD.getHdRootId)
+                                   return $ Right V1.Wallet {
+                                       walId                         = (V1.WalletId walletId)
+                                     , walName                       = v1WalletName
+                                     , walBalance                    = V1 (mkCoin 0)
+                                     , walHasSpendingPassword        = hasSpendingPassword
+                                     , walSpendingPasswordLastUpdate = V1 lastUpdate
+                                     , walCreatedAt                  = V1 createdAt
+                                     , walAssuranceLevel             = v1AssuranceLevel
+                                     , walSyncState                  = V1.Synced
+                                   }
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m
@@ -148,8 +160,7 @@ getWallet db (V1.WalletId wId) =
 getWallets :: Kernel.DB -> IxSet V1.Wallet
 getWallets db =
     let allRoots = readAllHdRoots (hdWallets db)
-        f acc a  = IxSet.insert (toV1Wallet db a) acc
-    in IxSet.foldl' f IxSet.emptyIxSet allRoots
+    in IxSet.fromList . map (toV1Wallet db) . IxSet.toList $ allRoots
 
 {------------------------------------------------------------------------------
   General utility functions on the wallets.

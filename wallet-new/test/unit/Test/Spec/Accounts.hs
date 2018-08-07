@@ -312,7 +312,9 @@ spec = describe "Accounts" $ do
         prop "works as expected in the happy path scenario" $ withMaxSuccess 25 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
-                    forM_ [1..5] $ \(_i :: Int) ->
+                    -- We create 4 accounts, plus one is created automatically
+                    -- by the 'createWallet' endpoint, for a total of 5.
+                    forM_ [1..4] $ \(_i :: Int) ->
                         (WalletLayer._pwlCreateAccount layer) (V1.walId fixtureV1Wallet)
                                                               fixtureNewAccountRq
                     res <- (WalletLayer._pwlGetAccounts layer) (V1.walId fixtureV1Wallet)
@@ -340,7 +342,9 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
-                    forM_ [1..5] $ \(_i :: Int) -> runExceptT . runHandler' $ create
+                    -- We create 4 accounts, plus one is created automatically
+                    -- by the 'createWallet' endpoint, for a total of 5.
+                    forM_ [1..4] $ \(_i :: Int) -> runExceptT . runHandler' $ create
                     let params = API.RequestParams (API.PaginationParams (API.Page 1) (API.PerPage 10))
                     let fetch = Handlers.listAccounts layer (V1.walId fixtureV1Wallet) params
                     res <- runExceptT . runHandler' $ fetch

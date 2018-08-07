@@ -27,7 +27,6 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , otraverse
   , foldl'
   , emptyIxSet
-  , insert
     -- * Destruction
   , toList
   ) where
@@ -224,13 +223,6 @@ emptyIxSet :: forall a.
               Indexable a
            => IxSet a
 emptyIxSet = WrapIxSet IxSet.empty
-
--- | Inserts an element in the 'IxSet'. Same caveats of the native 'Ixset.insert'
--- applies.
-insert :: forall a.  Indexable a => a -> IxSet a -> IxSet a
-insert a (WrapIxSet nativeSet) = WrapIxSet
-                               . IxSet.insert (WrapOrdByPrimKey a)
-                               $! nativeSet
 
 -- | Strict left fold over an 'IxSet'.
 foldl' :: (acc -> a -> acc)

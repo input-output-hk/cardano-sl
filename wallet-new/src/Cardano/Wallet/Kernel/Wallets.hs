@@ -29,8 +29,8 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
-                     DeleteHdWallet (..), DeleteHdWalletError (..),
-                     UpdateHdRootPassword (..), UpdateHdWallet (..))
+                     DeleteHdRoot (..), UpdateHdRootPassword (..),
+                     UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
                      WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -186,11 +186,11 @@ createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk utxo = do
 
 deleteHdWallet :: PassiveWallet
                -> HD.HdRootId
-               -> IO (Either DeleteHdWalletError ())
+               -> IO (Either HD.UnknownHdRoot ())
 deleteHdWallet wallet rootId = do
     -- STEP 1: Remove the HdRoot via an acid-state transaction which will
     --         also delete any associated accounts and addresses.
-    res <- update' (wallet ^. wallets) $ DeleteHdWallet rootId
+    res <- update' (wallet ^. wallets) $ DeleteHdRoot rootId
     case res of
         Left err -> return (Left err)
         Right () -> do

@@ -777,6 +777,11 @@ data Wallet = Wallet {
 -- IxSet indices
 --
 
+-- FIXME(adn) Currently these indices are a necessary evil but in the future
+-- we won't even need to define them on V1 data types, as that would mean we
+-- will have to reconstructs all the indices when we convert from Kernel types
+-- to V1 types, which is computationally not efficient. See [CBR-356] for a
+-- broader discussion of the topic and for a proper design.
 instance HasPrimKey Wallet where
     type PrimKey Wallet = WalletId
     primKey = walId

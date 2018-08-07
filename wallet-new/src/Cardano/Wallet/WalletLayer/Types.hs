@@ -51,7 +51,6 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
 
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
-import qualified Cardano.Wallet.Kernel.DB.AcidState as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
@@ -77,6 +76,7 @@ import           Pos.Crypto (PassPhrase)
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
+    | CreateWalletFirstAccountCreationFailed Kernel.CreateAccountError
     | CreateWalletTimeLimitReached TimeExecutionLimit
 
 -- | Unsound show instance needed for the 'Exception' instance.
@@ -93,6 +93,8 @@ instance Arbitrary CreateWalletError where
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
         bprint ("CreateWalletError " % build) kernelError
+    build (CreateWalletFirstAccountCreationFailed kernelError) =
+        bprint ("CreateWalletFirstAccountCreationFailed " % build) kernelError
     build (CreateWalletTimeLimitReached timeLimit) =
         bprint ("CreateWalletTimeLimitReached " % build) timeLimit
 
@@ -158,7 +160,7 @@ instance Buildable UpdateWalletPasswordError where
 
 data DeleteWalletError =
       DeleteWalletWalletIdDecodingFailed Text
-    | DeleteWalletError (V1 Kernel.DeleteHdWalletError)
+    | DeleteWalletError (V1 Kernel.UnknownHdRoot)
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show DeleteWalletError where

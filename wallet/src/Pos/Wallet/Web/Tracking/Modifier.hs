@@ -31,7 +31,7 @@ import           Pos.Chain.Txp (UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address)
 import           Pos.Core.Txp (TxId)
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..),
                      deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Modifier (MapModifier)
 import qualified Pos.Util.Modifier as MM

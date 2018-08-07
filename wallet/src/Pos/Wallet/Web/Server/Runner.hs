@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,7 +22,6 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Network.Wai (Application)
 import           Servant.Server (Handler)
-import           System.Wlog (logInfo, usingLoggerName)
 
 import           Ntp.Client (NtpStatus)
 
@@ -35,9 +35,11 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (addInitialRichAccount)
+import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                      WalletWebModeContextTag, realModeToWalletWebMode,
                      walletWebModeToRealMode)
@@ -54,7 +56,8 @@ runWRealMode
        ( HasConfigurations
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> WalletDB
     -> ConnectionsVar
@@ -62,16 +65,19 @@ runWRealMode
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> IO a
-runWRealMode pm txpConfig db conn syncRequests res action =
-    runRealMode pm txpConfig res $ \diffusion ->
+runWRealMode logTrace pm txpConfig db conn syncRequests res action =
+    runRealMode logTrace pm txpConfig res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
 walletServeWebFull
-    :: ( HasConfigurations
+    :: forall ctx m .
+       ( HasConfigurations
        , HasCompileInfo
+       , M.MonadWalletLogic ctx m
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
@@ -79,21 +85,21 @@ walletServeWebFull
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull pm txpConfig diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull logTrace pm txpConfig diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
-    let
-      portCallback :: Word16 -> IO ()
-      portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
+    let portCallback :: Word16 -> IO ()
+        portCallback port = flip runReaderT ctx $ startNodeJsIPC logTrace port
     walletServeImpl action address mTlsParams Nothing (Just portCallback)
   where
     action :: WalletWebMode Application
     action = do
-        logInfo "Wallet Web API has STARTED!"
-        when debug $ addInitialRichAccount 0
+        logInfo (natTrace liftIO logTrace) "Wallet Web API has STARTED!"
+        when debug $ M.addInitialRichAccount (natTrace liftIO logTrace) 0
 
         wwmc <- walletWebModeContext
-        walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode pm txpConfig diffusion ntpStatus (convertHandler wwmc)
+        walletApplication logTrace $
+            walletServer @WalletWebModeContext @WalletWebMode
+                (natTrace liftIO logTrace) pm txpConfig diffusion ntpStatus (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)
@@ -113,7 +119,10 @@ convertHandler wwmc handler =
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
 
-notifierPlugin :: (HasConfigurations) => WalletWebMode ()
-notifierPlugin = do
+notifierPlugin
+    :: (HasConfigurations)
+    => TraceNamed IO
+    -> WalletWebMode ()
+notifierPlugin logTrace = do
     wwmc <- walletWebModeContext
-    launchNotifier (convertHandler wwmc)
+    launchNotifier (natTrace liftIO logTrace) (convertHandler wwmc)

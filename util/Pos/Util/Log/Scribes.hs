@@ -50,7 +50,6 @@ mkJsonFileScribe bp fp s v = do
     pure $ Scribe logger (hFlush h)
 
 -- | create a katip scribe for logging to a file
--- calls '_mkFileScribe'
 mkFileScribe :: FilePath -> FilePath -> Bool -> Severity -> Verbosity -> IO Scribe
 mkFileScribe bp fp colorize s v = do
     h <- catchIO (openFile (bp </> fp) WriteMode) $
@@ -72,12 +71,10 @@ mkFileScribeH h colorize s v = do
     pure $ Scribe logger (hFlush h)
 
 -- | create a katip scribe for logging to the console
--- (stdout) calls '_mkFileScribe'
 mkStdoutScribe :: Severity -> Verbosity -> IO Scribe
 mkStdoutScribe = mkFileScribeH stdout True
 
 -- | create a katip scribe for logging to stderr
--- calls '_mkFileScribe'
 mkStderrScribe :: Severity -> Verbosity -> IO Scribe
 mkStderrScribe = mkFileScribeH stderr True
 

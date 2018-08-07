@@ -94,7 +94,6 @@ prop_sevS =
 run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_loggingS sev n n0 n1= do
         startTime <- getPOSIXTime
-{- -}
         lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
             usingLoggerName lh "test_log" $
@@ -105,7 +104,6 @@ run_loggingS sev n n0 n1= do
                     logWarningS lh msg
                     logErrorS   lh msg
 
-{- -}
         endTime <- getPOSIXTime
         threadDelay 0500000
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)

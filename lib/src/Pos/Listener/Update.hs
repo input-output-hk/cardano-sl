@@ -13,28 +13,25 @@ module Pos.Listener.Update
 import           Universum
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logNotice, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
+import           Pos.DB.GState.Lock (StateLock)
 import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Update (UpdateContext, processProposal, processVote)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Infra.StateLock (StateLock)
+import           Pos.Util.Trace.Named (TraceNamed, logNotice, logWarning)
 import           Pos.Util.Util (HasLens (..))
 
 
-
-
-type UpdateMode ctx m
-    = ( WithLogger m
-      , MonadIO m
+type UpdateMode ctx m =
+      ( MonadIO m
       , MonadUnliftIO m
       , MonadMask m
       , MonadGState m
@@ -52,32 +49,34 @@ type UpdateMode ctx m
       )
 
 handleProposal
-    :: forall ctx m . UpdateMode ctx m
-    => ProtocolMagic
+    :: forall ctx m
+     . (MonadIO m, UpdateMode ctx m)
+    => TraceNamed m
+    -> ProtocolMagic
     -> (UpdateProposal, [UpdateVote])
     -> m Bool
-handleProposal pm (proposal, votes) = do
-    res <- processProposal pm proposal
+handleProposal logTrace pm (proposal, votes) = do
+    res <- processProposal logTrace pm proposal
     logProp proposal res
     let processed = isRight res
     processed <$ when processed (mapM_ processVoteLog votes)
   where
     processVoteLog :: UpdateVote -> m ()
-    processVoteLog vote = processVote pm vote >>= logVote vote
+    processVoteLog vote = processVote logTrace pm vote >>= logVote vote
     logVote vote (Left cause) =
-        logWarning $ sformat ("Proposal is accepted but vote "%build%
+        logWarning logTrace $ sformat ("Proposal is accepted but vote "%build%
                               " is rejected, the reason is: "%build)
                      vote cause
-    logVote vote (Right _) = logVoteAccepted vote
+    logVote vote (Right _) = logVoteAccepted logTrace vote
 
     logProp prop (Left cause) =
-        logWarning $ sformat ("Processing of proposal "%build%
+        logWarning logTrace $ sformat ("Processing of proposal "%build%
                               " failed, the reason is: "%build)
               prop cause
     -- Update proposals are accepted rarely (at least before Shelley),
     -- so it deserves 'Notice' severity.
     logProp prop (Right _) =
-        logNotice $ sformat ("Processing of proposal "%build%" is successful")
+        logNotice logTrace $ sformat ("Processing of proposal "%build%" is successful")
               prop
 
 ----------------------------------------------------------------------------
@@ -86,19 +85,20 @@ handleProposal pm (proposal, votes) = do
 
 handleVote
     :: UpdateMode ctx m
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> UpdateVote
     -> m Bool
-handleVote pm uv = do
-    res <- processVote pm uv
+handleVote logTrace pm uv = do
+    res <- processVote logTrace pm uv
     logProcess uv res
     pure $ isRight res
   where
     logProcess vote (Left cause) =
-        logWarning $ sformat ("Processing of vote "%build%
+        logWarning logTrace $ sformat ("Processing of vote "%build%
                               "failed, the reason is: "%build)
                      vote cause
-    logProcess vote (Right _) = logVoteAccepted vote
+    logProcess vote (Right _) = logVoteAccepted logTrace vote
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -106,6 +106,6 @@ handleVote pm uv = do
 
 -- Update votes are accepted rarely (at least before Shelley), so
 -- it deserves 'Notice' severity.
-logVoteAccepted :: WithLogger m => UpdateVote -> m ()
-logVoteAccepted =
-    logNotice . sformat ("Processing of vote "%build%"is successfull")
+logVoteAccepted :: TraceNamed m -> UpdateVote -> m ()
+logVoteAccepted logTrace vote =
+    logNotice logTrace $ sformat ("Processing of vote "%build%"is successfull") vote

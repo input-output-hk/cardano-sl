@@ -18,7 +18,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar)
@@ -26,7 +25,7 @@ import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.JsonLog.LogEvents (JsonLogConfig)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
@@ -49,15 +48,14 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                     JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                     modifyLoggerNameDefault)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace (natTrace, noTrace)
 import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
+
 
 data RealModeContext ext = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -65,7 +63,7 @@ data RealModeContext ext = RealModeContext
     , rmcTxpLocalData  :: !(GenericTxpLocalData ext)
     , rmcDelegationVar :: !DelegationVar
     , rmcJsonLogConfig :: !JsonLogConfig
-    , rmcLoggerName    :: !LoggerName
+    , rmcLoggerName    :: !Log.LoggerName
     , rmcNodeContext   :: !NodeContext
     , rmcReporter      :: !(Reporter IO)
       -- ^ How to do reporting. It's in here so that we can have
@@ -135,19 +133,14 @@ instance HasSlogGState (RealModeContext ext) where
 instance HasNodeContext (RealModeContext ext) where
     nodeContext = rmcNodeContext_L
 
-instance HasLoggerName' (RealModeContext ext) where
-    loggerName = rmcLoggerName_L
-
+{- TODO
 instance HasJsonLogConfig (RealModeContext ext) where
     jsonLogConfig = rmcJsonLogConfig_L
-
-instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
-
+-}
+{-
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
-
+-}
 instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
       => MonadSlots ctx (RealMode ext)
   where
@@ -173,15 +166,15 @@ instance HasConfiguration => MonadDB (RealMode ext) where
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 instance MonadBListener (RealMode ext) where
-    onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub
+    onApplyBlocks tr = onApplyBlocksStub $ natTrace liftIO tr
+    onRollbackBlocks tr = onRollbackBlocksStub $ natTrace liftIO tr
 
 type instance MempoolExt (RealMode ext) = ext
 
 instance (HasConfiguration) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
-    txpProcessTx = txProcessTransaction
+    txpProcessTx = \logTrace -> txProcessTransaction logTrace noTrace
 
 instance MonadReporting (RealMode ext) where
     report rt = Mtl.ask >>= liftIO . flip runReporter rt . rmcReporter

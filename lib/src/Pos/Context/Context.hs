@@ -24,7 +24,6 @@ import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
 import           Data.Time.Clock (UTCTime)
-import           System.Wlog (LoggerConfig)
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..),
                      LastKnownHeader, LastKnownHeaderTag, SlogContext (..))
@@ -33,6 +32,8 @@ import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
+import           Pos.Core.Slotting (HasSlottingVar (..), SlottingData)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Txp.Settings (TxpGlobalSettings)
 import           Pos.DB.Update (UpdateContext)
@@ -41,15 +42,13 @@ import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Shutdown (HasShutdownContext (..),
                      ShutdownContext (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..),
-                     SimpleSlottingStateVar)
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Slotting.Impl.Simple (SimpleSlottingStateVar)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
 import           Pos.Util.Lens (postfixLFields)
+import           Pos.Util.LoggerConfig (LoggerConfig)
 import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))

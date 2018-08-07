@@ -22,6 +22,7 @@ import           Universum
 import           Control.Exception (fromException)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
+import           Network.HTTP.Types.Status as Http
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
@@ -245,17 +246,42 @@ syncWalletWorker = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
     (view (lensOf @SyncQueue) >>= processSyncRequest)
 
--- | "Attaches" the middleware to this 'Application', if any.
--- When running in debug mode, chances are we want to at least allow CORS to test the API
--- with a Swagger editor, locally.
-withMiddleware :: MonadIO m => RunMode -> Application -> m Application
+-- | "Attaches" the middleware to this 'Application', if any.  When running in
+-- debug mode, chances are we want to at least allow CORS to test the API with
+-- a Swagger editor, locally.
+withMiddleware
+    :: MonadIO m
+    => RunMode
+    -> Application
+    -> m Application
 withMiddleware wrm app = do
     st <- liftIO $ Throttle.initThrottler
     pure
         . (if isDebugMode wrm then corsMiddleware else identity)
-        . Throttle.throttle Throttle.defaultThrottleSettings st
+        . Throttle.throttle throttleSettings st
         $ app
+  where
+    throttleSettings = Throttle.defaultThrottleSettings
+        { Throttle.onThrottled = \microsTilRetry ->
+            responseLBS
+                Http.status429
+                [ ("Content-Type", "application/json") ]
+                (encode (ThrottlingResponse microsTilRetry))
+        }
 
+newtype ThrottlingResponse = ThrottlingResponse Word64
+
+instance ToJSON ThrottlingResponse where
+    toJSON (ThrottlingResponse microsTilRetry) =
+        object
+            [ "status" .= asText "error"
+            , "message" .= asText "Throttled"
+            , "diagnostic" .= object
+                [ ("microsecondsUntilRetry" .= microsTilRetry) ]
+            ]
+      where
+        asText :: Text -> Text
+        asText = id
 
 corsMiddleware :: Middleware
 corsMiddleware = cors (const $ Just policy)

@@ -23,11 +23,11 @@ import           Pos.Infra.Communication.Relay (InvReqDataParams (..),
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Util.Trace (Severity, Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- | Send Tx to given addresses.
 -- Returns 'True' if any peer accepted and applied this transaction.
-sendTx :: Trace IO (Severity, Text) -> EnqueueMsg -> TxAux -> IO Bool
+sendTx :: TraceNamed IO -> EnqueueMsg -> TxAux -> IO Bool
 sendTx logTrace enqueue txAux = do
     anySucceeded <$> invReqDataFlowTK
         logTrace
@@ -45,7 +45,7 @@ sendTx logTrace enqueue txAux = do
         ]
 
 txListeners
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg

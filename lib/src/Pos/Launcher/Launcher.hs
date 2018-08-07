@@ -23,7 +23,9 @@ import           Pos.Launcher.Resource (NodeResources (..),
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -34,14 +36,17 @@ runNodeReal
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> NodeParams
     -> SscParams
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> IO ()
-runNodeReal pm txpConfig np sscnp plugins =
-    bracketNodeResources np sscnp (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) action
+runNodeReal logTrace pm txpConfig np sscnp plugins =
+    bracketNodeResources (natTrace liftIO logTrace) np sscnp (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots)
+        action
   where
     action :: NodeResources EmptyMempoolExt -> IO ()
-    action nr@NodeResources {..} = runRealMode pm txpConfig nr (runNode pm txpConfig nr plugins)
+    action nr@NodeResources {..} =
+      runRealMode logTrace pm txpConfig nr (runNode (natTrace liftIO logTrace) pm txpConfig nr plugins)

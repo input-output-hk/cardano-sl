@@ -15,7 +15,6 @@ module Pos.Listener.Txp
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
-import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -24,33 +23,37 @@ import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 import qualified Pos.Infra.Communication.Relay as Relay
-import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
+import           Pos.Infra.Util.JsonLog.Events (JLTxR (..))
+import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo)
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => ProtocolMagic
+    => TraceNamed m     -- ^ How to log transactions
+    -> Trace m JLTxR    -- ^ JSON log
+    -> ProtocolMagic
     -> TxpConfiguration
-    -> (JLEvent -> m ())  -- ^ How to log transactions
-    -> TxAux              -- ^ Incoming transaction to be processed
+    -> TxAux            -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo pm txpConfig logTx txAux = do
+handleTxDo logTrace0 jsonLogTrace pm txpConfig txAux = do
+    let logTrace = appendName "handleTxDo" logTrace0
     let txId = hash (taTx txAux)
-    res <- txpProcessTx pm txpConfig (txId, txAux)
-    let json me = logTx $ JLTxReceived $ JLTxR
+    res <- txpProcessTx logTrace pm txpConfig (txId, txAux)
+    let json me = traceWith jsonLogTrace $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me
             }
     case res of
         Right _ -> do
-            logInfo $
+            logInfo logTrace $
                 sformat ("Transaction has been added to storage: "%build) txId
             json Nothing
             pure True
         Left er -> do
-            logInfo $
+            logInfo logTrace $
                 sformat ("Transaction hasn't been added to storage: "%build%" , reason: "%build) txId er
             json $ Just $ sformat build er
             pure False
@@ -61,7 +64,6 @@ handleTxDo pm txpConfig logTx txAux = do
 
 type TxpMode ctx m =
     ( MonadIO m
-    , WithLogger m
     , MonadTxpLocal m
     , MonadTxpMem (MempoolExt m) ctx m
     , Each '[Message]

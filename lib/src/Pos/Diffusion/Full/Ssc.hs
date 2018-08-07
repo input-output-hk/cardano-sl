@@ -31,10 +31,10 @@ import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg,
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Util.Trace (Severity, Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 sscListeners
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg

@@ -21,10 +21,10 @@ import           Pos.Infra.Communication.Relay (DataParams (..), Relay (..),
                      dataFlow, relayListeners, relayPropagateOut)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Util.Trace (Severity, Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 delegationListeners
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
@@ -56,7 +56,7 @@ pskHeavyRelay logic = Data $ DataParams
     (pure (mlProxySecretKey mlHeavyDlgIndex))
 
 sendPskHeavy
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> EnqueueMsg
     -> ProxySKHeavy
     -> IO ()

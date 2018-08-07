@@ -2,8 +2,10 @@ name:                cardano-sl-node-ipc
 version:             1.3.0
 license:             MIT
 license-file:        LICENSE
-author:              Michael Bishop
-maintainer:          cleverca22@gmail.com
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
+copyright:           2018 IOHK
 build-type:          Simple
 cabal-version:       >=1.10
 
@@ -16,8 +18,8 @@ library
                      , binary
                      , bytestring
                      , cardano-sl-infra
+                     , cardano-sl-util
                      , Cabal
-                     , log-warper
                      , mtl
                      , universum
   default-extensions:  NoImplicitPrelude

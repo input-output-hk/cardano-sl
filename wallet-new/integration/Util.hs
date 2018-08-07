@@ -13,7 +13,7 @@ import           Test.QuickCheck (arbitrary, generate)
 import           Pos.Binary.Class (decodeFull')
 import qualified Pos.Core as Core
 import           Pos.Crypto.Signing (EncryptedSecretKey, PublicKey, encToPublic,
-                                     encodeBase58PublicKey, noPassEncrypt)
+                     encodeBase58PublicKey, noPassEncrypt)
 
 type WalletRef = MVar Wallet
 

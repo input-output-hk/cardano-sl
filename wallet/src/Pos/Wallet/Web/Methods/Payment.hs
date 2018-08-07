@@ -17,14 +17,14 @@ module Pos.Wallet.Web.Methods.Payment
 import           Universum
 
 import           Control.Monad.Except (runExcept)
-import qualified Data.Map as M
-import qualified Data.Vector as V
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
 import           Data.Time.Units (Second)
+import qualified Data.Vector as V
+import           Formatting (build, sformat, (%))
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
-import           Formatting (sformat, build, (%))
 
 import           Pos.Chain.Txp (TxFee (..), TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeys)
@@ -37,11 +37,12 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
-import           Pos.Core.Txp (Tx, TxAux (..), TxIn (..), TxOut (..), TxOutAux (..),
-                     TxInWitness (..), TxSigData, _txInputs, _txOutputs)
-import           Pos.Crypto (PassPhrase, PublicKey (..), ProtocolMagic, SafeSigner,
-                     Signature (..), ShouldCheckPassphrase (..), checkPassMatches, hash,
-                     withSafeSignerUnsafe)
+import           Pos.Core.Txp (Tx, TxAux (..), TxIn (..), TxInWitness (..),
+                     TxOut (..), TxOutAux (..), TxSigData, _txInputs,
+                     _txOutputs)
+import           Pos.Crypto (PassPhrase, ProtocolMagic, PublicKey (..),
+                     SafeSigner, ShouldCheckPassphrase (..), Signature (..),
+                     checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Servant (encodeCType)

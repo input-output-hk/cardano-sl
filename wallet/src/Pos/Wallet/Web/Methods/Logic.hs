@@ -49,9 +49,9 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
-                     addSecretKey, deleteSecretKeyBy, deletePublicKeyBy)
-import           Pos.Core (Address, Coin, makePubKeyAddressBoot, mkCoin, sumCoins,
-                     unsafeIntegerToCoin)
+                     addSecretKey, deletePublicKeyBy, deleteSecretKeyBy)
+import           Pos.Core (Address, Coin, makePubKeyAddressBoot, mkCoin,
+                     sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (PassPhrase, PublicKey, changeEncPassphrase,
                      checkPassMatches, emptyPassphrase, firstHardened)
@@ -63,23 +63,23 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Account (AddrGenSeed, GenSeed (DeterminedSeed), findKey,
-                     genUniqueAccountId, genUniqueAddress, genUniqueAddressIndex,
-                     getSKById)
+import           Pos.Wallet.Web.Account (AddrGenSeed, GenSeed (DeterminedSeed),
+                     findKey, genUniqueAccountId, genUniqueAddress,
+                     genUniqueAddressIndex, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                      CAccountInit (..), CAccountMeta (..), CAddress (..), CId,
                      CWallet (..), CWalletMeta (..), Wal, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressInfo (..),
                      AddressLookupMode (Deleted, Ever, Existing),
-                     CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta (..),
-                     WalletDB, WalletDbReader, WalletSnapshot, addWAddress,
-                     askWalletDB, askWalletSnapshot, createAccountWithAddress,
-                     createAccountWithoutAddresses,
-                     createWallet, doesAccountExist, getAccountIds,
-                     getWalletAddresses, getWalletBalancesAndUtxo,
-                     getWalletMetaIncludeUnready, getWalletPassLU,
-                     getWalletSnapshot, isCustomAddress,
+                     CustomAddressType (ChangeAddr, UsedAddr),
+                     WAddressMeta (..), WalletDB, WalletDbReader,
+                     WalletSnapshot, addWAddress, askWalletDB,
+                     askWalletSnapshot, createAccountWithAddress,
+                     createAccountWithoutAddresses, createWallet,
+                     doesAccountExist, getAccountIds, getWalletAddresses,
+                     getWalletBalancesAndUtxo, getWalletMetaIncludeUnready,
+                     getWalletPassLU, getWalletSnapshot, isCustomAddress,
                      removeAccount, removeWallet, setAccountMeta,
                      setWalletMeta, setWalletPassLU, setWalletReady,
                      wamAccount, wamAddress, wamWalletId, _wamAddressIndex)

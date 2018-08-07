@@ -2,11 +2,11 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 
-import qualified Serokell.Util.Base16 as B16
-import           Formatting (build, sformat)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
+import           Formatting (build, sformat)
+import qualified Serokell.Util.Base16 as B16
 import           Servant
 
 import           Pos.Binary.Class (decodeFull', serialize')
@@ -15,7 +15,7 @@ import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (Tx, TxAux, TxSigData (..))
-import           Pos.Crypto (ProtocolMagic, Signature (..), PublicKey,
+import           Pos.Crypto (ProtocolMagic, PublicKey, Signature (..),
                      decodeBase58PublicKey, hash)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0
@@ -192,7 +192,7 @@ newSignedTransaction pm txpConfig submitTx (SignedTransaction encodedRootPK txAs
     let walletId = V0.encodeCType . Core.makePubKeyAddressBoot $ rootPK
 
     txRaw <- case B16.decode txAsHex of
-        Left _ -> throwM . convertTxError $ V0.SignedTxNotBase16Format
+        Left _      -> throwM . convertTxError $ V0.SignedTxNotBase16Format
         Right txRaw -> return txRaw
 
     tx <- case decodeFull' txRaw of

@@ -11,8 +11,8 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
+import           Formatting (build, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), elements)
-import           Formatting (sformat, build, (%))
 
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Crypto.Signing.Safe (emptyPassphrase, safeKeyGen)

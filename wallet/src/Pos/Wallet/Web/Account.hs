@@ -27,9 +27,9 @@ import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
 import           System.Wlog (WithLogger)
 
-import           Pos.Client.KeyStorage (AllUserSecrets (..), AllUserPublics (..),
-                     MonadKeys, MonadKeysRead,
-                     addSecretKey, getSecretKeys, getPublicKeys,
+import           Pos.Client.KeyStorage (AllUserPublics (..),
+                     AllUserSecrets (..), MonadKeys, MonadKeysRead,
+                     addSecretKey, getPublicKeys, getSecretKeys,
                      getSecretKeysPlain)
 
 

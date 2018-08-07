@@ -31,8 +31,8 @@ import           System.Wlog (HasLoggerName (..))
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getSecretDefault, getPublicDefault,
-                     modifySecretDefault, modifyPublicDefault)
+                     getPublicDefault, getSecretDefault, modifyPublicDefault,
+                     modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..),
                      getBalanceFromUtxo, getOwnUtxosGenesis)

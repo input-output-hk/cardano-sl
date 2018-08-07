@@ -36,8 +36,8 @@ import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Chain.Txp (Utxo, addrBelongsToSet,
                      applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getSecretDefault, getPublicDefault,
-                     modifySecretDefault, modifyPublicDefault)
+                     getPublicDefault, getSecretDefault, modifyPublicDefault,
+                     modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..),

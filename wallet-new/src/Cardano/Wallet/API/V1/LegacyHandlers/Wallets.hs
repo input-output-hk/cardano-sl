@@ -6,10 +6,10 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
     , newWallet
     ) where
 
-import           Universum
-import           UnliftIO (MonadUnliftIO)
 import qualified Data.Map.Strict as Map
 import           Formatting (build, sformat)
+import           Universum
+import           UnliftIO (MonadUnliftIO)
 -- import           System.Wlog (logDebug)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -26,9 +26,9 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import           Pos.Chain.Update ()
+import           Pos.Client.KeyStorage (addPublicKey)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeBase58PublicKey)
-import           Pos.Client.KeyStorage (addPublicKey)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 
 import           Pos.Util (HasLens (..), maybeThrow)
@@ -112,7 +112,7 @@ newWallet NewWallet{..} = do
     rethrowDuplicateMnemonic (e :: V0.WalletError) =
         case e of
             V0.DuplicateWalletError _ -> throwM WalletAlreadyExists
-            _ -> throwM e
+            _                         -> throwM e
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: ( MonadThrow m
@@ -169,7 +169,7 @@ getWallet wid = do
     rethrowWalletNotFound (e :: V0.WalletError) =
         case e of
             V0.NoSuchWalletError _ -> throwM WalletNotFound
-            _ -> throwM e
+            _                      -> throwM e
 
 migrateWallet
     :: ( V0.MonadWalletLogicRead ctx m

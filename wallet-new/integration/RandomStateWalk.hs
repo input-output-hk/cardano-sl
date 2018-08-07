@@ -10,7 +10,8 @@ module RandomStateWalk (randomStateWalkTest) where
 
 import           Universum hiding (init, uncons)
 
-import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
+import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=),
+                     (<>=), (?=))
 import           Data.Aeson (toJSON)
 import           Data.Aeson.Diff (diff)
 import           Data.Aeson.Encode.Pretty (encodePretty)
@@ -26,9 +27,10 @@ import           Text.Show.Pretty (ppShow)
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Client (ClientError (..), ServantError (..), WalletClient (..),
-                                        WalletError (..), getAccounts, getAddressIndex,
-                                        getTransactionIndex, getWallets, hoistClient)
+import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
+                     WalletClient (..), WalletError (..), getAccounts,
+                     getAddressIndex, getTransactionIndex, getWallets,
+                     hoistClient)
 
 import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0

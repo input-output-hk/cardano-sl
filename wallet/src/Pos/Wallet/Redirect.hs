@@ -49,10 +49,10 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      MonadUpdates (..))
 import           Pos.Wallet.Web.Account (AccountMode, getKeyById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
-import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta)
+import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking (THEntryExtra, buildTHEntryExtra,
-                     keyToWalletDecrCredentials, isTxEntryInteresting)
+                     isTxEntryInteresting, keyToWalletDecrCredentials)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo

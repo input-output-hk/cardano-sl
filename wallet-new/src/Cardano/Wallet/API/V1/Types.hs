@@ -109,7 +109,8 @@ import           Universum
 
 import           Data.Semigroup (Semigroup)
 
-import           Control.Lens (At, Index, IxValue, at, ix, makeLensesFor, makePrisms, to, (?~))
+import           Control.Lens (At, Index, IxValue, at, ix, makeLensesFor,
+                     makePrisms, to, (?~))
 import           Data.Aeson
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A

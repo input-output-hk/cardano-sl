@@ -160,7 +160,7 @@ pwlCreateWallet NewWallet{..} = do
     rethrowDuplicateMnemonic (e :: V0.WalletError) =
         case e of
             V0.DuplicateWalletError _ -> throwM WalletAlreadyExists
-            _ -> throwM e
+            _                         -> throwM e
 
 
 pwlGetWallets

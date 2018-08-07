@@ -20,29 +20,34 @@ import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 import           Ntp.Client (NtpStatus, withNtpClient)
 
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
+                     getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
+import           Pos.Configuration (walletProductionApi,
+                     walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration,
-                                              ntpClientSettings)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources, loggerBracket, runNode,
-                               withConfigurations)
+                     ntpClientSettings)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
+                     NodeParams (..), NodeResources (..), bracketNodeResources,
+                     loggerBracket, runNode, withConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (lensOf, logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
+                     withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS,
-                                 bracketWalletWebDB, getKeyById, notifierPlugin, runWRealMode,
-                                 startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
-import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
-                                       flushWalletStorage, getWalletAddresses)
+                     bracketWalletWebDB, getKeyById, notifierPlugin,
+                     runWRealMode, startPendingTxsResubmitter,
+                     walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot,
+                     cleanupAcidStatePeriodically, flushWalletStorage,
+                     getWalletAddresses)
 import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest, syncWallet)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -50,7 +55,8 @@ import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
 
-import           NodeOptions (WalletArgs (..), WalletNodeArgs (..), getWalletNodeOptions)
+import           NodeOptions (WalletArgs (..), WalletNodeArgs (..),
+                     getWalletNodeOptions)
 
 loggerName :: LoggerName
 loggerName = "node"

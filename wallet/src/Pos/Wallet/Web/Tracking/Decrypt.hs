@@ -25,8 +25,9 @@ import           Pos.Core (Address (..), ChainDifficulty, Timestamp,
                      makeRootPubKeyAddress)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..), TxUndo,
                      toaOut, txOutAddress)
-import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PublicKey, WithHash (..),
-                     deriveHDPassphrase, encToPublic, unpackHDAddressAttr)
+import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PublicKey,
+                     WithHash (..), deriveHDPassphrase, encToPublic,
+                     unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.State (WAddressMeta (..))

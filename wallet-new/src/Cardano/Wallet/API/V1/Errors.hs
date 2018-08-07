@@ -5,8 +5,8 @@
 
 module Cardano.Wallet.API.V1.Errors where
 
-import           Universum
 import           Formatting (build, sformat)
+import           Universum
 
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
                      V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,

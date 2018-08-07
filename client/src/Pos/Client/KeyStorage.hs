@@ -32,10 +32,10 @@ import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
 
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, hash)
-import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, usKeys,
-                     writeUserSecret)
 import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic, upKeys,
                      writeUserPublic)
+import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, usKeys,
+                     writeUserSecret)
 
 ----------------------------------------------------------------------
 -- MonadKeys class and default functions

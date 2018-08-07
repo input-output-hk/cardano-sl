@@ -45,15 +45,16 @@ import qualified Codec.CBOR.Encoding as E
 import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58, encodeBase58)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58,
+                     encodeBase58)
 import           Data.Hashable (Hashable)
+import           Data.Maybe (fromJust)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, fitLeft, formatToString,
                      later, sformat, stext, (%), (%.))
 import qualified Formatting.Buildable as B
-import           Data.Maybe (fromJust)
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
@@ -183,7 +184,7 @@ decodeBase58PublicKey encodedXPub = do
     let extPubKey = CC.xpub $ fromJust rawExtPubKey
     case extPubKey of
         Left problem -> Left $ InvalidPublicKey (toText problem)
-        Right xPub -> Right $ PublicKey xPub
+        Right xPub   -> Right $ PublicKey xPub
 
 -- | Encode 'PublicKey' in Base58-encoded form. We use it for integration tests.
 encodeBase58PublicKey :: PublicKey -> Text

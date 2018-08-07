@@ -7,9 +7,10 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
 import qualified Pos.Core as Core
-import           Pos.Crypto (EncryptedSecretKey, PublicKey, SecretKey, SignTag (..), Signature (..),
-                             checkSigRaw, emptyPassphrase, encToPublic, encToSecret,
-                             encodeBase58PublicKey, signEncoded)
+import           Pos.Crypto (EncryptedSecretKey, PublicKey, SecretKey,
+                     SignTag (..), Signature (..), checkSigRaw,
+                     emptyPassphrase, encToPublic, encToSecret,
+                     encodeBase58PublicKey, signEncoded)
 import           Pos.Crypto.HD (ShouldCheckPassphrase (..))
 
 import           Test.Hspec

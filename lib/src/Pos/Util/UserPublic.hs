@@ -34,27 +34,28 @@ import           Data.Default (Default (..))
 import           Formatting (Format, bprint, build, later, (%))
 import           System.Directory (doesFileExist)
 import           System.Directory (renameFile)
-import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlockFile,
-                                  withFileLock)
+import           System.FileLock (FileLock, SharedExclusive (..), lockFile,
+                     unlockFile, withFileLock)
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
 import           System.Wlog (WithLogger)
 #endif
 import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
-                                   encodeListLen, enforceSize, serialize')
-import           Pos.Crypto (PublicKey, PublicKey)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
+                     deriveSimpleBi, encodeListLen, enforceSize, serialize')
+import           Pos.Crypto (PublicKey)
 import           Pos.Util.UserKeyError (UserPublicError (..))
 
 import           Test.Pos.Crypto.Arbitrary ()
 
 #ifdef POSIX
-import qualified Formatting.Buildable
 import           Formatting (oct, sformat)
+import qualified Formatting.Buildable
 import qualified System.Posix.Files as PSX
 import qualified System.Posix.Types as PSX (FileMode)
 import           System.Wlog (logWarning)
@@ -96,10 +97,10 @@ deriveSimpleBi ''WalletUserPublic [
 
 -- | User public data.
 data UserPublic = UserPublic
-    { _upKeys    :: [PublicKey]
-    , _upWallet  :: Maybe WalletUserPublic
-    , _upPath    :: FilePath
-    , _upLock    :: Maybe FileLock
+    { _upKeys   :: [PublicKey]
+    , _upWallet :: Maybe WalletUserPublic
+    , _upPath   :: FilePath
+    , _upLock   :: Maybe FileLock
     } deriving (Generic)
 
 instance Arbitrary (Maybe FileLock) => Arbitrary UserPublic where

@@ -25,7 +25,6 @@ import           Control.Lens.TH (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
-import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasSlogGState (..))
@@ -37,7 +36,7 @@ import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
-import           Pos.Core.Exception (reportFatalError)
+import           Pos.Core.Exception (traceFatalError)
 import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
@@ -62,7 +61,7 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
-
+import           Pos.Util.Trace (noTrace)
 
 ----------------------------------------------------------------------------
 -- Constraint
@@ -71,8 +70,7 @@ import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
 -- | A set of constraints imposed on the base monad used for
 -- arbitrary blockchain generation.
 type MonadBlockGenBase m
-     = ( WithLogger m
-       , MonadMask m
+     = ( MonadMask m
        , MonadIO m
        , MonadUnliftIO m
        , HasConfiguration
@@ -173,7 +171,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> DB.getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
-        bgcSscState <- mkSscState
+        bgcSscState <- mkSscState noTrace
         bgcUpdateContext <- mkUpdateContext
         bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar
@@ -222,7 +220,7 @@ instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
     getCurrentSlotBlocking   = view ibgcSlot_L
     getCurrentSlotInaccurate = view ibgcSlot_L
     currentTimeSlotting      = do
-        logWarning "currentTimeSlotting is used in initialization"
+        --TODO logWarning "currentTimeSlotting is used in initialization"
         currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
@@ -312,11 +310,11 @@ instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
     getCurrentSlotBlocking =
         view bgcSlotId_L >>= \case
             Nothing ->
-                reportFatalError
+                traceFatalError noTrace
                     "getCurrentSlotBlocking is used in generator when slot is unknown"
             Just slot -> pure slot
     getCurrentSlotInaccurate =
-        reportFatalError
+        traceFatalError noTrace
             "It hardly makes sense to use 'getCurrentSlotInaccurate' during block generation"
     currentTimeSlotting = currentTimeSlottingSimple
 
@@ -324,8 +322,8 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode ext m) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener m => MonadBListener (BlockGenMode ext m) where
-    onApplyBlocks = lift . onApplyBlocks
-    onRollbackBlocks = lift . onRollbackBlocks
+    onApplyBlocks logTrace bs = lift $ onApplyBlocks logTrace bs
+    onRollbackBlocks logTrace bs = lift $ onRollbackBlocks logTrace bs
 
 
 instance Monad m => MonadAddresses (BlockGenMode ext m) where

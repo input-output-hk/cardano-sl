@@ -6,7 +6,7 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Set as Set
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck.Monadic (assert)
 
@@ -17,6 +17,9 @@ import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Trace.Named (setupLogging)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
@@ -31,8 +34,9 @@ import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 serializeMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 serializeMsgSerializedBlockSpec = do
+    logTrace <- runIO $ setupLogging (defaultTestConfiguration Log.Debug) "test_binary_serialize"
     prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
+        (block, _) <- bpGenBlock logTrace dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ do
@@ -52,8 +56,9 @@ serializeMsgSerializedBlockSpec = do
 deserializeSerilizedMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
+    logTrace <- runIO $ setupLogging (defaultTestConfiguration Log.Debug) "test_binary_serialize"
     prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
+        (block, _) <- bpGenBlock logTrace dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb

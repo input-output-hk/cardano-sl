@@ -28,7 +28,9 @@ import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS as CSS
-import Explorer.View.Common (currencyCSSClass, noData, paginationView)
+import Explorer.View.Common (currencyCSSClass, noData)
+import Explorer.View.Dashboard.Shared (headerView)
+import Explorer.View.Dashboard.Types (HeaderOptions(..))
 
 import Network.RemoteData (RemoteData(..), withDefault)
 
@@ -36,7 +38,7 @@ import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 
 import Pux.DOM.HTML (HTML) as P
-import Pux.DOM.HTML.Attributes (key) as P
+
 import Pux.DOM.Events (onClick) as P
 
 import Text.Smolder.HTML as S
@@ -53,27 +55,31 @@ minBlockRows = 3
 -- Blocks view used by epoch and epoch/slot pages
 epochBlocksView :: State -> P.HTML Action
 epochBlocksView state =
-    let lang' = state ^. lang in
-    S.div ! SA.className "explorer-blocks"
-          $ S.div ! SA.className "explorer-blocks__wrapper"
-                  $ S.div ! SA.className "explorer-blocks__container" $ do
-                        S.h3  ! SA.className "headline"
-                              $ SM.text (( translate (I18nL.common <<< I18nL.cEpoch) lang')
+    S.div ! SA.className CSS.pureGContainer $
+      S.div ! SA.className "pure-u-1-1" $ do
+        headerView state headerOptions
+        case state ^. currentBlocksResult of
+            NotAsked  -> emptyBlocksView ""
+            Loading   -> if not null $ withDefault [] $ state ^. currentBlocksResult
+                              then blocksView state
+                              else emptyBlocksView $
+                                  translate (I18nL.common <<< I18nL.cLoading) lang'
+            Failure _ -> messageBackView lang' $ translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang'
+            Success blocks -> blocksView state
+    where
+      lang' = state ^. lang
+      headerOptions = HeaderOptions
+          { headline: (( translate (I18nL.common <<< I18nL.cEpoch) lang')
                                           <> " / " <>
                                           (translate (I18nL.common <<< I18nL.cSlot) lang')
-                                        )
-                        case state ^. currentBlocksResult of
-                            NotAsked  -> emptyBlocksView ""
-                            Loading   -> if not null $ withDefault [] $ state ^. currentBlocksResult
-                                              then blocksView state
-                                              else emptyBlocksView $
-                                                  translate (I18nL.common <<< I18nL.cLoading) lang'
-                            Failure _ -> messageBackView lang' $ translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang'
-                            Success blocks -> blocksView state
+                      )
+          , link: Nothing
+          , icon: Just "fa-cube"
+          }
 
 blocksView :: State -> P.HTML Action
 blocksView state =
-    S.div do
+    S.table ! SA.className "pure-table pure-table-horizontal" $ do
         blocksHeaderView blocks lang'
         S.tbody $ for_ blocks (blockRow state)
     where

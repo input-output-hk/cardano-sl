@@ -1,8 +1,8 @@
 /* cardano-sl explorer*/
 /* @import "pure.css" */
 /* @import "pure-extra.css" */
-@import "global.css";
 @import "app.css";
+@import "global.css";
 /* @import "testnet.css" */
 @import "./Explorer/View/common.css";
 @import "./Explorer/View/search.css";

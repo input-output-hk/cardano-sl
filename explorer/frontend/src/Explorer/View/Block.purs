@@ -16,6 +16,9 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, emptyView, getMaxPaginationNumber, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+import Explorer.View.CSS as CSS
+import Explorer.View.Dashboard.Shared (headerView)
+import Explorer.View.Dashboard.Types (HeaderOptions(..))
 
 import Network.RemoteData (RemoteData(..), isFailure)
 
@@ -23,36 +26,29 @@ import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..), CTxBrie
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash, cbeFees)
 
 import Pux.DOM.HTML (HTML) as P
-import Pux.DOM.HTML.Attributes (key) as P
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (a, div, h3, span) as S
-import Text.Smolder.HTML.Attributes (className, href) as S
-import Text.Smolder.Markup (text) as S
+import Text.Smolder.HTML as S
+import Text.Smolder.HTML.Attributes as SA
+import Text.Smolder.Markup as SM
 import Text.Smolder.Markup ((#!), (!))
 
 
 
 blockView :: State -> P.HTML Action
 blockView state =
-    let lang' = state ^. lang
-        blockSummary = state ^. currentBlockSummary
-        blockTxs = state ^. currentBlockTxs
-    in
-    S.div ! S.className "explorer-block" $ do
-        S.div ! S.className "explorer-block__wrapper"
-              $ S.div ! S.className "explorer-block__container"  $ do
-                    S.h3  ! S.className "headline"
-                        $ S.text (translate (I18nL.common <<< I18nL.cBlock) lang')
-                    case blockSummary of
-                        NotAsked -> blockSummaryEmptyView ""
-                        Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                        Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
-                        Success block -> blockSummaryView block lang'
-        S.div ! S.className "explorer-block__wrapper" $ do
-            S.div ! S.className "explorer-block__container" $ do
-                S.h3  ! S.className "headline"
-                      $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang')
+    S.div ! SA.className CSS.pureGContainer $
+      S.div ! SA.className "pure-u-1-1" $ do
+        headerView state headerOptions
+        case blockSummary of
+            NotAsked -> blockSummaryEmptyView ""
+            Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+            Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
+            Success block -> blockSummaryView block lang'
+        S.div ! SA.className "explorer-block__wrapper" $ do
+            S.div ! SA.className "explorer-block__container" $ do
+                S.h3  ! SA.className "headline"
+                      $ SM.text (translate (I18nL.common <<< I18nL.cSummary) lang')
                 case blockTxs of
                     NotAsked -> txEmptyContentView ""
                     Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
@@ -61,13 +57,22 @@ blockView state =
             if (isFailure blockSummary && isFailure blockTxs)
                 -- Show back button if both results ^ are failed
                 then
-                    S.div ! S.className "explorer-block__container"
-                          $ S.a ! S.href (toUrl Dashboard)
+                    S.div ! SA.className "explorer-block__container"
+                          $ S.a ! SA.href (toUrl Dashboard)
                                 #! P.onClick (Navigate $ toUrl Dashboard)
-                                ! S.className "btn-back"
-                                $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang')
+                                ! SA.className "btn-back"
+                                $ SM.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang')
                 else
                     emptyView
+    where
+      lang' = state ^. lang
+      blockSummary = state ^. currentBlockSummary
+      blockTxs = state ^. currentBlockTxs
+      headerOptions = HeaderOptions
+          { headline: (translate (I18nL.common <<< I18nL.cBlock) lang')
+          , link: Nothing
+          , icon: Just "fa-cube"
+          }
 
 --  summary
 
@@ -113,33 +118,32 @@ mkSummaryItems lang (CBlockEntry entry) =
 
 summaryRow :: SummaryRowItem -> P.HTML Action
 summaryRow item =
-    S.div ! S.className "row row__summary"
-          ! P.key item.id
-          $ do
-          S.div ! S.className "column column__label"
-                $ S.text item.label
-          S.div ! S.className "column column__amount"
-                $ if isJust item.mCurrency
-                      then S.span ! S.className (currencyCSSClass item.mCurrency)
-                                  $ S.text item.amount
-                      else S.text item.amount
+    S.tr $ do
+      S.td $ SM.text item.label
+      S.td $ if isJust item.mCurrency
+                  then S.span ! SA.className (currencyCSSClass item.mCurrency)
+                              $ SM.text item.amount
+                  else SM.text item.amount
 
 blockSummaryEmptyView :: String -> P.HTML Action
 blockSummaryEmptyView message =
-    S.div ! S.className "summary-empty__container"
-          $ S.text message
+    S.div ! SA.className "summary-empty__container"
+          $ SM.text message
 
 blockSummaryView :: CBlockSummary -> Language -> P.HTML Action
-blockSummaryView block lang =
-    S.div ! S.className "blocks-wrapper" $ do
-        S.div ! S.className "summary-container" $ do
-            S.h3  ! S.className "subheadline"
-                  $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang)
-            S.div $ for_ (mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)) summaryRow
-        S.div ! S.className "hashes-container" $ do
-            S.h3  ! S.className "subheadline"
-                  $ S.text (translate (I18nL.common <<< I18nL.cHashes) lang)
-            S.div $ for_ (mkHashItems lang block) hashesRow
+blockSummaryView block lang = do
+    S.div ! SA.className "summary-container" $ do
+        S.h3  ! SA.className "subheadline"
+                  $ SM.text (translate (I18nL.common <<< I18nL.cSummary) lang)
+        S.table ! SA.className "pure-table pure-table-horizontal" $
+          S.tbody $
+            for_ (mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)) summaryRow
+    S.div ! SA.className "hashes-container" $ do
+        S.h3  ! SA.className "subheadline"
+              $ SM.text (translate (I18nL.common <<< I18nL.cHashes) lang)
+        S.table ! SA.className "pure-table pure-table-horizontal" $
+          S.tbody $
+            for_ (mkHashItems lang block) hashesRow
 
 -- hashes
 
@@ -183,18 +187,17 @@ mkHashItems lang (CBlockSummary blockSummery) =
 
 hashesRow :: HashRowItem -> P.HTML Action
 hashesRow item =
-    S.div ! S.className "row row__hashes"
-          ! P.key item.id
-          $ do
-          S.div ! S.className "column column__label"
-                $ S.text item.label
-          case item.link of
-              Nothing ->  S.div ! S.className "column column__hash"
-                                $ S.text item.hash
-              Just link -> S.a  ! S.href link
-                                #! P.onClick (Navigate link)
-                                ! S.className "column column__hash--link"
-                                $ S.text item.hash
+    S.tr $ do
+      S.td $ SM.text item.label
+      case item.link of
+          Nothing ->
+            S.td $ SM.text item.hash
+          Just link ->
+            S.td $
+              S.a ! SA.href link
+                  #! P.onClick (Navigate link)
+                  ! SA.className "column column__hash--link" $
+                SM.text item.hash
 
 maxTxRows :: Int
 maxTxRows = 5
@@ -224,7 +227,7 @@ blockTxsView txs state =
 
 blockTxView :: CTxBrief -> Language -> P.HTML Action
 blockTxView tx lang =
-    S.div ! S.className "explorer-block__tx-container"
+    S.div ! SA.className "explorer-block__tx-container"
         $ do
         txHeaderView lang $ mkTxHeaderViewProps tx
         txBodyView lang $ mkTxBodyViewProps tx

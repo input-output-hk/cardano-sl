@@ -11,7 +11,6 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Data.Maybe (fromJust)
 import           Data.Time.Units (Second)
-import           System.Wlog (Severity (Debug))
 
 import           Pos.Chain.Block (Blund, Undo (..))
 
@@ -41,6 +40,7 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
 import           Pos.Core (Address, Coin)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
@@ -53,20 +53,20 @@ import           Cardano.Wallet.API.V1.Types (Payment (..),
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
-    => (Severity -> Text -> IO ())
+    => TraceNamed IO
     -> Keystore
     -> MonadDBReadAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore rocksDB f =
-    Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
+bracketPassiveWallet logTrace keystore rocksDB f =
+    Kernel.bracketPassiveWallet logTrace keystore rocksDB $ \w -> do
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds ->
                      Kernel.applyBlocks w
                         (OldestFirst (mapMaybe blundToResolvedBlock
                            (toList (getOldestFirst blunds))))
                  , Actions.switchToFork = \_ _ ->
-                     logFunction Debug "<switchToFork>"
-                 , Actions.emit = logFunction Debug }
+                     logDebug logTrace "<switchToFork>"
+                 , Actions.emit = logDebug logTrace }
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
   where

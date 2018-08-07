@@ -970,12 +970,14 @@ $\transactions{b}=\emptylist$
 
   Then define
   $$
-  \begin{array}{lcl}
-    \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)\\
+  \left\{
+  \begin{array}{lcll}
+    \epochseed{b_1,…,b_n}&=& \initialseed & \mbox{if $\epochindex{b_1,…,b_n}=0$}\\
+    \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a) & \mbox{otherwise}\\
                          &×&∏_{a∈U}r(a)
   \end{array}
-  $$\improvement{Missing: when we are in the first epoch, the seed in
-    the initial seed which is found in the initial state.}
+  \right.
+  $$
 \item[Delegation graph] Let us define $\delegations{c₁,…,c_n}$, for a
   list of delegation certificates, by induction:
   \begin{itemize}

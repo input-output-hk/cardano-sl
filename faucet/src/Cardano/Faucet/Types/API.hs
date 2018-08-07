@@ -21,7 +21,7 @@ import           Control.Exception.Safe
 import           Control.Lens (at, makeLenses, makePrisms, makeWrapped, mapped,
                      (?~), _Wrapped)
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
-                     (.:), (.=))
+                     (.!=), (.:), (.:?), (.=))
 import qualified Data.Char as Char
 import           Data.Proxy
 import           Data.String (IsString (..))
@@ -64,7 +64,7 @@ makeLenses ''WithdrawalRequest
 instance FromJSON WithdrawalRequest where
   parseJSON = withObject "WithdrawalRequest" $ \v -> WithdrawalRequest
     <$> v .: "address"
-    <*> (GCaptchaResponse <$> v .: "g-recaptcha-response")
+    <*> (GCaptchaResponse <$> v .:? "g-recaptcha-response" .!= "")
 
 instance FromForm WithdrawalRequest where
     fromForm f = WithdrawalRequest

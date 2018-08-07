@@ -17,6 +17,9 @@ import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (getBlock)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
+import           Pos.Util.Log (Severity (Debug), setupLogging)
+import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace)
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)
@@ -82,12 +85,14 @@ analyseBlockchainEagerly cli currentTip = do
 -- | The main entrypoint.
 main :: IO ()
 main = do
+    lh <- setupLogging $ defaultInteractiveConfiguration Debug
+    let logTrace = appendName "blockchain-analyser" $ namedTrace lh
     args <- getOptions
-    CLI.printFlags
-    action args
+    CLI.printFlags logTrace
+    action logTrace args
 
-action :: CLIOptions -> IO ()
-action cli@CLIOptions{..} = withConfigurations Nothing conf $ \_ _ _ -> do
+action :: TraceNamed IO -> CLIOptions -> IO ()
+action logTrace cli@CLIOptions{..} = withConfigurations logTrace Nothing conf $ \_ _ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
     liftIO $ putText $ render uom printMode sizes

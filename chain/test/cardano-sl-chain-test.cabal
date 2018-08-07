@@ -4,8 +4,9 @@ synopsis:            Cardano SL - arbitrary instances for cardano-sl-chain
 description:         Cardano SL - arbitrary instances for cardano-sl-chain
 license:             MIT
 license-file:        LICENSE
-author:              Rupert Horlick
-maintainer:          rupert.horlick@iohk.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2018 IOHK
 category:            Currency
 build-type:          Simple

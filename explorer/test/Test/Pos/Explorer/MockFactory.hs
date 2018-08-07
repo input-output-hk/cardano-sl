@@ -5,12 +5,9 @@
 
 module Test.Pos.Explorer.MockFactory
        ( mkTxOut
-       , testLoggerName
        ) where
 
 import           Universum
-
-import           System.Wlog (LoggerName)
 
 import           Pos.Core (Address, unsafeIntegerToCoin)
 import           Pos.Core.Txp (TxOut (..))
@@ -21,7 +18,3 @@ mkTxOut :: Integer -> Address -> TxOut
 mkTxOut amount addr =
     let coin = unsafeIntegerToCoin amount in
     TxOut addr coin
-
--- | Logger name for testing
-testLoggerName :: LoggerName
-testLoggerName = "test"

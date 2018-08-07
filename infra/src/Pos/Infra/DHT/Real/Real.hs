@@ -39,7 +39,9 @@ import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey,
                      DHTNode (..), randomDHTKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams (..))
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
+                     logInfo, logMessage, logWarning)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -52,16 +54,16 @@ stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
 -- | Start 'KademliaDHTInstance' with 'KademliaParams'.
 startDHTInstance
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> KademliaParams
     -> NetworkAddress -- ^ Default NetworkAddress to bind.
     -> IO KademliaDHTInstance
-startDHTInstance logTrace kconf@KademliaParams {..} defaultBind = do
+startDHTInstance logTrace0 kconf@KademliaParams {..} defaultBind = do
     let bindAddr = first B8.unpack (fromMaybe defaultBind kpNetworkAddress)
         extAddr  = maybe bindAddr (first B8.unpack) kpExternalAddress
-    traceWith logTrace (Info, "Generating dht key..")
+    logInfo logTrace $ "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kpKey
-    traceWith logTrace (Info, sformat ("Generated dht key "%build) kdiKey)
+    logInfo logTrace $ sformat ("Generated dht key "%build) kdiKey
     kdiDumpPath <- case kpDumpFile of
         Nothing -> pure Nothing
         Just fp -> do
@@ -69,32 +71,33 @@ startDHTInstance logTrace kconf@KademliaParams {..} defaultBind = do
             pure $ if exists then Just fp else Nothing
     kdiHandle <- case kdiDumpPath of
         Just dumpFile -> do
-            traceWith logTrace (Info, "Restoring DHT Instance from snapshot")
+            logInfo logTrace "Restoring DHT Instance from snapshot"
             catchErrors $
                 createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
                 (either error identity . decodeFull) <$> BS.readFile dumpFile
         Nothing -> do
-            traceWith logTrace (Info, "Creating new DHT instance")
+            logInfo logTrace "Creating new DHT instance"
             catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
 
-    traceWith logTrace (Info, "Created DHT instance")
+    logInfo logTrace "Created DHT instance"
     let kdiInitialPeers = kpPeers
     let kdiExplicitInitial = kpExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
     pure $ KademliaDHTInstance {..}
   where
+    logTrace = appendName "dhtInstance" logTrace0
     catchErrorsHandler :: forall t . SomeException -> IO t
     catchErrorsHandler e = do
-        traceWith logTrace (Error, sformat ("Error launching kademlia with options: "%shown%": "%shown) kconf e)
+        logError logTrace $ sformat ("Error launching kademlia with options: "%shown%": "%shown) kconf e
         throwIO e
     catchErrors x = x `catch` catchErrorsHandler
 
-    log' sev msg = traceWith logTrace (sev, toText msg)
+    log' sev msg = logMessage logTrace sev (toText msg)
     createKademlia bA eA key cfg =
-        K.createL bA eA key cfg (log' Debug) (log' Error)
+        K.createL bA eA key cfg (log' Log.Debug) (log' Log.Error)
     createKademliaFromSnapshot bA eA cfg snapshot =
         K.createLFromSnapshot bA eA
-            cfg snapshot (log' Debug) (log' Error)
+            cfg snapshot (log' Log.Debug) (log' Log.Error)
 
 -- | Return a list of known peers.
 --
@@ -155,7 +158,7 @@ toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPo
 -- | Attempt to join a Kademlia network by contacting this list of peers.
 --   If none of them are up, throw 'AllPeersUnavailable'.
 kademliaJoinNetwork
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> KademliaDHTInstance
     -> [NetworkAddress]
     -> IO ()
@@ -167,7 +170,7 @@ kademliaJoinNetwork logTrace inst (node : nodes) = do
         Right _                   -> return ()
 
 kademliaJoinNetwork'
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> KademliaDHTInstance
     -> NetworkAddress
     -> IO ()
@@ -177,16 +180,16 @@ kademliaJoinNetwork' logTrace inst peer = do
         K.JoinSuccess -> pure ()
         K.NodeDown -> throwIO NodeDown
         K.NodeBanned ->
-            traceWith logTrace $ ((,) Info) $
+            logInfo logTrace $
                 sformat ("kademliaJoinNetwork: peer " % build % " is banned") peer
         K.IDClash ->
-            traceWith logTrace $ ((,) Info) $
+            logInfo logTrace $
             sformat ("kademliaJoinNetwork: peer " % build % " already contains us") peer
 
 -- | Attempt to join a Kademlia network by contacting this list of peers.
 --   If none of them are up, a warning is logged but no exception is thrown.
 kademliaJoinNetworkNoThrow
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> KademliaDHTInstance
     -> [NetworkAddress]
     -> IO ()
@@ -194,13 +197,13 @@ kademliaJoinNetworkNoThrow logTrace inst peers =
     kademliaJoinNetwork logTrace inst peers `catch` handleJoinE
   where
     handleJoinE AllPeersUnavailable =
-        traceWith logTrace (Warning, sformat ("kademliaJoinNetwork: not connected to any of peers "%listJson) peers)
+        logWarning logTrace $ sformat ("kademliaJoinNetwork: not connected to any of peers "%listJson) peers
     handleJoinE e = throwIO e
 
 -- | Attempt to join a Kademlia network by contacting this list of peers.
 --   If none of them are up, retry after a fixed delay.
 kademliaJoinNetworkRetry
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> KademliaDHTInstance
     -> [NetworkAddress]
     -> Second
@@ -210,7 +213,7 @@ kademliaJoinNetworkRetry logTrace inst peers interval = do
     case result of
       Right _ -> return ()
       Left AllPeersUnavailable -> do
-          traceWith logTrace (Warning, sformat ("kademliaJoinNetwork: could not connect to any peers, will retry in "%shown) interval)
+          logWarning logTrace $ sformat ("kademliaJoinNetwork: could not connect to any peers, will retry in "%shown) interval
           threadDelay (fromIntegral (toMicroseconds interval))
           kademliaJoinNetworkRetry logTrace inst peers interval
       Left e -> throwIO e

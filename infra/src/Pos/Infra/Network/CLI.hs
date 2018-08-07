@@ -38,8 +38,6 @@ import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
-                     logError, logNotice, usingLoggerName)
 
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
                      addrParserNoWildcard)
@@ -52,6 +50,8 @@ import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.OptParse (fromParsec)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
+                     logNotice)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)
@@ -179,12 +179,14 @@ data MonitorEvent
 
 -- | Monitor for changes to the static config
 monitorStaticConfig ::
-       NetworkConfigOpts
+    (MonadCatch m, MonadIO m)
+    => TraceNamed IO
+    -> NetworkConfigOpts
     -> NodeMetadata -- ^ Original metadata (at startup)
     -> Peers NodeId -- ^ Initial value
-    -> LoggerNameBox IO T.StaticPeers
-monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
-    lname <- askLoggerName
+    -> m T.StaticPeers
+monitorStaticConfig logTrace0 cfg@NetworkConfigOpts{..} origMetadata initPeers = do
+    let lname = "monitor"
     events :: Chan MonitorEvent <- liftIO newChan
 
 #ifdef POSIX
@@ -193,17 +195,19 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
 
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
-      , T.staticPeersMonitoring = usingLoggerName lname $ loop events initPeers []
+      , T.staticPeersMonitoring = loop (appendName lname logTrace0) events initPeers []
       }
   where
-    loop :: Chan MonitorEvent
+    loop :: (MonadCatch m, MonadIO m)
+         => TraceNamed m
+         -> Chan MonitorEvent
          -> Peers NodeId
          -> [Peers NodeId -> IO ()]
-         -> LoggerNameBox IO ()
-    loop events peers handlers = liftIO (readChan events) >>= \case
+         -> m ()
+    loop logTrace events peers handlers = liftIO (readChan events) >>= \case
         MonitorRegister handler -> do
-            runHandler peers handler -- Call new handler with current value
-            loop events peers (handler:handlers)
+            runHandler logTrace peers handler -- Call new handler with current value
+            loop logTrace events peers (handler:handlers)
         MonitorSIGHUP -> do
             let fp = fromJust ncoTopology
             mParsedTopology <- try $ liftIO $ readTopology fp
@@ -213,27 +217,28 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
                     liftIO $ fromPovOf cfg allPeers
 
                 unless (nmType newMetadata == nmType origMetadata) $
-                    logError $ changedType fp
+                    logError logTrace $ changedType fp
                 unless (nmKademlia newMetadata == nmKademlia origMetadata) $
-                    logError $ changedKademlia fp
+                    logError logTrace $ changedKademlia fp
                 unless (nmMaxSubscrs newMetadata == nmMaxSubscrs origMetadata) $
-                    logError $ changedMaxSubscrs fp
+                    logError logTrace $ changedMaxSubscrs fp
 
-                mapM_ (runHandler newPeers) handlers
-                logNotice $ sformat "SIGHUP: Re-read topology"
-                loop events newPeers handlers
+                mapM_ (runHandler logTrace newPeers) handlers
+                logNotice logTrace $ sformat "SIGHUP: Re-read topology"
+                loop logTrace events newPeers handlers
               Right _otherTopology -> do
-                logError $ changedFormat fp
-                loop events peers handlers
+                logError logTrace $ changedFormat fp
+                loop logTrace events peers handlers
               Left ex -> do
-                logError $ readFailed fp ex
-                loop events peers handlers
+                logError logTrace $ readFailed fp ex
+                loop logTrace events peers handlers
 
-    runHandler :: forall t . t -> (t -> IO ()) -> LoggerNameBox IO ()
-    runHandler it handler = do
+    runHandler :: (MonadCatch m, MonadIO m)
+               => forall t . TraceNamed m -> t -> (t -> IO ()) -> m ()
+    runHandler logTrace it handler = do
         mu <- liftIO $ try (handler it)
         case mu of
-          Left  ex -> logError $ handlerError ex
+          Left  ex -> logError logTrace $ handlerError ex
           Right () -> return ()
 
     changedFormat, changedType, changedKademlia :: FilePath -> Text
@@ -268,13 +273,13 @@ launchStaticConfigMonitoring topology = liftIO action
 -- | Interpreter for the network config opts
 intNetworkConfigOpts ::
        forall m.
-       ( WithLogger m
+       ( MonadCatch m
        , MonadIO m
-       , MonadCatch m
        )
-    => NetworkConfigOpts
+    => TraceNamed IO
+    -> NetworkConfigOpts
     -> m (T.NetworkConfig DHT.KademliaParams)
-intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
+intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
     parsedTopology <-
         case ncoTopology of
             Nothing -> pure defaultTopology
@@ -293,10 +298,8 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                      _
                      nmMaxSubscrs), initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
-            loggerName <- askLoggerName
             topologyStaticPeers <-
-                liftIO . usingLoggerName loggerName $
-                monitorStaticConfig cfg md initPeers
+                monitorStaticConfig logTrace cfg md initPeers
             -- If kademlia is enabled here then we'll try to read the configuration
             -- file. However it's not necessary that the file exists. If it doesn't,
             -- we can fill in some sensible defaults using the static routing and

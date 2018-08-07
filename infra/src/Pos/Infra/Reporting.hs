@@ -10,4 +10,3 @@ import           Pos.Infra.Reporting.Http as X
 import           Pos.Infra.Reporting.Methods as X
 import           Pos.Infra.Reporting.NodeInfo as X
 import           Pos.Infra.Reporting.Statsd as X
-import           Pos.Infra.Reporting.Wlog as X

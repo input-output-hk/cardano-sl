@@ -57,7 +57,8 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      InvOrData, MempoolMsg (..), ReqMsg (..), ReqOrRes,
                      ResMsg (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError,
+                     logWarning)
 
 
 data InvReqCommunicationException =
@@ -77,7 +78,7 @@ handleReqL
        , Message (ReqMsg key)
        , Buildable key
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> (NodeId -> key -> IO (Maybe contents))
     -> (ListenerSpec, OutSpecs)
@@ -96,16 +97,16 @@ handleReqL logTrace oq handleReq = listenerConv logTrace oq $ \__ourVerInfo node
   where
     constructDataMsg :: contents -> InvOrData key contents
     constructDataMsg = Right . DataMsg
-    logNoData rmKey = traceWith logTrace (Debug, sformat
+    logNoData rmKey = logDebug logTrace $ sformat
         ("We don't have data for key "%build)
-        rmKey)
-    logHaveData rmKey= traceWith logTrace (Debug, sformat
+        rmKey
+    logHaveData rmKey= logDebug logTrace $ sformat
         ("We have data for key "%build)
-        rmKey)
+        rmKey
 
 handleMempoolL
     :: forall pack.
-       Trace IO (Severity, Text)
+       TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> MempoolParams
     -> [(ListenerSpec, OutSpecs)]
@@ -118,10 +119,10 @@ handleMempoolL logTrace oq (KeyMempool tagP handleMempool) = pure $ listenerConv
             res <- handleMempool
             case nonEmpty res of
                 Nothing ->
-                    traceWith logTrace (Debug, sformat
-                        ("We don't have mempool data "%shown) (typeRep tagP))
+                    logDebug logTrace $ sformat
+                        ("We don't have mempool data "%shown) (typeRep tagP)
                 Just xs -> do
-                    traceWith logTrace (Debug, sformat ("We have mempool data "%shown) (typeRep tagP))
+                    logDebug logTrace $ sformat ("We have mempool data "%shown) (typeRep tagP)
                     mapM_ (send conv . InvMsg) xs
   where
     mmP = (const Proxy :: Proxy tag -> Proxy (MempoolMsg tag)) tagP
@@ -132,7 +133,7 @@ handleDataOnlyL
        , Message (DataMsg contents)
        , Buildable contents
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> (Origin NodeId -> Msg)
@@ -154,8 +155,8 @@ handleDataOnlyL logTrace oq enqueue mkMsg mkLimit handleData = listenerConv logT
                 handlingLoop
     in handlingLoop
   where
-    logUseless dmContents = traceWith logTrace (Warning, sformat
-        ("Ignoring data "%build) dmContents)
+    logUseless dmContents = logWarning logTrace $ sformat
+        ("Ignoring data "%build) dmContents
 
 handleDataDo
     :: forall key contents.
@@ -167,7 +168,7 @@ handleDataDo
        , Bi (InvOrData key contents)
        , Bi (ReqOrRes key)
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> NodeId
     -> (Origin NodeId -> Msg)
     -> EnqueueMsg
@@ -182,11 +183,11 @@ handleDataDo logTrace provenance mkMsg enqueue contentsToKey handleData dmConten
         -- enqueueMsg can do that: simply don't force the values in
         -- the resulting map.
         (ResMsg dmKey True <$ propagateData logTrace enqueue (InvReqDataPM (mkMsg (OriginForward provenance)) dmKey dmContents))
-        (ResMsg dmKey False <$ (traceWith logTrace (Debug, sformat ("Ignoring data "%build%" for key "%build) dmContents dmKey)))
+        (ResMsg dmKey False <$ (logDebug logTrace $ sformat ("Ignoring data "%build%" for key "%build) dmContents dmKey))
 
 -- | Synchronously propagate data.
 relayMsg
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> EnqueueMsg
     -> PropagationMsg
     -> IO ()
@@ -194,19 +195,19 @@ relayMsg logTrace enqueue pm = void $ propagateData logTrace enqueue pm >>= wait
 
 -- | Asynchronously propagate data.
 propagateData
-    :: Trace IO (Severity, Text)
+    :: TraceNamed IO
     -> EnqueueMsg
     -> PropagationMsg
     -> IO (Map NodeId (IO ()))
 propagateData logTrace enqueue pm = waitForDequeues <$> case pm of
     InvReqDataPM msg key contents -> do
-        traceWith logTrace (Debug, sformat
-            ("Propagation data with key: "%build) key)
+        logDebug logTrace $ sformat
+            ("Propagation data with key: "%build) key
         enqueue msg $ \peer _ ->
             pure $ Conversation $ (void <$> invReqDataFlowDo logTrace "propagation" key contents peer)
     DataOnlyPM msg contents -> do
-        traceWith logTrace (Debug, sformat
-            ("Propagation data: "%build) contents)
+        logDebug logTrace $ sformat
+            ("Propagation data: "%build) contents
         enqueue msg $ \__node _ ->
             pure $ Conversation $ doHandler contents
 
@@ -222,7 +223,7 @@ propagateData logTrace enqueue pm = waitForDequeues <$> case pm of
 handleInvDo
     :: forall key.
        ( Buildable key)
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> (key -> IO Bool)
     -> key
     -> IO (Maybe key)
@@ -231,16 +232,16 @@ handleInvDo logTrace handleInv imKey =
         (Just imKey <$ logUseful)
         (Nothing <$ logUseless)
   where
-    logUseless = traceWith logTrace (Debug, sformat
+    logUseless = logDebug logTrace $ sformat
         ("Ignoring inv for key "%build%", because it's useless")
-        imKey)
-    logUseful = traceWith logTrace (Debug, sformat
+        imKey
+    logUseful = logDebug logTrace $ sformat
         ("We'll request data for key "%build%", because it's useful")
-        imKey)
+        imKey
 
 relayListenersOne
     :: forall pack.
-       Trace IO (Severity, Text)
+       TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> Relay
@@ -254,7 +255,7 @@ relayListenersOne logTrace oq enqueue (Data DataParams{..}) =
 
 relayListeners
     :: forall pack.
-       Trace IO (Severity, Text)
+       TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> [Relay]
@@ -271,7 +272,7 @@ invDataListener
      , Buildable key
      , Eq key
      )
-  => Trace IO (Severity, Text)
+  => TraceNamed IO
   -> OQ.OutboundQ pack NodeId Bucket
   -> EnqueueMsg
   -> InvReqDataParams key contents
@@ -320,7 +321,7 @@ invReqDataFlowDo
     :: ( Buildable key
        , Eq key
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> Text
     -> key
     -> contents
@@ -342,24 +343,24 @@ invReqDataFlowDo logTrace what key dt peer conv = do
     replyWithData (Left (ReqMsg Nothing)) = return Nothing
     -- The peer sent a ResMsg where a ReqMsg was expected.
     replyWithData (Right (ResMsg _ _)) = do
-        traceWith logTrace (Error,
+        logError logTrace $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" unexpected response")
-                    what peer)
+                    what peer
         throwIO UnexpectedResponse
 
     checkResponse (Right resMsg) = return (Just resMsg)
     -- The peer sent a ReqMsg where a ResMsg was expected.
     checkResponse (Left (ReqMsg _)) = do
-        traceWith logTrace (Error,
+        logError logTrace $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" unexpected request")
-                    what peer)
+                    what peer
         throwIO UnexpectedRequest
 
     handleD = do
-        traceWith logTrace (Error,
+        logError logTrace $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
                      \Inv key = "%build)
-                    what peer key)
+                    what peer key
         throwIO UnexpectedEnd
 
 dataFlow
@@ -368,7 +369,7 @@ dataFlow
        , Bi (DataMsg contents)
        , Buildable contents
        )
-    => Trace IO (Severity, Text) -> Text -> EnqueueMsg -> Msg -> contents -> IO ()
+    => TraceNamed IO -> Text -> EnqueueMsg -> Msg -> contents -> IO ()
 dataFlow logTrace what enqueue msg dt = handleAny handleE $ do
     its <- enqueue msg $
         \_ _ -> pure $ Conversation $ \(conv :: ConversationActions (DataMsg contents) Void) ->
@@ -382,7 +383,7 @@ dataFlow logTrace what enqueue msg dt = handleAny handleE $ do
     -- Fortunatelly, it's used only in auxx, so I don't care much.
     -- @gromak
     handleE e =
-        traceWith logTrace (Warning, sformat ("Error sending "%stext%", data = "%build%": "%shown) what dt e)
+        logWarning logTrace $ sformat ("Error sending "%stext%", data = "%build%": "%shown) what dt e
 
 ----------------------------------------------------------------------------
 -- Helpers for Communication.Methods
@@ -398,7 +399,7 @@ invReqDataFlowTK
        , Bi (ReqOrRes (Tagged contents key))
        , Eq key
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> Text
     -> EnqueueMsg
     -> Msg
@@ -426,7 +427,7 @@ invReqDataFlow
        , Buildable key
        , Eq key
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> Text
     -> EnqueueMsg
     -> Msg
@@ -444,7 +445,7 @@ invReqDataFlow logTrace what enqueue msg key dt = handleAny handleE $ do
     -- Anyway, 'reportOrLog' is not used here, because exception is rethrown.
     -- @gromak
     handleE e = do
-        traceWith logTrace (Warning,
+        logWarning logTrace $
             sformat ("Error sending "%stext%", key = "%build%": "%shown)
-                what key e)
+                what key e
         throwIO e

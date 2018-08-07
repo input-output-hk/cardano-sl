@@ -10,7 +10,6 @@ module Pos.Client.Update.Network
 import           Universum
 
 import           Formatting (sformat, (%))
-import           System.Wlog (logInfo)
 
 import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote (..),
                      mkUpdateVoteSafe)
@@ -18,6 +17,7 @@ import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (sendUpdateProposal, sendVote))
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
@@ -30,24 +30,26 @@ submitVote diffusion = Diffusion.sendVote diffusion
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
     :: (MinWorkMode m)
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> Diffusion m
     -> [SafeSigner]
     -> UpdateProposal
     -> m ()
-submitUpdateProposal pm diffusion ss prop = do
+submitUpdateProposal logTrace pm diffusion ss prop = do
     let upid  = hash prop
     let votes = [mkUpdateVoteSafe pm signer upid True | signer <- ss]
-    sendUpdateProposal diffusion upid prop votes
+    sendUpdateProposal logTrace diffusion upid prop votes
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: (MinWorkMode m)
-    => Diffusion m
+    :: MinWorkMode m
+    => TraceNamed m
+    -> Diffusion m
     -> UpId
     -> UpdateProposal
     -> [UpdateVote]
     -> m ()
-sendUpdateProposal diffusion upid proposal votes = do
-    logInfo $ sformat ("Announcing proposal with id "%hashHexF) upid
+sendUpdateProposal logTrace diffusion upid proposal votes = do
+    logInfo logTrace $ sformat ("Announcing proposal with id "%hashHexF) upid
     Diffusion.sendUpdateProposal diffusion upid proposal votes

@@ -76,8 +76,8 @@ import           Pos.DB.Txp (getTxOut)
 import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import           Pos.Util (maybeThrow)
-import           System.Wlog (WithLogger, logDebug, logWarning,
-                     modifyLoggerName)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logWarning, natTrace)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -135,9 +135,9 @@ fromCAddressOrThrow =
 -- * Client requests provessing
 
 type SubscriptionMode m =
-    ( WithLogger m
-    , MonadThrow m
+    ( MonadThrow m
     , MonadState ConnectionsState m
+    , MonadIO m
     )
 
 -- | This describes points related to some subscribtion action.
@@ -156,51 +156,53 @@ data SubscriptionParam cli = SubscriptionParam
 
 startSession
     :: SubscriptionMode m
-    => Socket -> m ()
-startSession socket = do
+    => TraceNamed IO -> Socket -> m ()
+startSession logTrace socket = do
     let cc = mkClientContext $ ProdSocket socket
         id = socketId socket
     csClients . at id .= Just cc
-    logDebug $ sformat ("New session has started (#"%shown%")") id
+    liftIO $ logDebug logTrace $ sformat ("New session has started (#"%shown%")") id
 
 finishSession
     :: SubscriptionMode m
-    => SocketId -> m ()
-finishSession sessId =
+    => TraceNamed IO -> SocketId -> m ()
+finishSession logTrace sessId =
     whenJustM (use $ csClients . at sessId) $ \_ -> do
-        unsubscribeFully sessId
+        unsubscribeFully logTrace sessId
         csClients . at sessId .= Nothing
-        logDebug $ sformat ("Session #"%shown%" has finished") sessId
+        liftIO $ logDebug logTrace $ sformat ("Session #"%shown%" has finished") sessId
 
 subscribe
     :: SubscriptionMode m
-    => cli -> SubscriptionParam cli -> m ()
-subscribe cliData sp@SubscriptionParam{..} = do
-    unsubscribe sp
+    => TraceNamed IO -> cli -> SubscriptionParam cli -> m ()
+subscribe logTrace cliData sp@SubscriptionParam{..} = do
+    unsubscribe logTrace sp
     session <- use $ csClients . at spSessId
+    let logTrace' = natTrace liftIO logTrace
     case session of
         Just _  -> do
             spSubscription cliData .= Just ()
             csClients . ix spSessId . spCliData .= Just cliData
-            logDebug $ sformat ("Client #"%shown%" subscribed to "%stext%" \
+            logDebug logTrace' $ sformat ("Client #"%shown%" subscribed to "%stext%" \
                        \updates") spSessId (spDesc cliData)
         _       ->
-            logWarning $ sformat ("Unregistered client tries to subscribe on "%
+            logWarning logTrace' $ sformat ("Unregistered client tries to subscribe on "%
                          stext%" updates") (spDesc cliData)
 
 unsubscribe
     :: SubscriptionMode m
-    => SubscriptionParam cli -> m ()
-unsubscribe SubscriptionParam{..} = do
+    => TraceNamed IO -> SubscriptionParam cli -> m ()
+unsubscribe logTrace SubscriptionParam{..} = do
     mCliData <- preuse $ csClients . ix spSessId . spCliData . _Just
+    let logTrace' = natTrace liftIO logTrace
     case mCliData of
         Just cliData -> do
             csClients . ix spSessId . spCliData .= Nothing
             spSubscription cliData .= Nothing
-            logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%
+            logDebug logTrace' $ sformat ("Client #"%shown%" unsubscribed from "%stext%
                        " updates") spSessId (spDesc cliData)
         Nothing ->
-            logDebug $ sformat ("Client #"%shown%" unsubscribes from action \
+            logDebug logTrace' $ sformat ("Client #"%shown%" unsubscribes from action \
                        \at which it wasn't subscribed") spSessId
 
 -- | This is hack which makes client data look like always be present in
@@ -251,108 +253,108 @@ epochsLastPageSubParam sessId =
 -- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
     :: SubscriptionMode m
-    => CAddress -> SocketId -> m ()
-subscribeAddr caddr sessId = do
+    => TraceNamed IO -> CAddress -> SocketId -> m ()
+subscribeAddr logTrace caddr sessId = do
     addr <- fromCAddressOrThrow caddr
-    subscribe addr (addrSubParam sessId)
+    subscribe logTrace addr (addrSubParam sessId)
 
 unsubscribeAddr
     :: SubscriptionMode m
-    => SocketId -> m ()
-unsubscribeAddr sessId = unsubscribe (addrSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+unsubscribeAddr logTrace sessId = unsubscribe logTrace (addrSubParam sessId)
 
 subscribeBlocksLastPage
     :: SubscriptionMode m
-    => SocketId -> m ()
-subscribeBlocksLastPage sessId = subscribe () (blockPageSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+subscribeBlocksLastPage logTrace sessId = subscribe logTrace () (blockPageSubParam sessId)
 
 unsubscribeBlocksLastPage
     :: SubscriptionMode m
-    => SocketId -> m ()
-unsubscribeBlocksLastPage sessId = unsubscribe (blockPageSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+unsubscribeBlocksLastPage logTrace sessId = unsubscribe logTrace (blockPageSubParam sessId)
 
 subscribeTxs
     :: SubscriptionMode m
-    => SocketId -> m ()
-subscribeTxs sessId = subscribe () (txsSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+subscribeTxs logTrace sessId = subscribe logTrace () (txsSubParam sessId)
 
 unsubscribeTxs
     :: SubscriptionMode m
-    => SocketId -> m ()
-unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+unsubscribeTxs logTrace sessId = unsubscribe logTrace (txsSubParam sessId)
 
 subscribeEpochsLastPage
     :: SubscriptionMode m
-    => SocketId -> m ()
-subscribeEpochsLastPage sessId =
-    subscribe () (epochsLastPageSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+subscribeEpochsLastPage logTrace sessId =
+    subscribe logTrace () (epochsLastPageSubParam sessId)
 
 unsubscribeEpochsLastPage
     :: SubscriptionMode m
-    => SocketId -> m ()
-unsubscribeEpochsLastPage sessId = unsubscribe (epochsLastPageSubParam sessId)
+    => TraceNamed IO -> SocketId -> m ()
+unsubscribeEpochsLastPage logTrace sessId = unsubscribe logTrace (epochsLastPageSubParam sessId)
 
 unsubscribeFully
     :: SubscriptionMode m
-    => SocketId -> m ()
-unsubscribeFully sessId = do
-    logDebug $ sformat ("Client #"%shown%" unsubscribes from all updates")
+    => TraceNamed IO -> SocketId -> m ()
+unsubscribeFully logTrace sessId = do
+    logDebug (natTrace liftIO logTrace) $ sformat ("Client #"%shown%" unsubscribes from all updates")
                sessId
-    modifyLoggerName (const "drop") $ do
-        unsubscribeAddr sessId
-        unsubscribeBlocksLastPage sessId
-        unsubscribeTxs sessId
-        unsubscribeEpochsLastPage sessId
+    let logTrace' = appendName "drop" logTrace
+    unsubscribeAddr logTrace' sessId
+    unsubscribeBlocksLastPage logTrace' sessId
+    unsubscribeTxs logTrace' sessId
+    unsubscribeEpochsLastPage logTrace' sessId
 
 -- * Notifications
 
 broadcast
     :: (ExplorerMode ctx m, EventName event, ToJSON args)
-    => event -> args -> Set SocketId -> ExplorerSockets m ()
-broadcast event args recipients = do
+    => TraceNamed IO -> event -> args -> Set SocketId -> ExplorerSockets m ()
+broadcast logTrace event args recipients = do
     forM_ recipients $ \sockid -> do
         mSock <- preview $ csClients . ix sockid . ccConnection . _ProdSocket
         case mSock of
-            Nothing   -> logWarning $
+            Nothing   -> logWarning (natTrace liftIO logTrace) $
                 sformat ("No socket with SocketId="%shown%" registered for using in production") sockid
             Just sock -> emitTo sock event args
                 `catchAny` handler sockid
   where
-    handler sockid = logWarning .
+    handler sockid = logWarning (natTrace liftIO logTrace) .
         sformat ("Failed to send to SocketId="%shown%": "%shown) sockid
 
 notifyAddrSubscribers
     :: forall ctx m . ExplorerMode ctx m
-    => Address -> [CTxBrief] -> ExplorerSockets m ()
-notifyAddrSubscribers addr cTxEntries = do
+    => TraceNamed IO -> Address -> [CTxBrief] -> ExplorerSockets m ()
+notifyAddrSubscribers logTrace addr cTxEntries = do
     mRecipients <- view $ csAddressSubscribers . at addr
-    whenJust mRecipients $ broadcast @ctx AddrUpdated cTxEntries
+    whenJust mRecipients $ broadcast @ctx (natTrace liftIO logTrace) AddrUpdated cTxEntries
 
 notifyBlocksLastPageSubscribers
     :: forall ctx m . ExplorerMode ctx m
-    => ExplorerSockets m ()
-notifyBlocksLastPageSubscribers = do
+    => TraceNamed IO -> ExplorerSockets m ()
+notifyBlocksLastPageSubscribers logTrace = do
     recipients <- view csBlocksPageSubscribers
     blocks     <- lift $ getBlocksLastPage @ctx
-    broadcast @ctx BlocksLastPageUpdated blocks recipients
+    broadcast @ctx (natTrace liftIO logTrace) BlocksLastPageUpdated blocks recipients
 
 notifyTxsSubscribers
     :: forall ctx m . ExplorerMode ctx m
-    => [CTxEntry] -> ExplorerSockets m ()
-notifyTxsSubscribers cTxEntries =
-    view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
+    => TraceNamed IO -> [CTxEntry] -> ExplorerSockets m ()
+notifyTxsSubscribers logTrace cTxEntries =
+    view csTxsSubscribers >>= broadcast @ctx (natTrace liftIO logTrace) TxsUpdated cTxEntries
 
 notifyEpochsLastPageSubscribers
     :: forall ctx m . ExplorerMode ctx m
-    => EpochIndex -> ExplorerSockets m ()
-notifyEpochsLastPageSubscribers currentEpoch = do
+    => TraceNamed IO -> EpochIndex -> ExplorerSockets m ()
+notifyEpochsLastPageSubscribers logTrace currentEpoch = do
     -- subscriber
     recipients <- view $ csEpochsLastPageSubscribers
     -- last epoch page
     lastPage <- lift $ getEpochPagesOrThrow currentEpoch
     -- epochs of last page
     epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
-    broadcast @ctx EpochsLastPageUpdated epochs recipients
+    broadcast @ctx (natTrace liftIO logTrace) EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
 

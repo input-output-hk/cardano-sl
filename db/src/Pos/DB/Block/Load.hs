@@ -25,12 +25,11 @@ import           Control.Lens (_Wrapped)
 import           Formatting (sformat, (%))
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Block (Blund, Undo (..))
+import           Pos.Chain.Block (Block, BlockHeader, Blund, HasPrevBlock (..),
+                     HeaderHash, Undo (..))
+import qualified Pos.Chain.Block as CB
 import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
                      HasGenesisHash)
-import           Pos.Core.Block (Block, BlockHeader, HasPrevBlock (..),
-                     HeaderHash)
-import qualified Pos.Core.Block as CB
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)

@@ -24,7 +24,10 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (HasSlogGState (..))
+import           Pos.Chain.Block (BlockHeader (..), Blockchain (..),
+                     GenesisBlock, HasSlogGState (..), HeaderHash, MainBlock,
+                     MainBlockchain, headerHash, mkGenesisBlock, mkMainBlock)
+import qualified Pos.Chain.Block as BC
 import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
@@ -34,19 +37,12 @@ import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
                      SlotId (..), chainQualityThreshold, epochIndexL,
                      epochSlots, flattenSlotId, getEpochOrSlot)
-import           Pos.Core.Block (BlockHeader (..), Blockchain (..),
-                     GenesisBlock, HeaderHash, MainBlock, MainBlockchain,
-                     headerHash)
-import qualified Pos.Core.Block as BC
-import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Ssc (SscPayload)
-import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
-                     modifyStateLock)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Core.Util.LogSafe (logInfoS)
@@ -62,6 +58,8 @@ import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Delegation (clearDlgMemPool, getDlgMempool)
+import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
+                     modifyStateLock)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Ssc (sscGetLocalPayload, sscResetLocal)

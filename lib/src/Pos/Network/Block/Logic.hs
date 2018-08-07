@@ -27,13 +27,11 @@ import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Chain.Block (ApplyBlocksException, Blund,
-                     LastKnownHeaderTag)
+import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
+                     Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
+                     blockHeader, gbHeader, headerHashG, prevBlockL)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (isMoreDifficult)
-import           Pos.Core.Block (Block, BlockHeader, HasHeaderHash (..),
-                     HeaderHash, blockHeader, gbHeader, headerHashG,
-                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)
@@ -42,12 +40,12 @@ import           Pos.Core.Exception (cardanoExceptionFromException,
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
-import           Pos.Core.StateLock (Priority (..), modifyStateLock)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.DB.Block as L
 import qualified Pos.DB.Block as DB
+import           Pos.DB.GState.Lock (Priority (..), modifyStateLock)
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion

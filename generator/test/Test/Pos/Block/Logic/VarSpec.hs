@@ -23,11 +23,10 @@ import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre, run)
 import           Test.QuickCheck.Random (QCGen)
 
-import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Block (Blund, headerHash)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
                      genesisData)
-import           Pos.Core.Block (headerHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
                      splitAtNewestFirst, toNewestFirst, _NewestFirst)

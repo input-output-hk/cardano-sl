@@ -27,24 +27,24 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
                      logDebug, logError, logWarning)
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      MemPool, ToilVerFailure (..), TxpConfiguration (..),
                      UndoMap, Utxo, UtxoLookup, UtxoModifier, extendLocalToilM,
                      mpLocalTxs, normalizeToil, processTx, topsortTxs,
                      utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))
-import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
-                     withStateLock)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
+import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
+                     withStateLock)
 import           Pos.DB.Txp.Logic.Common (buildUtxo)
 import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,

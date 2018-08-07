@@ -6,9 +6,9 @@ module Pos.GState.GState
 
 import           Universum
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (genesisUtxo)
 import           Pos.Core (genesisData)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Genesis (gdHeavyDelegation)
 import           Pos.DB.Block (initGStateBlockExtra)
 import           Pos.DB.Class (MonadDB)

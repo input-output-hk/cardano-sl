@@ -8,10 +8,10 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
+                     headerSlotL)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (HasConfiguration, SlotId (..), epochIndexL)
-import           Pos.Core.Block (ComponentBlock (..), HeaderHash, headerHash,
-                     headerSlotL)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.Crypto (ProtocolMagic)

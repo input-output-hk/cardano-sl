@@ -15346,6 +15346,8 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto-test
 , cardano-sl-util
 , cardano-sl-util-test
+, cborg
+, cereal
 , conduit
 , containers
 , cpphs
@@ -15377,6 +15379,7 @@ license = stdenv.lib.licenses.mit;
 , random
 , reflection
 , safe-exceptions
+, safecopy
 , serokell-util
 , stdenv
 , template-haskell
@@ -15409,6 +15412,8 @@ cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-util
+cborg
+cereal
 conduit
 containers
 cryptonite
@@ -15433,6 +15438,7 @@ parsec
 plutus-prototype
 reflection
 safe-exceptions
+safecopy
 serokell-util
 template-haskell
 text
@@ -15503,6 +15509,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-crypto
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-chain
 , cardano-sl-core
 , cardano-sl-core-test
@@ -15534,6 +15541,7 @@ base
 bytestring
 cardano-crypto
 cardano-sl-binary
+cardano-sl-binary-test
 cardano-sl-chain
 cardano-sl-core
 cardano-sl-core-test
@@ -16096,6 +16104,7 @@ license = stdenv.lib.licenses.mit;
 , directory
 , ekg-core
 , ether
+, exceptions
 , filepath
 , formatting
 , lens
@@ -16146,6 +16155,7 @@ data-default
 directory
 ekg-core
 ether
+exceptions
 filepath
 formatting
 lens

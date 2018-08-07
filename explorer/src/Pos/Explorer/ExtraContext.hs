@@ -25,8 +25,7 @@ import qualified Data.Vector as V
 import qualified Ether
 
 import           Data.Default (Default (..), def)
-import           Pos.Chain.Block (Blund)
-import           Pos.Core.Block (Block, HeaderHash)
+import           Pos.Chain.Block (Block, Blund, HeaderHash)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
@@ -193,4 +192,3 @@ instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetEpochPages explorerMockMode epoch
-

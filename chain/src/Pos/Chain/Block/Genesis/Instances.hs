@@ -2,7 +2,7 @@
 
 -- | Miscellaneous instances, etc. Related to the genesis blockchain of course.
 
-module Pos.Core.Block.Genesis.Instances
+module Pos.Chain.Block.Genesis.Instances
        (
        ) where
 
@@ -12,11 +12,11 @@ import           Formatting (bprint, build, sformat, stext, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (Color (Magenta), colorize)
 
-import           Pos.Core.Block.Blockchain (GenericBlock (..), gbHeader,
+import           Pos.Chain.Block.Blockchain (GenericBlock (..), gbHeader,
                      gbhConsensus)
-import           Pos.Core.Block.Genesis.Lens (gcdEpoch)
-import           Pos.Core.Block.Genesis.Types (GenesisBody (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock,
+import           Pos.Chain.Block.Genesis.Lens (gcdEpoch)
+import           Pos.Chain.Block.Genesis.Types (GenesisBody (..))
+import           Pos.Chain.Block.Union.Types (BlockHeader (..), GenesisBlock,
                      GenesisBlockHeader, HasHeaderHash (..), IsGenesisHeader,
                      IsHeader, blockHeaderHash)
 import           Pos.Core.Common (slotLeadersF)

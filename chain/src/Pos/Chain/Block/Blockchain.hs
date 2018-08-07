@@ -1,10 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | This module contains some general definitions related to blocks
 -- and headers. The heart of this module is 'Blockchain' type class.
 
-module Pos.Core.Block.Blockchain
+module Pos.Chain.Block.Blockchain
        ( Blockchain (..)
        , GenericBlockHeader (..)
        , GenericBlock (..)

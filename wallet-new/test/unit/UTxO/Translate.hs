@@ -32,9 +32,6 @@ import           Pos.Chain.Block
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
-import           Pos.Core.Block (Block, GenesisBlock, GenesisBlockHeader,
-                     HeaderHash, MainBlock, gbBody, gbHeader, gbLeaders,
-                     headerHashG)
 import           Pos.Core.Chrono
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))

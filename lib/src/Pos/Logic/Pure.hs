@@ -12,16 +12,17 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Block (Block, BlockHeader (..),
+                     BlockHeaderAttributes, BlockSignature (..), ExtraBodyData,
+                     ExtraHeaderData, GenericBlock (..),
+                     GenericBlockHeader (..), HeaderHash, MainBlock,
+                     MainBlockHeader, MainBlockchain, MainBody (..),
+                     MainConsensusData (..), MainExtraBodyData (..),
+                     MainExtraHeaderData (..), MainProof (..))
 import           Pos.Chain.Txp (emptyTxPayload)
 import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Core.Block (Block, BlockHeader (..), BlockHeaderAttributes,
-                     BlockSignature (..), ExtraBodyData, ExtraHeaderData,
-                     GenericBlock (..), GenericBlockHeader (..), HeaderHash,
-                     MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),
-                     MainConsensusData (..), MainExtraBodyData (..),
-                     MainExtraHeaderData (..), MainProof (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))

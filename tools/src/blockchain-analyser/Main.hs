@@ -7,10 +7,9 @@ import           Universum
 import           System.Directory (canonicalizePath, doesDirectoryExist,
                      getFileSize, listDirectory, withCurrentDirectory)
 
-import           Pos.Chain.Block (Undo)
+import           Pos.Chain.Block (Block, HeaderHash, Undo, headerHash)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.Block (Block, HeaderHash, headerHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)

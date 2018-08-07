@@ -32,16 +32,16 @@ import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Block (Blund, Undo (undoDlg, undoTx, undoUS))
+import           Pos.Chain.Block (Block, Blund, ComponentBlock (..),
+                     GenesisBlock, IsGenesisHeader, MainBlock,
+                     Undo (undoDlg, undoTx, undoUS), gbHeader, headerHash,
+                     mainBlockDlgPayload, mainBlockSscPayload,
+                     mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Chain.Delegation (DlgBlock, DlgBlund, MonadDelegation)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
-import           Pos.Core.Block (Block, ComponentBlock (..), GenesisBlock,
-                     IsGenesisHeader, MainBlock, gbHeader, headerHash,
-                     mainBlockDlgPayload, mainBlockSscPayload,
-                     mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting)

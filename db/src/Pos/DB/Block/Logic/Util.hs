@@ -24,12 +24,11 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 import           System.Wlog (WithLogger)
 
-import           Pos.Chain.Block (HasBlockConfiguration, HasSlogGState,
-                     fixedTimeCQ)
+import           Pos.Chain.Block (BlockHeader, HasBlockConfiguration,
+                     HasSlogGState, HeaderHash, fixedTimeCQ, headerHash,
+                     prevBlockL)
 import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
                      Timestamp (..), difficultyL, flattenSlotId)
-import           Pos.Core.Block (BlockHeader, HeaderHash, headerHash,
-                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Exception (reportFatalError)

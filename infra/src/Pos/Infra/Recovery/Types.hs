@@ -5,7 +5,7 @@ module Pos.Infra.Recovery.Types
 
 import           Control.Concurrent.STM (TMVar)
 
-import           Pos.Core.Block (BlockHeader)
+import           Pos.Chain.Block (BlockHeader)
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 
 data RecoveryHeaderTag

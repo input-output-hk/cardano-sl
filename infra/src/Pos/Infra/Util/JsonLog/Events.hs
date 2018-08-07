@@ -18,4 +18,5 @@ module Pos.Infra.Util.JsonLog.Events
        ) where
 
 -- Only export the above from this module.
+import           Pos.Chain.Block (jlAdoptedBlock, jlCreatedBlock)
 import           Pos.Core.JsonLog.LogEvents

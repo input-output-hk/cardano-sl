@@ -26,8 +26,6 @@ import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
-import           Pos.Core.Block (Block, ComponentBlock (..), HeaderHash,
-                     genBlockLeaders, mainBlockSlot, prevBlockL)
 import           Pos.Core.Chrono
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)

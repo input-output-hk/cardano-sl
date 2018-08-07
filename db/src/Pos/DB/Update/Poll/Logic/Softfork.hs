@@ -17,11 +17,11 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logInfo)
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
                      MonadPollRead (..), PollVerFailure (..))
 import           Pos.Core (Coin, EpochIndex, HasProtocolConstants, SlotId (..),
                      StakeholderId, crucialSlot, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
                      SoftforkRule (..))
 import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,

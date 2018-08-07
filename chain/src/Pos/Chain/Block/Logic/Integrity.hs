@@ -26,16 +26,18 @@ import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Block.BHelpers as BHelpers
+import           Pos.Chain.Block.Blockchain (gbExtra, gbhExtra)
+import           Pos.Chain.Block.Genesis (gebAttributes, gehAttributes,
+                     genBlockLeaders)
+import           Pos.Chain.Block.Union (Block, BlockHeader (..),
+                     HasHeaderHash (..), HeaderHash, blockHeaderProtocolMagic,
+                     getBlockHeader, headerSlotL, mainHeaderLeaderKey,
+                     mebAttributes, mehAttributes, prevBlockL)
 import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
                      HasEpochIndex (..), HasEpochOrSlot (..),
                      HasProtocolConstants, SlotId (..), SlotLeaders,
                      addressHash, getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
-import           Pos.Core.Block (Block, BlockHeader (..), HasHeaderHash (..),
-                     HeaderHash, blockHeaderProtocolMagic, gbExtra, gbhExtra,
-                     gebAttributes, gehAttributes, genBlockLeaders,
-                     getBlockHeader, headerSlotL, mainHeaderLeaderKey,
-                     mebAttributes, mehAttributes, prevBlockL)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Update (BlockVersionData (..))

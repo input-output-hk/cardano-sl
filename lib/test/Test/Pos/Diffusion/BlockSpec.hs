@@ -26,9 +26,9 @@ import           Node (NodeId)
 import qualified Node
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core.Block (Block, BlockHeader, HeaderHash,
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
                      blockHeaderHash)
-import qualified Pos.Core.Block as Block (getBlockHeader)
+import qualified Pos.Chain.Block as Block (getBlockHeader)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Update (BlockVersion (..))

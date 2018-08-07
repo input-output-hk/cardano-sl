@@ -42,11 +42,11 @@ import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo, utxoF,
                      utxoToAddressCoinPairs)
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration,
                      SlotCount, coinToInteger, unsafeAddCoin)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic)

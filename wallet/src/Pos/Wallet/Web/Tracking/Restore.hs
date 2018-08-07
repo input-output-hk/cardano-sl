@@ -7,9 +7,9 @@ import           UnliftIO (MonadUnliftIO)
 import qualified Data.Map as M
 import           System.Wlog (WithLogger, logInfo, modifyLoggerName)
 
+import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
 import           Pos.Core (Address, HasConfiguration, HasDifficulty (..))
-import           Pos.Core.Block (headerHash)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))

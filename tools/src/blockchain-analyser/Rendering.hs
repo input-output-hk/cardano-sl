@@ -11,12 +11,11 @@ import qualified Data.Text as T
 import           Formatting hiding (bytes)
 import           Options (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (Undo)
+import           Pos.Chain.Block (Block, BlockHeader (..), Undo,
+                     blockHeaderHash, getBlockHeader, mbTxs, _gbBody,
+                     _gbhConsensus, _mcdLeaderKey)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
                      SlotId (..), getEpochIndex, getEpochOrSlot)
-import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash,
-                     getBlockHeader, mbTxs, _gbBody, _gbhConsensus,
-                     _mcdLeaderKey)
 import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PublicKey)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)

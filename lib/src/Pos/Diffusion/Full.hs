@@ -32,6 +32,8 @@ import qualified System.Metrics as Monitoring
 
 import           System.Random (newStdGen)
 
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
+                     MainBlockHeader)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
@@ -41,8 +43,6 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      bipPacking, convH, createOutSpecs, makeEnqueueMsg,
                      makeSendActions, toOutSpecs)
 import           Pos.Core (ProtocolConstants (..), StakeholderId)
-import           Pos.Core.Block (Block, BlockHeader, HeaderHash,
-                     MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)

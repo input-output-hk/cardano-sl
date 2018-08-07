@@ -25,15 +25,14 @@ import qualified Data.HashMap.Strict as HM
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
                      MonadDelegation, cmPskMods, dwMessageCache, dwPoolSize,
                      dwProxySKPool, dwTip, emptyCedeModifier, isRevokePsk,
                      pskToDlgEdgeAction)
 import           Pos.Core (addressHash, epochIndexL)
-import           Pos.Core.Block (headerHash)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Core.Update (bvdMaxBlockSize)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
@@ -43,6 +42,7 @@ import           Pos.DB.Delegation.Cede.Logic (CheckForCycle (..),
                      dlgVerifyPskHeavy)
 import           Pos.DB.Delegation.Logic.Common (DelegationStateAction,
                      runDelegationStateAction)
+import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
 import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))

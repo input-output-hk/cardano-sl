@@ -20,12 +20,12 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
+import           Pos.Chain.Block (BlockSignature (..), MainBlockHeader,
+                     gbhConsensus, mainHeaderLeaderKey, mcdSignature)
 import           Pos.Chain.Delegation (DlgMemPool, MonadCedeRead (..), getPskPk,
                      isRevokePsk)
 import           Pos.Chain.Lrc (RichmenSet)
 import           Pos.Core (EpochIndex, StakeholderId, addressHash)
-import           Pos.Core.Block (BlockSignature (..), MainBlockHeader,
-                     gbhConsensus, mainHeaderLeaderKey, mcdSignature)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey,
                      psigPsk, validateProxySecretKey)

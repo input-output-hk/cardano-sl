@@ -16,12 +16,12 @@ import           Data.Conduit (ConduitT, transPipe)
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
 
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Chain.Security (SecurityParams (..))
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Txp (TxId, TxMsgContents)

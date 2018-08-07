@@ -23,13 +23,12 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (sformat, shown, (%))
 import           System.Wlog (logDebug)
 
-import           Pos.Chain.Block (ApplyBlocksException (..), Blund,
-                     RollbackException (..), Undo (..),
-                     VerifyBlocksException (..))
+import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,
+                     HeaderHash, RollbackException (..), Undo (..),
+                     VerifyBlocksException (..), headerHashG, prevBlockL)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
-import           Pos.Core.Block (Block, HeaderHash, headerHashG, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)

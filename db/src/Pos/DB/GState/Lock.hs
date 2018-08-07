@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-|
-Module:      Pos.Core.StateLock
+Module:      Pos.DB.GState.Lock
 Description: A lock on the local state of a node
 
 Provides a lock that is to be taken while modifying, or requiring a
@@ -14,7 +14,7 @@ consistent view on, the local state (the database and mempool).
 It collects metrics on how long a given action waits on the lock, and
 how long the action takes.
 -}
-module Pos.Core.StateLock
+module Pos.DB.GState.Lock
        ( Priority (..)
        , StateLock (..)
        , newEmptyStateLock
@@ -37,7 +37,7 @@ import           System.Mem (getAllocationCounter)
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
                      usingLoggerName)
 
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Util.Concurrent (modifyMVar, withMVar)

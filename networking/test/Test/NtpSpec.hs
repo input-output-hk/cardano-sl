@@ -16,6 +16,8 @@ import           Test.QuickCheck (Arbitrary (..), Gen, counterexample, sized,
 import           Ntp.Packet (NtpOffset (..), NtpPacket (..), clockOffsetPure,
                      ntpToRealMcs, realMcsToNtp)
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
+
 data NtpPacketWithOffset = NtpPacketWithOffset
     { npoNtpPacket       :: NtpPacket
     , npoOffset          :: NtpOffset

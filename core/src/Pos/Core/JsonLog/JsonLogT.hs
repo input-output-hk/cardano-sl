@@ -42,10 +42,7 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal)
 import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Data.Aeson (ToJSON, encode)
 import           Data.ByteString.Lazy.Char8 (hPutStrLn)
-import           Formatting (sformat, shown, (%))
 import           System.IO (Handle, hFlush)
-import           System.Wlog (CanLog, HasLoggerName (..), WithLogger,
-                     logWarning)
 
 import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.Event (JLTimedEvent, timedIO, toEvent)
@@ -68,41 +65,28 @@ instance MonadBaseControl b m => MonadBaseControl b (JsonLogT m) where
 
     restoreM = restoreM
 
-instance WithLogger m => CanLog (JsonLogT m) where
-
-instance WithLogger m => HasLoggerName (JsonLogT m) where
-
-    askLoggerName = lift askLoggerName
-
-    modifyLoggerName f = hoist (modifyLoggerName f)
-
-
-
-
-
-
 jsonLogDefault
-    :: (ToJSON a, MonadCatch m, MonadIO m, WithLogger m)
+    :: (ToJSON a, MonadIO m, MonadCatch m)
     => JsonLogConfig
-    -> a -> m ()
+    -> a
+    -> m ()
 jsonLogDefault jlc x =
     case jlc of
         JsonLogDisabled -> return ()
         JsonLogConfig v decide -> do
             event <- toEvent <$> timedIO x
             b     <- liftIO (decide event)
-                `catchAny` \e -> do
-                    logWarning $ sformat ("error in deciding whether to json log: "%shown) e
+                `catchAny` \_ -> do
+                    --logWarning logTrace $ sformat ("error in deciding whether to json log: "%shown) e
                     return False
             when b $ liftIO (withMVar v $ \h -> (hPutStrLn h (encode event) >> hFlush h))
-                `catchAny` \e ->
-                    logWarning $ sformat ("can't write json log: "%shown) e
+                `catchAny` \_ -> return ()
+                    --logWarning logTrace $ sformat ("can't write json log: "%shown) e
 
 instance ( MonadIO m
-         , WithLogger m
          , MonadCatch m) => CanJsonLog (JsonLogT m) where
 
-    jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)
+    jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)   -- TODO
 
 -- | This function simply discards all JSON log messages.
 runWithoutJsonLogT :: JsonLogT m a -> m a

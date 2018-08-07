@@ -22,14 +22,14 @@ import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Formatting (sformat, stext, (%))
 import           Serokell.Util (listChunkedJson, listJsonIndent)
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, ChainDifficulty, timestampToPosix)
 import           Pos.Core.Txp (TxId)
-import           Pos.Infra.Util.LogSafe (logInfoSP, secureListF)
+import           Pos.Util.Log.LogSafe (secureListF)
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfoSP)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      getLocalHistory)
@@ -71,11 +71,12 @@ walletHistorySize =
 
 getFullWalletHistory
     :: (MonadWalletHistory ctx m)
-    => WalletDB
+    => TraceNamed m
+    -> WalletDB
     -> CId Wal
     -> m (WalletHistory, WalletHistorySize)
-getFullWalletHistory db cWalId = do
-    logDebug "getFullWalletHistory: start"
+getFullWalletHistory logTrace db cWalId = do
+    logDebug logTrace "getFullWalletHistory: start"
     ws <- getWalletSnapshot db
 
     let addrs = getWalletAddrs ws Ever cWalId
@@ -83,28 +84,29 @@ getFullWalletHistory db cWalId = do
     let blockHistory = getHistoryCache ws cWalId
     unfilteredLocalHistory <- getLocalHistory addrs
 
-    logDebug "getFullWalletHistory: fetched addresses and block/local histories"
+    logDebug logTrace "getFullWalletHistory: fetched addresses and block/local histories"
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
-    logTxHistory "Mempool" (toList localHistory)
+    logTxHistory logTrace "Mempool" (toList localHistory)
 
-    fullHistory <- addPtxHistory ws cWalId $ localHistory `Map.union` blockHistory
+    fullHistory <- addPtxHistory logTrace ws cWalId $ localHistory `Map.union` blockHistory
     let walAddrsDetector = getWalletAddrsDetector ws Ever cWalId
     diff <- getCurChainDifficulty
-    logDebug "getFullWalletHistory: fetched full history"
+    logDebug logTrace "getFullWalletHistory: fetched full history"
 
     !cHistory <- WalletHistory <$>
         forM fullHistory (constructCTx ws cWalId walAddrsDetector diff)
-    logDebug "getFullWalletHistory: formed cTxs"
+    logDebug logTrace "getFullWalletHistory: formed cTxs"
     pure (cHistory, walletHistorySize cHistory)
 
 getHistory
     :: MonadWalletHistory ctx m
-    => CId Wal
+    => TraceNamed m
+    -> CId Wal
     -> (WalletSnapshot -> [AccountId]) -- ^ Which account IDs to get from the snapshot
     -> Maybe (CId Addr)
     -> m (WalletHistory, WalletHistorySize)
-getHistory cWalId getAccIds mAddrId = do
+getHistory logTrace cWalId getAccIds mAddrId = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
 
@@ -126,9 +128,9 @@ getHistory cWalId getAccIds mAddrId = do
             | addr `S.member` accAddrs -> Right $ filterByAddrs (S.singleton addr) cHistory
             | otherwise                -> Left errorBadAddress
 
-    (cHistory, cHistorySize) <- getFullWalletHistory db cWalId
+    (cHistory, cHistorySize) <- getFullWalletHistory logTrace db cWalId
     cHistory' <- eitherToThrow $ filterFn cHistory
-    logDebug "getHistory: filtered transactions"
+    logDebug logTrace "getHistory: filtered transactions"
     -- TODO: Why do we reuse the old size, pre-filter? Explain.
     return (cHistory', cHistorySize)
   where
@@ -146,13 +148,14 @@ getHistory cWalId getAccIds mAddrId = do
 
 getHistoryLimited
     :: MonadWalletHistory ctx m
-    => Maybe (CId Wal)
+    => TraceNamed m
+    -> Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
     -> Maybe ScrollOffset
     -> Maybe ScrollLimit
     -> m ([CTx], Word)
-getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
+getHistoryLimited logTrace mCWalId mAccId mAddrId mSkip mLimit = do
     (cWalId, accIds) <- case (mCWalId, mAccId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
         (Just _, Just _)        -> throwM errorDontSpecifyBoth
@@ -161,12 +164,12 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
              in pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, const [accId])
     (WalletHistory unsortedThs, WalletHistorySize n)
-        <- getHistory cWalId accIds mAddrId
+        <- getHistory logTrace cWalId accIds mAddrId
 
     let !sortedTxh = forceList $ sortByTime (Map.elems unsortedThs)
-    logDebug "getHistoryLimited: sorted transactions"
+    logDebug logTrace "getHistoryLimited: sorted transactions"
 
-    logCTxs "Total last 20" $ take 20 sortedTxh
+    logCTxs logTrace "Total last 20" $ take 20 sortedTxh
     pure (applySkipLimit sortedTxh, n)
   where
     sortByTime :: [(CTx, POSIXTime)] -> [CTx]
@@ -186,7 +189,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         "Please do not specify both walletId and accountId at the same time"
 
 addHistoryTxMeta
-    :: (MonadIO m)
+    :: MonadIO m
     => WalletDB
     -> CId Wal
     -> TxHistoryEntry
@@ -198,7 +201,7 @@ addHistoryTxMeta db cWalId txhe = do
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
 addHistoryTxsMeta
-    :: (MonadIO m)
+    :: MonadIO m
     => WalletDB
     -> CId Wal
     -> Map TxId TxHistoryEntry
@@ -231,32 +234,35 @@ getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
 
 addPtxHistory
-    :: (MonadIO m, WithLogger m)
-    => WalletSnapshot
+    :: MonadIO m
+    => TraceNamed m
+    -> WalletSnapshot
     -> CId Wal
     -> Map TxId TxHistoryEntry
     -> m (Map TxId TxHistoryEntry)
-addPtxHistory ws wid currentHistory = do
+addPtxHistory logTrace ws wid currentHistory = do
     let pendingTxs = fromMaybe [] (getWalletPendingTxs ws wid)
     let conditions = map _ptxCond pendingTxs
     -- show only actually pending transactions in logs
-    logTxHistory "Pending" $ mapMaybe (preview _PtxApplying) conditions
+    logTxHistory logTrace "Pending" $ mapMaybe (preview _PtxApplying) conditions
     -- but return all transactions which are not yet in blocks
     let candidatesList = txHistoryListToMap (mapMaybe ptxPoolInfo conditions)
     return $ Map.union currentHistory candidatesList
 
 logTxHistory
-    :: (WithLogger m, MonadIO m)
-    => Text -> [TxHistoryEntry] -> m ()
-logTxHistory desc entries = do
-    logInfoSP $ \sl ->
+    :: MonadIO m
+    => TraceNamed m
+    -> Text -> [TxHistoryEntry] -> m ()
+logTxHistory logTrace desc entries = do
+    logInfoSP logTrace $ \sl ->
         sformat (stext%" transactions history: "%secureListF sl (listChunkedJson 5))
         desc (map _thTxId entries)
 
 logCTxs
-    :: (WithLogger m, MonadIO m)
-    => Text -> [CTx] -> m ()
-logCTxs desc entries =
-    logInfoSP $ \sl ->
+    :: MonadIO m
+    => TraceNamed m
+    -> Text -> [CTx] -> m ()
+logCTxs logTrace desc entries =
+    logInfoSP logTrace $ \sl ->
         sformat (stext%" transactions history: "%secureListF sl (listJsonIndent 4))
         desc (map ctId entries)

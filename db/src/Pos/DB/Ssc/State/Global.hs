@@ -15,7 +15,6 @@ module Pos.DB.Ssc.State.Global
        ) where
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalState (..),
@@ -24,6 +23,8 @@ import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), HasGenesisData,
                      HasProtocolConstants, SlotId (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
+
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
 
@@ -52,11 +53,14 @@ getStableCerts epoch =
 ----------------------------------------------------------------------------
 
 -- | Load global state from DB by recreating it from recent blocks.
-sscLoadGlobalState :: (MonadDBRead m, WithLogger m) => m SscGlobalState
-sscLoadGlobalState = do
-    logDebug "Loading SSC global state"
+sscLoadGlobalState
+    :: MonadDBRead m
+    => TraceNamed m
+    -> m SscGlobalState
+sscLoadGlobalState logTrace = do
+    logDebug logTrace "Loading SSC global state"
     gs <- DB.getSscGlobalState
-    gs <$ logInfo (sformat ("Loaded SSC state: " %build) gs)
+    gs <$ logInfo logTrace (sformat ("Loaded SSC state: " %build) gs)
 
 sscGetGlobalState
     :: (MonadSscMem ctx m, MonadIO m)

@@ -38,7 +38,6 @@ import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HMS
-import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
                      mkLocalSlotIndex)
@@ -200,8 +199,7 @@ class HasJsonLogConfig ctx where
     jsonLogConfig :: Lens' ctx JsonLogConfig
 
 jsonLogDefault
-    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadCatch m,
-        MonadIO m, WithLogger m)
+    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadIO m, MonadCatch m)
     => a -> m ()
 jsonLogDefault x = do
     jlc <- view jsonLogConfig

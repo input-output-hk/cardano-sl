@@ -14,7 +14,6 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
@@ -28,12 +27,12 @@ import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Reporting (reportError)
+import           Pos.Infra.Reporting (reportOrLogE)
 import           Pos.Infra.Slotting (waitSystemStart)
-import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo, logInfoS, natTrace)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -44,21 +43,22 @@ runNode'
        ( HasCompileInfo
        , WorkMode ctx m
        )
-    => NodeResources ext
+    => TraceNamed m
+    -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode' NodeResources {..} workers' plugins' = \diffusion -> do
-    logInfo $ "Built with: " <> pretty compileInfo
-    nodeStartMsg
-    inAssertMode $ logInfo "Assert mode on"
+runNode' logTrace NodeResources {..} workers' plugins' = \diffusion -> do
+    logInfo logTrace $ "Built with: " <> pretty compileInfo
+    nodeStartMsg logTrace
+    inAssertMode $ logInfo logTrace "Assert mode on"
     pk <- getOurPublicKey
     let pkHash = addressHash pk
-    logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
+    logInfoS logTrace $ sformat ("My public key is: "%build%", pk hash: "%build)
         pk pkHash
 
     let genesisStakeholders = gdBootStakeholders genesisData
-    logInfo $ sformat
+    logInfo logTrace $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
         (bootDustThreshold genesisStakeholders)
@@ -67,21 +67,21 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     let genesisDelegation = gdHeavyDelegation genesisData
     let formatDlgPair (issuerId, delegateId) =
             bprint (build%" -> "%build) issuerId delegateId
-    logInfo $ sformat ("GenesisDelegation (stakeholder ids): "%listJson)
+    logInfo logTrace $ sformat ("GenesisDelegation (stakeholder ids): "%listJson)
             $ map (formatDlgPair . second (addressHash . pskDelegatePk))
             $ HM.toList
             $ unGenesisDelegation genesisDelegation
 
     firstGenesisHash <- GS.getFirstGenesisBlockHash
-    logInfo $ sformat
+    logInfo logTrace $ sformat
         ("First genesis block hash: "%build%", genesis seed is "%build)
         firstGenesisHash
         (gdFtsSeed genesisData)
 
     tipHeader <- DB.getTipHeader
-    logInfo $ sformat ("Current tip header: "%build) tipHeader
+    logInfo logTrace $ sformat ("Current tip header: "%build) tipHeader
 
-    waitSystemStart
+    waitSystemStart logTrace
     let runWithReportHandler action =
             action diffusion `catch` reportHandler
 
@@ -93,12 +93,10 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     -- FIXME shouldn't this kill the whole program?
     -- FIXME: looks like something bad.
     -- REPORT:ERROR Node's worker/plugin failed with exception (which wasn't caught)
-    reportHandler (SomeException e) = do
-        loggerName <- askLoggerName
-        reportError $
-            sformat ("Worker/plugin with logger name "%shown%
-                    " failed with exception: "%shown)
-            loggerName e
+    reportHandler exc@(SomeException e) =
+        reportOrLogE logTrace
+          (sformat ("Worker/plugin failed with exception: "%shown) e)
+          exc
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -106,18 +104,19 @@ runNode
     :: ( HasCompileInfo
        , WorkMode ctx m
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode pm txpConfig nr plugins = runNode' nr workers' plugins
+runNode logTrace pm txpConfig nr plugins = runNode' (natTrace liftIO logTrace) nr workers' plugins
   where
-    workers' = allWorkers pm txpConfig nr
+    workers' = allWorkers (natTrace liftIO logTrace) pm txpConfig nr
 
 -- | This function prints a very useful message when node is started.
-nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()
-nodeStartMsg = logInfo msg
+nodeStartMsg :: HasUpdateConfiguration => TraceNamed m -> m ()
+nodeStartMsg logTrace = logInfo logTrace msg
   where
     msg = sformat ("Application: " %build% ", last known block version "
                     %build% ", systemTag: " %build)

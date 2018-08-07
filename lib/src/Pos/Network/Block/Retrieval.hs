@@ -16,7 +16,6 @@ import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
-import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash)
@@ -39,6 +38,8 @@ import           Pos.Network.Block.Logic (BlockNetLogicException (..),
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,
                      BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logError, logInfo,
+                     logWarning, natTrace)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join
@@ -59,17 +60,19 @@ retrievalWorker
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m -> m ()
-retrievalWorker pm txpConfig diffusion = do
-    logInfo "Starting retrievalWorker loop"
+retrievalWorker logTrace0 pm txpConfig diffusion = do
+    logInfo logTrace "Starting retrievalWorker loop"
     mainLoop
   where
+    logTrace = natTrace liftIO logTrace0
     mainLoop = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-        logDebug "Waiting on the block queue or recovery header var"
+        logDebug logTrace "Waiting on the block queue or recovery header var"
         -- Reading the queue is a priority, because it sets the recovery
         -- variable in case the header is classified as alternative. So if the
         -- queue contains lots of headers after a long delay, we'll first
@@ -98,7 +101,7 @@ retrievalWorker pm txpConfig diffusion = do
     -- That's the first queue branch (task dispatching).
     handleBlockRetrieval nodeId BlockRetrievalTask{..} =
         handleAny (handleRetrievalE nodeId brtHeader) $ do
-            logDebug $ sformat
+            logDebug logTrace $ sformat
                 ("Block retrieval queue task received, nodeId="%build%
                  ", header="%build%", continues="%build)
                 nodeId
@@ -111,11 +114,11 @@ retrievalWorker pm txpConfig diffusion = do
     -- When we have a continuation of the chain, just try to get and apply it.
     handleContinues nodeId header = do
         let hHash = headerHash header
-        logDebug $ "handleContinues: " <> pretty hHash
+        logDebug logTrace $ "handleContinues: " <> pretty hHash
         classifyNewHeader pm header >>= \case
             CHContinues ->
-                void $ getProcessBlocks pm txpConfig diffusion nodeId (headerHash header) [hHash]
-            res -> logDebug $
+                void $ getProcessBlocks logTrace0 pm txpConfig diffusion nodeId (headerHash header) [hHash]
+            res -> logDebug logTrace $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
 
@@ -123,23 +126,23 @@ retrievalWorker pm txpConfig diffusion = do
     -- recovery mode (server side should send us headers as a proof) and then
     -- enter recovery mode.
     handleAlternative nodeId header = do
-        logDebug $ "handleAlternative: " <> pretty (headerHash header)
+        logDebug logTrace $ "handleAlternative: " <> pretty (headerHash header)
         classifyNewHeader pm header >>= \case
             CHInvalid _ ->
-                logError "handleAlternative: invalid header got into retrievalWorker queue"
+                logError logTrace "handleAlternative: invalid header got into retrievalWorker queue"
             CHUseless _ ->
-                logDebug $
+                logDebug logTrace $
                 sformat ("handleAlternative: header "%build%" became useless, ignoring it")
                         header
             _ -> do
-                logDebug "handleAlternative: considering header for recovery mode"
+                logDebug logTrace "handleAlternative: considering header for recovery mode"
                 -- CSL-1514
-                updateRecoveryHeader nodeId header
+                updateRecoveryHeader logTrace nodeId header
 
     -- Squelch the exception and continue. Used with 'handleAny' from
     -- safe-exceptions so it will let async exceptions pass.
     handleRetrievalE nodeId cHeader e = do
-        reportOrLogW (sformat
+        reportOrLogW logTrace (sformat
             ("handleRetrievalE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash cHeader)) e
 
@@ -153,24 +156,24 @@ retrievalWorker pm txpConfig diffusion = do
     -- again.
     handleRecoveryE nodeId rHeader e = do
         -- REPORT:ERROR 'reportOrLogW' in block retrieval worker/recovery.
-        reportOrLogW (sformat
+        reportOrLogW logTrace (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash rHeader)) e
-        dropRecoveryHeaderAndRepeat pm diffusion nodeId
+        dropRecoveryHeaderAndRepeat logTrace pm diffusion nodeId
 
     -- Recovery handling. We assume that header in the recovery variable is
     -- appropriate and just query headers/blocks.
     handleRecovery :: NodeId -> BlockHeader -> m ()
     handleRecovery nodeId rHeader = do
-        logDebug "Block retrieval queue is empty and we're in recovery mode,\
+        logDebug logTrace "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will fetch more blocks"
         whenM (fmap isJust $ DB.getHeader $ headerHash rHeader) $
             -- How did we even got into recovery then?
             throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
                                         "already present in db"
-        logDebug "handleRecovery: fetching blocks"
+        logDebug logTrace "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ streamProcessBlocks pm txpConfig diffusion nodeId (headerHash rHeader) checkpoints
+        void $ streamProcessBlocks logTrace0 pm txpConfig diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -193,12 +196,13 @@ data UpdateRecoveryResult ssc
 -- indefinitely.
 updateRecoveryHeader
     :: BlockWorkMode ctx m
-    => NodeId
+    => TraceNamed m
+    -> NodeId
     -> BlockHeader
     -> m ()
-updateRecoveryHeader nodeId hdr = do
+updateRecoveryHeader logTrace nodeId hdr = do
     recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-    logDebug "Updating recovery header..."
+    logDebug logTrace "Updating recovery header..."
     updated <- atomically $ do
         mbRecHeader <- tryReadTMVar recHeaderVar
         case mbRecHeader of
@@ -211,7 +215,7 @@ updateRecoveryHeader nodeId hdr = do
                     then swapTMVar recHeaderVar (nodeId, hdr) $>
                          RecoveryShifted oldNodeId oldHdr nodeId hdr
                     else return $ RecoveryContinued oldNodeId oldHdr
-    logDebug $ case updated of
+    logDebug logTrace $ case updated of
         RecoveryStarted rNodeId rHeader -> sformat
             ("Recovery started with nodeId="%build%" and tip="%build)
             rNodeId
@@ -237,9 +241,10 @@ updateRecoveryHeader nodeId hdr = do
 -- So, @nodeId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
     :: BlockWorkMode ctx m
-    => NodeId
+    => TraceNamed m
+    -> NodeId
     -> m Bool
-dropRecoveryHeader nodeId = do
+dropRecoveryHeader logTrace nodeId = do
     recHeaderVar <- view (lensOf @RecoveryHeaderTag)
     (kicked,realPeer) <- atomically $ do
         let processKick (peer,_) = do
@@ -247,29 +252,31 @@ dropRecoveryHeader nodeId = do
                 when p $ void $ tryTakeTMVar recHeaderVar
                 pure (p, Just peer)
         maybe (pure (True,Nothing)) processKick =<< tryReadTMVar recHeaderVar
-    when kicked $ logWarning $
+    when kicked $ logWarning logTrace $
         sformat ("Recovery mode communication dropped with peer "%build) nodeId
     unless kicked $
-        logDebug $ "Recovery mode wasn't disabled: " <>
+        logDebug logTrace $ "Recovery mode wasn't disabled: " <>
                    maybe "noth" show realPeer <> " vs " <> show nodeId
     pure kicked
 
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
-    :: BlockWorkMode ctx m => ProtocolMagic -> Diffusion m -> NodeId -> m ()
-dropRecoveryHeaderAndRepeat pm diffusion nodeId = do
-    kicked <- dropRecoveryHeader nodeId
+    :: BlockWorkMode ctx m
+    => TraceNamed m
+    -> ProtocolMagic -> Diffusion m -> NodeId -> m ()
+dropRecoveryHeaderAndRepeat logTrace pm diffusion nodeId = do
+    kicked <- dropRecoveryHeader logTrace nodeId
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
-        logDebug "Attempting to restart recovery"
+        logDebug logTrace "Attempting to restart recovery"
         -- FIXME why delay? Why 2 seconds?
         delay (2 :: Second)
-        handleAny handleRecoveryTriggerE $ triggerRecovery pm diffusion
-        logDebug "Attempting to restart recovery over"
+        handleAny handleRecoveryTriggerE $ triggerRecovery logTrace pm diffusion
+        logDebug logTrace "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
-        reportOrLogE $ "Exception happened while trying to trigger " <>
+        reportOrLogE logTrace $ "Exception happened while trying to trigger " <>
                        "recovery inside dropRecoveryHeaderAndRepeat: "
 
 -- Returns only if blocks were successfully downloaded and
@@ -279,14 +286,16 @@ getProcessBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-getProcessBlocks pm txpConfig diffusion nodeId desired checkpoints = do
+getProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints = do
+    let logTrace' = natTrace liftIO logTrace
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
     case OldestFirst <$> nonEmpty (getOldestFirst result) of
       Nothing -> do
@@ -296,10 +305,10 @@ getProcessBlocks pm txpConfig diffusion nodeId desired checkpoints = do
           throwM $ DialogUnexpected msg
       Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-          logDebug $ sformat
+          logDebug logTrace' $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks pm txpConfig blocks diffusion
+          handleBlocks logTrace pm txpConfig blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.
@@ -315,7 +324,7 @@ getProcessBlocks pm txpConfig diffusion nodeId desired checkpoints = do
                   then isJust <$> tryTakeTMVar recHeaderVar
                   else pure False
           when exitedRecovery $
-              logInfo "Recovery mode exited gracefully on receiving block we needed"
+              logInfo logTrace' "Recovery mode exited gracefully on receiving block we needed"
 
 -- Attempts to catch up by streaming blocks from peer.
 -- Will fall back to getProcessBlocks if streaming is disabled
@@ -325,25 +334,27 @@ streamProcessBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-streamProcessBlocks pm txpConfig diffusion nodeId desired checkpoints = do
-    logInfo "streaming start"
+streamProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints = do
+    logInfo logTrace' "streaming start"
     r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
     case r of
          Nothing -> do
-             logInfo "streaming not supported, reverting to batch mode"
-             getProcessBlocks pm txpConfig diffusion nodeId desired checkpoints
+             logInfo logTrace' "streaming not supported, reverting to batch mode"
+             getProcessBlocks logTrace pm txpConfig diffusion nodeId desired checkpoints
          Just _  -> do
-             logInfo "streaming done"
+             logInfo logTrace' "streaming done"
              return ()
   where
+    logTrace' = natTrace liftIO logTrace
     writeCallback :: [Block] -> m ()
     writeCallback [] = return ()
     writeCallback (block:blocks) =
-        handleBlocks pm txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion
+        handleBlocks logTrace pm txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion

@@ -37,6 +37,7 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                      unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
@@ -131,7 +132,7 @@ subscribeAddrProp =
             let connState = mkSubConnectionState socketId
             let cAddr = toCAddress addr
             let subscription = runSubTestMode connState $
-                                  subscribeAddr cAddr socketId
+                                  subscribeAddr noTrace cAddr socketId
 
             (_, updatedConnState) <- run subscription
 
@@ -152,11 +153,11 @@ unsubscribeAddrProp =
             let connState = mkSubConnectionState socketId
             -- Add a subscription first ...
             let subscription = runSubTestMode connState $
-                                  subscribeAddr cAddr socketId
+                                  subscribeAddr noTrace cAddr socketId
             (_, updatedConnState) <- run subscription
             -- ... and remove subscription
             let unsubscription = runSubTestMode updatedConnState $
-                                    unsubscribeAddr socketId
+                                    unsubscribeAddr noTrace socketId
             (_, updatedConnState') <- run unsubscription
 
             -- get sessions of `Address` subscribers
@@ -171,7 +172,7 @@ subscribeBlocksLastPageProp =
         monadicIO $ do
             let connState = mkSubConnectionState socketId
             let subscription = runSubTestMode connState $
-                                    subscribeBlocksLastPage socketId
+                                    subscribeBlocksLastPage noTrace socketId
 
             (_, updatedConnState) <- run subscription
 
@@ -187,11 +188,11 @@ unsubscribeBlocksLastPageProp =
             let connState = mkSubConnectionState socketId
             -- add a subscription ...
             let subscription = runSubTestMode connState $
-                                    subscribeBlocksLastPage socketId
+                                    subscribeBlocksLastPage noTrace socketId
             (_, updatedConnState) <- run subscription
             -- and unsubscribe it
             let unsubscription = runSubTestMode updatedConnState $
-                                    unsubscribeBlocksLastPage socketId
+                                    unsubscribeBlocksLastPage noTrace socketId
             (_, updatedConnState') <- run unsubscription
 
             -- get sessions of "block last page" subscribers
@@ -206,7 +207,7 @@ subscribeTxsProp =
         monadicIO $ do
             let connState = mkSubConnectionState socketId
             let subscription = runSubTestMode connState $
-                                    subscribeTxs socketId
+                                    subscribeTxs noTrace socketId
 
             (_, updatedConnState) <- run subscription
 
@@ -223,11 +224,11 @@ unsubscribeTxsProp =
             -- add a subscription ...
             let connState = mkSubConnectionState socketId
             let subscription = runSubTestMode connState $
-                                    subscribeTxs socketId
+                                    subscribeTxs noTrace socketId
             (_, updatedConnState) <- run subscription
             -- .. and unsubscribe it
             let unsubscription = runSubTestMode updatedConnState $
-                                    unsubscribeTxs socketId
+                                    unsubscribeTxs noTrace socketId
             (_, updatedConnState') <- run unsubscription
             -- get sessions of "tx" subscribers
             let sessions = updatedConnState' ^. csTxsSubscribers
@@ -241,7 +242,7 @@ subscribeEpochsLastPageProp =
         monadicIO $ do
             let connState = mkSubConnectionState socketId
             let subscription = runSubTestMode connState $
-                                    subscribeEpochsLastPage socketId
+                                    subscribeEpochsLastPage noTrace socketId
 
             (_, updatedConnState) <- run subscription
 
@@ -258,11 +259,11 @@ unsubscribeEpochsLastPageProp =
             let connState = mkSubConnectionState socketId
             -- Add a subscription ...
             let subscription = runSubTestMode connState $
-                                    subscribeEpochsLastPage socketId
+                                    subscribeEpochsLastPage noTrace socketId
             (_, updatedConnState) <- run subscription
             -- and unsubscribe it
             let unsubscription = runSubTestMode updatedConnState $
-                                      unsubscribeEpochsLastPage socketId
+                                      unsubscribeEpochsLastPage noTrace socketId
             (_, updatedConnState') <- run unsubscription
 
             -- get sessions of "epoch last page" subscribers
@@ -278,24 +279,24 @@ unsubscribeFullyProp =
             -- create `Address` subscription
             let connState = mkSubConnectionState socketId
             let subscriptionA = runSubTestMode connState $
-                                  subscribeAddr cAddr socketId
+                                  subscribeAddr noTrace cAddr socketId
             (_, connStateA) <- run subscriptionA
             -- create `Txs` subscription
             let subscriptionB = runSubTestMode connStateA $
-                                  subscribeTxs socketId
+                                  subscribeTxs noTrace socketId
             (_, connStateB) <- run subscriptionB
             -- create `blocks last page` subscription
             let subscriptionC = runSubTestMode connStateB $
-                                  unsubscribeBlocksLastPage socketId
+                                  unsubscribeBlocksLastPage noTrace socketId
             (_, connStateC) <- run subscriptionC
             -- create `epochs last page` subscription
             let subscriptionD = runSubTestMode connStateC $
-                                  subscribeEpochsLastPage socketId
+                                  subscribeEpochsLastPage noTrace socketId
             (_, connStateD) <- run subscriptionD
 
             -- unsubscribe all
             let unsubscription = runSubTestMode connStateD $
-                                    unsubscribeFully socketId
+                                    unsubscribeFully noTrace socketId
             (_, connStateFinal) <- run unsubscription
 
             -- get all sessions of subscribers

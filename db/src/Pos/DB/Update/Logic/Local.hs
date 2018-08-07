@@ -29,8 +29,7 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
-import           System.Wlog (WithLogger, logWarning)
-import           UnliftIO (MonadUnliftIO)
+import           UnliftIO (MonadUnliftIO, UnliftIO (..), askUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
@@ -58,13 +57,13 @@ import           Pos.DB.Update.Poll.DBPoll (runDBPoll)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyUSPayload)
 import           Pos.DB.Update.Poll.Logic.Normalize (filterProposalsByThd,
                      normalizePoll, refreshPoll)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning, natTrace)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 type USLocalLogicMode ctx m =
     ( MonadIO m
     , MonadDBRead m
     , MonadUnliftIO m
-    , WithLogger m
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLrcContext ctx
@@ -126,10 +125,11 @@ processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> UpdatePayload
     -> m (Either PollVerFailure ())
-processSkeleton pm payload =
+processSkeleton logTrace pm payload =
     reportUnexpectedError $
     withUSLock $
     runExceptT $
@@ -146,17 +146,19 @@ processSkeleton pm payload =
             let err = PollTipMismatch msTip dbTip
             throwError err
         maxBlockSize <- bvdMaxBlockSize <$> lift DB.getAdoptedBVData
+        un <- lift askUnliftIO
         msIntermediate <-
             -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
-            if | maxBlockSize * 2 <= mpSize msPool -> lift (refreshMemPool ms)
+            if | maxBlockSize * 2 <= mpSize msPool -> lift (refreshMemPool (natTrace (unliftIO un) logTrace) ms)
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where
     processSkeletonDo ms@MemState {..} = do
+        un <- lift askUnliftIO
         modifierOrFailure <-
             lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
                 lastAdopted <- getAdoptedBV
-                verifyAndApplyUSPayload pm lastAdopted True (Left msSlot) payload
+                verifyAndApplyUSPayload (natTrace (unliftIO un) logTrace) pm lastAdopted True (Left msSlot) payload
         case modifierOrFailure of
             Left failure -> throwError failure
             Right modifier -> do
@@ -170,14 +172,14 @@ refreshMemPool
        , MonadUnliftIO m
        , MonadReader ctx m
        , HasLrcContext ctx
-       , WithLogger m
        , HasUpdateConfiguration
        )
-    => MemState -> m MemState
-refreshMemPool ms@MemState {..} = do
+    => TraceNamed IO
+    -> MemState -> m MemState
+refreshMemPool logTrace ms@MemState {..} = do
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
-        runDBPoll . runPollT def $ refreshPoll msSlot mpProposals mpLocalVotes
+        runDBPoll . runPollT def $ refreshPoll logTrace msSlot mpProposals mpLocalVotes
     let newPool =
             MemPool
             { mpProposals = newProposals
@@ -219,8 +221,9 @@ processProposal
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => ProtocolMagic -> UpdateProposal -> m (Either PollVerFailure ())
-processProposal pm proposal = processSkeleton pm $ UpdatePayload (Just proposal) []
+    => TraceNamed m
+    -> ProtocolMagic -> UpdateProposal -> m (Either PollVerFailure ())
+processProposal logTrace pm proposal = processSkeleton logTrace pm $ UpdatePayload (Just proposal) []
 
 ----------------------------------------------------------------------------
 -- Votes
@@ -270,8 +273,9 @@ processVote
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => ProtocolMagic -> UpdateVote -> m (Either PollVerFailure ())
-processVote pm vote = processSkeleton pm $ UpdatePayload Nothing [vote]
+    => TraceNamed m
+    -> ProtocolMagic -> UpdateVote -> m (Either PollVerFailure ())
+processVote logTrace pm vote = processSkeleton logTrace pm $ UpdatePayload Nothing [vote]
 
 ----------------------------------------------------------------------------
 -- Normalization and related
@@ -281,11 +285,14 @@ processVote pm vote = processSkeleton pm $ UpdatePayload Nothing [vote]
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'stateLock' is taken.
-usNormalize :: USLocalLogicMode ctx m => m ()
-usNormalize = do
+usNormalize
+    :: USLocalLogicMode ctx m
+    => TraceNamed IO
+    -> m ()
+usNormalize logTrace = do
     tip <- DB.getTip
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
-    atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
+    atomically . writeTVar stateVar =<< usNormalizeDo logTrace (Just tip) Nothing
 
 -- Normalization under lock.  Note that here we don't care whether tip
 -- in mempool is the same as the one is DB, because we take payload
@@ -293,13 +300,14 @@ usNormalize = do
 -- GState.
 usNormalizeDo
     :: USLocalLogicMode ctx m
-    => Maybe HeaderHash -> Maybe SlotId -> m MemState
-usNormalizeDo tip slot = do
+    => TraceNamed IO
+    -> Maybe HeaderHash -> Maybe SlotId -> m MemState
+usNormalizeDo logTrace tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms@MemState {..} <- readTVarIO stateVar
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
-        runDBPoll . runPollT def $ normalizePoll msSlot mpProposals mpLocalVotes
+      runDBPoll . runPollT def $ normalizePoll logTrace msSlot mpProposals mpLocalVotes
     let newTip = fromMaybe msTip tip
     let newSlot = fromMaybe msSlot slot
     let newPool =
@@ -318,15 +326,23 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: USLocalLogicModeWithLock ctx m => SlotId -> m ()
-processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
+processNewSlot
+    :: USLocalLogicModeWithLock ctx m
+    => TraceNamed m
+    -> SlotId -> m ()
+processNewSlot logTrace slotId = do
+    un <- askUnliftIO
+    withUSLock $ processNewSlotNoLock (natTrace (unliftIO un) logTrace) slotId
 
-processNewSlotNoLock :: USLocalLogicMode ctx m => SlotId -> m ()
-processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
+processNewSlotNoLock
+    :: USLocalLogicMode ctx m
+    => TraceNamed IO
+    -> SlotId -> m ()
+processNewSlotNoLock logTrace slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
        | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}
-       | otherwise -> usNormalizeDo Nothing (Just slotId)
+       | otherwise -> usNormalizeDo logTrace Nothing (Just slotId)
 
 -- | Prepare UpdatePayload for inclusion into new block with given
 -- SlotId based on given tip.  This function assumes that
@@ -339,18 +355,19 @@ processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
 -- If we can't obtain payload for block creation, we use empty
 -- payload, because it's important to create blocks for system
 -- maintenance (empty blocks are better than no blocks).
-usPreparePayload ::
-       USLocalLogicMode ctx m
-    => HeaderHash
+usPreparePayload
+    :: forall m ctx. (MonadIO m, USLocalLogicMode ctx m)
+    => TraceNamed IO
+    -> HeaderHash
     -> SlotId
     -> m UpdatePayload
-usPreparePayload neededTip slotId@SlotId{..} = do
+usPreparePayload logTrace neededTip slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
     -- anyway.  In normal cases 'processNewSlot' can't fail here
     -- because of tip mismatch, because we are under 'stateLock'.
-    processNewSlotNoLock slotId
+    processNewSlotNoLock logTrace slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra
     -- precaution. We also do it because here we need to eliminate all
@@ -361,18 +378,18 @@ usPreparePayload neededTip slotId@SlotId{..} = do
   where
     preparePayloadDo = do
         -- Normalization is done just in case, as said before
-        MemState {..} <- usNormalizeDo Nothing (Just slotId)
+        MemState {..} <- usNormalizeDo logTrace Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
         if | msSlot /= slotId -> def <$
-               logWarning (sformat slotMismatchFmt msSlot slotId)
+               logWarning (natTrace liftIO logTrace) (sformat slotMismatchFmt msSlot slotId)
            | msTip /= neededTip -> def <$
-               logWarning (sformat tipMismatchFmt msTip neededTip)
+               logWarning (natTrace liftIO logTrace) (sformat tipMismatchFmt msTip neededTip)
            | otherwise -> do
                -- Here we remove proposals which don't have enough
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
                (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
-                   filterProposalsByThd siEpoch mpProposals
+                   filterProposalsByThd logTrace siEpoch mpProposals
                runDBPoll . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%
@@ -387,7 +404,8 @@ usPreparePayload neededTip slotId@SlotId{..} = do
 -- all votes for other proposals.
 finishPrepare
     :: MonadPoll m
-    => HashSet UpId -> UpdateProposals -> LocalVotes -> m UpdatePayload
+    => HashSet UpId -> UpdateProposals -> LocalVotes
+    -> m UpdatePayload
 finishPrepare badProposals proposals votes = do
     proposalPair <- foldM findProposal Nothing $ HM.toList proposals
     mapM_ (deactivate (fst <$> proposalPair)) $ HM.toList proposals

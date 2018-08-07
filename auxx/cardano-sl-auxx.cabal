@@ -4,8 +4,9 @@ synopsis:            Cardano SL - Auxx
 description:         Cardano SL - Auxx
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -66,7 +67,6 @@ library
                      , haskeline
                      , lens
                      , loc
-                     , log-warper
                      , megaparsec
                      , mtl
                      , neat-interpolation
@@ -134,7 +134,6 @@ executable cardano-auxx
                      , cardano-sl-networking
                      , cardano-sl-chain
                      , cardano-sl-util
-                     , log-warper
                      , temporary
                      , network-transport-tcp
                      , safe-exceptions

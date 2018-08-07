@@ -37,6 +37,7 @@ import           Pos.Context (ConnectedPeers (..), NodeContext (..),
 import           Pos.Core (HasConfiguration, Timestamp, genesisData)
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
+import           Pos.Core.StateLock (newStateLock)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Block (mkSlogContext)
 import           Pos.DB.Delegation (mkDelegationVar)

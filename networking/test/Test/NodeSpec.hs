@@ -16,7 +16,7 @@ import           Control.Concurrent.Async (wait, withAsync)
 import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar,
                      takeMVar)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Exception (catch, throwIO)
+import           Control.Exception (handle, throwIO)
 import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, unless, when)
 import           Control.Monad.IO.Class (liftIO)
@@ -35,17 +35,20 @@ import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
 
 import           Node
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (wlogTrace)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Trace.Named (appendName, setupLogging)
 import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
                      TestState, deliveryTest, expected, makeInMemoryTransport,
                      makeTCPTransport, mkTestState, modifyTestState,
                      receiveAll, sendAll, timeout)
 
+{-# ANN module ("HLint: ignore Redundant seq" :: String) #-}
+
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
-    let logTrace = wlogTrace ""
-
+    let
         -- Take at most 25000 bytes for each Received message.
         -- We want to ensure that the MTU works, but not make the tests too
         -- painfully slow.
@@ -72,6 +75,8 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
             ]
         nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }
 
+    logTrace <- runIO $ setupLogging (defaultTestConfiguration Log.Debug) "nodespec"
+
     forM_ transports $ \(name, mkTransport) -> do
 
         transport <- mkTransport
@@ -95,13 +100,13 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                                 return ()
 
-                let server = node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
+                let server = node (appendName "peer/server" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
                         NodeAction (const [listener]) $ \_converse -> do
                             putMVar serverAddressVar (nodeId _node)
                             takeMVar clientFinished
                             putMVar serverFinished ()
 
-                let client = node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) clientGen binaryPacking ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
+                let client = node (appendName "peer/client" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) clientGen binaryPacking ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
                         NodeAction (const [listener]) $ \converse -> do
                             serverAddress <- readMVar serverAddressVar
                             forM_ [1..attempts] $ \i -> converseWith converse serverAddress $ \peerData -> Conversation $ \cactions -> do
@@ -140,7 +145,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 _ <- send cactions (Parcel i (Payload 32))
                                 return ()
 
-                node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
+                node (appendName "self" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
                     NodeAction (const [listener]) $ \converse -> do
                         forM_ [1..attempts] $ \i -> converseWith converse (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
                             unless (peerData == ("some string", 42)) (error "bad peer data")
@@ -174,10 +179,10 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                         handleThreadKilled Timeout = do
                             --liftIO . putStrLn $ "Thread killed successfully!"
                             return ()
-                    node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
+                    node (appendName "ack" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
                         NodeAction (const []) $ \converse -> do
                             timeout "client waiting for ACK" 5000000 $
-                                flip catch handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
+                                handle handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
                                     _ :: Maybe Parcel <- recv cactions maxBound
                                     send cactions (Parcel 0 (Payload 32))
                                     return ()

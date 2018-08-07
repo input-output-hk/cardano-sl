@@ -249,6 +249,7 @@ extra-deps:
 # Good bug fixes in here.
 - criterion-1.4.0.0
 
+- katip-0.5.5.1
 # Fix for a space leak: https://github.com/chrisdone/formatting/pull/44
 - formatting-6.3.6
 
@@ -261,15 +262,16 @@ extra-deps:
 - hspec-discover-2.5.1
 
 # Graphics stuff not found on stackage.
-- Chart-diagrams-1.8.2
+- Chart-diagrams-1.8.3
 - graphviz-2999.19.0.0
 - diagrams-core-1.4.1.1
-- diagrams-lib-1.4.2
-- diagrams-postscript-1.4
-- diagrams-svg-1.4.1.1
+- diagrams-lib-1.4.2.2
+- diagrams-postscript-1.4.1
+- diagrams-svg-1.4.2
 - diagrams-solve-0.1.1
 - SVGFonts-1.6.0.3
 - dual-tree-0.2.1
+- fgl-5.5.4.0
 
 # Support for wallet's Txmeta tracking
 - sqlite-simple-errors-0.6.1.0

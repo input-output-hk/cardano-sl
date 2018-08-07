@@ -31,7 +31,6 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, sformat, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
-import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Txp (GenesisUtxo (..), utxoToStakes)
@@ -45,6 +44,7 @@ import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB,
 import           Pos.DB.GState.Common (gsPutBi)
 import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey,
                      getRealTotalStake)
+import           Pos.Util.Trace.Named (TraceNamed, logError)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -107,9 +107,10 @@ getAllPotentiallyHugeStakesMap =
 ----------------------------------------------------------------------------
 
 sanityCheckStakes
-    :: (MonadDBRead m, MonadUnliftIO m, WithLogger m)
-    => m ()
-sanityCheckStakes = do
+    :: (MonadDBRead m, MonadUnliftIO m)
+    => TraceNamed m
+    -> m ()
+sanityCheckStakes logTrace = do
     calculatedTotalStake <- runConduitRes $
         mapOutput snd stakeSource .|
         CL.fold unsafeAddCoin (mkCoin 0)
@@ -120,7 +121,7 @@ sanityCheckStakes = do
               ", but getRealTotalStake returned: "%coinF)
     let msg = sformat fmt calculatedTotalStake totalStake
     unless (calculatedTotalStake == totalStake) $ do
-        logError $ colorize Red msg
+        logError logTrace $ colorize Red msg
         throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------

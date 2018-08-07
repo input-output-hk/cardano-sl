@@ -13,7 +13,6 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (FullRichmenData)
@@ -38,7 +37,6 @@ runDBPoll = coerce
 instance ( MonadIO m
          , MonadDBRead m
          , MonadUnliftIO m
-         , WithLogger m
          , MonadReader ctx m
          , HasLrcContext ctx
          , HasUpdateConfiguration

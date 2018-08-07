@@ -1132,8 +1132,8 @@ And build the following block:
 \item[delegation certificates] The list of delegation certificate is
   set to be the entire delegation mempool (see
   Section~\ref{sec:entering-mempool}).\unsure{Limited by block size?}
-\item[seed computation] The list of seed computation messages is set
-  to be the entire seed mempool (see
+\item[seed computation] The seed computation message is set
+  to be the content of the seed mempool (see
   Section~\ref{sec:entering-mempool}).\unsure{Limited by block size?}\unsure{There is probably an issue here where the mempool contains previously correct delegation messages, but the appropriate phase has since passed.}
 \end{record}
 \improvement{TODO: updates and where they come from}
@@ -1163,8 +1163,8 @@ Let $b₁,…,b_m$ be the selected chain. The mempool is a tuple comprised of:
 \begin{description}
 \item[transaction mempool] a list of transaction
 \item[delegation mempool] a list of delegation certificates
-\item[seed mempool] a list of seed computation messages, all of the
-  same type (either commitments, openings, or recovery)
+\item[seed mempool] a seed computation message (either nothing of one
+  of a commitment message, an opening message, or a recovery message)
 \end{description}
 
 \subsection{Transaction mempool}
@@ -1275,7 +1275,41 @@ $∀1⩽i⩽n. \delegator{c}≠\delegator{c_i}$.
 \subsection{Seed mempool}
 \label{sec:seed-mempool}
 
-\improvement{TODO}
+A seed computation message $m$ is a valid extension of a seed mempool $m_0$ if
+\begin{itemize}
+\item $m_0$ is empty, in which case the extended seed mempool is $m$.
+\item $m_0$ is a commitment of domain $U$, and $m$ is a commitment of domain $V$, and
+    \begin{description}
+    \item[Commitment phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\commitphase$.
+    \item[Richmen] We must have
+      $U⊆\richmen{\delegations{b_1,…,b_n}}{\currentdistribution{b_1,…,b_n}}$.
+    \item[Valid] For every $a∈V$, let $(m,p) = f(a)$, we must have
+      $m=p$.
+    \item[Fresh] Let $W$ be the domain of $\epochcommitments{b_1,…,b_n}$,
+      we must have $U∩V=∅$ and $W∩V=∅$.
+    \end{description}
+    Then the extended pool is $m_0 ⊎ m$.
+\item $m_0$ is an open of support $U$, and $m$ is an open of support $U$, and
+    \begin{description}
+    \item[Opening phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\openphase$.
+    \item[Valid] We must have that $m ⊆ π_1 ∘
+      \epochcommitments{b_1,…,b_n}$.
+    \item[Fresh] Let $W$ be the domain of $\epochopens{b_1,…,b_n}$,
+      we must have $U∩V=∅$ and $W∩V=∅$.
+    \end{description}
+    Then the extended pool is $m_0 ⊎ m$.
+\item $m_0$ is a recovery of support $U$, and $m$ is a recovery of support V, and
+    \begin{description}
+    \item[Recovery phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\recoveryphase$.
+    \item[Valid] For every $a∈V$, we must have that $r(a) = (π_1 ∘ \epochcommitments{b_1,…,b_n})⧵(\epochopens{b_1,…,b_n}⊎m_0)$.
+    \item[Fresh] Let $W$ be the domain of $\epochrecoveries{b_1,…,b_n}$,
+      we must have $U∩V=∅$ and $W∩V=∅$.
+    \end{description}
+    Then the extended pool is $m_0 ⊎ m$.
+\end{itemize}
 
 \section{Selecting the longest chain}
 \label{sec:chain-selection}

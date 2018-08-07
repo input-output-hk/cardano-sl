@@ -23,7 +23,6 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
-import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys,
                      MonadKeysRead, addSecretKey, getSecretKeys,
@@ -43,7 +42,6 @@ import           Pos.Wallet.Web.State (AddressLookupMode (Ever),
 
 type AccountMode ctx m =
     ( MonadThrow m
-    , WithLogger m
     , MonadKeysRead m
     , MonadIO m
     )

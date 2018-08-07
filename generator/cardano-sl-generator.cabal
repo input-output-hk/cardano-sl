@@ -4,8 +4,9 @@ synopsis:            Cardano SL - arbitrary data generation
 description:         Cardano SL - arbitrary data generation
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
@@ -55,7 +56,6 @@ library
                      , exceptions
                      , formatting
                      , lens
-                     , log-warper
                      , monad-control
                      , random
                      , safe-exceptions
@@ -204,7 +204,6 @@ benchmark cardano-sl-verification-bench
                       , data-default
                       , ether
                       , lens
-                      , log-warper
                       , lrucache
                       , MonadRandom
                       , mtl
@@ -276,7 +275,6 @@ executable cardano-sl-verification-bench-exe
                       , ether
                       , formatting
                       , lens
-                      , log-warper
                       , lrucache
                       , MonadRandom
                       , mtl

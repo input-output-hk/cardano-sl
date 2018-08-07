@@ -7,9 +7,9 @@
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
-, walletListen ? "localhost:8090"
-, walletDocListen ? "localhost:8091"
-, ekgListen ? "localhost:8000"
+, walletListen ? "127.0.0.1:8090"
+, walletDocListen ? "127.0.0.1:8091"
+, ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , confFile ? null

@@ -9,7 +9,6 @@ import           Data.Maybe (fromMaybe)
 import           Formatting (sformat, shown, (%))
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
-import           System.Wlog (LoggerName, logInfo)
 
 import           Ntp.Client (NtpConfiguration)
 
@@ -25,11 +24,16 @@ import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
                      topologyDequeuePolicy, topologyEnqueuePolicy,
                      topologyFailurePolicy)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
-                     NodeResources (..), bracketNodeResources, loggerBracket,
-                     lpConsoleLog, runNode, runRealMode, withConfigurations)
+                     NodeResources (..), bracketNodeResources, lpConsoleLog,
+                     runNode, runRealMode, withConfigurations)
+import           Pos.Launcher.Resource (getRealLoggerConfig)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
+import           Pos.Util.Log (LoggerName, loggerBracket, setupLogging)
+import           Pos.Util.Trace (natTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo,
+                     namedTrace)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
@@ -44,16 +48,16 @@ loggerName = "auxx"
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
-correctNodeParams :: AuxxOptions -> NodeParams -> IO (NodeParams, Bool)
-correctNodeParams AuxxOptions {..} np = do
+correctNodeParams :: TraceNamed IO -> AuxxOptions -> NodeParams -> IO (NodeParams, Bool)
+correctNodeParams logTrace AuxxOptions {..} np = do
     (dbPath, isTempDbUsed) <- case npDbPathM np of
         Nothing -> do
             tempDir <- Temp.getCanonicalTemporaryDirectory
             dbPath <- Temp.createTempDirectory tempDir "nodedb"
-            logInfo $ sformat ("Temporary db created: "%shown) dbPath
+            logInfo logTrace $ sformat ("Temporary db created: "%shown) dbPath
             return (dbPath, True)
         Just dbPath -> do
-            logInfo $ sformat ("Supplied db used: "%shown) dbPath
+            logInfo logTrace $ sformat ("Supplied db used: "%shown) dbPath
             return (dbPath, False)
     let np' = np
             { npNetworkConfig = networkConfig
@@ -75,37 +79,49 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> NodeResources EmptyMempoolExt
     -> (Diffusion AuxxMode -> AuxxMode ())
     -> Diffusion AuxxMode -> AuxxMode ()
-runNodeWithSinglePlugin pm txpConfig nr plugin =
-    runNode pm txpConfig nr [plugin]
+runNodeWithSinglePlugin logTrace pm txpConfig nr plugin =
+    runNode (natTrace liftIO logTrace) pm txpConfig nr [plugin]
 
-action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> IO ()
-action opts@AuxxOptions {..} command = do
+action
+    :: HasCompileInfo
+    => TraceNamed IO
+    -> AuxxOptions
+    -> Either WithCommandAction Text
+    -> IO ()
+action logTrace opts@AuxxOptions {..} command = do
     let pa = either printAction (const putText) command
     case aoStartMode of
         Automatic
             ->
                 handle @_ @ConfigurationException (\_ -> runWithoutNode pa)
               . handle @_ @ConfigurationError (\_ -> runWithoutNode pa)
-              $ withConfigurations Nothing conf (runWithConfig pa)
+              $ withConfigurations logTrace Nothing conf (runWithConfig pa)
         Light
             -> runWithoutNode pa
-        _   -> withConfigurations Nothing conf (runWithConfig pa)
+        _   -> withConfigurations logTrace Nothing conf (runWithConfig pa)
 
   where
     runWithoutNode :: PrintAction IO -> IO ()
-    runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing Nothing opts Nothing command
+    runWithoutNode printAction = printAction "Mode: light"
+        >> rawExec logTrace Nothing Nothing Nothing opts Nothing command
 
-    runWithConfig :: HasConfigurations => PrintAction IO -> ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> IO ()
+    runWithConfig
+        :: HasConfigurations
+        => PrintAction IO
+        -> ProtocolMagic
+        -> TxpConfiguration -> NtpConfiguration
+        -> IO ()
     runWithConfig printAction pm txpConfig ntpConfig = do
         printAction "Mode: with-config"
-        CLI.printInfoOnStart aoCommonNodeArgs ntpConfig txpConfig
+        CLI.printInfoOnStart logTrace aoCommonNodeArgs ntpConfig txpConfig
         (nodeParams, tempDbUsed) <-
-            correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
+            correctNodeParams logTrace opts =<< CLI.getNodeParams loggerName cArgs nArgs
 
         let toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
@@ -119,13 +135,15 @@ action opts@AuxxOptions {..} command = do
                               (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
-        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \nr ->
+        bracketNodeResources logTrace nodeParams sscParams
+                             (txpGlobalSettings pm txpConfig)
+                             (initNodeDBs pm epochSlots) $ \nr ->
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
-                           then runNodeWithSinglePlugin pm txpConfig nr
+                           then runNodeWithSinglePlugin logTrace pm txpConfig nr
                            else identity
-                auxxModeAction = modifier (auxxPlugin pm txpConfig opts command)
-             in runRealMode pm txpConfig nr $ \diffusion ->
+                auxxModeAction = modifier (auxxPlugin (natTrace liftIO logTrace) pm txpConfig opts command)
+             in runRealMode logTrace pm txpConfig nr $ \diffusion ->
                     toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
@@ -147,8 +165,10 @@ main = withCompileInfo $ do
             | otherwise = identity
         loggingParams = disableConsoleLog $
             CLI.loggingParams loggerName (aoCommonNodeArgs opts)
-    loggerBracket loggingParams . logException "auxx" $ do
-        let runAction a = action opts a
+    lh <- setupLogging =<< getRealLoggerConfig loggingParams
+    let logTrace = appendName loggerName $ namedTrace lh
+    loggerBracket lh loggerName . logException loggerName $ do
+        let runAction a = action (natTrace liftIO logTrace) opts a
         case aoAction opts of
-            Repl    -> withAuxxRepl $ \c -> runAction (Left c)
-            Cmd cmd -> runAction (Right cmd)
+            Repl    -> liftIO $ withAuxxRepl $ \c -> runAction (Left c)
+            Cmd cmd -> liftIO $ runAction (Right cmd)

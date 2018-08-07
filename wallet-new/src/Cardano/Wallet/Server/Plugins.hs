@@ -266,22 +266,8 @@ withMiddleware wrm app = do
             responseLBS
                 Http.status429
                 [ ("Content-Type", "application/json") ]
-                (encode (ThrottlingResponse microsTilRetry))
+                (encode (V1.RequestThrottled microsTilRetry))
         }
-
-newtype ThrottlingResponse = ThrottlingResponse Word64
-
-instance ToJSON ThrottlingResponse where
-    toJSON (ThrottlingResponse microsTilRetry) =
-        object
-            [ "status" .= asText "error"
-            , "message" .= asText "Throttled"
-            , "diagnostic" .= object
-                [ ("microsecondsUntilRetry" .= microsTilRetry) ]
-            ]
-      where
-        asText :: Text -> Text
-        asText = id
 
 corsMiddleware :: Middleware
 corsMiddleware = cors (const $ Just policy)

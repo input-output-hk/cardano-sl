@@ -7,9 +7,6 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
-                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
-                     mkSyncThroughput)
 import           Data.Aeson
 import           Data.Aeson.Encoding (pairStr)
 import           Data.Aeson.Types (Value (..), typeMismatch)
@@ -20,6 +17,10 @@ import qualified Network.HTTP.Types as HTTP
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
+                     V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
+                     mkSyncThroughput)
 import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
@@ -89,6 +90,9 @@ data WalletError =
     | NodeIsStillSyncing !SyncPercentage
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
+    | RequestThrottled !Word64
+    -- ^ The request has been throttled. The 'Word64' is a count of microseconds
+    -- until the user should retry.
     deriving (Generic, Show, Eq)
 
 convertTxError :: TxError.TxError -> WalletError
@@ -177,6 +181,13 @@ instance ToJSON WalletError where
         toEncoding $ toJSON weStillRestoring
     toEncoding (NodeIsStillSyncing wenssStillSyncing) =
         toEncoding $ toJSON wenssStillSyncing
+    toEncoding (RequestThrottled microsUntilRetry) =
+        pairs
+            ( "status" .= ErrorStatus
+            <> "message" .= ("RequestThrottled" :: Text)
+            <> "diagnostic" .= object
+                [("microsecondsUntilRetry" .= microsUntilRetry)]
+            )
 
 instance FromJSON WalletError where
     parseJSON (Object o)

@@ -15,9 +15,9 @@ import           Universum hiding (State)
 import           Data.Acid.Advanced (query')
 import           Formatting (sformat, (%))
 import           Serokell.Util (listJson)
-import           System.Wlog (Severity (..))
 
 import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Util.Trace.Named (logError)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, Snapshot (..))
 import           Cardano.Wallet.Kernel.DB.Read as Getters
@@ -41,7 +41,7 @@ getWalletCredentials pw = do
     (creds, missing) <- fmap partitionEithers $
       forM (walletIds snapshot) $ \walletId ->
         aux walletId <$> Keystore.lookup walletId (pw ^. walletKeystore)
-    unless (null missing) $ (pw ^. walletLogMessage) Error (errMissing missing)
+    unless (null missing) $ logError (pw ^. walletLogMessage) (errMissing missing)
     return creds
   where
     aux :: WalletId

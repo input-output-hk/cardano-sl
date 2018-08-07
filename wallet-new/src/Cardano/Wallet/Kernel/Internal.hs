@@ -24,9 +24,9 @@ import           Universum hiding (State)
 
 import           Control.Lens.TH
 import           Data.Acid (AcidState)
-import           System.Wlog (Severity (..))
 
 import           Pos.Core (ProtocolMagic)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.DB.TxMeta
@@ -46,7 +46,7 @@ import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
 --
 data PassiveWallet = PassiveWallet {
       -- | Send log message
-      _walletLogMessage :: Severity -> Text -> IO ()
+      _walletLogMessage :: TraceNamed IO
 
       -- | Logger
     , _walletKeystore   :: Keystore

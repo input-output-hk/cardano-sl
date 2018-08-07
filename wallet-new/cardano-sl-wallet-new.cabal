@@ -2,12 +2,12 @@ name:                cardano-sl-wallet-new
 version:             1.3.0
 synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
-homepage:            https://github.com/input-output-hk/cardano-sl/#readme
-author:              IOHK Engineering Team
-maintainer:          operations@iohk.io
-copyright:           2018 IOHK
 license:             MIT
 license-file:        LICENSE
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
+copyright:           2018 IOHK
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -189,7 +189,6 @@ library
                      , http-types
                      , ixset-typed
                      , lens
-                     , log-warper
                      , memory
                      , mtl
                      , mwc-random
@@ -258,6 +257,10 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -O2
+  if os(darwin)
+      ghc-options:
+                       -optl-Wl,-dead_strip_dylibs
+
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-chain
@@ -269,7 +272,6 @@ executable cardano-node
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , log-warper
                      , stm
                      , text
                      , universum
@@ -301,6 +303,9 @@ executable cardano-generate-swagger-file
                        -Wall
                        -fno-warn-orphans
                        -O2
+  if os(darwin)
+      ghc-options:
+                       -optl-Wl,-dead_strip_dylibs
 
   build-depends:       base
                      , bytestring
@@ -331,6 +336,10 @@ executable wal-integr-test
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -O2
+  if os(darwin)
+      ghc-options:
+                       -optl-Wl,-dead_strip_dylibs
+
   other-modules:       CLI
                        Types
                        Functions
@@ -498,7 +507,6 @@ test-suite wallet-unit-tests
                     , hspec
                     , ixset-typed
                     , lens
-                    , log-warper
                     , mtl
                     , QuickCheck
                     , quickcheck-instances

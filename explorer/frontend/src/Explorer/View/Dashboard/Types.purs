@@ -7,6 +7,7 @@ import Explorer.Types.Actions (Action)
 newtype HeaderOptions = HeaderOptions
     { headline :: String
     , link :: Maybe HeaderLink
+    , icon :: Maybe String
     }
 
 newtype HeaderLink = HeaderLink

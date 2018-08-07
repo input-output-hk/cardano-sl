@@ -73,6 +73,7 @@ apiView state =
         headerOptions lang = HeaderOptions
             { headline: translate (I18nL.common <<< I18nL.cApi) lang
             , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbMoreExamples) lang', action: NoOp }
+            , icon: Nothing
             }
 
 apiTabs :: Language -> Array (Tuple DashboardAPICode ApiTabLabel)

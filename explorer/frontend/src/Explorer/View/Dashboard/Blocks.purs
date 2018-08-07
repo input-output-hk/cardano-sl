@@ -25,7 +25,7 @@ import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (div, table) as S
+import Text.Smolder.HTML (div, table, tbody) as S
 import Text.Smolder.HTML.Attributes (className) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!))
@@ -44,6 +44,7 @@ dashBoardBlocksView state =
           { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang'
           , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreBlocks) lang'
                                     , action: NoOp }
+          , icon: Just "fa-cube"
           }
       lang' = state ^. lang
       hasBlocks = not null $ withDefault [] $ state ^. latestBlocks
@@ -51,7 +52,7 @@ dashBoardBlocksView state =
       blocksView =
           S.table ! S.className "pure-table pure-table-horizontal" $ do
               blocksHeaderView (withDefault [] $ state ^. latestBlocks) lang'
-              for_ (currentBlocks state) (blockRow state)
+              S.tbody $ for_ (currentBlocks state) (blockRow state)
 
 emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =

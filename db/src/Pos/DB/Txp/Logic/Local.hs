@@ -20,12 +20,11 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (mapExceptT, runExceptT, throwError)
-import           Control.Monad.Morph (generalize, hoist)
+import           Control.Monad.Morph (generalize)
+import           Data.Aeson (Value)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
-                     logDebug, logError, logWarning)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
@@ -34,7 +33,6 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      mpLocalTxs, normalizeToil, processTx, topsortTxs,
                      utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
-import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))
@@ -49,7 +47,10 @@ import           Pos.DB.Txp.Logic.Common (buildUtxo)
 import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,
                      getLocalUndos, getMemPool, getTxpExtra, getUtxoModifier,
-                     setTxpLocalData, withTxpLocalData, withTxpLocalDataLog)
+                     setTxpLocalData, withTxpLocalData)
+import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logError, logWarning)
 import           Pos.Util.Util (HasLens')
 
 type TxpProcessTransactionMode ctx m =
@@ -57,17 +58,20 @@ type TxpProcessTransactionMode ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , MempoolExt m ~ ()
-    , CanJsonLog m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: ( TxpProcessTransactionMode ctx m)
-    => ProtocolMagic -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction pm txpConfig itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock pm txpConfig itw
+    :: (TxpProcessTransactionMode ctx m)
+    => TraceNamed m
+    -> Trace m Value -- ^ Json log.
+    -> ProtocolMagic
+    -> TxpConfiguration
+    -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransaction logTrace jsonL pm txpConfig itw = do
+  withStateLock jsonL LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock (appendName "txProc" logTrace) pm txpConfig itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -76,12 +80,13 @@ txProcessTransactionNoLock
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock pm txpConfig =
-    txProcessTransactionAbstract buildContext processTxHoisted
+txProcessTransactionNoLock logTrace pm txpConfig =
+    txProcessTransactionAbstract logTrace buildContext processTxHoisted
   where
     buildContext :: Utxo -> TxAux -> m ()
     buildContext _ _ = pure ()
@@ -97,11 +102,12 @@ txProcessTransactionNoLock pm txpConfig =
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
-    => (Utxo -> TxAux -> m extraEnv)
+    => TraceNamed m
+    -> (Utxo -> TxAux -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> (TxId, TxAux) -> ExceptT ToilVerFailure (ExtendedLocalToilM extraEnv extraState) a)
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+txProcessTransactionAbstract logTrace buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
     -- valid only with respect to the tip stored there. Normally tips
@@ -124,21 +130,21 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
     bvd <- gsAdoptedBVData
     let env = (utxoToLookup utxo, extraEnv)
 
-    pRes <- lift . withTxpLocalDataLog $ \txpData -> do
-        mp <- lift $ getMemPool txpData
-        undo <- lift $ getLocalUndos txpData
-        tip <- lift $ STM.readTVar (txpTip txpData)
-        extra <- lift $ getTxpExtra txpData
-        tm <- hoist generalize $ processTransactionPure bvd epoch env tipDB itw (utxoModifier, mp, undo, tip, extra)
-        forM tm $ lift . setTxpLocalData txpData
+    pRes <- withTxpLocalData $ \txpData -> do
+        mp    <- getMemPool txpData
+        undo  <- getLocalUndos txpData
+        tip   <- STM.readTVar (txpTip txpData)
+        extra <- getTxpExtra txpData
+        tm    <- generalize $ processTransactionPure bvd epoch env tipDB itw (utxoModifier, mp, undo, tip, extra)
+        forM tm $ setTxpLocalData txpData
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
     case pRes of
         Left er -> do
-            logDebug $ sformat ("Transaction processing failed: " %build) txId
+            lift $ logDebug logTrace $ sformat ("Transaction processing failed: " %build) txId
             throwError er
         Right _ ->
-            logDebug
+            lift $ logDebug logTrace
                 (sformat ("Transaction is processed successfully: " %build) txId)
   where
     processTransactionPure
@@ -148,7 +154,7 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
         -> HeaderHash
         -> (TxId, TxAux)
         -> (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState)
-        -> NamedPureLogger Identity (Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState))
+        -> Identity (Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState))
     processTransactionPure bvd curEpoch env tipDB tx (um, mp, undo, tip, extraState)
         | tipDB /= tip = pure . Left $ ToilTipsMismatch tipDB tip
         | otherwise = do
@@ -180,8 +186,8 @@ txNormalize
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => ProtocolMagic -> TxpConfiguration -> m ()
-txNormalize pm txpConfig =
+    => TraceNamed m -> ProtocolMagic -> TxpConfiguration -> m ()
+txNormalize _ pm txpConfig =
     txNormalizeAbstract buildContext $ normalizeToilHoisted
   where
     buildContext :: Utxo -> [TxAux] -> m ()
@@ -221,7 +227,7 @@ txNormalizeAbstract buildEnv normalizeAction =
                         , _ltsUndos = mempty
                         }
             (LocalToilState {..}, newExtraState) <-
-                launchNamedPureLog generalize $
+                generalize $
                 execStateT
                     (runReaderT
                          (normalizeAction bvd epoch localTxs)
@@ -243,8 +249,12 @@ txNormalizeAbstract buildEnv normalizeAction =
 -- mempool normalization whenever we apply/rollback a block. That's
 -- because we can't make them both atomically, i. e. can't guarantee
 -- that either none or both of them will be done.
-txGetPayload :: (MonadIO m, MonadTxpMem ext ctx m, WithLogger m) => HeaderHash -> m [TxAux]
-txGetPayload neededTip = do
+txGetPayload
+    :: (MonadIO m, MonadTxpMem ext ctx m)
+    => TraceNamed m
+    -> HeaderHash
+    -> m [TxAux]
+txGetPayload logTrace neededTip = do
     (view mpLocalTxs -> memPool, memPoolTip) <- withTxpLocalData $ \(TxpLocalData{..}) ->
         (,) <$> readTVar txpMemPool <*> readTVar txpTip
     let tipMismatchMsg =
@@ -255,6 +265,6 @@ txGetPayload neededTip = do
     let topsortFailMsg = "txGetPayload: topsort failed!"
     let convertTx (txId, txAux) = WithHash (taTx txAux) txId
     case (memPoolTip == neededTip, topsortTxs convertTx $ HM.toList memPool) of
-        (False, _)       -> [] <$ logWarning tipMismatchMsg
-        (True, Nothing)  -> [] <$ logError topsortFailMsg
+        (False, _)       -> [] <$ logWarning logTrace tipMismatchMsg
+        (True, Nothing)  -> [] <$ logError logTrace topsortFailMsg
         (True, Just res) -> return $ map snd res

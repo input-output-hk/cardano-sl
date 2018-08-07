@@ -22,7 +22,6 @@ import           Data.List (findIndex)
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (BlockHeader, HasBlockConfiguration,
                      HasSlogGState, HeaderHash, fixedTimeCQ, headerHash,
@@ -31,7 +30,7 @@ import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants,
                      Timestamp (..), difficultyL, flattenSlotId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Configuration (blkSecurityParam)
-import           Pos.Core.Exception (reportFatalError)
+import           Pos.Core.Exception (traceFatalError)
 import           Pos.Core.Slotting (MonadSlots (..), getCurrentSlotFlat,
                      slotFromTimestamp)
 import           Pos.DB.Block.GState.BlockExtra (isBlockInMainChain)
@@ -39,6 +38,7 @@ import           Pos.DB.Block.Slog.Context (slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Util (_neHead)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- | Find LCA of headers list and main chain, including oldest
 -- header's parent hash. Acts as it would iterate from newest to
@@ -104,20 +104,20 @@ calcChainQualityM ::
        , HasSlogGState ctx
        , MonadIO m
        , MonadThrow m
-       , WithLogger m
        , Fractional res
        , HasProtocolConstants
        )
-    => FlatSlotId
+    => TraceNamed m
+    -> FlatSlotId
     -> m (Maybe res)
-calcChainQualityM newSlot = do
+calcChainQualityM logTrace newSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
     let len = length lastSlots
     case nonEmpty lastSlots of
         Nothing -> return Nothing
         Just slotsNE
             | len > fromIntegral blkSecurityParam ->
-                reportFatalError $
+                traceFatalError logTrace $
                 sformat ("number of last slots is greater than 'k': "%int) len
 
             | otherwise ->
@@ -178,7 +178,7 @@ calcChainQualityFixedTime = do
     -- 'lastSlots' contains slots of last 'k' blocks.
     -- We need to return 'Just' if we know now many blocks were created since
     -- 'olderSlotId'.
-    -- We know it if there is a slot which is ≤ than 'olderSlotId' in
+    -- We know it if there is a slot which is <= than 'olderSlotId' in
     -- 'lastSlots'.
     calcChainQualityFixedTimeDo ::
            FlatSlotId -> FlatSlotId -> OldestFirst [] FlatSlotId -> Maybe res

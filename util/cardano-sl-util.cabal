@@ -6,8 +6,9 @@ description:         This package contains utility functions not specific
                      something from scratch.
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -30,7 +31,12 @@ library
                        Pos.Util.Json.Parse
                        Pos.Util.Justify
                        Pos.Util.Lens
-                       Pos.Util.LoggerName
+                       Pos.Util.Log
+                       Pos.Util.LoggerConfig
+                       Pos.Util.Log.Internal
+                       Pos.Util.Log.LogSafe
+                       Pos.Util.Log.Severity
+                       Pos.Util.Log.Scribes
                        Pos.Util.LRU
                        Pos.Util.Modifier
                        Pos.Util.Orphans
@@ -39,9 +45,13 @@ library
                        Pos.Util.Some
                        Pos.Util.Timer
                        Pos.Util.Trace
+                       Pos.Util.Trace.Unstructured
+                       Pos.Util.Trace.Named
+                       Pos.Util.Trace.Writer
                        Pos.Util.Util
 
   other-modules:
+                       Pos.Util.LoggerName
                        Pos.Util.CompileInfoGit
 
   build-depends:       aeson
@@ -61,10 +71,12 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , hspec
+                     , katip
                      , lens
-                     , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
+                     , mmorph
                      , mtl
                      , optparse-applicative
                      , parsec
@@ -80,10 +92,13 @@ library
                      , time
                      , time-units
                      , transformers
+                     , transformers-base
                      , transformers-lift
                      , universum
+                     , unliftio
                      , unliftio-core
                      , unordered-containers
+                     , yaml
 
   default-language:    Haskell2010
 
@@ -134,6 +149,8 @@ test-suite test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
+                       Test.Pos.Util.LogSpec
+                       Test.Pos.Util.TraceSpec
                        Test.Pos.Util.Tripping
 
   build-depends:       aeson
@@ -147,6 +164,7 @@ test-suite test
                      , formatting
                      , hedgehog
                      , hspec
+                     , katip
                      , pretty-show
                      , QuickCheck
                      , quickcheck-instances

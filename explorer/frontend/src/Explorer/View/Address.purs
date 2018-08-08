@@ -16,62 +16,77 @@ import Explorer.Types.State (CCurrency(..), PageNumber(..), State, CTxBriefs)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
+import Explorer.View.CSS as CSS
+import Explorer.View.Dashboard.Shared (headerView)
+import Explorer.View.Dashboard.Types (HeaderOptions(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CTxBrief)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxBrief, _CTxId, caAddress, caBalance, caTxNum, ctbId)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
 import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
-import Pux.DOM.HTML.Attributes (key) as P
-import Text.Smolder.HTML (a, div, span, h3, p) as S
-import Text.Smolder.HTML.Attributes (className, href, id) as S
+import Text.Smolder.HTML as S
+import Text.Smolder.HTML.Attributes as SA
 import Text.Smolder.Markup ((#!), (!))
-import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup as SM
 
 addressView :: State -> P.HTML Action
 addressView state =
-    let lang' = state ^. lang in
-    S.div ! S.className "explorer-address" $ do
-        S.div ! S.className "explorer-address__wrapper" $ do
-            S.div ! S.className "explorer-address__container" $ do
-                S.h3  ! S.className "headline"
-                      $ S.text (translate (I18nL.common <<< I18nL.cAddress) lang')
-                addressOverview (state ^. currentAddressSummary) lang'
-            S.div ! S.className "explorer-address__wrapper"
-                  $ S.div ! S.className "explorer-address__container"
-                          $ case state ^. currentAddressSummary of
-                                NotAsked  -> txEmptyContentView ""
-                                Loading   -> txEmptyContentView $
-                                    translate (I18nL.common <<< I18nL.cLoading) lang'
-                                Failure _ -> txEmptyContentView $
-                                    translate (I18nL.tx <<< I18nL.txNotFound) lang'
-                                Success (CAddressSummary addressSummary) ->
-                                    addressTxsView addressSummary.caTxList state
+  S.div ! SA.className CSS.pureGContainer $ do
+    S.div ! SA.className "pure-u-1-1" $ do
+      addressOverview state
+    S.div ! SA.className "pure-u-1-1" $ do
+      case state ^. currentAddressSummary of
+          NotAsked  -> txEmptyContentView ""
+          Loading   -> txEmptyContentView $
+              translate (I18nL.common <<< I18nL.cLoading) lang'
+          Failure _ -> txEmptyContentView $
+              translate (I18nL.tx <<< I18nL.txNotFound) lang'
+          Success (CAddressSummary addressSummary) ->
+              addressTxsView addressSummary.caTxList state
+    where
+      lang' = state ^. lang
+      headerOptions t = HeaderOptions
+          { headline: t
+          , link: Nothing
+          , icon: Just "fa-cube"
+          }
 
 -- | Address overview, we leave the error abstract (we are not using it)
-addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.HTML Action
-addressOverview NotAsked    lang = emptyAddressDetail ""
-addressOverview Loading     lang = emptyAddressDetail <<< translate (I18nL.common <<< I18nL.cLoading) $ lang
-addressOverview (Failure _) lang = failureView lang
-addressOverview (Success addressSummary) lang =
-    S.div ! S.className "address-overview" $ do
-        addressDetailView addressSummary lang
-        addressQr addressSummary lang
+addressOverview :: State -> P.HTML Action
+addressOverview state = case state ^. currentAddressSummary of
+  NotAsked    -> emptyAddressDetail ""
+  Loading     -> emptyAddressDetail <<< translate (I18nL.common <<< I18nL.cLoading) $ state ^. lang
+  (Failure _) -> failureView $ state ^. lang
+  (Success addressSummary) ->
+    S.div ! SA.className "pure-g" $ do
+      S.div ! SA.className "pure-u-1-2" $ do
+        headerView state $ headerOptions "fa-address-card" (translate (I18nL.common <<< I18nL.cAddress) lang')
+        addressDetailView addressSummary lang'
+      S.div ! SA.className "pure-u-1-2" $ do
+        headerView state $ headerOptions "fa-qrcode" (translate (I18nL.address <<< I18nL.addQrCode) lang')
+        addressQr addressSummary lang'
+    where
+      lang' = state ^. lang
+      headerOptions c t = HeaderOptions
+          { headline: t
+          , link: Nothing
+          , icon: Just c
+          }
 
 addressDetailView :: CAddressSummary -> Language -> P.HTML Action
 addressDetailView addressSummary lang =
-    S.div ! S.className "address-detail"
+    S.table ! SA.className "pure-table pure-table-horizontal"
           $ for_ (addressDetailRowItems addressSummary lang) addressDetailRow
 
 addressQr :: CAddressSummary -> Language -> P.HTML Action
 addressQr _ lang =
-    S.div ! S.className "address-qr" $ do
-        S.p ! S.className "address-qr__tab"
-            $ S.text $ translate (I18nL.address <<< I18nL.addQrCode) lang
-        S.div ! S.className "address-qr__wrapper" $ do
-            S.div ! S.className "address-qr__image"
-                  ! S.id addressQRImageId
-                  $ S.text ""
-            S.p ! S.className "address-qr__description"
-                $ S.text (translate (I18nL.address <<< I18nL.addScan) lang)
+    S.div ! SA.className "address-qr pure-g" $ do
+        S.div ! SA.className "address-qr__wrapper pure-u-1-3" $ do
+            S.div ! SA.className "address-qr__image"
+                  ! SA.id addressQRImageId
+                  $ SM.text ""
+        S.div ! SA.className "pure-u-1-3" $ do
+            S.p ! SA.className "address-qr__description"
+                $ SM.text (translate (I18nL.address <<< I18nL.addScan) lang)
 
 type SummaryRowItem =
     { id :: String -- needed by React https://facebook.github.io/react/docs/lists-and-keys.html
@@ -103,21 +118,18 @@ addressDetailRowItems (CAddressSummary address) lang =
 
 addressDetailRow :: SummaryRowItem -> P.HTML Action
 addressDetailRow item =
-    S.div ! S.className "address-detail__row"
-          ! P.key item.id
-          $ do
-          S.div ! S.className "address-detail__column label"
-                $ S.text item.label
-          S.div ! S.className "address-detail__column amount"
-                $ if isJust item.mCurrency
-                      then S.span ! S.className (currencyCSSClass item.mCurrency)
-                                  $ S.text item.value
-                      else S.text item.value
+    S.tr $ do
+      S.td $ SM.text item.label
+      S.td $
+        if isJust item.mCurrency
+          then S.span ! SA.className (currencyCSSClass item.mCurrency)
+                      $ SM.text item.value
+          else SM.text item.value
 
 emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
-    S.div ! S.className "message"
-          $ S.div $ S.text message
+    S.div ! SA.className "message"
+          $ S.div $ SM.text message
 
 maxTxRows :: Int
 maxTxRows = 5
@@ -147,8 +159,7 @@ addressTxsView txs state =
 
 addressTxView :: CTxBrief -> Language -> P.HTML Action
 addressTxView tx lang =
-    S.div ! P.key (tx ^. (_CTxBrief <<< ctbId <<< _CTxId <<< _CHash))
-          ! S.className "explorer-address__tx-container"
+    S.table ! SA.className "pure-table pure-table-horizontal"
           $ do
           txHeaderView lang $ mkTxHeaderViewProps tx
           txBodyView lang $ mkTxBodyViewProps tx
@@ -156,9 +167,9 @@ addressTxView tx lang =
 failureView :: Language -> P.HTML Action
 failureView lang =
     S.div do
-        S.p ! S.className "address-failed"
-            $ S.text (translate (I18nL.address <<< I18nL.addNotFound) lang)
-        S.a ! S.href (toUrl Dashboard)
+        S.p ! SA.className "address-failed"
+            $ SM.text (translate (I18nL.address <<< I18nL.addNotFound) lang)
+        S.a ! SA.href (toUrl Dashboard)
             #! P.onClick (Navigate $ toUrl Dashboard)
-            ! S.className "btn-back"
-            $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
+            ! SA.className "btn-back"
+            $ SM.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)

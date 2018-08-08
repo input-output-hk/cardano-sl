@@ -55,10 +55,17 @@
   }
 }
 
+.fa {
+  margin-right: 0.5em;
+}
 
 /* transactions page */
 
 @svg-load ada url('../static/images/ada-currency-symbol.svg');
+
+td.ada, th.ada {
+  text-align: right;
+}
 
 .amount {
   box-item: center;
@@ -66,4 +73,71 @@
   background-repeat: no-repeat;
   background-position: right 7px center;
   background-size: 8px 7px;
+  padding-right: 23px;
+}
+
+.truncate-address {
+  font-size: 12px;
+  padding: 0 18px;
+  /* overflow: hidden; */
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.txn-arrow {
+  background-repeat: no-repeat;
+  background-size: 15px 15px;
+  background-position-y: center;
+  padding-left: 30px;
+  align-self: center;
+
+  tr > td:last-child {
+    padding-right: 0;
+  }
+}
+
+/* addresses */
+
+
+.address-qr {
+
+  margin-left: 1.5em;
+
+  &__tab {
+    @extend .hide;
+  }
+
+  @media (--md) {
+    &__tab {
+      @extend .show;
+      padding: 10px 24px;
+    }
+  }
+
+  &__wrapper {
+    padding: 12px 18px;
+    /* box: horizontal; */
+  }
+
+  @media (--md) {
+    &__wrapper {
+      padding: 10px 24px;
+    }
+  }
+
+  &__image {
+    background-color: var(--color6);
+    padding: 10px;
+    width: 116px;
+    height: 116px;
+    margin-right: 2em;
+    box-item: top;
+    align-self: flex-start;
+  }
+
+  &__description {
+    padding-left: 12px;
+    box-item: flex-1;
+  }
+
 }

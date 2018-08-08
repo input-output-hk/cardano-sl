@@ -143,7 +143,7 @@ applyBlockPartial pb checkpoints = NewestFirst $ PartialCheckpoint {
 -- For the base case, see section "Rollback -- Omitting checkpoints" in the
 -- formal specification.
 --
--- NOTE: Rollback is currently only support for wallest that are fully up
+-- NOTE: Rollback is currently only supported for wallets that are fully up
 -- to date. Hence, we only support full checkpoints here.
 --
 -- This is an internal function only, and not exported. See 'switchToFork'.

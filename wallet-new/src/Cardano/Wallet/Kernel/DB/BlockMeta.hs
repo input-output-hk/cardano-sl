@@ -102,10 +102,10 @@ emptyBlockMeta = BlockMeta {
 
 -- | Local block metadata
 --
--- Local block metadata is block metadata derived a single, or possibly a few,
--- blocks, without access to the entire chain. The underlying 'BlockMeta' type
--- is the same; 'LocalBlockMeta' serves merely as a marker that this data is
--- potentially incomplete.
+-- Local block metadata is block metadata derived from a single block, or
+-- possibly a few blocks, without access to the entire chain. The underlying
+-- 'BlockMeta' type is the same; 'LocalBlockMeta' serves merely as a marker that
+-- this data is potentially incomplete.
 newtype LocalBlockMeta = LocalBlockMeta { localBlockMeta :: BlockMeta }
 
 makeWrapped ''LocalBlockMeta

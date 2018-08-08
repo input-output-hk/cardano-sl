@@ -61,8 +61,6 @@ data ChainState = ChainState {
     }
 
 -- | Chain state modifier
---
--- This is a summary of a 'ConfirmedProposalState'
 data ChainStateModifier = ChainStateModifier {
       csmBlockVersion    :: !BlockVersion
     , csmSoftwareVersion :: !SoftwareVersion

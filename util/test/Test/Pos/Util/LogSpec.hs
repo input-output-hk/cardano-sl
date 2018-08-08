@@ -19,8 +19,8 @@ import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
                      logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
-import           Pos.Util.LoggerConfig (BackendKind (..), LogHandler (..),
-                     LogSecurityLevel (..), LoggerConfig (..), LoggerTree (..),
+import           Pos.Util.LoggerConfig (BackendKind (..), LoggerConfig (..),
+                     LoggerTree (..), LogHandler (..), LogSecurityLevel (..),
                      defaultInteractiveConfiguration, defaultTestConfiguration)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}

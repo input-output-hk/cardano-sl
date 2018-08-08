@@ -208,6 +208,7 @@ library
                      , reflection
                      , resourcet
                      , retry
+                     , stm
                      , safecopy
                      , safe-exceptions
                      , serokell-util

@@ -41,16 +41,16 @@ getInfo :: ( MonadIO m
         -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
 getInfo Diffusion{..} ntpStatus ntpCheck = do
-    timeDifference <- V0.localTimeDifference =<<
+    timeDifference <- V0.localTimeDifference <$>
         if ntpCheck
-            then newTVarIO =<< do
+            then do
                 atomically $ writeTVar ntpStatus NtpSyncPending
                 atomically $ do
                     s <- readTVar ntpStatus
                     case s of
                         NtpSyncPending -> retry
                         _              -> pure s
-            else pure ntpStatus
+            else readTVarIO ntpStatus
     subscribers <- readTVarIO (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0

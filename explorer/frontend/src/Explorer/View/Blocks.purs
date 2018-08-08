@@ -118,37 +118,30 @@ blockRow state (CBlockEntry entry) =
     S.tr $ do
           blockColumn { label: show $ entry ^. cbeEpoch
                       , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
-                      , clazz: CSS.blocksColumnEpoch
                       , mCurrency: Nothing
                       }
           blockColumn { label: show $ entry ^. cbeSlot
                       , mRoute: Just <<< Block $ entry ^. cbeBlkHash
-                      , clazz: CSS.blocksColumnSlot
                       , mCurrency: Nothing
                       }
           blockColumn { label: labelAge
                       , mRoute: Nothing
-                      , clazz: CSS.blocksColumnAge
                       , mCurrency: Nothing
                       }
           blockColumn { label: show $ entry ^. cbeTxNum
                       , mRoute: Nothing
-                      , clazz: CSS.blocksColumnTxs
                       , mCurrency: Nothing
                       }
           blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
                       , mRoute: Nothing
-                      , clazz: CSS.blocksColumnTotalSent
                       , mCurrency: Just ADA
                       }
           blockColumn { label: labelBlockLead
                       , mRoute: Nothing
-                      , clazz: CSS.blocksColumnLead
                       , mCurrency: Nothing
                       }
           blockColumn { label: show $ entry ^. cbeSize
                       , mRoute: Nothing
-                      , clazz: CSS.blocksColumnSize
                       , mCurrency: Nothing
                       }
     where
@@ -160,7 +153,6 @@ blockRow state (CBlockEntry entry) =
 
 type BlockColumnProps =
     { label :: String
-    , clazz :: String
     , mCurrency :: Maybe CCurrency
     , mRoute :: Maybe Route
     }
@@ -174,7 +166,7 @@ blockColumn props =
                   Nothing ->
                       S.div
     in
-    S.td $ tag ! SA.className props.clazz
+    S.td $ tag
         $ if isJust props.mCurrency
               then S.span ! SA.className (currencyCSSClass props.mCurrency)
                           $ SM.text props.label

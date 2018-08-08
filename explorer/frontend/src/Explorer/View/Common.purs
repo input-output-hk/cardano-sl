@@ -102,7 +102,6 @@ txHeaderView lang (TxHeaderViewProps props) =
       S.tr $ do
         S.th $ S.a ! S.href (toUrl txRoute)
              #! P.onClick (Navigate $ toUrl txRoute)
-             ! S.className "hash"
              $ S.text (props ^. (txhHash <<< _CTxId <<< _CHash))
         S.th $ S.text $ case props ^. txhTimeIssued of
                              Just time ->
@@ -120,9 +119,9 @@ emptyTxHeaderView =
 
 txAmountView :: CCoin -> Language -> P.HTML Action
 txAmountView coin lang =
-    S.th ! S.className "amount-container"
-          $ S.div ! S.className "amount bg-ada"
-                  $ S.text (formatADA coin lang)
+    S.th $
+      S.div ! S.className "amount bg-ada" $
+        S.text (formatADA coin lang)
 
 -- -----------------
 -- tx body

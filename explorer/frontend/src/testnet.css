@@ -54,3 +54,16 @@
     text-align:center;
   }
 }
+
+
+/* transactions page */
+
+@svg-load ada url('../static/images/ada-currency-symbol.svg');
+
+.amount {
+  box-item: center;
+  border-radius: 4px;
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 8px 7px;
+}

@@ -18,7 +18,6 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      UpdateWalletError (..), UpdateWalletPasswordError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
-import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 
 import           Pos.Core ()
 import           Test.QuickCheck (Arbitrary, arbitrary, generate, oneof)
@@ -76,6 +75,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
           walletPassiveLayer = walletPassiveLayer
         , pay          = \_ _ _ -> error "unimplemented"
         , estimateFees = \_ _ _ -> error "unimplemented"
+        , redeemAda    = \_ -> error "unimplemented"
         }
 
 
@@ -89,12 +89,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 instance Arbitrary CreateAccountError where
     arbitrary = oneof [ CreateAccountError <$> arbitrary
                       , pure (CreateAccountWalletIdDecodingFailed "foobar")
-                      , CreateAccountTimeLimitReached <$> arbitrary
-                      ]
-
-instance Arbitrary Kernel.CreateAccountError where
-    arbitrary = oneof [ Kernel.CreateAccountUnknownHdRoot <$> arbitrary
-                      , Kernel.CreateAccountHdRndAccountSpaceSaturated <$> arbitrary
+                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
                       ]
 
 instance Arbitrary GetAccountError where

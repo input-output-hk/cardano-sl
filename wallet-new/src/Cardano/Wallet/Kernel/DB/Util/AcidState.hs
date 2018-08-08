@@ -5,6 +5,7 @@ module Cardano.Wallet.Kernel.DB.Util.AcidState (
     -- * Acid-state updates with support for errors
     Update'
   , runUpdate'
+  , runUpdate_
   , runUpdateNoErrors
   , runUpdateDiscardSnapshot
   , mapUpdateErrors
@@ -45,6 +46,12 @@ runUpdate' upd = do
   where
     upd' :: st -> Either e (a, st)
     upd' = runExcept . runStateT upd
+
+-- | Variation on 'runUpdate' for functions with no result
+--
+-- (Naming to match @forM_@ and co)
+runUpdate_ :: Update' st e () -> Update st (Either e st)
+runUpdate_ = fmap (fmap fst) . runUpdate'
 
 runUpdateNoErrors :: Update' st Void a -> Update st a
 runUpdateNoErrors = fmap (snd . mustBeRight) . runUpdate'

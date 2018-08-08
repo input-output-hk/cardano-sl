@@ -1911,6 +1911,10 @@ data Redemption = Redemption
     , redemptionSpendingPassword :: SpendingPassword
     -- ^ The user must provide a spending password that matches the wallet that
     -- will be receiving the redemption funds.
+    , redemptionWalletId         :: WalletId
+    -- ^ Redeem to this wallet
+    , redemptionAccountIndex     :: AccountIndex
+    -- ^ Redeem to this account index in the wallet
     } deriving (Eq, Show, Generic)
 
 deriveSafeBuildable ''Redemption
@@ -1941,7 +1945,11 @@ instance ToSchema Redemption where
         )
 
 instance Arbitrary Redemption where
-    arbitrary = Redemption <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = Redemption <$> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms
@@ -2058,4 +2066,6 @@ instance Example Payment where
 instance Example Redemption where
     example = Redemption <$> example
                          <*> pure Nothing
+                         <*> example
+                         <*> example
                          <*> example

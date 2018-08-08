@@ -14,9 +14,9 @@ import           Cardano.Wallet.WalletLayer.Types (walletPassiveLayer)
 
 
 handlers :: ActiveWalletLayer IO -> Server V1.API
-handlers w =  Addresses.handlers passiveWallet
-         :<|> Wallets.handlers   passiveWallet
-         :<|> Accounts.handlers passiveWallet
+handlers w =  Addresses.handlers    passiveWallet
+         :<|> Wallets.handlers      passiveWallet
+         :<|> Accounts.handlers     passiveWallet
          :<|> Transactions.handlers w
          :<|> settings
          :<|> info

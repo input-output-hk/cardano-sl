@@ -7,23 +7,22 @@ import           Universum
 
 import           Servant
 
-import           Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer (..))
-import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
+import qualified Data.IxSet.Typed as IxSet
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
-import qualified Data.IxSet.Typed as IxSet
+import           Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
 
 handlers :: PassiveWalletLayer IO -> ServerT Accounts.API Handler
 handlers w =  deleteAccount w
-         :<|> getAccount w
-         :<|> listAccounts w
-         :<|> newAccount w
+         :<|> getAccount    w
+         :<|> listAccounts  w
+         :<|> newAccount    w
          :<|> updateAccount w
-         :<|> redeemAda w
          :<|> getAccountAddresses w
          :<|> getAccountBalance w
 
@@ -86,14 +85,6 @@ updateAccount layer wId accIdx updateRequest = do
          Left e -> throwM e
          Right updatedAccount ->
              return $ single updatedAccount
-
-redeemAda :: PassiveWalletLayer IO
-          -> WalletId
-          -> AccountIndex
-          -> Redemption
-          -> Handler (WalletResponse Transaction)
-redeemAda _layer _wId _accIdx _redemption =
-    error "unimplemented, see [CBR-349]"
 
 getAccountAddresses
     :: PassiveWalletLayer IO

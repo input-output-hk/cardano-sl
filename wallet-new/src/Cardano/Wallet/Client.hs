@@ -99,8 +99,6 @@ data WalletClient m
         :: WalletId -> New Account -> Resp m Account
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
-    , redeemAda
-        :: WalletId -> AccountIndex -> Redemption -> Resp m Transaction
     , getAccountAddresses
          :: WalletId
          -> AccountIndex
@@ -124,6 +122,8 @@ data WalletClient m
          -> Resp m [Transaction]
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
+    , redeemAda
+         :: Redemption -> Resp m Transaction
     -- settings
     , getNodeSettings
          :: Resp m NodeSettings
@@ -222,7 +222,7 @@ hoistClient phi wc = WalletClient
     , updateAccount =
         \x y -> phi . updateAccount wc x y
     , redeemAda =
-        \x y -> phi . redeemAda wc x y
+        phi . redeemAda wc
     , getAccountAddresses =
         \x y p pp f -> phi $ getAccountAddresses wc x y p pp f
     , getAccountBalance =

@@ -157,8 +157,6 @@ spec = describe "CreateAddress" $ do
                          return $ (bimap STB STB res1) `shouldBe` (bimap STB STB (Left err))
                      Left (WalletLayer.CreateAddressAddressDecodingFailed _) ->
                          fail "Layer & Kernel mismatch: impossible error, CreateAddressAddressDecodingFailed"
-                     Left (WalletLayer.CreateAddressTimeLimitReached _) ->
-                         fail "The layer request exceeded the allocated time quota."
                      Right _ -> do
                          -- If we get and 'Address', let's check that this is the case also for
                          -- the kernel run. Unfortunately we cannot compare the two addresses for equality

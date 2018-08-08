@@ -38,6 +38,8 @@ import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
+import           Test.QuickCheck (Arbitrary (..), oneof)
+
 data CreateAccountError =
       CreateAccountUnknownHdRoot HdRootId
       -- ^ When trying to create the 'Account', the parent 'HdRoot' was not
@@ -49,6 +51,9 @@ data CreateAccountError =
       -- ^ The available number of HD accounts in use is such that trying
       -- to find another random index would be too expensive.
     deriving Eq
+
+instance Arbitrary CreateAccountError where
+    arbitrary = oneof []
 
 instance Buildable CreateAccountError where
     build (CreateAccountUnknownHdRoot uRoot) =

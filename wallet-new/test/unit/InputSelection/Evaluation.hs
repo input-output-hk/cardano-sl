@@ -10,7 +10,7 @@ module InputSelection.Evaluation (
 import           Universum hiding (Ratio (..))
 
 import           Conduit
-import           Crypto.Random (MonadRandom)
+import           Crypto.Random (MonadRandom (..))
 import qualified Data.Map.Strict as Map
 import           Data.Time
 import           Formatting (build, sformat, (%))
@@ -82,32 +82,32 @@ sortedUtxo = Proxy
 standardUtxo :: Proxy (Utxo h a)
 standardUtxo = Proxy
 
-largest :: (Monad m, Hash h World)
-        => NamedPolicy (DSL h World) (GenHashT m)
+largest :: (Hash h World, GenHash m)
+        => NamedPolicy (DSL h World) m
 largest = NamedPolicy "largest" $
     simpleCompPolicy
       (wrap sortedUtxo largestFirst Us maxInps)
   where
     maxInps = 50
 
-randomOn :: (MonadRandom m, Hash h World)
-         => NamedPolicy (DSL h World) (GenHashT m)
+randomOn :: (MonadRandom m, Hash h World, GenHash m)
+         => NamedPolicy (DSL h World) m
 randomOn = NamedPolicy "randomOn" $
     simpleCompPolicy
       (wrap standardUtxo (random PrivacyModeOn) Us maxInps)
   where
     maxInps = 50
 
-randomOff :: (MonadRandom m, Hash h World)
-          => NamedPolicy (DSL h World) (GenHashT m)
+randomOff :: (MonadRandom m, Hash h World, GenHash m)
+          => NamedPolicy (DSL h World) m
 randomOff = NamedPolicy "randomOff" $
     simpleCompPolicy
       (wrap standardUtxo (random PrivacyModeOff) Us maxInps)
   where
     maxInps = 50
 
-largeThenRandom :: (MonadRandom m, Hash h World)
-                => Int -> NamedPolicy (DSL h World) (GenHashT m)
+largeThenRandom :: (MonadRandom m, Hash h World, GenHash m)
+                => Int -> NamedPolicy (DSL h World) m
 largeThenRandom changeAfter = NamedPolicy "largeThenRandom" $
     firstThen
       changeAfter
@@ -268,3 +268,7 @@ evalUsingReplay evalOptions ReplayOptions{..} =
           [randomOn]
           (renderEvery replayRenderEvery)
           (Events.replay replayMultiplier replayFile)
+
+-- Harmless orphan instance that lives in executable only
+instance MonadRandom m => MonadRandom (ResourceT m) where
+  getRandomBytes = lift . getRandomBytes

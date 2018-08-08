@@ -10,7 +10,8 @@ module Util.GenHash (
 
 import           Universum
 
-import           Crypto.Random (MonadRandom)
+import           Conduit (MonadResource)
+import           Crypto.Random (MonadRandom (..))
 
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 
@@ -29,6 +30,9 @@ class Monad m => GenHash m where
 newtype GenHashState = GenHashState { fromGenHashState ::Int }
 
 -- | Add 'GenHash' capability to a monad stack
+--
+-- NOTE: 'GenHashT' cannot implement 'MonadUnliftIO' as it uses state under
+-- the hood to keep track of fresh hashes.
 newtype GenHashT m a = GenHashT {
       unGenHashT :: StrictStateT GenHashState m a
     }
@@ -37,9 +41,10 @@ newtype GenHashT m a = GenHashT {
            , Monad
            , MonadIO
            , MonadState GenHashState
-           , MonadRandom
            , MonadCatch
            , MonadThrow
+           , MonadRandom
+           , MonadResource
            )
 
 instance MonadTrans GenHashT where

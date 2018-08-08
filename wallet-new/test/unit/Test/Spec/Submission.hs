@@ -11,11 +11,10 @@ import           Universum hiding (elems)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId (..),
                      HdAccountIx (..), HdRootId (..), eskToHdRootId)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
-                     pendingTransactions, removePending)
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Submission
-import           Control.Lens (at, non, to)
+import           Control.Lens (anon, at, to)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
@@ -55,8 +54,7 @@ genPending pMagic = do
                         aux <- Txp.TxAux <$> pure tx <*> pure wit
                         pure (hash tx, aux)
                     )
-    return $ emptyPending & over pendingTransactions (fmap (M.union (M.fromList elems)))
-
+    return $ Pending.fromList elems
 
 -- | An hardcoded 'HdAccountId'.
 myAccountId :: HdAccountId
@@ -78,9 +76,8 @@ myAccountId = HdAccountId {
 genSchedule :: MaxRetries -> Map HdAccountId Pending -> Slot -> Gen Schedule
 genSchedule maxRetries pending (Slot lowerBound) = do
     let pendingTxs  = pending ^. at myAccountId
-                               . non emptyPending
-                               . pendingTransactions
-                               . fromDb . to M.toList
+                               . anon Pending.empty Pending.null
+                               . to Pending.toList
     slots    <- vectorOf (length pendingTxs) (fmap Slot (choose (lowerBound, lowerBound + 10)))
     retries  <- vectorOf (length pendingTxs) (choose (0, maxRetries))
     let events = List.foldl' updateFn mempty (zip3 slots pendingTxs retries)
@@ -134,9 +131,9 @@ shouldContainPending :: Pending
                      -> M.Map HdAccountId Pending
                      -> Bool
 shouldContainPending p1 p2 =
-    let pending1 = p1 ^. pendingTransactions . fromDb
-        pending2 = p2 ^. at myAccountId . non emptyPending . pendingTransactions . fromDb
-    in pending2 `M.isSubmapOf` pending1
+    let pending1 = p1
+        pending2 = p2 ^. at myAccountId . anon Pending.empty Pending.null
+    in pending2 `Pending.isSubsetOf` pending1
 
 -- | Checks that @any@ of the input transactions (in the pending set) appears
 -- in the local pending set of the given 'WalletSubmission'.
@@ -144,28 +141,23 @@ doesNotContainPending :: M.Map HdAccountId Pending
                       -> WalletSubmission
                       -> Bool
 doesNotContainPending p ws =
-    let pending      = p ^. at myAccountId . non emptyPending . pendingTransactions . fromDb
-        localPending = ws ^. localPendingSet myAccountId . pendingTransactions . fromDb
-    in M.intersection localPending pending == mempty
+    let pending      = p ^. at myAccountId . anon Pending.empty Pending.null
+        localPending = ws ^. localPendingSet myAccountId
+    in Pending.disjoint localPending pending
 
 toTxIdSet :: Pending -> Set Txp.TxId
-toTxIdSet p = S.fromList $ map fst (p ^. pendingTransactions . fromDb . to M.toList)
+toTxIdSet = Pending.transactionIds
 
 toTxIdSet' :: M.Map HdAccountId Pending -> Set Txp.TxId
-toTxIdSet' p =
-    S.fromList $ map fst (p ^. at myAccountId
-                             . non emptyPending
-                             . pendingTransactions
-                             . fromDb . to M.toList
-                         )
+toTxIdSet' p = p ^. at myAccountId
+                  . anon Pending.empty Pending.null
+                  . to Pending.transactionIds
 
 toTxIdSet'' :: M.Map HdAccountId (Set Txp.TxId) -> Set Txp.TxId
-toTxIdSet'' p = p ^. at myAccountId . non mempty
+toTxIdSet'' p = p ^. at myAccountId . anon S.empty S.null
 
 pendingFromTxs :: [Txp.TxAux] -> Pending
-pendingFromTxs txs =
-    let entries = map (\t -> (hash (Txp.taTx t), t)) txs
-    in emptyPending & (pendingTransactions . fromDb) .~ (M.fromList entries)
+pendingFromTxs = Pending.fromTransactions
 
 data LabelledTxAux = LabelledTxAux {
       labelledTxLabel :: String
@@ -232,7 +224,7 @@ genPurePair :: Gen (ShowThroughBuild (WalletSubmission, M.Map HdAccountId Pendin
 genPurePair = do
     STB layer <- genPureWalletSubmission myAccountId
     pending <- genPending (Core.ProtocolMagic 0)
-    let pending' = removePending (toTxIdSet $ layer ^. localPendingSet myAccountId) pending
+    let pending' = Pending.delete (toTxIdSet $ layer ^. localPendingSet myAccountId) pending
     pure $ STB (layer, M.singleton myAccountId pending')
 
 class ToTxIds a where
@@ -248,7 +240,7 @@ instance ToTxIds a => ToTxIds [a] where
     toTxIds = mconcat . map toTxIds
 
 instance ToTxIds Pending where
-    toTxIds p = map fst . M.toList $ p ^. pendingTransactions . fromDb
+    toTxIds = S.toList . Pending.transactionIds
 
 instance ToTxIds ScheduleSend where
     toTxIds (ScheduleSend _ txId _ _) = [txId]
@@ -316,7 +308,7 @@ spec = do
                                                            (toTxIdSet' pending)
                                                            (addPending' pending submission)
                                            )
-              in failIf "the two pending set are not equal" (==) originallyPending currentlyPending
+              in failIf "the two pending set are not equal" ((==) `on` Pending.transactions) originallyPending currentlyPending
 
       it "increases its internal slot after ticking" $ do
           forAll (genPureWalletSubmission myAccountId) $ \(unSTB -> submission) ->

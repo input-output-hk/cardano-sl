@@ -14,10 +14,13 @@ import           Data.Coerce (coerce)
 import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
 
+import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
+import           Pos.Crypto.Signing
+
+import           Cardano.Wallet.API.V1.Types (V1 (..))
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
-import qualified Cardano.Wallet.Kernel.Wallets as Kernel
-
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAllHdRoots,
                      readHdRoot)
@@ -26,19 +29,13 @@ import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
+import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
                      DeleteWalletError (..), GetWalletError (..),
                      UpdateWalletError (..), UpdateWalletPasswordError (..))
-
-import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
-
-import qualified Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
-import           Pos.Crypto.Signing
-
-import           Cardano.Wallet.API.V1.Types (V1 (..))
 
 createWallet :: MonadIO m
              => Kernel.PassiveWallet

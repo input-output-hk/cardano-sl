@@ -18,7 +18,7 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Cardano.Wallet.Kernel (ActiveWallet, PassiveWallet)
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import           Cardano.Wallet.WalletLayer.Types as Types
@@ -31,7 +31,7 @@ bracketKernelPassiveWallet
     :: forall m n a. (MonadIO m, MonadIO n, MonadMask n)
     => (Severity -> Text -> IO ())
     -> Keystore
-    -> MonadDBReadAdaptor IO
+    -> NodeStateAdaptor IO
     -> (PassiveWalletLayer m -> PassiveWallet -> n a) -> n a
 bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
 

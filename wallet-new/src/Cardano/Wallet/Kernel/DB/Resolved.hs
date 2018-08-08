@@ -8,23 +8,22 @@ module Cardano.Wallet.Kernel.DB.Resolved (
   , rtxInputs
   , rtxOutputs
   , rbTxs
-  , rbSlot
+  , rbBrief
   ) where
 
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map as Map
-import           Data.SafeCopy (base, deriveSafeCopy)
+-- import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, (%))
 import           Formatting.Buildable
 
 import           Serokell.Util (listJson, mapJson)
 
 import qualified Pos.Chain.Txp as Core
-import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
 
+import           Cardano.Wallet.Kernel.ChainState
 import           Cardano.Wallet.Kernel.DB.InDb
 
 {-------------------------------------------------------------------------------
@@ -45,7 +44,7 @@ type ResolvedInput = Core.TxOutAux
 -- represented here.
 data ResolvedTx = ResolvedTx {
       -- | Transaction inputs
-      _rtxInputs  :: InDb (NonEmpty (Txp.TxIn, ResolvedInput))
+      _rtxInputs  :: InDb (NonEmpty (Core.TxIn, ResolvedInput))
 
       -- | Transaction outputs
     , _rtxOutputs :: InDb Core.Utxo
@@ -58,17 +57,23 @@ data ResolvedTx = ResolvedTx {
 -- represented here.
 data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
-      _rbTxs  :: [ResolvedTx]
+      _rbTxs   :: ![ResolvedTx]
 
-      -- | The `SlotId` of the slot this block appeared in
-    , _rbSlot :: InDb Core.SlotId
+      -- | The chain state after applying this block
+      --
+      -- NOTE: The tip in the chain brief should correspond to the block we
+      -- just applied.
+      --
+      -- TODO: Ideally we'd have an assertion somehow checking that.
+    , _rbBrief :: !ChainBrief
     }
 
 makeLenses ''ResolvedTx
 makeLenses ''ResolvedBlock
 
-deriveSafeCopy 1 'base ''ResolvedTx
-deriveSafeCopy 1 'base ''ResolvedBlock
+-- TODO: Why are these necessary? and if they're not, get rid of InDb
+--deriveSafeCopy 1 'base ''ResolvedTx
+--deriveSafeCopy 1 'base ''ResolvedBlock
 
 {-------------------------------------------------------------------------------
   Pretty-printing

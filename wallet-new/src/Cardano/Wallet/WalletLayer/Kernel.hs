@@ -14,40 +14,36 @@ import           Data.Time.Units (Second)
 import           System.Wlog (Severity (Debug))
 
 import           Pos.Chain.Block (Blund, Undo (..))
+import           Pos.Core (Address, Coin)
+import qualified Pos.Core as Core
+import           Pos.Core.Chrono (OldestFirst (..))
 
+import           Cardano.Wallet.API.V1.Types (Payment (..),
+                     PaymentDistribution (..), PaymentSource (..),
+                     WalletId (..), unV1)
 import qualified Cardano.Wallet.Kernel as Kernel
-import qualified Cardano.Wallet.Kernel.Transactions as Kernel
-import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
-import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
-import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
-
+import qualified Cardano.Wallet.Kernel.Actions as Actions
+import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (CoinSelectionOptions (..), ExpenseRegulation,
+                     InputGrouping, newOptions)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
+import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
+import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
+import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      EstimateFeesError (..), NewPaymentError (..),
                      PassiveWalletLayer (..), WalletLayerError (..))
-
-import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (CoinSelectionOptions (..), ExpenseRegulation,
-                     InputGrouping, newOptions)
-
-import           Pos.Core (Address, Coin)
-import qualified Pos.Core as Core
-import           Pos.Core.Chrono (OldestFirst (..))
-
-import qualified Cardano.Wallet.Kernel.Actions as Actions
-import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
-
-import           Cardano.Wallet.API.V1.Types (Payment (..),
-                     PaymentDistribution (..), PaymentSource (..),
-                     WalletId (..), unV1)
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -55,7 +51,7 @@ bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
     => (Severity -> Text -> IO ())
     -> Keystore
-    -> MonadDBReadAdaptor IO
+    -> NodeStateAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
 bracketPassiveWallet logFunction keystore rocksDB f =
     Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
@@ -115,7 +111,7 @@ bracketPassiveWallet logFunction keystore rocksDB f =
     blundToResolvedBlock :: Blund -> Maybe ResolvedBlock
     blundToResolvedBlock (b,u)
         = rightToJust b <&> \mainBlock ->
-            fromRawResolvedBlock
+            fromRawResolvedBlock dummyChainBrief
             $ UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
             spentOutputs' = map (map fromJust) $ undoTx u
@@ -206,5 +202,3 @@ setupPayment grouping regulation payment = do
                  <$> (pmtDestinations payment)
 
     return (opts , accountId , payees)
-
-

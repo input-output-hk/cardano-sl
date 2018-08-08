@@ -19,8 +19,10 @@ import           Data.Acid (update)
 import           Pos.Core (mkCoin)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
+import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..), DB,
                      DeleteHdAccount (..), UpdateHdAccountName (..))
+import           Cardano.Wallet.Kernel.DB.BlockMeta (emptyBlockMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet (AccountName (..),
                      HdAccount (..), HdAccountId (..), HdAccountIx (..),
                      HdRootId, UnknownHdAccount (..), hdAccountName)
@@ -29,7 +31,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
-import           Cardano.Wallet.Kernel.DB.Spec (Checkpoint (..), emptyPending)
+import           Cardano.Wallet.Kernel.DB.Spec (Checkpoint (..))
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -138,8 +141,9 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         firstCheckpoint = Checkpoint {
               _checkpointUtxo        = InDb mempty
             , _checkpointUtxoBalance = InDb (mkCoin 0)
-            , _checkpointPending     = emptyPending
-            , _checkpointBlockMeta   = mempty
+            , _checkpointPending     = Pending.empty
+            , _checkpointBlockMeta   = emptyBlockMeta
+            , _checkpointChainBrief  = dummyChainBrief
             }
 
 

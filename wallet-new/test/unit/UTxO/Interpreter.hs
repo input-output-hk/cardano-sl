@@ -37,6 +37,7 @@ import qualified Formatting.Buildable
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 
+import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
@@ -337,7 +338,7 @@ mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
     pc <- asks constants
     gs <- asks weights
     let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)
-    newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
+    newStakes <- updateStakes gs (fromRawResolvedBlock dummyChainBrief raw) (icStakes prev)
     return IntCheckpoint {
         icSlotId        = slot
       , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader

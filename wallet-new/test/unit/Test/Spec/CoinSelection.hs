@@ -42,7 +42,7 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (estimateCardanoFee, estimateHardMaxTxInputs,
                      estimateMaxTxInputs)
-import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
+import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 import           Test.Pos.Configuration (withDefConfiguration)
@@ -159,7 +159,7 @@ renderTx payees utxo tx =
       txOutputs = Core._txOutputs . Core.taTx $ tx
 
       pickedInputs :: Core.Utxo
-      pickedInputs = utxoRestrictToInputs (Set.fromList $ toList . Core._txInputs . Core.taTx $ tx) utxo
+      pickedInputs = utxo `utxoRestrictToInputs` (Set.fromList $ toList . Core._txInputs . Core.taTx $ tx)
 
       alignments :: [Tabl.Alignment]
       alignments = map (const Tabl.AlignCentre) cells

@@ -27,43 +27,44 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
-    -- * Errors
-  , NewPendingError
-    -- * Testing
+    -- *** Testing
   , ObservableRollbackUseInTestsOnly(..)
+    -- * Errors
+  , NewPendingError(..)
+  , RollbackDuringRestoration(..)
   ) where
 
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
-
-import           Test.QuickCheck (Arbitrary (..), oneof)
-
 import           Data.Acid (Query, Update, makeAcidic)
 import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
+import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core.Chrono (OldestFirst (..))
 import qualified Pos.Core.Txp as Txp
 
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
-                     PrefilteredBlock (..), emptyPrefilteredBlock)
-
+import           Cardano.Wallet.Kernel.ChainState
+import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Update as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
-import qualified Cardano.Wallet.Kernel.DB.Spec.Util as Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
+                     PrefilteredBlock (..), emptyPrefilteredBlock)
+import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -92,7 +93,7 @@ defDB :: DB
 defDB = DB initHdWallets
 
 {-------------------------------------------------------------------------------
-  Wrap wallet spec
+  Custom errors
 -------------------------------------------------------------------------------}
 
 -- | Errors thrown by 'newPending'
@@ -103,25 +104,23 @@ data NewPendingError =
     -- | Some inputs are not in the wallet utxo
   | NewPendingFailed Spec.NewPendingFailed
 
+
+-- | We cannot roll back  when we don't have full historical data available
+data RollbackDuringRestoration = RollbackDuringRestoration
+
 deriveSafeCopy 1 'base ''NewPendingError
+deriveSafeCopy 1 'base ''RollbackDuringRestoration
 
-instance Arbitrary NewPendingError where
-    arbitrary = oneof [ NewPendingUnknown <$> arbitrary
-                      , NewPendingFailed  <$> arbitrary
-                      ]
-
-instance Buildable NewPendingError where
-    build (NewPendingUnknown unknownAccount) =
-        bprint ("NewPendingUnknown " % build) unknownAccount
-    build (NewPendingFailed npf) =
-        bprint ("NewPendingFailed " % build) npf
+{-------------------------------------------------------------------------------
+  Wrap wallet spec
+-------------------------------------------------------------------------------}
 
 newPending :: HdAccountId
            -> InDb Txp.TxAux
            -> Update DB (Either NewPendingError ())
 newPending accountId tx = runUpdateDiscardSnapshot . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
-    zoom hdAccountCheckpoints $
+    zoomHdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
 
 -- | Cancels the input transactions from the 'Checkpoints' of each of
@@ -141,7 +140,8 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
         -- skip cancelling the transactions for the account that has been removed.
         handleError (\(_e :: UnknownHdAccount) -> return ()) $
             zoomHdAccountId identity accountId $ do
-              modify' (over hdAccountCheckpoints (Spec.cancelPending txids))
+              zoomHdAccountCheckpoints $
+                modify' $ Spec.cancelPending txids
     where
         handleError :: MonadError e m => (e -> m a) -> m a -> m a
         handleError = flip catchError
@@ -169,10 +169,15 @@ applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $ do
     blocksByAccount' <- fillInEmptyBlock blocksByAccount
     createPrefiltered
         initUtxoAndAddrs
-        (\prefBlock -> zoom hdAccountCheckpoints $
-                           modify $ Spec.applyBlock prefBlock)
+        updateAccount
         blocksByAccount'
   where
+    updateAccount :: PrefilteredBlock -> Update' HdAccount Void ()
+    updateAccount pb =
+        matchHdAccountCheckpoints
+          (modify $ Spec.applyBlock        pb)
+          (modify $ Spec.applyBlockPartial pb)
+
     -- Initial UTxO and addresses for a new account
     --
     -- NOTE: When we initialize the kernel, we look at the genesis UTxO and create
@@ -195,15 +200,21 @@ applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $ do
 -- does not have a 'SafeCopy' instance.
 switchToFork :: Int
              -> [Map HdAccountId PrefilteredBlock]
-             -> Update DB ()
-switchToFork n blocks = runUpdateNoErrors $ zoom dbHdWallets $ do
+             -> Update DB (Either RollbackDuringRestoration ())
+switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $ do
     blocks' <- mapM fillInEmptyBlock blocks
     createPrefiltered
         initUtxoAndAddrs
-        (\prefBlocks -> zoom hdAccountCheckpoints $
-                            modify $ Spec.switchToFork n (OldestFirst prefBlocks))
+        updateAccount
         (distribute blocks')
   where
+    updateAccount :: [PrefilteredBlock]
+                  -> Update' HdAccount RollbackDuringRestoration ()
+    updateAccount pbs =
+        matchHdAccountCheckpoints
+          (modify $ Spec.switchToFork n (OldestFirst pbs))
+          (throwError RollbackDuringRestoration)
+
     -- The natural result of prefiltering each block is a list of maps, but
     -- in order to apply them to each account, we want a map of lists
     --
@@ -222,12 +233,12 @@ switchToFork n blocks = runUpdateNoErrors $ zoom dbHdWallets $ do
 -- | Observable rollback, used for tests only
 --
 -- See 'switchToFork' for use in real code.
-observableRollbackUseInTestsOnly :: Update DB ()
-observableRollbackUseInTestsOnly = runUpdateNoErrors $
+observableRollbackUseInTestsOnly :: Update DB (Either RollbackDuringRestoration ())
+observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
     zoomAll (dbHdWallets . hdWalletsAccounts) $
-      hdAccountCheckpoints %~ Spec.observableRollbackUseInTestsOnly
-
-
+      matchHdAccountCheckpoints
+        (modify' Spec.observableRollbackUseInTestsOnly)
+        (throwError RollbackDuringRestoration)
 
 {-------------------------------------------------------------------------------
   Wallet creation
@@ -279,7 +290,7 @@ fillInDefaults def accs =
 -- | Specialization of 'fillInDefaults' for prefiltered blocks
 fillInEmptyBlock :: Map HdAccountId PrefilteredBlock
                  -> Update' HdWallets e (Map HdAccountId PrefilteredBlock)
-fillInEmptyBlock = fillInDefaults (const emptyPrefilteredBlock)
+fillInEmptyBlock = fillInDefaults $ \_ -> emptyPrefilteredBlock dummyChainBrief
 
 -- | For each of the specified accounts, create them if they do not exist,
 -- and apply the specified function.
@@ -325,11 +336,12 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
             firstCheckpoint :: Utxo -> Checkpoint
             firstCheckpoint utxo' = Checkpoint {
                   _checkpointUtxo        = InDb utxo'
-                , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
-                , _checkpointPending     = Pending . InDb $ Map.empty
+                , _checkpointUtxoBalance = InDb $ Core.utxoBalance utxo'
+                , _checkpointPending     = Pending.empty
                 -- Since this is the first checkpoint before we have applied
                 -- any blocks, the block metadata is empty
-                , _checkpointBlockMeta   = mempty
+                , _checkpointBlockMeta   = emptyBlockMeta
+                , _checkpointChainBrief  = dummyChainBrief
                 }
 
 {-------------------------------------------------------------------------------
@@ -410,3 +422,22 @@ makeAcidic ''DB [
       -- Testing
     , 'observableRollbackUseInTestsOnly
     ]
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable NewPendingError where
+    build (NewPendingUnknown unknownAccount) =
+        bprint ("NewPendingUnknown " % build) unknownAccount
+    build (NewPendingFailed npf) =
+        bprint ("NewPendingFailed " % build) npf
+
+{-------------------------------------------------------------------------------
+  Arbitrary
+-------------------------------------------------------------------------------}
+
+instance Arbitrary NewPendingError where
+    arbitrary = oneof [ NewPendingUnknown <$> arbitrary
+                      , NewPendingFailed  <$> arbitrary
+                      ]

@@ -9,7 +9,7 @@ import qualified Data.Set as Set
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (rocksDBNotAvailable)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (nodeStateUnavailable)
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import           Pos.Core.Chrono
 
@@ -137,7 +137,7 @@ dependentPending GenesisValues{..} = Inductive {
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWallet postHook = do
       Keystore.bracketTestKeystore $ \keystore ->
-          Kernel.bracketPassiveWallet logMessage keystore rocksDBNotAvailable postHook
+          Kernel.bracketPassiveWallet logMessage keystore nodeStateUnavailable postHook
   where
    -- TODO: Decide what to do with logging.
    -- For now we are not logging them to stdout to not alter the output of

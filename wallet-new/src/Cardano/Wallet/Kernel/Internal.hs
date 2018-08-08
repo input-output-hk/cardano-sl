@@ -13,7 +13,7 @@ module Cardano.Wallet.Kernel.Internal (
   , walletKeystore
   , wallets
   , walletLogMessage
-  , walletRocksDB
+  , walletNode
   ) where
 
 import           Universum hiding (State)
@@ -27,7 +27,7 @@ import           Data.Acid (AcidState)
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import           Cardano.Wallet.Kernel.MonadDBReadAdaptor (MonadDBReadAdaptor)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
 
 -- Handy re-export of the pure getters
@@ -46,12 +46,25 @@ import           Pos.Core (ProtocolMagic)
 data PassiveWallet = PassiveWallet {
       -- | Send log message
       _walletLogMessage :: Severity -> Text -> IO ()
-      -- ^ Logger
+
+      -- | Logger
     , _walletKeystore   :: Keystore
-      -- ^ An opaque handle to a place where we store the 'EncryptedSecretKey'.
+
+      -- | An opaque handle to a place where we store the 'EncryptedSecretKey'.
     , _wallets          :: AcidState DB
-      -- ^ Database handle
-    , _walletRocksDB    :: MonadDBReadAdaptor IO
+
+      -- | Access to the underlying node
+      --
+      -- This should be used sparingly; for most purposes the wallet's own
+      -- database should be consulted instead. For example, instead of asking
+      -- the node "what is the current slot ID?" in most functions we should
+      -- probably ask the wallet "what is the slot ID in the most recent
+      -- checkpoint?". The wallet's state will track the node's but may be
+      -- behind, and that's okay. The key is internal consistency.
+      --
+      -- The primary function of this is wallet restoration, where the wallet's
+      -- own DB /cannot/ be consulted.
+    , _walletNode       :: NodeStateAdaptor IO
     }
 
 makeLenses ''PassiveWallet

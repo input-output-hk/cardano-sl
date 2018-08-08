@@ -50,7 +50,7 @@ module Cardano.Wallet.Kernel.Submission (
 
 import           Universum hiding (elems)
 
-import           Control.Lens (Getter, at, non, to)
+import           Control.Lens (Getter, anon, at, to)
 import           Control.Lens.TH
 import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
@@ -68,9 +68,8 @@ import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF, tripleF)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
-                     pendingTransactions, removePending, unionPending)
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Pos.Core.Txp as Txp
 
 -- | Wallet Submission Layer
@@ -288,13 +287,13 @@ getSchedule = wsState . wssSchedule
 
 pendingByAccId :: HdAccountId -> Lens' WalletSubmission Pending
 pendingByAccId accId =
-  wsState . wssPendingMap . at accId . non emptyPending
+  wsState . wssPendingMap . at accId . anon Pending.empty Pending.null
 
 -- | Informs the 'WalletSubmission' layer about new 'Pending' transactions.
 addPending :: HdAccountId -> Pending -> WalletSubmission -> WalletSubmission
 addPending accId newPending ws =
     let ws' = ws & over (pendingByAccId accId)
-                        (unionPending newPending)
+                        (Pending.union newPending)
     in schedulePending accId newPending ws'
 
 -- | Removes the input set of 'Txp.TxId' from the local 'WalletSubmission' pending set.
@@ -311,7 +310,7 @@ remPendingById :: HdAccountId
                -> WalletSubmission
                -> WalletSubmission
 remPendingById accId ids ws =
-    ws & over (pendingByAccId accId) (removePending ids)
+    ws & over (pendingByAccId accId) (Pending.delete ids)
 
 -- | A \"tick\" of the scheduler.
 -- Returns the set transactions which needs to be droppped by the system as
@@ -348,7 +347,7 @@ tick ws =
                        -> ScheduleEvictIfNotConfirmed
                        -> Cancelled
         checkConfirmed pending acc (ScheduleEvictIfNotConfirmed accId txId) =
-            case M.lookup accId pending >>= M.lookup txId . (view (pendingTransactions . fromDb)) of
+            case M.lookup accId pending >>= Pending.lookup txId of
                  Just _  -> M.alter (alterFn txId) accId acc
                  Nothing -> acc
 
@@ -419,8 +418,8 @@ tickSlot currentSlot ws =
         toTx :: ScheduleSend -> WithHash Txp.Tx
         toTx (ScheduleSend _ txId txAux _) =  WithHash (Txp.taTx txAux) txId
 
-        pendingTxs :: HdAccountId -> M.Map Txp.TxId Txp.TxAux
-        pendingTxs accId = ws ^. pendingByAccId accId . pendingTransactions . fromDb
+        pendingTxs :: HdAccountId -> Pending
+        pendingTxs accId = ws ^. pendingByAccId accId
 
         -- Filter the transactions not appearing in the local pending set
         -- anymore, as they have been adopted by the blockchain and we should
@@ -428,7 +427,7 @@ tickSlot currentSlot ws =
         filterNotConfirmed :: [ScheduleSend] -> [ScheduleSend]
         filterNotConfirmed =
             filter (\(ScheduleSend accId txId _ _) ->
-                   isJust (M.lookup txId (pendingTxs accId)))
+                   isJust (Pending.lookup txId (pendingTxs accId)))
 
 -- | Similar to 'Data.List.partition', but partitions the input 'ScheduleSend'
 -- list into events which can be sent this 'Slot', and other which needs to
@@ -465,7 +464,7 @@ partitionSendable pendingSets xs =
         lookupTx :: Txp.TxId -> HdAccountId -> Maybe Txp.TxAux
         lookupTx tid accId =
             M.lookup accId pendingSets >>=
-            M.lookup tid . (view (pendingTransactions . fromDb))
+            Pending.lookup tid
 
         updateFn :: [Txp.TxId] -> Txp.TxIn -> [Txp.TxId]
         updateFn !acc (Txp.TxInUnknown _ _)   = acc
@@ -501,8 +500,7 @@ schedulePending accId pending ws =
         toEntry (txId, txAux) = ScheduleSend accId txId txAux (SubmissionCount 0)
 
         toSend :: [ScheduleSend]
-        toSend =
-            map toEntry (pending ^. pendingTransactions . fromDb . to M.toList)
+        toSend = map toEntry (Pending.toList pending)
 
 --
 --

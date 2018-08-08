@@ -16,30 +16,24 @@ module Cardano.Wallet.Kernel.Types (
     -- ** From raw to derived types
   , fromRawResolvedTx
   , fromRawResolvedBlock
-  , txUtxo
   ) where
 
 import           Universum
 
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
-import           Data.Word (Word32)
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Chain.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
-                     mbWitnesses)
-import           Pos.Chain.Txp (Utxo)
-import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), TxOut,
-                     TxOutAux (..), txInputs, txOutputs)
-import           Pos.Crypto.Hashing (hash)
-import           Serokell.Util (enumerate)
+import           Pos.Chain.Block (MainBlock, gbBody, mbTxs, mbWitnesses)
+import           Pos.Core.Txp (Tx, TxAux (..), TxIn (..), txInputs)
 
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 
+import           Cardano.Wallet.Kernel.ChainState
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
+import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
 {-------------------------------------------------------------------------------
   Abstract WalletId and AccountId
@@ -160,37 +154,20 @@ mkRawResolvedBlock block ins =
 fromRawResolvedTx :: RawResolvedTx -> ResolvedTx
 fromRawResolvedTx rtx = ResolvedTx {
       _rtxInputs  = InDb $ NE.zip inps (rawResolvedTxInputs rtx)
-    , _rtxOutputs = InDb $ txUtxo_ tx txId
+    , _rtxOutputs = InDb $ Core.txOuts tx
     }
   where
     tx :: Tx
     tx = taTx (rawResolvedTx rtx)
 
-    txId = hash tx
-
     inps :: NonEmpty TxIn
     inps = tx ^. txInputs
 
-txUtxo_ :: Tx -> TxId -> Utxo
-txUtxo_ tx txId = Map.fromList $
-                      map (toTxInOut txId) (outs tx)
-
-txUtxo :: Tx -> Utxo
-txUtxo tx = txUtxo_ tx txId
-          where txId = hash tx
-
-outs :: Tx -> [(Word32, TxOut)]
-outs tx = enumerate $ toList $ tx ^. txOutputs
-
-toTxInOut :: TxId -> (Word32, TxOut) -> (TxIn, TxOutAux)
-toTxInOut txId (idx, out) = (TxInUtxo txId idx, TxOutAux out)
-
-fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
-fromRawResolvedBlock rb = ResolvedBlock {
-      _rbTxs  = zipWith aux (getBlockTxs b)
-                            (rawResolvedBlockInputs rb)
-
-    , _rbSlot = InDb (b ^. mainBlockSlot)
+fromRawResolvedBlock :: ChainBrief -> RawResolvedBlock -> ResolvedBlock
+fromRawResolvedBlock brief rb = ResolvedBlock {
+      _rbTxs   = zipWith aux (getBlockTxs b)
+                             (rawResolvedBlockInputs rb)
+    , _rbBrief = brief
     }
   where
     b = rawResolvedBlock rb

@@ -86,7 +86,6 @@ zoomDef def l upd = StateT $ \large -> do
       Nothing    -> runStateT def large
       Just small -> fmap update <$> runStateT upd small
 
-
 -- | Run an update on part of the state.
 --
 -- If the specified part does not exist, use the default provided,
@@ -102,14 +101,16 @@ zoomCreate def l upd = StateT $ \large -> do
 
 -- | Run an update on /all/ parts of the state.
 --
--- This is used for system initiated actions which should not fail (such as
--- 'applyBlock', which is why the action we run must be a pure function.
+-- NOTE: Uses 'otraverse' under the hood, and therefore needs to reconstruct
+-- the entire 'IxSet' and associated indices. Only use for small sets.
 zoomAll :: Indexable st'
-        => Lens' st (IxSet st') -> (st' -> st') -> Update' st e ()
+        => Lens' st (IxSet st')
+        -> Update' st' e ()
+        -> Update' st  e ()
 zoomAll l upd = StateT $ \large -> do
     let update ixset' = large & l .~ ixset'
         ixset         = large ^. l
-    return $ ((), update $ IxSet.omap upd ixset)
+    (((),) . update) <$> IxSet.otraverse (execStateT upd) ixset
 
 {-------------------------------------------------------------------------------
   Auxiliary

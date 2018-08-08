@@ -6,7 +6,9 @@ import Universum
 
 -- | Parameters to chain validation.
 --
---   This is defined in section 4 of the paper.
+--   This is defined in section 4 of the paper. These parameters act as the
+--   environment within which we can validate chain extension or other
+--   operations.
 data Parameters st h a = Parameters
   { slotLeader :: st -> StakeDistribution a -> SlotId -> a
   , currentSlot :: st -> SlotId

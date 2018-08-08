@@ -239,3 +239,21 @@ instance DSL.Hash h Addr => Interpret DSL2Abstract h (DSL.Chain h Addr) where
       => DSL.Chain h Addr
       -> IntT h e m (Chain h Addr)
   int = mapM (int @DSL2Abstract)
+
+{-------------------------------------------------------------------------------
+  Running the interpreter
+-------------------------------------------------------------------------------}
+
+-- | Translate from a UTxO chain into the abstract one.
+translate
+  :: (DSL.Hash h Addr, Monad m)
+     -- | Set of all actors in the system. All transactions will be considered
+     -- as existing between these.
+  => NonEmpty Addr
+     -- | UTxO DSL chain
+  -> DSL.Chain h Addr
+     -- | Block modifiers. These can be used to tune the chain generation to
+     -- give different validating and non-validating chains.
+  -> [BlockModifier (IntT h BlockModifierException m) h Addr]
+  -> m (Either IntException (Chain h Addr))
+translate = undefined

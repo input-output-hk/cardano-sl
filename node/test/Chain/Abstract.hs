@@ -82,7 +82,7 @@ data Transaction h a = Transaction
   -- ^ Transaction witnesses. There should be one witness per transaction input.
   }
 
--- | The abstract transaction has the same hash as the underlying transaction.
+-- | The abstract transaction has the same hash as the underlying DSL transaction.
 hash :: DSL.Hash h a
      => Transaction h a
      -> h (DSL.Transaction h a)

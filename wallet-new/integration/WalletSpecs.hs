@@ -24,10 +24,11 @@ internalWalletSpecs wc = describe "Internal Wallets" $ do
         wallet <- createWalletCheck wc newWallet
         let newName = "Foobar Bazquux"
             newAssurance = NormalAssurance
-        Wallet{..} <- fmap wrData $ shouldReturnRight $ updateWallet wc (walId wallet) WalletUpdate
-            { uwalName = newName
-            , uwalAssuranceLevel = newAssurance
-            }
+            walletUpdate = WalletUpdate
+                               { uwalName = newName
+                               , uwalAssuranceLevel = newAssurance
+                               }
+        Wallet{..} <- wrData <$> shouldReturnRight (updateWallet wc (walId wallet) walletUpdate)
         walName `shouldBe` newName
         walAssuranceLevel `shouldBe` newAssurance
 

@@ -21,8 +21,8 @@ accountSpecs wc = do
             Wallet{..} <- createWalletCheck wc newWallet
 
             -- create an account
-            Account{..} <- fmap wrData $ shouldReturnRight $
-                             postAccount wc walId (NewAccount Nothing "hello")
+            Account{..} <- wrData <$> shouldReturnRight
+                             (postAccount wc walId (NewAccount Nothing "hello"))
 
             -- create an address path
             addrPath <- shouldReturnRight $ postAddressPath wc walId accIndex

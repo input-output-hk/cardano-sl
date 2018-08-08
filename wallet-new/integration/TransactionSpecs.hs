@@ -64,9 +64,9 @@ testPostTransaction wc (genesisWallet, wallet) = do
                     }
         halfOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 2))
 
-    txn <- fmap wrData $ shouldReturnRight $ postTransaction wc payment
-    resp <- fmap wrData $ shouldReturnRight $
-                         getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
+    txn <- wrData <$> shouldReturnRight (postTransaction wc payment)
+    resp <- wrData <$> shouldReturnRight
+                         (getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing)
 
     map txId resp `shouldContain` [txId txn]
 

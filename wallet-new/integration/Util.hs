@@ -62,7 +62,7 @@ firstAccountInExtWallet wc wallet = do
 
 getAccountsInWallet :: HasCallStack => WalletClient IO -> Wallet -> IO [Account]
 getAccountsInWallet wc wallet = do
-    accounts <- fmap wrData $ shouldReturnRight $ getAccounts wc (walId wallet)
+    accounts <- wrData <$> shouldReturnRight (getAccounts wc (walId wallet))
     accounts `shouldSatisfy` (not . null)
     return accounts
 
@@ -72,7 +72,7 @@ createRandomSampleWallet wc
 
 lookupGenesisWallet :: HasCallStack => WalletClient IO -> IO Wallet
 lookupGenesisWallet wc = do
-    allWallets <- fmap wrData $ shouldReturnRight $ getWallets wc
+    allWallets <- wrData <$> shouldReturnRight (getWallets wc)
     case find (("Genesis wallet" ==) . walName) allWallets of
       Just gen -> return gen
       Nothing -> do

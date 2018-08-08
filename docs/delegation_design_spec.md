@@ -2574,7 +2574,7 @@ as the “Automatic UTxO updates” approach, but putting the aggregation off to
 into a separate class of addresses, so that normal addresses remain in a pure
 UTxO style.
 
-The asymptotic storage complexity of the ledger state (ie UTxO size) is linear
+The asymptotic storage complexity of the ledger state (i.e. UTxO size) is linear
 in the number of stake keys, but is unrelated to the number of epochs that
 have passed. This is in contrast to approaches that create UTxO entries for
 rewards on every epoch.
@@ -2612,10 +2612,89 @@ Disadvantages:
 
 * introduces limited degree of account style chimeric ledgers. This adds a
   degree of conceptual and implementation complexity.
-* cannot use pointer addresses directly to stake pools. Increases fee and
+* Cannot use pointer addresses directly to stake pools. Increases fee and
   complexity cost of maintaining wallet privacy.
-* unless people stick to a single staking key (which would immediately mean
+* Unless people stick to a single staking key (which would immediately mean
   they give up all privacy, not a choice most people would be comfortable
   with I suspect), we basically end up creating lots of staking keys, to
   which we would only deposit once, and withdraw from once -- in other words,
   we’d have reinvented UTxO entries, and the accumulation does not help.
+
+Transition to Decentralization
+==============================
+
+In order to guarantee system stability,
+we must be sure that stakepool operators are "doing their job" sufficiently well
+before relinquishing control to them.
+Instead of having a simple "switch" from a centralized system controlled by a
+handful of bootstrap keys to a fully decentralized one,
+we propose a _transition phase_.
+
+## Motivation
+
+Cardano _chain growth quality_ is only guaranteed when for all time widows of
+4320 slots, a block has been created for at least 2160 (half of them).
+At the moment, the bootstrap nodes are responsible for block creation,
+but in a fully decentralized system, this will be the pool leaders'
+responsibility.
+
+In the beginning, there might be technical problems or other issues preventing
+the pool leaders from creating sufficiently many blocks,
+so we want to make the transition gradual,
+monitoring system performance and being able to temporarily delay or even
+revert decentralization in case of an emergency.
+
+## Proposal
+
+We propose to introduce a new parameter $d\in[0,1]$,
+which controls the ratio of slots created by the bootstrap keys --
+all other slots will follow the rules outlined in this specification.
+So $d=1$ corresponds to the present "bootstrap era"
+state, whereas $d=0$ corresponds to full decentralization as
+described in this document.
+Starting with $d=1$ and gradually going down to $d=0$ allows for a smooth transition
+period.
+
+For a given value of $d$, during the election of slot leaders for the current
+epoch, election will follow the normal process with probability $1-d$, whereas
+one of the bootstrap keys will be elected with probability $d$.
+
+For reward calculations, all slots assigned to bootstrap keys will be ignored.
+This means that even for high values of $d$, pool leaders and pool members will
+get their full rewards (even though they have to do less "work" to get those
+rewards).
+
+Parameter $d$ can be changed on an epoch-per-epoch basis, following the
+plan we'll be outlining next.
+
+## Plan
+
+We plan to start with $d=0.9$ and then decrease $d$ by $0.1$ each epoch,
+_provided pool leader block creation is sufficient to guarantee chain growth
+quality_.
+
+If block creation is insufficient, we will halt lowering $d$ (or even increase
+$d$ again) until we have reason to believe that the problem has been understood
+and fixed.
+
+In order to decide whether block creation is sufficient, we will estimate the
+probability that at least 2160 out of every 4320 blocks would be created.
+If this probability is high enough (for example greater than $1 - 10^{-10}$),
+block creation will be deemed sufficient.
+
+For the estimation, we use the 
+[Beta-Binomial Distribution](https://en.wikipedia.org/wiki/Beta-binomial_distribution):
+Given the number of slots $a$ that have been faithfully created and the number
+$b$ of slots that have been missed (counting from the beginning of the
+transition period) and using
+[Bayes' Prior $B(1,1)$](https://en.wikipedia.org/wiki/Beta_distribution#Bayes'_prior_probability_(Beta(1,1))),
+the probability in question is $P(X\geq 2160)$, where $X$ is drawn from the
+Beta-Binomial distribution with parameters $(a + 1)$, $(b + 1)$ and $4320$.
+
+For example, in the very first transitional epoch, 10% of slots, i.e. 2160
+slots, will be given to pool leaders. If at least 1261 out of these 2160 slots
+are properly created, above estimation (with $a\geq 1261$ and 
+$b\leq 2160-1261=899$) leads to $P(X\geq 2160)\geq 1-10^{-10}$, so we will
+proceed with $d=0.8$ in the second epoch.
+If however at least 900 slots are missed, we will keep $d$ at $0.9$ for the time
+beeing.

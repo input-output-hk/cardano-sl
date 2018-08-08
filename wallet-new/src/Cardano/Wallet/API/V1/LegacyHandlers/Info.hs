@@ -2,6 +2,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Info where
 
 import           Universum
 
+import           Control.Monad.STM (retry)
 import           System.Wlog (WithLogger)
 
 import           Cardano.Wallet.API.Response (WalletResponse, single)
@@ -39,13 +40,17 @@ getInfo :: ( MonadIO m
         -> TVar NtpStatus
         -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
-getInfo Diffusion{..} ntpStatus ntpCheck = do
-    timeDifference <- V0.localTimeDifference =<<
+getInfo  Diffusion{..} ntpStatus ntpCheck = do
+    timeDifference <- V0.localTimeDifferencePure <$>
         if ntpCheck
-            then atomically $ do
-                writeTVar ntpStatus NtpSyncPending
-                checkNtpBlocking
-            else pure ntpStatus
+            then do
+                atomically $ writeTVar ntpStatus NtpSyncPending
+                atomically $ do
+                    s <- readTVar ntpStatus
+                    case s of
+                        NtpSyncPending -> retry
+                        _              -> pure s
+            else readTVarIO ntpStatus
     subscribers <- readTVarIO (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
@@ -58,9 +63,3 @@ getInfo Diffusion{..} ntpStatus ntpCheck = do
             { timeDifferenceFromNtpServer = fmap V1.mkLocalTimeDifference timeDifference
             }
         }
-  where
-    checkNtpBlocking = do
-        s <- readTVar ntpStatus
-        case s of
-            NtpSyncPending -> checkNtpBlocking
-            _              -> newTVar s

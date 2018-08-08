@@ -27,7 +27,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewAccount (..)
   , Update
   , New
-  , ForceNtpCheck
+  , ForceNtpCheck (..)
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -194,6 +194,7 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
 import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Util.Servant (Flaggable (..))
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 import           Test.Pos.Core.Arbitrary ()
@@ -2670,10 +2671,21 @@ instance Arbitrary Redemption where
                            <*> arbitrary
                            <*> arbitrary
 
--- TODO(akegalj): possibly create a new type `data ForceNtpCheck = ForceNtpCheck | NoNtpCheck`
---  instead of using general Bool type (boolean blindness). For this we would have to create a wrapper
---  around `QueryFlag` https://haskell-servant.github.io/servant/src/Servant-API-QueryParam.html#QueryFlag
-type ForceNtpCheck = Bool
+data ForceNtpCheck
+    = ForceNtpCheck
+    | NoNtpCheck
+    deriving (Eq)
+
+instance Flaggable ForceNtpCheck where
+    toBool ForceNtpCheck = True
+    toBool NoNtpCheck    = False
+    fromBool True  = ForceNtpCheck
+    fromBool False = NoNtpCheck
+
+deriveSafeBuildable ''ForceNtpCheck
+instance BuildableSafeGen ForceNtpCheck where
+    buildSafeGen _ ForceNtpCheck = "force ntp check"
+    buildSafeGen _ NoNtpCheck    = "no ntp check"
 
 --
 -- POST/PUT requests isomorphisms

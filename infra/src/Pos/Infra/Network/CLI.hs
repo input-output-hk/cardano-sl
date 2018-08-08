@@ -159,11 +159,7 @@ listenNetworkAddressOption na =
 -- | The topology we assume when no topology file is specified
 defaultTopology :: Y.Topology
 defaultTopology =
-    Y.TopologyBehindNAT
-    { topologyValency = 1
-    , topologyFallbacks = 1
-    , topologyDnsDomains = defaultDnsDomains
-    }
+    Y.TopologyBehindNAT 1 1 defaultDnsDomains
 
 -- | The default DNS domains used for relay discovery
 --
@@ -284,8 +280,18 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
             Nothing -> pure defaultTopology
             Just fp -> liftIO $ readTopology fp
     (ourTopology, tcpAddr) <- case parsedTopology of
-        Y.TopologyStatic{..} -> do
-            (md@NodeMetadata{..}, initPeers, kademliaPeers) <-
+        Y.TopologyStatic topologyAllPeers -> do
+            (md@(NodeMetadata
+                     nmType
+                     _
+                     _
+                     nmSubscribe
+                     nmValency
+                     nmFallbacks
+                     _
+                     nmKademlia
+                     _
+                     nmMaxSubscrs), initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
             loggerName <- askLoggerName
             topologyStaticPeers <-
@@ -322,7 +328,10 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                 T.NodeEdge  -> throwM NetworkConfigSelfEdge
             tcpAddr <- createTcpAddr topologyOptKademlia
             pure (topology, tcpAddr)
-        Y.TopologyBehindNAT{..} -> do
+        Y.TopologyBehindNAT
+              topologyValency
+              topologyFallbacks
+              topologyDnsDomains -> do
           -- Behind-NAT topology claims no address for the transport, and also
           -- throws an exception if the --listen parameter is given, to avoid
           -- confusion: if a user gives a --listen parameter then they probably
@@ -335,12 +344,18 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
           when (isJust ncoExternalAddress) $ throwM $ RedundantCliParameter $
               "BehindNAT topology is used, no external address is expected"
           pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
-        Y.TopologyP2P{..} -> do
+        Y.TopologyP2P
+              topologyValency
+              topologyFallbacks
+              topologyMaxSubscrs -> do
           kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
           tcpAddr <- createTcpAddr (Just kparams)
           pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
                , tcpAddr )
-        Y.TopologyTraditional{..} -> do
+        Y.TopologyTraditional
+              topologyValency
+              topologyFallbacks
+              topologyMaxSubscrs -> do
               kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
               tcpAddr <- createTcpAddr (Just kparams)
               pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}

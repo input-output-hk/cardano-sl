@@ -12,8 +12,10 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
-                     GetAccountError (..), GetAccountsError (..),
-                     PassiveWalletLayer (..), UpdateAccountError (..))
+                     DeleteWalletError (..), GetAccountError (..),
+                     GetAccountsError (..), GetWalletError (..),
+                     PassiveWalletLayer (..), UpdateAccountError (..),
+                     UpdateWalletError (..), UpdateWalletPasswordError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -33,23 +35,24 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet   = \_     -> liftedGen
-        , _pwlGetWalletIds   =           liftedGen
-        , _pwlGetWallet      = \_     -> liftedGen
-        , _pwlUpdateWallet   = \_ _   -> liftedGen
-        , _pwlDeleteWallet   = \_     -> liftedGen
+        { _pwlCreateWallet         = \_     -> liftedGen
+        , _pwlGetWallets           =           liftedGen
+        , _pwlGetWallet            = \_     -> liftedGen
+        , _pwlUpdateWallet         = \_ _   -> liftedGen
+        , _pwlUpdateWalletPassword = \_ _   -> liftedGen
+        , _pwlDeleteWallet         = \_     -> liftedGen
 
-        , _pwlCreateAccount  = \_ _   -> liftedGen
-        , _pwlGetAccounts    = \_     -> liftedGen
-        , _pwlGetAccount     = \_ _   -> liftedGen
-        , _pwlUpdateAccount  = \_ _ _ -> liftedGen
-        , _pwlDeleteAccount  = \_ _   -> liftedGen
+        , _pwlCreateAccount        = \_ _   -> liftedGen
+        , _pwlGetAccounts          = \_     -> liftedGen
+        , _pwlGetAccount           = \_ _   -> liftedGen
+        , _pwlUpdateAccount        = \_ _ _ -> liftedGen
+        , _pwlDeleteAccount        = \_ _   -> liftedGen
 
-        , _pwlCreateAddress  = \_     -> liftedGen
-        , _pwlGetAddresses   = \_     -> liftedGen
+        , _pwlCreateAddress        = \_     -> liftedGen
+        , _pwlGetAddresses         = \_     -> liftedGen
 
-        , _pwlApplyBlocks    = \_     -> liftedGen
-        , _pwlRollbackBlocks = \_     -> liftedGen
+        , _pwlApplyBlocks          = \_     -> liftedGen
+        , _pwlRollbackBlocks       = \_     -> liftedGen
        }
 
 -- | A utility function.
@@ -77,7 +80,10 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 
 
 {-----------------------------------------------------------------------------
-Orphan instances, in preparation for rehoming them.
+ Orphan instances, in preparation for rehoming them.
+ Note that most of them are bonkers -- they were put here just for the sake
+ of the code to compile, as we are not actually using this particular layer
+ anywhere.
 ------------------------------------------------------------------------------}
 
 instance Arbitrary CreateAccountError where
@@ -110,3 +116,19 @@ instance Arbitrary DeleteAccountError where
     arbitrary = oneof [ DeleteAccountError . V1 <$> arbitrary
                       , DeleteAccountWalletIdDecodingFailed <$> arbitrary
                       ]
+
+instance Arbitrary GetWalletError where
+    arbitrary = oneof [ GetWalletWalletIdDecodingFailed <$> arbitrary
+                      , GetWalletError . V1 <$> arbitrary
+                      ]
+
+instance Arbitrary UpdateWalletPasswordError where
+    arbitrary = oneof [ UpdateWalletPasswordError <$> arbitrary
+                      , UpdateWalletPasswordWalletIdDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary DeleteWalletError where
+    arbitrary = oneof [ DeleteWalletWalletIdDecodingFailed <$> arbitrary ]
+
+instance Arbitrary UpdateWalletError where
+    arbitrary = oneof [ UpdateWalletWalletIdDecodingFailed <$> arbitrary ]

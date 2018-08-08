@@ -78,21 +78,28 @@ bracketPassiveWallet logFunction keystore rocksDB f =
         let invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
             invokeIO = liftIO . STM.atomically . invoke
         in PassiveWalletLayer
-            { _pwlCreateWallet   = Wallets.createWallet wallet
-            , _pwlGetWalletIds   = error "Not implemented!"
-            , _pwlGetWallet      = error "Not implemented!"
-            , _pwlUpdateWallet   = error "Not implemented!"
-            , _pwlDeleteWallet   = error "Not implemented!"
+            { _pwlCreateWallet          = Wallets.createWallet wallet
+
+            , _pwlGetWallets            = do
+                    snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
+                    return (Wallets.getWallets snapshot)
+            , _pwlGetWallet             =
+                \walletId -> do
+                    snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
+                    return (Wallets.getWallet snapshot walletId)
+            , _pwlUpdateWallet          = Wallets.updateWallet wallet
+            , _pwlUpdateWalletPassword  = Wallets.updateWalletPassword wallet
+            , _pwlDeleteWallet          = Wallets.deleteWallet wallet
 
             , _pwlCreateAccount = Accounts.createAccount wallet
             , _pwlGetAccounts   =
                 \walletId -> do
                     snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
-                    Accounts.getAccounts snapshot walletId
+                    return (Accounts.getAccounts snapshot walletId)
             , _pwlGetAccount    =
                 \walletId accountIndex -> do
                     snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
-                    Accounts.getAccount snapshot walletId accountIndex
+                    return (Accounts.getAccount snapshot walletId accountIndex)
             , _pwlUpdateAccount  = Accounts.updateAccount wallet
             , _pwlDeleteAccount  = Accounts.deleteAccount wallet
 

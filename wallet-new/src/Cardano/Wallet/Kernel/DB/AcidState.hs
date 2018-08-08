@@ -21,8 +21,8 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , CreateHdAccount(..)
   , CreateHdAddress(..)
     -- *** UPDATE
-  , UpdateHdRootAssurance
-  , UpdateHdRootName(..)
+  , UpdateHdWallet(..)
+  , UpdateHdRootPassword(..)
   , UpdateHdAccountName(..)
     -- *** DELETE
   , DeleteHdRoot(..)
@@ -119,7 +119,7 @@ instance Buildable NewPendingError where
 newPending :: HdAccountId
            -> InDb Txp.TxAux
            -> Update DB (Either NewPendingError ())
-newPending accountId tx = runUpdate' . zoom dbHdWallets $
+newPending accountId tx = runUpdateDiscardSnapshot . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
     zoom hdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
@@ -243,12 +243,13 @@ observableRollbackUseInTestsOnly = runUpdateNoErrors $
 createHdWallet :: HdRoot
                -> Map HdAccountId (Utxo,[AddrWithId])
                -> Update DB (Either HD.CreateHdRootError ())
-createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
-      HD.createHdRoot newRoot
-      createPrefiltered
-          identity
-          (\_ -> return ()) -- we just want to create the accounts
-          utxoByAccount
+createHdWallet newRoot utxoByAccount =
+    runUpdateDiscardSnapshot . zoom dbHdWallets $ do
+          HD.createHdRoot newRoot
+          createPrefiltered
+              identity
+              (\_ -> return ()) -- we just want to create the accounts
+              utxoByAccount
 
 {-------------------------------------------------------------------------------
   Internal auxiliary: apply a function to a prefiltered block/utxo
@@ -336,42 +337,46 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
 -------------------------------------------------------------------------------}
 
 createHdRoot :: HdRoot -> Update DB (Either HD.CreateHdRootError ())
-createHdRoot hdRoot = runUpdate' . zoom dbHdWallets $
+createHdRoot hdRoot = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.createHdRoot hdRoot
 
 createHdAccount :: HdAccount -> Update DB (Either HD.CreateHdAccountError ())
-createHdAccount hdAccount = runUpdate' . zoom dbHdWallets $
+createHdAccount hdAccount = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.createHdAccount hdAccount
 
 createHdAddress :: HdAddress -> Update DB (Either HD.CreateHdAddressError ())
-createHdAddress hdAddress = runUpdate' . zoom dbHdWallets $
+createHdAddress hdAddress = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.createHdAddress hdAddress
 
-updateHdRootAssurance :: HdRootId
-                      -> AssuranceLevel
-                      -> Update DB (Either UnknownHdRoot ())
-updateHdRootAssurance rootId assurance = runUpdate' . zoom dbHdWallets $
-    HD.updateHdRootAssurance rootId assurance
+updateHdWallet :: HdRootId
+               -> AssuranceLevel
+               -> WalletName
+               -> Update DB (Either UnknownHdRoot (DB, HdRoot))
+updateHdWallet rootId assurance name = do
+    runUpdate' . zoom dbHdWallets $ do
+        HD.updateHdRoot rootId assurance name
 
-updateHdRootName :: HdRootId
-                 -> WalletName
-                 -> Update DB (Either UnknownHdRoot ())
-updateHdRootName rootId name = runUpdate' . zoom dbHdWallets $
-    HD.updateHdRootName rootId name
+updateHdRootPassword :: HdRootId
+                     -> HasSpendingPassword
+                     -> Update DB (Either UnknownHdRoot (DB, HdRoot))
+updateHdRootPassword rootId hasSpendingPassword = do
+    runUpdate' . zoom dbHdWallets $
+        HD.updateHdRootPassword rootId hasSpendingPassword
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
                     -> Update DB (Either UnknownHdAccount (DB, HdAccount))
 updateHdAccountName accId name = do
-    a <- runUpdate' . zoom dbHdWallets $ HD.updateHdAccountName accId name
-    get >>= \st' -> return $ bimap identity (st',) a
+    runUpdate' . zoom dbHdWallets $ HD.updateHdAccountName accId name
 
-deleteHdRoot :: HdRootId -> Update DB ()
-deleteHdRoot rootId = runUpdateNoErrors . zoom dbHdWallets $
+deleteHdRoot :: HdRootId -> Update DB (Either UnknownHdRoot ())
+deleteHdRoot rootId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteHdRoot rootId
 
+-- | Deletes the 'HdAccount' identified by the input 'HdAccountId' together
+-- with all the linked addresses.
 deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
-deleteHdAccount accId = runUpdate' . zoom dbHdWallets $
+deleteHdAccount accId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteHdAccount accId
 
 {-------------------------------------------------------------------------------
@@ -397,8 +402,8 @@ makeAcidic ''DB [
     , 'createHdAddress
     , 'createHdAccount
     , 'createHdWallet
-    , 'updateHdRootAssurance
-    , 'updateHdRootName
+    , 'updateHdWallet
+    , 'updateHdRootPassword
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount

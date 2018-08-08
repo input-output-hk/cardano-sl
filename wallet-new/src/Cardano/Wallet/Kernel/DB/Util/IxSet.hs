@@ -25,13 +25,14 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , singleton
   , omap
   , otraverse
+  , foldl'
   , emptyIxSet
     -- * Destruction
   , toList
   ) where
 
 import qualified Prelude
-import           Universum hiding (Foldable, null, toList)
+import           Universum hiding (Foldable, foldl', null, toList)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
@@ -153,9 +154,6 @@ instance (HasPrimKey a, Indexable a) => Lens.At (IxSet a) where
       upd Nothing  = WrapIxSet $ IxSet.deleteIx pk                      s
       upd (Just a) = WrapIxSet $ IxSet.updateIx pk (WrapOrdByPrimKey a) s
 
-instance Foldable IxSet where
-    foldr f e = Data.Foldable.foldr f e . Data.Foldable.toList
-
 {-------------------------------------------------------------------------------
   Queries
 -------------------------------------------------------------------------------}
@@ -225,6 +223,29 @@ emptyIxSet :: forall a.
               Indexable a
            => IxSet a
 emptyIxSet = WrapIxSet IxSet.empty
+
+-- | Strict left fold over an 'IxSet'.
+foldl' :: (acc -> a -> acc)
+       -> acc
+       -> IxSet a
+       -> acc
+foldl' f initialValue (WrapIxSet nativeSet) =
+    Data.Foldable.foldl' (\acc (WrapOrdByPrimKey a) -> f acc a)
+                         initialValue
+                         nativeSet
+
+-- | Right fold
+foldrIxSet :: (a -> acc -> acc)
+           -> acc
+           -> IxSet a
+           -> acc
+foldrIxSet f initialValue (WrapIxSet nativeSet) =
+    Data.Foldable.foldr (\(WrapOrdByPrimKey a) acc -> f a acc)
+                        initialValue
+                        nativeSet
+
+instance Foldable IxSet where
+    foldr = foldrIxSet
 
 {-------------------------------------------------------------------------------
   Destruction

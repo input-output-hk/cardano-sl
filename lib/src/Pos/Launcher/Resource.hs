@@ -62,6 +62,7 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithTrace, newInitFuture)
 import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (LoggerConfig (..), defaultInteractiveConfiguration)
 #ifdef linux_HOST_OS
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
                      logInfo, logWarning, natTrace)
@@ -231,20 +232,20 @@ bracketNodeResources logTrace np sp txp initDB action = do
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m Log.LoggerConfig
 getRealLoggerConfig LoggingParams{..} =
-    Log.parseLoggerConfig $ fromMaybe "--unk--" lpConfigPath
-{- TODO logging params may override logging configuration (from YAML)
-    let cfgBuilder = productionB
-                   <> showTidB
-                   <> maybeLogsDirB lpHandlerPrefix
-    cfg <- readLoggerConfig lpConfigPath
-    pure $ overrideConsoleLog $ cfg <> cfgBuilder
+    case lpConfigPath of
+        Just configPath -> Log.parseLoggerConfig configPath
+        Nothing -> return (mempty :: LoggerConfig)
+    >>= \lc -> return $ (overridePrefixPath . overrideConsoleLog) lc
   where
+    overridePrefixPath :: LoggerConfig -> LoggerConfig
+    overridePrefixPath = case lpHandlerPrefix of
+        Nothing -> identity
+        Just _ -> \lc -> lc { _lcBasePath = lpHandlerPrefix }
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
         Nothing    -> identity
-        Just True  -> (<>) (consoleActionB defaultHandleAction)
-        Just False -> (<>) (consoleActionB (\_ _ -> pass))
--}
+        Just True  -> (<>) (defaultInteractiveConfiguration Log.Debug)
+        Just False -> identity
 
 ----------------------------------------------------------------------------
 -- NodeContext

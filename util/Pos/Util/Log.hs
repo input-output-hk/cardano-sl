@@ -9,15 +9,11 @@ module Pos.Util.Log
        , LoggingHandler
        -- * Compatibility
        , CanLog(..)
-    --    , HasLoggerName(..)
        , WithLogger
-       , LoggerNameBox(..)
        -- * Configuration
        , LoggerConfig(..)
-       , loadLogConfig
        , parseLoggerConfig
        , retrieveLogFiles
-       , setLogBasePath
        -- * Startup
        , setupLogging
        -- * Do logging
@@ -40,8 +36,6 @@ module Pos.Util.Log
 import           Universum
 
 import           Control.Lens (each)
-import           Control.Monad.Base (MonadBase)
-import           Control.Monad.Morph (MFunctor (..))
 
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig
@@ -61,7 +55,7 @@ import qualified Katip.Core as KC
 type LogContext = K.KatipContext
 type LogContextT = K.KatipContextT
 
-type WithLogger m = (CanLog m) --, HasLoggerName m)
+type WithLogger m = (CanLog m)
 
 type LoggerName = Text
 
@@ -70,58 +64,36 @@ class (MonadIO m, LogContext m) => CanLog m where
     dispatchMessage :: LoggingHandler -> Severity -> Text -> m ()
     dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
 
--- class (MonadIO m, LogContext m) => HasLoggerName m where
---     askLoggerName' :: m LoggerName
---     askLoggerName' = askLoggerName
---     setLoggerName' :: LoggerName -> m a -> m a
---     setLoggerName' = modifyLoggerName' . const
---     modifyLoggerName' :: (LoggerName -> LoggerName) -> m a -> m a
---     modifyLoggerName' f a = addLoggerName (f "cardano-sl")$ a
--- instance (Monad m, HasLoggerName m) => HasLoggerName (ReaderT a m) where
--- instance (Monad m, HasLoggerName m) => HasLoggerName (StateT a m) where
--- instance (Monoid w, Monad m, HasLoggerName m) => HasLoggerName (WriterT w m) where
--- instance (Monad m, HasLoggerName m) => HasLoggerName (ExceptT e m) where
---     askLoggerName'    = lift askLoggerName'
-
-newtype LoggerNameBox m a = LoggerNameBox
-    { loggerNameBoxEntry :: ReaderT LoggerName m a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadBase b, MonadState s)
-instance MFunctor LoggerNameBox where
-    hoist f = LoggerNameBox . hoist f . loggerNameBoxEntry
-
 instance CanLog (LogContextT IO)
 instance CanLog m => CanLog (ReaderT s m)
 instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
--- instance HasLoggerName (LogContextT IO)
-
 -- | log a Text with severity
-logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
+logMessage :: LogContext m => Severity -> Text -> m ()
 logMessage sev msg = logMessage' (Internal.sev2klog sev) $ K.logStr msg
-logMessage' :: (LogContext m {-, HasCallStack -}) => K.Severity -> K.LogStr -> m ()
+logMessage' :: LogContext m => K.Severity -> K.LogStr -> m ()
 logMessage' s m = K.logItemM Nothing s m
 
 -- | log a Text with severity = Debug
-logDebug :: (LogContext m {-, HasCallStack -}) => Text -> m ()
+logDebug :: LogContext m => Text -> m ()
 logDebug msg = logMessage' K.DebugS $ K.logStr msg
 
 -- | log a Text with severity = Info
-logInfo :: (LogContext m {-, HasCallStack -}) => Text -> m ()
+logInfo :: LogContext m => Text -> m ()
 logInfo msg = K.logItemM Nothing K.InfoS $ K.logStr msg
 
 -- | log a Text with severity = Notice
-logNotice :: (LogContext m {-, HasCallStack -}) => Text -> m ()
+logNotice :: LogContext m => Text -> m ()
 logNotice msg = K.logItemM Nothing K.NoticeS $ K.logStr msg
 
 -- | log a Text with severity = Warning
-logWarning :: (LogContext m {-, HasCallStack -}) => Text -> m ()
+logWarning :: LogContext m => Text -> m ()
 logWarning msg = K.logItemM Nothing K.WarningS $ K.logStr msg
 
 -- | log a Text with severity = Error
-logError :: (LogContext m {-, HasCallStack -}) => Text -> m ()
+logError :: LogContext m => Text -> m ()
 logError msg = K.logItemM Nothing K.ErrorS $ K.logStr msg
-
 
 -- | get current stack of logger names
 askLoggerName :: LogContext m => m LoggerName
@@ -146,8 +118,7 @@ setupLogging lc = do
         meta :: LoggingHandler -> LoggerConfig -> IO [(T.Text, K.Scribe)]
         meta _lh _lc = do
             -- setup scribes according to configuration
-            let --minSev = _lc ^. lcLoggerTree ^. ltMinSeverity
-                lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
+            let lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
                 basepath = _lc ^. lcBasePath
             forM lhs (\lh -> case (lh ^. lhBackend) of
                     FileJsonBE -> do
@@ -242,23 +213,6 @@ loggerBracket lh name action = do
       finalizer le_ = void $ liftIO $ K.closeScribes le_
       body le_ = K.runKatipContextT le_ () (Internal.s2kname name) $ action
 
--- | for compatibility (TODO check if still referenced)
-loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO LoggingHandler
-loadLogConfig pre cfg = do
-    lc0 <- case cfg of
-              Nothing -> return (mempty :: LoggerConfig)
-              Just fp -> parseLoggerConfig fp
-    setLogPrefix pre lc0 >>= setupLogging
-
-
-
--- | set base path of logging in @LoggerConfig@
-setLogBasePath :: LoggingHandler -> FilePath -> IO ()
-setLogBasePath lh fp = do
-    maycfg <- Internal.getConfig lh
-    case maycfg of
-              Nothing  -> return ()
-              Just cfg -> Internal.updateConfig lh cfg{ _lcBasePath = Just fp}
 
 {- |
    * interactive tests

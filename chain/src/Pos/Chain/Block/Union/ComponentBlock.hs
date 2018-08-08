@@ -1,4 +1,4 @@
-module Pos.Core.Block.Union.ComponentBlock
+module Pos.Chain.Block.Union.ComponentBlock
        ( ComponentBlock (..)
        ) where
 
@@ -6,9 +6,9 @@ import           Universum
 
 import           Control.Lens (lens)
 
-import           Pos.Core.Block.Genesis ()
-import           Pos.Core.Block.Main ()
-import           Pos.Core.Block.Union.Types (HasHeaderHash (..),
+import           Pos.Chain.Block.Genesis ()
+import           Pos.Chain.Block.Main ()
+import           Pos.Chain.Block.Union.Types (HasHeaderHash (..),
                      HasPrevBlock (..), IsGenesisHeader, IsMainHeader (..))
 import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..),
                      HasEpochOrSlot (..))

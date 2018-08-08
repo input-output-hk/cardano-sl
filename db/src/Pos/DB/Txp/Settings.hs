@@ -16,8 +16,8 @@ module Pos.DB.Txp.Settings
 
 import           Universum
 
+import           Pos.Chain.Block (ComponentBlock)
 import           Pos.Chain.Txp (ToilVerFailure)
-import           Pos.Core.Block (ComponentBlock)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Core.Txp (TxPayload, TxpUndo)

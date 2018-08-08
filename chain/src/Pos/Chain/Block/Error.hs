@@ -16,7 +16,7 @@ import           Formatting (bprint, stext, (%))
 import           Formatting.Buildable (Buildable (..))
 import           GHC.Generics (Generic)
 
-import           Pos.Core.Block (HeaderHash)
+import           Pos.Chain.Block.Union (HeaderHash)
 import           Pos.Crypto (shortHashF)
 
 

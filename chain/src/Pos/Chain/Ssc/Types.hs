@@ -48,11 +48,11 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
                      deriveSimpleBiCxt)
+import           Pos.Chain.Block.Union (ComponentBlock (..))
 import           Pos.Chain.Ssc.Behavior (SscBehavior)
 import           Pos.Chain.Ssc.Toss.Types (TossModifier)
 import           Pos.Chain.Ssc.VssCertData as VCD
 import           Pos.Core (EpochIndex)
-import           Pos.Core.Block (ComponentBlock (..))
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening,
                      OpeningsMap, SharesMap, SignedCommitment, SscPayload)
 import           Pos.Crypto (VssKeyPair)

@@ -25,8 +25,8 @@ import qualified Data.Cache.LRU as LRU
 import           Data.Time.Clock (UTCTime)
 import           Serokell.Data.Memory.Units (Byte)
 
+import           Pos.Chain.Block.Union (HeaderHash)
 import           Pos.Chain.Delegation.Types (DlgMemPool, ProxySKHeavy)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Util.Util (HasLens (..))
 
 ---------------------------------------------------------------------------

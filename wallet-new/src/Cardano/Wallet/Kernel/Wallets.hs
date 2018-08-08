@@ -1,7 +1,11 @@
 module Cardano.Wallet.Kernel.Wallets (
       createHdWallet
+    , updateHdWallet
+    , updatePassword
+    , deleteHdWallet
       -- * Errors
     , CreateWalletError(..)
+    , UpdateWalletPasswordError(..)
     -- * Internal & testing use only
     , createWalletHdRnd
     ) where
@@ -17,12 +21,16 @@ import           Data.Acid.Advanced (update')
 
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Timestamp)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
+                     changeEncPassphrase, checkPassMatches, emptyPassphrase,
                      safeDeterministicKeyGen)
 
+import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
-import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
+                     DeleteHdRoot (..), UpdateHdRootPassword (..),
+                     UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
                      WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -37,6 +45,9 @@ import           Cardano.Wallet.Kernel.Util (getCurrentTimestamp)
 
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
+{-------------------------------------------------------------------------------
+  Errors
+-------------------------------------------------------------------------------}
 
 data CreateWalletError =
       CreateWalletFailed HD.CreateHdRootError
@@ -53,6 +64,37 @@ instance Show CreateWalletError where
     show = formatToString build
 
 instance Exception CreateWalletError
+
+data UpdateWalletPasswordError =
+      UpdateWalletPasswordOldPasswordMismatch HD.HdRootId
+      -- ^ When trying to update the wallet password, there was a mismatch
+      -- with the old one.
+    | UpdateWalletPasswordKeyNotFound HD.HdRootId
+      -- ^ When trying to update the wallet password, there was no
+      -- 'EncryptedSecretKey' in the Keystore for this 'HdRootId'.
+    | UpdateWalletPasswordChangeFailed HD.HdRootId
+      -- ^ When trying to shield the 'SecretKey' with the new, supplied
+      -- 'PassPhrase', the crypto primitive responsible for that failed.
+    | UpdateWalletPasswordUnknownHdRoot HD.UnknownHdRoot
+      -- ^ When trying to update the DB the input 'HdRootId' was not found.
+
+instance Arbitrary UpdateWalletPasswordError where
+    arbitrary = oneof []
+
+instance Buildable UpdateWalletPasswordError where
+    build (UpdateWalletPasswordOldPasswordMismatch hdRootId) =
+        bprint ("UpdateWalletPasswordOldPasswordMismatch " % F.build) hdRootId
+    build (UpdateWalletPasswordKeyNotFound hdRootId) =
+        bprint ("UpdateWalletPasswordKeyNotFound " % F.build) hdRootId
+    build (UpdateWalletPasswordChangeFailed hdRootId) =
+        bprint ("UpdateWalletPasswordChangeFailed " % F.build) hdRootId
+    build (UpdateWalletPasswordUnknownHdRoot uRoot) =
+        bprint ("UpdateWalletPasswordUnknownHdRoot " % F.build) uRoot
+
+instance Show UpdateWalletPasswordError where
+    show = formatToString build
+
+instance Exception UpdateWalletPasswordError
 
 {-------------------------------------------------------------------------------
   Wallet Creation
@@ -142,3 +184,81 @@ createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk utxo = do
             if hasSpendingPassword then HD.HasSpendingPassword created
                                    else HD.NoSpendingPassword
 
+deleteHdWallet :: PassiveWallet
+               -> HD.HdRootId
+               -> IO (Either HD.UnknownHdRoot ())
+deleteHdWallet wallet rootId = do
+    -- STEP 1: Remove the HdRoot via an acid-state transaction which will
+    --         also delete any associated accounts and addresses.
+    res <- update' (wallet ^. wallets) $ DeleteHdRoot rootId
+    case res of
+        Left err -> return (Left err)
+        Right () -> do
+            -- STEP 2: Purge the key from the keystore.
+            Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
+            return $ Right ()
+
+{-------------------------------------------------------------------------------
+  Wallet update
+-------------------------------------------------------------------------------}
+
+updateHdWallet :: PassiveWallet
+               -> HD.HdRootId
+               -> HD.AssuranceLevel
+               -> HD.WalletName
+               -> IO (Either HD.UnknownHdRoot (Kernel.DB, HdRoot))
+updateHdWallet pw hdRootId assuranceLevel walletName = do
+    res <- update' (pw ^. wallets) (UpdateHdWallet hdRootId assuranceLevel walletName)
+    case res of
+         Left e              -> return (Left e)
+         Right (db, newRoot) -> return (Right (db, newRoot))
+
+updatePassword :: PassiveWallet
+               -> HD.HdRootId
+               -> PassPhrase
+               -- ^ The old 'PassPhrase' for this Wallet.
+               -> PassPhrase
+               -- ^ The new 'PassPhrase' for this Wallet.
+               -> IO (Either UpdateWalletPasswordError (Kernel.DB, HdRoot))
+updatePassword pw hdRootId oldPassword newPassword = do
+    let keystore = pw ^. walletKeystore
+        wId = WalletIdHdRnd hdRootId
+    -- STEP 1: Lookup the key from the keystore
+    mbKey <- Keystore.lookup wId keystore
+    case mbKey of
+         Nothing -> return $ Left $ UpdateWalletPasswordKeyNotFound hdRootId
+         Just esk -> do
+             -- STEP 2: Check that the 2 password matches. While this in
+             --         principle could be checked on the wallet layer side,
+             --         it's preferrable to do everything in the kernel to make
+             --         this operation really atomic.
+             let pwdCheck = hoistMaybeWith (UpdateWalletPasswordOldPasswordMismatch hdRootId) $
+                            checkPassMatches oldPassword esk
+
+             -- STEP 3: Compute the new key using the cryptographic primitives
+             --         we have. This operation doesn't change any state, it
+             --         just recomputes the new 'EncryptedSecretKey' in-place.
+             genNewKey <- changeEncPassphrase oldPassword newPassword esk
+             let mbNewKey = hoistMaybeWith (UpdateWalletPasswordChangeFailed hdRootId) $
+                            genNewKey
+
+             case pwdCheck >> mbNewKey of
+                  Left e -> return (Left e)
+                  Right newKey -> do
+                      -- STEP 4: Update the keystore, atomically.
+                      Keystore.replace wId newKey keystore
+                      -- STEP 5: Update the timestamp in the wallet data storage.
+                      lastUpdateNow <- InDb <$> getCurrentTimestamp
+                      let hasSpendingPassword = HD.HasSpendingPassword lastUpdateNow
+                      res <- update' (pw ^. wallets)
+                                     (UpdateHdRootPassword hdRootId hasSpendingPassword)
+                      case res of
+                           Left e ->
+                               return $ Left (UpdateWalletPasswordUnknownHdRoot e)
+                           Right (db, hdRoot') -> return $ Right (db, hdRoot')
+
+-- | Hoist a Maybe into an Either so that multiple calls that may fail can
+-- be chained.
+hoistMaybeWith :: e -> Maybe a -> Either e a
+hoistMaybeWith err Nothing = Left err
+hoistMaybeWith _ (Just r)  = Right r

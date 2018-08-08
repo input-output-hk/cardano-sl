@@ -35,6 +35,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Chain.Block (Block, MainBlock, genesisBlock0, headerHash,
+                     mainBlockSlot, mainBlockTxPayload)
 import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      TxOut, TxOutAux (..), TxWitness, TxpConfiguration,
@@ -45,9 +47,6 @@ import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
                      HasConfiguration, Timestamp (..), difficultyL, epochSlots,
                      genesisHash)
-import           Pos.Core.Block (Block, MainBlock, headerHash, mainBlockSlot,
-                     mainBlockTxPayload)
-import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Core.StateLock (StateLock, StateLockMetrics)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)

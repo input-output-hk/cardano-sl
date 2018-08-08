@@ -15,7 +15,7 @@ import           Pos.Chain.Txp (MemPool (_mpSize))
 import           Pos.Core.JsonLog.LogEvents (JLEvent (..), JLMemPool (..),
                      MemPoolModifyReason (..))
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
-import           Pos.Core.StateLock (StateLockMetrics (..))
+import           Pos.DB.GState.Lock (StateLockMetrics (..))
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.

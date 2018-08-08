@@ -96,11 +96,11 @@ module Pos.Wallet.Web.State.State
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants,
                      SlotId, protocolConstants)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId,

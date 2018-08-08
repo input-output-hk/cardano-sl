@@ -12,9 +12,9 @@ import           Universum
 
 import qualified Data.Cache.LRU as LRU
 
+import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Delegation (DelegationVar, DelegationWrap (..),
                      HasDlgConfiguration, dlgCacheParam)
-import           Pos.Core.Block (headerHash)
 import           Pos.DB (MonadBlockDBRead)
 import           Pos.DB.BlockIndex (getTipHeader)
 

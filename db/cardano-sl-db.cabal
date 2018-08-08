@@ -22,6 +22,7 @@ library
                        Pos.DB.Functions
                        Pos.DB.BlockIndex
                        Pos.DB.GState.Common
+                       Pos.DB.GState.Lock
                        Pos.DB.GState.Stakes
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
@@ -138,6 +139,7 @@ library
                      , dlist
                      , ekg-core
                      , ether >= 0.5
+                     , exceptions
                      , filepath
                      , formatting
                      , lens

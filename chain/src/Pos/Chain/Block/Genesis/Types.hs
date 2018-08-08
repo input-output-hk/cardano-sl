@@ -1,6 +1,6 @@
 -- | Types defining the genesis blockchain.
 
-module Pos.Core.Block.Genesis.Types
+module Pos.Chain.Block.Genesis.Types
        ( GenesisProof (..)
        , GenesisConsensusData (..)
        , GenesisBody (..)

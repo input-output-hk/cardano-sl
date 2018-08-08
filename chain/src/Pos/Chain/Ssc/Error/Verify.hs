@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Possible failures during SSC verification.
 
 module Pos.Chain.Ssc.Error.Verify
@@ -7,16 +5,14 @@ module Pos.Chain.Ssc.Error.Verify
        , sscIsCriticalVerifyError
        ) where
 
+import           Universum
+
 import           Formatting (bprint, build, ords, stext, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
-import           Universum
 
 import           Pos.Core (EpochIndex, SlotId, StakeholderId)
 import           Pos.Core.Ssc (VssCertificate)
-
-instance Buildable (StakeholderId, VssCertificate) where
-    build (a, b) = bprint ("(id: "%build%" , cert: "%build%")") a b
 
 type NEStIds = NonEmpty StakeholderId
 

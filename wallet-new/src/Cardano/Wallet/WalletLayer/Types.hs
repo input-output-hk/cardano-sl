@@ -3,9 +3,10 @@ module Cardano.Wallet.WalletLayer.Types
     , ActiveWalletLayer (..)
     -- * Getters
     , createWallet
-    , getWalletIds
+    , getWallets
     , getWallet
     , updateWallet
+    , updateWalletPassword
     , deleteWallet
 
     , createAccount
@@ -21,6 +22,10 @@ module Cardano.Wallet.WalletLayer.Types
     -- * Errors
     , WalletLayerError(..)
     , CreateWalletError(..)
+    , GetWalletError(..)
+    , UpdateWalletError(..)
+    , UpdateWalletPasswordError(..)
+    , DeleteWalletError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
     , CreateAddressError(..)
@@ -41,7 +46,8 @@ import qualified Formatting.Buildable
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-                     Payment, V1 (..), Wallet, WalletId, WalletUpdate)
+                     PasswordUpdate, Payment, V1 (..), Wallet, WalletId,
+                     WalletUpdate)
 
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
@@ -65,11 +71,12 @@ import           Pos.Crypto (PassPhrase)
 
 
 ------------------------------------------------------------
--- Errors creating a new Wallet
+-- Errors when manipulating wallets
 ------------------------------------------------------------
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
+    | CreateWalletFirstAccountCreationFailed Kernel.CreateAccountError
     | CreateWalletTimeLimitReached TimeExecutionLimit
 
 -- | Unsound show instance needed for the 'Exception' instance.
@@ -86,8 +93,86 @@ instance Arbitrary CreateWalletError where
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
         bprint ("CreateWalletError " % build) kernelError
+    build (CreateWalletFirstAccountCreationFailed kernelError) =
+        bprint ("CreateWalletFirstAccountCreationFailed " % build) kernelError
     build (CreateWalletTimeLimitReached timeLimit) =
         bprint ("CreateWalletTimeLimitReached " % build) timeLimit
+
+data GetWalletError =
+      GetWalletError (V1 Kernel.UnknownHdRoot)
+    | GetWalletErrorNotFound WalletId
+    -- ^ Error thrown by the legacy wallet layer, isomorphic to the one above,
+    -- which is new-data-layer specific.
+    | GetWalletWalletIdDecodingFailed Text
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show GetWalletError where
+    show = formatToString build
+
+instance Exception GetWalletError
+
+instance Buildable GetWalletError where
+    build (GetWalletError (V1 kernelError)) =
+        bprint ("GetWalletError " % build) kernelError
+    build (GetWalletErrorNotFound walletId) =
+        bprint ("GetWalletErrorNotFound " % build) walletId
+    build (GetWalletWalletIdDecodingFailed txt) =
+        bprint ("GetWalletWalletIdDecodingFailed " % build) txt
+
+data UpdateWalletError =
+      UpdateWalletError (V1 Kernel.UnknownHdRoot)
+    | UpdateWalletErrorNotFound WalletId
+    -- ^ Error thrown by the legacy wallet layer, isomorphic to the one above,
+    -- which is new-data-layer specific.
+    | UpdateWalletWalletIdDecodingFailed Text
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show UpdateWalletError where
+    show = formatToString build
+
+instance Exception UpdateWalletError
+
+instance Buildable UpdateWalletError where
+    build (UpdateWalletError (V1 kernelError)) =
+        bprint ("UpdateWalletError " % build) kernelError
+    build (UpdateWalletErrorNotFound walletId) =
+        bprint ("UpdateWalletErrorNotFound " % build) walletId
+    build (UpdateWalletWalletIdDecodingFailed txt) =
+        bprint ("UpdateWalletWalletIdDecodingFailed " % build) txt
+
+data UpdateWalletPasswordError =
+      UpdateWalletPasswordWalletIdDecodingFailed Text
+    | UpdateWalletPasswordError Kernel.UpdateWalletPasswordError
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show UpdateWalletPasswordError where
+    show = formatToString build
+
+instance Exception UpdateWalletPasswordError
+
+instance Buildable UpdateWalletPasswordError where
+    build (UpdateWalletPasswordWalletIdDecodingFailed txt) =
+        bprint ("UpdateWalletPasswordWalletIdDecodingFailed " % build) txt
+    build (UpdateWalletPasswordError kernelError) =
+        bprint ("UpdateWalletPasswordError " % build) kernelError
+
+data DeleteWalletError =
+      DeleteWalletWalletIdDecodingFailed Text
+    | DeleteWalletError (V1 Kernel.UnknownHdRoot)
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show DeleteWalletError where
+    show = formatToString build
+
+instance Exception DeleteWalletError
+
+instance Buildable DeleteWalletError where
+    build (DeleteWalletWalletIdDecodingFailed txt) =
+        bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
+    build (DeleteWalletError kernelError) =
+        bprint ("DeleteWalletError " % build) kernelError
 
 ------------------------------------------------------------
 -- Errors creating a new Address
@@ -237,32 +322,39 @@ instance Exception WalletLayerError
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet   :: NewWallet -> m (Either CreateWalletError Wallet)
-    , _pwlGetWalletIds   :: m [WalletId]
-    , _pwlGetWallet      :: WalletId -> m (Maybe Wallet)
-    , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
-    , _pwlDeleteWallet   :: WalletId -> m Bool
+      _pwlCreateWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
+    , _pwlGetWallets           :: m (IxSet Wallet)
+    , _pwlGetWallet            :: WalletId -> m (Either GetWalletError Wallet)
+    , _pwlUpdateWallet         :: WalletId
+                               -> WalletUpdate
+                               -> m (Either UpdateWalletError Wallet)
+    , _pwlUpdateWalletPassword :: WalletId
+                               -> PasswordUpdate
+                               -> m (Either UpdateWalletPasswordError Wallet)
+    , _pwlDeleteWallet         :: WalletId -> m (Either DeleteWalletError ())
     -- * accounts
-    , _pwlCreateAccount  :: WalletId
-                         -> NewAccount
-                         -> m (Either CreateAccountError Account)
-    , _pwlGetAccounts    :: WalletId -> m (Either GetAccountsError (IxSet Account))
-    , _pwlGetAccount     :: WalletId
-                         -> AccountIndex
-                         -> m (Either GetAccountError Account)
-    , _pwlUpdateAccount  :: WalletId
-                         -> AccountIndex
-                         -> AccountUpdate
-                         -> m (Either UpdateAccountError Account)
-    , _pwlDeleteAccount  :: WalletId
-                         -> AccountIndex
-                         -> m (Either DeleteAccountError ())
+    , _pwlCreateAccount        :: WalletId
+                               -> NewAccount
+                               -> m (Either CreateAccountError Account)
+    , _pwlGetAccounts          :: WalletId
+                               -> m (Either GetAccountsError (IxSet Account))
+    , _pwlGetAccount           :: WalletId
+                               -> AccountIndex
+                               -> m (Either GetAccountError Account)
+    , _pwlUpdateAccount        :: WalletId
+                               -> AccountIndex
+                               -> AccountUpdate
+                               -> m (Either UpdateAccountError Account)
+    , _pwlDeleteAccount        :: WalletId
+                               -> AccountIndex
+                               -> m (Either DeleteAccountError ())
     -- * addresses
-    , _pwlCreateAddress  :: NewAddress -> m (Either CreateAddressError Address)
-    , _pwlGetAddresses   :: WalletId -> m [Address]
+    , _pwlCreateAddress        :: NewAddress
+                               -> m (Either CreateAddressError Address)
+    , _pwlGetAddresses         :: WalletId -> m [Address]
     -- * core API
-    , _pwlApplyBlocks    :: OldestFirst NE Blund -> m ()
-    , _pwlRollbackBlocks :: NewestFirst NE Blund -> m ()
+    , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
+    , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
     }
 
 makeLenses ''PassiveWalletLayer
@@ -276,16 +368,29 @@ createWallet :: forall m. PassiveWalletLayer m
              -> m (Either CreateWalletError Wallet)
 createWallet pwl = pwl ^. pwlCreateWallet
 
-getWalletIds :: forall m. PassiveWalletLayer m -> m [WalletId]
-getWalletIds pwl = pwl ^. pwlGetWalletIds
+getWallets :: forall m. PassiveWalletLayer m -> m (IxSet Wallet)
+getWallets pwl = pwl ^. pwlGetWallets
 
-getWallet :: forall m. PassiveWalletLayer m -> WalletId -> m (Maybe Wallet)
+getWallet :: forall m. PassiveWalletLayer m
+          -> WalletId
+          -> m (Either GetWalletError Wallet)
 getWallet pwl = pwl ^. pwlGetWallet
 
-updateWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletUpdate -> m Wallet
+updateWallet :: forall m. PassiveWalletLayer m
+             -> WalletId
+             -> WalletUpdate
+             -> m (Either UpdateWalletError Wallet)
 updateWallet pwl = pwl ^. pwlUpdateWallet
 
-deleteWallet :: forall m. PassiveWalletLayer m -> WalletId -> m Bool
+updateWalletPassword :: forall m. PassiveWalletLayer m
+                     -> WalletId
+                     -> PasswordUpdate
+                     -> m (Either UpdateWalletPasswordError Wallet)
+updateWalletPassword pwl = pwl ^. pwlUpdateWalletPassword
+
+deleteWallet :: forall m. PassiveWalletLayer m
+             -> WalletId
+             -> m (Either DeleteWalletError ())
 deleteWallet pwl = pwl ^. pwlDeleteWallet
 
 

@@ -14,6 +14,8 @@ import           Formatting (build, builder, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG,
+                     headerSlotL)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      DecidedProposalState (..), DpsExtra (..), MonadPoll (..),
                      MonadPollRead (..), PollVerFailure (..),
@@ -25,8 +27,6 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
                      difficultyL, epochIndexL, flattenSlotId, sumCoins,
                      unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Attributes (areAttributesKnown)
-import           Pos.Core.Block (HeaderHash, IsMainHeader (..), headerHashG,
-                     headerSlotL)
 import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
                      SoftwareVersion (..), UpId, UpdatePayload (..),

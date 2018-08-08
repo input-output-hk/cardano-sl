@@ -121,7 +121,7 @@ import           Test.QuickCheck.Random (mkQCGen)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
-                     IndicesOf, OrdByPrimKey, ixList)
+                     IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
@@ -772,6 +772,30 @@ data Wallet = Wallet {
     , walAssuranceLevel             :: !AssuranceLevel
     , walSyncState                  :: !SyncState
     } deriving (Eq, Ord, Show, Generic)
+
+--
+-- IxSet indices
+--
+
+-- FIXME(adn) Currently these indices are a necessary evil but in the future
+-- we won't even need to define them on V1 data types, as that would mean we
+-- will have to reconstructs all the indices when we convert from Kernel types
+-- to V1 types, which is computationally not efficient. See [CBR-356] for a
+-- broader discussion of the topic and for a proper design.
+instance HasPrimKey Wallet where
+    type PrimKey Wallet = WalletId
+    primKey = walId
+
+type SecondaryWalletIxs = '[Core.Coin, V1 Core.Timestamp]
+
+type instance IndicesOf Wallet = SecondaryWalletIxs
+
+instance IxSet.Indexable (WalletId ': SecondaryWalletIxs)
+                         (OrdByPrimKey Wallet) where
+    indices = ixList
+                (ixFun ((:[]) . unV1 . walBalance))
+                (ixFun ((:[]) . walCreatedAt))
+
 
 deriveJSON Serokell.defaultOptions ''Wallet
 

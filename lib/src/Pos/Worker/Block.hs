@@ -20,8 +20,8 @@ import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 
 import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
-                     criticalCQBootstrap, fixedTimeCQSec, networkDiameter,
-                     nonCriticalCQ, nonCriticalCQBootstrap,
+                     criticalCQBootstrap, fixedTimeCQSec, gbHeader,
+                     networkDiameter, nonCriticalCQ, nonCriticalCQBootstrap,
                      scCQFixedMonitorState, scCQOverallMonitorState,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
@@ -33,7 +33,6 @@ import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
                      blkSecurityParam, difficultyL, epochOrSlotToSlot,
                      epochSlots, flattenSlotId, getEpochOrSlot,
                      getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
-import           Pos.Core.Block (gbHeader)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),

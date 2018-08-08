@@ -53,7 +53,9 @@ import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
-import           Pos.Chain.Block (Blund, undoTx)
+import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
+                     MainBlock, getBlockHeader, headerHash, headerSlotL,
+                     mainBlockTxPayload, undoTx)
 import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
                      _txOutputs)
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
@@ -61,9 +63,6 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..),
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HasDifficulty (..), HasProtocolConstants, Timestamp (..),
                      blkSecurityParam, genesisHash, timestampToPosix)
-import           Pos.Core.Block (BlockHeader (..), HeaderHash, MainBlock,
-                     getBlockHeader, headerHash, headerSlotL,
-                     mainBlockTxPayload)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)

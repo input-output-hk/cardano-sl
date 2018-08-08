@@ -13,7 +13,7 @@ import           Data.ByteArray (convert)
 
 import qualified Database.RocksDB as Rocks
 
-import           Pos.Core.Block (BlockHeader, HeaderHash, headerHash)
+import           Pos.Chain.Block (BlockHeader, HeaderHash, headerHash)
 import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead,
                      MonadDB (..))
 import           Pos.DB.Functions (dbGetBi, dbSerializeValue)

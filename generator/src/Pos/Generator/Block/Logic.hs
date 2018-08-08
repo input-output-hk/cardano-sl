@@ -20,13 +20,11 @@ import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Block (Block, BlockHeader, Blund, mkGenesisBlock)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
                      epochIndexL, getEpochOrSlot, getSlotIndex)
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import           Pos.DB.Block (ShouldCallBListener (..),
                      VerifyBlocksContext (..), applyBlocksUnsafe,

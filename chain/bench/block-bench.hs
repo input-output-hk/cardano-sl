@@ -10,7 +10,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
-import           Pos.Core.Block (Body, BodyProof, ConsensusData, ExtraBodyData,
+import           Pos.Chain.Block (Body, BodyProof, ConsensusData, ExtraBodyData,
                      ExtraHeaderData, MainBlock, MainBlockHeader,
                      MainBlockchain, _gbBody, _gbExtra, _gbHeader,
                      _gbhBodyProof, _gbhConsensus, _gbhExtra, _mbDlgPayload,

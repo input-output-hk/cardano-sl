@@ -21,15 +21,15 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Chain.Ssc (verifySscPayload)
-import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
-                     MainConsensusData (..), MainToSign (..))
-import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
+import           Pos.Chain.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbExtra)
-import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..),
+import           Pos.Chain.Block.Main (MainBody (..), MainExtraHeaderData (..),
                      MainProof)
-import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..),
+import           Pos.Chain.Block.Union (Block, BlockHeader (..),
+                     BlockSignature (..), GenesisBlockchain, MainBlockchain,
+                     MainConsensusData (..), MainToSign (..),
                      mainBlockEBDataProof)
+import           Pos.Chain.Ssc (verifySscPayload)
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))

@@ -23,12 +23,12 @@ import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
-import           Pos.Core.Common (StakeholderId, addressHash)
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
                      ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
                      enforceSize)
+import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey,
@@ -74,6 +74,9 @@ instance Ord VssCertificate where
 instance Buildable VssCertificate where
     build UnsafeVssCertificate {..} = bprint
         ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
+
+instance Buildable (StakeholderId, VssCertificate) where
+    build (a, b) = bprint ("(id: "%build%" , cert: "%build%")") a b
 
 instance Hashable VssCertificate where
     hashWithSalt s UnsafeVssCertificate{..} =

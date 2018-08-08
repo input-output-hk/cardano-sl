@@ -12,10 +12,9 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 
-import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Block (Blund, mainBlockTxPayload)
 import           Pos.Chain.Txp (flattenTxPayload)
 import           Pos.Core (difficultyL, epochIndexL)
-import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Core.StateLock (Priority (..), withStateLock)
 import           Pos.Core.Txp (TxAux)

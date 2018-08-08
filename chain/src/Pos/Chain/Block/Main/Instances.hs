@@ -2,7 +2,7 @@
 
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
 
-module Pos.Core.Block.Main.Instances
+module Pos.Chain.Block.Main.Instances
        (
        ) where
 
@@ -12,10 +12,10 @@ import           Formatting (bprint, build, int, stext, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (Color (Magenta), colorize, listJson)
 
-import           Pos.Core.Block.Blockchain (GenericBlock (..))
-import           Pos.Core.Block.Main.Types (MainBody (..),
+import           Pos.Chain.Block.Blockchain (GenericBlock (..))
+import           Pos.Chain.Block.Main.Types (MainBody (..),
                      MainExtraHeaderData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..),
+import           Pos.Chain.Block.Union.Types (BlockHeader (..),
                      HasHeaderHash (..), IsHeader, IsMainHeader (..),
                      MainBlock, MainBlockHeader, MainConsensusData (..),
                      blockHeaderHash, mainBlockBlockVersion, mainBlockSlot,

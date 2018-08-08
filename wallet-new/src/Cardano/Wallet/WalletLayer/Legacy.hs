@@ -16,16 +16,19 @@ import           Data.Coerce (coerce)
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
-                     CreateWalletError, DeleteAccountError, GetAccountError,
-                     GetAccountsError, PassiveWalletLayer (..),
-                     UpdateAccountError)
+                     CreateWalletError, DeleteAccountError,
+                     DeleteWalletError (..), GetAccountError, GetAccountsError,
+                     GetWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError, UpdateWalletError (..),
+                     UpdateWalletPasswordError)
 
-import           Cardano.Wallet.API.V1.Migration (migrate)
+import           Cardano.Wallet.API.V1.Migration (eitherMigrate, migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
-                     NewAccount (..), NewAddress, NewWallet (..), V1 (..),
-                     Wallet, WalletId, WalletOperation (..), WalletUpdate)
+                     NewAccount (..), NewAddress, NewWallet (..),
+                     PasswordUpdate, V1 (..), Wallet, WalletId,
+                     WalletOperation (..), WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -34,7 +37,7 @@ import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
 import           Pos.Crypto (PassPhrase)
 
-import           Pos.Util (HasLens', maybeThrow)
+import           Pos.Util (HasLens')
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..),
@@ -45,8 +48,8 @@ import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Pos.Wallet.Web.Methods.Restore (newWallet,
                      restoreWalletFromSeed)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB,
-                     askWalletSnapshot, getWalletAddresses, setWalletMeta)
-import           Pos.Wallet.Web.State.Storage (getWalletInfo)
+                     askWalletSnapshot, setWalletMeta)
+import           Pos.Wallet.Web.State.Storage (getWalletInfo, getWalletInfos)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Pos.Chain.Block (Blund)
@@ -77,23 +80,24 @@ bracketPassiveWallet logTrace =
   where
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet   = pwlCreateWallet logTrace
-        , _pwlGetWalletIds   = pwlGetWalletIds
-        , _pwlGetWallet      = pwlGetWallet logTrace
-        , _pwlUpdateWallet   = pwlUpdateWallet logTrace
-        , _pwlDeleteWallet   = pwlDeleteWallet
+        { _pwlCreateWallet          = pwlCreateWallet
+        , _pwlGetWallets            = pwlGetWallets
+        , _pwlGetWallet             = pwlGetWallet
+        , _pwlUpdateWallet          = pwlUpdateWallet
+        , _pwlUpdateWalletPassword  = pwlUpdateWalletPassword
+        , _pwlDeleteWallet          = pwlDeleteWallet
 
-        , _pwlCreateAccount  = pwlCreateAccount logTrace
-        , _pwlGetAccounts    = pwlGetAccounts logTrace
-        , _pwlGetAccount     = pwlGetAccount logTrace
-        , _pwlUpdateAccount  = pwlUpdateAccount logTrace
-        , _pwlDeleteAccount  = pwlDeleteAccount
+        , _pwlCreateAccount         = pwlCreateAccount
+        , _pwlGetAccounts           = pwlGetAccounts
+        , _pwlGetAccount            = pwlGetAccount
+        , _pwlUpdateAccount         = pwlUpdateAccount
+        , _pwlDeleteAccount         = pwlDeleteAccount
 
-        , _pwlCreateAddress  = pwlCreateAddress
-        , _pwlGetAddresses   = pwlGetAddresses
+        , _pwlCreateAddress         = pwlCreateAddress
+        , _pwlGetAddresses          = pwlGetAddresses
 
-        , _pwlApplyBlocks    = pwlApplyBlocks
-        , _pwlRollbackBlocks = pwlRollbackBlocks
+        , _pwlApplyBlocks           = pwlApplyBlocks
+        , _pwlRollbackBlocks        = pwlRollbackBlocks
         }
 
 
@@ -144,8 +148,10 @@ pwlCreateWallet logTrace NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    w <- maybeThrow (WalletNotFound wId) =<< pwlGetWallet logTrace wId
-    return $ Right w
+    res <- pwlGetWallet wId
+    case res of
+         Left _  -> throwM (WalletNotFound wId)
+         Right w -> return $ Right w
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
@@ -160,27 +166,35 @@ pwlCreateWallet logTrace NewWallet{..} = do
             _ -> throwM e
 
 
-pwlGetWalletIds
+pwlGetWallets
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => m [WalletId]
-pwlGetWalletIds = do
-    ws          <- askWalletSnapshot
-    migrate $ getWalletAddresses ws
+    => m (IxSet Wallet)
+pwlGetWallets = do
+    ws    <- askWalletSnapshot
+    let invariantViolated = error "Conversion between CId Wal -> WalletId failed."
+    let ids = map (either invariantViolated identity . eitherMigrate . fst)
+                  (runReader getWalletInfos ws)
+    wss <- forM ids pwlGetWallet
+    case sequence wss of
+         Left _   -> return IxSet.emptyIxSet
+         Right xs -> return $ IxSet.fromList xs
 
 pwlGetWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => TraceNamed m
     -> WalletId
-    -> m (Maybe Wallet)
+    -> m (Either GetWalletError Wallet)
 pwlGetWallet logTrace wId = do
     ws          <- askWalletSnapshot
 
     cWId        <- migrate wId
     wallet      <- V0.getWallet logTrace cWId
 
-    pure $ do
-        walletInfo  <- getWalletInfo cWId ws
-        migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+    let mbWallet = do walletInfo  <- getWalletInfo cWId ws
+                      migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+    return $ case mbWallet of
+                  Nothing -> Left (GetWalletErrorNotFound wId)
+                  Just w  -> Right w
 
 --instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
 
@@ -200,19 +214,29 @@ pwlUpdateWallet logTrace wId wUpdate = do
     setWalletMeta walletDB cWId cWMeta
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet logTrace wId
+    res <- pwlGetWallet wId
+    case res of
+         Left _  -> throwM (UpdateWalletErrorNotFound wId)
+         Right w -> return (Right w)
+
+pwlUpdateWalletPassword
+    :: WalletId
+    -> PasswordUpdate
+    -> m (Either UpdateWalletPasswordError Wallet)
+pwlUpdateWalletPassword _ _ = error "Unused and deprecated. See [CBR-227]"
 
 -- | Seems silly, but we do need some sort of feedback from
 -- the DB.
 pwlDeleteWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m Bool
+    -> m (Either DeleteWalletError ())
 pwlDeleteWallet wId = do
     cWId        <- migrate wId
-    -- TODO(ks): It would be better to catch specific @Exception@.
-    -- Maybe @try@?
-    catchAll (const True <$> V0.deleteWallet cWId) (const . pure $ False)
+    -- Ignore exceptions for the old wallet as we have no way to track
+    -- precisely what could go wrong there, and this legacy layer is not
+    -- even actually used.
+    Right <$> void (V0.deleteWallet cWId)
 
 ------------------------------------------------------------
 -- Account

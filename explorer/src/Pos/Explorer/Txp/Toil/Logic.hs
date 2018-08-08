@@ -18,12 +18,12 @@ import           Data.List (delete)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration,
                      extendGlobalToilM, extendLocalToilM, topsortTxs)
 import qualified Pos.Chain.Txp as Txp
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
                      Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
-import           Pos.Core.Block (HeaderHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..),
                      TxOutAux (..), TxUndo, _TxOut)

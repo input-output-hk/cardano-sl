@@ -18,12 +18,11 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (convertUnit)
 import           Formatting (build, sformat, (%))
 
-import           Pos.Chain.Block (Blund, undoTx)
+import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
+                     blockHeader, getBlockHeader, headerSlotL,
+                     mainBlockTxPayload, prevBlockL, undoTx)
 import           Pos.Chain.Txp (flattenTxPayload)
 import           Pos.Core (Timestamp, difficultyL)
-import           Pos.Core.Block (BlockHeader (..), HeaderHash, blockHeader,
-                     getBlockHeader, headerSlotL, mainBlockTxPayload,
-                     prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.Core.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)

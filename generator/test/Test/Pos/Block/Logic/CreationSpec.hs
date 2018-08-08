@@ -17,6 +17,7 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
 
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Block (BlockHeader, MainBlock)
 import           Pos.Chain.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration)
@@ -24,7 +25,6 @@ import qualified Pos.Communication ()
 import           Pos.Core (HasConfiguration, SlotId (..), blkSecurityParam,
                      genesisBlockVersionData, pcEpochSlots, protocolConstants,
                      unsafeMkLocalSlotIndexExplicit)
-import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..), mkVssCertificatesMapLossy)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))

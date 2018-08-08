@@ -58,9 +58,6 @@ import           System.Wlog (WithLogger, logInfo, logWarning)
 #else
 import           System.Wlog (WithLogger, logInfo)
 #endif
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
-                     genericShrink)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
                      deriveSimpleBi, encodeListLen, enforceSize, serialize')
@@ -89,10 +86,6 @@ data WalletUserSecret = WalletUserSecret
     } deriving (Show, Generic)
 
 deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
-
-instance Arbitrary WalletUserSecret where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
 
 makeLenses ''WalletUserSecret
 
@@ -139,10 +132,6 @@ deriving instance Eq EncryptedSecretKey => Eq UserSecret
 
 isEmptyUserSecret :: UserSecret -> Bool
 isEmptyUserSecret us = null (_usKeys us)
-
-instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
 
 makeLenses ''UserSecret
 

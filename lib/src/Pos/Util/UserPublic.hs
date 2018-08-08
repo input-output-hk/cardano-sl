@@ -31,8 +31,10 @@ import           Control.Exception.Safe (onException)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
-import           Formatting (Format, bprint, build, later, (%))
+import           Formatting (Format, bprint, build, formatToString, later, (%))
 import qualified Formatting.Buildable
+import qualified Prelude
+import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
 import           System.Directory (renameFile)
 import           System.FileLock (FileLock, SharedExclusive (..), lockFile,
@@ -42,13 +44,11 @@ import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
 import           System.Wlog (WithLogger)
 #endif
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
-                     genericShrink)
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
                      deriveSimpleBi, encodeListLen, enforceSize, serialize')
+import           Pos.Core (Address)
 import           Pos.Crypto (PublicKey)
 import           Pos.Util.UserKeyError (UserPublicError (..))
 
@@ -69,11 +69,7 @@ data WalletUserPublic = WalletUserPublic
     { _wupWalletName :: Text                -- ^ name of wallet
     , _wupAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
     , _wupAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
-    } deriving (Show, Generic)
-
-instance Arbitrary WalletUserPublic where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+    } deriving (Eq, Generic, Show)
 
 makeLenses ''WalletUserPublic
 
@@ -101,17 +97,23 @@ data UserPublic = UserPublic
     , _upWallet :: Maybe WalletUserPublic
     , _upPath   :: FilePath
     , _upLock   :: Maybe FileLock
-    } deriving (Generic)
-
-instance Arbitrary (Maybe FileLock) => Arbitrary UserPublic where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+    } deriving (Eq, Generic)
 
 makeLenses ''UserPublic
 
 class HasUserPublic ctx where
     -- if you're going to mock this TVar, look how it's done for peer state.
     userPublic :: Lens' ctx (TVar UserPublic)
+
+-- | Show instance to be able to include it into NodeParams
+instance Bi Address => Show UserPublic where
+    show UserPublic {..} =
+        formatToString
+            ("UserPublic { _upKeys = "%listJson%
+             ", _upPath = "%build%", _upWallet = "%build%"}")
+            _upKeys
+            _upPath
+            _upWallet
 
 newtype UserPublicDecodingError = UserPublicDecodingError Text
     deriving (Show)

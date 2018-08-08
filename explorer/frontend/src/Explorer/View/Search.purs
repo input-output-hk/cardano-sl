@@ -47,11 +47,10 @@ searchInputView (ElementId viewId) state =
         focusedClazz = if dbViewSearchInputFocused then " focused " else ""
         searchTimeQuery = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
-    S.ul ! S.className "pure-menu-list nav-search" $ do
-      S.li ! S.className "pure-menu-item" $ do
+     S.div ! S.className "explorer-search" $
         S.div ! S.className ("explorer-search__container" <> focusedClazz)
               ! S.id viewId $ do
-          S.form $ do
+          -- S.form $ do
               (S.input !? dbViewSearchInputFocused) (S.placeholder $ translate (I18nL.hero <<< I18nL.hrSearch) lang')
                       ! S.className ("explorer-search__input explorer-search__input--address-tx"
                                      <> addrHiddenClazz <> focusedClazz)

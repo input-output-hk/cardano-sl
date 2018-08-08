@@ -41,7 +41,7 @@ getInfo :: ( MonadIO m
         -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
 getInfo Diffusion{..} ntpStatus ntpCheck = do
-    timeDifference <- V0.localTimeDifference <$>
+    timeDifference <- V0.localTimeDifferencePure <$>
         if ntpCheck
             then do
                 atomically $ writeTVar ntpStatus NtpSyncPending

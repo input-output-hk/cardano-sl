@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Methods.Misc
 
        , syncProgress
        , localTimeDifference
+       , localTimeDifferencePure
 
        , requestShutdown
 
@@ -170,10 +171,13 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: NtpStatus -> Maybe Integer
-localTimeDifference (NtpDrift time)    = Just (toMicroseconds time)
-localTimeDifference NtpSyncPending     = Nothing
-localTimeDifference NtpSyncUnavailable = Nothing
+localTimeDifferencePure :: NtpStatus -> Maybe Integer
+localTimeDifferencePure (NtpDrift time)    = Just (toMicroseconds time)
+localTimeDifferencePure NtpSyncPending     = Nothing
+localTimeDifferencePure NtpSyncUnavailable = Nothing
+
+localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
+localTimeDifference ntpStatus = localTimeDifferencePure <$> (atomically $ readTVar ntpStatus)
 
 ----------------------------------------------------------------------------
 -- Reset

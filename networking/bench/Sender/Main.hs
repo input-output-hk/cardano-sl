@@ -57,7 +57,6 @@ main = do
             argsParser
             empty
 
-    --Log.loadLogConfig logsPrefix logConfig
     lc1 <- case logConfig of
               Nothing  -> return $ defaultInteractiveConfiguration Log.Debug
               Just lc0 -> parseLoggerConfig lc0

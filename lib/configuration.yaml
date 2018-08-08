@@ -14780,7 +14780,7 @@ mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 8
+    applicationVersion: 9
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14790,7 +14790,7 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 8
+    applicationVersion: 9
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14800,7 +14800,7 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 8
+    applicationVersion: 9
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

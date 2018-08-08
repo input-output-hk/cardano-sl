@@ -8,6 +8,7 @@ module Cardano.Wallet.Kernel.DB.Read (
   , hdWallets
   , readAddressMeta
   , walletAccounts
+  , walletTotalBalance
   ) where
 
 import           Universum
@@ -16,12 +17,12 @@ import           Formatting (build, sformat)
 import           Formatting.Buildable (Buildable)
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (Address, Coin)
+import           Pos.Core (Address, Coin, mkCoin, unsafeAddCoin)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdAccountId,
-                     HdAddress, HdRootId, HdWallets)
+                     HdAddress, HdRootId, HdWallets, hdAccountId)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
                      readAccountsByRootId, readAddressesByAccountId,
                      readHdAccountCurrentCheckpoint)
@@ -29,6 +30,7 @@ import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
 
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
                               Wallet getters
@@ -96,3 +98,13 @@ readAddressMeta snapshot accountId cardanoAddress
 walletAccounts :: DB -> HdRootId -> IxSet HdAccount
 walletAccounts snapshot rootId
     = walletQuery' snapshot (readAccountsByRootId rootId)
+
+-- | Computes the total balance for this wallet, given its 'HdRootId'.
+walletTotalBalance :: DB -> HdRootId -> Coin
+walletTotalBalance db hdRootId =
+    IxSet.foldl' (\total account ->
+                      total `unsafeAddCoin`
+                      accountTotalBalance db (account ^. hdAccountId)
+                 )
+                 (mkCoin 0)
+                 (walletAccounts db hdRootId)

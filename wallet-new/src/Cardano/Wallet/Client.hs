@@ -244,3 +244,38 @@ hoistClient phi wc = WalletClient
 -- 'WalletClient' m@.
 liftClient :: MonadIO m => WalletClient IO -> WalletClient m
 liftClient = hoistClient liftIO
+
+-- | Calls 'getWalletIndexPaged' using the 'Default' values for 'Page' and
+-- 'PerPage'.
+getWalletIndex :: Monad m => WalletClient m -> Resp m [Wallet]
+getWalletIndex = paginateAll . getWalletIndexPaged
+
+
+-- | A type alias shorthand for the response from the 'WalletClient'.
+type Resp m a = m (Either ClientError (WalletResponse a))
+
+-- | The type of errors that the wallet might return.
+data ClientError
+    = ClientWalletError V1Errors.WalletError
+    -- ^ The 'WalletError' type represents known failures that the API
+    -- might return.
+    | ClientHttpError ServantError
+    -- ^ We directly expose the 'ServantError' type as part of this
+    | UnknownClientError SomeException
+    -- ^ This constructor is used when the API client reports an error that
+    -- isn't represented in either the 'ServantError' HTTP errors or the
+    -- 'WalletError' for API errors.
+    deriving (Show, Generic)
+
+-- | General (and naive) equality instance.
+instance Eq ClientError where
+    ClientWalletError  e1 == ClientWalletError  e2 = e1 == e2
+    ClientHttpError    e1 == ClientHttpError    e2 = e1 == e2
+    UnknownClientError _  == UnknownClientError _  = True
+    _ == _ = False
+
+-- | General exception instance.
+instance Exception ClientError where
+    toException (ClientWalletError  e) = toException e
+    toException (ClientHttpError    e) = toException e
+    toException (UnknownClientError e) = toException e

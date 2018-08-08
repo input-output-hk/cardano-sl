@@ -24,6 +24,8 @@ handlers w =  deleteAccount w
          :<|> newAccount w
          :<|> updateAccount w
          :<|> redeemAda w
+         :<|> getAccountAddresses w
+         :<|> getAccountBalance w
 
 deleteAccount :: PassiveWalletLayer IO
               -> WalletId
@@ -92,3 +94,21 @@ redeemAda :: PassiveWalletLayer IO
           -> Handler (WalletResponse Transaction)
 redeemAda _layer _wId _accIdx _redemption =
     error "unimplemented, see [CBR-349]"
+
+getAccountAddresses
+    :: PassiveWalletLayer IO
+    -> WalletId
+    -> AccountIndex
+    -> RequestParams
+    -> FilterOperations WalletAddress
+    -> Handler (WalletResponse AccountAddresses)
+getAccountAddresses _layer _wId _accIdx _pagination _filters =
+    error "unimplemented"
+
+getAccountBalance
+    :: PassiveWalletLayer IO
+    -> WalletId
+    -> AccountIndex
+    -> Handler (WalletResponse AccountBalance)
+getAccountBalance _layer _wId _accIdx =
+    error "unimplemented"

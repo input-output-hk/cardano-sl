@@ -1966,37 +1966,7 @@ type CaptureAccountId = Capture "accountId" AccountIndex
 -- Example typeclass instances
 --
 
-instance Example (V1 Core.PassPhrase)
-instance Example (V1 Core.Coin)
-
-instance Example a => Example (WalletResponse a) where
-    example = WalletResponse <$> example
-                             <*> pure SuccessStatus
-                             <*> example
-
--- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
--- to control the length of the examples. It is possible for the encoded length
--- to become huge, up to 1000+ bytes, if the 'UnsafeMultiKeyDistr' constructor
--- is used. We do not use this constructor, which keeps the address between
--- ~80-150 bytes long.
-instance Example (V1 Address) where
-    example = fmap V1 . Core.makeAddress
-        <$> arbitrary
-        <*> arbitraryAttributes
-      where
-        arbitraryAttributes =
-            Core.AddrAttributes
-                <$> arbitrary
-                <*> oneof
-                    [ pure Core.BootstrapEraDistr
-                    , Core.SingleKeyDistr <$> arbitrary
-                    ]
-
-instance Example BackupPhrase where
-    example = pure (BackupPhrase def)
-
-instance Example Address
-instance Example Metadata
+instance Example Core.Address
 instance Example AccountIndex
 instance Example AccountBalance
 instance Example AccountAddresses
@@ -2021,15 +1991,38 @@ instance Example NewAccount
 instance Example TimeInfo
 instance Example AddressValidity
 instance Example NewAddress
-instance Example CUpdateInfo
 instance Example SubscriptionStatus
 instance Example NodeId
+instance Example ShieldedRedemptionCode
+instance Example (V1 Core.PassPhrase)
+instance Example (V1 Core.Coin)
 
-instance Example InputSelectionPolicy where
-    example = pure OptimizeForHighThroughput
+-- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
+-- to control the length of the examples. It is possible for the encoded length
+-- to become huge, up to 1000+ bytes, if the 'UnsafeMultiKeyDistr' constructor
+-- is used. We do not use this constructor, which keeps the address between
+-- ~80-150 bytes long.
+instance Example (V1 Core.Address) where
+    example = fmap V1 . Core.makeAddress
+        <$> arbitrary
+        <*> arbitraryAttributes
+      where
+        arbitraryAttributes =
+            Core.AddrAttributes
+                <$> arbitrary
+                <*> oneof
+                    [ pure Core.BootstrapEraDistr
+                    , Core.SingleKeyDistr <$> arbitrary
+                    ]
 
-instance Example (V1 InputSelectionPolicy) where
-    example = pure (V1 OptimizeForHighThroughput)
+instance Example BackupPhrase where
+    example = pure (BackupPhrase def)
+
+instance Example Core.InputSelectionPolicy where
+    example = pure Core.OptimizeForHighThroughput
+
+instance Example (V1 Core.InputSelectionPolicy) where
+    example = pure (V1 Core.OptimizeForHighThroughput)
 
 instance Example Account where
     example = Account <$> example
@@ -2061,3 +2054,8 @@ instance Example Payment where
                       <*> example
                       <*> example -- TODO: will produce `Just groupingPolicy`
                       <*> example
+
+instance Example Redemption where
+    example = Redemption <$> example
+                         <*> pure Nothing
+                         <*> example

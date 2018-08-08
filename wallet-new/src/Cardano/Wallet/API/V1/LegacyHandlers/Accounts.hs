@@ -127,7 +127,9 @@ getAccountAddresses wId accIdx pagination filters = do
 
 getAccountBalance
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountIndex -> m (WalletResponse AccountBalance)
+    => WalletId
+    -> AccountIndex
+    -> m (WalletResponse AccountBalance)
 getAccountBalance wId accIdx = do
     resp <- getAccount wId accIdx
     return resp { wrData = AccountBalance . accAmount . wrData $ resp }

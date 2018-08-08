@@ -2,21 +2,13 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Types
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Data.Default (Default (def))
-import           Node (NodeId (..))
-
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
 
 import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
-import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Data.Map.Strict as Map
 
 

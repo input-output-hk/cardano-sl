@@ -181,3 +181,11 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
         = transactionsAPI
+
+    addressesAPI
+        :<|> walletsAPI
+        :<|> accountsAPI
+        :<|> transactionsAPI
+        :<|> getNodeSettingsR
+        :<|> getNodeInfoR
+        = client (Proxy @("api" :> "v1" :> V1.API))

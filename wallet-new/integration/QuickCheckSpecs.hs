@@ -6,6 +6,7 @@ module QuickCheckSpecs (mkSpec) where
 
 import           Universum
 
+import           GHC.TypeLits (KnownSymbol)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
 import           Servant
@@ -21,6 +22,7 @@ import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.API.V1.Parameters (WalletRequestParams,
                      WithWalletRequestParams)
+import           Pos.Util.Servant (CustomQueryFlag)
 
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
@@ -71,6 +73,12 @@ instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
 
 instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
+
+instance ( KnownSymbol sym
+         , HasGenRequest sub
+         ) =>
+         HasGenRequest (CustomQueryFlag sym flag :> sub) where
+    genRequest _ = genRequest (Proxy @(QueryFlag sym :> sub))
 
 --
 -- RESTful-abiding predicates

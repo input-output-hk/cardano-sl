@@ -356,6 +356,7 @@ executable wal-integr-test
                      , aeson-diff
                      , aeson-pretty
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new

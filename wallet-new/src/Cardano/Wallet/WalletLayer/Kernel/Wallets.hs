@@ -191,6 +191,7 @@ toV1Wallet db hdRoot =
       , walAssuranceLevel             = v1AssuranceLevel
       -- FIXME(adn) Do this as part of CBR-243.
       , walSyncState                  = V1.Synced
+      , walType                       = V1.WalletRegular
     }
 
 -- | Converts from the @V1@ 'AssuranceLevel' to the HD one.

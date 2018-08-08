@@ -76,16 +76,16 @@ data WalletError =
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
-    | InvalidPublicKey { weProblem :: !Text }
+    | InvalidPublicKey !Text
     | UnsignedTxCreationError
     | TooBigTransaction
-    | SignedTxSubmitError { weProblem :: !Text }
+    | SignedTxSubmitError !Text
     | TxRedemptionDepleted
     -- | TxSafeSignerNotFound weAddress
     | TxSafeSignerNotFound !(V1 Core.Address)
     -- | MissingRequiredParams requiredParams
     | MissingRequiredParams !(NonEmpty (Text, Text))
-    | CannotCreateAddress { weProblem :: !Text }
+    | CannotCreateAddress !Text
     -- | WalletIsNotReadyToProcessPayments weStillRestoring
     | WalletIsNotReadyToProcessPayments !SyncProgress
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully

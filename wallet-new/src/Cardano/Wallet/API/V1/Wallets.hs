@@ -40,7 +40,7 @@ type API = Tags '["Wallets"] :>
                    :> ReqBody '[ValidJSON] (Update Wallet)
                    :> Put '[ValidJSON] (WalletResponse Wallet)
     :<|> "external-wallets"
-                   :> Capture "extPublicKey" Text
+                   :> Capture "rootPK" Text
                    :> Summary "Check if this external wallet is presented in the node."
                    :> PostCreated '[ValidJSON] (WalletResponse WalletAndTxHistory)
     :<|> "external-wallets"
@@ -48,7 +48,7 @@ type API = Tags '["Wallets"] :>
                    :> ReqBody '[ValidJSON] (New ExternalWallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "external-wallets"
-                   :> Capture "extPublicKey" Text
+                   :> Capture "rootPK" Text
                    :> Summary "Deletes the given external wallet and all its accounts."
                    :> DeleteNoContent '[ValidJSON] NoContent
     )

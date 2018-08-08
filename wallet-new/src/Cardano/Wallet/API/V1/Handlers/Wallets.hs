@@ -18,23 +18,14 @@ import           Servant
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
 handlers pwl =  newWallet pwl
-<<<<<<< HEAD
            :<|> listWallets pwl
            :<|> updatePassword pwl
            :<|> deleteWallet pwl
            :<|> getWallet pwl
            :<|> updateWallet pwl
-
-=======
-           :<|> listWallets
-           :<|> updatePassword
-           :<|> deleteWallet
-           :<|> getWallet
-           :<|> updateWallet
-           :<|> checkExternalWallet
-           :<|> newExternalWallet
-           :<|> deleteExternalWallet
->>>>>>> [CHW] Rebasing of #3103 to the latest develop.
+           :<|> checkExternalWallet pwl
+           :<|> newExternalWallet pwl
+           :<|> deleteExternalWallet pwl
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -103,21 +94,23 @@ updateWallet :: PassiveWalletLayer IO
              -> WalletId
              -> WalletUpdate
              -> Handler (WalletResponse Wallet)
-<<<<<<< HEAD
 updateWallet pwl wid walletUpdateRequest = do
     res <- liftIO $ WalletLayer.updateWallet pwl wid walletUpdateRequest
     case res of
          Left e  -> throwM e
          Right w -> return $ single w
-=======
-updateWallet _wid _walletUpdate = error "Unimplemented. See CBR-227."
 
-checkExternalWallet :: Text -> Handler (WalletResponse WalletAndTxHistory)
-checkExternalWallet _encodedRootPK = error ""
+checkExternalWallet :: PassiveWalletLayer IO
+                    -> Text
+                    -> Handler (WalletResponse WalletAndTxHistory)
+checkExternalWallet _encodedRootPK = error "Cardano Hardware Wallet feature, unimplemented."
 
-newExternalWallet :: NewExternalWallet -> Handler (WalletResponse Wallet)
-newExternalWallet _newExtWallet = error ""
+newExternalWallet :: PassiveWalletLayer IO
+                  -> NewExternalWallet
+                  -> Handler (WalletResponse Wallet)
+newExternalWallet _newExtWallet = error "Cardano Hardware Wallet feature, unimplemented."
 
-deleteExternalWallet :: Text -> Handler NoContent
-deleteExternalWallet _encodedRootPK = error ""
->>>>>>> [CHW] Rebasing of #3103 to the latest develop.
+deleteExternalWallet :: PassiveWalletLayer IO
+                     -> Text
+                     -> Handler NoContent
+deleteExternalWallet _encodedRootPK = error "Cardano Hardware Wallet feature, unimplemented."

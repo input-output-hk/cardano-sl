@@ -54,6 +54,9 @@ module Pos.Util.Servant
     , DCQueryParam
     , DQueryParam
 
+    , Flaggable (..)
+    , CustomQueryFlag
+
     , serverHandlerL
     , serverHandlerL'
     , inRouteServer
@@ -80,8 +83,8 @@ import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
-                     QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
-                     Summary, Verb)
+                     HasLink (toLink), MkLink, QueryFlag, QueryParam,
+                     ReflectMethod (..), ReqBody, Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
@@ -92,6 +95,8 @@ import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
                      logInfoSP, plainOrSecureF, secretOnlyF)
+
+import           GHC.TypeLits (Symbol)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -706,6 +711,34 @@ instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where
     reportDecodeError _ msg =
         (ApiNoParamsLogInfo msg, reportDecodeError (Proxy @api) msg)
+
+
+-------------------------------------------------------------------------
+-- Custom query flag
+-------------------------------------------------------------------------
+
+data CustomQueryFlag (sym :: Symbol) flag
+
+class Flaggable flag where
+    toBool :: flag -> Bool
+
+instance ( KnownSymbol sym
+         , HasLink sub
+         , Flaggable flag
+         ) =>
+         HasLink (CustomQueryFlag sym flag :> sub) where
+    type MkLink (CustomQueryFlag sym flag :> sub) = flag -> MkLink sub
+    toLink _ l = toLink (Proxy :: Proxy (QueryFlag sym :> sub)) l . toBool
+
+instance ( KnownSymbol sym
+         , HasSwagger sub
+         , Flaggable flag
+         ) =>
+         HasSwagger (CustomQueryFlag sym flag :> sub) where
+    toSwagger _ = toSwagger (Proxy @(QueryFlag sym :> sub))
+
+instance Flaggable Bool where
+    toBool = identity
 
 -------------------------------------------------------------------------
 -- API construction Helpers

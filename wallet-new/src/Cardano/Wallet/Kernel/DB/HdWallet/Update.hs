@@ -14,6 +14,14 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
   UPDATE
 -------------------------------------------------------------------------------}
 
+-- | Modifies the 'State' @st@ with the supplied 'Setter' and returns it.
+modifyAndGet :: MonadState s m => (s -> s) -> m s
+modifyAndGet f = do
+    st <- get
+    let st' = f st
+    put st'
+    return st'
+
 -- | Updates in one gulp the Hd Wallet name and assurance level.
 updateHdRoot :: HdRootId
              -> AssuranceLevel
@@ -21,28 +29,18 @@ updateHdRoot :: HdRootId
              -> Update' HdWallets UnknownHdRoot HdRoot
 updateHdRoot rootId assurance name =
     zoomHdRootId identity rootId $ do
-        oldHdRoot <- get
-        let newHdRoot = oldHdRoot & set hdRootAssurance assurance
-                                  . set hdRootName name
-        put newHdRoot
-        return newHdRoot
+        modifyAndGet $ set hdRootAssurance assurance . set hdRootName name
 
 updateHdRootPassword :: HdRootId
                      -> HasSpendingPassword
                      -> Update' HdWallets UnknownHdRoot HdRoot
 updateHdRootPassword rootId hasSpendingPassword =
     zoomHdRootId identity rootId $ do
-        oldHdRoot <- get
-        let newHdRoot = oldHdRoot & hdRootHasPassword .~ hasSpendingPassword
-        put newHdRoot
-        return newHdRoot
+        modifyAndGet $ hdRootHasPassword .~ hasSpendingPassword
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
                     -> Update' HdWallets UnknownHdAccount HdAccount
 updateHdAccountName accId name = do
     zoomHdAccountId identity accId $ do
-        oldAccount <- get
-        let newAccount = oldAccount & hdAccountName .~ name
-        put newAccount
-        return newAccount
+        modifyAndGet $ hdAccountName .~ name

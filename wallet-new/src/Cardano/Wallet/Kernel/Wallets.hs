@@ -232,14 +232,14 @@ updatePassword pw hdRootId oldPassword newPassword = do
              --         principle could be checked on the wallet layer side,
              --         it's preferrable to do everything in the kernel to make
              --         this operation really atomic.
-             let pwdCheck = hoistMaybeWith (UpdateWalletPasswordOldPasswordMismatch hdRootId) $
+             let pwdCheck = maybeToRight (UpdateWalletPasswordOldPasswordMismatch hdRootId) $
                             checkPassMatches oldPassword esk
 
              -- STEP 3: Compute the new key using the cryptographic primitives
              --         we have. This operation doesn't change any state, it
              --         just recomputes the new 'EncryptedSecretKey' in-place.
              genNewKey <- changeEncPassphrase oldPassword newPassword esk
-             let mbNewKey = hoistMaybeWith (UpdateWalletPasswordChangeFailed hdRootId) $
+             let mbNewKey = maybeToRight (UpdateWalletPasswordChangeFailed hdRootId) $
                             genNewKey
 
              case pwdCheck >> mbNewKey of
@@ -256,9 +256,3 @@ updatePassword pw hdRootId oldPassword newPassword = do
                            Left e ->
                                return $ Left (UpdateWalletPasswordUnknownHdRoot e)
                            Right (db, hdRoot') -> return $ Right (db, hdRoot')
-
--- | Hoist a Maybe into an Either so that multiple calls that may fail can
--- be chained.
-hoistMaybeWith :: e -> Maybe a -> Either e a
-hoistMaybeWith err Nothing = Left err
-hoistMaybeWith _ (Just r)  = Right r

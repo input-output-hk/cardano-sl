@@ -14,7 +14,7 @@ import           Data.Coerce (coerce)
 import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
 
-import           Pos.Core (Coin, decodeTextAddress, mkCoin, unsafeAddCoin)
+import           Pos.Core (decodeTextAddress, mkCoin)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -183,7 +183,7 @@ toV1Wallet db hdRoot =
         walId                         = (V1.WalletId walletId)
       , walName                       = hdRoot ^. HD.hdRootName
                                                 . to HD.getWalletName
-      , walBalance                    = V1 (walletTotalBalance db rootId)
+      , walBalance                    = V1 (Kernel.walletTotalBalance db rootId)
       , walHasSpendingPassword        = hasSpendingPassword
       , walSpendingPasswordLastUpdate = V1 lastUpdate
       , walCreatedAt                  = V1 createdAt
@@ -197,12 +197,3 @@ fromV1AssuranceLevel :: V1.AssuranceLevel -> HD.AssuranceLevel
 fromV1AssuranceLevel V1.NormalAssurance = HD.AssuranceLevelNormal
 fromV1AssuranceLevel V1.StrictAssurance = HD.AssuranceLevelStrict
 
--- | Computes the total balance for this wallet, given its 'HdRootId'.
-walletTotalBalance :: Kernel.DB -> HD.HdRootId -> Coin
-walletTotalBalance db hdRootId =
-    IxSet.foldl' (\total account ->
-                      total `unsafeAddCoin`
-                      Kernel.accountTotalBalance db (account ^. HD.hdAccountId)
-                 )
-                 (mkCoin 0)
-                 (Kernel.walletAccounts db hdRootId)

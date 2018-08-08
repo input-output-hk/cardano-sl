@@ -76,28 +76,6 @@ logMeasure logTrace miEvent miId miPayload = do
     miTime <- toMicroseconds <$> realTime
     liftIO $ logInfo logTrace $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
-{-
-defaultLogConfig :: Log.LoggerConfig
-defaultLogConfig = fromScratch $ zoom lcTree $ do
-    ltSeverity ?= warningPlus
-    zoomLogger "sender" $ do
-        ltSeverity ?= Log.Info
-        commLogger
-    zoomLogger "receiver" $ do
-        ltSeverity ?= Log.Info
-        commLogger
-  where
-    commLogger = zoomLogger "comm" $ ltSeverity ?= Log.Error
--}
-
-{-  TODO  move to Pos.Util.LoggerConfig
-loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
-loadLogConfig logsPrefix configFile = do
-    let cfgBuilder = productionB <> maybeLogsDirB logsPrefix
-    loggerConfig <- maybe (return defaultLogConfig) Log.parseLoggerConfig configFile
-    Log.setupLogging Nothing $ loggerConfig <> cfgBuilder
- -}
-
 -- * Logging & parsing
 
 -- ** Measure event

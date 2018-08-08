@@ -17,17 +17,11 @@ import qualified Data.Text.Lazy.IO as T
 import           Katip.Core
 import           Katip.Format.Time (formatAsIso8601)
 import           Katip.Scribes.Handle (brackets, getKeys)
+import qualified Pos.Util.Log.Internal as Internal
 import           System.FilePath ((</>))
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (WriteMode), hFlush, hSetBuffering, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
-
-import qualified Pos.Util.Log.Internal as Internal
-
-
--------------------------------------------------------------------------------
-
-
 
 -- | global lock for file Scribes
 {-# NOINLINE lock #-}
@@ -47,11 +41,11 @@ mkJsonFileScribe bp fp s v = do
                 prtoutException (bp </> fp) e
                 return stdout    -- fallback to standard output in case of exception
     hSetBuffering h LineBuffering
-    _lock <- newMVar ()
+    locklocal <- newMVar ()
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item =
           when (permitItem s item) $
-              bracket_ (takeMVar _lock) (putMVar _lock ()) $
+              bracket_ (takeMVar locklocal) (putMVar locklocal ()) $
                 T.hPutStrLn h $ encodeToLazyText $ itemJson v item
     pure $ Scribe logger (hFlush h)
 
@@ -63,13 +57,13 @@ mkFileScribe bp fp colorize s v = do
             \e -> do
                 prtoutException (bp </> fp) e
                 return stdout    -- fallback to standard output in case of exception
-    _mkFileScribe h colorize s v
+    mkFileScribeH h colorize s v
 
 -- | internal: return scribe on file handle
 -- thread safe by MVar
 -- formatting done with 'formatItem'
-_mkFileScribe :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
-_mkFileScribe h colorize s v = do
+mkFileScribeH :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
+mkFileScribeH h colorize s v = do
     hSetBuffering h LineBuffering
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item = when (permitItem s item) $
@@ -80,14 +74,14 @@ _mkFileScribe h colorize s v = do
 -- | create a katip scribe for logging to the console
 -- (stdout) calls '_mkFileScribe'
 mkStdoutScribe :: Severity -> Verbosity -> IO Scribe
-mkStdoutScribe = _mkFileScribe stdout True
+mkStdoutScribe = mkFileScribeH stdout True
 
 -- | create a katip scribe for logging to stderr
 -- calls '_mkFileScribe'
 mkStderrScribe :: Severity -> Verbosity -> IO Scribe
-mkStderrScribe = _mkFileScribe stderr True
+mkStderrScribe = mkFileScribeH stderr True
 
--- | @Scribe@ that outputs to '/dev/null' without locking
+--- | @Scribe@ that outputs to '/dev/null' without locking
 mkDevNullScribe :: Internal.LoggingHandler -> Severity -> Verbosity -> IO Scribe
 mkDevNullScribe lh s v = do
     h <- openFile "/dev/null" WriteMode

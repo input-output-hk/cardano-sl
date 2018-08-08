@@ -42,7 +42,7 @@ type API
           :> Post '[ValidJSON] (WalletResponse Transaction)
     :<|> "wallets" :> CaptureWalletId :> "accounts"
           :> CaptureAccountId :> "addresses"
-          :> Summary "Retrieve only account's addressees."
+          :> Summary "Retrieve only account's addresses."
           :> WalletRequestParams
           :> FilterBy '[V1 Core.Address] WalletAddress
           :> Get '[ValidJSON] (WalletResponse AccountAddresses)

@@ -19,7 +19,7 @@ import qualified Prelude
 accountSpecs :: WalletRef -> WalletClient IO -> Spec
 accountSpecs _ wc =
     describe "Accounts" $ do
-        it "can retrieve only an accounts balance" $ do
+        it "can retrieve only an account's balance" $ do
             let zero = V1 (mkCoin 0)
             (Wallet{..}, Account{..}) <- randomAccount wc
             eresp <- getAccountBalance wc walId accIndex

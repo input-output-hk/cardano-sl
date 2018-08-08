@@ -103,7 +103,7 @@ getAccountAddresses
     -> FilterOperations WalletAddress
     -> Handler (WalletResponse AccountAddresses)
 getAccountAddresses _layer _wId _accIdx _pagination _filters =
-    error "unimplemented"
+    error "unimplemented, see [CBR-366]"
 
 getAccountBalance
     :: PassiveWalletLayer IO
@@ -111,4 +111,4 @@ getAccountBalance
     -> AccountIndex
     -> Handler (WalletResponse AccountBalance)
 getAccountBalance _layer _wId _accIdx =
-    error "unimplemented"
+    error "unimplemented, see [CBR-366]"

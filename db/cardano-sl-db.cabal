@@ -45,6 +45,8 @@ library
                        Pos.DB.Update
                        Pos.DB.Block
 
+                       Pos.DB.Epoch.Index
+
   other-modules:       Pos.DB.Txp.Logic.Common
                        Pos.DB.Txp.Logic.Global
                        Pos.DB.Txp.Logic.Local
@@ -122,6 +124,7 @@ library
 
   build-depends:       aeson
                      , base
+                     , binary
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-chain
@@ -190,3 +193,20 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  hs-source-dirs:      test
+  main-is:             test.hs
+  other-modules:       Test.Pos.DB.Epoch.Index
+  type:                exitcode-stdio-1.0
+  build-depends:       base
+                     , cardano-sl-binary-test
+                     , cardano-sl-core
+                     , cardano-sl-core-test
+                     , cardano-sl-db
+                     , hedgehog
+                     , temporary
+                     , universum
+  default-language:    Haskell2010
+  default-extensions:  NoImplicitPrelude
+                       OverloadedStrings

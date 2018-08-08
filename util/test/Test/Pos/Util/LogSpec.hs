@@ -9,7 +9,7 @@ import           Control.Concurrent (threadDelay)
 import           Data.Text (append, replicate)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
-import           Test.Hspec (Spec, describe, it)
+import           Test.Hspec (Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess)
 import           Test.QuickCheck (Property, property)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
@@ -19,7 +19,9 @@ import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
                      logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
-import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.LoggerConfig (BackendKind (..), LoggerConfig (..),
+                     LoggerTree (..), LogHandler (..), LogSecurityLevel (..),
+                     defaultInteractiveConfiguration, defaultTestConfiguration)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 
@@ -172,3 +174,25 @@ spec = describe "Logging" $ do
 
     it "demonstrating bracket logging" $
         example_bracket
+
+    it "compose default LoggerConfig" $
+        ((mempty :: LoggerConfig) <> (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                                             , _lcLoggerTree = mempty }))
+        `shouldBe`
+        (mempty :: LoggerConfig)
+
+    it "compose complex LoggerConfig" $
+        ( (defaultInteractiveConfiguration Debug) <>
+          (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                                             , _lcLoggerTree = mempty }))
+        `shouldBe`
+        (defaultInteractiveConfiguration Debug) <>
+          (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                        , _lcLoggerTree = LoggerTree {_ltMinSeverity = Debug,
+                             _ltHandlers = [LogHandler {_lhName = "node", _lhFpath = Just "node.log",
+                                                        _lhSecurityLevel = Just PublicLogLevel,
+                                                        _lhBackend = FileTextBE,
+                                                        _lhMinSeverity = Just Debug
+                                                       }]}
+                        })
+

@@ -44,17 +44,16 @@ s2knames s = K.Namespace s
 
 -- | Our internal state
 data LoggingHandlerInternal = LoggingHandlerInternal
-  { lsiConfig      :: !(Maybe LoggerConfig)
-  , lsiLogEnv      :: !(Maybe K.LogEnv)
-  -- | Counter for the number of lines that are logged
-  , lsiLinesLogged :: !Integer
-  }
+    { lsiConfig      :: !(Maybe LoggerConfig)
+    , lsiLogEnv      :: !(Maybe K.LogEnv)
+    -- | Counter for the number of lines that are logged
+    , lsiLinesLogged :: !Integer
+    }
 
 -- | internal data structure to be passed around
 type LoggingMVar = MVar LoggingHandlerInternal
 newtype LoggingHandler = LoggingHandler
-    {
-      getLSI :: LoggingMVar
+    { getLSI :: LoggingMVar
     }
 
 getConfig :: LoggingHandler -> IO (Maybe LoggerConfig)

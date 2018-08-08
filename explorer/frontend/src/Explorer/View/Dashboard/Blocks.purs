@@ -25,7 +25,7 @@ import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (div, table, tbody) as S
+import Text.Smolder.HTML (div, a, table, tbody) as S
 import Text.Smolder.HTML.Attributes (className) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!))
@@ -83,7 +83,7 @@ blocksFooterView state =
                                     state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
                         }
     else
-        S.div ! S.className ("btn-expand" <> visibleBtnExpandClazz)
+        S.a ! S.className ("pure-button pure-button-primary btn-expand" <> visibleBtnExpandClazz)
               #! P.onClick clickHandler
               $ S.text (translate (I18nL.common <<< I18nL.cExpand) lang')
     where

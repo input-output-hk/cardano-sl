@@ -28,7 +28,6 @@ heroView state =
     S.div ! S.className "home-menu pure-g pure-menu-fixed pure-menu-horizontal"
           ! S.id "explorer-dashboard__hero-id" $ do
       S.div ! S.className "pure-u-1 pure-u-md-1-2" $ do
-        S.div ! S.className "pure-menu" $
             logoView state
       S.div ! S.className "pure-u-1 pure-u-md-1-2" $ do
         S.div ! S.className "pure-menu align-right mob-align-center" $

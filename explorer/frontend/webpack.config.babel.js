@@ -123,6 +123,7 @@ module.exports = {
         use: isProd ? undefined : [
           'style-loader',
           'css-loader?importLoaders=1&minimize?false',
+          'postcss-loader'
           // 'postcss-loader?sourceMap'
         ],
         // 2) Use ExtractTextPlugin in prod mode, only

@@ -56,7 +56,7 @@ transactionsView state =
           S.th $ S.text "Value"
       S.tbody $ for_ transactions' (transactionRow state)
     S.div ! S.className ("transactions__footer" <> visibleTxClazz)
-          $ S.div ! S.className ("btn-expand" <> visibleBtnExpandClazz)
+          $ S.a ! S.className ("pure-button pure-button-primary btn-expand" <> visibleBtnExpandClazz)
                   #! P.onClick clickHandler
                   $ S.text expandLabel
     where

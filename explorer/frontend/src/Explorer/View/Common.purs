@@ -48,7 +48,7 @@ import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.DOM.Events (DOMEvent, onBlur, onChange, onFocus, onKeyDown, onClick, targetValue) as P
 import Pux.DOM.HTML (HTML) as P
-import Text.Smolder.HTML (a, div, p, span, input, option, select, ul, li, small) as S
+import Text.Smolder.HTML (a, div, p, span, input, option, select, ul, li, small, thead, tbody, td, th, tr) as S
 import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
 import Text.Smolder.Markup (text, empty) as S
@@ -98,18 +98,17 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
 
 txHeaderView :: Language -> TxHeaderViewProps -> P.HTML Action
 txHeaderView lang (TxHeaderViewProps props) =
-    S.div ! S.className "transaction-header" $ do
-        S.div ! S.className "hash-container"
-              $ S.a ! S.href (toUrl txRoute)
-              #! P.onClick (Navigate $ toUrl txRoute)
-              ! S.className "hash"
-              $ S.text (props ^. (txhHash <<< _CTxId <<< _CHash))
-        S.div ! S.className "date"
-              $ S.text $ case props ^. txhTimeIssued of
-                              Just time ->
-                                  let format = translate (I18nL.common <<< I18nL.cDateFormat) lang
-                                  in fromMaybe noData $ prettyDate format time
-                              Nothing -> noData
+    S.thead $
+      S.tr $ do
+        S.th $ S.a ! S.href (toUrl txRoute)
+             #! P.onClick (Navigate $ toUrl txRoute)
+             ! S.className "hash"
+             $ S.text (props ^. (txhHash <<< _CTxId <<< _CHash))
+        S.th $ S.text $ case props ^. txhTimeIssued of
+                             Just time ->
+                                 let format = translate (I18nL.common <<< I18nL.cDateFormat) lang
+                                 in fromMaybe noData $ prettyDate format time
+                             Nothing -> noData
         txAmountView (props ^. txhAmount) lang
     where
         txRoute = Tx $ props ^. txhHash
@@ -121,7 +120,7 @@ emptyTxHeaderView =
 
 txAmountView :: CCoin -> Language -> P.HTML Action
 txAmountView coin lang =
-    S.div ! S.className "amount-container"
+    S.th ! S.className "amount-container"
           $ S.div ! S.className "amount bg-ada"
                   $ S.text (formatADA coin lang)
 
@@ -164,8 +163,8 @@ txBodyView lang (TxBodyViewProps props) =
         outputs = props ^. txbOutputs
         lOutputs = length outputs
     in
-    S.div ! S.className "transaction-body" $ do
-        S.div ! S.className "from-hash__container" $ do
+    S.tbody ! S.className "transaction-body" $ do
+        S.td ! S.className "from-hash__container" $ do
               S.div ! S.className "from-hash__wrapper"
                     $ for_ inputs (txMaybeFromView lang)
               -- On mobile devices we wan't to show amounts of `inputs`.
@@ -174,25 +173,25 @@ txBodyView lang (TxBodyViewProps props) =
                     $ if (lInputs > lOutputs)
                           then for_ inputs (txBodyMaybeAmountView lang)
                           else S.text ""
-        S.div ! S.className "to-hash__container bg-transaction-arrow" $ do
+        S.td ! S.className "to-hash__container bg-transaction-arrow" $ do
               S.div ! S.className "to-hash__wrapper"
-                    $ for_ outputs txToView
-              -- On mobile devices we wan't to show amounts of `outputs`.
-              -- This view is hidden on desktop by CSS.
+                     $ for_ outputs txToView
+              --  On mobile devices we wan't to show amounts of `outputs`.
+              --  This view is hidden on desktop by CSS.
               S.div ! S.className "to-hash__amounts"
                     $ if (lOutputs >= lInputs)
                           then for_ outputs (txBodyAmountView lang)
                           else S.text ""
-        -- On desktop we do show amounts within an extra column.
-        -- This column is hidden on mobile by CSS.
-        S.div ! S.className "amounts-container"
-              $ if (lOutputs >= lInputs)
-                then for_ outputs (txBodyAmountView lang)
-                else for_ inputs (txBodyMaybeAmountView lang)
+              -- On desktop we do show amounts within an extra column.
+              -- This column is hidden on mobile by CSS.
+              S.div ! S.className "amounts-container"
+                    $ if (lOutputs >= lInputs)
+                      then for_ outputs (txBodyAmountView lang)
+                      else for_ inputs (txBodyMaybeAmountView lang)
 
-        -- On mobile we do show an extra row of total amount
-        -- This view is hidden on desktop by CSS.
-        txAmountView (props ^. txbAmount) lang
+              -- On mobile we do show an extra row of total amount
+              -- This view is hidden on desktop by CSS.
+              txAmountView (props ^. txbAmount) lang
 
 emptyTxBodyView :: P.HTML Action
 emptyTxBodyView =
@@ -346,25 +345,26 @@ logoView state =
     let route' = state ^. route
         lang' = state ^. lang
         isTestnet = state ^. testnet
-        logoContentTag = S.a ! S.href "/"
+        logoContentTag c = S.a ! S.href "/"
                               #! P.onClick (Navigate $ toUrl Dashboard)
-                              ! S.className "pure-menu-link"
+                              ! S.className c
 
         iconHiddenClazz = if isTestnet then "" else " hide"
         title = (translate (I18nL.common <<< I18nL.cTitle) lang')
     in
-    S.ul ! S.className "pure-menu-list" $ do
-      S.li ! S.className "pure-menu-item"
-            $ logoContentTag
-                $ S.div
-                    ! S.className ("testnet-icon" <> iconHiddenClazz)
-                    $ S.text ("Testnet")
-      S.li ! S.className "pure-menu-item" $ do
-        logoContentTag $ do
-          S.text title
-          if isTestnet
-            then S.small $ S.text " - testnet"
-            else S.empty
+    S.div ! S.className "pure-menu" $ do
+      S.div ! S.className "pure-menu-heading" $ do
+        logoContentTag  "pure-menu-link header-img" $
+          S.div ! S.className ("testnet-icon" <> iconHiddenClazz) $
+            S.text ("Testnet")
+      S.ul ! S.className "pure-menu-list" $ do
+        S.li ! S.className "pure-menu-item" $
+        S.li ! S.className "pure-menu-item" $ do
+          logoContentTag "pure-menu-link" $ do
+            S.text title
+            if isTestnet
+              then S.small $ S.text " - testnet"
+              else S.empty
 
 -- -----------------
 -- lang

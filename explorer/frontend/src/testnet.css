@@ -1,6 +1,22 @@
 .align-right {
   text-align:right;
 }
+
+@svg-load logo url('../static/images/cardano-logo.svg');
+
+.header-img {
+  position: relative;
+  box-item: center;
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-image: svg-inline(logo);
+  background-size: contain;
+  display: block;
+  width: 50px;
+  height: 50px;
+  margin-right: 50px;
+}
+
 .testnet-logo {
   width:1.5em;
 }
@@ -22,7 +38,7 @@
 }
 
 .pure-table thead {
-  background:transparent;
+  background:transparent !important;
 }
 
 .pure-table th {

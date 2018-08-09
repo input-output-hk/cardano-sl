@@ -87,6 +87,7 @@ createWallet wallet (V1.NewWallet (V1.BackupPhrase mnemonic) mbSpendingPassword 
                                      , walCreatedAt                  = V1 createdAt
                                      , walAssuranceLevel             = v1AssuranceLevel
                                      , walSyncState                  = V1.Synced
+                                     , walType                       = V1.WalletRegular
                                    }
 
 -- | Updates the 'SpendingPassword' for this wallet.
@@ -190,6 +191,7 @@ toV1Wallet db hdRoot =
       , walAssuranceLevel             = v1AssuranceLevel
       -- FIXME(adn) Do this as part of CBR-243.
       , walSyncState                  = V1.Synced
+      , walType                       = V1.WalletRegular
     }
 
 -- | Converts from the @V1@ 'AssuranceLevel' to the HD one.

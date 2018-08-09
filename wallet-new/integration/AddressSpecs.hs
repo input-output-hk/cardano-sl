@@ -1,48 +1,37 @@
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TupleSections #-}
-
 module AddressSpecs (addressSpecs) where
 
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Control.Lens
 import           Test.Hspec
 
 import           Util
 
 
-addressSpecs :: WalletRef -> WalletClient IO -> Spec
-addressSpecs wRef wc = do
-    describe "Addresses" $ do
-        it "Creating an address makes it available" $ do
-            -- create a wallet
-            Wallet{..} <- sampleWallet wRef wc
+addressSpecs :: WalletClient IO -> Spec
+addressSpecs wc = describe "Addresses" $ do
+    before (createRandomSampleWallet wc) $ do
+        it "Creating an address makes it available" $ \someWallet -> do
+            let Wallet{..} = someWallet
 
             -- create an account
-            accResp <- postAccount wc walId (NewAccount Nothing "hello")
-            acc@Account{..} <- wrData <$> accResp `shouldPrism` _Right
+            acc@Account{..} <- wrData <$> shouldReturnRight
+               (postAccount wc walId (NewAccount Nothing "hello"))
 
             -- accounts should exist
-            accResp' <- getAccounts wc walId
-            accs <- wrData <$> accResp' `shouldPrism` _Right
+            accs <- wrData <$> shouldReturnRight (getAccounts wc walId)
             accs `shouldContain` [acc]
 
             -- create an address
-            addResp <- postAddress wc (NewAddress Nothing accIndex walId)
-            addr <- wrData <$> addResp `shouldPrism` _Right
+            addr <- wrData <$> shouldReturnRight (postAddress wc (NewAddress Nothing accIndex walId))
 
             -- verify that address is in the API
-            idxResp <- getAddressIndex wc
-            addrs <- wrData <$> idxResp `shouldPrism` _Right
+            addrs <- wrData <$> shouldReturnRight (getAddressIndex wc)
 
             map addrId addrs `shouldContain` [addrId addr]
 
-        it "Index returns real data" $ do
-            addrsResp <- getAddressIndex wc
-            addrs <- wrData <$> addrsResp `shouldPrism` _Right
+    it "Index returns real data" $ do
+        addrs  <- wrData <$> shouldReturnRight (getAddressIndex wc)
+        addrs' <- wrData <$> shouldReturnRight (getAddressIndex wc)
 
-            addrsResp' <- getAddressIndex wc
-            addrs' <- wrData <$> addrsResp' `shouldPrism` _Right
-
-            addrs `shouldBe` addrs'
+        addrs `shouldBe` addrs'

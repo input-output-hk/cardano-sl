@@ -37,10 +37,31 @@ optionsParser = do
         <> help     "Server hostname"
         <> showDefault
 
-    serverPort <- option auto $
+    serverPort0 <- option auto $
         long        "server-port"
-       <> metavar   "PORT"
+       <> metavar   "PORT0"
        <> value     8090
+       <> help      "Server port"
+       <> showDefault
+
+    serverPort1 <- option auto $
+        long        "server-port"
+       <> metavar   "PORT1"
+       <> value     8091
+       <> help      "Server port"
+       <> showDefault
+
+    serverPort2 <- option auto $
+        long        "server-port"
+       <> metavar   "PORT2"
+       <> value     8092
+       <> help      "Server port"
+       <> showDefault
+
+    serverPort3 <- option auto $
+        long        "server-port"
+       <> metavar   "PORT3"
+       <> value     8093
        <> help      "Server port"
        <> showDefault
 
@@ -62,5 +83,8 @@ data CLOptions = CLOptions
     , tlsPrivKeyPath    :: FilePath
     , tlsCACertPath     :: FilePath
     , serverHost        :: String
-    , serverPort        :: Int
+    , serverPort0       :: Int
+    , serverPort1       :: Int
+    , serverPort2       :: Int
+    , serverPort3       :: Int
     } deriving (Show, Eq)

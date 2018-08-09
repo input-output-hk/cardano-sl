@@ -85,6 +85,8 @@ library
                         -- Utilities/helpers
                         Pos.Util.Config
                         Pos.Util.OutboundQueue
+                        Pos.Util.UserKeyError
+                        Pos.Util.UserPublic
                         Pos.Util.UserSecret
 
                         Pos.Web
@@ -277,6 +279,8 @@ test-suite cardano-test
                        -- Everything else
                        Test.Pos.Block.Arbitrary.Message
                        Test.Pos.Block.CborSpec
+                       Test.Pos.Cbor.Arbitrary.UserPublic
+                       Test.Pos.Cbor.Arbitrary.UserSecret
                        Test.Pos.Cbor.CborSpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Diffusion.BlockSpec

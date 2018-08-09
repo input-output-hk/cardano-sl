@@ -28,7 +28,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, BackupPhrase (..),
                      NewAccount (..), NewAddress, NewWallet (..),
                      PasswordUpdate, V1 (..), Wallet, WalletId,
-                     WalletOperation (..), WalletUpdate)
+                     WalletOperation (..), WalletType (..), WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -159,8 +159,8 @@ pwlCreateWallet NewWallet{..} = do
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
     rethrowDuplicateMnemonic (e :: V0.WalletError) =
         case e of
-            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
-            _ -> throwM e
+            V0.DuplicateWalletError _ -> throwM WalletAlreadyExists
+            _                         -> throwM e
 
 
 pwlGetWallets
@@ -185,9 +185,12 @@ pwlGetWallet wId = do
 
     cWId        <- migrate wId
     wallet      <- V0.getWallet cWId
+    itIsExternal <- V0.isWalletExternal cWId
 
-    let mbWallet = do walletInfo  <- getWalletInfo cWId ws
-                      migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+    let mbWallet = do
+            walletInfo <- getWalletInfo cWId ws
+            let walletType = if itIsExternal then WalletExternal else WalletRegular
+            migrate (wallet, walletInfo, walletType, Nothing @ChainDifficulty)
     return $ case mbWallet of
                   Nothing -> Left (GetWalletErrorNotFound wId)
                   Just w  -> Right w

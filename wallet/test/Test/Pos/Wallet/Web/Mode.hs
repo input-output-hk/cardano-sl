@@ -49,7 +49,8 @@ import           Pos.Chain.Block (HasSlogGState (..), LastKnownHeader,
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getSecretDefault, modifySecretPureDefault)
+                     getPublicDefault, getSecretDefault,
+                     modifyPublicPureDefault, modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..),
@@ -91,6 +92,7 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
+import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet,
@@ -153,6 +155,8 @@ instance Show WalletTestParams where
 data WalletTestContext = WalletTestContext
     { wtcBlockTestContext :: !BlockTestContext
     , wtcWalletState      :: !WalletDB
+    , wtcUserPublic       :: !(TVar UserPublic)
+    -- ^ Public keys which are used to identify external wallets
     , wtcUserSecret       :: !(TVar UserSecret)
     -- ^ Secret keys which are used to send transactions
     , wtcRecoveryHeader   :: !RecoveryHeader
@@ -197,6 +201,7 @@ initWalletTestContext WalletTestParams {..} callback =
     initBlockTestContext _wtpBlockTestParams $ \wtcBlockTestContext -> do
         wtc <- liftIO $ do
             wtcWalletState <- openMemState
+            wtcUserPublic <- STM.newTVarIO def
             wtcUserSecret <- STM.newTVarIO def
             wtcRecoveryHeader <- STM.newEmptyTMVarIO
             -- some kind of kostil to get tip
@@ -300,6 +305,9 @@ instance (HasConfiguration, MonadSlotsData ctx WalletTestMode)
     getCurrentSlotInaccurate = getCurrentSlotInaccurateTestDefault
     currentTimeSlotting = currentTimeSlottingTestDefault
 
+instance HasUserPublic WalletTestContext where
+    userPublic = wtcUserPublic_L
+
 instance HasUserSecret WalletTestContext where
     userSecret = wtcUserSecret_L
 
@@ -383,9 +391,11 @@ instance HasConfigurations => MonadAddresses WalletTestMode where
     getFakeChangeAddress = pure largestHDAddressBoot
 
 instance MonadKeysRead WalletTestMode where
+    getPublic = getPublicDefault
     getSecret = getSecretDefault
 
 instance MonadKeys WalletTestMode where
+    modifyPublic = modifyPublicPureDefault
     modifySecret = modifySecretPureDefault
 
 instance (HasConfigurations) => MonadTxHistory WalletTestMode where

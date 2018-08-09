@@ -36,7 +36,8 @@ handlers :: ActiveWalletLayer IO -> ServerT Transactions.API Handler
 handlers aw = newTransaction aw
          :<|> getTransactionsHistory
          :<|> estimateFees aw
-
+         :<|> newUnsignedTransaction aw
+         :<|> newSignedTransaction aw
 
 -- Matches the input InputGroupingPolicy with the Kernel's 'InputGrouping'
 toInputGrouping :: Maybe (V1 InputSelectionPolicy) -> InputGrouping
@@ -108,3 +109,13 @@ estimateFees aw payment@Payment{..} = do
     case res of
          Left err  -> throwM err
          Right fee -> return $ single (EstimatedFees (V1 fee))
+
+newUnsignedTransaction :: ActiveWalletLayer IO
+                       -> PaymentWithChangeAddress
+                       -> Handler (WalletResponse RawTransaction)
+newUnsignedTransaction _aw _paymentWithChangeAddress = error ""
+
+newSignedTransaction :: ActiveWalletLayer IO
+                     -> SignedTransaction
+                     -> Handler (WalletResponse Transaction)
+newSignedTransaction _aw _signedTx = error ""

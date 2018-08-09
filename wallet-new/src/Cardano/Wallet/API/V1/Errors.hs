@@ -5,6 +5,7 @@
 
 module Cardano.Wallet.API.V1.Errors where
 
+import           Formatting (build, sformat)
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
@@ -75,11 +76,16 @@ data WalletError =
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
+    | InvalidPublicKey !Text
+    | UnsignedTxCreationError
+    | TooBigTransaction
+    | SignedTxSubmitError !Text
     | TxRedemptionDepleted
     -- | TxSafeSignerNotFound weAddress
     | TxSafeSignerNotFound !(V1 Core.Address)
     -- | MissingRequiredParams requiredParams
     | MissingRequiredParams !(NonEmpty (Text, Text))
+    | CannotCreateAddress !Text
     -- | WalletIsNotReadyToProcessPayments weStillRestoring
     | WalletIsNotReadyToProcessPayments !SyncProgress
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
@@ -105,6 +111,14 @@ convertTxError err = case err of
         TxRedemptionDepleted
     TxError.SafeSignerNotFound addr ->
         TxSafeSignerNotFound (V1 addr)
+    TxError.SignedTxNotBase16Format ->
+        SignedTxSubmitError $ sformat build TxError.SignedTxNotBase16Format
+    TxError.SignedTxUnableToDecode txt ->
+        SignedTxSubmitError $ sformat build (TxError.SignedTxUnableToDecode txt)
+    TxError.SignedTxSignatureNotBase16Format ->
+        SignedTxSubmitError $ sformat build TxError.SignedTxSignatureNotBase16Format
+    TxError.SignedTxInvalidSignature txt ->
+        SignedTxSubmitError $ sformat build (TxError.SignedTxInvalidSignature txt)
     TxError.GeneralTxError txt ->
         UnknownError txt
 
@@ -159,6 +173,22 @@ instance ToJSON WalletError where
         pairs $ pairStr "status" (toEncoding $ String "error")
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "TxFailedToStabilize"
+    toEncoding (InvalidPublicKey weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "InvalidPublicKey"
+    toEncoding (UnsignedTxCreationError) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "UnsignedTxCreationError"
+    toEncoding (TooBigTransaction) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ mempty)
+             <> "message" .= String "TooBigTransaction"
+    toEncoding (SignedTxSubmitError weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "SignedTxSubmitError"
     toEncoding (TxRedemptionDepleted) =
         pairs $ pairStr "status" (toEncoding $ String "error")
              <> pairStr "diagnostic" (pairs $ mempty)
@@ -173,6 +203,10 @@ instance ToJSON WalletError where
              <> pairStr "diagnostic"
                  (pairs $ pairStr "params" (toEncoding requiredParams))
              <> "message" .= String "MissingRequiredParams"
+    toEncoding (CannotCreateAddress weProblem) =
+        pairs $ pairStr "status" (toEncoding $ String "error")
+             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
+             <> "message" .= String "CannotCreateAddress"
     toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
         toEncoding $ toJSON weStillRestoring
     toEncoding (NodeIsStillSyncing wenssStillSyncing) =
@@ -182,36 +216,44 @@ instance FromJSON WalletError where
     parseJSON (Object o)
         | HMS.member "message" o =
               case HMS.lookup "message" o of
-                Just "NotEnoughMoney"        ->
+                Just "NotEnoughMoney"          ->
                     NotEnoughMoney
                         <$> ((o .: "diagnostic") >>= (.: "needMore"))
-                Just "OutputIsRedeem"        ->
+                Just "OutputIsRedeem"          ->
                     OutputIsRedeem <$> ((o .: "diagnostic") >>= (.: "address"))
-                Just "MigrationFailed"       ->
+                Just "MigrationFailed"         ->
                     MigrationFailed
                         <$> ((o .: "diagnostic") >>= (.: "description"))
-                Just "JSONValidationFailed"  ->
+                Just "JSONValidationFailed"    ->
                     JSONValidationFailed
                         <$> ((o .: "diagnostic") >>= (.: "validationError"))
-                Just "UnknownError"          ->
+                Just "UnknownError"            ->
                     UnknownError <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "InvalidAddressFormat"  ->
+                Just "InvalidAddressFormat"    ->
                     InvalidAddressFormat
                         <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "WalletNotFound"        -> pure WalletNotFound
-                Just "WalletAlreadyExists"   -> pure WalletAlreadyExists
-                Just "AddressNotFound"       -> pure AddressNotFound
-                Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
-                Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
-                Just "TxSafeSignerNotFound"  ->
+                Just "WalletNotFound"          -> pure WalletNotFound
+                Just "WalletAlreadyExists"     -> pure WalletAlreadyExists
+                Just "AddressNotFound"         -> pure AddressNotFound
+                Just "TxFailedToStabilize"     -> pure TxFailedToStabilize
+                Just "InvalidPublicKey"        ->
+                    InvalidPublicKey <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "UnsignedTxCreationError" -> pure UnsignedTxCreationError
+                Just "TooBigTransaction"       -> pure TooBigTransaction
+                Just "SignedTxSubmitError"     ->
+                    SignedTxSubmitError <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just "TxRedemptionDepleted"    -> pure TxRedemptionDepleted
+                Just "TxSafeSignerNotFound"    ->
                     TxSafeSignerNotFound
                         <$> ((o .: "diagnostic") >>= (.: "address"))
-                Just "MissingRequiredParams" ->
+                Just "MissingRequiredParams"   ->
                     MissingRequiredParams
                         <$> ((o .: "diagnostic") >>= (.: "params"))
-                Just _                       ->
+                Just "CannotCreateAddress"     ->
+                    CannotCreateAddress <$> ((o .: "diagnostic") >>= (.: "msg"))
+                Just _                         ->
                     fail "Incorrect JSON encoding for WalletError"
-                Nothing                      ->
+                Nothing                        ->
                     fail "Incorrect JSON encoding for WalletError"
         -- WalletIsNotReadyToProcessPayments
         | HMS.member "estimatedCompletionTime" o = do
@@ -276,7 +318,9 @@ sample =
   , WalletNotFound
   , WalletAlreadyExists
   , AddressNotFound
+  , TooBigTransaction
   , MissingRequiredParams (("wallet_id", "walletId") :| [])
+  , CannotCreateAddress "Cannot create derivation path for new address in external wallet"
   , WalletIsNotReadyToProcessPayments sampleSyncProgress
   , NodeIsStillSyncing (mkSyncPercentage 42)
   ]
@@ -286,29 +330,39 @@ sample =
 describe :: WalletError -> String
 describe = \case
     NotEnoughMoney _ ->
-         "Not enough available coins to proceed."
+        "Not enough available coins to proceed."
     OutputIsRedeem _ ->
-         "One of the TX outputs is a redemption address."
+        "One of the TX outputs is a redemption address."
     MigrationFailed _ ->
-         "Error while migrating a legacy type into the current version."
+        "Error while migrating a legacy type into the current version."
     JSONValidationFailed _ ->
-         "Couldn't decode a JSON input."
+        "Couldn't decode a JSON input."
     UnknownError _ ->
-         "Unexpected internal error."
+        "Unexpected internal error."
     InvalidAddressFormat _ ->
-         "Provided address format is not valid."
+        "Provided address format is not valid."
     WalletNotFound ->
-         "Reference to an unexisting wallet was given."
+        "Reference to an unexisting wallet was given."
     WalletAlreadyExists ->
-         "Can't create or restore a wallet. The wallet already exists."
+        "Can't create or restore a wallet. The wallet already exists."
     AddressNotFound ->
-         "Reference to an unexisting address was given."
+        "Reference to an unexisting address was given."
     MissingRequiredParams _ ->
-         "Missing required parameters in the request payload."
+        "Missing required parameters in the request payload."
+    CannotCreateAddress _ ->
+        "Cannot create derivation path for new address in external wallet."
     WalletIsNotReadyToProcessPayments _ ->
-         "This wallet is restoring, and it cannot send new transactions until restoration completes."
+        "This wallet is restoring, and it cannot send new transactions until restoration completes."
     NodeIsStillSyncing _ ->
-         "The node is still syncing with the blockchain, and cannot process the request yet."
+        "The node is still syncing with the blockchain, and cannot process the request yet."
+    InvalidPublicKey _ ->
+        "Extended public key (for external wallet) is invalid."
+    UnsignedTxCreationError ->
+        "Unable to create unsigned transaction for an external wallet."
+    TooBigTransaction ->
+        "Transaction size is greater than 4096 bytes."
+    SignedTxSubmitError _ ->
+        "Unable to submit externally-signed transaction."
     TxRedemptionDepleted ->
         "The redemption address was already used."
     TxSafeSignerNotFound _ ->
@@ -341,11 +395,21 @@ toServantError err =
             err404
         MissingRequiredParams{} ->
             err400
+        CannotCreateAddress{} ->
+            err403
         WalletIsNotReadyToProcessPayments{} ->
             err403
         NodeIsStillSyncing{} ->
             err412 -- Precondition failed
         TxFailedToStabilize{} ->
+            err500
+        InvalidPublicKey{} ->
+            err403
+        UnsignedTxCreationError{} ->
+            err500
+        TooBigTransaction{} ->
+            err500
+        SignedTxSubmitError{} ->
             err500
         TxRedemptionDepleted{} ->
             err400

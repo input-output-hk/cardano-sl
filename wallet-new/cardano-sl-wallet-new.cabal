@@ -324,11 +324,13 @@ executable wal-integr-test
                        -O2
   other-modules:       CLI
                        Types
-                       Functions
+                       RandomStateWalk
                        Error
                        Util
                        WalletSpecs
+                       AccountSpecs
                        AddressSpecs
+                       SetupTestEnv
                        TransactionSpecs
                        QuickCheckSpecs
 
@@ -338,7 +340,10 @@ executable wal-integr-test
                      , aeson-diff
                      , aeson-pretty
                      , bytestring
+                     , cardano-crypto
+                     , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers
@@ -351,6 +356,7 @@ executable wal-integr-test
                      , mtl
                      , optparse-applicative
                      , pretty-show
+                     , serokell-util
                      , servant
                      , servant-client
                      , servant-quickcheck

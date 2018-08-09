@@ -23,7 +23,9 @@ handlers pwl =  newWallet pwl
            :<|> deleteWallet pwl
            :<|> getWallet pwl
            :<|> updateWallet pwl
-
+           :<|> checkExternalWallet pwl
+           :<|> newExternalWallet pwl
+           :<|> deleteExternalWallet pwl
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -97,3 +99,18 @@ updateWallet pwl wid walletUpdateRequest = do
     case res of
          Left e  -> throwM e
          Right w -> return $ single w
+
+checkExternalWallet :: PassiveWalletLayer IO
+                    -> Text
+                    -> Handler (WalletResponse WalletAndTxHistory)
+checkExternalWallet _encodedRootPK = error "Cardano Hardware Wallet feature, unimplemented."
+
+newExternalWallet :: PassiveWalletLayer IO
+                  -> NewExternalWallet
+                  -> Handler (WalletResponse Wallet)
+newExternalWallet _newExtWallet = error "Cardano Hardware Wallet feature, unimplemented."
+
+deleteExternalWallet :: PassiveWalletLayer IO
+                     -> Text
+                     -> Handler NoContent
+deleteExternalWallet _encodedRootPK = error "Cardano Hardware Wallet feature, unimplemented."

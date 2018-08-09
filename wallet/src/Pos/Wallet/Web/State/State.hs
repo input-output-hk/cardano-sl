@@ -35,6 +35,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletInfo
+       , getUnreadyWalletInfo
        , getWalletSyncState
        , getWalletAddresses
        , doesWAddressExist
@@ -57,6 +58,7 @@ module Pos.Wallet.Web.State.State
        , testReset
        , createAccount
        , createAccountWithAddress
+       , createAccountWithoutAddresses
        , createWallet
        , addWAddress
        , addCustomAddress
@@ -194,6 +196,9 @@ getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 getWalletInfo :: WalletSnapshot -> CId Wal -> Maybe WalletInfo
 getWalletInfo ws wid = queryValue ws (S.getWalletInfo wid)
 
+getUnreadyWalletInfo :: WalletSnapshot -> WalletInfo
+getUnreadyWalletInfo ws = queryValue ws S.getUnreadyWalletInfo
+
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
 
@@ -276,6 +281,15 @@ createAccountWithAddress :: (MonadIO m)
                          -> m ()
 createAccountWithAddress db accId accMeta addrMeta =
     updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
+
+createAccountWithoutAddresses
+    :: (MonadIO m)
+    => WalletDB
+    -> AccountId
+    -> CAccountMeta
+    -> m ()
+createAccountWithoutAddresses db accId accMeta =
+    updateDisk (A.CreateAccountWithoutAddresses accId accMeta) db
 
 createWallet :: (MonadIO m)
              => WalletDB

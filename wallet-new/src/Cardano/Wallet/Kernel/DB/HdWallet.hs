@@ -36,6 +36,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
     -- *** Account ID
   , hdAccountIdParent
   , hdAccountIdIx
+  , hdAccountAutoPkCounter
     -- ** Address ID
   , hdAddressIdParent
   , hdAddressIdIx
@@ -90,7 +91,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
 
 import           Universum
 
-import           Control.Lens (at, _Wrapped)
+import           Control.Lens (at, (+~), _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet
@@ -109,7 +110,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
-import           Cardano.Wallet.Kernel.Util (neHead)
+import           Cardano.Wallet.Kernel.Util (modifyAndGetOld, neHead)
 
 {-------------------------------------------------------------------------------
   Supporting types
@@ -186,6 +187,7 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
 -- TODO: This may well disappear as part of [CBR-325].
 eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
 eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
+
 
 {-------------------------------------------------------------------------------
   HD wallets
@@ -279,17 +281,21 @@ instance Buildable HdRoot where
 -- Key derivation is cheap
 data HdAccount = HdAccount {
       -- | Account index
-      _hdAccountId    :: HdAccountId
+      _hdAccountId            :: HdAccountId
 
       -- | Account name
-    , _hdAccountName  :: AccountName
+    , _hdAccountName          :: AccountName
 
       -- | Account state
       --
       -- When the account is up to date with the blockchain, the account state
       -- coincides with the state of a " wallet " as mandated by the formal
       -- spec.
-    , _hdAccountState :: HdAccountState
+    , _hdAccountState         :: HdAccountState
+
+      -- | A local counter used to generate new 'AutoIncrementKey' for
+      -- addresses.
+    , _hdAccountAutoPkCounter :: AutoIncrementKey
     }
 
 instance Buildable HdAccount where
@@ -308,6 +314,13 @@ data HdAddress = HdAddress {
       -- | The actual address
     , _hdAddressAddress :: InDb Core.Address
     }
+
+instance Buildable HdAddress where
+    build HdAddress{..} =
+        bprint ("HdAddress { id = "   % build
+                         % " address = " % build
+                         % " }"
+               ) _hdAddressId (_hdAddressAddress ^. fromDb)
 
 {-------------------------------------------------------------------------------
   Account state
@@ -525,13 +538,19 @@ instance HasPrimKey HdAddress where
     type PrimKey HdAddress = HdAddressId
     primKey = _hdAddressId
 
-type SecondaryHdRootIxs    = '[]
-type SecondaryHdAccountIxs = '[HdRootId]
-type SecondaryHdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
+instance HasPrimKey (Indexed HdAddress) where
+    type PrimKey (Indexed HdAddress) = HdAddressId
+    primKey = primKey . _ixedIndexed
 
-type instance IndicesOf HdRoot    = SecondaryHdRootIxs
-type instance IndicesOf HdAccount = SecondaryHdAccountIxs
-type instance IndicesOf HdAddress = SecondaryHdAddressIxs
+type SecondaryHdRootIxs           = '[]
+type SecondaryHdAccountIxs        = '[HdRootId]
+type SecondaryHdAddressIxs        = '[HdRootId, HdAccountId, Core.Address]
+type SecondaryIndexedHdAddressIxs = '[AutoIncrementKey, HdRootId, HdAccountId, Core.Address]
+
+type instance IndicesOf HdRoot              = SecondaryHdRootIxs
+type instance IndicesOf HdAccount           = SecondaryHdAccountIxs
+type instance IndicesOf HdAddress           = SecondaryHdAddressIxs
+type instance IndicesOf (Indexed HdAddress) = SecondaryIndexedHdAddressIxs
 
 instance IxSet.Indexable (HdRootId ': SecondaryHdRootIxs)
                          (OrdByPrimKey HdRoot) where
@@ -549,6 +568,14 @@ instance IxSet.Indexable (HdAddressId ': SecondaryHdAddressIxs)
                 (ixFun ((:[]) . view hdAddressAccountId))
                 (ixFun ((:[]) . view (hdAddressAddress . fromDb)))
 
+instance IxSet.Indexable (HdAddressId ': SecondaryIndexedHdAddressIxs)
+                         (OrdByPrimKey (Indexed HdAddress)) where
+    indices = ixList
+                (ixFun ((:[]) . view ixedIndex))
+                (ixFun ((:[]) . view (ixedIndexed . hdAddressRootId)))
+                (ixFun ((:[]) . view (ixedIndexed . hdAddressAccountId)))
+                (ixFun ((:[]) . view (ixedIndexed . hdAddressAddress . fromDb)))
+
 {-------------------------------------------------------------------------------
   Top-level HD wallet structure
 -------------------------------------------------------------------------------}
@@ -560,7 +587,7 @@ instance IxSet.Indexable (HdAddressId ': SecondaryHdAddressIxs)
 data HdWallets = HdWallets {
     _hdWalletsRoots     :: IxSet HdRoot
   , _hdWalletsAccounts  :: IxSet HdAccount
-  , _hdWalletsAddresses :: IxSet HdAddress
+  , _hdWalletsAddresses :: IxSet (Indexed HdAddress)
   }
 
 deriveSafeCopy 1 'base ''HdWallets
@@ -602,7 +629,7 @@ zoomHdAddressId :: forall e a.
                 -> HdAddressId
                 -> Update' HdAddress e a -> Update' HdWallets e a
 zoomHdAddressId embedErr addrId =
-    zoomDef err (hdWalletsAddresses . at addrId)
+    zoomDef err (hdWalletsAddresses . at addrId) . zoom ixedIndexed
   where
     err :: Update' HdWallets e a
     err = zoomHdAccountId embedErr' (addrId ^. hdAddressIdParent) $
@@ -685,8 +712,22 @@ zoomOrCreateHdAddress :: (HdAccountId -> Update' HdWallets e ())
                       -> Update' HdAddress e a
                       -> Update' HdWallets e a
 zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
-    checkAccountExists $ addrId ^. hdAddressIdParent
-    zoomCreate (return newAddress) (hdWalletsAddresses . at addrId) $ upd
+    checkAccountExists accId
+    zoomCreate createAddress
+               (hdWalletsAddresses . at addrId) . zoom ixedIndexed $ upd
+    where
+        accId :: HdAccountId
+        accId = addrId ^. hdAddressIdParent
+
+        createAddress :: Update' HdWallets e (Indexed HdAddress)
+        createAddress = do
+            let err = "zoomOrCreateHdAddress: we checked that the account existed "
+                   <> "before calling this function, but the DB lookup failed nonetheless."
+            acc <- zoomHdAccountId (error err) accId $ do
+                      modifyAndGetOld (hdAccountAutoPkCounter +~ 1)
+            return $ Indexed (acc ^. hdAccountAutoPkCounter) newAddress
+
+
 
 -- | Assume that the given HdRoot exists
 --
@@ -699,6 +740,7 @@ assumeHdRootExists _id = return ()
 -- Helper function which can be used as an argument to 'zoomOrCreateHdAddress'
 assumeHdAccountExists :: HdAccountId -> Update' HdWallets e ()
 assumeHdAccountExists _id = return ()
+
 
 {-------------------------------------------------------------------------------
   Pretty printing

@@ -29,7 +29,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
 import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
 
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ accountTotalBalance snapshot accountId
     = walletQuery' snapshot (Spec.queryAccountTotalBalance accountId)
 
 -- | Returns the total balance for this 'HdAccountId'.
-accountAddresses :: DB -> HdAccountId -> IxSet HdAddress
+accountAddresses :: DB -> HdAccountId -> IxSet (Indexed HdAddress)
 accountAddresses snapshot accountId
     = walletQuery' snapshot (readAddressesByAccountId accountId)
 

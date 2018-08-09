@@ -11,6 +11,7 @@ import           Control.Lens (at, (.=))
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
@@ -28,7 +29,7 @@ deleteHdRoot rootId = do
     -- Deletes all the addresses related this wallet, first.
     zoom hdWalletsAddresses $ do
         rootAddresses <- gets (IxSet.toList . IxSet.getEQ rootId)
-        forM_ rootAddresses (\addr -> at (addr ^. hdAddressId) .= Nothing)
+        forM_ rootAddresses (\addr -> at (addr ^. ixedIndexed . hdAddressId) .= Nothing)
 
     -- Deletes all the accounts for this wallet.
     zoom hdWalletsAccounts $ do
@@ -50,7 +51,7 @@ deleteHdAccount accId = do
     -- Cascade-delete all the addresses associated with this account
     zoom hdWalletsAddresses $ do
         rootAddresses <- gets (IxSet.toList . IxSet.getEQ accId)
-        forM_ rootAddresses (\addr -> at (addr ^. hdAddressId) .= Nothing)
+        forM_ rootAddresses (\addr -> at (addr ^. ixedIndexed . hdAddressId) .= Nothing)
 
     -- Finally, delete the account.
     zoom hdWalletsAccounts $

@@ -53,7 +53,6 @@ bracketPassiveWallet logFunction keystore rocksDB f =
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
   where
-    -- | TODO(ks): Currently not implemented!
     passiveWalletLayer :: Kernel.PassiveWallet
                        -> (Actions.WalletAction Blund -> STM ())
                        -> PassiveWalletLayer n

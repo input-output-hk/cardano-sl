@@ -25,7 +25,7 @@ listAddresses :: PassiveWalletLayer IO
               -> RequestParams -> Handler (WalletResponse [WalletAddress])
 listAddresses pwl params = do
     addrs <- liftIO $ WalletLayer.getAddresses pwl params
-    return $ single addrs
+    return $ fromSlice (rpPaginationParams params) addrs
 
 newAddress :: PassiveWalletLayer IO
            -> NewAddress

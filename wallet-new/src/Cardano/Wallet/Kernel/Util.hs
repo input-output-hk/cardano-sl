@@ -15,6 +15,9 @@ module Cardano.Wallet.Kernel.Util (
     -- * Probabilities
   , Probability
   , toss
+    -- * MonadState utilities
+  , modifyAndGetOld
+  , modifyAndGetNew
   ) where
 
 import           Universum
@@ -88,3 +91,24 @@ toss :: Probability -> QC.Gen Bool
 toss 0 = return False
 toss 1 = return True
 toss p = (< p) <$> QC.choose (0, 1)
+
+{-------------------------------------------------------------------------------
+  Access and return the state
+-------------------------------------------------------------------------------}
+
+-- | Modifies the 'State' @st@ with the supplied 'Setter' and returns it.
+modifyAndGetNew :: MonadState s m => (s -> s) -> m s
+modifyAndGetNew f = do
+    st <- get
+    let st' = f st
+    put st'
+    return st'
+
+-- | Modifies the 'State' @st@ with the supplied 'Setter' and returns the old
+-- copy.
+modifyAndGetOld :: MonadState s m => (s -> s) -> m s
+modifyAndGetOld f = do
+    st <- get
+    let st' = f st
+    put st'
+    return st

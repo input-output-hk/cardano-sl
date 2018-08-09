@@ -18,7 +18,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Create (
 
 import           Universum
 
-import           Control.Lens (at, (.=))
+import           Control.Lens (at, (+~), (.=))
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Formatting (bprint, build, sformat, (%))
@@ -31,6 +31,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (AutoIncrementKey (..),
+                     Indexed (..))
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
@@ -96,13 +98,23 @@ createHdAccount hdAccount = do
 createHdAddress :: HdAddress -> Update' HdWallets CreateHdAddressError ()
 createHdAddress hdAddress = do
     -- Check that the account ID exists
-    zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $
-      return ()
+    currentPkCounter <-
+        zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $ do
+            acc <- get
+            return (acc ^. hdAccountAutoPkCounter)
+
     -- Create the new address
     zoom hdWalletsAddresses $ do
       exists <- gets $ IxSet.member addrId
       when exists $ throwError $ CreateHdAddressExists addrId
-      at addrId .= Just hdAddress
+      at addrId .= Just (Indexed currentPkCounter hdAddress)
+
+    -- Finally, persist the index inside the account. Don't do this earlier
+    -- as the creation could still fail, and only here we are sure it will
+    -- succeed.
+    zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $ do
+        modify (hdAccountAutoPkCounter +~ 1)
+
   where
     addrId = hdAddress ^. hdAddressId
 
@@ -149,6 +161,7 @@ initHdAccount accountId checkpoint = HdAccount {
                       $ HdAccountUpToDate
                       $ NewestFirst
                       $ checkpoint :| []
+    , _hdAccountAutoPkCounter = AutoIncrementKey 0
     }
   where
     defName = AccountName $ sformat ("Account: " % build)

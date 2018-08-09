@@ -19,7 +19,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateWalletError, DeleteAccountError,
                      DeleteWalletError (..), GetAccountError, GetAccountsError,
                      GetWalletError (..), PassiveWalletLayer (..),
-                     UpdateAccountError, UpdateWalletError (..),
+                     SliceOf (..), UpdateAccountError, UpdateWalletError (..),
                      UpdateWalletPasswordError, ValidateAddressError (..))
 
 import           Cardano.Wallet.API.Request (RequestParams)
@@ -302,7 +302,7 @@ pwlDeleteAccount wId accIdx = do
 pwlCreateAddress :: NewAddress -> m (Either CreateAddressError WalletAddress)
 pwlCreateAddress = error "Not implemented!"
 
-pwlGetAddresses :: RequestParams -> m [WalletAddress]
+pwlGetAddresses :: RequestParams -> m (SliceOf WalletAddress)
 pwlGetAddresses = error "Not implemented!"
 
 pwlValidateAddress :: Text -> m (Either ValidateAddressError WalletAddress)

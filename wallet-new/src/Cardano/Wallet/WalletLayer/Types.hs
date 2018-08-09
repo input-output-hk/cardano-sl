@@ -20,6 +20,8 @@ module Cardano.Wallet.WalletLayer.Types
     , validateAddress
     , applyBlocks
     , rollbackBlocks
+    -- * A slice of a collection
+    , SliceOf(..)
     -- * Errors
     , CreateWalletError(..)
     , GetWalletError(..)
@@ -55,14 +57,8 @@ import           Pos.Crypto (PassPhrase)
 import           Cardano.Wallet.API.Request (RequestParams)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-
                      PasswordUpdate, Payment, Redemption, V1 (..), Wallet,
-                     WalletId, WalletUpdate)
-
-                     PasswordUpdate, Payment, V1 (..), Wallet, WalletAddress,
-                     WalletId, WalletUpdate)
-
-
+                     WalletAddress, WalletId, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -73,6 +69,14 @@ import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (TimeExecutionLimit)
+
+
+data SliceOf a = SliceOf {
+      paginatedSlice :: [a]
+    -- ^ A paginated fraction of the resource
+    , paginatedTotal :: Int
+    -- ^ The total number of entries
+    }
 
 ------------------------------------------------------------
 -- Errors when manipulating wallets
@@ -357,7 +361,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     -- * addresses
     , _pwlCreateAddress        :: NewAddress
                                -> m (Either CreateAddressError WalletAddress)
-    , _pwlGetAddresses         :: RequestParams -> m [WalletAddress]
+    , _pwlGetAddresses         :: RequestParams -> m (SliceOf WalletAddress)
     , _pwlValidateAddress      :: Text
                                -> m (Either ValidateAddressError WalletAddress)
     -- * core API
@@ -439,7 +443,7 @@ createAddress pwl = pwl ^. pwlCreateAddress
 
 getAddresses :: forall m. PassiveWalletLayer m
              -> RequestParams
-             -> m [WalletAddress]
+             -> m (SliceOf WalletAddress)
 getAddresses pwl = pwl ^. pwlGetAddresses
 
 validateAddress :: forall m. PassiveWalletLayer m

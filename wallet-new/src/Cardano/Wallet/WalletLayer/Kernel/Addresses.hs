@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 module Cardano.Wallet.WalletLayer.Kernel.Addresses (
     createAddress
   , getAddresses
@@ -12,9 +13,6 @@ import           Pos.Core (Address)
 
 import           Control.Monad.Trans.Except
 
-import           Formatting (build, sformat, (%))
-
-
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -24,31 +22,29 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
 import           Cardano.Wallet.WalletLayer.Types (CreateAddressError (..))
 
-import qualified Cardano.Wallet.Kernel.DB.BlockMeta as BlockMeta
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readHdAccount,
-                     readHdAddressByCardanoAddress)
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Read
+                     (readAddressesByAccountId, readAllHdAccounts,
+                     readAllHdAddresses, readHdAddressByCardanoAddress)
 import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
-import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
-import           Cardano.Wallet.Kernel.Types (AccountId (..))
-import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
-                     (limitExecutionTimeTo)
-import           Cardano.Wallet.WalletLayer.Types (CreateAddressError (..),
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (AutoIncrementKey (..),
+                     Indexed (..), IxSet, ixedIndexed, (@>=<=))
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.WalletLayer.Types (SliceOf (..),
                      ValidateAddressError (..))
 
-import           Pos.Core (Address, decodeTextAddress)
+import           Pos.Core (decodeTextAddress)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
-import qualified Cardano.Wallet.API.V1.Types as V1
-
-import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Cardano.Wallet.API.Request.Pagination (Page (..),
+                     PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.V1.Types (WalletAddress (..))
 
 
 createAddress :: MonadIO m
               => Kernel.PassiveWallet
               -> V1.NewAddress
-              -> m (Either CreateAddressError Address)
+              -> m (Either CreateAddressError WalletAddress)
 createAddress wallet
               (V1.NewAddress
                 mbSpendingPassword
@@ -56,15 +52,128 @@ createAddress wallet
                 wId) = runExceptT $ do
     accId <- withExceptT CreateAddressAddressDecodingFailed $
                fromAccountId wId accIx
-    withExceptT CreateAddressError $ ExceptT $ liftIO $
-      Kernel.createAddress passPhrase (AccountIdHdRnd accId) wallet
+    fmap mkAddress $
+        withExceptT CreateAddressError $ ExceptT $ liftIO $
+            Kernel.createAddress passPhrase (AccountIdHdRnd accId) wallet
   where
     passPhrase = maybe mempty coerce mbSpendingPassword
 
+    -- | Creates a new 'WalletAddress'. As this is a brand new, fresh Address,
+    -- it's fine to have 'False' for both 'isUsed' and 'isChange'.
+    mkAddress :: Address -> WalletAddress
+    mkAddress addr = WalletAddress (V1 addr) False False
+
+
+
+-- | Get all the addresses known to this node. Doing this efficiently is
+-- a bit of a challenge here due to the fact we don't have a way with IxSets to
+-- \"jump\" in the middle of a collection and extracts only the needed
+-- data. Luckily, we can still associate an auto-incrementing index and
+-- use IxSet's range operators to extract data intervals. However, due to the
+-- fact we store @all@ our addresses in a single IxSet collection, having a
+-- @global@ counter for such indices won't work, as we can delete addresses
+-- (when we delete an account) leaving \"holes\" in our collection.
+--
+-- +-----+-----+----------------------------------------------+------+
+-- | A1  | A2  | ...                                          | A100 |
+-- |     |     |                                              |      |
+-- +-----+-----+----------------------------------------------+------+
+--    1     2                       ..                          100
+-- <deletion of an account happens, leaving a hole in the indices>
+--
+--                         /               /
+-- +-----+-----+----------/---------------/-------------------+------+
+-- | A1  | A2  | ...    X              \/                     | A100 |
+-- |     |     |         \              \                     |      |
+-- +-----+-----+----------\--------------\--------------------+------+
+--    1     2    ..    10  \              \ 30      ..          100
+--                          o              \
+--
+-- What we can do, instead, is to have a @local@ counter associated to each
+-- account in the system, so that we can perform simple arithmetic to map from
+-- global pagination parameters into local ones.
+--
+-- +-----+-----+--------+------+-----+-----+--------+-----+-----+------+
+-- | A1  | A2  | ...    | A10  | A11 | A12 |  ...   | A98 | A99 | A100 |
+-- |     |     |        |      |     |     |        |     |     |      |
+-- +-----+-----+--------+------+-----+-----+--------+-----+-----+------+
+--    1     2              1      2     3              1     2     3
+-- |--- Account 1 -----||----- Account 2 ----------||---- Account 3 ---|
+--
 getAddresses :: RequestParams
              -> Kernel.DB
-             -> [V1.WalletAddress]
-getAddresses _params _db = error "todo"
+             -> SliceOf V1.WalletAddress
+getAddresses (rpPaginationParams -> PaginationParams{..}) db =
+    let (Page currentPage) = ppPage
+        (PerPage perPage)  = ppPerPage
+        -- The "pointer" where we should start.
+        globalStartAt = (currentPage - 1) * perPage
+        allAddrs      = readAllHdAddresses (hdWallets db)
+        totalEntries  = IxSet.size allAddrs
+        sliceOf = findResults db globalStartAt perPage
+        in SliceOf sliceOf totalEntries
+
+
+-- | Finds the results needed by 'getAddresses'.
+findResults :: Kernel.DB
+            -> Int
+            -> Int
+            -> [V1.WalletAddress]
+findResults db globalStartIndex howMany =
+    let -- The number of accounts is small enough to justify this conversion
+        accounts  = IxSet.toList $ readAllHdAccounts (hdWallets db)
+    in takeIndexed db howMany [] . dropIndexed db globalStartIndex $ accounts
+
+
+-- | An 'Ordering' function over the 'AutoIncrementKey' of this 'Indexed'
+-- resource.
+autoKey :: Indexed a -> Indexed a -> Ordering
+autoKey (Indexed ix1 _) (Indexed ix2 _) = compare ix1 ix2
+
+
+dropIndexed :: Kernel.DB -> Int -> [HD.HdAccount] -> (Int, [HD.HdAccount])
+dropIndexed _  n []     = (n, [])
+dropIndexed db n (a:as) =
+    let addresses = readAddressesOrDie db a
+        addrSize  = IxSet.size addresses
+    in if addrSize < n
+          then dropIndexed db (n - addrSize) as
+          else (n, a:as)
+
+
+takeIndexed :: Kernel.DB
+            -> Int
+            -> [V1.WalletAddress]
+            -> (Int, [HD.HdAccount])
+            -> [V1.WalletAddress]
+takeIndexed _ _ acc (_, []) = acc
+takeIndexed db n acc (currentIndex, (a:as))
+    | n < 0 = error "takeIndexed: invariant violated, n is negative."
+    | n == 0 = acc
+    | otherwise =
+        let addresses = readAddressesOrDie db a
+            addrSize  = IxSet.size addresses
+            interval = ( AutoIncrementKey currentIndex
+                       , AutoIncrementKey $
+                           min (currentIndex + n - 1) (addrSize - 1)
+                       )
+            slice = addresses @>=<= interval
+            new = map (toV1 db) . sortBy autoKey . IxSet.toList $ slice
+            in  -- For the next iterations, the index will always be 0 as we
+                -- are hopping from one ixset to the other, collecting addresses.
+                takeIndexed db (n - IxSet.size slice) (new <> acc) (0, as)
+
+
+toV1 :: Kernel.DB -> Indexed HD.HdAddress -> V1.WalletAddress
+toV1 db ixed = toAddress db (ixed ^. ixedIndexed)
+
+
+readAddressesOrDie :: HasCallStack => Kernel.DB -> HD.HdAccount -> IxSet (Indexed HD.HdAddress)
+readAddressesOrDie db hdAccount =
+  case readAddressesByAccountId (hdAccount ^. HD.hdAccountId) (hdWallets db) of
+       Left _e -> error "readAddressesOrDie: the impossible happened, the DB might be corrupted."
+       Right addrs -> addrs
+
 
 validateAddress :: Text
                 -- ^ A raw fragment of 'Text' to validate.
@@ -74,40 +183,10 @@ validateAddress rawText db =
     case decodeTextAddress rawText of
          Left _textualError -> Left (ValidateAddressDecodingFailed rawText)
          Right cardanoAddress ->
-             case dbReads cardanoAddress of
+             case readHdAddressByCardanoAddress cardanoAddress (hdWallets db) of
                Left _dbErr  -> Left (ValidateAddressNotOurs cardanoAddress)
-               Right (hdAccount, hdAddress) ->
+               Right hdAddress ->
                    -- At this point, we need to construct a full 'WalletAddress',
                    -- but we cannot do this without the knowledge on the
                    -- underlying associated 'HdAddress'.
-                   Right $ toV1Address (hdAccount, hdAddress)
-    where
-    -- Reads both the 'HdAddress' associated to this Cardano 'Address' together
-    -- its parent 'HdAccount'.
-    dbReads :: HasCallStack
-            => Address
-            -> Either HD.UnknownHdAddress (HD.HdAccount, HD.HdAddress)
-    dbReads cardanoAddress = runExcept $ do
-        let hdAccId = HD.hdAddressId . HD.hdAddressIdParent
-            q1 = readHdAddressByCardanoAddress cardanoAddress (hdWallets db)
-            q2 hdAddr = readHdAccount (hdAddr ^. hdAccId) (hdWallets db)
-            -- If we fail to read the associated account it really means our
-            -- DB managed to become inconsistent and there is not much more
-            -- we can do if not fail.
-            hush hdAddr =
-                let msg = "validateAddress: inconsistent DB, dangling " %
-                          "address found with no associated account: " % build
-                in error (sformat msg (hdAddr ^. HD.hdAddressId))
-        hdAddr <- except q1
-        hdAcc  <- withExcept (const (hush hdAddr)) $ except (q2 hdAddr)
-        return (hdAcc, hdAddr)
-
-
-toV1Address :: (HD.HdAccount, HD.HdAddress) -> V1.WalletAddress
-toV1Address (hdAcc, hdAddr) =
-    let address = hdAddr ^. HD.hdAddressAddress . fromDb
-        checkpoint = hdAcc ^. HD.hdAccountState . HD.hdAccountStateCurrent
-        addressMeta = checkpoint ^. cpAddressMeta address
-        isUsed    = addressMeta ^. BlockMeta.addressMetaIsUsed
-        isChange  = addressMeta ^. BlockMeta.addressMetaIsChange
-    in V1.WalletAddress (V1 address) isUsed isChange
+                   Right $ toAddress db hdAddress

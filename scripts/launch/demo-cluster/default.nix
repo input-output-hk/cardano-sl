@@ -29,7 +29,6 @@ let
   walletConfig = {
     inherit stateDir disableClientAuth;
     topologyFile = walletTopologyFile;
-    environment = "demo";
   };
   walletEnvironment = if launchGenesis then {
     environment = "override";

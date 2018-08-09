@@ -15,7 +15,6 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.StateLock (StateLock)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.DB.Delegation (PskHeavyVerdict (..), processProxySKHeavy)

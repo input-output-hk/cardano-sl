@@ -50,6 +50,7 @@ import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, buildUtxo,
                      getLocalTxs, txpProcessTx, withTxpLocalData)
 import qualified Pos.GState as GS

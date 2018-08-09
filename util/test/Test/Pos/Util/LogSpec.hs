@@ -19,8 +19,8 @@ import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
                      logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
-import           Pos.Util.LoggerConfig (BackendKind (..), LoggerConfig (..),
-                     LoggerTree (..), LogHandler (..), LogSecurityLevel (..),
+import           Pos.Util.LoggerConfig (BackendKind (..), LogHandler (..),
+                     LogSecurityLevel (..), LoggerConfig (..), LoggerTree (..),
                      defaultInteractiveConfiguration, defaultTestConfiguration)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
@@ -40,7 +40,7 @@ prop_large =
         (diffTime,_) <- run (run_logging Debug 100 200 100)
         assert (diffTime > 0)
 
--- | Count as many lines as you itented to log.
+-- | Count as many lines as you intended to log.
 prop_lines :: Property
 prop_lines =
     monadicIO $ do
@@ -50,7 +50,7 @@ prop_lines =
         -- multiply by 5 because we log 5 different messages (n0 * n1) times
         assert (linesLogged == n0 * n1 * 5)
 
--- | Count as many lines as you itented to log.
+-- | Count as many lines as you intended to log.
 prop_sev :: Property
 prop_sev =
     monadicIO $ do
@@ -63,7 +63,6 @@ prop_sev =
 run_logging :: Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
         startTime <- getPOSIXTime
-{- -}
         lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
             usingLoggerName lh "test_log" $
@@ -73,7 +72,6 @@ run_logging sev n n0 n1= do
                     logNotice msg
                     logWarning msg
                     logError msg
-{- -}
         endTime <- getPOSIXTime
         threadDelay $ fromIntegral (5000 * n0)
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
@@ -83,7 +81,7 @@ run_logging sev n n0 n1= do
         return (diffTime, linesLogged)
         where msg :: Text
               msg = replicate n "abcdefghijklmnopqrstuvwxyz"
-----
+
 prop_sevS :: Property
 prop_sevS =
     monadicIO $ do
@@ -158,7 +156,7 @@ spec = describe "Logging" $ do
         property prop_large
 
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
-      it "lines counted as logged must be equal to how many was itended to be written" $
+      it "lines counted as logged must be equal to how many was intended to be written" $
         property prop_lines
 
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $

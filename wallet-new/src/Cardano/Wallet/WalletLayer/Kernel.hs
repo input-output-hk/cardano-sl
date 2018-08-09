@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
@@ -9,24 +10,19 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Data.Maybe (fromJust)
 
-import           Pos.Chain.Block (Blund, Undo (..), mainBlockSlot)
+import           Pos.Chain.Block (Blund)
 import qualified Pos.Core as Core
-import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Util.Wlog (Severity (Debug))
+import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
 import qualified Cardano.Wallet.Kernel.Read as Kernel
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
-                     fromRawResolvedBlock)
-import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -46,11 +42,11 @@ bracketPassiveWallet
     -> Keystore
     -> NodeStateAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore rocksDB f = do
-    Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
+bracketPassiveWallet logFunction keystore node f = do
+    Kernel.bracketPassiveWallet logFunction keystore node $ \w -> do
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
-                    ls <- mapM (blundToResolvedBlock getTime)
+                    ls <- mapM (Wallets.blundToResolvedBlock getTimeBySlot)
                         (toList (getOldestFirst blunds))
                     let mp = catMaybes ls
                     Kernel.applyBlocks w (OldestFirst mp)
@@ -60,10 +56,10 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
   where
-    getTime :: Core.SlotId -> IO Core.Timestamp
-    getTime n = do
-        time <- rightToMaybe <$> getSlotStart rocksDB n
-        defaultTime <- getCurrentTimestamp
+    getTimeBySlot :: Core.SlotId -> IO Core.Timestamp
+    getTimeBySlot n = do
+        time <- rightToMaybe <$> getSlotStart node n
+        defaultTime <- Core.getCurrentTimestamp
         return $ fromMaybe defaultTime time
 
     passiveWalletLayer :: Kernel.PassiveWallet
@@ -87,8 +83,8 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
         , rollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
 
           -- Read-only operations
-        , getWallets           =                   ro $ Wallets.getWallets
-        , getWallet            = \wId           -> ro $ Wallets.getWallet wId
+        , getWallets           =                   join (ro $ Wallets.getWallets w)
+        , getWallet            = \wId           -> join (ro $ Wallets.getWallet w wId)
         , getUtxos             = \wId           -> ro $ Wallets.getWalletUtxos wId
         , getAccounts          = \wId           -> ro $ Accounts.getAccounts         wId
         , getAccount           = \wId acc       -> ro $ Accounts.getAccount          wId acc
@@ -107,21 +103,6 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
 
         invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
         invokeIO = liftIO . STM.atomically . invoke
-
-
-    -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
-    -- by the invariants established in the 'Blund'.
-    blundToResolvedBlock :: (Core.SlotId -> IO Core.Timestamp) -> Blund -> IO (Maybe ResolvedBlock)
-    blundToResolvedBlock getTimeBySlot (b,u) = do
-        case b of
-            Left _ ->  return Nothing
-            Right mainBlock ->  do
-                let slot = mainBlock ^. mainBlockSlot
-                time <- getTimeBySlot slot
-                return . Just $ fromRawResolvedBlock
-                    (UnsafeRawResolvedBlock mainBlock spentOutputs' time)
-        where
-            spentOutputs' = map (map fromJust) $ undoTx u
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed to send transactions, as it has the full

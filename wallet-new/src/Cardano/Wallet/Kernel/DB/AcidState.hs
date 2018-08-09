@@ -16,9 +16,11 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , CancelPending(..)
   , ApplyBlock(..)
   , SwitchToFork(..)
+  , ApplyHistoricalBlock(..)
     -- ** Updates on HD wallets
     -- *** CREATE
   , CreateHdWallet(..)
+  , RestoreHdWallet(..)
   , CreateHdAccount(..)
   , CreateHdAddress(..)
     -- *** UPDATE
@@ -42,21 +44,25 @@ module Cardano.Wallet.Kernel.DB.AcidState (
 
 import           Universum
 
+import           Control.Lens ((.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 import           Data.Acid (Query, Update, makeAcidic)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
+import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (SlotId)
+import           Pos.Core (FlatSlotId, SlotCount, SlotId, flattenSlotIdExplicit,
+                     mkCoin)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Core.Update (SoftwareVersion)
 
+import           Cardano.Wallet.Kernel.DB.BlockMeta (emptyLocalBlockMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
@@ -64,16 +70,18 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Update as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (InDb))
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.Updates (Updates, noUpdates)
 import qualified Cardano.Wallet.Kernel.DB.Updates as Updates
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
 import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
+import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -258,6 +266,84 @@ applyBlock k (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
         pb :: PrefilteredBlock
         pb = fromMaybe emptyPrefilteredBlock mPB
 
+
+-- | Apply a block, as in 'applyBlock', but on the historical
+-- checkpoints of an account rather than the current checkpoints.
+--
+-- Applying a historical block can cause an account's state to change
+-- from 'HdAccountOutsideK' to 'HdAccountWithinK', or from
+-- 'HdAccountWithinK' to 'HdAccountUpToDate'.
+applyHistoricalBlock :: SecurityParameter
+                     -> InDb SlotId
+                     -> SlotCount
+                     -> Map HdAccountId PrefilteredBlock
+                     -> Update DB ()
+applyHistoricalBlock k (InDb slotId) slotCount blocks =
+  void $ runUpdateNoErrors $ zoom dbHdWallets $
+    updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
+  where
+    mkUpdates :: IxSet HdAccount -> [AccountUpdate Void (Set TxId)]
+    mkUpdates existingAccounts =
+          map mkUpdate
+        . Map.toList
+        . markMissingMapEntries (IxSet.toMap existingAccounts)
+        $ blocks
+
+    -- The account update
+    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock)
+             -> AccountUpdate Void (Set TxId)
+    mkUpdate (accId, mPB) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateAddrs = pfbAddrs pb
+        , accountUpdateNew   = AccountUpdateNew Map.empty
+        , accountUpdate      = do
+            -- Apply the block to the historical checkpoints
+            txIds <- matchHdAccountState
+              (return Set.empty)
+              (do history <- use hdWithinKHistorical
+                  let (history', txIds) = Spec.applyBlock k slotId pb history
+                  hdWithinKHistorical .= history'
+                  return txIds)
+              (do history <- one <$> use hdOutsideKHistorical
+                  let (history', txIds) = Spec.applyBlock k slotId pb history
+                  hdOutsideKHistorical .= (history' ^. currentCheckpoint)
+                  return txIds)
+            -- Update the account state, if needed.
+            withZoom $ \acc _zoomTo -> do
+                case acc ^. hdAccountState of
+                    HdAccountStateWithinK  st | isUpToDate st ->
+                        hdAccountState .= HdAccountStateUpToDate (finishRestoration k st)
+                    HdAccountStateOutsideK st | isUpToDate st ->
+                        -- This should not happen normally, but it can happen if
+                        -- slots are skipped in the blockchain.
+                        hdAccountState .= HdAccountStateUpToDate (finishRestoration k st)
+                    HdAccountStateOutsideK st | isWithinK  st ->
+                        hdAccountState .= HdAccountStateWithinK (reachedWithinK st)
+                    _ -> return ()
+            -- Return the TxIds from applyBlock.
+            return txIds
+        }
+      where
+        pb :: PrefilteredBlock
+        pb = fromMaybe emptyPrefilteredBlock mPB
+
+        checkpointDistance :: Checkpoint -> PartialCheckpoint -> FlatSlotId
+        checkpointDistance cp pcp = slot1 - slot0
+          where
+            slot1 = flattenSlotIdExplicit slotCount (pcp ^. cpSlotId)
+            slot0 = flattenSlotIdExplicit slotCount ( cp ^. cpSlotId)
+
+        isUpToDate :: HasHistoricalCheckpoints state => state -> Bool
+        isUpToDate st = let cur = st ^. historicalCheckpoints . currentCheckpoint
+                            tgt = st ^. partialCheckpoints    . oldestCheckpoint
+                        in checkpointDistance cur tgt == 0
+
+        isWithinK :: HdAccountOutsideK -> Bool
+        isWithinK st =  let cur = st ^. hdOutsideKHistorical
+                            tgt = st ^. hdOutsideKCurrent . oldestCheckpoint
+                            SecurityParameter k0 = k
+                        in checkpointDistance cur tgt <= fromIntegral k0
+
 -- | Switch to a fork
 --
 -- See comments about prefiltering for 'applyBlock'.
@@ -353,6 +439,43 @@ createHdWallet newRoot utxoByAccount =
         , accountUpdateAddrs = addrs
         , accountUpdate      = return () -- just need to create it, no more
         }
+
+-- | Begin restoration by creating an HdWallet with the given HdRoot,
+-- starting from the 'HdAccountOutsideK' state.
+restoreHdWallet :: HdRoot
+                -> SlotId
+                -> Map HdAccountId (Utxo, [AddrWithId])
+                -> Update DB (Either HD.CreateHdRootError ())
+restoreHdWallet newRoot slotId utxoByAccount =
+    runUpdateDiscardSnapshot . zoom dbHdWallets $ do
+      HD.createHdRoot newRoot
+      updateAccounts_ $ map mkUpdate (Map.toList utxoByAccount)
+  where
+    mkUpdate :: (HdAccountId, (Utxo, [AddrWithId]))
+             -> AccountUpdate HD.CreateHdRootError ()
+    mkUpdate (accId, (utxo, addrs)) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateNew   = AccountUpdateNew utxo
+        , accountUpdateAddrs = addrs
+        , accountUpdate      = do
+                hdAccountState .= (HdAccountStateOutsideK $ HdAccountOutsideK
+                    { _hdOutsideKCurrent    = one (tipCheckpoint utxo)
+                    , _hdOutsideKHistorical = genesisCheckpoint
+                    })
+        }
+
+    tipCheckpoint :: Utxo -> PartialCheckpoint
+    tipCheckpoint utxo = PartialCheckpoint
+      { _pcheckpointUtxo        = InDb utxo
+      , _pcheckpointUtxoBalance = InDb . mkCoin . fromIntegral . utxoBalance $ utxo
+      , _pcheckpointPending     = Pending.empty
+      , _pcheckpointBlockMeta   = emptyLocalBlockMeta -- TODO (@mn): is this right?
+      , _pcheckpointSlotId      = InDb slotId
+      , _pcheckpointForeign     = Pending.empty
+      }
+
+    genesisCheckpoint :: Checkpoint
+    genesisCheckpoint = initCheckpoint Map.empty
 
 {-------------------------------------------------------------------------------
   Internal: support for updating accounts
@@ -507,6 +630,7 @@ makeAcidic ''DB [
     , 'cancelPending
     , 'applyBlock
     , 'switchToFork
+    , 'applyHistoricalBlock
       -- Updates on HD wallets
     , 'createHdRoot
     , 'createHdAddress
@@ -517,6 +641,7 @@ makeAcidic ''DB [
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount
+    , 'restoreHdWallet
       -- Software updates
     , 'addUpdate
     , 'removeNextUpdate

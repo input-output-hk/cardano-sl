@@ -179,8 +179,8 @@ applyBlockPartial :: SecurityParameter
                   -> PrefilteredBlock
                   -> NewestFirst StrictNonEmpty PartialCheckpoint
                   -> (NewestFirst StrictNonEmpty PartialCheckpoint, Set Txp.TxId)
-applyBlockPartial (SecurityParameter k) slotId pb checkpoints = (
-      takeNewest k $ NewestFirst $ PartialCheckpoint {
+applyBlockPartial (SecurityParameter _k) slotId pb checkpoints = (
+      NewestFirst $ PartialCheckpoint {
           _pcheckpointUtxo        = InDb utxo'
         , _pcheckpointUtxoBalance = InDb balance'
         , _pcheckpointPending     = pending'

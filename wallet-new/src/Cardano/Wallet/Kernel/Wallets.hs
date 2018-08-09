@@ -256,3 +256,4 @@ updatePassword pw hdRootId oldPassword newPassword = do
                            Left e ->
                                return $ Left (UpdateWalletPasswordUnknownHdRoot e)
                            Right (db, hdRoot') -> return $ Right (db, hdRoot')
+

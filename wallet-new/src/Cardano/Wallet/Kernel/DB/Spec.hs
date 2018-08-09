@@ -34,11 +34,13 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentSlotId
   , currentAddressMeta
   , currentForeign
+    -- ** Convenience: accessors for other checkpoints
+  , oldestCheckpoint
   ) where
 
 import           Universum
 
-import           Control.Lens (from, _Wrapped)
+import           Control.Lens (Getter, from, to, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import           Data.Coerce (coerce)
 import           Data.SafeCopy (base, deriveSafeCopy)
@@ -281,19 +283,48 @@ currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
 currentForeign          = currentCheckpoint . cpForeign
 
 {-------------------------------------------------------------------------------
+  Convenience: accessors for other checkpoints
+-------------------------------------------------------------------------------}
+
+oldestCheckpoint :: Getter (NewestFirst StrictNonEmpty c) c
+oldestCheckpoint = _Wrapped . to SNE.last
+
+{-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}
 
 instance Buildable Checkpoint where
     build Checkpoint{..} = bprint
-        ( "Checkpoint"
+        ( "Checkpoint "
         % "{ utxo:        " % mapJson
         % ", utxoBalance: " % build
         % ", pending:     " % build
         % ", blockMeta:   " % build
+        % ", slotId:      " % build
+        % ", foreign:     " % build
         % "}"
         )
-      (_fromDb _checkpointUtxo)
-      (_fromDb _checkpointUtxoBalance)
-      _checkpointPending
-      _checkpointBlockMeta
+        (_fromDb _checkpointUtxo)
+        (_fromDb _checkpointUtxoBalance)
+        _checkpointPending
+        _checkpointBlockMeta
+        (_fromDb _checkpointSlotId)
+        _checkpointForeign
+
+instance Buildable PartialCheckpoint where
+    build PartialCheckpoint{..} = bprint
+        ( "PartialCheckpoint "
+        % "{ utxo:        " % mapJson
+        % ", utxoBalance: " % build
+        % ", pending:     " % build
+        % ", blockMeta:   " % build
+        % ", slotId:      " % build
+        % ", foreign:     " % build
+        % "}"
+        )
+        (_fromDb _pcheckpointUtxo)
+        (_fromDb _pcheckpointUtxoBalance)
+        _pcheckpointPending
+        _pcheckpointBlockMeta
+        (_fromDb _pcheckpointSlotId)
+        _pcheckpointForeign

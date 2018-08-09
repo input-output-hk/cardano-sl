@@ -60,6 +60,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
     -- *** Account state: outside K slots
   , hdOutsideKCurrent
   , hdOutsideKHistorical
+  , HasHistoricalCheckpoints(..)
     -- *** Address
   , hdAddressId
   , hdAddressAddress
@@ -94,7 +95,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
 
 import           Universum hiding ((:|))
 
-import           Control.Lens (at, (+~), _Wrapped)
+import           Control.Lens (Getter, at, to, (+~), _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet (Indexable (..))
@@ -104,6 +105,7 @@ import           Test.QuickCheck (Arbitrary (..), oneof, vectorOf)
 
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
+import           Serokell.Util (listJson)
 
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..))
@@ -115,7 +117,8 @@ import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet hiding (Indexable)
-import           Cardano.Wallet.Kernel.Util (modifyAndGetOld)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
+import           Cardano.Wallet.Kernel.Util (liftNewestFirst, modifyAndGetOld)
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
@@ -383,14 +386,39 @@ reachedWithinK HdAccountOutsideK{..} = HdAccountWithinK{
 -- the local block metadata in the previous). Therefore we get the most recent
 -- /full/ checkpoint, and use that as the basis for constructing full block
 -- metadata for /all/ partial checkpoints.
-finishRestoration :: HdAccountWithinK -> HdAccountUpToDate
-finishRestoration HdAccountWithinK{..} = HdAccountUpToDate{
-      _hdUpToDateCheckpoints =
-           map (toFullCheckpoint mostRecent) _hdWithinKCurrent
-        <> _hdWithinKHistorical
-    }
+--
+-- NOTE: We do NOT use the oldest partial checkpoint, as that one is constructed
+-- from the node's UTxO rather than from a block, and so it is the only one for
+-- which we have no accurate (even partial) 'BlockMeta'.
+finishRestoration :: HasHistoricalCheckpoints state
+                  => SecurityParameter
+                  -> state
+                  -> HdAccountUpToDate
+finishRestoration (SecurityParameter k) acct =
+    if oldestPartial ^. cpSlotId == mostRecentHistorical ^. cpSlotId
+      then HdAccountUpToDate $ takeNewest k $ NewestFirst $
+             SNE.prependList
+               (toFullCheckpoint mostRecentHistorical <$> initPartial)
+               (mostRecentHistorical :| olderHistorical)
+      else error "finishRestoration: checkpoints do not line up!"
   where
-    NewestFirst (mostRecent :| _) = _hdWithinKHistorical
+    takeNewest = liftNewestFirst . SNE.take
+    historical = acct ^. historicalCheckpoints
+    partial    = acct ^. partialCheckpoints
+    (initPartial, oldestPartial)            = SNE.splitLast $ getNewestFirst partial
+    mostRecentHistorical :| olderHistorical =                 getNewestFirst historical
+
+class HasHistoricalCheckpoints s where
+    historicalCheckpoints :: Getter s (NewestFirst StrictNonEmpty Checkpoint)
+    partialCheckpoints    :: Getter s (NewestFirst StrictNonEmpty PartialCheckpoint)
+
+instance HasHistoricalCheckpoints HdAccountWithinK where
+    historicalCheckpoints = to _hdWithinKHistorical
+    partialCheckpoints    = to _hdWithinKCurrent
+
+instance HasHistoricalCheckpoints HdAccountOutsideK where
+    historicalCheckpoints = to (one . _hdOutsideKHistorical)
+    partialCheckpoints    = to _hdOutsideKCurrent
 
 {-------------------------------------------------------------------------------
   Template Haskell splices
@@ -788,9 +816,40 @@ instance Buildable HdAccount where
       _hdAccountAutoPkCounter
 
 instance Buildable HdAccountState where
-    build (HdAccountStateUpToDate _cps) = "HdAccountStateUpToDate <checkpoints>"
-    build (HdAccountStateWithinK  _cps) = "HdAccountStateWithinK <checkpoints>"
-    build (HdAccountStateOutsideK _cps) = "HdAccountStateOutsideK <checkpoints>"
+    build (HdAccountStateUpToDate st) =
+        bprint ("HdAccountStateUpToDate " % build) st
+    build (HdAccountStateWithinK st) =
+        bprint ("HdAccountStateWithinK " % build) st
+    build (HdAccountStateOutsideK st) =
+        bprint ("HdAccountStateOutsideK " % build) st
+
+instance Buildable HdAccountUpToDate where
+    build HdAccountUpToDate{..} = bprint
+        ( "HdAccountUpToDate "
+        % "{ checkpoints: " % listJson
+        % "}"
+        )
+        _hdUpToDateCheckpoints
+
+instance Buildable HdAccountWithinK where
+    build HdAccountWithinK{..} = bprint
+        ( "HdAccountWithinK "
+        % "{ current:    " % listJson
+        % ", historical: " % listJson
+        % "}"
+        )
+        _hdWithinKCurrent
+        _hdWithinKHistorical
+
+instance Buildable HdAccountOutsideK where
+    build HdAccountOutsideK{..} = bprint
+        ( "HdAccountOutsideK "
+        % "{ current:    " % listJson
+        % ", historical: " % build
+        % "}"
+        )
+        _hdOutsideKCurrent
+        _hdOutsideKHistorical
 
 instance Buildable HdAddress where
     build HdAddress{..} = bprint

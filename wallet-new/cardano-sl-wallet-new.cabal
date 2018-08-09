@@ -101,6 +101,7 @@ library
                        Cardano.Wallet.Kernel.DB.Updates
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
+                       Cardano.Wallet.Kernel.Decrypt
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Internal
                        Cardano.Wallet.Kernel.Invariants
@@ -110,6 +111,7 @@ library
                        Cardano.Wallet.Kernel.Pending
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Read
+                       Cardano.Wallet.Kernel.Restore
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Transactions

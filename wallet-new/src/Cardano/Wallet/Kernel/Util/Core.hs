@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TypeApplications #-}
 -- | Utility functions on core types
 --
 -- Intended for qualified import

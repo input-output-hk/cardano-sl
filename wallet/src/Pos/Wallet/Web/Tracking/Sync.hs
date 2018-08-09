@@ -64,13 +64,13 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HasDifficulty (..), HasProtocolConstants, Timestamp (..),
                      blkSecurityParam, genesisHash, timestampToPosix)
 import           Pos.Core.Chrono (getNewestFirst)
-import           Pos.Core.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund, resolveForwardLink)
 import qualified Pos.DB.Block as GS
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
+import           Pos.DB.GState.Lock (Priority (..), withStateLockNoMetrics)
 import qualified Pos.GState as GS
 import           Pos.Infra.Slotting (MonadSlots (..), MonadSlotsData,
                      getSlotStartPure, getSystemStartM)

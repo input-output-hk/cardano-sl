@@ -33,7 +33,7 @@ import           Pos.Core (HasPrimaryKey (..), Timestamp)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), SlottingData)
-import           Pos.Core.StateLock (StateLock, StateLockMetrics)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Txp.Settings (TxpGlobalSettings)
 import           Pos.DB.Update (UpdateContext)

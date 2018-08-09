@@ -145,7 +145,7 @@ mkUniq :: [LogHandler] -> [LogHandler]
 mkUniq handlers = mkUniq' handlers []
     where
         mkUniq' [] acc = acc
-        mkUniq' (lh:lhs) acc | elem lh acc = mkUniq' lhs acc
+        mkUniq' (lh:lhs) acc | lh `elem` acc = mkUniq' lhs acc
                              | otherwise     = mkUniq' lhs (lh:acc)
 
 instance Semigroup LoggerTree where

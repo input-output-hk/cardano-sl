@@ -57,8 +57,6 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..),
                      largestHDAddressBoot)
-import           Pos.Core.StateLock (StateLock, StateLockMetrics (..),
-                     newStateLock)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -66,6 +64,8 @@ import qualified Pos.DB as DB
 import           Pos.DB.Block (MonadBListener (..))
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics (..),
+                     newStateLock)
 import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Pure (DBPureVar)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,

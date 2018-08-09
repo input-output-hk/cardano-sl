@@ -267,6 +267,7 @@ withMiddleware wrm app = do
                 Http.status429
                 [ ("Content-Type", "application/json") ]
                 (encode (V1.RequestThrottled microsTilRetry))
+        , Throttle.throttleRate = 90
         }
 
 corsMiddleware :: Middleware

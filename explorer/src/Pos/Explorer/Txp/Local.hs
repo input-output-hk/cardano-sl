@@ -15,11 +15,11 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration, Utxo)
 import           Pos.Core (EpochIndex, Timestamp)
-import           Pos.Core.StateLock (Priority (..), StateLock, StateLockMetrics,
-                     withStateLock)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
+                     withStateLock)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
                      txProcessTransactionAbstract)
 import           Pos.DB.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra,

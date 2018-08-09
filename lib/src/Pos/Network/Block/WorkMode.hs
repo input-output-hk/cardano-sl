@@ -16,8 +16,8 @@ import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
                      LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Core.Context (HasPrimaryKey)
-import           Pos.Core.StateLock (StateLock, StateLockMetrics)
 import           Pos.DB.Block (LrcModeFull)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
                      TxpHolderTag)
 import           Pos.DB.Update (UpdateContext)

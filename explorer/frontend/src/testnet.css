@@ -141,3 +141,34 @@ td.ada, th.ada {
   }
 
 }
+
+.explorer-search {
+  height: 100%;
+  box: horizontal;
+  padding-right: 10px;
+}
+
+.explorer-search__container {
+  box-item: center;
+
+  lost-column: 9/12;
+  lost-offset: 1.5/12;
+
+  @extend .animated;
+  @extend .fadeIn;
+  height: 42px;
+
+  animation-duration: .3s;
+  /* We do need a little delay
+          to hide previous state */
+  animation-delay: .3s;
+  width: 100%;
+
+  &.focused {
+    transition: all 0.3s ease;
+    /* We do need a little offset here
+            to have a smooth transition */
+    lost-column: 11.8/12;
+    lost-offset: 0.1/12;
+  }
+}

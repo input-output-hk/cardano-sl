@@ -25,7 +25,7 @@ import Explorer.View.Common (emptyView)
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onChange, onClick, onFocus, onBlur, onKeyDown, targetValue) as P
 
-import Text.Smolder.HTML (div, input, label, li, ul, form) as S
+import Text.Smolder.HTML (div, input, label, li, ul) as S
 import Text.Smolder.HTML.Attributes (className, for, id, maxlength, name, placeholder, type', value) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
@@ -50,7 +50,6 @@ searchInputView (ElementId viewId) state =
      S.div ! S.className "explorer-search" $
         S.div ! S.className ("explorer-search__container" <> focusedClazz)
               ! S.id viewId $ do
-          -- S.form $ do
               (S.input !? dbViewSearchInputFocused) (S.placeholder $ translate (I18nL.hero <<< I18nL.hrSearch) lang')
                       ! S.className ("explorer-search__input explorer-search__input--address-tx"
                                      <> addrHiddenClazz <> focusedClazz)

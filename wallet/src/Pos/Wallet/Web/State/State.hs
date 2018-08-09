@@ -196,8 +196,8 @@ getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 getWalletInfo :: WalletSnapshot -> CId Wal -> Maybe WalletInfo
 getWalletInfo ws wid = queryValue ws (S.getWalletInfo wid)
 
-getUnreadyWalletInfo :: WalletSnapshot -> CId Wal -> Maybe WalletInfo
-getUnreadyWalletInfo ws wid = queryValue ws (S.getUnreadyWalletInfo wid)
+getUnreadyWalletInfo :: WalletSnapshot -> WalletInfo
+getUnreadyWalletInfo ws = queryValue ws S.getUnreadyWalletInfo
 
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)

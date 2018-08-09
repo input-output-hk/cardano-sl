@@ -539,18 +539,17 @@ mkOutputsWithRem addrData TxRaw {..}
         pure $ TxOutAux txOut :| toList trOutputs
 
 mkOutputsWithRemForUnsignedTx
-    :: TxCreateMode m
-    => TxRaw
+    :: TxRaw
     -> Address
-    -> TxCreator m TxOutputs
+    -> TxOutputs
 mkOutputsWithRemForUnsignedTx TxRaw {..} changeAddress
-    | trRemainingMoney == mkCoin 0 = pure trOutputs
-    | otherwise = do
+    | trRemainingMoney == mkCoin 0 = trOutputs
+    | otherwise =
         -- Change is here, so we have to use provided 'changeAddress' for it.
         -- It is assumed that 'changeAddress' was created (as usual HD-address)
         -- by external wallet and stored in the corresponding wallet.
         let txOutForChange = TxOut changeAddress trRemainingMoney
-        pure $ TxOutAux txOutForChange :| toList trOutputs
+        in TxOutAux txOutForChange :| toList trOutputs
 
 prepareInpsOuts
     :: TxCreateMode m
@@ -575,7 +574,7 @@ prepareInpsOutsForUnsignedTx
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOutsForUnsignedTx pm pendingTx utxo outputs changeAddress = do
     txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
-    outputsWithRem <- mkOutputsWithRemForUnsignedTx txRaw changeAddress
+    let outputsWithRem = mkOutputsWithRemForUnsignedTx txRaw changeAddress
     pure (trInputs, outputsWithRem)
 
 createGenericTx

@@ -463,18 +463,18 @@ getWalletInfo cid = view (wsWalletInfos . at cid)
 -- | Provide default wallet info, because this wallet is not ready yet
 -- (because of restoring). If user wants to get the real and complete wallet info,
 -- he must wait until wallet will be ready.
-getUnreadyWalletInfo :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletInfo)
-getUnreadyWalletInfo _walletId = do
+getUnreadyWalletInfo :: Query WalletInfo
+getUnreadyWalletInfo = do
     -- It's a fake 'POSIXTime', real one can be obtained only from ready wallet.
     let lastUpdateOfPassphrase = nominalDay
         creationTime = lastUpdateOfPassphrase
-    return $ Just $ WalletInfo (def :: WebTypes.CWalletMeta)
-                               lastUpdateOfPassphrase
-                               creationTime
-                               NotSynced
-                               noSyncStatistics
-                               HM.empty
-                               False
+    return $ WalletInfo (def :: WebTypes.CWalletMeta)
+                        lastUpdateOfPassphrase
+                        creationTime
+                        NotSynced
+                        noSyncStatistics
+                        HM.empty
+                        False
 
 -- | Get wallet meta info regardless of wallet sync status.
 getWalletMeta :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.CWalletMeta)

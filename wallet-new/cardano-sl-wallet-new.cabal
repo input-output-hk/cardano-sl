@@ -337,6 +337,7 @@ executable wal-integr-test
                        Error
                        Util
                        WalletSpecs
+                       AccountSpecs
                        AddressSpecs
                        TransactionSpecs
                        QuickCheckSpecs

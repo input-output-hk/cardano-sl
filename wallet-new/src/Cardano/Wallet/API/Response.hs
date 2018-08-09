@@ -16,16 +16,14 @@ import           Prelude
 import           Universum (Buildable, decodeUtf8, toText, (<>))
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty (encodePretty)
-import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
-import qualified Data.Char as Char
-import           Data.Swagger as S
+import           Data.Swagger as S hiding (Example, example)
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
-import qualified Formatting.Buildable
 import           GHC.Generics (Generic)
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..), OctetStream)
@@ -42,6 +40,11 @@ import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 import           Cardano.Wallet.API.V1.Errors
                      (WalletError (JSONValidationFailed))
+
+import qualified Data.Aeson.Options as Serokell
+import qualified Data.Char as Char
+import qualified Formatting.Buildable
+
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -63,6 +66,9 @@ instance ToSchema Metadata where
 instance Buildable Metadata where
   build Metadata{..} =
     bprint ("{ pagination="%build%" }") metaPagination
+
+instance Example Metadata
+
 
 -- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
 -- produced by the wallet backend.
@@ -109,6 +115,12 @@ instance Buildable a => Buildable (WalletResponse a) where
         wrStatus
         wrMeta
         wrData
+
+instance Example a => Example (WalletResponse a) where
+    example = WalletResponse <$> example
+                             <*> pure SuccessStatus
+                             <*> example
+
 
 -- | Inefficient function to build a response out of a @generator@ function. When the data layer will
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:

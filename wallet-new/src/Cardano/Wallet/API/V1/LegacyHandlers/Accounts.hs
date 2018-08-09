@@ -33,11 +33,13 @@ handlers
     -> ServerT Accounts.API MonadV1
 handlers logTrace pm txpConfig submitTx =
          deleteAccount
-    :<|> (getAccount logTrace)
-    :<|> (listAccounts logTrace)
-    :<|> (newAccount logTrace)
-    :<|> (updateAccount logTrace)
-    :<|> (redeemAda logTrace pm txpConfig submitTx)
+    :<|> getAccount logTrace
+    :<|> listAccounts logTrace
+    :<|> newAccount logTrace
+    :<|> updateAccount logTrace
+    :<|> redeemAda logTrace pm txpConfig submitTx
+    :<|> getAccountAddresses logTrace
+    :<|> getAccountBalance logTrace
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -111,3 +113,28 @@ redeemAda logTrace pm txpConfig submitTx walletId accountIndex r = do
                     , V0.crSeed = seed
                     }
             V0.redeemAda logTrace pm txpConfig submitTx spendingPassword cwalletRedeem
+
+getAccountAddresses
+    :: (V0.MonadWalletLogic ctx m)
+    => TraceNamed m
+    -> WalletId
+    -> AccountIndex
+    -> RequestParams
+    -> FilterOperations WalletAddress
+    -> m (WalletResponse AccountAddresses)
+getAccountAddresses logTrace wId accIdx pagination filters = do
+    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount logTrace wId accIdx)
+    return resp { wrData = AccountAddresses . wrData $ resp }
+  where
+    getAddresses =
+        IxSet.fromList . accAddresses . wrData
+
+getAccountBalance
+    :: (V0.MonadWalletLogic ctx m)
+    => TraceNamed m
+    -> WalletId
+    -> AccountIndex
+    -> m (WalletResponse AccountBalance)
+getAccountBalance logTrace wId accIdx = do
+    resp <- getAccount logTrace wId accIdx
+    return resp { wrData = AccountBalance . accAmount . wrData $ resp }

@@ -37,23 +37,22 @@ import Text.Smolder.Markup ((#!), (!))
 
 blockView :: State -> P.HTML Action
 blockView state =
-    S.div ! SA.className CSS.pureGContainer $
+    S.div ! SA.className CSS.pureGContainer $ do
       S.div ! SA.className "pure-u-1-1" $ do
-        headerView state headerOptions
+        headerView state $ headerOptions (translate (I18nL.common <<< I18nL.cBlock) lang')
         case blockSummary of
             NotAsked -> blockSummaryEmptyView ""
             Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
             Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
             Success block -> blockSummaryView block lang'
-        S.div ! SA.className "explorer-block__wrapper" $ do
-            S.div ! SA.className "explorer-block__container" $ do
-                S.h3  ! SA.className "headline"
-                      $ SM.text (translate (I18nL.common <<< I18nL.cSummary) lang')
-                case blockTxs of
-                    NotAsked -> txEmptyContentView ""
-                    Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                    Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
-                    Success txs -> blockTxsView txs state
+        S.div $ do
+            S.h3  ! SA.className "subheadline"
+                  $ SM.text (translate (I18nL.common <<< I18nL.cSummary) lang')
+            case blockTxs of
+                NotAsked -> txEmptyContentView ""
+                Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
+                Success txs -> blockTxsView txs state
             if (isFailure blockSummary && isFailure blockTxs)
                 -- Show back button if both results ^ are failed
                 then
@@ -68,8 +67,8 @@ blockView state =
       lang' = state ^. lang
       blockSummary = state ^. currentBlockSummary
       blockTxs = state ^. currentBlockTxs
-      headerOptions = HeaderOptions
-          { headline: (translate (I18nL.common <<< I18nL.cBlock) lang')
+      headerOptions t = HeaderOptions
+          { headline: t
           , link: Nothing
           , icon: Just "fa-cube"
           }
@@ -213,6 +212,7 @@ blockTxsView txs state =
             currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
         in
         do
+         S.table ! SA.className "pure-table pure-table-horizontal" $ do
             for_ currentTxs (\tx -> blockTxView tx lang')
             txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                               , currentPage: PageNumber txPagination
@@ -226,8 +226,6 @@ blockTxsView txs state =
                               }
 
 blockTxView :: CTxBrief -> Language -> P.HTML Action
-blockTxView tx lang =
-    S.div ! SA.className "explorer-block__tx-container"
-        $ do
-        txHeaderView lang $ mkTxHeaderViewProps tx
-        txBodyView lang $ mkTxBodyViewProps tx
+blockTxView tx lang = do
+  txHeaderView lang $ mkTxHeaderViewProps tx
+  txBodyView lang $ mkTxBodyViewProps tx

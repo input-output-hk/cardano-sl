@@ -404,8 +404,8 @@ noData = "--"
 currencyCSSClass :: Maybe CCurrency -> String
 currencyCSSClass mCurrency =
   case mCurrency of
-      Just ADA -> "ada bg-ada-dark"
-      Just USD -> "usd bg-usd-dark"
+      Just ADA -> "amount bg-ada"
+      Just USD -> "amount bg-usd"
       _ -> ""
 
 -- TODO (jk) Remove placeholderView if all views are implemented

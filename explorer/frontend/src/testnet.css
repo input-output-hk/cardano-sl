@@ -79,9 +79,9 @@ td.ada, th.ada {
 .truncate-address {
   font-size: 12px;
   padding: 0 18px;
-  /* overflow: hidden; */
+  overflow: hidden;
   text-overflow: ellipsis;
-  display: block;
+  width: 30em;
 }
 
 .txn-arrow {

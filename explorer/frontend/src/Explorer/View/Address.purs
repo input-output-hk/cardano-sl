@@ -58,10 +58,10 @@ addressOverview state = case state ^. currentAddressSummary of
   (Failure _) -> failureView $ state ^. lang
   (Success addressSummary) ->
     S.div ! SA.className "pure-g" $ do
-      S.div ! SA.className "pure-u-1-2" $ do
+      S.div ! SA.className "pure-u-2-3" $ do
         headerView state $ headerOptions "fa-address-card" (translate (I18nL.common <<< I18nL.cAddress) lang')
         addressDetailView addressSummary lang'
-      S.div ! SA.className "pure-u-1-2" $ do
+      S.div ! SA.className "pure-u-1-3" $ do
         headerView state $ headerOptions "fa-qrcode" (translate (I18nL.address <<< I18nL.addQrCode) lang')
         addressQr addressSummary lang'
     where
@@ -143,9 +143,17 @@ addressTxsView txs state =
         lang' = state ^. lang
         minTxIndex = (txPagination - minPagination) * maxTxRows
         currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
+        headerOptions = HeaderOptions
+            { headline:translate (I18nL.common <<< I18nL.cTransactions) lang'
+            , link: Nothing
+            , icon: Just "fa-list"
+            }
     in
     do
-        for_ currentTxs (\tx -> addressTxView tx lang')
+
+        headerView state headerOptions
+        S.table ! SA.className "pure-table pure-table-horizontal" $
+          for_ currentTxs (addressTxView lang')
         txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                           , currentPage: PageNumber txPagination
                           , minPage: PageNumber minPagination
@@ -157,12 +165,10 @@ addressTxsView txs state =
                           , disabled: false
                           }
 
-addressTxView :: CTxBrief -> Language -> P.HTML Action
-addressTxView tx lang =
-    S.table ! SA.className "pure-table pure-table-horizontal"
-          $ do
-          txHeaderView lang $ mkTxHeaderViewProps tx
-          txBodyView lang $ mkTxBodyViewProps tx
+addressTxView :: Language -> CTxBrief -> P.HTML Action
+addressTxView lang tx = do
+  txHeaderView lang $ mkTxHeaderViewProps tx
+  txBodyView lang $ mkTxBodyViewProps tx
 
 failureView :: Language -> P.HTML Action
 failureView lang =

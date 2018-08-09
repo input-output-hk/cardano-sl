@@ -30,7 +30,7 @@ import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
-import Data.Tuple (Tuple(..), snd)
+import Data.Tuple (Tuple(..), snd, fst)
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat, cTitle) as I18nL
 import Explorer.Lenses.State (lang, route, testnet)
@@ -162,7 +162,7 @@ txBodyView lang (TxBodyViewProps props) =
     in
     S.tbody $ do
         S.td $ do
-          S.div $ for_ inputs (txMaybeFromView lang)
+          for_ inputs (txMaybeFromView lang)
           -- On mobile devices we wan't to show amounts of `inputs`.
           -- This view is hidden on desktop by CSS.
           S.div ! S.className "from-hash__amounts" $
@@ -197,16 +197,16 @@ emptyTxBodyView =
           $ S.text ""
 
 txMaybeFromView :: Language -> Maybe (Tuple CAddress CCoin) -> P.HTML Action
-txMaybeFromView _ (Just tuple) = txFromView tuple
+txMaybeFromView _ (Just tuple) = txAddressView (fst tuple)
 txMaybeFromView lang Nothing = txFromEmptyView lang
 
-txFromView :: Tuple CAddress CCoin -> P.HTML Action
-txFromView (Tuple (CAddress cAddress) _) =
+txAddressView :: CAddress -> P.HTML Action
+txAddressView (CAddress cAddress) =
     let addressRoute = Address $ mkCAddress cAddress in
-    S.a ! S.href (toUrl addressRoute)
-        #! P.onClick (Navigate $ toUrl addressRoute)
-        ! S.className "truncate-address"
-        $ S.text cAddress
+    S.div ! S.className "truncate-address" $
+      S.a ! S.href (toUrl addressRoute)
+          #! P.onClick (Navigate $ toUrl addressRoute)
+          $ S.text cAddress
 
 txFromEmptyView :: Language -> P.HTML Action
 txFromEmptyView lang =
@@ -214,14 +214,9 @@ txFromEmptyView lang =
         $ S.text noData
 
 txToView :: Language -> Tuple CAddress CCoin -> P.HTML Action
-txToView lang (Tuple (CAddress cAddress) coin) =
-    let addressRoute = Address $ mkCAddress cAddress in
+txToView lang (Tuple address coin) =
     S.tr $ do
-      S.td $
-        S.a ! S.href (toUrl addressRoute)
-            #! P.onClick (Navigate $ toUrl addressRoute)
-            ! S.className "truncate-address"
-            $ S.text cAddress
+      S.td $ txAddressView address
       S.td ! S.className "ada"
         $ txBodyAmountView lang coin
 

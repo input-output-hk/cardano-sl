@@ -81,7 +81,7 @@ bracketPassiveWallet logTrace =
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
         { _pwlCreateWallet          = pwlCreateWallet logTrace
-        , _pwlGetWallets            = pwlGetWallets
+        , _pwlGetWallets            = pwlGetWallets logTrace
         , _pwlGetWallet             = pwlGetWallet logTrace
         , _pwlUpdateWallet          = pwlUpdateWallet logTrace
         , _pwlUpdateWalletPassword  = pwlUpdateWalletPassword
@@ -169,13 +169,14 @@ pwlCreateWallet logTrace NewWallet{..} = do
 
 pwlGetWallets
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => m (IxSet Wallet)
-pwlGetWallets = do
-    ws    <- askWalletSnapshot
+    => TraceNamed m
+    -> m (IxSet Wallet)
+pwlGetWallets logTrace = do
+    ws <- askWalletSnapshot
     let invariantViolated = error "Conversion between CId Wal -> WalletId failed."
     let ids = map (either invariantViolated identity . eitherMigrate . fst)
                   (runReader getWalletInfos ws)
-    wss <- forM ids pwlGetWallet
+    wss <- forM ids (pwlGetWallet logTrace)
     case sequence wss of
          Left _   -> return IxSet.emptyIxSet
          Right xs -> return $ IxSet.fromList xs

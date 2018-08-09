@@ -37,10 +37,10 @@ import           Pos.Context (ConnectedPeers (..), NodeContext (..),
 import           Pos.Core (HasConfiguration, Timestamp, genesisData)
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
-import           Pos.Core.StateLock (newStateLock)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Block (mkSlogContext)
 import           Pos.DB.Delegation (mkDelegationVar)
+import           Pos.DB.GState.Lock (newStateLock)
 import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Ssc (mkSscState)
@@ -62,7 +62,8 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithTrace, newInitFuture)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.LoggerConfig (LoggerConfig (..), defaultInteractiveConfiguration)
+import           Pos.Util.LoggerConfig (LoggerConfig (..),
+                     defaultInteractiveConfiguration)
 #ifdef linux_HOST_OS
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
                      logInfo, logWarning, natTrace)
@@ -234,13 +235,13 @@ getRealLoggerConfig :: MonadIO m => LoggingParams -> m Log.LoggerConfig
 getRealLoggerConfig LoggingParams{..} =
     case lpConfigPath of
         Just configPath -> Log.parseLoggerConfig configPath
-        Nothing -> return (mempty :: LoggerConfig)
+        Nothing         -> return (mempty :: LoggerConfig)
     >>= \lc -> return $ (overridePrefixPath . overrideConsoleLog) lc
   where
     overridePrefixPath :: LoggerConfig -> LoggerConfig
     overridePrefixPath = case lpHandlerPrefix of
         Nothing -> identity
-        Just _ -> \lc -> lc { _lcBasePath = lpHandlerPrefix }
+        Just _  -> \lc -> lc { _lcBasePath = lpHandlerPrefix }
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
         Nothing    -> identity

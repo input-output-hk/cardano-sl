@@ -7,7 +7,8 @@ import           Universum
 
 import           Servant
 
-import           Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -16,22 +17,35 @@ import           Cardano.Wallet.API.V1.Types
 
 
 handlers :: PassiveWalletLayer IO -> ServerT Addresses.API Handler
-handlers w =  listAddresses
+handlers w =  listAddresses w
          :<|> newAddress w
-         :<|> getAddress
+         :<|> getAddress w
 
-listAddresses :: RequestParams -> Handler (WalletResponse [WalletAddress])
-listAddresses _params = error "Unimplemented - See [CBR-227]."
+listAddresses :: PassiveWalletLayer IO
+              -> RequestParams -> Handler (WalletResponse [WalletAddress])
+listAddresses pwl params = do
+    addrs <- liftIO $ WalletLayer.getAddresses pwl params
+    return $ single addrs
 
 newAddress :: PassiveWalletLayer IO
            -> NewAddress
            -> Handler (WalletResponse WalletAddress)
 newAddress pwl newAddressRequest = do
-    res <- liftIO $ (_pwlCreateAddress pwl) newAddressRequest
+    res <- liftIO $ WalletLayer.createAddress pwl newAddressRequest
     case res of
          Left err      -> throwM err
-         Right newAddr -> return $ single (WalletAddress (V1 newAddr) False False)
+         Right newAddr -> return $ single newAddr
 
--- | Verifies that an address is base58 decodable.
-getAddress :: Text -> Handler (WalletResponse WalletAddress)
-getAddress _addrText = error "Unimplemented - See [CBR-227]."
+-- | Validates an input 'Text' following these simple principles:
+--
+-- 1. The input text must be parseable into a Cardano Address;
+-- 2. The input text must be a valid, @local@ 'Address', i.e. an 'Address'
+--    known to this wallet.
+getAddress :: PassiveWalletLayer IO
+           -> Text
+           -> Handler (WalletResponse WalletAddress)
+getAddress pwl addressRaw = do
+    res <- liftIO $ WalletLayer.validateAddress pwl addressRaw
+    case res of
+         Left err   -> throwM err
+         Right addr -> return $ single addr

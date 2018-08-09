@@ -20,15 +20,16 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      DeleteWalletError (..), GetAccountError, GetAccountsError,
                      GetWalletError (..), PassiveWalletLayer (..),
                      UpdateAccountError, UpdateWalletError (..),
-                     UpdateWalletPasswordError)
+                     UpdateWalletPasswordError, ValidateAddressError (..))
 
+import           Cardano.Wallet.API.Request (RequestParams)
 import           Cardano.Wallet.API.V1.Migration (eitherMigrate, migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, Address, BackupPhrase (..),
-                     NewAccount (..), NewAddress, NewWallet (..),
-                     PasswordUpdate, V1 (..), Wallet, WalletId,
-                     WalletOperation (..), WalletUpdate)
+                     AccountUpdate, BackupPhrase (..), NewAccount (..),
+                     NewAddress, NewWallet (..), PasswordUpdate, V1 (..),
+                     Wallet, WalletAddress, WalletId, WalletOperation (..),
+                     WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -93,6 +94,7 @@ bracketPassiveWallet =
 
         , _pwlCreateAddress         = pwlCreateAddress
         , _pwlGetAddresses          = pwlGetAddresses
+        , _pwlValidateAddress       = pwlValidateAddress
 
         , _pwlApplyBlocks           = pwlApplyBlocks
         , _pwlRollbackBlocks        = pwlRollbackBlocks
@@ -297,11 +299,14 @@ pwlDeleteAccount wId accIdx = do
 -- Address
 ------------------------------------------------------------
 
-pwlCreateAddress :: NewAddress -> m (Either CreateAddressError Address)
+pwlCreateAddress :: NewAddress -> m (Either CreateAddressError WalletAddress)
 pwlCreateAddress = error "Not implemented!"
 
-pwlGetAddresses :: WalletId -> m [Address]
+pwlGetAddresses :: RequestParams -> m [WalletAddress]
 pwlGetAddresses = error "Not implemented!"
+
+pwlValidateAddress :: Text -> m (Either ValidateAddressError WalletAddress)
+pwlValidateAddress = error "Not implemented!"
 
 ------------------------------------------------------------
 -- Apply Block

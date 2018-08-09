@@ -17,6 +17,7 @@ module Cardano.Wallet.WalletLayer.Types
 
     , createAddress
     , getAddresses
+    , validateAddress
     , applyBlocks
     , rollbackBlocks
     -- * Errors
@@ -29,6 +30,7 @@ module Cardano.Wallet.WalletLayer.Types
     , EstimateFeesError(..)
     , RedeemAdaError(..)
     , CreateAddressError(..)
+    , ValidateAddressError(..)
     , CreateAccountError(..)
     , GetAccountError(..)
     , GetAccountsError(..)
@@ -50,10 +52,17 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PassPhrase)
 
+import           Cardano.Wallet.API.Request (RequestParams)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
+
                      PasswordUpdate, Payment, Redemption, V1 (..), Wallet,
                      WalletId, WalletUpdate)
+
+                     PasswordUpdate, Payment, V1 (..), Wallet, WalletAddress,
+                     WalletId, WalletUpdate)
+
+
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -167,7 +176,7 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletError " % build) kernelError
 
 ------------------------------------------------------------
--- Errors creating a new Address
+-- Errors when dealing with addresses
 ------------------------------------------------------------
 
 data CreateAddressError =
@@ -192,6 +201,29 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressError " % build) kernelError
     build (CreateAddressAddressDecodingFailed txt) =
         bprint ("CreateAddressAddressDecodingFailed " % build) txt
+
+data ValidateAddressError =
+      ValidateAddressDecodingFailed Text
+    -- ^ When trying to decode this raw 'Text' into a proper Cardano
+    -- 'Address' the decoding failed. Unfortunately we are not able to
+    -- provide a more accurate error description as 'decodeTextAddress' doesn't
+    -- offer such.
+    | ValidateAddressNotOurs Address
+    -- ^ The input address is a valid 'Cardano' address, but it doesn't
+    -- belong to us.
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show ValidateAddressError where
+    show = formatToString build
+
+instance Exception ValidateAddressError
+
+instance Buildable ValidateAddressError where
+    build (ValidateAddressDecodingFailed rawText) =
+        bprint ("ValidateAddressDecodingFailed " % build) rawText
+    build (ValidateAddressNotOurs address) =
+        bprint ("ValidateAddressNotOurs " % build) address
 
 ------------------------------------------------------------
 -- Errors when dealing with Accounts
@@ -324,8 +356,10 @@ data PassiveWalletLayer m = PassiveWalletLayer
                                -> m (Either DeleteAccountError ())
     -- * addresses
     , _pwlCreateAddress        :: NewAddress
-                               -> m (Either CreateAddressError Address)
-    , _pwlGetAddresses         :: WalletId -> m [Address]
+                               -> m (Either CreateAddressError WalletAddress)
+    , _pwlGetAddresses         :: RequestParams -> m [WalletAddress]
+    , _pwlValidateAddress      :: Text
+                               -> m (Either ValidateAddressError WalletAddress)
     -- * core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
@@ -398,12 +432,20 @@ deleteAccount :: forall m. PassiveWalletLayer m
               -> m (Either DeleteAccountError ())
 deleteAccount pwl = pwl ^. pwlDeleteAccount
 
-createAddress :: forall m. PassiveWalletLayer m -> NewAddress -> m (Either CreateAddressError Address)
+createAddress :: forall m. PassiveWalletLayer m
+              -> NewAddress
+              -> m (Either CreateAddressError WalletAddress)
 createAddress pwl = pwl ^. pwlCreateAddress
 
-getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
+getAddresses :: forall m. PassiveWalletLayer m
+             -> RequestParams
+             -> m [WalletAddress]
 getAddresses pwl = pwl ^. pwlGetAddresses
 
+validateAddress :: forall m. PassiveWalletLayer m
+                -> Text
+                -> m (Either ValidateAddressError WalletAddress)
+validateAddress pwl = pwl ^. pwlValidateAddress
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks

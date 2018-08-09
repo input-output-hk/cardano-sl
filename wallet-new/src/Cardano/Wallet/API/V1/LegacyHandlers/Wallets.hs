@@ -186,7 +186,7 @@ migrateWallet snapshot wallet walletIsReady = do
         else
             -- Wallet is not ready yet (because of restoring),
             -- the only information we can provide is the default one.
-            maybeThrow WalletNotFound $ V0.getUnreadyWalletInfo walletId snapshot
+            pure $ V0.getUnreadyWalletInfo snapshot
     walletIsExternal <- V0.isWalletExternal walletId
     let walletType = if walletIsExternal then WalletExternal else WalletRegular
     currentDepth <- V0.networkChainDifficulty

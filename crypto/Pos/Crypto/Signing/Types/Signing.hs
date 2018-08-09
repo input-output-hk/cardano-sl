@@ -48,7 +48,6 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58,
                      encodeBase58)
 import           Data.Hashable (Hashable)
-import           Data.Maybe (fromJust)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Data.Text.Lazy.Builder (Builder)
@@ -178,13 +177,11 @@ instance Buildable Base58PublicKeyError where
 decodeBase58PublicKey :: Text -> Either Base58PublicKeyError PublicKey
 decodeBase58PublicKey encodedXPub = do
     let rawExtPubKey = decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub
-    when (isNothing rawExtPubKey) $
-        Left PublicKeyNotBase58Form
-
-    let extPubKey = CC.xpub $ fromJust rawExtPubKey
-    case extPubKey of
-        Left problem -> Left $ InvalidPublicKey (toText problem)
-        Right xPub   -> Right $ PublicKey xPub
+    case rawExtPubKey of
+        Nothing -> Left PublicKeyNotBase58Form
+        Just rawKey -> case CC.xpub rawKey of
+            Left problem -> Left $ InvalidPublicKey (toText problem)
+            Right xPub   -> Right $ PublicKey xPub
 
 -- | Encode 'PublicKey' in Base58-encoded form. We use it for integration tests.
 encodeBase58PublicKey :: PublicKey -> Text

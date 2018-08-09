@@ -18,16 +18,13 @@ module Pos.Util.UserPublic
        , upWallet
        , HasUserPublic(..)
        , initializeUserPublic
-       , readUserPublic
        , peekUserPublic
        , takeUserPublic
        , writeUserPublic
        , writeUserPublicRelease
-
-       , UserPublicDecodingError (..)
        ) where
 
-import           Control.Exception.Safe (onException)
+import           Control.Exception.Safe (finally)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
@@ -48,9 +45,9 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
                      deriveSimpleBi, encodeListLen, enforceSize, serialize')
-import           Pos.Core (Address)
 import           Pos.Crypto (PublicKey)
-import           Pos.Util.UserKeyError (UserPublicError (..))
+import           Pos.Util.UserKeyError (KeyError (..), UserKeyError (..),
+                     UserKeyType (..))
 
 import           Test.Pos.Crypto.Arbitrary ()
 
@@ -106,7 +103,7 @@ class HasUserPublic ctx where
     userPublic :: Lens' ctx (TVar UserPublic)
 
 -- | Show instance to be able to include it into NodeParams
-instance Bi Address => Show UserPublic where
+instance Show UserPublic where
     show UserPublic {..} =
         formatToString
             ("UserPublic { _upKeys = "%listJson%
@@ -114,15 +111,6 @@ instance Bi Address => Show UserPublic where
             _upKeys
             _upPath
             _upWallet
-
-newtype UserPublicDecodingError = UserPublicDecodingError Text
-    deriving (Show)
-
-instance Exception UserPublicDecodingError
-
-instance Buildable UserPublicDecodingError where
-    build (UserPublicDecodingError msg) =
-        "Failed to decode user public: " <> bprint build msg
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -137,8 +125,6 @@ canWrite up = up ^. upLock . to isJust
 instance Default UserPublic where
     def = UserPublic [] Nothing "" Nothing
 
--- | It's not network/system-related, so instance shouldn't be under
--- @Pos.Binary.*@.
 instance Bi UserPublic where
   encode us = encodeListLen 2 <> encode (_upKeys us)
                               <> encode (_upWallet us)
@@ -149,6 +135,13 @@ instance Bi UserPublic where
     return $ def
         & upKeys   .~ pKeys
         & upWallet .~ wallet
+
+-- | WithLogger is only needed on posix platforms
+#ifdef POSIX
+type MonadMaybeLog m = (MonadIO m, WithLogger m)
+#else
+type MonadMaybeLog m = MonadIO m
+#endif
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
@@ -164,10 +157,8 @@ getAccessMode path = do
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
-#endif
 
-#ifdef POSIX
-ensureModeIs600 :: (MonadIO m, WithLogger m) => FilePath -> m ()
+ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
@@ -179,11 +170,7 @@ ensureModeIs600 path = do
 
 -- | Create user public file at the given path, but only when one doesn't
 -- already exist.
-#ifdef POSIX
-initializeUserPublic :: (MonadIO m, WithLogger m) => FilePath -> m ()
-#else
-initializeUserPublic :: (MonadIO m) => FilePath -> m ()
-#endif
+initializeUserPublic :: MonadMaybeLog m => FilePath -> m ()
 initializeUserPublic publicPath = do
     exists <- liftIO $ doesFileExist publicPath
 #ifdef POSIX
@@ -199,29 +186,9 @@ initializeUserPublic publicPath = do
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
     createEmptyFile = liftIO . flip writeFile mempty
 
--- | Reads user public from file, assuming that file exists,
--- and has mode 600, throws exception in other case
-#ifdef POSIX
-readUserPublic :: (MonadIO m, WithLogger m) => FilePath -> m UserPublic
-#else
-readUserPublic :: (MonadIO m) => FilePath -> m UserPublic
-#endif
-readUserPublic path = do
-#ifdef POSIX
-    ensureModeIs600 path
-#endif
-    takeReadLock path $ do
-        content <- either (throwM . UserPublicDecodingError . toText) pure .
-                   decodeFull' =<< BS.readFile path
-        pure $ content & upPath .~ path
-
 -- | Reads user public from the given file.
 -- If the file does not exist/is empty, returns empty user public
-#ifdef POSIX
-peekUserPublic :: (MonadIO m, WithLogger m) => FilePath -> m UserPublic
-#else
-peekUserPublic :: (MonadIO m) => FilePath -> m UserPublic
-#endif
+peekUserPublic :: MonadMaybeLog m => FilePath -> m UserPublic
 peekUserPublic path = do
     initializeUserPublic path
     takeReadLock path $ do
@@ -230,11 +197,7 @@ peekUserPublic path = do
 
 -- | Read user public putting an exclusive lock on it. To unlock, use
 -- 'writeUserPublicRelease'.
-#ifdef POSIX
-takeUserPublic :: (MonadIO m, WithLogger m) => FilePath -> m UserPublic
-#else
-takeUserPublic :: (MonadIO m) => FilePath -> m UserPublic
-#endif
+takeUserPublic :: MonadMaybeLog m => FilePath -> m UserPublic
 takeUserPublic path = do
     initializeUserPublic path
     liftIO $ do
@@ -247,18 +210,18 @@ takeUserPublic path = do
 -- | Writes user public.
 writeUserPublic :: (MonadIO m) => UserPublic -> m ()
 writeUserPublic up
-    | canWrite up = liftIO $ throwM UserPublicAlreadyLocked
+    | canWrite up = liftIO $ throwM $ KeyError Public AlreadyLocked
     | otherwise   = liftIO $ withFileLock (lockFilePath $ up ^. upPath) Exclusive $ const $ writeRaw up
 
 -- | Writes user public and releases the lock. UserPublic can't be
 -- used after this function call anymore.
 writeUserPublicRelease :: (MonadIO m, MonadThrow m) => UserPublic -> m ()
 writeUserPublicRelease up
-    | not (canWrite up) = throwM UserPublicNotWritable
+    | not (canWrite up) = throwM $ KeyError Public NotWritable
     | otherwise = liftIO $ do
         writeRaw up
         case (up ^. upLock) of
-            Nothing   -> throwM UserPublicIncorrectLock
+            Nothing   -> throwM $ KeyError Public IncorrectLock
             Just lock -> unlockFile lock
 
 -- | Helper for writing public to file
@@ -272,11 +235,8 @@ writeRaw up = do
     (tempPath, tempHandle) <-
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
-    -- onException rethrows the exception after calling the handler.
-    BS.hPut tempHandle (serialize' up) `onException` do
-        hClose tempHandle
+    BS.hPut tempHandle (serialize' up) `finally` hClose tempHandle
 
-    hClose tempHandle
     renameFile tempPath path
 
 -- | Helper for taking shared lock on file

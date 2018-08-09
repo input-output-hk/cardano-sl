@@ -101,6 +101,15 @@ data WalletClient m
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
     , redeemAda
         :: WalletId -> AccountIndex -> Redemption -> Resp m Transaction
+    , getAccountAddresses
+         :: WalletId
+         -> AccountIndex
+         -> Maybe Page
+         -> Maybe PerPage
+         -> FilterOperations WalletAddress
+         -> Resp m AccountAddresses
+    , getAccountBalance
+         :: WalletId -> AccountIndex -> Resp m AccountBalance
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -214,6 +223,10 @@ hoistClient phi wc = WalletClient
         \x y -> phi . updateAccount wc x y
     , redeemAda =
         \x y -> phi . redeemAda wc x y
+    , getAccountAddresses =
+        \x y p pp f -> phi $ getAccountAddresses wc x y p pp f
+    , getAccountBalance =
+        \x -> phi . getAccountBalance wc x
     , postTransaction =
         phi . postTransaction wc
     , getTransactionIndexFilterSorts =
@@ -236,6 +249,7 @@ liftClient = hoistClient liftIO
 -- 'PerPage'.
 getWalletIndex :: Monad m => WalletClient m -> Resp m [Wallet]
 getWalletIndex = paginateAll . getWalletIndexPaged
+
 
 -- | A type alias shorthand for the response from the 'WalletClient'.
 type Resp m a = m (Either ClientError (WalletResponse a))
@@ -265,4 +279,3 @@ instance Exception ClientError where
     toException (ClientWalletError  e) = toException e
     toException (ClientHttpError    e) = toException e
     toException (UnknownClientError e) = toException e
-

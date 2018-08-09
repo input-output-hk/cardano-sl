@@ -27,7 +27,6 @@ import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
-import           Pos.Core.StateLock (StateLock, StateLockMetrics)
 import           Pos.DB.Block (MonadBListener)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)

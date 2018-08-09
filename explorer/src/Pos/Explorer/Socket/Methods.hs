@@ -53,7 +53,7 @@ module Pos.Explorer.Socket.Methods
        , SubscriptionMode
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State (MonadState)
@@ -75,7 +75,7 @@ import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import qualified Pos.GState as DB
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Chrono (getOldestFirst)
+import           Pos.Core.Chrono (getOldestFirst)
 import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
@@ -364,7 +364,7 @@ getBlundsFromTo recentBlock oldBlock =
             Just . catMaybes <$> forM (NE.tail hashes) getBlund
 
 addrsTouchedByTx
-    :: (MonadDBRead m, WithLogger m)
+    :: MonadDBRead m
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
       -- for each transaction, get its OutTx

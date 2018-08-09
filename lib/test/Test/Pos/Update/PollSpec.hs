@@ -14,21 +14,22 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll
                                   (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
                            HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Core.Update (UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
-import           Pos.Slotting.Types (SlottingData)
+import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.BlockVersion (applyBVM)
 import qualified Pos.Update.Poll as Poll
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.QuickCheck.Property (formsMonoid)
 
+import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Helpers ()
+import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Poll" $ do
+spec = withDefConfiguration $ \_ -> describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop
@@ -106,8 +107,7 @@ actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
 applyActionToModifier
-    :: HasConfiguration
-    => PollAction
+    :: PollAction
     -> Poll.PollState
     -> Poll.PollModifier
     -> Poll.PollModifier
@@ -152,9 +152,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
 applyActionToModifier (SetSlottingData sd) _   = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
-applyActions
-    :: HasConfiguration
-    => Poll.PollState -> [PollAction] -> Property
+applyActions :: Poll.PollState -> [PollAction] -> Property
 applyActions ps actionList =
     let pollSts = fmap (actionToMonad @Poll.PurePoll) actionList
         -- 'resultModifiers' has a 'mempty' poll modifier up front, so 'newPollStates'
@@ -186,7 +184,7 @@ emptyPollSt bvInfo = Poll.PollState
     mempty
 
 -- | Apply a sequence of 'PollAction's from left to right.
-perform :: HasConfiguration => [PollAction] -> Poll.PurePoll ()
+perform :: [PollAction] -> Poll.PurePoll ()
 perform = foldl (>>) (return ()) . map actionToMonad
 
 -- | Operational equivalence operator in the 'PurePoll' monad. To be used when

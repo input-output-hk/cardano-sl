@@ -23,7 +23,6 @@ import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..),
                               NodeContext)
 import           Pos.Core (HasConfiguration)
@@ -35,26 +34,28 @@ import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Delegation.Class (DelegationVar)
-import           Pos.DHT.Real.Param (KademliaParams)
-import           Pos.KnownPeers (MonadFormatPeers (..))
-import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Reporting (HasReportingContext (..))
-import           Pos.Shutdown (HasShutdownContext (..))
-import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl (currentTimeSlottingSimple,
-                                    getCurrentSlotBlockingSimple,
-                                    getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Infra.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
+                                      MonadReporting (..), Reporter (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (..))
+import           Pos.Infra.Slotting.Class (MonadSlots (..))
+import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
+                                          getCurrentSlotBlockingSimple,
+                                          getCurrentSlotInaccurateSimple,
+                                          getCurrentSlotSimple)
+import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
+                                              MonadSlotsData)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
+                                                JsonLogConfig, jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
                           TxpHolderTag, txNormalize, txProcessTransaction)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
@@ -67,6 +68,11 @@ data RealModeContext ext = RealModeContext
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
     , rmcNodeContext   :: !NodeContext
+    , rmcReporter      :: !(Reporter IO)
+      -- ^ How to do reporting. It's in here so that we can have
+      -- 'MonadReporting (RealMode ext)' in the mean-time, until we
+      -- re-architecht the reporting system so that it's not built-in to the
+      -- application's monad.
     }
 
 type EmptyMempoolExt = ()
@@ -105,8 +111,8 @@ instance HasSscContext (RealModeContext ext) where
 instance HasPrimaryKey (RealModeContext ext) where
     primaryKey = rmcNodeContext_L . primaryKey
 
-instance HasReportingContext (RealModeContext ext) where
-    reportingContext = rmcNodeContext_L . reportingContext
+instance HasMisbehaviorMetrics (RealModeContext ext) where
+    misbehaviorMetrics = rmcNodeContext_L . misbehaviorMetrics
 
 instance HasUserSecret (RealModeContext ext) where
     userSecret = rmcNodeContext_L . userSecret
@@ -151,9 +157,6 @@ instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
 instance HasConfiguration => MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => HasAdoptedBlockVersionData (RealMode ext) where
-    adoptedBVData = gsAdoptedBVData
-
 instance HasConfiguration => MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
@@ -170,12 +173,12 @@ instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
-instance MonadFormatPeers (RealMode ext) where
-    formatKnownPeers _ = pure Nothing
-
 type instance MempoolExt (RealMode ext) = ext
 
-instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction
+
+instance MonadReporting (RealMode ext) where
+    report rt = Mtl.ask >>= liftIO . flip runReporter rt . rmcReporter

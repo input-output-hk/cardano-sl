@@ -5,7 +5,6 @@ module Stats where
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Wallet.Web.State.Acidic (GetWalletStorage (..), closeState, openState, query)
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
@@ -34,7 +33,7 @@ data WalletStorage = WalletStorage
 -- type Utxo = Map TxIn TxOutAux
 
 
-showStats :: HasConfigurations => WalletStorage -> IO ()
+showStats :: WalletStorage -> IO ()
 showStats WalletStorage{..} = do
     let wallets  = HM.elems _wsWalletInfos
     let accounts = HM.toList _wsAccountInfos
@@ -48,19 +47,19 @@ showStats WalletStorage{..} = do
     say $ printf "Number of used addresses: %d" (length _wsUsedAddresses)
     say $ printf "Number of change addresses: %d" (length _wsChangeAddresses)
 
-showStatsAndExit :: HasConfigurations => FilePath -> IO ()
+showStatsAndExit :: FilePath -> IO ()
 showStatsAndExit walletPath = do
     bracket (openState False walletPath) (\x -> closeState x >> exitSuccess) $ \db -> do
         walletStorage <- getStorage db
         showStats walletStorage
 
-showStatsNoExit :: HasConfigurations => FilePath -> IO ()
+showStatsNoExit :: FilePath -> IO ()
 showStatsNoExit walletPath = do
   bracket (openState False walletPath) (\x -> closeState x) $ \db -> do
         walletStorage <- getStorage db
         showStats walletStorage
 
-showStatsData :: HasConfigurations => String -> FilePath -> IO ()
+showStatsData :: String -> FilePath -> IO ()
 showStatsData mark walletPath = do
     blankLine
     say $ red $ "The stats " <> mark <> " modification:"

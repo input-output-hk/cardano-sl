@@ -26,10 +26,11 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), EpochIndex (..), HasConfiguration, StakeholderId,
-                           addressHash, epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId, addressHash,
+                           epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
-import           Pos.Crypto (ProxySecretKey (..), shortHashF)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.GState.Common as GS
@@ -43,12 +44,11 @@ import qualified Pos.Delegation.DB as GS
 import           Pos.Delegation.Logic.Common (DelegationError (..), runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction, deleteFromDlgMemPool,
                                                processProxySKHeavyInternal)
-import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload), DlgUndo (..))
+import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- Copied from 'these' library.
@@ -315,15 +315,14 @@ getNoLongerRichmen newEpoch =
 dlgVerifyBlocks ::
        forall ctx m.
        ( MonadDBRead m
-       , MonadIO m -- needed to get richmen
        , MonadUnliftIO m
        , MonadReader ctx m
        , HasLrcContext ctx
-       , HasConfiguration
        )
-    => OldestFirst NE Block
+    => ProtocolMagic
+    -> OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
-dlgVerifyBlocks blocks = do
+dlgVerifyBlocks pm blocks = do
     richmen <- lift $ getDlgRichmen "dlgVerifyBlocks" headEpoch
     hoist (evalMapCede emptyCedeModifier) $ mapM (verifyBlock richmen) blocks
   where
@@ -361,6 +360,7 @@ dlgVerifyBlocks blocks = do
                 -- delete/override), apply new psks.
                 toRollback <- fmap catMaybes $ forM proxySKs $ \psk ->do
                     dlgVerifyPskHeavy
+                        pm
                         richmen
                         (CheckForCycle False)
                         (blk ^. mainBlockSlot . to siEpoch)
@@ -406,12 +406,9 @@ dlgVerifyBlocks blocks = do
 dlgApplyBlocks ::
        forall ctx m.
        ( MonadDelegation ctx m
-       , MonadIO m
        , MonadDBRead m
        , MonadUnliftIO m
        , WithLogger m
-       , MonadMask m
-       , HasConfiguration
        )
     => OldestFirst NE DlgBlund
     -> m (NonEmpty SomeBatchOp)
@@ -499,18 +496,15 @@ dlgNormalizeOnRollback ::
        , MonadDBRead m
        , MonadUnliftIO m
        , DB.MonadGState m
-       , MonadIO m
-       , MonadMask m
        , HasLrcContext ctx
        , Mockable CurrentTime m
-       , HasConfiguration
        )
-    => m ()
-dlgNormalizeOnRollback = do
+    => ProtocolMagic -> m ()
+dlgNormalizeOnRollback pm = do
     tip <- DB.getTipHeader
     oldPool <- runDelegationStateAction $ do
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
         dwTip .= headerHash tip
         pure pool
-    forM_ oldPool $ processProxySKHeavyInternal
+    forM_ oldPool $ processProxySKHeavyInternal pm

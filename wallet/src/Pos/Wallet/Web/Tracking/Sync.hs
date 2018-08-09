@@ -40,26 +40,26 @@ module Pos.Wallet.Web.Tracking.Sync
        , BoundedSyncTime (..)
        ) where
 
-import           Control.Monad.Except (MonadError (throwError))
-import           Universum
-import           UnliftIO (MonadUnliftIO)
-import           Unsafe (unsafeLast)
+import           Universum hiding (id)
 
 import           Control.Concurrent.STM (readTQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
+import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasConfiguration,
-                           HasDifficulty (..), HasProtocolConstants, HeaderHash, Timestamp (..),
-                           blkSecurityParam, genesisHash, headerHash, headerSlotL, timestampToPosix)
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasDifficulty (..),
+                           HasProtocolConstants, HeaderHash, Timestamp (..), blkSecurityParam,
+                           genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
+import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund)
@@ -68,13 +68,13 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
 import qualified Pos.GState as GS
 import           Pos.GState.BlockExtra (resolveForwardLink)
-import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
-import           Pos.Slotting.Types (SlottingData)
-import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
+import           Pos.Infra.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure,
+                                     getSystemStartM)
+import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
+import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP, logWarningSP,
+                                         secretOnlyF, secure)
 import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
-import           Pos.Util.Chrono (getNewestFirst)
-import           Pos.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP, logWarningSP,
-                                   secretOnlyF, secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)
@@ -103,13 +103,8 @@ import           Pos.Wallet.Web.Tracking.Types
 -- The update of the balance will be done immediately and synchronously, the transaction history
 -- will instead be recovered asynchronously.
 syncWallet :: ( WalletDbReader ctx m
-              , MonadDBRead m
-              , WithLogger m
-              , HasLens StateLock ctx StateLock
               , HasLens SyncQueue ctx SyncQueue
-              , MonadMask m
               , MonadSlotsData ctx m
-              , MonadUnliftIO m
               ) => WalletDecrCredentials -> m ()
 syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 
@@ -118,8 +113,6 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 processSyncRequest :: ( WalletDbReader ctx m
                       , BlockLockMode ctx m
                       , MonadSlotsData ctx m
-                      , HasConfiguration
-                      , MonadIO m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
@@ -197,7 +190,6 @@ syncWalletWithBlockchain
     ( WalletDbReader ctx m
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
-    , HasConfiguration
     )
     => SyncRequest
     -> m SyncResult
@@ -273,7 +265,7 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
-                stableBlockHeader <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                stableBlockHeader <- List.last . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
                     sformat ( "Wallet's tip is far from GState tip. Syncing with the last stable known header " %build%
                               " (the tip of the blockchain - k blocks) without the block lock"
@@ -304,7 +296,6 @@ syncWalletWithBlockchainUnsafe
     , MonadDBRead m
     , WithLogger m
     , MonadSlotsData ctx m
-    , HasConfiguration
     )
     => SyncRequest
     -> BlockHeader
@@ -400,7 +391,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                              -- if the application was interrupted during blocks application.
                              blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
                              let newModifier = foldl' (\r b -> r <> rollbackBlock credentials usedAddresses b getBlockTimestamp) currentModifier blunds
-                             pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
+                             pure (newModifier, getBlockHeader . fst . List.last $ blunds)
                        | otherwise -> do
                              logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" has finally caught up with the blockchain.") walletId
                              pure (currentModifier, blockchainTip)
@@ -466,8 +457,7 @@ constructAllUsed usedAddresses modif =
 -- Addresses are used in TxIn's will be deleted,
 -- in TxOut's will be added.
 trackingApplyTxs
-    :: HasConfiguration
-    => WalletDecrCredentials                 -- ^ Wallet's decryption credentials
+    :: WalletDecrCredentials                 -- ^ Wallet's decryption credentials
     -> [(Address, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
@@ -516,8 +506,7 @@ trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo txs =
 -- Process transactions on block rollback.
 -- Like @trackingApplyTxs@, but vise versa.
 trackingRollbackTxs
-    :: HasConfiguration
-    => WalletDecrCredentials                  -- ^ Wallet's decryption credentials
+    :: WalletDecrCredentials                  -- ^ Wallet's decryption credentials
     -> [(Address, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
@@ -597,7 +586,6 @@ applyModifierToWallet
     :: ( CanLog m
        , HasLoggerName m
        , MonadIO m
-       , HasConfiguration
        )
     => WalletDB
     -> TrackingOperation
@@ -638,7 +626,6 @@ rollbackModifierFromWallet
        , HasLoggerName m
        , MonadSlots ctx m
        , HasProtocolConstants
-       , HasConfiguration
        )
     => WalletDB
     -> TrackingOperation

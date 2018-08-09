@@ -15,26 +15,28 @@ module Pos.GState.BlockExtra
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
+       , streamBlocks
        ) where
 
-import           Universum
+import           Universum hiding (init)
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
+import           Pipes (Producer, yield)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, HasConfiguration, HasHeaderHash, HeaderHash, genesisHash,
-                           headerHash, slotIdF, unflattenSlotId)
+import           Pos.Core (FlatSlotId, HasHeaderHash, HeaderHash, genesisHash, HasProtocolConstants,
+                           headerHash, slotIdF, unflattenSlotId, HasCoreConfiguration)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
                          dbSerializeValue, getHeader)
-import           Pos.DB.Class (MonadBlockDBRead, getBlock)
+import           Pos.DB.Class (MonadBlockDBRead, getBlock, SerializedBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -62,7 +64,7 @@ getLastSlots =
     gsGetBi lastSlotsKey
 
 -- | Retrieves first genesis block hash.
-getFirstGenesisBlockHash :: (MonadDBRead m, MonadThrow m) => m HeaderHash
+getFirstGenesisBlockHash :: MonadDBRead m => m HeaderHash
 getFirstGenesisBlockHash =
     resolveForwardLink (genesisHash :: HeaderHash) >>=
     maybeThrow (DBMalformed "Can't retrieve genesis block, maybe db is not initialized?")
@@ -84,7 +86,7 @@ data BlockExtraOp
       -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
-instance HasConfiguration => Buildable BlockExtraOp where
+instance HasProtocolConstants => Buildable BlockExtraOp where
     build (AddForwardLink from to) =
         bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
     build (RemoveForwardLink from) =
@@ -95,7 +97,7 @@ instance HasConfiguration => Buildable BlockExtraOp where
         bprint ("SetLastSlots: "%listJson)
         (map (bprint slotIdF . unflattenSlotId) slots)
 
-instance HasConfiguration => RocksBatchOp BlockExtraOp where
+instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (dbSerializeValue to)]
     toBatchOp (RemoveForwardLink from) =
@@ -110,6 +112,29 @@ instance HasConfiguration => RocksBatchOp BlockExtraOp where
 ----------------------------------------------------------------------------
 -- Loops on forward links
 ----------------------------------------------------------------------------
+
+-- | Creates a Producer for blocks from a given HeaderHash, exclusive: the
+-- block for that hash is not produced, its child is the first thing produced.
+streamBlocks
+    :: ( Monad m )
+    => (HeaderHash -> m (Maybe SerializedBlock))
+    -> (HeaderHash -> m (Maybe HeaderHash))
+    -> HeaderHash
+    -> Producer SerializedBlock m ()
+streamBlocks loadBlock forwardLink base = do
+    mFirst <- lift $ forwardLink base
+    maybe (pure ()) loop mFirst
+  where
+    loop hhash = do
+        mb <- lift $ loadBlock hhash
+        case mb of
+            Nothing -> pure ()
+            Just block -> do
+                yield block
+                mNext <- lift $ forwardLink hhash
+                case mNext of
+                    Nothing -> pure ()
+                    Just hhash' -> loop  hhash'
 
 foldlUpWhileM
     :: forall a b m r .

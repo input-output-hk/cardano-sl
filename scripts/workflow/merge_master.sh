@@ -23,6 +23,7 @@ do
  u) USER=${OPTARG};;
  b) BRANCHNAME=${OPTARG};;
  m) MERGE_COMMIT=$OPTARG;;
+ *) echo An invalid option was passed! Exiting! || exit 1
  esac
 done
 
@@ -32,7 +33,7 @@ if [ -z "$USER" ]
     GIT_PROVIDER="github.com"
 
     # extract user from repo URL
-    USER=`echo $REPO_URL | sed -Ene's#https://'${GIT_PROVIDER}'/([^/]*)/(.*).git#\1#p'`
+    USER=$(echo "$REPO_URL" | sed -Ene "s#https://${GIT_PROVIDER}/([^/]*)/(.*).git#\\1#p")
     if [ -z "$USER" ]; then
       echo "-- ERROR:  Could not identify User."
       exit

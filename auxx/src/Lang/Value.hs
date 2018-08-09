@@ -86,7 +86,7 @@ data AddKeyParams = AddKeyParams
 data Value
     = ValueUnit
     | ValueNumber Scientific
-    | ValueString String
+    | ValueString Text
     | ValueBool Bool
     | ValueList [Value]
     | ValueAddress Address

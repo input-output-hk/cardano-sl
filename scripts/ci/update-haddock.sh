@@ -52,7 +52,7 @@ if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     # If this href already exists, skip this step.
     readonly HREF_TO_RELEASE_DOCS=/"${RELEASE_ROOT}"/"${PROJECT_VERSION}"/index.html
     readonly PATH_TO_HADDOCK_PAGE=_docs/for-contributors/haddock.md
-    readonly LINK_TO_RELEASE=$(cat "${PATH_TO_HADDOCK_PAGE}" | grep "${HREF_TO_RELEASE_DOCS}")
+    readonly LINK_TO_RELEASE=$(grep "${HREF_TO_RELEASE_DOCS}" ${PATH_TO_HADDOCK_PAGE})
 
     cd "${CARDANO_DOCS_REPO}"
     if [ -n "${LINK_TO_RELEASE}" ]; then

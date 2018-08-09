@@ -90,7 +90,7 @@ sscRunLocalSTM action = do
 ----------------------------------------------------------------------------
 
 type SscGlobalQuery a =
-    forall m . (MonadReader SscGlobalState m, WithLogger m) => m a
+    forall m . (MonadReader SscGlobalState m) => m a
 
 type SscGlobalUpdate a =
     forall m . (MonadState SscGlobalState m, WithLogger m, Rand.MonadRandom m) => m a

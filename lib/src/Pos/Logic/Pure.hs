@@ -7,17 +7,20 @@ module Pos.Logic.Pure
 
 import           Universum
 
-import           Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
 import           Data.Default (def)
-import           Data.Reflection (give)
 
+import           Pos.Binary.Class (serialize')
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
                            BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
                            GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
                            SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
                            unsafeCoinPortionFromDouble)
-import           Pos.Core.Block.Main
+import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
+                                 MainBlockHeader, MainBlockchain, MainBody (..),
+                                 MainConsensusData (..), MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
@@ -29,24 +32,28 @@ import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
                                      deterministicKeyGen, signRaw)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.DB.Class (SerializedBlock, Serialized (..))
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
 -- | Serves up a single (invalid but well-formed) block and block header for
 -- any request.
 pureLogic
-    :: ( Applicative m )
+    :: ( Monad m )
     => Logic m
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
-    , getBlock           = \_ -> pure (Just block)
+    , getSerializedBlock = \_ -> pure (Just serializedBlock)
+    , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getLcaMainChain    = \_ -> pure Nothing
+      -- This definition of getLcaMainChain decides that all of the input
+      -- hashes are *not* in the chain.
+    , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
@@ -124,6 +131,9 @@ blockVersionData = BlockVersionData
 block :: Block
 block = Right mainBlock
 
+serializedBlock :: SerializedBlock
+serializedBlock = Serialized $ serialize' block
+
 mainBlock :: MainBlock
 mainBlock = UnsafeGenericBlock
     { _gbHeader = mainBlockHeader
@@ -131,7 +141,7 @@ mainBlock = UnsafeGenericBlock
     , _gbExtra  = extraBodyData
     }
 
-blockBody :: Body MainBlockchain
+blockBody :: MainBody
 blockBody = MainBody
     { _mbTxPayload     = emptyTxPayload
     , _mbSscPayload    = emptySscPayload
@@ -172,7 +182,8 @@ blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
 mainBlockHeader = UnsafeGenericBlockHeader
-    { _gbhPrevBlock = mainBlockHeaderHash
+    { _gbhProtocolMagic = protocolMagic
+    , _gbhPrevBlock = mainBlockHeaderHash
     , _gbhBodyProof = bodyProof
     , _gbhConsensus = consensusData
     , _gbhExtra     = extraHeaderData
@@ -181,7 +192,7 @@ mainBlockHeader = UnsafeGenericBlockHeader
 mainBlockHeaderHash :: HeaderHash
 mainBlockHeaderHash = unsafeMkAbstractHash mempty
 
-bodyProof :: BodyProof MainBlockchain
+bodyProof :: MainProof
 bodyProof = MainProof
     { mpTxProof       = txProof
     , mpMpcProof      = sscProof
@@ -207,7 +218,7 @@ dlgProof = unsafeMkAbstractHash mempty
 updateProof :: UpdateProof
 updateProof = unsafeMkAbstractHash mempty
 
-consensusData :: ConsensusData MainBlockchain
+consensusData :: MainConsensusData
 consensusData = MainConsensusData
     { _mcdSlot       = slotId
     , _mcdLeaderKey  = publicKey
@@ -221,9 +232,10 @@ slotId = SlotId
     , siSlot  = UnsafeLocalSlotIndex { getSlotIndex = 0 }
     }
 
+-- Trivia: the seed has to be at least 32 bytes.
 publicKey :: PublicKey
 secretKey :: SecretKey
-(publicKey, secretKey) = deterministicKeyGen (mempty :: ByteString)
+(publicKey, secretKey) = deterministicKeyGen (BS.pack (replicate 32 0))
 
 chainDifficulty :: ChainDifficulty
 chainDifficulty = ChainDifficulty
@@ -231,7 +243,10 @@ chainDifficulty = ChainDifficulty
     }
 
 blockSignature :: BlockSignature
-blockSignature = give (ProtocolMagic 0) (BlockSignature (coerce (signRaw Nothing secretKey mempty)))
+blockSignature = BlockSignature (coerce (signRaw protocolMagic Nothing secretKey mempty))
+
+protocolMagic :: ProtocolMagic
+protocolMagic = ProtocolMagic 0
 
 extraHeaderData :: ExtraHeaderData MainBlockchain
 extraHeaderData = MainExtraHeaderData

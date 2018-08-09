@@ -11,11 +11,10 @@ import           Pos.Arbitrary.Ssc ()
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.SafeCopy ()
 
-import           Test.Pos.Helpers (safeCopyTest)
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Binary.Helpers (safeCopyTest)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Ssc" $ do
+spec = describe "Ssc" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @Ssc.Commitment
         safeCopyTest @Ssc.CommitmentSignature

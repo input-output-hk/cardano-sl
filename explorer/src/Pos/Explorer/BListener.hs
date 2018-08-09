@@ -17,8 +17,7 @@ module Pos.Explorer.BListener
        , createPagedHeaderHashesPair
        ) where
 
-import           Nub (ordNub)
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Identity (IdentityT (..))
@@ -44,7 +43,7 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageS
 import qualified Pos.Explorer.DB as DB
 import           Pos.Txp (topsortTxs)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
 
 
 ----------------------------------------------------------------------------
@@ -200,8 +199,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: HasConfiguration
-    => NE Block
+    :: NE Block
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
   where
@@ -218,8 +216,7 @@ pageBlocksMap neBlocks = blocksPages
 -- | Creates paged @HeaderHash@es @SlotId@ pair.
 -- TODO(ks): Yes, we can extract both these functions in one common function for paging.
 createPagedHeaderHashesSlotIdPair
-    :: (HasConfiguration)
-    => [Block]
+    :: [Block]
     -> [(Page, HeaderHash)]
 createPagedHeaderHashesSlotIdPair blocks = blockIndexBlock
   where
@@ -253,8 +250,7 @@ createPagedHeaderHashesSlotIdPair blocks = blockIndexBlock
 -- | Creates paged @HeaderHash@es pair.
 -- TODO(ks): Yes, we can extract both these functions in one common function for paging.
 createPagedHeaderHashesPair
-    :: (HasConfiguration)
-    => [Block]
+    :: [Block]
     -> [(Page, HeaderHash)]
 createPagedHeaderHashesPair blocks = blockIndexBlock
   where
@@ -498,8 +494,7 @@ generalLastTxsExplorer blocksNE getTopTxsDiff = do
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochPagedBlocksMap
-    :: (HasConfiguration)
-    => NE (Block)
+    :: NE (Block)
     -> M.Map EpochPagedBlocksKey [HeaderHash]
 epochPagedBlocksMap neBlocks = getPagedEpochHeaderHashesMap
   where
@@ -558,7 +553,7 @@ epochPagedBlocksMap neBlocks = getPagedEpochHeaderHashesMap
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onApplyEpochPagedBlocks
     :: forall m.
-    (MonadBListenerT m, KeyBlocksOperation EpochPagedBlocksKey)
+       ( MonadBListenerT m )
     => OldestFirst NE (Blund)
     -> m SomeBatchOp
 onApplyEpochPagedBlocks blunds = do
@@ -598,7 +593,7 @@ onApplyEpochPagedBlocks blunds = do
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onRollbackEpochPagedBlocks
     :: forall m.
-    (MonadBListenerT m, KeyBlocksOperation EpochPagedBlocksKey)
+       ( MonadBListenerT m )
     => NewestFirst NE (Blund)
     -> m SomeBatchOp
 onRollbackEpochPagedBlocks blunds = do

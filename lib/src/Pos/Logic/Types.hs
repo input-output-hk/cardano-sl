@@ -2,34 +2,41 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Logic.Types
-    ( LogicLayer (..)
-    , Logic (..)
+    ( Logic (..)
+    , hoistLogic
+    , dummyLogic
     , KeyVal (..)
-    , dummyLogicLayer
+    , hoistKeyVal
+    , dummyKeyVal
     ) where
 
 import           Universum
 
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
+import           Pipes (Producer)
+import           Pipes.Internal (unsafeHoist)
 
 import           Pos.Block.Logic (GetHashesRangeError, GetHeadersFromManyToError)
 import           Pos.Communication (NodeId, TxMsgContents)
 import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxId)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
+                     UpdateVote, VoteId)
+import           Pos.DB.Class (SerializedBlock)
 import           Pos.Security.Params (SecurityParams (..))
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
-import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
 data Logic m = Logic
     { -- | The stakeholder id of our node.
       ourStakeholderId   :: StakeholderId
-      -- | Get a block, perhaps from a database.
-    , getBlock           :: HeaderHash -> m (Maybe Block)
+      -- | Get serialized block, perhaps from a database.
+    , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+    , streamBlocks       :: HeaderHash -> Producer SerializedBlock m ()
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
@@ -45,8 +52,12 @@ data Logic m = Logic
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
                          -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-      -- | Compute LCA with the main chain.
-    , getLcaMainChain    :: OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
+      -- | Compute LCA with the main chain: the first component are those hashes
+      -- which are in the main chain, second is those which are not.
+      -- Input is assumed to be a valid chain: if some element is not in the
+      -- chain, then none of the later elements are.
+    , getLcaMainChain    :: OldestFirst [] HeaderHash
+                         -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
       -- | Cheaper version of 'headerHash <$> getTip'.
@@ -89,6 +100,30 @@ data Logic m = Logic
     , securityParams     :: SecurityParams
     }
 
+-- | We have to hoist a pipes producer, so the Monad constraint arises.
+hoistLogic :: Monad m => (forall x . m x -> n x) -> Logic m -> Logic n
+hoistLogic nat logic = logic
+    { getSerializedBlock = nat . getSerializedBlock logic
+    , streamBlocks = unsafeHoist nat . streamBlocks logic
+    , getBlockHeader = nat . getBlockHeader logic
+    , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
+    , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
+    , getLcaMainChain = nat . getLcaMainChain logic
+    , getTip = nat $ getTip logic
+    , getTipHeader = nat $ getTipHeader logic
+    , getAdoptedBVData = nat $ getAdoptedBVData logic
+    , postBlockHeader = \a b -> nat (postBlockHeader logic a b)
+    , postTx = hoistKeyVal nat (postTx logic)
+    , postUpdate = hoistKeyVal nat (postUpdate logic)
+    , postVote = hoistKeyVal nat (postVote logic)
+    , postSscCommitment = hoistKeyVal nat (postSscCommitment logic)
+    , postSscOpening = hoistKeyVal nat (postSscOpening logic)
+    , postSscShares = hoistKeyVal nat (postSscShares logic)
+    , postSscVssCert = hoistKeyVal nat (postSscVssCert logic)
+    , postPskHeavy = nat . postPskHeavy logic
+    , recoveryInProgress = nat $ recoveryInProgress logic
+    }
+
 -- | First iteration solution to the inv/req/data/mempool system.
 -- Diffusion layer will set up the relays, but it needs help from the logic
 -- layer in order to figure out what to request after an inv, what to relay
@@ -126,51 +161,44 @@ data KeyVal key val m = KeyVal
     , handleData :: val -> m Bool
     }
 
--- | A diffusion layer: its interface, and a way to run it.
-data LogicLayer m = LogicLayer
-    { runLogicLayer :: forall x . m x -> m x
-    , logic         :: Logic m
+hoistKeyVal :: (forall x . m x -> n x) -> KeyVal key val m -> KeyVal key val n
+hoistKeyVal nat kv = kv
+    { toKey = nat . toKey kv
+    , handleInv = nat . handleInv kv
+    , handleReq = nat . handleReq kv
+    , handleData = nat . handleData kv
+    }
+
+dummyKeyVal :: Applicative m => KeyVal key val m
+dummyKeyVal = KeyVal
+    { toKey      = \_ -> error "dummy: can't make key"
+    , handleInv  = \_ -> pure False
+    , handleReq  = \_ -> pure Nothing
+    , handleData = \_ -> pure False
     }
 
 -- | A diffusion layer that does nothing, and probably crashes the program.
-dummyLogicLayer
-    :: ( Applicative m )
-    => LogicLayer m
-dummyLogicLayer = LogicLayer
-    { runLogicLayer = identity
-    , logic         = dummyLogic
+dummyLogic :: Monad m => Logic m
+dummyLogic = Logic
+    { ourStakeholderId   = error "dummy: no stakeholder id"
+    , getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
+    , streamBlocks       = \_ -> pure ()
+    , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
+    , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
+    , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])
+    , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
+    , getTip             = pure (error "dummy: can't get tip")
+    , getTipHeader       = pure (error "dummy: can't get tip header")
+    , getAdoptedBVData   = pure (error "dummy: can't get block version data")
+    , postBlockHeader    = \_ _ -> pure ()
+    , postPskHeavy       = \_ -> pure False
+    , postTx             = dummyKeyVal
+    , postUpdate         = dummyKeyVal
+    , postVote           = dummyKeyVal
+    , postSscCommitment  = dummyKeyVal
+    , postSscOpening     = dummyKeyVal
+    , postSscShares      = dummyKeyVal
+    , postSscVssCert     = dummyKeyVal
+    , recoveryInProgress = pure False
+    , securityParams     = def
     }
-
-  where
-
-    dummyLogic :: Applicative m => Logic m
-    dummyLogic = Logic
-        { ourStakeholderId   = error "dummy: no stakeholder id"
-        , getBlock           = \_ -> pure (error "dummy: can't get block")
-        , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
-        , getLcaMainChain    = \_ -> pure Nothing
-        , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
-        , getTip             = pure (error "dummy: can't get tip")
-        , getTipHeader       = pure (error "dummy: can't get tip header")
-        , getAdoptedBVData   = pure (error "dummy: can't get block version data")
-        , postBlockHeader    = \_ _ -> pure ()
-        , postPskHeavy       = \_ -> pure False
-        , postTx             = dummyKeyVal
-        , postUpdate         = dummyKeyVal
-        , postVote           = dummyKeyVal
-        , postSscCommitment  = dummyKeyVal
-        , postSscOpening     = dummyKeyVal
-        , postSscShares      = dummyKeyVal
-        , postSscVssCert     = dummyKeyVal
-        , recoveryInProgress = pure False
-        , securityParams     = def
-        }
-
-    dummyKeyVal :: Applicative m => KeyVal key val m
-    dummyKeyVal = KeyVal
-        { toKey      = \_ -> error "dummy: can't make key"
-        , handleInv  = \_ -> pure False
-        , handleReq  = \_ -> pure Nothing
-        , handleData = \_ -> pure False
-        }

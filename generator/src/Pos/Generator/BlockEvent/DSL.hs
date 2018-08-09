@@ -30,11 +30,14 @@ module Pos.Generator.BlockEvent.DSL
 import           Universum
 
 import           Control.Lens (at, makeLenses, (%=), (.=))
-import           Control.Monad.Random.Strict (RandT, RandomGen, mapRandT)
+import           Control.Monad.Random.Strict (RandT, mapRandT)
 import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Core (GenesisWStakeholders)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
+                                  _NewestFirst)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Generator.Block (BlockTxpGenMode, MonadBlockGen)
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..), BlockEvent' (..),
                                            BlockEventApply' (..), BlockEventRollback' (..),
@@ -44,8 +47,7 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..)
                                            SnapshotOperation (..), byChance,
                                            enrichWithSnapshotChecking, genBlocksInStructure,
                                            pathSequence)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
-                                  _NewestFirst)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 
 data BlockEventGenState = BlockEventGenState
     { _begsEvents      :: !(NewestFirst [] (BlockEvent' Path))
@@ -114,17 +116,18 @@ snapshotEq snapshotId = emitEvent $
     BlkEvSnap (SnapshotEq snapshotId)
 
 runBlockEventGenT
-    :: BlockTxpGenMode g ctx m
-    => AllSecrets
+    :: (HasTxpConfiguration, BlockTxpGenMode g ctx m)
+    => ProtocolMagic
+    -> AllSecrets
     -> GenesisWStakeholders
     -> BlockEventGenT g m ()
     -> RandT g m BlockScenario
-runBlockEventGenT secrets genStakeholders m = do
+runBlockEventGenT pm secrets genStakeholders m = do
     (annotations, preBlockScenario) <- runBlockEventGenT' m
-    genBlocksInStructure secrets genStakeholders annotations preBlockScenario
+    genBlocksInStructure pm secrets genStakeholders annotations preBlockScenario
 
 runBlockEventGenT' ::
-    (RandomGen g, MonadBlockGen ctx m) =>
+    (MonadBlockGen ctx m) =>
     BlockEventGenT g m () ->
     RandT g m (Map Path BlockDesc, BlockScenario' Path)
 runBlockEventGenT' m = do

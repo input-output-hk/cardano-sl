@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes.Types
       ( SyncProgress (..)
@@ -80,9 +82,10 @@ import           Servant.Multipart (FileData, Mem)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
                            unsafeGetCoin)
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                                         buildUnsecure, deriveSafeBuildable,
+                                         secretOnlyF, secureListF)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
-                                   deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
@@ -107,7 +110,7 @@ instance Default SyncProgress where
 
 -- | Client hash
 newtype CHash = CHash Text
-    deriving (Show, Eq, Ord, Generic, Buildable)
+    deriving (Show, Eq, Ord, Generic, Buildable, NFData)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
@@ -115,7 +118,7 @@ instance Hashable CHash where
 -- | Client address
 -- @w@ is phantom type and stands for type of item this id belongs to.
 newtype CId w = CId CHash
-    deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
+    deriving (Show, Eq, Ord, Generic, Hashable, Buildable, NFData)
 
 instance Buildable (SecureLog $ CId w) where
     build _ = "<id>"
@@ -130,7 +133,7 @@ data Addr = Addr
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Hashable, Buildable)
+    deriving (Show, Eq, Generic, Hashable, Buildable, NFData)
 
 instance Buildable (SecureLog CTxId) where
     build _ = "<tx id>"
@@ -152,7 +155,7 @@ instance Buildable (SecureLog CAccountId) where
 
 newtype CCoin = CCoin
     { getCCoin :: Text
-    } deriving (Show, Eq, Generic, Buildable)
+    } deriving (Show, Eq, Generic, Buildable, NFData)
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
@@ -170,6 +173,8 @@ data AccountId = AccountId
     , -- | Derivation index of this account key
       aiIndex :: Word32
     } deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance NFData AccountId
 
 instance Hashable AccountId
 
@@ -210,6 +215,8 @@ data CWalletAssurance
     | CWANormal
     deriving (Show, Eq, Enum, Bounded, Generic)
 
+instance NFData CWalletAssurance
+
 instance Buildable CWalletAssurance where
     build = bprint shown
 
@@ -224,6 +231,8 @@ data CWalletMeta = CWalletMeta
     -- See <https://iohk.myjetbrains.com/youtrack/issue/CSM-163 this
     -- ticket> for more information.
     } deriving (Show, Eq, Generic)
+
+instance NFData CWalletMeta
 
 instance Buildable CWalletMeta where
     build CWalletMeta{..} =
@@ -241,6 +250,8 @@ instance Default CWalletMeta where
 data CAccountMeta = CAccountMeta
     { caName      :: !Text
     } deriving (Eq, Show, Generic)
+
+instance NFData CAccountMeta
 
 instance Buildable CAccountMeta where
     -- can't log for now, names are dangerous
@@ -402,10 +413,9 @@ type CPwHash = Text -- or Base64 or something else
 -- | Client profile (CP)
 -- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
--- TODO: Newtype?
-data CProfile = CProfile
+newtype CProfile = CProfile
     { cpLocale      :: Text
-    } deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable, NFData)
 
 instance Buildable CProfile where
     build CProfile{..} =
@@ -427,6 +437,8 @@ instance Default CProfile where
 data CTxMeta = CTxMeta
     { ctmDate        :: POSIXTime
     } deriving (Eq, Show, Generic)
+
+instance NFData CTxMeta
 
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
@@ -535,6 +547,8 @@ data CUpdateInfo = CUpdateInfo
     , cuiPositiveStake   :: !CCoin
     , cuiNegativeStake   :: !CCoin
     } deriving (Eq, Show, Generic, Typeable)
+
+instance NFData CUpdateInfo
 
 instance Buildable CUpdateInfo where
     build CUpdateInfo{..} =

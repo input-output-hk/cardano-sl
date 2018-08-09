@@ -1,0 +1,25 @@
+name:                node-ipc
+version:             1.3.0
+license:             MIT
+license-file:        LICENSE
+author:              Michael Bishop
+maintainer:          cleverca22@gmail.com
+build-type:          Simple
+cabal-version:       >=1.10
+
+
+library
+  exposed-modules:
+    Cardano.NodeIPC
+  build-depends:       base
+                     , aeson
+                     , binary
+                     , bytestring
+                     , cardano-sl-infra
+                     , Cabal
+                     , log-warper
+                     , mtl
+                     , universum
+  default-extensions:  NoImplicitPrelude
+  hs-source-dirs:      src
+  default-language:    Haskell2010

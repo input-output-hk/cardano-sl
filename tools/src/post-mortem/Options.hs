@@ -25,7 +25,7 @@ overviewOptions = Overview <$> (toProb <$> argument auto
                                 )))
 
 focusedOptions :: Parser Options
-focusedOptions = Focus <$> (toText <$> argument str
+focusedOptions = Focus <$> ((toText :: String -> Text) <$> argument str
                                 (  metavar "FOCUS"
                                 <> help "transaction hash to focus on"
                                 ))

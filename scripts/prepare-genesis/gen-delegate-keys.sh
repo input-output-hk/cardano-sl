@@ -6,7 +6,7 @@ CGG_NODES=(3 4)
 CF_NODES=(5 6)
 ALL_NODES="${IOHK_NODES[*]} ${CGG_NODES[*]} ${CF_NODES[*]}"
 
-CONF_PARAMS="--configuration-file lib/configuration.yaml --configuration-key mainnet_launch_base"
+CONF_PARAMS=("--configuration-file" "lib/configuration.yaml" "--configuration-key" "mainnet_launch_base")
 
 if [[ "$REPO_PATH" == "" ]]; then
     echo "No REPO_PATH passed"
@@ -41,14 +41,14 @@ pushd "$REPO_PATH"
 skn=0
 time for i in $ALL_NODES; do
     key_path="${DELEGATE_SECRET}/node${i}.key"
-    stack exec --nix -- cardano-keygen $CONF_PARAMS generate-key --path "$key_path"
+    stack exec --nix -- cardano-keygen "${CONF_PARAMS[@]}" generate-key --path "$key_path"
     if [[ ! -f "$key_path" ]]; then
         echo "File $key_path not created"
         exit 1
     fi
     echo "Created key: "
-    stack exec --nix -- cardano-keygen $CONF_PARAMS read-key --path "$key_path"
-    stack exec --nix -- cardano-keygen $CONF_PARAMS read-key --path "$key_path" \
+    stack exec --nix -- cardano-keygen "${CONF_PARAMS[@]}" read-key --path "$key_path"
+    stack exec --nix -- cardano-keygen "${CONF_PARAMS[@]}" read-key --path "$key_path" \
         | grep -oE 'Primary: \S+;' | sed 's/Primary: //g' | sed "s/;//" >> "$DELEGATE_PUBLIC/pubs.txt"
 
     echo "Generating vss:"
@@ -56,7 +56,7 @@ time for i in $ALL_NODES; do
     if [[ $skn -gt 0 ]];then
         echo ',' >> "$vss_out"
     fi
-    dump_line=$(stack exec --nix -- cardano-keygen $CONF_PARAMS generate-vss --path "$key_path" | grep -E 'JSON: key \S+, value')
+    dump_line=$(stack exec --nix -- cardano-keygen "${CONF_PARAMS[@]}" generate-vss --path "$key_path" | grep -E 'JSON: key \S+, value')
     key=$(echo "$dump_line" | sed -r 's/^.*key (\S+),.*$/\1/')
     value=$(echo "$dump_line" | sed -r 's/^.*value (.*)$/\1/')
     if [[ "$key" == "" ]] || [[ "$value" == "" ]]; then 

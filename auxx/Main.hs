@@ -3,44 +3,36 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
+import           Data.Maybe (fromMaybe)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, runProduction)
-import           JsonLog (jsonLog)
+import           Mockable (Production (..), runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError)
-import           Pos.Configuration (networkConnectionTimeout)
+import           Pos.Context (NodeContext (..))
+import           Pos.Core (ConfigurationError, epochSlots)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
-import           Pos.Logic.Full (logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..))
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
+import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+                                          topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
+import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               elimRealMode, withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration)
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                    topologyEnqueuePolicy, topologyFailurePolicy)
+                               runRealMode, withConfigurations)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
-import           Pos.Worker.Types (WorkerSpec)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
-import           Mode (AuxxContext (..), AuxxMode)
+import           Mode (AuxxContext (..), AuxxMode, realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (PrintAction, WithCommandAction (..), withAuxxRepl)
 
@@ -80,11 +72,12 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => NodeResources EmptyMempoolExt
-    -> (WorkerSpec AuxxMode, OutSpecs)
-    -> (WorkerSpec AuxxMode, OutSpecs)
-runNodeWithSinglePlugin nr (plugin, plOuts) =
-    runNode nr ([plugin], plOuts)
+    => ProtocolMagic
+    -> NodeResources EmptyMempoolExt
+    -> (Diffusion AuxxMode -> AuxxMode ())
+    -> Diffusion AuxxMode -> AuxxMode ()
+runNodeWithSinglePlugin pm nr plugin =
+    runNode pm nr [plugin]
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
@@ -94,23 +87,23 @@ action opts@AuxxOptions {..} command = do
             ->
                 handle @_ @ConfigurationException (\_ -> runWithoutNode pa)
               . handle @_ @ConfigurationError (\_ -> runWithoutNode pa)
-              $ withConfigurations conf (runWithConfig pa)
+              $ withConfigurations Nothing conf (runWithConfig pa)
         Light
             -> runWithoutNode pa
-        _   -> withConfigurations conf (runWithConfig pa)
+        _   -> withConfigurations Nothing conf (runWithConfig pa)
 
   where
     runWithoutNode :: PrintAction Production -> Production ()
-    runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing opts Nothing command
+    runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing opts Nothing command
 
-    runWithConfig :: HasConfigurations => PrintAction Production -> NtpConfiguration -> Production ()
-    runWithConfig printAction ntpConfig = do
+    runWithConfig :: HasConfigurations => PrintAction Production -> NtpConfiguration -> ProtocolMagic -> Production ()
+    runWithConfig printAction ntpConfig pm = do
         printAction "Mode: with-config"
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-        let
-            toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
+
+        let toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
                 realModeContext <- ask
                 let auxxContext =
@@ -118,17 +111,18 @@ action opts@AuxxOptions {..} command = do
                         { acRealModeContext = realModeContext
                         , acTempDbUsed = tempDbUsed }
                 lift $ runReaderT auxxAction auxxContext
-        let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
-        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-            elimRealMode nr $ toRealMode $
-                logicLayerFull jsonLog $ \logicLayer ->
-                    bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                        diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
-                            diffusionLayer <- withLogic (logic logicLayer)
-                            let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                                (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                            runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
+            vssSK = fromMaybe (error "no user secret given")
+                              (npUserSecret nodeParams ^. usVss)
+            sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+
+        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \nr -> Production $
+            let NodeContext {..} = nrContext nr
+                modifier = if aoStartMode == WithNode
+                           then runNodeWithSinglePlugin pm nr
+                           else identity
+                auxxModeAction = modifier (auxxPlugin pm opts command)
+             in runRealMode pm nr $ \diffusion ->
+                    toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

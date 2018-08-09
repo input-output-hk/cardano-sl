@@ -35,37 +35,34 @@ import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Balances (MonadBalances(..), getBalanceFromUtxo,
+import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo,
                                           getOwnUtxosGenesis)
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
-import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
-                           IsBootstrapEraAddr (..), deriveFirstHDAddress, largestPubKeyAddressBoot,
+import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
+                           deriveFirstHDAddress, largestPubKeyAddressBoot,
                            largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
-import           Pos.KnownPeers (MonadFormatPeers (..))
+import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (..))
+import           Pos.Infra.Slotting.Class (MonadSlots (..))
+import           Pos.Infra.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..))
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (HasReportingContext (..))
-import           Pos.Shutdown (HasShutdownContext (..))
-import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), txNormalize,
                           txProcessTransaction, txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
@@ -113,8 +110,17 @@ instance HasSscContext AuxxContext where
 instance HasPrimaryKey AuxxContext where
     primaryKey = acRealModeContext_L . primaryKey
 
-instance HasReportingContext AuxxContext  where
-    reportingContext = acRealModeContext_L . reportingContext
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+-- The pieces of the software which the block generator uses should never
+-- even try to report.
+instance MonadReporting AuxxMode where
+    report _ = pure ()
+
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+instance HasMisbehaviorMetrics AuxxContext where
+    misbehaviorMetrics = lens (const Nothing) const
 
 instance HasUserSecret AuxxContext where
     userSecret = acRealModeContext_L . userSecret
@@ -185,10 +191,7 @@ instance HasConfiguration => MonadDB AuxxMode where
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
 
-instance HasConfiguration => HasAdoptedBlockVersionData AuxxMode where
-    adoptedBVData = gsAdoptedBVData
-
-instance HasConfiguration => MonadBListener AuxxMode where
+instance MonadBListener AuxxMode where
     onApplyBlocks = realModeToAuxx ... onApplyBlocks
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
@@ -197,17 +200,12 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getBalance = getBalanceFromUtxo
 
 instance ( HasConfiguration
-         , HasSscConfiguration
          , HasTxpConfiguration
-         , HasCompileInfo
          ) =>
          MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
-
-instance MonadFormatPeers AuxxMode where
-    formatKnownPeers formatter = withReaderT acRealModeContext (formatKnownPeers formatter)
 
 instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where
@@ -229,11 +227,10 @@ type instance MempoolExt AuxxMode = EmptyMempoolExt
 
 instance ( HasConfiguration
          , HasTxpConfiguration
-         , HasCompileInfo
          ) =>
          MonadTxpLocal AuxxMode where
-    txpNormalize = withReaderT acRealModeContext txNormalize
-    txpProcessTx = withReaderT acRealModeContext . txProcessTransaction
+    txpNormalize = withReaderT acRealModeContext . txNormalize
+    txpProcessTx pm = withReaderT acRealModeContext . txProcessTransaction pm
 
 instance (HasConfigurations) =>
          MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where

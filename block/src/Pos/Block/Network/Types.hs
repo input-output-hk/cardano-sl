@@ -5,6 +5,11 @@ module Pos.Block.Network.Types
        , MsgGetBlocks (..)
        , MsgHeaders (..)
        , MsgBlock (..)
+       , MsgSerializedBlock (..)
+       , MsgStream (..)
+       , MsgStreamStart (..)
+       , MsgStreamUpdate (..)
+       , MsgStreamBlock (..)
        ) where
 
 import qualified Data.Text.Buildable
@@ -13,8 +18,9 @@ import           Serokell.Util.Text (listJson)
 import           Universum
 
 import           Pos.Core (HeaderHash)
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Util.Chrono (NE, NewestFirst)
+import           Pos.Core.Block (Block, BlockHeader (..))
+import           Pos.DB.Class (SerializedBlock)
+import           Pos.Core.Chrono (NE, NewestFirst (..))
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.
@@ -70,4 +76,31 @@ data MsgHeaders
 data MsgBlock
     = MsgBlock Block
     | MsgNoBlock Text
+    deriving (Eq, Show, Generic)
+
+-- | 'SerializedBlock' message
+data MsgSerializedBlock
+    = MsgSerializedBlock SerializedBlock
+    | MsgNoSerializedBlock Text
+    deriving (Generic)
+
+data MsgStream
+    = MsgStart MsgStreamStart
+    | MsgUpdate MsgStreamUpdate
+    deriving (Eq, Show, Generic)
+
+data MsgStreamStart = MsgStreamStart
+    { mssFrom   :: ![HeaderHash] -- Oldest first checkpoints.
+    , mssTo     :: !HeaderHash
+    , mssWindow :: !Word32
+    } deriving (Generic, Show, Eq)
+
+data MsgStreamUpdate = MsgStreamUpdate
+    { msuWindow :: !Word32
+    } deriving (Generic, Show, Eq)
+
+data MsgStreamBlock
+    = MsgStreamBlock Block
+    | MsgStreamNoBlock Text
+    | MsgStreamEnd
     deriving (Eq, Show, Generic)

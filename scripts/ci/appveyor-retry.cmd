@@ -12,6 +12,7 @@ IF %reTryNumber% == %maxRetries% (GOTO :FAILED)
 
 :RETRY
 set /a retryNumberDisp=%retryNumber%+1
+timeout /t 10
 @echo Command "%*" failed with exit code %LastErrorLevel%. Retrying %retryNumberDisp% of %maxRetries%
 GOTO :RUN
 

@@ -18,7 +18,7 @@ module Pos.Explorer.TestUtil
     ) where
 
 import qualified Prelude
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Lens (at)
 import           Data.Default (def)
@@ -30,28 +30,29 @@ import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable, choose, counterexample,
                                   forAll, generate, property, suchThat)
 
-import           Pos.Arbitrary.Block ()
-import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..),
-                           HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
-                           SlotLeaders, StakeholderId, difficultyL, headerHash,
-                           makePubKeyAddressBoot)
+                           GenesisHash (..), HasConfiguration, HeaderHash, LocalSlotIndex (..),
+                           SlotId (..), SlotLeaders, StakeholderId, difficultyL, genesisHash,
+                           headerHash, makePubKeyAddressBoot)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
+import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
-import           Pos.Ssc.Base (defaultSscPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Test.Pos.Configuration (withDefConfigurations)
-
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, convertToPagedMap)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
+import           Pos.Ssc.Base (defaultSscPayload)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+
+import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
 ----------------------------------------------------------------
@@ -80,7 +81,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
-    blocks <- withDefConfigurations $ \_ ->
+    blocks <- withDefConfigurations $ \_ _ ->
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
     let tipBlock         = Prelude.last blocks
@@ -100,23 +101,23 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
         }
 
   where
-    createMapPageHHs :: (HasConfiguration) => [Block] -> Map Page [HeaderHash]
-    createMapPageHHs blocks =
+    createMapPageHHs :: [Block] -> ProtocolMagic -> Map Page [HeaderHash]
+    createMapPageHHs blocks _ =
         fromListWith (++) [ (page, [hHash]) | (page, hHash) <- createPagedHeaderHashesPair blocks]
 
-    createMapHHsBlund :: (HasConfiguration) => [Block] -> Map HeaderHash Blund
-    createMapHHsBlund blocks = fromList $ map blockHH blocks
+    createMapHHsBlund :: [Block] -> ProtocolMagic -> Map HeaderHash Blund
+    createMapHHsBlund blocks _ = fromList $ map blockHH blocks
       where
         blockHH :: Block -> (HeaderHash, Blund)
         blockHH block = (headerHash block, (block, createEmptyUndo))
 
     -- | TODO(ks): Need to add `getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot`.
     createMapEpochPageHHs
-        :: (HasConfiguration)
-        => [Block]
+        :: [Block]
         -> SlotsPerEpoch
+        -> ProtocolMagic
         -> Map EpochPagedBlocksKey [HeaderHash]
-    createMapEpochPageHHs blocks slotsPerEpoch' =
+    createMapEpochPageHHs blocks slotsPerEpoch' _ =
         unions $ map convertToPagedMap epochBlock
       where
         epochBlock :: [(EpochIndex, [HeaderHash])]
@@ -135,10 +136,10 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
                 (as,bs) = splitAt n xs
 
     createMapEpochMaxPages
-        :: (HasConfiguration)
-        => [EpochPagedBlocksKey]
+        :: [EpochPagedBlocksKey]
+        -> ProtocolMagic
         -> Map Epoch Page
-    createMapEpochMaxPages epochPages = do
+    createMapEpochMaxPages epochPages _ = do
         let groupedEpochPages :: [[(Epoch, Page)]]
             groupedEpochPages = groupBy ((==) `on` fst) epochPages
 
@@ -188,17 +189,32 @@ basicBlock
     -> SecretKey
     -> SlotId
     -> Either Text MainBlock
-basicBlock prevHeader sk slotId =
-    producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
+basicBlock prevHeader sk slotId = producePureBlock infLimit
+                                                   prevHeader
+                                                   []
+                                                   Nothing
+                                                   slotId
+                                                   def
+                                                   (defGTP slotId)
+                                                   def
+                                                   sk
 
 emptyBlk
     :: (HasConfiguration, HasUpdateConfiguration, Testable p)
     => (Either Text MainBlock -> p)
     -> Property
 emptyBlk testableBlock =
-    forAll arbitrary $ \(sk, prevHeader, slotId) ->
-    testableBlock
-        $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
+    forAll arbitrary
+        $ \(sk, prevHeader, slotId) -> testableBlock $ producePureBlock
+              infLimit
+              prevHeader
+              []
+              Nothing
+              slotId
+              def
+              (defGTP slotId)
+              def
+              sk
 
 defGTP :: HasConfiguration => SlotId -> SscPayload
 defGTP sId = defaultSscPayload $ siSlot sId
@@ -219,7 +235,7 @@ producePureBlock
     -> SecretKey
     -> Either Text MainBlock
 producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
-    createMainBlockPure limit prev psk slot sk $
+    createMainBlockPure dummyProtocolMagic limit prev psk slot sk $
     RawPayload txs sscPay dlgPay usPay
 
 leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
@@ -228,7 +244,7 @@ leftToCounter x c = either (\t -> counterexample (toString t) False) (property .
 
 -- | Function that should generate arbitrary blocks that we can use in tests.
 produceBlocksByBlockNumberAndSlots
-    :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m, Monad m)
+    :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m)
     => BlockNumber
     -> SlotsPerEpoch
     -> SlotLeaders
@@ -281,7 +297,10 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         (epochGenesisBlock, epochBlocks)
       where
         epochGenesisBlock :: GenesisBlock
-        epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
+        epochGenesisBlock = mkGenesisBlock dummyProtocolMagic
+                                           (maybe (Left (GenesisHash genesisHash)) Right mBlockHeader)
+                                           epochIndex
+                                           producedSlotLeaders
 
         epochBlocks :: [MainBlock]
         epochBlocks = do
@@ -314,8 +333,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
 
             generateBlocks
-                :: (HasConfiguration, HasUpdateConfiguration)
-                => BlockHeader
+                :: BlockHeader
                 -> BlockNumber
                 -> MainBlock
             generateBlocks previousBlockHeader blockNumber' =
@@ -357,7 +375,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
 
 -- | Produce N slot leaders so we can test it realistically.
-produceSlotLeaders :: (MonadIO m, Monad m) => SlotLeadersNumber -> m SlotLeaders
+produceSlotLeaders :: MonadIO m => SlotLeadersNumber -> m SlotLeaders
 produceSlotLeaders slotLeadersNumber = liftIO $ NE.fromList <$> stakeholders
   where
     stakeholders :: IO [StakeholderId]
@@ -367,7 +385,7 @@ produceSlotLeaders slotLeadersNumber = liftIO $ NE.fromList <$> stakeholders
         generatedStakeHolder = generate arbitrary
 
 -- | Produce N secret keys so we can test it realistically.
-produceSecretKeys :: (MonadIO m, Monad m) => BlockNumber -> m [SecretKey]
+produceSecretKeys :: MonadIO m => BlockNumber -> m [SecretKey]
 produceSecretKeys blocksNumber = liftIO $ secretKeys
   where
     secretKeys :: IO [SecretKey]
@@ -382,4 +400,3 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
 -- | TODO: Remove it as soon as ^ is exposed
 secretKeyToAddress :: SecretKey -> Address
 secretKeyToAddress = makePubKeyAddressBoot . toPublic
-

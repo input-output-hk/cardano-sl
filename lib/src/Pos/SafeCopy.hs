@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | SafeCopy serialization of the world, required for wallet. ☕
 
 module Pos.SafeCopy
@@ -15,6 +17,7 @@ import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveS
 import qualified Data.Serialize as Cereal
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
+import           Serokell.AcidState.Instances ()
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
@@ -36,6 +39,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)
@@ -67,6 +71,8 @@ getCopyBi = contain $ do
 ----------------------------------------------------------------------------
 -- Core types
 ----------------------------------------------------------------------------
+
+deriveSafeCopySimple 0 'base ''ProtocolMagic
 
 deriveSafeCopySimple 0 'base ''Script
 deriveSafeCopySimple 0 'base ''ApplicationName
@@ -177,14 +183,16 @@ instance ( SafeCopy (BHeaderHash b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do _gbhPrevBlock <- safeGet
+        do _gbhProtocolMagic <- safeGet
+           _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
-        do safePut _gbhPrevBlock
+        do safePut _gbhProtocolMagic
+           safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus
            safePut _gbhExtra
@@ -212,7 +220,7 @@ instance ( SafeCopy (BHeaderHash b)
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 
 instance SafeCopy SscProof =>
-         SafeCopy (BodyProof MainBlockchain) where
+         SafeCopy MainProof where
     getCopy = contain $ do
         mpTxProof <- safeGet
         mpMpcProof      <- safeGet
@@ -225,7 +233,7 @@ instance SafeCopy SscProof =>
         safePut mpProxySKsProof
         safePut mpUpdateProof
 
-instance SafeCopy (BodyProof GenesisBlockchain) where
+instance SafeCopy GenesisProof where
     getCopy =
         contain $
         do x <- safeGet
@@ -244,7 +252,7 @@ instance SafeCopy BlockSignature where
     putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
     putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
-instance SafeCopy (ConsensusData MainBlockchain) where
+instance SafeCopy MainConsensusData where
     getCopy =
         contain $
         do _mcdSlot <- safeGet
@@ -259,7 +267,7 @@ instance SafeCopy (ConsensusData MainBlockchain) where
            safePut _mcdDifficulty
            safePut _mcdSignature
 
-instance SafeCopy (ConsensusData GenesisBlockchain) where
+instance SafeCopy GenesisConsensusData where
     getCopy =
         contain $
         do _gcdEpoch <- safeGet
@@ -271,7 +279,7 @@ instance SafeCopy (ConsensusData GenesisBlockchain) where
            safePut _gcdDifficulty
 
 instance SafeCopy SscPayload =>
-         SafeCopy (Body MainBlockchain) where
+         SafeCopy MainBody where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
         _mbSscPayload    <- safeGet
@@ -284,7 +292,7 @@ instance SafeCopy SscPayload =>
         safePut _mbDlgPayload
         safePut _mbUpdatePayload
 
-instance SafeCopy (Body GenesisBlockchain) where
+instance SafeCopy GenesisBody where
     getCopy =
         contain $
         do _gbLeaders <- safeGet

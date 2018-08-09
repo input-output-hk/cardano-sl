@@ -37,7 +37,8 @@ import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Slotting (FlatSlotId, SlotId)
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog, getSecureLog, secure, unsecure)
+import           Pos.Infra.Util.LogSafe (LogSecurityLevel, SecureLog,
+                                         getSecureLog, secure, unsecure)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited
@@ -91,6 +92,14 @@ data PtxCondition
                                       --   backward-compatibility)
     deriving (Eq, Ord, Show)
 
+instance NFData PtxCondition where
+    rnf x = case x of
+        PtxApplying n -> rnf n
+        PtxInNewestBlocks n -> rnf n
+        PtxPersisted -> ()
+        PtxWontApply n m -> n `deepseq` m `deepseq` ()
+        PtxCreating n -> rnf n
+
 makePrisms ''PtxCondition
 
 buildPtxCondition :: LogSecurityLevel -> PtxCondition -> Builder
@@ -117,6 +126,11 @@ data PtxSubmitTiming = PtxSubmitTiming
     , _pstNextDelay :: FlatSlotId
     } deriving (Eq, Show)
 
+instance NFData PtxSubmitTiming where
+    rnf pt = _pstNextSlot pt
+        `deepseq` _pstNextDelay pt
+        `deepseq` ()
+
 makeLenses ''PtxSubmitTiming
 
 -- | All info kept about pending transaction
@@ -130,6 +144,16 @@ data PendingTx = PendingTx
     , _ptxPeerAck      :: !Bool
     , _ptxSubmitTiming :: !PtxSubmitTiming
     } deriving (Eq, Show)
+
+instance NFData PendingTx where
+    rnf pt = _ptxTxId pt
+        `deepseq` _ptxTxAux pt
+        `deepseq` _ptxCreationSlot pt
+        `deepseq` _ptxCond pt
+        `deepseq` _ptxWallet pt
+        `deepseq` _ptxPeerAck pt
+        `deepseq` _ptxSubmitTiming pt
+        `deepseq` ()
 
 makeLenses ''PendingTx
 

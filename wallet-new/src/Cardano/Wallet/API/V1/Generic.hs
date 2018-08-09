@@ -147,7 +147,7 @@ unJsendValue (Tag n) f = withObject ("Expected JSend object with message `" <> n
 --
 
 gconsInfos
-    :: forall a. (HasDatatypeInfo a, SListI (Code a))
+    :: forall a. (HasDatatypeInfo a)
     => Proxy a -> NP ConstructorInfo (Code a)
 gconsInfos pa = case datatypeInfo pa of
     Newtype _ _ conInfo -> conInfo :* Nil
@@ -160,7 +160,7 @@ gconsNames =
   map toText . hcollapse . hliftA (K . constructorName) . gconsInfos
 
 gconsName
-  :: forall a. (Generic a, HasDatatypeInfo a, SListI (Code a))
+  :: forall a. (Generic a, HasDatatypeInfo a)
   => a -> Text
 gconsName a =
   gconsNames (Proxy @a) !! hindex (from a)

@@ -1,5 +1,5 @@
 name:                cardano-sl-crypto
-version:             1.2.1
+version:             1.3.0
 synopsis:            Cardano SL - cryptography primitives
 description:         This package contains cryptography primitives used in Cardano SL.
 license:             MIT
@@ -14,15 +14,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                       Pos.Aeson.Crypto
-                       Pos.Arbitrary.Crypto
-                       Pos.Binary.Crypto
-
                        Pos.Crypto
 
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
+                       Pos.Crypto.Orphans
                        Pos.Crypto.Random
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Signing
@@ -31,9 +28,6 @@ library
                        Pos.Crypto.Signing.Signing
 
   other-modules:
-                       Pos.Arbitrary.Crypto.Unsafe
-
-                       Pos.Crypto.AsBinary
                        Pos.Crypto.Encryption
                        Pos.Crypto.Scrypt
 
@@ -45,9 +39,7 @@ library
                        Pos.Crypto.Signing.Types.Signing
                        Pos.Crypto.Signing.Types.Tag
 
-  build-depends:       QuickCheck
-                     , aeson
-                     , autoexporter
+  build-depends:       aeson
                      , base
                      , binary
                      , bytestring
@@ -60,13 +52,11 @@ library
                      , data-default
                      , ed25519
                      , formatting
-                     , generic-arbitrary
                      , hashable
                      , lens
                      , memory
                      , mtl
                      , pvss
-                     , quickcheck-instances
                      , reflection
                      , safe-exceptions
                      , scrypt
@@ -103,8 +93,72 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  main-is:             test.hs
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+  other-modules:
+                       Spec
+                       Test.Pos.Crypto.Bi
+                       Test.Pos.Crypto.CryptoSpec
+                       Test.Pos.Crypto.Gen
+
+  build-depends:       QuickCheck
+                     , base
+                     , aeson
+                     , bytestring
+                     , cardano-crypto
+                     , cardano-sl-binary
+                     , cardano-sl-binary-test
+                     , cardano-sl-crypto
+                     , cardano-sl-util-test
+                     , cryptonite
+                     , formatting
+                     , hedgehog
+                     , hspec
+                     , memory
+                     , template-haskell
+                     , text
+                     , universum >= 0.1.11
+                     , unordered-containers
+
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring

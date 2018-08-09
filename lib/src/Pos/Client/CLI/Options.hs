@@ -12,6 +12,7 @@ module Pos.Client.CLI.Options
        , portOption
        , webPortOption
        , walletAddressOption
+       , docAddressOption
        , networkAddressOption
        , templateParser
 
@@ -21,17 +22,18 @@ module Pos.Client.CLI.Options
 import           Universum
 
 import           Data.Default (def)
+import           Data.Time.Units (fromMicroseconds)
 import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import           Serokell.Util (sec)
 import           Pos.Util.OptParse (fromParsec)
 
 import           Pos.Binary.Core ()
 import           Pos.Communication (NodeId)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
-                                    addressToNodeId)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
+                                          addrParserNoWildcard,
+                                          addressToNodeId)
 
 data CommonArgs = CommonArgs
     { logConfig            :: !(Maybe FilePath)
@@ -50,6 +52,11 @@ commonArgsParser = do
     configurationOptions <- configurationOptionsParser
     pure CommonArgs{..}
 
+-- To get rid of abiguity in 'toText' from 'Universum', which has type
+-- 'ToText a => a -> Text'.
+toText_ :: String -> Text
+toText_ = toText
+
 -- Note: if you want to change names of these options, please also
 -- update cardano-launcher accordingly (grep for these names).
 configurationOptionsParser :: Opt.Parser ConfigurationOptions
@@ -67,13 +74,13 @@ configurationOptionsParser = do
         Opt.help    "Path to a yaml configuration file" <>
         Opt.value   (cfoFilePath def)
     keyParser :: Opt.Parser Text
-    keyParser = fmap toText $ Opt.strOption $
+    keyParser = fmap toText_ $ Opt.strOption $
         Opt.long    "configuration-key" <>
         Opt.metavar "TEXT" <>
         Opt.help    "Key within the configuration file to use" <>
         Opt.value   (toString (cfoKey def))
     systemStartParser :: Opt.Parser (Maybe Timestamp)
-    systemStartParser = Opt.option (Just . Timestamp . sec <$> Opt.auto) $
+    systemStartParser = Opt.option (Just . Timestamp . fromMicroseconds . (*) 1000000 <$> Opt.auto) $
         Opt.long    "system-start" <>
         Opt.metavar "TIMESTAMP" <>
         Opt.help    "System start time. Format - seconds since Unix Epoch." <>
@@ -125,7 +132,7 @@ portOption portNum =
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
     many $
-    toText <$>
+    toText_ <$>
     Opt.strOption
         (templateParser
              "report-server"
@@ -135,7 +142,7 @@ reportServersOption =
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
-    toText <$>
+    toText_ <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from.")
 
@@ -156,3 +163,14 @@ walletAddressOption na =
          <> maybe mempty Opt.value na
   where
     helpMsg = "IP and port for backend wallet API."
+
+docAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+docAddressOption na =
+    Opt.option (fromParsec addrParser) $
+            Opt.long "wallet-doc-address"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
+  where
+    helpMsg = "IP and port for backend wallet API documentation."

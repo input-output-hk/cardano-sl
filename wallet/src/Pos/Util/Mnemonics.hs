@@ -7,6 +7,7 @@ module Pos.Util.Mnemonics
          -- * Data types
          Entropy
        , Mnemonic
+       , defMnemonic
        , Seed
 
          -- * Entropy encoding and decoding
@@ -46,10 +47,18 @@ integerToBS i
     f 0 = Nothing
     f x = Just (fromInteger x :: Word8, x `shiftR` 8)
 
+-- | A default mnemonic that can be advertised as an example. Rejected by
+-- fromMnemonic.
+defMnemonic :: Mnemonic
+defMnemonic =
+    "squirrel material silly twice direct slush pistol razor become junk kingdom flee"
+
 -- | Provide intial entropy as a 'ByteString' of length multiple of 4 bytes.
 -- Output a mnemonic sentence.
 toMnemonic :: Entropy -> Either String Mnemonic
 toMnemonic ent = do
+    when (length ent <= 0) $
+        Left "toMnemonic: entropy must be a non-zero sequence of bytes"
     when (remainder /= 0) $
         Left "toMnemonic: entropy must be a multiple of 4 bytes"
     when (cs_len > 16) $
@@ -67,6 +76,10 @@ toMnemonic ent = do
 -- mnemonic.
 fromMnemonic :: Mnemonic -> Either String Entropy
 fromMnemonic ms = do
+    when (ms == defMnemonic) $
+        Left "fromMnemonic: forbidden mnemonic: an example mnemonic has been submitted. Please generate a fresh and private mnemonic from a trusted source."
+    when (word_count <= 0) $
+        Left "fromMnemonic: empty mnemonic is not allowed"
     when (isJust $ find (not . isAscii) ms) $
         Left "fromMnemonic: non-ASCII characters not supported"
     when (word_count > 48) $

@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Instances for client types
 
 module Pos.Wallet.Web.ClientTypes.Instances () where
@@ -16,7 +18,8 @@ import qualified Serokell.Util.Base16 as Base16
 import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupInput)
 
-import           Pos.Core (Address, Coin(..), coinToInteger, decodeTextAddress, checkCoin, mkCoin, unsafeGetCoin)
+import           Pos.Core (Address, Coin (..), checkCoin, coinToInteger, decodeTextAddress, mkCoin,
+                           unsafeGetCoin)
 import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,

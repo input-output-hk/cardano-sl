@@ -11,10 +11,6 @@ import           Weigh (io, mainWith)
 
 import           Test.QuickCheck (arbitrary, generate)
 
-import           Pos.Arbitrary.Txp.Unsafe ()
-
-import           Test.Pos.Configuration (withDefConfigurations)
-
 import           Pos.Explorer.DB (defaultPageSize)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
@@ -23,6 +19,8 @@ import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
+import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Txp.Arbitrary.Unsafe ()
 
 ----------------------------------------------------------------
 -- Mocked functions
@@ -31,21 +29,21 @@ import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 type BenchmarkTestParams = (ExplorerTestParams, ExtraContext)
 
 -- | @getBlocksTotal@ function for benchmarks.
-getBlocksTotalBench
-    :: BenchmarkTestParams
-    -> IO Integer
+getBlocksTotalBench :: BenchmarkTestParams -> IO Integer
 getBlocksTotalBench (testParams, extraContext) =
-    withDefConfigurations $ \_ ->
-        runExplorerTestMode testParams extraContext getBlocksTotal
+    withDefConfigurations $ const . const $ runExplorerTestMode
+        testParams
+        extraContext
+        getBlocksTotal
 
 -- | @getBlocksPage@ function for the last page for benchmarks.
-getBlocksPageBench
-    :: BenchmarkTestParams
-    -> IO (Integer, [CBlockEntry])
+getBlocksPageBench :: BenchmarkTestParams -> IO (Integer, [CBlockEntry])
 getBlocksPageBench (testParams, extraContext) =
-    withDefConfigurations $ \_ ->
-        runExplorerTestMode testParams extraContext $
-            getBlocksPage Nothing (Just $ fromIntegral defaultPageSize)
+    withDefConfigurations
+        $ const
+        . const
+        $ runExplorerTestMode testParams extraContext
+        $ getBlocksPage       Nothing    (Just $ fromIntegral defaultPageSize)
 
 -- | This is used to generate the test environment. We don't do this while benchmarking
 -- the functions since that would include the time/memory required for the generation of the
@@ -62,7 +60,7 @@ generateTestParams totalBlocksNumber slotsPerEpoch = do
 
     -- The extra context so we can mock the functions.
     let extraContext :: ExtraContext
-        extraContext = withDefConfigurations $ const $ makeMockExtraCtx mode
+        extraContext = withDefConfigurations $ const . const $ makeMockExtraCtx mode
 
     pure (testParams, extraContext)
   where

@@ -17,11 +17,12 @@ fi
 # Check if exists, if not assign
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 45))
+    system_start=$(($(date +%s) + 45))
 fi
 
 # We presume we already launched n nodes before, we select the last pane.
 # TODO: I'm not sure that choosing topology0.yaml is a correct way to do (@volhovm)
+# shellcheck source=/dev/null
 source "$common_path"
 cmd="stack exec cardano-explorer --
       --rebuild-db \

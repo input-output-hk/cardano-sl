@@ -33,23 +33,24 @@ import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Base (genesisBlock0)
-import           Pos.Core (Address, ChainDifficulty, HasConfiguration, Timestamp (..), difficultyL,
-                           headerHash)
+import           Pos.Core (Address, ChainDifficulty, GenesisHash (..), HasConfiguration,
+                           Timestamp (..), difficultyL, epochSlots, genesisHash, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
-import           Pos.Crypto (WithHash (..), withHash)
+import           Pos.Core.Block.Constructors (genesisBlock0)
+import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
-import           Pos.Network.Types (HasNodeType)
-import           Pos.Reporting (HasReportingContext)
-import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
-import           Pos.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Network.Types (HasNodeType)
+import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
+import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
                           TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
@@ -78,6 +79,15 @@ data TxHistoryEntry = THEntry
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic, Ord)
+
+instance NFData TxHistoryEntry where
+    rnf tx = _thTxId tx
+        `deepseq` _thTx tx
+        `deepseq` _thDifficulty tx
+        `deepseq` _thInputAddrs tx
+        `deepseq` _thOutputAddrs tx
+        `deepseq` _thTimestamp tx
+        `deepseq` ()
 
 -- | Remained for compatibility
 _thInputAddrs :: TxHistoryEntry -> [Address]
@@ -157,23 +167,27 @@ genesisUtxoLookup = utxoToLookup . unGenesisUtxo $ genesisUtxo
 -- | A class which have methods to get transaction history
 class (Monad m, HasConfiguration) => MonadTxHistory m where
     getBlockHistory
-        :: [Address] -> m (Map TxId TxHistoryEntry)
+        :: ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
-    saveTx :: (TxId, TxAux) -> m ()
+    saveTx :: ProtocolMagic -> (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => [Address] -> m (Map TxId TxHistoryEntry)
-    getBlockHistory = lift . getBlockHistory
+        => ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
+    getBlockHistory pm = lift . getBlockHistory pm
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
         => [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory = lift . getLocalHistory
 
-    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
-    saveTx = lift . saveTx
+    default saveTx
+        :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
+        => ProtocolMagic
+        -> (TxId, TxAux)
+        -> m ()
+    saveTx pm = lift . saveTx pm
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
@@ -189,18 +203,20 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
-    , HasReportingContext ctx
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , Mockable CurrentTime m
-    , MonadFormatPeers m
     , HasNodeType ctx
+    , CanJsonLog m
     )
 
 getBlockHistoryDefault
-    :: forall ctx m. (HasConfiguration, TxHistoryEnv ctx m)
-    => [Address] -> m (Map TxId TxHistoryEntry)
-getBlockHistoryDefault addrs = do
-    let bot      = headerHash genesisBlock0
+    :: forall ctx m
+     . (HasConfiguration, TxHistoryEnv ctx m)
+    => ProtocolMagic
+    -> [Address]
+    -> m (Map TxId TxHistoryEntry)
+getBlockHistoryDefault pm addrs = do
+    let bot      = headerHash (genesisBlock0 pm (GenesisHash genesisHash) (genesisLeaders epochSlots))
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
@@ -247,9 +263,9 @@ instance Exception SaveTxException where
         \case
             SaveTxToilFailure x -> toString (pretty x)
 
-saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
-saveTxDefault txw = do
-    res <- txpProcessTx txw
+saveTxDefault :: TxHistoryEnv ctx m => ProtocolMagic -> (TxId, TxAux) -> m ()
+saveTxDefault pm txw = do
+    res <- txpProcessTx pm txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

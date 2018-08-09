@@ -56,7 +56,7 @@ type DelegationStateAction = State DelegationWrap
 
 -- | Executes atomic action on delegation variable.
 runDelegationStateAction
-    :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
+    :: (MonadIO m, MonadDelegation ctx m)
     => DelegationStateAction a -> m a
 runDelegationStateAction action = do
     var <- askDelegationState

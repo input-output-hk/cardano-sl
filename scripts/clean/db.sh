@@ -5,8 +5,6 @@ set -o pipefail
 # Cleans all data according to docs to prepare for wallets running:
 #     https://cardanodocs.com/technical/wallets/
 
-# TODO: support purescript API rebuilding?
-
 echo "Cleaning Cardano SL db..."
 
 rm -rf run/*
@@ -20,5 +18,5 @@ rm -rf db-mainnet/
 rm -rf wdb-mainnet/
 rm -rf node-*.*key*
 rm -rf kademlia-abc.dump
-rm kademlia.dump
+rm -rf kademlia.dump
 

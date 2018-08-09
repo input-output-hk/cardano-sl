@@ -9,7 +9,7 @@ if [[ "$1" == "" ]]; then
   case $v in
     bla)
       echo "Update started"
-      curl -X POST -kv https://127.0.0.1:8090/api/update/apply
+      curl -X POST --cert ./scripts/tls-files/client.pem -kv https://127.0.0.1:8090/api/update/apply
       sleep 1s
       exit 20
       ;;
@@ -18,7 +18,7 @@ if [[ "$1" == "" ]]; then
       ;;
   esac
 else
-  while read l; do
+  while read -r l; do
     case "$l" in
       update)
         echo "Starting update.."

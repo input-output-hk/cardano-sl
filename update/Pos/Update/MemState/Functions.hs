@@ -11,10 +11,11 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Update ()
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration ()
 import           Pos.Core.Update (UpdatePayload (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash)
-import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
+import           Pos.Infra.StateLock (Priority (..), StateLock,
+                                      withStateLockNoMetrics)
 import           Pos.Update.MemState.Types (MemPool (..))
 import           Pos.Update.Poll (LocalVotes)
 import           Pos.Util.Util (HasLens')
@@ -34,7 +35,7 @@ withUSLock = (withStateLockNoMetrics LowPriority) . const
 -- | Add given payload to MemPool. Size is updated assuming that all added
 -- data is new (is not in MemPool). This assumption is fine, because
 -- duplicated data should be considered invalid anyway.
-addToMemPool :: HasConfiguration => UpdatePayload -> MemPool -> MemPool
+addToMemPool :: UpdatePayload -> MemPool -> MemPool
 addToMemPool UpdatePayload {..} = addProposal . addVotes
   where
     addProposal mp =

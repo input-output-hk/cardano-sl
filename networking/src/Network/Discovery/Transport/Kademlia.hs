@@ -12,7 +12,6 @@ module Network.Discovery.Transport.Kademlia
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Concurrent.STM.TVar as TVar
 import           Control.Monad (forM)
-import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Binary (Binary, decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
@@ -56,31 +55,31 @@ data KademliaConfiguration i = KademliaConfiguration {
 --   socket and using it to talk to a peer, storing data in the DHT once it has
 --   been joined.
 kademliaDiscovery
-    :: forall m i .
-       (MonadIO m, Binary i, Ord i, Show i)
+    :: forall i .
+       (Binary i, Ord i, Show i)
     => KademliaConfiguration i
     -> K.Peer
     -- ^ A known peer, necessary in order to join the network.
     --   If there are no other peers in the network, use this node's id.
     -> EndPointAddress
     -- ^ Local endpoint address. Will store it in the DHT.
-    -> m (NetworkDiscovery KademliaDiscoveryErrorCode m)
+    -> IO (NetworkDiscovery KademliaDiscoveryErrorCode)
 kademliaDiscovery configuration peer myAddress = do
     let kid :: KSerialize i
         kid = KSerialize (kademliaId configuration)
     -- A Kademlia instance to do the DHT magic.
     kademliaInst :: K.KademliaInstance (KSerialize i) (KSerialize EndPointAddress)
-        <- liftIO $ K.create (kademliaBindAddress configuration)
-                             (kademliaExternalAddress configuration) kid
+        <- K.create (kademliaBindAddress configuration)
+                    (kademliaExternalAddress configuration) kid
     -- A TVar to cache the set of known peers at the last use of 'discoverPeers'
     peersTVar :: TVar.TVar (M.Map (K.Node (KSerialize i)) EndPointAddress)
-        <- liftIO . TVar.newTVarIO $ M.empty
-    let knownPeers = fmap (S.fromList . M.elems) . liftIO . TVar.readTVarIO $ peersTVar
-    let discoverPeers = liftIO $ kademliaDiscoverPeers kademliaInst peersTVar
-    let close = liftIO $ K.close kademliaInst
+        <- TVar.newTVarIO $ M.empty
+    let knownPeers = fmap (S.fromList . M.elems) . TVar.readTVarIO $ peersTVar
+    let discoverPeers = kademliaDiscoverPeers kademliaInst peersTVar
+    let close = K.close kademliaInst
     -- Join the network and store the local 'EndPointAddress'.
-    _ <- liftIO $ kademliaJoinAndUpdate kademliaInst peersTVar peer
-    liftIO $ K.store kademliaInst kid (KSerialize myAddress)
+    _ <- kademliaJoinAndUpdate kademliaInst peersTVar peer
+    K.store kademliaInst kid (KSerialize myAddress)
     pure $ NetworkDiscovery knownPeers discoverPeers close
 
 -- | Join a Kademlia network (using a given known node address) and update the

@@ -34,10 +34,10 @@ import           Universum
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Data.Time.Units (toMicroseconds)
+import           Data.Time.Units (Second, toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Delay, LowLevelAsync, Mockables, async, delay)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 import           System.Wlog (WithLogger)
 
@@ -47,12 +47,12 @@ import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
-import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
+import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util (maybeThrow)
-import           Pos.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
@@ -77,7 +77,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 getUserProfile :: (WalletDbReader ctx m, MonadIO m) => m CProfile
 getUserProfile = getProfile <$> askWalletSnapshot
 
-updateUserProfile :: (HasConfiguration, WalletDbReader ctx m, MonadIO m)
+updateUserProfile :: (WalletDbReader ctx m, MonadIO m)
                   => CProfile
                   -> m CProfile
 updateUserProfile profile = do
@@ -119,12 +119,11 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: (MonadIO m, HasConfiguration, WalletDbReader ctx m) => m NoContent
+postponeUpdate :: (MonadIO m, WalletDbReader ctx m) => m NoContent
 postponeUpdate = askWalletDB >>= removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
 applyUpdate :: ( MonadIO m
-               , HasConfiguration
                , WalletDbReader ctx m
                , MonadUpdates m
                )
@@ -139,15 +138,14 @@ applyUpdate = askWalletDB >>= removeNextUpdate
 -- | Triggers shutdown in a short interval after called. Delay is
 -- needed in order for http request to succeed.
 requestShutdown ::
-       ( HasConfiguration
-       , MonadIO m
+       ( MonadIO m
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
        , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
-requestShutdown = NoContent <$ async (delay (sec 1) >> triggerShutdown)
+requestShutdown = NoContent <$ async (delay (1 :: Second) >> triggerShutdown)
 
 ----------------------------------------------------------------------------
 -- Sync progress
@@ -184,7 +182,7 @@ localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
 ----------------------------------------------------------------------------
 
 testResetAll ::
-       ( HasConfiguration, HasNodeConfiguration, MonadIO m
+       ( HasNodeConfiguration, MonadIO m
        , MonadThrow m, WalletDbReader ctx m, MonadKeys m)
     => m NoContent
 testResetAll = do
@@ -253,8 +251,7 @@ instance HasTruncateLogPolicy PendingTxsSummary where
     truncateLogPolicy = identity
 
 cancelAllApplyingPtxs
-    :: ( HasConfiguration
-       , HasNodeConfiguration
+    :: ( HasNodeConfiguration
        , MonadIO m
        , MonadThrow m
        , WalletDbReader ctx m
@@ -265,8 +262,7 @@ cancelAllApplyingPtxs = do
   testOnlyEndpoint $ NoContent <$ cancelApplyingPtxs db
 
 cancelOneApplyingPtx ::
-       ( HasConfiguration
-       , HasNodeConfiguration
+       ( HasNodeConfiguration
        , MonadThrow m
        , WalletDbReader ctx m
        , MonadIO m

@@ -21,6 +21,7 @@ import qualified Data.Text as T
 import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks, verifyAndApplyBlocks)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core.Chrono (NE, OldestFirst)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump, dbPureReset)
 import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, BlockEvent' (..),
@@ -28,12 +29,12 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, Bl
                                            BlockScenario, BlockScenario' (..), SnapshotId,
                                            SnapshotOperation (..), beaInput, beaOutValid, berInput,
                                            berOutValid)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (MonadTxpLocal)
-import           Pos.Util.Chrono (NE, OldestFirst)
 import           Pos.Util.Util (eitherToThrow, lensOf)
+
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -53,8 +54,7 @@ data BlockEventResult
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
 verifyAndApplyBlocks' ::
-       ( HasSscConfiguration
-       , HasConfiguration
+       ( HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
@@ -63,16 +63,14 @@ verifyAndApplyBlocks' ::
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
         (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks True blocks
+            verifyAndApplyBlocks dummyProtocolMagic True blocks
         return ()
   where
     blocks = fst <$> blunds
 
 -- | Execute a single block event.
 runBlockEvent ::
-       ( HasSscConfiguration
-       , HasConfiguration
-       , BlockLrcMode BlockTestContext m
+       ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
     => BlockEvent
@@ -90,7 +88,7 @@ runBlockEvent (BlkEvApply ev) =
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
 runBlockEvent (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks (ev ^. berInput))
+    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of
@@ -154,8 +152,6 @@ data BlockScenarioResult
 runBlockScenario ::
        ( MonadPureDB ctx m
        , ctx ~ BlockTestContext
-       , HasSscConfiguration
-       , HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )

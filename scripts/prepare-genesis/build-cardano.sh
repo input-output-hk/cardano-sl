@@ -16,6 +16,11 @@ ALL_NODES="${IOHK_NODES[*]} ${SGG_NODES[*]} ${CF_NODES[*]}"
 KEY_PATH="${REPO_PATH}/keys"
 DELEGATE="${KEY_PATH}/delegate"
 STAKEHOLDER="${KEY_PATH}/stakeholder"
+export DELEGATE
+export STAKEHOLDER
+export ALL_NODES
+export AVVM_SEED_COUNT
+export START_TIME
 if which nix-env; then
     echo "Nix package manager already installed."
 else

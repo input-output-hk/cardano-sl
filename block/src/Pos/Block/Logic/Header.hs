@@ -16,12 +16,13 @@ module Pos.Block.Logic.Header
        , getHashesRange
        ) where
 
-import           Universum
-import           Unsafe (unsafeLast)
+import           Universum hiding (elems)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import qualified Data.List as List (last)
+import qualified Data.List.NonEmpty as NE (toList)
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
@@ -31,25 +32,24 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
-import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, HeaderHash, SlotId (..),
-                           blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
-                           epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
-                           headerHashG, headerSlotL, prevBlockL)
+import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash, SlotId (..), blkSecurityParam,
+                           bvdMaxHeaderSize, difficultyL, epochIndexL, epochOrSlotG,
+                           getChainDifficulty, getEpochOrSlot, headerHash, headerHashG, headerSlotL,
+                           prevBlockL)
 import           Pos.Core.Block (BlockHeader (..))
-import           Pos.Crypto (hash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+                                  toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState.BlockExtra as GS
-import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Infra.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (buildListBounds, _neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst, _NewestFirst, _OldestFirst)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -76,17 +76,14 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- as ClassifyHeaderRes type.
 classifyNewHeader
     :: forall ctx m.
-    ( HasConfiguration
-    , MonadSlots ctx m
+    ( MonadSlots ctx m
     , MonadDBRead m
     , MonadUnliftIO m
-    , MonadSlots ctx m
-    , HasLrcContext ctx
     )
-    => BlockHeader -> m ClassifyHeaderRes
+    => ProtocolMagic -> BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
-classifyNewHeader (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
-classifyNewHeader (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
+classifyNewHeader _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
+classifyNewHeader pm (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot
     tipHeader <- lift DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
@@ -129,8 +126,8 @@ classifyNewHeader (BlockHeaderMain header) = fmap (either identity identity) <$>
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     }
-            case verifyHeader vhp (BlockHeaderMain header) of
-                VerFailure errors -> throwError $ mkCHRinvalid errors
+            case verifyHeader pm vhp (BlockHeaderMain header) of
+                VerFailure errors -> throwError $ mkCHRinvalid (NE.toList errors)
                 _                 -> pass
 
             dlgHeaderValid <- lift $ runDBCede $ dlgVerifyHeader header
@@ -153,7 +150,7 @@ data ClassifyHeadersRes
     | CHsUseless !Text             -- ^ Header is useless.
     | CHsInvalid !Text             -- ^ Header is invalid.
 
-deriving instance Show BlockHeader => Show ClassifyHeadersRes
+deriving instance Show ClassifyHeadersRes
 
 -- | Classify headers received in response to 'GetHeaders' message.
 --
@@ -168,23 +165,21 @@ deriving instance Show BlockHeader => Show ClassifyHeadersRes
 classifyHeaders ::
        forall ctx m.
        ( MonadDBRead m
-       , MonadCatch m
-       , HasLrcContext ctx
        , MonadSlots ctx m
        , WithLogger m
-       , HasConfiguration
        )
-    => Bool -- recovery in progress?
+    => ProtocolMagic
+    -> Bool -- recovery in progress?
     -> NewestFirst NE BlockHeader
     -> m ClassifyHeadersRes
-classifyHeaders inRecovery headers = do
+classifyHeaders pm inRecovery headers = do
     tipHeader <- DB.getTipHeader
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.getHeader oldestParentHash
     leaders <- LrcDB.getLeadersForEpoch oldestHeaderEpoch
     let headersValid =
             isVerSuccess $
-            verifyHeaders leaders (headers & _NewestFirst %~ toList)
+            verifyHeaders pm leaders (headers & _NewestFirst %~ toList)
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of
@@ -260,7 +255,6 @@ data GetHeadersFromManyToError = GHFBadInput Text deriving (Show,Generic)
 getHeadersFromManyTo ::
        ( MonadDBRead m
        , WithLogger m
-       , HasConfiguration
        )
     => Maybe Word          -- ^ Optional limit on how many to bring in.
     -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
@@ -278,6 +272,8 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
     -- This filters out invalid/unknown checkpoints also.
     inMainCheckpoints <-
         maybe (throwLocal "no checkpoints are in the main chain") pure =<<
+        -- FIXME wasteful. If we mandated an order on the checkpoints we
+        -- wouldn't have to check them all.
         lift (nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints))
     let inMainCheckpointsHashes = map headerHash inMainCheckpoints
     when (tipHash `elem` inMainCheckpointsHashes) $
@@ -313,7 +309,7 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: (HasConfiguration, MonadDBRead m)
+    :: MonadDBRead m
     => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -375,7 +371,7 @@ throwGHR = throwError . GHRBadInput
 -- of headers in the chain (which should be returned) is more than
 -- @depthLimit@, error will be thrown.
 getHashesRange ::
-       forall m. (HasConfiguration, MonadDBRead m)
+       forall m. (MonadDBRead m)
     => Maybe Word
     -> HeaderHash
     -> HeaderHash
@@ -447,7 +443,7 @@ getHashesRange depthLimitM older newer = runExceptT $ do
         "May be (very rare) concurrency problem, just retry"
 
     -- It's safe to use 'unsafeLast' here after the last check.
-    let lastElem = allExceptNewest ^. _OldestFirst . to unsafeLast
+    let lastElem = allExceptNewest ^. _OldestFirst . to List.last
     when (newerHd ^. prevBlockL . headerHashG /= lastElem) $
         throwGHR $
         sformat ("getHashesRange: newest block parent is not "%

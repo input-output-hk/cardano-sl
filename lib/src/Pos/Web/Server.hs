@@ -2,10 +2,13 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Web server.
 
 module Pos.Web.Server
        ( serveImpl
+       , serveDocImpl
        , withRoute53HealthCheckApplication
        , serveWeb
        , application
@@ -13,20 +16,30 @@ module Pos.Web.Server
 
 import           Universum
 
+import qualified Control.Concurrent.Async as Async
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
-import           Data.Default (Default)
-import           Mockable (Async, Mockable, Production (runProduction), withAsync)
+import qualified Data.ByteString.Char8 as BSC
+import           Data.Default (Default, def)
+import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
+import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
+import           Data.X509.CertificateStore (readCertificateStore)
+import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
+import qualified Data.X509.Validation as X509
+import           Mockable (Production (runProduction))
+import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setHost, setPort)
-import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost, runSettingsSocket,
+                                           setHost, setPort)
+import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
+import           Network.Socket (Socket, close)
 import           Pos.Aeson.Txp ()
 import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
@@ -34,8 +47,8 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.GState as GS
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
 import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs, withTxpLocalData)
@@ -57,19 +70,14 @@ type MyWorkMode ctx m =
     )
 
 withRoute53HealthCheckApplication
-    :: ( Mockable Async m
-       , MonadMask m
-       , MonadIO m
-       , HasConfiguration
-       )
-    => IO HealthStatus
+    :: IO HealthStatus
     -> String
     -> Word16
-    -> m x
-    -> m x
-withRoute53HealthCheckApplication mStatus host port act = withAsync go (const act)
+    -> IO x
+    -> IO x
+withRoute53HealthCheckApplication mStatus host port act = Async.withAsync go (const act)
   where
-    go = serveImpl (pure app) host port Nothing Nothing
+    go = serveImpl (pure app) host port Nothing Nothing Nothing
     app = route53HealthCheckApplication mStatus
 
 route53HealthCheckApplication :: IO HealthStatus -> Application
@@ -77,31 +85,131 @@ route53HealthCheckApplication mStatus =
     serve healthCheckApi (servantServerHealthCheck mStatus)
 
 serveWeb :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWeb port mTlsParams = serveImpl application "127.0.0.1" port mTlsParams Nothing
+serveWeb port mTlsParams = serveImpl application "127.0.0.1" port mTlsParams Nothing Nothing
 
 application :: MyWorkMode ctx m => m Application
 application = do
     server <- servantServer
     return $ serve nodeApi server
 
+serveTLS
+    :: (MonadIO m)
+    => (String -> Word16 -> TlsParams -> TLSSettings)
+    -> m Application
+    -> String
+    -> Word16
+    -- ^ if the port is 0, bind to a random port
+    -> Maybe TlsParams
+    -- ^ if isJust, use https, isNothing, use raw http
+    -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
+    -- ^ if isJust, call it with the port after binding
+    -> m ()
+serveTLS getTLSSettings app host port mWalletTLSParams mSettings mPortCallback = do
+    app' <- app
+    let
+        acquire :: IO (Word16, Socket)
+        acquire = liftIO $ if port == 0
+            then do
+                (port', socket) <- bindRandomPortTCP (getHost mySettings)
+                pure (fromIntegral port', socket)
+            else do
+                socket <- bindPortTCP (fromIntegral port) (getHost mySettings)
+                pure (port, socket)
+        release :: (Word16, Socket) -> IO ()
+        release (_, socket) = liftIO $ close socket
+        action :: (Word16, Socket) -> IO ()
+        action (port', socket) = do
+            -- TODO: requires warp 3.2.17 setSocketCloseOnExec socket
+            launchServer app' (port', socket)
+    liftIO $ bracket acquire release action
+  where
+        launchServer :: Application -> (Word16, Socket) -> IO ()
+        launchServer app'' (port', socket) = do
+            fromMaybe (const (pure ())) mPortCallback port'
+            maybe runSettingsSocket runTLSSocket mTlsConfig mySettings socket app''
+        mySettings = setHost (fromString host) $
+                     setPort (fromIntegral port) $
+                     fromMaybe defaultSettings mSettings
+        mTlsConfig = getTLSSettings host port <$> mWalletTLSParams
+
 serveImpl
-    :: (HasConfiguration, MonadIO m)
+    :: (MonadIO m)
     => m Application
     -> String
     -> Word16
     -> Maybe TlsParams
     -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
     -> m ()
-serveImpl app host port mWalletTLSParams mSettings =
-    liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
-  where
-    mySettings = setHost (fromString host) $
-                 setPort (fromIntegral port) $
-                 fromMaybe defaultSettings mSettings
-    mTlsConfig = tlsParamsToWai <$> mWalletTLSParams
+serveImpl =
+    serveTLS tlsWithClientCheck
 
-tlsParamsToWai :: TlsParams -> TLSSettings
-tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+serveDocImpl
+    :: (MonadIO m)
+    => m Application
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
+    -> m ()
+serveDocImpl =
+    serveTLS tlsWebServerMode
+
+tlsWebServerMode
+    :: String -> Word16 -> TlsParams -> TLSSettings
+tlsWebServerMode _ _ TlsParams{..} = tlsSettings
+    { tlsWantClientCert = False }
+  where
+    tlsSettings =
+      tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+
+tlsWithClientCheck
+    :: String -> Word16 -> TlsParams -> TLSSettings
+tlsWithClientCheck host port TlsParams{..} = tlsSettings
+    { tlsWantClientCert = tpClientAuth
+    , tlsServerHooks    = def
+        { onClientCertificate = fmap certificateUsageFromValidations . validateCertificate }
+    }
+  where
+    tlsSettings =
+        tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+
+    serviceID =
+        (host, BSC.pack (show port))
+
+    certificateUsageFromValidations =
+        maybe CertificateUsageAccept (CertificateUsageReject . CertificateRejectOther)
+
+    -- By default, X509.Validation validates the certificate names against the host
+    -- which is irrelevant when checking the client certificate (but relevant for
+    -- the client when checking the server's certificate).
+    validationHooks = def
+        { hookValidateName = \_ _ -> [] }
+
+    -- Here we add extra checks as the ones performed by default to enforce that
+    -- the client certificate is actually _meant_ to be used for client auth.
+    -- This should prevent server certificates to be used to authenticate
+    -- against the server.
+    validationChecks = def
+        { checkStrictOrdering = True
+        , checkLeafKeyPurpose = [KeyUsagePurpose_ClientAuth]
+        }
+
+    -- This solely verify that the provided certificate is valid and was signed by authority we
+    -- recognize (tpCaPath)
+    validateCertificate cert = do
+        mstore <- readCertificateStore tpCaPath
+        maybe
+            (pure $ Just "Cannot init a store, unable to validate client certificates")
+            (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
+            mstore
+
+    fromX509FailedReasons reasons =
+        case reasons of
+            [] -> Nothing
+            _  -> Just (show reasons)
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | This module provides implementations of "MonadCede" based on
 -- either pure DB or DB+hashmap access.
 

@@ -1,4 +1,3 @@
-
 -- | Module for small utility functions.
 module Cardano.Wallet.Util
        ( -- * String manipulation

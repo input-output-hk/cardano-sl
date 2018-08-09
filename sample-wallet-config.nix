@@ -9,6 +9,9 @@
   ## Wallet API server.
   #walletListen = "127.0.0.1:8090";
 
+  ## Wallet Doc API server.
+  #walletDocListen = "127.0.0.1:8091";
+
   ## Runtime metrics server.
   #ekgListen = "127.0.0.1:8000";
 

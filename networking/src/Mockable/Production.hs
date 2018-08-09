@@ -14,14 +14,12 @@ import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
 import           Control.Exception.Safe (MonadCatch, MonadMask (..), MonadThrow)
 import qualified Control.Exception.Safe as Exception
-import           Control.Monad (forever)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.IO.Unlift (MonadUnliftIO (..))
 import qualified Crypto.Random as Rand
-import           Data.Time.Units (Hour)
+import           Data.Time.Units (toMicroseconds)
 import qualified GHC.IO as GHC
-import           Serokell.Util.Concurrent as Serokell
 import qualified System.Metrics.Counter as EKG.Counter
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge as EKG.Gauge
@@ -62,8 +60,10 @@ instance Mockable Fork Production where
 instance Mockable Delay Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Delay Production t -> Production t #-}
-    liftMockable (Delay time) = Production $ Serokell.threadDelay time
-    liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
+    liftMockable (Delay time) = Production $
+        -- toMicroseconds :: TimeUnit t => t -> Integer
+        -- then we cast to an Int. Hopefully it fits!
+        Conc.threadDelay (fromIntegral (toMicroseconds time))
 
 instance Mockable MyThreadId Production where
     {-# INLINABLE liftMockable #-}

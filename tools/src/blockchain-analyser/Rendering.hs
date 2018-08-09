@@ -12,7 +12,7 @@ import           Formatting hiding (bytes)
 import           Options (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Undo)
-import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, LocalSlotIndex (..),
+import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
                            SlotId (..), Tx, getEpochIndex, getEpochOrSlot)
 import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash, getBlockHeader, mbTxs,
                                  _gbBody, _gbhConsensus, _mcdLeaderKey)
@@ -84,8 +84,7 @@ renderAsciiTable uom stats =
     vdecor = DecorAll
     aligns = [AlignLeft, AlignLeft]
 
-renderBlock :: HasConfiguration
-            => CLIOptions
+renderBlock :: CLIOptions
             -> (Block, Maybe Undo)
             -> Text
 renderBlock cli block = case printMode cli of
@@ -94,10 +93,10 @@ renderBlock cli block = case printMode cli of
                   in renderAsTable DecorNone DecorNone (defaultAlignment rows) rows
     CSV        -> renderBlockCSV (uom cli) block
 
-renderBlockHuman :: HasConfiguration => Block -> Text
+renderBlockHuman :: Block -> Text
 renderBlockHuman = either pretty pretty
 
-renderBlockCSV :: HasConfiguration => UOM -> (Block, Maybe Undo) -> Text
+renderBlockCSV :: UOM -> (Block, Maybe Undo) -> Text
 renderBlockCSV uom = T.intercalate "," . (toTableRow uom)
 
 defaultHorizontalDecoration :: Decoration
@@ -136,8 +135,7 @@ header uom = [
          , "Block + Undo (" <> renderUnit uom <> ")"
          ]
 
-renderBlocks :: HasConfiguration
-             => CLIOptions
+renderBlocks :: CLIOptions
              -> [(Block, Maybe Undo)]
              -> Text
 renderBlocks cli blocks = case printMode cli of
@@ -163,19 +161,19 @@ getTxs :: Block -> [Tx]
 getTxs (Left _)          = []
 getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
 
-getHeaderSize :: HasConfiguration => BlockHeader -> Integer
+getHeaderSize :: BlockHeader -> Integer
 getHeaderSize (BlockHeaderGenesis h) = toBytes (biSize h)
 getHeaderSize (BlockHeaderMain h)    = toBytes (biSize h)
 
-getBlockSize :: HasConfiguration => Block -> Integer
+getBlockSize :: Block -> Integer
 getBlockSize = either (toBytes . biSize) (toBytes . biSize)
 
-getUndoSize :: HasConfiguration => Maybe Undo -> Integer
+getUndoSize :: Maybe Undo -> Integer
 getUndoSize = maybe 0 (toBytes . biSize)
 
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
-toTableRow :: HasConfiguration => UOM -> (Block, Maybe Undo) -> [Text]
+toTableRow :: UOM -> (Block, Maybe Undo) -> [Text]
 toTableRow uom (block, mbUndo) =
     let blockHeader   = getBlockHeader block
         previousBlock = pretty (prevBlock block)

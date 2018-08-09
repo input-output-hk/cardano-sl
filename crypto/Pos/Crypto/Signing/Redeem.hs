@@ -15,7 +15,7 @@ import           Data.Coerce (coerce)
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing.Tag (SignTag, signTag)
 import           Pos.Crypto.Signing.Types.Redeem
 
@@ -46,43 +46,44 @@ redeemDeterministicKeyGen seed =
 
 -- | Encode something with 'Binary' and sign it.
 redeemSign ::
-       (HasCryptoConfiguration, Bi a)
-    => SignTag
+       (Bi a)
+    => ProtocolMagic
+    -> SignTag
     -> RedeemSecretKey
     -> a
     -> RedeemSignature a
-redeemSign tag k = coerce . redeemSignRaw (Just tag) k . Bi.serialize'
+redeemSign pm tag k = coerce . redeemSignRaw pm (Just tag) k . Bi.serialize'
 
 -- | Alias for constructor.
-redeemSignRaw ::
-       HasCryptoConfiguration
-    => Maybe SignTag
+redeemSignRaw
+    :: ProtocolMagic
+    -> Maybe SignTag
     -> RedeemSecretKey
     -> ByteString
     -> RedeemSignature Raw
-redeemSignRaw mbTag (RedeemSecretKey k) x =
+redeemSignRaw pm mbTag (RedeemSecretKey k) x =
     RedeemSignature (Ed25519.dsign k (tag <> x))
   where
-    tag = maybe mempty signTag mbTag
+    tag = maybe mempty (signTag pm) mbTag
 
 -- CHECK: @redeemCheckSig
 -- | Verify a signature.
 redeemCheckSig
-    :: (HasCryptoConfiguration, Bi a)
-    => SignTag -> RedeemPublicKey -> a -> RedeemSignature a -> Bool
-redeemCheckSig tag k x s =
-    redeemVerifyRaw (Just tag) k (Bi.serialize' x) (coerce s)
+    :: (Bi a)
+    => ProtocolMagic -> SignTag -> RedeemPublicKey -> a -> RedeemSignature a -> Bool
+redeemCheckSig pm tag k x s =
+    redeemVerifyRaw pm (Just tag) k (Bi.serialize' x) (coerce s)
 
 -- CHECK: @redeemVerifyRaw
 -- | Verify raw 'ByteString'.
-redeemVerifyRaw ::
-       HasCryptoConfiguration
-    => Maybe SignTag
+redeemVerifyRaw
+    :: ProtocolMagic
+    -> Maybe SignTag
     -> RedeemPublicKey
     -> ByteString
     -> RedeemSignature Raw
     -> Bool
-redeemVerifyRaw mbTag (RedeemPublicKey k) x (RedeemSignature s) =
+redeemVerifyRaw pm mbTag (RedeemPublicKey k) x (RedeemSignature s) =
     Ed25519.dverify k (tag <> x) s
   where
-    tag = maybe mempty signTag mbTag
+    tag = maybe mempty (signTag pm) mbTag

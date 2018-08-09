@@ -94,6 +94,10 @@ Enter `nix-shell`:
 
     $ nix-shell
 
+If this is the first time you are initializing the nix-shell, install `ghc` first by running:
+
+    [nix-shell:~/cardano-sl]$ stack setup
+
 After that, in order to build Cardano SL with wallet capabilities, run the following script:
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh

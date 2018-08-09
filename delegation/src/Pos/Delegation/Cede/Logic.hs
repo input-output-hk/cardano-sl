@@ -24,7 +24,7 @@ import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy, Stakeho
                            gbhConsensus)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
                                  mcdSignature)
-import           Pos.Crypto (HasCryptoConfiguration, ProxySecretKey (..), PublicKey, psigPsk,
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey, psigPsk,
                              validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
@@ -151,16 +151,17 @@ newtype CheckForCycle = CheckForCycle Bool
 
 -- | Verify consistent heavy PSK.
 dlgVerifyPskHeavy ::
-       (HasCryptoConfiguration, MonadCedeRead m)
-    => RichmenSet
+       (MonadCedeRead m)
+    => ProtocolMagic
+    -> RichmenSet
     -> CheckForCycle
     -> EpochIndex
     -> ProxySKHeavy
     -> ExceptT Text m ()
-dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) curEpoch psk = do
+dlgVerifyPskHeavy pm richmen (CheckForCycle checkCycle) curEpoch psk = do
 
     -- First: internal validation of the proxy secret key.
-    validateProxySecretKey psk
+    validateProxySecretKey pm psk
 
     let iPk = pskIssuerPk psk
     let dPk = pskDelegatePk psk

@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             1.2.1
+version:             1.3.0
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -13,6 +13,7 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
+  hs-source-dirs:      src
   exposed-modules:
     Pos.Txp
 
@@ -60,24 +61,22 @@ library
 
     Pos.Aeson.Txp
 
-    Pos.Arbitrary.Txp
-    Pos.Arbitrary.Txp.Unsafe
-    Pos.Arbitrary.Txp.Network
-
     Pos.Binary.Txp
     Pos.Binary.Txp.Network
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , conduit
                      , containers
                      , data-default
@@ -139,8 +138,61 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.hs
+  other-modules:       Test.Pos.Txp.Arbitrary
+                       Test.Pos.Txp.CoreSpec
+                       Test.Pos.Txp.Toil.UtxoSpec
+  build-depends:       base
+                     , cardano-sl-binary
+                     , cardano-sl-core
+                     , cardano-sl-core-test
+                     , cardano-sl-crypto
+                     , cardano-sl-crypto-test
+                     , cardano-sl-txp
+                     , cardano-sl-util
+                     , cardano-sl-util-test
+                     , containers
+                     , data-default
+                     , fmt
+                     , generic-arbitrary
+                     , hspec
+                     , lens
+                     , mtl
+                     , QuickCheck
+                     , serokell-util
+                     , text-format
+                     , universum
+                     , unordered-containers
+                     , vector
+  default-language:    Haskell2010
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+                       MonadFailDesugaring

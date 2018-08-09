@@ -31,7 +31,6 @@ module Pos.DB.Block
        , dbPutSerBlundsSumDefault
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (handle)
@@ -39,23 +38,23 @@ import           Control.Lens (at)
 import qualified Data.ByteString as BS (hPut, readFile)
 import           Data.Default (Default (def))
 import           Formatting (formatToString)
-import           System.Directory (createDirectoryIfMissing, removeFile)
+import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import           System.FilePath ((</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Block.Types ()
-import           Pos.Binary.Class (Bi, decodeFull', serialize')
+import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (Blund, SerializedBlund, SlogUndo (..), Undo (..))
-import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
+import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Core (HeaderHash, headerHash)
 import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
-                               SerializedUndo, getBlock, getDeserialized)
+                               SerializedUndo, SerializedBlund, getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTipSomething)
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
@@ -73,14 +72,23 @@ getUndo = getDeserialized dbGetSerUndo
 
 -- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
 -- read 'Blund'.
+--
+-- TODO Rewrite to use a single call
 getBlund :: MonadDBRead m => HeaderHash -> m (Maybe (Block, Undo))
 getBlund x =
     runMaybeT $
     (,) <$> MaybeT (getBlock x)
         <*> MaybeT (getUndo x)
 
+-- | Store blunds into a single file.
+--
+--   Notice that this uses an unusual encoding, in order to be able to fetch
+--   either the block or the undo independently without re-encoding.
 putBlunds :: MonadDB m => NonEmpty Blund -> m ()
-putBlunds = dbPutSerBlunds . map (fmap (Serialized . serialize'))
+putBlunds = dbPutSerBlunds
+          . map (\bu@(b,_) -> ( CB.getBlockHeader b
+                              , Serialized . serialize' $ bimap serialize' serialize' bu)
+                )
 
 -- | Get 'Block' corresponding to tip.
 getTipBlock :: MonadDBRead m => m Block
@@ -92,40 +100,81 @@ getTipBlock = getTipSomething "block" getBlock
 
 -- Get serialization of a block with given hash from Block DB.
 getSerializedBlock
-    :: forall ctx m. (HasConfiguration, MonadRealDB ctx m)
+    :: forall ctx m. (MonadRealDB ctx m)
     => HeaderHash -> m (Maybe ByteString)
-getSerializedBlock = blockDataPath >=> getRawData
+getSerializedBlock hh = do
+    bsp <- flip getAllPaths hh . view blockDataDir <$> getNodeDBs
+    blundExists <- liftIO $ doesFileExist (bspBlund bsp)
+    if blundExists
+    then do
+      mbs <- getRawData $ bspBlund bsp
+      case mbs of
+        Nothing -> pure Nothing
+        Just ser -> eitherToThrow $ bimap DBMalformed (Just . fst)
+                    $ decodeFull' @(ByteString, ByteString) ser
+    else fmap fst <$> consolidateBlund hh
 
 -- Get serialization of an undo data for block with given hash from Block DB.
-getSerializedUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
-getSerializedUndo = undoDataPath >=> getRawData
+getSerializedUndo :: MonadRealDB ctx m => HeaderHash -> m (Maybe ByteString)
+getSerializedUndo  hh = do
+    bsp <- flip getAllPaths hh . view blockDataDir <$> getNodeDBs
+    blundExists <- liftIO $ doesFileExist (bspBlund bsp)
+    if blundExists
+    then do
+      mbs <- getRawData $ bspBlund bsp
+      case mbs of
+        Nothing -> pure Nothing
+        Just ser -> eitherToThrow $ bimap DBMalformed (Just . snd)
+                    $ decodeFull' @(ByteString, ByteString) ser
+    else fmap snd <$> consolidateBlund hh
 
--- For every blund, put given block, its metadata and Undo data into
--- Block DB. This function uses 'MonadRealDB' constraint which is too
--- severe. Consider using 'dbPutBlund' instead.
+-- | Read independent block and undo data and consolidate them into a single
+-- blund file.
+consolidateBlund
+    :: MonadRealDB ctx m
+    => HeaderHash
+    -> m (Maybe (ByteString, ByteString))
+consolidateBlund hh = do
+    bsp <- flip getAllPaths hh . view blockDataDir <$> getNodeDBs
+    block <- getRawData $ bspBlock bsp
+    undo <- getRawData $ bspUndo bsp
+    case (,) <$> block <*> undo of
+        Just blund -> do
+            putRawData (bspBlund bsp) $ serialize' blund
+            liftIO . removeFile $ bspBlock bsp
+            liftIO . removeFile $ bspUndo bsp
+            return $ Just blund
+        Nothing -> return Nothing
+
+
+-- For every blund, put given block, its metadata and Undo data into Block DB.
+--
+-- TODO What does this comment mean? If the constraint isn't needed, why is it
+-- here? The referenced 'dbPutBlund' function doesn't even exist.
+--
+-- This function uses 'MonadRealDB' constraint which is too severe.
+-- Consider using 'dbPutBlund' instead.
 putSerializedBlunds
-    :: (HasConfiguration, MonadRealDB ctx m, MonadDB m)
-    => NonEmpty SerializedBlund -> m ()
+    :: (MonadRealDB ctx m, MonadDB m)
+    => NonEmpty (CB.BlockHeader, SerializedBlund) -> m ()
 putSerializedBlunds (toList -> bs) = do
     bdd <- view blockDataDir <$> getNodeDBs
-    let allData = map (\(b,u) -> let (dP, bP, uP) = getAllPaths bdd (headerHash b)
-                                 in (dP,(b,u,bP,uP))
+    let allData = map (\(bh,bu) -> let bsp = getAllPaths bdd (headerHash bh)
+                                    in (bspRoot bsp,(bu, bspBlund bsp))
                       )
                       bs
     forM_ (ordNub $ map fst allData) $ \dPath ->
         liftIO $ createDirectoryIfMissing False dPath
-    forM_ (map snd allData) $ \(blk,serUndo,bPath,uPath) -> do
-        putData bPath blk
-        putRawData uPath (unSerialized serUndo)
-    putHeadersIndex $ toList $ map (CB.getBlockHeader . fst) bs
+    forM_ (map snd allData) $ \(blund,buPath) -> do
+        putRawData buPath $ unSerialized blund
+    putHeadersIndex $ toList $ map fst bs
 
 deleteBlock :: (MonadRealDB ctx m, MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do
     deleteHeaderIndex hh
     bdd <- view blockDataDir <$> getNodeDBs
-    let (_, bPath, uPath) = getAllPaths bdd hh
-    deleteData bPath
-    deleteData uPath
+    let bsp = getAllPaths bdd hh
+    mapM_ deleteData [bspBlock bsp, bspUndo bsp, bspBlund bsp]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -135,7 +184,9 @@ prepareBlockDB
     :: MonadDB m
     => GenesisBlock -> m ()
 prepareBlockDB blk =
-    dbPutSerBlunds $ one (Left blk, Serialized $ serialize' genesisUndo)
+    dbPutSerBlunds
+    $ one ( CB.getBlockHeader $ Left blk
+          , Serialized . serialize' $ bimap (serialize' @Block) serialize' (Left blk, genesisUndo))
   where
     genesisUndo =
         Undo
@@ -149,49 +200,40 @@ prepareBlockDB blk =
 -- Pure implementation
 ----------------------------------------------------------------------------
 
-decodeOrFailPureDB
-    :: HasConfiguration
-    => ByteString
-    -> Either Text (Block, Undo)
-decodeOrFailPureDB = decodeFull'
-
-dbGetBlundPureDefault ::
-       (HasConfiguration, MonadPureDB ctx m)
-    => HeaderHash
-    -> m (Maybe (Block, Undo))
-dbGetBlundPureDefault h = do
-    (blund :: Maybe ByteString) <-
-        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
-    case decodeOrFailPureDB <$> blund of
-        Nothing        -> pure Nothing
-        Just (Left e)  -> throwM (DBMalformed e)
-        Just (Right v) -> pure (Just v)
-
 dbGetSerBlockPureDefault
-    :: (HasConfiguration, MonadPureDB ctx m)
+    :: (MonadPureDB ctx m)
     => HeaderHash
     -> m (Maybe SerializedBlock)
-dbGetSerBlockPureDefault h = (Serialized . serialize' . fst) <<$>> dbGetBlundPureDefault h
+dbGetSerBlockPureDefault h = do
+    (serblund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
+    case decodeFull' @(ByteString, ByteString) <$> serblund of
+        Nothing        -> pure Nothing
+        Just (Left e)  -> throwM (DBMalformed e)
+        Just (Right v) -> pure . Just . Serialized $ fst v
 
 dbGetSerUndoPureDefault
-    :: forall ctx m. (HasConfiguration, MonadPureDB ctx m)
+    :: forall ctx m. (MonadPureDB ctx m)
     => HeaderHash
     -> m (Maybe SerializedUndo)
-dbGetSerUndoPureDefault h = (Serialized . serialize' . snd) <<$>> dbGetBlundPureDefault h
+dbGetSerUndoPureDefault h =  do
+    (serblund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
+    case decodeFull' @(ByteString, ByteString) <$> serblund of
+        Nothing        -> pure Nothing
+        Just (Left e)  -> throwM (DBMalformed e)
+        Just (Right v) -> pure . Just . Serialized $ snd v
 
 dbPutSerBlundsPureDefault ::
-       forall ctx m. (HasConfiguration, MonadPureDB ctx m, MonadDB m)
-    => NonEmpty SerializedBlund
+       forall ctx m. (MonadPureDB ctx m, MonadDB m)
+    => NonEmpty (CB.BlockHeader, SerializedBlund)
     -> m ()
 dbPutSerBlundsPureDefault (toList -> blunds) = do
-    forM_ blunds $ \(blk, serUndo) -> do
-        undo <- eitherToThrow $ first DBMalformed $ decodeFull' $ unSerialized serUndo
-        let blund :: Blund -- explicit signature is required
-            blund = (blk,undo)
+    forM_ blunds $ \(bh, serBlund) -> do
         (var :: DBPureVar) <- view (lensOf @DBPureVar)
         flip atomicModifyIORefPure var $
-            (pureBlocksStorage . at (headerHash blk) .~ Just (serialize' blund))
-    putHeadersIndex $ map (CB.getBlockHeader . fst) blunds
+            (pureBlocksStorage . at (headerHash bh) .~ Just (unSerialized serBlund))
+    putHeadersIndex $ map fst blunds
 
 ----------------------------------------------------------------------------
 -- Rocks implementation
@@ -202,7 +244,6 @@ dbPutSerBlundsPureDefault (toList -> blunds) = do
 type BlockDBGenericEnv ctx m =
     ( MonadDBRead m
     , MonadRealDB ctx m
-    , HasConfiguration
     )
 
 dbGetSerBlockRealDefault ::
@@ -218,8 +259,8 @@ dbGetSerUndoRealDefault ::
 dbGetSerUndoRealDefault x = Serialized <<$>> getSerializedUndo x
 
 dbPutSerBlundsRealDefault ::
-       (HasConfiguration, MonadDB m, MonadRealDB ctx m)
-    => NonEmpty SerializedBlund
+       (MonadDB m, MonadRealDB ctx m)
+    => NonEmpty (CB.BlockHeader, SerializedBlund)
     -> m ()
 dbPutSerBlundsRealDefault = putSerializedBlunds
 
@@ -230,7 +271,6 @@ dbPutSerBlundsRealDefault = putSerializedBlunds
 type DBSumEnv ctx m =
     ( MonadDB m
     , MonadDBSum ctx m
-    , HasConfiguration
     )
 
 dbGetSerBlockSumDefault
@@ -246,7 +286,7 @@ dbGetSerUndoSumDefault hh =
 
 dbPutSerBlundsSumDefault
     :: forall ctx m. (DBSumEnv ctx m)
-    => NonEmpty SerializedBlund -> m ()
+    => NonEmpty (CB.BlockHeader, SerializedBlund) -> m ()
 dbPutSerBlundsSumDefault b =
     eitherDB (dbPutSerBlundsRealDefault b) (dbPutSerBlundsPureDefault b)
 
@@ -262,9 +302,6 @@ getRawData  = handle handler . fmap Just . liftIO . BS.readFile
         | isDoesNotExistError e = pure Nothing
         | otherwise = throwM e
 
-putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = putRawData fp . serialize'
-
 putRawData ::  MonadIO m => FilePath -> ByteString -> m ()
 putRawData fp v = liftIO $
     bracket (openBinaryFile fp WriteMode) hClose $ \h ->
@@ -277,21 +314,24 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handler
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
-blockDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-blockDataPath hh = do
-    bdd <- view blockDataDir <$> getNodeDBs
-    pure $ (view _2) $ getAllPaths bdd hh
-
-undoDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-undoDataPath hh = do
-    bdd <- view blockDataDir <$> getNodeDBs
-    pure $ (view _3) $ getAllPaths bdd hh
+-- | Paths at which we store the block data.
+data BlockStoragePaths = BlockStoragePaths
+  { bspRoot :: FilePath
+    -- | Block data itself.
+  , bspBlock :: FilePath
+    -- | Undo information for a block.
+  , bspUndo :: FilePath
+    -- | Combined storage format. Either this or a combination of 'Block' and
+    -- 'Undo' files will be present.
+  , bspBlund :: FilePath
+  }
 
 -- | Pass blockDataDir path
-getAllPaths :: FilePath -> HeaderHash -> (FilePath, FilePath, FilePath)
-getAllPaths bdd hh = (dir,bl,un)
+getAllPaths :: FilePath -> HeaderHash -> BlockStoragePaths
+getAllPaths bdd hh = BlockStoragePaths dir bl un blund
   where
     (fn0, fn1) = splitAt 2 $ formatToString hashHexF hh
     dir = bdd </> fn0
     bl = dir </> (fn1 <> ".block")
     un = dir </> (fn1 <> ".undo")
+    blund = dir </> (fn1 <> ".blund")

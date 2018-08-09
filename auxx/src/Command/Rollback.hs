@@ -18,27 +18,26 @@ import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
+import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Core.Txp (TxAux)
+import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.StateLock (Priority (..), withStateLock)
+import           Pos.Infra.StateLock (Priority (..), withStateLock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp (flattenTxPayload)
-import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
-import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Mode (MonadAuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
 rollbackAndDump
-    :: ( MonadAuxxMode m
-       , HasCompileInfo
-       )
-    => Word
+    :: MonadAuxxMode m
+    => ProtocolMagic
+    -> Word
     -> FilePath
     -> m ()
-rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
+rollbackAndDump pm numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
@@ -55,14 +54,14 @@ rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -
             liftIO $ BSL.writeFile outFile (encode allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
-            rollbackBlocksUnsafe (BypassSecurityCheck True) (ShouldCallBListener True) blunds
+            rollbackBlocksUnsafe pm (BypassSecurityCheck True) (ShouldCallBListener True) blunds
             logInfo $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where
     -- It's illegal to rollback 0-th genesis block.  We also may load
     -- more blunds than necessary, because genesis blocks don't
     -- contribute to depth counter.
-    modifyBlunds :: HasSscConfiguration => NewestFirst [] Blund -> NewestFirst [] Blund
+    modifyBlunds :: NewestFirst [] Blund -> NewestFirst [] Blund
     modifyBlunds =
         over _NewestFirst (genericTake numToRollback . skip0thGenesis)
     skip0thGenesis = filter (not . is0thGenesis)

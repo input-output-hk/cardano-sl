@@ -20,7 +20,7 @@ module Pos.Update.Logic.Local
        , clearUSMemPool
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
 import           Control.Lens (views)
@@ -33,15 +33,15 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration, HeaderHash,
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash, ProtocolMagic,
                            SlotId (..), slotIdF)
 import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as DB
+import           Pos.Infra.Reporting (MonadReporting)
+import           Pos.Infra.StateLock (StateLock)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Reporting (MonadReporting)
-import           Pos.StateLock (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext (..))
 import qualified Pos.Update.DB as DB
@@ -63,7 +63,6 @@ type USLocalLogicMode ctx m =
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLrcContext ctx
-    , HasConfiguration
     , HasUpdateConfiguration
     )
 
@@ -120,11 +119,12 @@ modifyMemState action = do
 
 processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
-       , MonadReporting ctx m
+       , MonadReporting m
        )
-    => UpdatePayload
+    => ProtocolMagic
+    -> UpdatePayload
     -> m (Either PollVerFailure ())
-processSkeleton payload =
+processSkeleton pm payload =
     reportUnexpectedError $
     withUSLock $
     runExceptT $
@@ -151,7 +151,7 @@ processSkeleton payload =
         modifierOrFailure <-
             lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
                 lastAdopted <- getAdoptedBV
-                verifyAndApplyUSPayload lastAdopted True (Left msSlot) payload
+                verifyAndApplyUSPayload pm lastAdopted True (Left msSlot) payload
         case modifierOrFailure of
             Left failure -> throwError failure
             Right modifier -> do
@@ -163,12 +163,9 @@ processSkeleton payload =
 refreshMemPool
     :: ( MonadDBRead m
        , MonadUnliftIO m
-       , MonadIO m
        , MonadReader ctx m
-       , HasLens UpdateContext ctx UpdateContext
        , HasLrcContext ctx
        , WithLogger m
-       , HasConfiguration
        , HasUpdateConfiguration
        )
     => MemState -> m MemState
@@ -215,10 +212,10 @@ getLocalProposalNVotes id = do
 -- sender could be sure that error would happen.
 processProposal
     :: ( USLocalLogicModeWithLock ctx m
-       , MonadReporting ctx m
+       , MonadReporting m
        )
-    => UpdateProposal -> m (Either PollVerFailure ())
-processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
+    => ProtocolMagic -> UpdateProposal -> m (Either PollVerFailure ())
+processProposal pm proposal = processSkeleton pm $ UpdatePayload (Just proposal) []
 
 ----------------------------------------------------------------------------
 -- Votes
@@ -266,10 +263,10 @@ getLocalVote propId pk decision = do
 -- sender could be sure that error would happen.
 processVote
     :: ( USLocalLogicModeWithLock ctx m
-       , MonadReporting ctx m
+       , MonadReporting m
        )
-    => UpdateVote -> m (Either PollVerFailure ())
-processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
+    => ProtocolMagic -> UpdateVote -> m (Either PollVerFailure ())
+processVote pm vote = processSkeleton pm $ UpdatePayload Nothing [vote]
 
 ----------------------------------------------------------------------------
 -- Normalization and related
@@ -279,7 +276,7 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'stateLock' is taken.
-usNormalize :: (USLocalLogicMode ctx m) => m ()
+usNormalize :: USLocalLogicMode ctx m => m ()
 usNormalize = do
     tip <- DB.getTip
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
@@ -290,7 +287,7 @@ usNormalize = do
 -- from mempool and apply it to empty mempool, so it depends only on
 -- GState.
 usNormalizeDo
-    :: (USLocalLogicMode ctx m)
+    :: USLocalLogicMode ctx m
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
@@ -316,10 +313,10 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicModeWithLock ctx m) => SlotId -> m ()
+processNewSlot :: USLocalLogicModeWithLock ctx m => SlotId -> m ()
 processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
 
-processNewSlotNoLock :: (USLocalLogicMode ctx m) => SlotId -> m ()
+processNewSlotNoLock :: USLocalLogicMode ctx m => SlotId -> m ()
 processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -338,7 +335,7 @@ processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
 -- payload, because it's important to create blocks for system
 -- maintenance (empty blocks are better than no blocks).
 usPreparePayload ::
-       (USLocalLogicMode ctx m)
+       USLocalLogicMode ctx m
     => HeaderHash
     -> SlotId
     -> m UpdatePayload

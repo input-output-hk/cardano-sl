@@ -19,8 +19,8 @@ import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Core (ChainDifficulty)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Update (ConfirmedProposalState (..))
-import           Pos.Util.TimeWarp (CanJsonLog)
 import           Pos.WorkMode (EmptyMempoolExt)
 
 class Monad m => MonadBlockchainInfo m where

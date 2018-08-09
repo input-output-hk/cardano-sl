@@ -32,18 +32,19 @@ import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryH
                                   RecoveryHeaderTag)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
-import           Pos.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.Network.Types (NetworkConfig (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
+                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (..),
+                                     ShutdownContext (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), SimpleSlottingStateVar)
+import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext)
-import           Pos.Network.Types (NetworkConfig (..))
-import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
-                                         HasReportingContext (..), MisbehaviorMetrics (..),
-                                         ReportingContext (..), rcMisbehaviorMetrics)
-import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), SimpleSlottingStateVar)
-import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc.Types (HasSscContext (..), SscContext)
-import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings (TxpGlobalSettings)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.Lens (postfixLFields)
@@ -78,7 +79,7 @@ data NodeContext = NodeContext
     , ncStateLock           :: !StateLock
     -- ^ A lock which manages access to shared resources.
     -- Stored hash is a hash of last applied block.
-    , ncStateLockMetrics    :: !StateLockMetrics
+    , ncStateLockMetrics    :: !(StateLockMetrics MemPoolModifyReason)
     -- ^ A set of callbacks for 'StateLock'.
     , ncUserSecret          :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
@@ -138,7 +139,7 @@ instance HasLens SimpleSlottingStateVar NodeContext SimpleSlottingStateVar where
 instance HasLens StateLock NodeContext StateLock where
     lensOf = ncStateLock_L
 
-instance HasLens StateLockMetrics NodeContext StateLockMetrics where
+instance HasLens (StateLockMetrics MemPoolModifyReason) NodeContext (StateLockMetrics MemPoolModifyReason) where
     lensOf = ncStateLockMetrics_L
 
 instance HasLens LastKnownHeaderTag NodeContext LastKnownHeader where
@@ -177,27 +178,14 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = ncNodeParams_L . lensOf @tag
 
-instance HasReportServers NodeContext where
-    reportServers = ncNodeParams_L . reportServers
-
-instance HasLoggerConfig NodeContext where
-    loggerConfig = ncLoggerConfig_L
-
 instance HasPrimaryKey NodeContext where
     primaryKey = ncNodeParams_L . primaryKey
 
-instance HasReportingContext NodeContext where
-    reportingContext = lens getter (flip setter)
+instance HasMisbehaviorMetrics NodeContext where
+    misbehaviorMetrics = lens getter (flip setter)
       where
-        getter nc =
-            ReportingContext
-                (nc ^. reportServers)
-                (nc ^. loggerConfig)
-                (nc ^. ncMisbehaviorMetrics_L)
-        setter rc =
-            set reportServers (rc ^. reportServers) .
-            set loggerConfig  (rc ^. loggerConfig) .
-            set ncMisbehaviorMetrics_L (rc ^. rcMisbehaviorMetrics)
+        getter nc = nc ^. ncMisbehaviorMetrics_L
+        setter mm = set ncMisbehaviorMetrics_L mm
 
 instance HasLens (NetworkConfig KademliaParams) NodeContext (NetworkConfig KademliaParams) where
     lensOf = ncNetworkConfig_L

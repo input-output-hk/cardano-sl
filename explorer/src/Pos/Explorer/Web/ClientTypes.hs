@@ -1,6 +1,7 @@
-{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
-
 {-# LANGUAGE AllowAmbiguousTypes #-}
+
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Types that arise in the API: mostly simplified representations
 -- of the core types which are easier to serialize.
@@ -65,7 +66,7 @@ import           Serokell.Util.Base16 as SB16
 import           Servant.API (FromHttpApiData (..))
 import           Test.QuickCheck (Arbitrary (..))
 
-import           Pos.Binary (Bi, biSize)
+import           Pos.Binary (biSize)
 import           Pos.Block.Types (Undo (..))
 import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotId (..), StakeholderId,
                            Timestamp, addressF, coinToInteger, decodeTextAddress, gbHeader,
@@ -77,7 +78,7 @@ import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.GState as GS
 import qualified Pos.Lrc as Lrc (getLeader)
-import           Pos.Merkle (getMerkleRoot, mtRoot, mkMerkleTree)
+import           Pos.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -105,15 +106,15 @@ import           Pos.Explorer.TestUtil (secretKeyToAddress)
 
 -- | Client hash
 newtype CHash = CHash Text
-  deriving (Show, Eq, Generic, Buildable, Hashable)
+  deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -------------------------------------------------------------------------------------
 -- Client-server, server-client transformation functions
@@ -121,8 +122,7 @@ newtype CTxId = CTxId CHash
 
 -- | Transformation of core hash-types to client representation.
 encodeHashHex
-    :: forall algo a. (Bi a)
-    => AbstractHash algo a
+    :: AbstractHash algo a
     -> Text
 encodeHashHex = SB16.encode . BA.convert
 
@@ -132,7 +132,7 @@ instance ToString ByteString where
 
 -- | Decoding the text to the original form.
 decodeHashHex
-    :: forall algo a. (HashAlgorithm algo, Bi (AbstractHash algo a))
+    :: forall algo a. (HashAlgorithm algo)
     => Text
     -> Either Text (AbstractHash algo a)
 decodeHashHex hashText = do
@@ -143,10 +143,10 @@ decodeHashHex hashText = do
 -- Client hashes functions
 -------------------------------------------------------------------------------------
 
-toCHash :: forall a. (Bi a) => Hash a -> CHash
+toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
 
-fromCHash :: forall a. (Bi (Hash a)) => CHash -> Either Text (Hash a)
+fromCHash :: CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
 
 toCAddress :: Address -> CAddress
@@ -168,6 +168,8 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 newtype CCoin = CCoin
     { getCoin :: Text
     } deriving (Show, Generic, Eq)
+
+instance NFData CCoin
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
@@ -194,6 +196,8 @@ data CBlockEntry = CBlockEntry
     , cbeBlockLead  :: !(Maybe Text) -- todo (ks): Maybe CAddress?
     , cbeFees       :: !CCoin
     } deriving (Show, Generic, Eq)
+
+instance NFData CBlockEntry
 
 toBlockEntry
     :: ExplorerMode ctx m
@@ -369,14 +373,6 @@ instance FromHttpApiData CAddressesFilter where
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where
 --     parseUrlPiece = readEither
-
---------------------------------------------------------------------------------
--- NFData instances
---------------------------------------------------------------------------------
-
-instance NFData CBlockEntry
-instance NFData CHash
-instance NFData CCoin
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions

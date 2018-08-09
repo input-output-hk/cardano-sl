@@ -9,36 +9,33 @@ module Cardano.Wallet.Kernel.Mode
     ) where
 
 import           Control.Lens (makeLensesWith)
-import qualified Control.Monad.Reader as Mtl
-import           System.Wlog
 import           Universum
 
 import           Mockable
 import           Pos.Block.BListener
 import           Pos.Block.Slog
 import           Pos.Block.Types
-import           Pos.Communication
 import           Pos.Context
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.KnownPeers
+import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Network.Types
+import           Pos.Infra.Reporting
+import           Pos.Infra.Shutdown
+import           Pos.Infra.Slotting
+import           Pos.Infra.Util.JsonLog.Events
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher
-import           Pos.Network.Types
-import           Pos.Reporting
-import           Pos.Shutdown
-import           Pos.Slotting
 import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
-import           Pos.Util.Chrono
-import           Pos.Util.JsonLog
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
@@ -72,9 +69,7 @@ walletApplyBlocks :: PassiveWalletLayer Production
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
-    -- TODO: Call into the wallet. This should be an asynchronous operation
-    -- because 'onApplyBlocks' gets called with the block lock held.
-    logError "walletApplyBlocks not implemented"
+    lift $ applyBlocks _w _bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
@@ -87,9 +82,7 @@ walletRollbackBlocks :: PassiveWalletLayer Production
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
 walletRollbackBlocks _w _bs = do
-    -- TODO: Call into the wallet. This should be an asynchronous operation
-    -- because 'onRollbackBlocks' gets called with the block lock held.
-    logError "walletRollbackBlocks not implemented"
+    lift $ rollbackBlocks _w _bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
@@ -103,30 +96,14 @@ instance MonadBListener WalletMode where
 -------------------------------------------------------------------------------}
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
-              => NodeResources ()
+              => ProtocolMagic
+              -> NodeResources ()
               -> PassiveWalletLayer Production
-              -> (ActionSpec WalletMode a, OutSpecs)
+              -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
-runWalletMode nr wallet (action, outSpecs) =
-    elimRealMode nr serverRealMode
-  where
-    NodeContext{..} = nrContext nr
-
-    ekgNodeMetrics =
-        EkgNodeMetrics
-          (nrEkgStore nr)
-          (runProduction . elimRealMode nr . walletModeToRealMode wallet)
-
-    serverWalletMode :: WalletMode a
-    serverWalletMode = runServer
-        (runProduction . elimRealMode nr . walletModeToRealMode wallet)
-        ncNodeParams
-        ekgNodeMetrics
-        outSpecs
-        action
-
-    serverRealMode :: RealMode EmptyMempoolExt a
-    serverRealMode = walletModeToRealMode wallet serverWalletMode
+runWalletMode pm nr wallet action =
+    Production $ runRealMode pm nr $ \diffusion ->
+        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
@@ -136,6 +113,10 @@ walletModeToRealMode wallet ma = do
                 , wcRealModeContext = rmc
                 }
     lift $ runReaderT ma env
+
+realModeToWalletMode :: RealMode () a -> WalletMode a
+realModeToWalletMode rm = ask >>= \ctx ->
+  lift (runReaderT rm (wcRealModeContext ctx))
 
 {-------------------------------------------------------------------------------
   'WalletContext' instances
@@ -153,8 +134,12 @@ instance HasSlottingVar WalletContext where
 instance HasPrimaryKey WalletContext where
   primaryKey        = wcRealModeContext_L . primaryKey
 
-instance HasReportingContext WalletContext where
-  reportingContext  = wcRealModeContext_L . reportingContext
+instance MonadReporting WalletMode where
+  report ct = ask >>= \ctx ->
+    liftIO (runReporter (rmcReporter (wcRealModeContext ctx)) ct)
+
+instance HasMisbehaviorMetrics WalletContext where
+  misbehaviorMetrics = wcRealModeContext_L . misbehaviorMetrics
 
 instance HasSlogGState WalletContext where
   slogGState        = wcRealModeContext_L . slogGState
@@ -208,16 +193,10 @@ instance ( HasConfiguration
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => HasAdoptedBlockVersionData WalletMode where
-  adoptedBVData = gsAdoptedBVData
-
-instance MonadFormatPeers WalletMode where
-  formatKnownPeers f = Mtl.withReaderT wcRealModeContext $ formatKnownPeers f
-
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasTxpConfiguration)
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

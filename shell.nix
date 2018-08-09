@@ -1,7 +1,21 @@
-with import ((import ./lib.nix).fetchNixPkgs) { };
-
 let
-  hsPkgs = haskell.packages.ghc802;
+  localLib = import ./lib.nix;
+  jemallocOverlay = self: super: {
+    # jemalloc has a bug that caused cardano-sl-db to fail to link (via
+    # rocksdb, which can use jemalloc).
+    # https://github.com/jemalloc/jemalloc/issues/937
+    # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
+    # fix it.
+    jemalloc = self.callPackage ./nix/jemalloc/jemalloc510.nix {};
+  };
+in
+{ system ? builtins.currentSystem
+, config ? {}
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
+}:
+with pkgs;
+let
+  hsPkgs = haskell.packages.ghc822;
 in
   haskell.lib.buildStackProject {
      name = "cardano-sl";
@@ -10,6 +24,7 @@ in
        zlib openssh autoreconfHook openssl
        gmp rocksdb git bsdiff ncurses
        hsPkgs.happy hsPkgs.cpphs lzma
+       perl bash
      # cabal-install and stack pull in lots of dependencies on OSX so skip them
      # See https://github.com/NixOS/nixpkgs/issues/21200
      ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ])

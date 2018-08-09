@@ -9,7 +9,7 @@ import           Universum
 
 import           Pos.Core (HeaderHash, Timestamp)
 import           Pos.Core.Txp (TxId, TxUndo)
-import           Pos.Util.Chrono (NewestFirst)
+import           Pos.Core.Chrono (NewestFirst)
 
 type AddrHistory = NewestFirst [] TxId
 

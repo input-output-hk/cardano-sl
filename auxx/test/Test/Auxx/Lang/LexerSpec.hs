@@ -31,7 +31,7 @@ propHandlesValidInput = property $ liftA2 (==) (map snd . tokenize . detokenize)
 unitLexerSample1 :: Expectation
 unitLexerSample1 = map snd (tokenize input) `shouldBe` output
   where
-    input  = " ( \"Hello\"; [=propose-patak-update ./secret.key /home/a_b\\ b-c] \"\\\"\"  ) "
+    input  = " ( \"Hello\"; [=propose-patak-update ./secret.key /home/a_b\\ b-c] \"\"\"\"  ) "
     output =
         [ TokenParenthesis BracketSideOpening
         , TokenString "Hello"

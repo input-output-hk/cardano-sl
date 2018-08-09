@@ -22,7 +22,6 @@ import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
 import           Pos.Block.Types (MonadLastKnownHeader, MonadRecoveryHeader)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
                               TxpGlobalSettings)
@@ -31,23 +30,24 @@ import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Configuration (HasDlgConfiguration)
-import           Pos.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.Network.Types (HasNodeType, NetworkConfig)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MonadReporting)
+import           Pos.Infra.Shutdown (HasShutdownContext)
+import           Pos.Infra.Slotting.Class (MonadSlots)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Network.Types (HasNodeType, NetworkConfig)
-import           Pos.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Reporting (HasReportingContext, MonadReporting)
 import           Pos.Security.Params (SecurityParams)
-import           Pos.Shutdown (HasShutdownContext)
-import           Pos.Slotting.Class (MonadSlots)
 import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util (HasLens, HasLens')
-import           Pos.Util.TimeWarp (CanJsonLog)
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m
@@ -67,11 +67,11 @@ type WorkMode ctx m
       , MonadRecoveryHeader ctx m
       , MonadLastKnownHeader ctx m
       , MonadBListener m
-      , MonadReporting ctx m
+      , MonadReporting m
       , MonadReader ctx m
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
-      , HasLens' ctx StateLockMetrics
+      , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
       , HasLens' ctx UpdateContext
       , HasLens' ctx UpdateParams
       , HasLens' ctx SecurityParams
@@ -80,7 +80,7 @@ type WorkMode ctx m
       , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLrcContext ctx
       , HasSscContext ctx
-      , HasReportingContext ctx
+      , HasMisbehaviorMetrics ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx
@@ -88,7 +88,6 @@ type WorkMode ctx m
       , HasNodeType ctx
       , HasSscConfiguration
       , HasDlgConfiguration
-      , HasAdoptedBlockVersionData m
       )
 
 -- | More relaxed version of 'WorkMode'.

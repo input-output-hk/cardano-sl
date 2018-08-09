@@ -22,11 +22,15 @@ module Wallet.Rollback.Full (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
+import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
+import           Serokell.Util (listJson)
 
 import           UTxO.DSL
 import           Wallet.Abstract
-import qualified Wallet.Basic       as Basic
+import qualified Wallet.Basic as Basic
 import qualified Wallet.Incremental as Incr
 
 {-------------------------------------------------------------------------------
@@ -71,7 +75,7 @@ initState = State {
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a)
+mkWallet :: (Hash h a, Buildable st)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Incr.mkWallet ours (l . stateIncr) self st) {
       applyBlock = \b ->
@@ -83,11 +87,15 @@ mkWallet ours l self st = (Incr.mkWallet ours (l . stateIncr) self st) {
             filtered   = txIns b `Set.intersection` utxoDomain filterUtxo
         in self (st & l %~ applyBlock' (filtered, utxoPlus))
     , rollback = self (st & l %~ rollback')
+    , change = utxoRemoveInputs (txIns (pending this))
+             $ utxoRestrictToOurs ours
+             $ txOuts (pending this)
+    , expectedUtxo = st ^. l . stateCurrent . checkpointExpected
     }
   where
     this = self st
 
-walletEmpty :: (Hash h a, Ord a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) initState
 
 {-------------------------------------------------------------------------------
@@ -99,8 +107,8 @@ applyBlock' :: Hash h a
             -> State h a -> State h a
 applyBlock' (ins, outs) State{..} = State{
       _stateCurrent = Checkpoint {
-           _checkpointIncr     = Incr.applyBlock' (ins, outs) _checkpointIncr
-         , _checkpointExpected = utxoRemoveInputs ins _checkpointExpected
+           _checkpointIncr     = Incr.applyBlock' (ins, outs)       _checkpointIncr
+         , _checkpointExpected = utxoRemoveInputs (utxoDomain outs) _checkpointExpected
          }
     , _stateCheckpoints = _stateCurrent : _stateCheckpoints
     }
@@ -108,7 +116,7 @@ applyBlock' (ins, outs) State{..} = State{
     Checkpoint{..} = _stateCurrent
     Incr.State{..} = _checkpointIncr
 
-rollback' :: (Hash h a, Ord a) => State h a -> State h a
+rollback' :: Hash h a => State h a -> State h a
 rollback' State{ _stateCheckpoints = [] } = error "rollback': no checkpoints"
 rollback' State{ _stateCheckpoints = prev : checkpoints'
                , _stateCurrent     = curr
@@ -117,7 +125,7 @@ rollback' State{ _stateCheckpoints = prev : checkpoints'
           _checkpointIncr = Incr.State {
                _stateBasic = Basic.State {
                    _stateUtxo    = prev ^. checkpointUtxo
-                 , _statePending = (curr ^. checkpointPending) `Set.union`
+                 , _statePending = (curr ^. checkpointPending) `Map.union`
                                    (prev ^. checkpointPending)
                  }
              , _stateUtxoBalance = prev ^. checkpointUtxoBalance
@@ -131,3 +139,27 @@ rollback' State{ _stateCheckpoints = prev : checkpoints'
         }
     , _stateCheckpoints = checkpoints'
     }
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance (Hash h a, Buildable a) => Buildable (Checkpoint h a) where
+  build Checkpoint{..} = bprint
+    ( "Checkpoint"
+    % "{ incr:     " % build
+    % ", expected: " % build
+    % "}"
+    )
+    _checkpointIncr
+    _checkpointExpected
+
+instance (Hash h a, Buildable a) => Buildable (State h a) where
+  build State{..} = bprint
+    ( "State"
+    % "{ current:     " % build
+    % ", checkpoints: " % listJson
+    % "}"
+    )
+    _stateCurrent
+    _stateCheckpoints

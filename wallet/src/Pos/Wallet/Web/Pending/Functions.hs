@@ -16,10 +16,10 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (HasConfiguration, protocolConstants)
 import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
 import           Pos.Core.Txp (TxAux (..), TxId)
-import           Pos.Slotting.Class (MonadSlots (..))
+import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Txp (ToilVerFailure (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
@@ -44,7 +44,7 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: (HasConfiguration, MonadThrow m, MonadIO m, MonadSlots ctx m)
+    :: (HasConfiguration, MonadThrow m, MonadSlots ctx m)
     => WalletSnapshot
     -> CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
 mkPendingTx ws wid _ptxTxId _ptxTxAux th = do
@@ -55,7 +55,7 @@ mkPendingTx ws wid _ptxTxId _ptxTxAux th = do
         { _ptxCond = PtxCreating th
         , _ptxWallet = wid
         , _ptxPeerAck = False
-        , _ptxSubmitTiming = mkPtxSubmitTiming _ptxCreationSlot
+        , _ptxSubmitTiming = mkPtxSubmitTiming protocolConstants _ptxCreationSlot
         , ..
         }
   where
@@ -85,6 +85,7 @@ isReclaimableFailure (SaveTxToilFailure tvf) = case tvf of
     ToilUnknownAttributes{}  -> False
     ToilNonBootstrapDistr{}  -> False
     ToilRepeatedInput{}      -> False
+    ToilEmptyAfterFilter     -> False
 
 usingPtxCoords :: (CId Wal -> TxId -> a) -> PendingTx -> a
 usingPtxCoords f PendingTx{..} = f _ptxWallet _ptxTxId

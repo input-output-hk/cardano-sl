@@ -2,7 +2,7 @@
 
 # clear old data, don't remove the databases since they may contains some data
 # that will help speed up the syncing process
-rm -rf run/* node-* *key* *.dump
+rm -rf ./run/* ./node-* ./*key* ./*.dump
 
 stack exec -- cardano-explorer \
     --system-start 1501793381 \
@@ -15,4 +15,4 @@ stack exec -- cardano-explorer \
     --kademlia-peer 52.211.65.215:3000 \
     --listen 127.0.0.1:$((3000)) \
     --static-peers \
-    $@
+    "$@"

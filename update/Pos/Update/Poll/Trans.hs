@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | PollT monad transformer. Single-threaded.
 
 module Pos.Update.Poll.Trans
@@ -9,10 +11,9 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (uses, (%=), (.=))
-import           Control.Monad.State (MonadState (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Ether
@@ -114,12 +115,12 @@ instance (MonadPollRead m) =>
             getDeepProposals cd
     getBlockIssuerStake e = lift . getBlockIssuerStake e
     getSlottingData = ether $ do
-        new <- pmSlottingData <$> get
+        new <- gets pmSlottingData
         maybe getSlottingData pure new
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance MonadPollRead m =>
+instance (MonadPollRead m) =>
          MonadPoll (PollT m) where
     putBVState bv st = ether $ pmBVsL %= MM.insert bv st
     delBVState bv = ether $ pmBVsL %= MM.delete bv

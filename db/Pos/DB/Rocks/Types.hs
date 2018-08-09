@@ -36,7 +36,6 @@ import           Universum
 import           Control.Lens (makeLenses)
 import qualified Database.RocksDB as Rocks
 
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class (DBTag (..))
 import           Pos.Util.Concurrent.RWLock (RWLock)
 import           Pos.Util.Util (HasLens (..))
@@ -52,7 +51,6 @@ type MonadRealDB ctx m =
     , HasLens NodeDBs ctx NodeDBs
     , MonadIO m
     , MonadCatch m
-    , HasConfiguration
     )
 
 -- should we replace `rocks` prefix by other or remove it at all?

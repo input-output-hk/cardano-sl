@@ -6,6 +6,7 @@ module Util.Buildable.QuickCheck (
     -- * Wrappers
     forAll
     -- * Re-exports
+  , QC.Property
   , QC.Gen
   , QC.conjoin
   , QC.choose

@@ -68,19 +68,23 @@ let
 
   # p-d-l does not build with our main version of nixpkgs.
   # Needs to use something off 17.03 branch.
-  oldHaskellPackages = (import (fetchTarball https://github.com/NixOS/nixpkgs/archive/cb90e6a0361554d01b7a576af6c6fae4c28d7513.tar.gz) {}).pkgs.haskell.packages.ghc802.override {
+  oldHaskellPackages = (import (pkgs.fetchzip {
+    url = "https://github.com/NixOS/nixpkgs/archive/cb90e6a0361554d01b7a576af6c6fae4c28d7513.tar.gz";
+    sha256 = "0gr25nph2yyk89j2g5zxqm2177lkh0cyy8gnzm6xcywz1qwf3zzf";
+  }) {}).pkgs.haskell.packages.ghc802.override {
     overrides = self: super: {
       purescript-derive-lenses = oldHaskellPackages.callPackage ./nix/purescript-derive-lenses.nix {};
     };
   };
 
-  yarn2nix = (import (fetchTarball https://github.com/moretea/yarn2nix/archive/v1.0.0.tar.gz) {
-    # About nixpkgs versions. We are currently on 17.09 release.
-    # In 17.09 branch, nixpkgs contains yarn 1.0.1
-    # In 18.03 branch, nixpkgs contains yarn 1.5.1
+  yarn2nix = import (pkgs.fetchzip {
+    url = "https://github.com/moretea/yarn2nix/archive/v1.0.0.tar.gz";
+    sha256 = "02bzr9j83i1064r1r34cn74z7ccb84qb5iaivwdplaykyyydl1k8";
+  }) {
+    # nixpkgs 18.03 branch contains yarn 1.5.1
     inherit pkgs;
     nodejs = pkgs.nodejs-6_x;
-  });
+  };
 
   frontend = { stdenv, python, purescript, mkYarnPackage }:
     mkYarnPackage {

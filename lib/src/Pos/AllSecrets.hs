@@ -34,9 +34,7 @@ import           Pos.Crypto (PublicKey, SecretKey, toPublic)
 -- generator. (/Inv/ means /inverse/).
 newtype InvSecretsMap = InvSecretsMap
     { unInvSecretsMap :: HashMap StakeholderId SecretKey
-    } deriving (Semigroup, Monoid, ToList, Container)
-
-type instance Element InvSecretsMap = SecretKey
+    } deriving (Semigroup, Monoid, Container)
 
 -- | Make 'InvSecretsMap' from a list of secret keys.
 mkInvSecretsMap :: [SecretKey] -> InvSecretsMap
@@ -48,9 +46,7 @@ mkInvSecretsMap =
 -- 'Address'.
 newtype InvAddrSpendingData = InvAddrSpendingData
     { unInvAddrSpendingData :: HashMap Address AddrSpendingData
-    } deriving (Semigroup, Monoid, ToList, Container)
-
-type instance Element InvAddrSpendingData = AddrSpendingData
+    } deriving (Semigroup, Monoid, Container)
 
 -- | Safe constructor of 'InvAddrSpendingData'.
 mkInvAddrSpendingData :: [(Address, AddrSpendingData)] -> InvAddrSpendingData

@@ -17,15 +17,14 @@ import           System.Wlog (LoggerName)
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Core (HasPrimaryKey (..))
 import           Pos.Crypto (SecretKey)
-import           Pos.DHT.Real.Param (KademliaParams)
-import           Pos.Network.Types (NetworkConfig)
-import           Pos.Reporting.MemState (HasReportServers (..))
+import           Pos.Infra.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.Network.Types (NetworkConfig)
+import           Pos.Infra.Statistics (EkgParams, StatsdParams)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Behavior (SscBehavior)
-import           Pos.Statistics (EkgParams, StatsdParams)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.UserSecret (UserSecret)
 import           Pos.Util.Util (HasLens (..))
 
@@ -63,6 +62,7 @@ data NodeParams = NodeParams
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
     , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
+    , npAssetLockPath  :: !(Maybe FilePath)     -- ^ Path to assetLocked source address file.
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -80,9 +80,6 @@ instance HasLens SscBehavior NodeParams SscBehavior where
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L
-
-instance HasReportServers NodeParams where
-    reportServers = npReportServers_L
 
 instance HasPrimaryKey NodeParams where
     primaryKey = npSecretKey_L

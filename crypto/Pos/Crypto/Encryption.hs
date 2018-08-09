@@ -12,7 +12,7 @@ module Pos.Crypto.Encryption
        , aesDecrypt
        ) where
 
-import           Universum
+import           Universum hiding (init)
 
 import           Crypto.Cipher.AES (AES256)
 import           Crypto.Cipher.Types (BlockCipher (..), cipherInit, ctrCombine, nullIV)

@@ -8,11 +8,15 @@
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
+, walletDocListen ? "127.0.0.1:8091"
 , ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , confKey ? null
 , relays ? null
+, debug ? false
+, disableClientAuth ? false
+, extraParams ? ""
 }:
 
 with localLib;
@@ -22,6 +26,8 @@ with localLib;
 # TODO: DEVOPS-462: exchanges should use a different topology
 
 let
+  ifDebug = localLib.optionalString (debug);
+  ifDisableClientAuth = localLib.optionalString (disableClientAuth);
   environments = {
     mainnet = {
       relays = "relays.cardano-mainnet.iohk.io";
@@ -30,6 +36,14 @@ let
     mainnet-staging = {
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
+    };
+    testnet = {
+      relays = "relays.cardano-testnet.iohkdev.io";
+      confKey = "testnet_full";
+    };
+    demo = {
+      confKey = "dev";
+      relays = "127.0.0.1";
     };
     override = {
       inherit relays confKey;
@@ -48,23 +62,25 @@ let
       valency: 1
       fallbacks: 7
   '';
-  configFiles = pkgs.runCommand "cardano-config" {} ''
-    mkdir -pv $out
-    cd $out
-    cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/../log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
-    cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
-  '';
+  configFiles = iohkPkgs.cardano-sl-config;
+  configurationArgs = pkgs.lib.concatStringsSep " " [
+    "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
+    "--configuration-key ${environments.${environment}.confKey}"
+  ];
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
-  #!${pkgs.stdenv.shell}
+  #!${pkgs.stdenv.shell} -e
 
   if [[ "$1" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
+    shift
   fi
-  export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
+  if [[ "$1" == "--runtime-args" ]]; then
+    RUNTIME_ARGS=$2
+    shift 2
+  else
+    RUNTIME_ARGS=""
+  fi
 
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs
@@ -74,26 +90,33 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   export LC_ALL=en_GB.UTF-8
   export LANG=en_GB.UTF-8
   if [ ! -d ${stateDir}/tls ]; then
-    mkdir ${stateDir}/tls/
-    ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
+    mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
+    ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
+      --server-out-dir ${stateDir}/tls/server                    \
+      --clients-out-dir ${stateDir}/tls/client                   \
+      --configuration-key ${environments.${environment}.confKey} \
+      --configuration-file ${configFiles}/lib/configuration.yaml
   fi
   ''}
 
-
-  ${executables.${executable}}                                     \
-    --configuration-file ${configFiles}/configuration.yaml         \
+  exec ${executables.${executable}}                                     \
+    --configuration-file ${configFiles}/lib/configuration.yaml \
     --configuration-key ${environments.${environment}.confKey}     \
-    ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \
-    ${ ifWallet "--tlskey ${stateDir}/tls/server.key"}             \
-    ${ ifWallet "--tlsca ${stateDir}/tls/server.cert"}             \
-    --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
-    --topology "${configFiles}/topology.yaml"                      \
+    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
+    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
+    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
+    --log-config ${configFiles}/log-configs/connect-to-cluster.yaml \
+    --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
     --logs-prefix "${stateDir}/logs"                               \
-    --db-path "${stateDir}/db"                                     \
+    --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
+    ${ ifDebug "--wallet-debug"}                                   \
+    ${ ifDisableClientAuth "--no-client-auth"}                     \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \
+    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \
     --ekg-server ${ekgListen} --metrics                            \
     +RTS ${ghcRuntimeArgs} -RTS                                    \
-    ${additionalNodeArgs}
+    ${additionalNodeArgs}                                          \
+    $RUNTIME_ARGS
 ''

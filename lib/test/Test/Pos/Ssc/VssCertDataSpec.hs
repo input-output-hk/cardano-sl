@@ -4,7 +4,7 @@ module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
-import           Universum hiding (empty, filter)
+import           Universum hiding (empty, filter, id, keys)
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -16,22 +16,23 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose, conjoin, counterexample,
                                   suchThat, vectorOf, (.&&.), (==>))
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration, SlotId (..),
                            VssCertificate (..), getCertId, getVssCertificatesMap, mkVssCertificate,
                            slotSecurityParam)
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty, expiryEoS, filter,
                           insert, keys, lookup, member, rollbackSsc, runPureToss, setLastKnownSlot,
                           sgsVssCertificates)
-import           Pos.Util.Chrono (NewestFirst (..))
-import           Pos.Util.QuickCheck.Property (qcIsJust)
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Ssc.VssCertData" $ do
+spec = withDefConfiguration $ \_ -> describe "Ssc.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $
@@ -184,7 +185,7 @@ instance HasConfiguration => Arbitrary RollbackData where
                 thisEpoch <-
                     siEpoch . unflattenSlotId <$>
                         choose (succ lastKEoSWord, rollbackFrom)
-                return $ mkVssCertificate sk binVssPK thisEpoch
+                return $ mkVssCertificate dummyProtocolMagic sk binVssPK thisEpoch
         certsToRollback <- nubOrdOn vcVssKey <$>
             vectorOf @VssCertificate certsToRollbackN rollbackGen
         return $ Rollback (SscGlobalState mempty mempty mempty goodVssCertData)

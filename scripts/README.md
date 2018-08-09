@@ -13,6 +13,7 @@ mode, it will run in `dev` mode as well, and if you built it in `prod` mode, it 
 ## Launch
 
 * `launch/demo.sh` - run nodes in `tmux`-session (3 nodes by default).
+* `launch/demo-nix.sh` - run demo cluster using nix with 4 core nodes, 1 relay, 1 wallet in background
 * `launch/demo-with-wallet-api.sh` - run nodes in `tmux`-session, with enabled wallet web API (3 nodes by default).
 * `launch/kill-demo.sh` - kill `tmux`-session with running nodes.
 * `launch/testnet-{public,staging}.sh` - connect one node to the cluster (testnet or testnet staging

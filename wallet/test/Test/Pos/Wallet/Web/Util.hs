@@ -1,5 +1,11 @@
 -- | Useful functions for testing scenarios.
 
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TypeApplications           #-}
+
 module Test.Pos.Wallet.Web.Util
        (
        -- * Block utils
@@ -19,11 +25,10 @@ module Test.Pos.Wallet.Web.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
 
 import           Control.Concurrent.STM (writeTVar)
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.List ((!!))
+import           Data.List (head, (!!))
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
@@ -36,25 +41,27 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
 import           Pos.Core.Block (blockHeader)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
-                             emptyPassphrase, firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
+                             ShouldCheckPassphrase (..), emptyPassphrase, firstHardened)
 import           Pos.Generator.Block (genBlocks)
+import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.StateLock (Priority (..), modifyStateLock)
 import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
-import           Pos.Util.Chrono (OldestFirst (..))
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
+
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
+import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------
@@ -63,16 +70,17 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 -- | Gen blocks in WalletProperty
 wpGenBlocks
-    :: (HasCompileInfo, HasConfigurations)
-    => Maybe BlockCount
+    :: HasConfigurations
+    => ProtocolMagic
+    -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty (OldestFirst [] Blund)
-wpGenBlocks blkCnt enTxPayload inplaceDB = do
-    params <- genBlockGenParams blkCnt enTxPayload inplaceDB
+wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
+    params <- genBlockGenParams pm blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ modifyStateLock HighPriority "wpGenBlocks" $ \prevTip -> do
-        blunds <- OldestFirst <$> evalRandT (genBlocks params maybeToList) g
+    lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
+        blunds <- OldestFirst <$> evalRandT (genBlocks pm params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
@@ -82,11 +90,12 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
             Nothing -> pure (prevTip, blunds)
 
 wpGenBlock
-    :: (HasCompileInfo, HasConfigurations)
-    => EnableTxPayload
+    :: HasConfigurations
+    => ProtocolMagic
+    -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty Blund
-wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
+wpGenBlock pm = fmap (Data.List.head . toList) ... wpGenBlocks pm (Just 1)
 
 ----------------------------------------------------------------------------
 -- Wallet test helpers
@@ -95,7 +104,7 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 -- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
 importWallets
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
 importWallets numLimit passGen = do
     let secrets =
@@ -113,15 +122,15 @@ importWallets numLimit passGen = do
     pure passphrases
 
 importSomeWallets
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => Gen PassPhrase -> WalletProperty [PassPhrase]
 importSomeWallets = importWallets 10
 
 importSingleWallet
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => Gen PassPhrase -> WalletProperty PassPhrase
 importSingleWallet passGen =
-    fromMaybe (error "No wallets imported") . head <$> importWallets 1 passGen
+    fromMaybe (error "No wallets imported") . (fmap fst . uncons) <$> importWallets 1 passGen
 
 mostlyEmptyPassphrases :: Gen PassPhrase
 mostlyEmptyPassphrases =

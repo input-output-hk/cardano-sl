@@ -29,8 +29,8 @@ Wallet is disabled, because software is built w/o it
 ## Flushing Logs to Disk
 
 Note that by default, logs are only sent to stdout/stderr. If you want to enable flushing on
-disk in rotated log files, use the `--log-config` option and specify a logging configuration 
-yaml file to define what to log and where to log it. 
+disk in rotated log files, use the `--log-config` option and specify a logging configuration
+yaml file to define what to log and where to log it.
 
 For instance:
 
@@ -97,15 +97,15 @@ But if we launch a node with `--wallet-debug` option, we can send simple `http`-
 
 If needed, you can access the corresponding raw Swagger specification files via these URLs:
 
-- http://localhost:8090/docs/v0/swagger.json
-- http://localhost:8090/docs/v1/swagger.json
+- https://localhost:8091/docs/v0/swagger.json
+- https://localhost:8091/docs/v1/swagger.json
 
 ### Development Endpoints
 
 If you run the wallet in debug mode (with `--wallet-debug` option), you'll have an access to
 an extra set of endpoints, documented under this URL:
 
-- http://localhost:8090/docs/development/index
+- https://localhost:8091/docs/development/index
 
 ### Online API Documentation
 
@@ -122,6 +122,15 @@ Wallet tests can be run using this command (from the project *root* directory):
 ```
 $ stack test cardano-sl-wallet-new
 ```
+
+Tests can be run by running `stack test cardano-sl-wallet-new` from the project *root* directory.
+
+## Developing
+
+We have a [`Makefile`](./Makefile) with some helpful commands for development.
+`make ghcid` runs a GHCid daemon with the project, reloading quickly on every save.
+This gives you fast feedback on your changes.
+`make ghcid-test` runs GHCid daemon, which will also run tests if there are no compile errors.
 
 ## Import Genesis Wallet
 
@@ -174,7 +183,7 @@ Response:
 
 When running a node directly with stack, you may encounter an unexpected runtime error
 `commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
-characters. 
+characters.
 
 On a _*nix_ system, you can view your current locale by doing:
 
@@ -202,4 +211,20 @@ using environment variables as follows:
 
 ```
 LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
+```
+
+##### API returns `415  Unsupported Media Type`
+
+The wallet's API can be quite picky about media-types and expect both a given type and an
+associated charset. You'll likely get this error when
+
+- The request doesn't provide any `Content-Type` or `Accept` header
+- The base mime-type isn't `application/json`
+- The associated charset is missing or different from `utf-8`
+
+To fix, make sure to provide both a `Content-Type` and `Accept` headers with the following
+value:
+
+```
+application/json;charset=utf-8
 ```

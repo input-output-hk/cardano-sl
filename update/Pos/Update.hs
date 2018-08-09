@@ -8,7 +8,6 @@ module Pos.Update
        , module Pos.Update.Constants
        , module Pos.Update.Download
        , module Pos.Update.Logic
-       , module Pos.Update.Lrc
        , module Pos.Update.MemState
        , module Pos.Update.Mode
        , module Pos.Update.Params
@@ -23,7 +22,6 @@ import           Pos.Update.Constants
 import           Pos.Update.Context
 import           Pos.Update.Download
 import           Pos.Update.Logic
-import           Pos.Update.Lrc
 import           Pos.Update.MemState
 import           Pos.Update.Mode
 import           Pos.Update.Params

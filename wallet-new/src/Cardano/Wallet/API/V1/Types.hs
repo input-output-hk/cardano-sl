@@ -37,6 +37,7 @@ module Cardano.Wallet.API.V1.Types (
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
+  , accountsHaveSameId
   , AccountIndex
   -- * Addresses
   , WalletAddress (..)
@@ -70,6 +71,7 @@ module Cardano.Wallet.API.V1.Types (
   , mkSyncPercentage
   , NodeInfo (..)
   , TimeInfo(..)
+  , SubscriptionStatus(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -82,17 +84,20 @@ import           Universum
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (typeMismatch)
+import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
-import           Data.Swagger as S hiding (constructorTagModifier)
+import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
+import           Network.Transport (EndPointAddress (..))
+import           Node (NodeId (..))
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
@@ -114,19 +119,19 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
+import qualified Data.Map.Strict as Map
 import           Pos.Aeson.Core ()
-import           Pos.Arbitrary.Core ()
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
+import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
                                    buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
-
+import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
 --   For instance:
@@ -234,6 +239,8 @@ instance Buildable a => Buildable (V1 a) where
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
     build (SecureLog (V1 x)) = bprint build (SecureLog x)
 
+instance (Buildable a, Buildable b) => Buildable (a, b) where
+    build (a, b) = bprint ("("%build%", "%build%")") a b
 
 --
 -- Benign instances
@@ -396,7 +403,7 @@ data AssuranceLevel =
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
 
-deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower . dropEnd 9 . fromString
+deriveJSON Serokell.defaultOptions { A.constructorTagModifier = toString . toLower . dropEnd 9 . fromString
                                    } ''AssuranceLevel
 
 instance ToSchema AssuranceLevel where
@@ -417,6 +424,8 @@ deriveJSON Serokell.defaultOptions ''WalletId
 
 instance ToSchema WalletId where
   declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+
+instance ToJSONKey WalletId
 
 instance Arbitrary WalletId where
   arbitrary =
@@ -445,7 +454,7 @@ instance Arbitrary WalletOperation where
     arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Wallet@ suffix.
-deriveJSON Serokell.defaultOptions  { constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
+deriveJSON Serokell.defaultOptions  { A.constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
                                     } ''WalletOperation
 
 instance ToSchema WalletOperation where
@@ -786,11 +795,7 @@ instance BuildableSafeGen Wallet where
     %" balance="%buildSafe sl
     %" }")
     walId
-    -- TODO(parsons.matt): remove this when we find out *why* this is
-    -- causing it to fail.
-    --
-    -- https://iohk.myjetbrains.com/youtrack/issue/R120-4#comment=93-20855
-    (T.filter C.isAscii walName)
+    walName
     walBalance
 
 instance Buildable [Wallet] where
@@ -853,6 +858,12 @@ data Account = Account
     , accName      :: !Text
     , accWalletId  :: !WalletId
     } deriving (Show, Ord, Eq, Generic)
+
+accountsHaveSameId :: Account -> Account -> Bool
+accountsHaveSameId a b =
+    accWalletId a == accWalletId b
+    &&
+    accIndex a == accIndex b
 
 deriveJSON Serokell.defaultOptions ''Account
 
@@ -1047,8 +1058,8 @@ instance BuildableSafeGen EstimatedFees where
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
 data PaymentDistribution = PaymentDistribution {
-      pdAddress :: V1 (Core.Address)
-    , pdAmount  :: V1 (Core.Coin)
+      pdAddress :: !(V1 Core.Address)
+    , pdAmount  :: !(V1 Core.Coin)
     } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
@@ -1204,7 +1215,7 @@ instance Arbitrary TransactionType where
   arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Transaction@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+deriveJSON defaultOptions { A.constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
                           } ''TransactionType
 
 instance ToSchema TransactionType where
@@ -1236,7 +1247,7 @@ instance Arbitrary TransactionDirection where
   arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Transaction@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+deriveJSON defaultOptions { A.constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
                           } ''TransactionDirection
 
 instance ToSchema TransactionDirection where
@@ -1645,7 +1656,6 @@ instance Arbitrary TimeInfo where
     arbitrary = TimeInfo <$> arbitrary
 
 deriveSafeBuildable ''TimeInfo
-
 instance BuildableSafeGen TimeInfo where
     buildSafeGen _ TimeInfo{..} = bprint ("{"
         %" differenceFromNtpServer="%build
@@ -1654,12 +1664,64 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Serokell.defaultOptions ''TimeInfo
 
+
+availableSubscriptionStatus :: [SubscriptionStatus]
+availableSubscriptionStatus = [Subscribed, Subscribing]
+
+deriveSafeBuildable ''SubscriptionStatus
+instance BuildableSafeGen SubscriptionStatus where
+    buildSafeGen _ = \case
+        Subscribed  -> "Subscribed"
+        Subscribing -> "Subscribing"
+
+deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+
+instance Arbitrary SubscriptionStatus where
+    arbitrary =
+        elements availableSubscriptionStatus
+
+instance ToSchema SubscriptionStatus where
+    declareNamedSchema _ = do
+        let enum = toJSON <$> availableSubscriptionStatus
+        pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ enum
+
+instance FromJSONKey NodeId where
+    fromJSONKey =
+        FromJSONKeyText (NodeId . EndPointAddress . encodeUtf8)
+
+instance ToJSONKey NodeId where
+    toJSONKey =
+        toJSONKeyText (decodeUtf8 . getAddress)
+      where
+        getAddress (NodeId (EndPointAddress x)) = x
+
+instance ToSchema NodeId where
+    declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
+        & type_ .~ SwaggerString
+
+instance Arbitrary NodeId where
+    arbitrary = do
+        ipv4  <- genIPv4
+        port_ <- genPort
+        idx   <- genIdx
+        return . toNodeId $ ipv4 <> ":" <> port_ <> ":" <> idx
+      where
+        toNodeId = NodeId . EndPointAddress . encodeUtf8
+        showT    = show :: Int -> Text
+        genIdx   = showT <$> choose (0, 9)
+        genPort  = showT <$> choose (1000, 8000)
+        genIPv4  = T.intercalate "." <$> replicateM 4 (showT <$> choose (0, 255))
+
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncPercentage
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
    , nfoLocalTimeInformation  :: !TimeInfo
+   , nfoSubscriptionStatus    :: Map NodeId SubscriptionStatus
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1671,10 +1733,12 @@ instance ToSchema NodeInfo where
       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
       & ("localTimeInformation"  --^ "Information about the clock on this node.")
+      & ("subscriptionStatus"    --^ "Is the node connected to the network?")
     )
 
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
@@ -1686,11 +1750,13 @@ instance BuildableSafeGen NodeInfo where
         %" blockchainHeight="%build
         %" localBlockchainHeight="%build
         %" localTimeDifference="%build
+        %" subscriptionStatus="%listJson
         %" }")
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
+        (Map.toList nfoSubscriptionStatus)
 
 
 --

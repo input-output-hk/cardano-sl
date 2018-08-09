@@ -26,7 +26,7 @@ module Pos.Explorer.DB
        , findEpochMaxPages
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
@@ -43,19 +43,19 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
-                           coinToInteger, unsafeAddCoin)
+                           SlotCount, coinToInteger, unsafeAddCoin)
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
                          MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
                          encodeWithKeyPrefix)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
-import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
-import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 
@@ -65,11 +65,9 @@ explorerInitDB
        ( MonadReader ctx m
        , MonadUnliftIO m
        , MonadDB m
-       , HasConfiguration
-       , HasSscConfiguration
        )
-    => m ()
-explorerInitDB = initNodeDBs >> prepareExplorerDB
+    => ProtocolMagic -> SlotCount -> m ()
+explorerInitDB pm epochSlots = initNodeDBs pm epochSlots >> prepareExplorerDB
 
 ----------------------------------------------------------------------------
 -- Types
@@ -264,7 +262,7 @@ balancesInitializedM = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadDB m => [(Address, Coin)] -> m ()
+putGenesisBalances :: (MonadDB m) => [(Address, Coin)] -> m ()
 putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]

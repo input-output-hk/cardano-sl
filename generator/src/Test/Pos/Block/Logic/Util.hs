@@ -15,24 +15,24 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (Default (def))
+import qualified Data.List as List (head)
 import           Test.QuickCheck.Gen (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Core (BlockCount, GenesisData (..), HasConfiguration, HasGenesisData,
+import           Pos.Core (BlockCount, GenesisData (..), HasGenesisData, HasProtocolConstants,
                            SlotId (..), epochIndexL, genesisData)
 import           Pos.Core.Block (Block)
+import           Pos.Core.Chrono (NE, OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBlockGenInit,
                                       genBlocks, tgpTxCountRange)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
+import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
 import           Pos.Util (HasLens', _neLast)
-import           Pos.Util.Chrono (NE, OldestFirst (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.
@@ -50,11 +50,12 @@ genBlockGenParams
        , HasAllSecrets ctx
        , MonadReader ctx m
        )
-    => Maybe BlockCount
+    => ProtocolMagic
+    -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> PropertyM m BlockGenParams
-genBlockGenParams blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
+genBlockGenParams pm blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     allSecrets_ <- lift $ getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     let genBlockGenParamsF s =
@@ -67,7 +68,7 @@ genBlockGenParams blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB)
                 , _bgpInplaceDB = inplaceDB
                 , _bgpGenStakeholders = genStakeholders
                 , _bgpSkipNoKey = False
-                , _bgpTxpGlobalSettings = txpGlobalSettings
+                , _bgpTxpGlobalSettings = txpGlobalSettings pm
                 }
     pick $ sized genBlockGenParamsF
 
@@ -78,35 +79,34 @@ genBlockGenParams blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB)
 bpGenBlocks
     :: ( MonadBlockGenInit ctx m
        , HasLens' ctx TxpGlobalSettings
+       , HasTxpConfiguration
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
-    => Maybe BlockCount
+    => ProtocolMagic
+    -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> PropertyM m (OldestFirst [] Blund)
-bpGenBlocks blkCnt enableTxPayload inplaceDB = do
-    params <- genBlockGenParams blkCnt enableTxPayload inplaceDB
+bpGenBlocks pm blkCnt enableTxPayload inplaceDB = do
+    params <- genBlockGenParams pm blkCnt enableTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ OldestFirst <$> evalRandT (genBlocks params maybeToList) g
+    lift $ OldestFirst <$> evalRandT (genBlocks pm params maybeToList) g
 
 -- | A version of 'bpGenBlocks' which generates exactly one
 -- block. Allows one to avoid unsafe functions sometimes.
 bpGenBlock
     :: ( MonadBlockGenInit ctx m
        , HasLens' ctx TxpGlobalSettings
-       , Default (MempoolExt m)
+       , HasTxpConfiguration
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
-       , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , Default (MempoolExt m)
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
-    => EnableTxPayload -> InplaceDB -> PropertyM m Blund
+    => ProtocolMagic -> EnableTxPayload -> InplaceDB -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
-bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
+bpGenBlock pm = fmap (List.head . toList) ... bpGenBlocks pm (Just 1)
 
 getAllSecrets :: (MonadReader ctx m, HasAllSecrets ctx) => m AllSecrets
 getAllSecrets = view allSecrets
@@ -125,7 +125,7 @@ withCurrentSlot slot = local (set btcSlotIdL $ Just slot)
 -- future. This function pretends that current slot is after the last
 -- slot of the given blocks.
 satisfySlotCheck
-    :: (HasConfiguration, MonadReader BlockTestContext m)
+    :: ( HasProtocolConstants, MonadReader BlockTestContext m)
     => OldestFirst NE Block
     -> m a
     -> m a

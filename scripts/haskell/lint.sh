@@ -2,23 +2,15 @@
 
 # Networking is not in here, because it has a very different codestyle (doesn't use universum).
 # This is bad and should probably be fixed.
-projects="util binary crypto core db lrc infra ssc txp update delegation node tools client generator auxx explorer wallet wallet-new"
-
-# incpath can be used to specify custom include paths, e. g.:
-# incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)
-incpath=""
+projects=("util" "binary" "crypto" "core" "db" "lrc" "infra" "ssc" "txp" "update" "delegation" "node" "tools" "client" "generator" "auxx" "explorer" "wallet" "wallet-new")
 
 # Some people have tests and subprojects symlinked into src/, others don't
+#
+# hlint will use .hlint.yaml in the top directory.
 if [ -d "src/core" ]; then
-  hlint -h HLint.hs \
-  -X TypeApplications \
-  --cpp-include=$incpath --cpp-define=CONFIG=dev \
-  src
+  hlint src
 else
-  hlint -h HLint.hs \
-  -X TypeApplications \
-  --cpp-include=$incpath --cpp-define=CONFIG=dev \
-  lib/src lib/test lib/bench $projects
+  hlint lib/src lib/test lib/bench "${projects[@]}"
 fi
 
 ex=$?

@@ -40,7 +40,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger
 import           Pos.Block.Types (Blund)
 import           Pos.Core (addressF, siEpoch)
 import qualified Pos.GState as DB
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -111,7 +111,7 @@ notifierHandler connVar loggerName = do
         void . usingLoggerName loggerName . withConnState connVar . runNotifierLogger
 
 notifierServer
-    :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)
+    :: (MonadIO m, WithLogger m)
     => NotifierSettings
     -> ConnectionsVar
     -> m ()

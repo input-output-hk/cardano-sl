@@ -4,9 +4,10 @@ module Test.Pos.MerkleSpec
        ( spec
        ) where
 
+
 import           Universum
 
-import           Data.SafeCopy (SafeCopy)
+import qualified Data.Foldable as Foldable (toList, length)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (===))
@@ -14,7 +15,7 @@ import           Test.QuickCheck (Property, (===))
 import           Pos.Binary (Bi)
 import           Pos.Merkle (mkMerkleTree)
 import           Pos.SafeCopy ()
-import           Test.Pos.Helpers (safeCopyEncodeDecode)
+import           Test.Pos.Binary.Helpers (safeCopyEncodeDecode)
 
 spec :: Spec
 spec = describe "Merkle" $ do
@@ -29,10 +30,10 @@ spec = describe "Merkle" $ do
         (safeProp @Int32)
 
 generateAndFoldProp :: (Eq a, Show a, Bi a) => [a] -> Property
-generateAndFoldProp xs = toList (mkMerkleTree xs) === xs
+generateAndFoldProp xs = Foldable.toList (mkMerkleTree xs) === xs
 
 sizeProp :: (Bi a) => [a] -> Property
-sizeProp xs = length (mkMerkleTree xs) === fromIntegral (length xs)
+sizeProp xs = Foldable.length (mkMerkleTree xs) === fromIntegral (Foldable.length xs)
 
-safeProp :: (Eq a, Typeable a, Show a, Bi a, SafeCopy a) => [a] -> Property
+safeProp :: (Eq a, Show a, Bi a) => [a] -> Property
 safeProp xs = let m = mkMerkleTree xs in safeCopyEncodeDecode m

@@ -5,7 +5,7 @@ module Pos.Update.Poll.Failure
        , reportUnexpectedError
        ) where
 
-import           Universum
+import           Universum hiding (last, id)
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))
@@ -15,7 +15,7 @@ import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData, Coin
                            HeaderHash, NumSoftwareVersion, ScriptVersion, StakeholderId, coinF)
 import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
 import           Pos.Crypto (shortHashF)
-import           Pos.Reporting (MonadReporting, reportError)
+import           Pos.Infra.Reporting (MonadReporting, reportError)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.
@@ -183,8 +183,8 @@ instance Buildable PollVerFailure where
 -- If tips are different, we report error, because it's suspicious and
 -- we want to review logs. If it's internal error, we definitely want
 -- to investigate it.
-reportUnexpectedError ::
-       (MonadReporting ctx m)
+reportUnexpectedError
+    :: ( Monad m, MonadReporting m )
     => m (Either PollVerFailure a)
     -> m (Either PollVerFailure a)
 reportUnexpectedError action = do

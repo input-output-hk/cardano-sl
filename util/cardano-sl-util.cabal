@@ -1,5 +1,5 @@
 name:                cardano-sl-util
-version:             1.2.1
+version:             1.3.0
 synopsis:            Cardano SL - general utilities
 description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement
@@ -18,15 +18,13 @@ library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.QuickCheck
-                       Pos.Util.QuickCheck.Arbitrary
-                       Pos.Util.QuickCheck.Property
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
 
+                       Pos.Util.AssertMode
                        Pos.Util.Filesystem
                        Pos.Util.Future
                        Pos.Util.Justify
@@ -34,25 +32,24 @@ library
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier
-                       Pos.Util.OptParse
                        Pos.Util.Orphans
+                       Pos.Util.OptParse
                        Pos.Util.Queue
                        Pos.Util.Some
                        Pos.Util.Timer
+                       Pos.Util.Trace
                        Pos.Util.Util
 
   other-modules:
 
-  build-depends:       QuickCheck
-                     , aeson
-                     , autoexporter
+  build-depends:       aeson
                      , base
-                     , bytestring
-                     , cardano-sl-networking
+                     , binary
                      , cborg
                      , cereal
                      , containers
                      , concurrent-extra
+                     , contravariant
                      , cryptonite
                      , data-default
                      , deepseq
@@ -62,17 +59,14 @@ library
                      , filepath
                      , formatting
                      , hashable
-                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
-                     , mmorph
                      , mtl
                      , optparse-applicative
                      , parsec
                      , process
-                     , quickcheck-instances
                      , reflection
                      , resourcet
                      , safe-exceptions
@@ -123,8 +117,71 @@ library
                        GADTs
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  main-is:             test.hs
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+  other-modules:
+                       Spec
+                       Test.Pos.Util.Modifier
+                       Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.QuickCheck.Property
+                       Test.Pos.Util.TimerSpec
+
+  build-depends:       base
+                     , async
+                     , cardano-sl-util
+                     , hspec
+                     , QuickCheck
+                     , quickcheck-instances
+                     , serokell-util >= 0.1.3.4
+                     , stm
+                     , text
+                     , time
+                     , time-units
+                     , universum >= 1.1.0
+                     , unordered-containers
+
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

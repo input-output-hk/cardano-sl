@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies        #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Module for websockets implementation of Daedalus API.
 -- This implements unidirectional sockets from server to client.
 -- Every message received from client will be ignored.
@@ -79,6 +81,7 @@ send :: MonadIO m => (WSConnection -> NotifyEvent -> IO ()) -> WSConnection -> N
 send f conn msg = liftIO $ f conn msg
 
 instance WS.WebSocketsData NotifyEvent where
+    fromDataMessage _ = error "Attempt to deserialize NotifyEvent is apparently illegal"
     fromLazyByteString _ = error "Attempt to deserialize NotifyEvent is illegal"
     toLazyByteString = encode
 
@@ -101,4 +104,3 @@ notifyAll msg = do
   var <- getWalletWebSockets
   conns <- readTVarIO var
   for_ (CS.listConnections conns) $ flip sendWS msg
-

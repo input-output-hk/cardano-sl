@@ -8,10 +8,11 @@ module Pos.Ssc.Toss.Class
        , MonadToss (..)
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans (MonadTrans)
 import           System.Wlog (WithLogger)
-import           Universum
 
 import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot, StakeholderId, VssCertificate,
                            VssCertificatesMap)

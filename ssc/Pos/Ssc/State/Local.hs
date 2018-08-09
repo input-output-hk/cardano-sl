@@ -10,9 +10,9 @@ module Pos.Ssc.State.Local
 
 import           Universum
 
-import           Pos.Core (SlotId (..))
+import           Pos.Core (SlotId (..), HasProtocolConstants)
 import           Pos.DB (MonadDBRead)
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Mem (MonadSscMem, askSscMem)
 import           Pos.Ssc.Types (SscLocalData (..), sscLocal)
 
@@ -24,7 +24,6 @@ sscResetLocal ::
        ( MonadDBRead m
        , MonadSscMem ctx m
        , MonadSlots ctx m
-       , MonadIO m
        )
     => m ()
 sscResetLocal = do
@@ -35,7 +34,7 @@ sscResetLocal = do
 -- | Create new (empty) local data. We are using this function instead of
 -- 'Default' class, because it gives more flexibility. For instance, one
 -- can read something from DB or get current slot.
-sscNewLocalData :: (MonadSlots ctx m, MonadDBRead m) => m SscLocalData
+sscNewLocalData :: (MonadSlots ctx m, HasProtocolConstants) => m SscLocalData
 sscNewLocalData =
     SscLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
     pure 1

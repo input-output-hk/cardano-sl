@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             1.2.1
+version:             1.3.0
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -52,6 +52,8 @@ library
                         Pos.Explorer.Txp.Toil.Types
                         Pos.Explorer.BListener
 
+                        Paths_cardano_sl_explorer
+
   build-depends:        QuickCheck
                       , aeson
                       , base
@@ -88,16 +90,20 @@ library
                       , cardano-sl
                       , cardano-sl-binary
                       , cardano-sl-block
-                      , cardano-sl-client
+                      , cardano-sl-block-test
                       , cardano-sl-core
+                      , cardano-sl-core-test
                       , cardano-sl-crypto
+                      , cardano-sl-crypto-test
                       , cardano-sl-db
                       , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-infra
+                      , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp
+                      , cardano-sl-txp-test
                       , cardano-sl-update
                       , cardano-sl-util
 
@@ -120,7 +126,6 @@ library
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   default-extensions:   DeriveDataTypeable
@@ -159,22 +164,22 @@ executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
   other-modules:       ExplorerNodeOptions
+                       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-explorer
                      , cardano-sl-networking
                      , cardano-sl-update
                      , cardano-sl-util
-                     , formatting
                      , log-warper
                      , optparse-applicative
                      , universum
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -210,6 +215,7 @@ executable cardano-explorer-hs2purs
   main-is:             Main.hs
   other-modules:       PSTypes
                        PSOptions
+                       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl-explorer
                      , purescript-bridge
@@ -218,7 +224,6 @@ executable cardano-explorer-hs2purs
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -252,6 +257,7 @@ executable cardano-explorer-hs2purs
 executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
+  other-modules:       Paths_cardano_sl_explorer
   build-depends:       aeson
                      , base
                      , bytestring
@@ -262,12 +268,10 @@ executable cardano-explorer-swagger
                      , servant-server
                      , servant-swagger
                      , swagger2
-                     , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -287,7 +291,7 @@ executable cardano-explorer-swagger
 executable cardano-explorer-mock
   hs-source-dirs:      src/mock
   main-is:             Main.hs
-  other-modules:
+  other-modules:       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl-explorer
                      , optparse-applicative
@@ -295,7 +299,6 @@ executable cardano-explorer-mock
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -348,7 +351,9 @@ test-suite cardano-explorer-test
                      , base
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-binary-test
                      , cardano-sl-block
+                     , cardano-sl-block-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-explorer
@@ -356,13 +361,10 @@ test-suite cardano-explorer-test
                      , cardano-sl-util
                      , containers
                      , cryptonite
-                     , data-default
                      , engine-io
                      , hspec
                      , lens
                      , log-warper
-                     , MonadRandom
-                     , mtl
                      , universum >= 0.1.11
                      , warp
   hs-source-dirs:      test
@@ -370,7 +372,6 @@ test-suite cardano-explorer-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
 
   -- linker speed up for linux
   if os(linux)
@@ -412,19 +413,15 @@ benchmark cardano-explorer-bench
   build-depends:       QuickCheck
                      , base
                      , cardano-sl
-                     , cardano-sl-core
                      , cardano-sl-explorer
                      , cardano-sl-txp
+                     , cardano-sl-txp-test
                      , criterion
-                     , data-default
-                     , lens
-                     , text-format
                      , universum >= 0.1.11
                      , weigh
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux

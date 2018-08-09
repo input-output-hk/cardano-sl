@@ -29,7 +29,7 @@ deriving instance Show cmd => Show (Expr cmd)
 
 data Lit
     = LitNumber Scientific
-    | LitString String
+    | LitString Text
     | LitAddress Address
     | LitPublicKey PublicKey
     | LitStakeholderId StakeholderId

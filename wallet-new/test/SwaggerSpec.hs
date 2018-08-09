@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE UndecidableInstances #-}
-module SwaggerSpec where
+module SwaggerSpec (spec) where
 
 import           Universum
 

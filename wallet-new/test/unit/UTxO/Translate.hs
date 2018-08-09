@@ -7,8 +7,14 @@ module UTxO.Translate (
   , runTranslate
   , runTranslateNoErrors
   , withConfig
+  , withProtocolMagic
   , mapTranslateErrors
   , catchTranslateErrors
+  , catchSomeTranslateErrors
+    -- * Convenience wrappers
+  , translateFirstSlot
+  , translateNextSlot
+  , translateGenesisHeader
     -- * Interface to the verifier
   , verify
   , verifyBlocksPrefix
@@ -25,10 +31,11 @@ import           Universum
 import           Pos.Block.Error
 import           Pos.Block.Types
 import           Pos.Core
+import           Pos.Core.Chrono
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Util.Chrono
 
 import           Util.Validated
 import           UTxO.Context
@@ -53,9 +60,10 @@ import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConf
 -------------------------------------------------------------------------------}
 
 data TranslateEnv = TranslateEnv {
-      teContext :: TransCtxt
-    , teConfig  :: Dict HasConfiguration
-    , teUpdate  :: Dict HasUpdateConfiguration
+      teContext       :: TransCtxt
+    , teProtocolMagic :: ProtocolMagic
+    , teConfig        :: Dict HasConfiguration
+    , teUpdate        :: Dict HasUpdateConfiguration
     }
 
 newtype TranslateT e m a = TranslateT {
@@ -65,6 +73,7 @@ newtype TranslateT e m a = TranslateT {
            , Applicative
            , Monad
            , MonadError e
+           , MonadIO
            )
 
 instance MonadTrans (TranslateT e) where
@@ -88,13 +97,14 @@ instance Monad m => MonadGState (TranslateT e m) where
 -- pure exceptions.
 runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
 runTranslateT (TranslateT ta) =
-    withDefConfiguration $
+    withDefConfiguration $ \pm ->
     withDefUpdateConfiguration $
       let env :: TranslateEnv
           env = TranslateEnv {
-                    teContext = initContext initCardanoContext
-                  , teConfig  = Dict
-                  , teUpdate  = Dict
+                    teContext       = initContext (initCardanoContext pm)
+                  , teProtocolMagic = pm
+                  , teConfig        = Dict
+                  , teUpdate        = Dict
                   }
       in do ma <- runReaderT (runExceptT ta) env
             case ma of
@@ -118,6 +128,11 @@ withConfig f = do
     Dict <- TranslateT $ asks teUpdate
     f
 
+-- | Pull the ProtocolMagic from the TranslateEnv
+withProtocolMagic
+    :: Monad m => (ProtocolMagic -> TranslateT e m a) -> TranslateT e m a
+withProtocolMagic = (TranslateT (asks teProtocolMagic) >>=)
+
 -- | Map errors
 mapTranslateErrors :: Functor m
                    => (e -> e') -> TranslateT e m a -> TranslateT e' m a
@@ -128,6 +143,38 @@ catchTranslateErrors :: Functor m
                      => TranslateT e m a -> TranslateT e' m (Either e a)
 catchTranslateErrors (TranslateT (ExceptT (ReaderT ma))) =
     TranslateT $ ExceptT $ ReaderT $ \env -> fmap Right (ma env)
+
+catchSomeTranslateErrors :: Monad m
+                         => TranslateT (Either e e') m a
+                         -> TranslateT e m (Either e' a)
+catchSomeTranslateErrors act = do
+    ma <- catchTranslateErrors act
+    case ma of
+      Left (Left e)   -> throwError e
+      Left (Right e') -> return $ Left e'
+      Right a         -> return $ Right a
+
+{-------------------------------------------------------------------------------
+  Convenience wrappers
+-------------------------------------------------------------------------------}
+
+-- | Slot ID of the first block
+translateFirstSlot :: Monad m => TranslateT Text m SlotId
+translateFirstSlot = withConfig $ do
+    SlotId 0 <$> mkLocalSlotIndex 0
+
+-- | Increment slot ID
+--
+-- TODO: Surely a function like this must already exist somewhere?
+translateNextSlot :: Monad m => SlotId -> TranslateT Text m SlotId
+translateNextSlot (SlotId epoch lsi) = withConfig $
+    case addLocalSlotIndex 1 lsi of
+      Just lsi' -> return $ SlotId epoch lsi'
+      Nothing   -> SlotId (epoch + 1) <$> mkLocalSlotIndex 0
+
+-- | Genesis block header
+translateGenesisHeader :: Monad m => TranslateT e m GenesisBlockHeader
+translateGenesisHeader = view gbHeader <$> asks (ccBlock0 . tcCardano)
 
 {-------------------------------------------------------------------------------
   Interface to the verifier
@@ -150,9 +197,11 @@ verifyBlocksPrefix blocks = do
     CardanoContext{..} <- asks tcCardano
     let tip         = ccHash0
         currentSlot = Nothing
-    verify $ Verify.verifyBlocksPrefix
-        tip
-        currentSlot
-        ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
-        (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
-        blocks
+    withProtocolMagic $ \pm ->
+      verify $ Verify.verifyBlocksPrefix
+          pm
+          tip
+          currentSlot
+          ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
+          (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
+          blocks

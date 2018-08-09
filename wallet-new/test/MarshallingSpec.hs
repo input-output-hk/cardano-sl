@@ -1,4 +1,4 @@
-module MarshallingSpec where
+module MarshallingSpec (spec) where
 
 import           Universum
 

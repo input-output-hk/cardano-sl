@@ -16,18 +16,15 @@ import           System.Posix.Process (exitImmediately)
 #endif
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
+import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Communication (OutSpecs (..))
-import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF, hashHexF)
+import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Worker.Types (WorkerSpec, worker)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
@@ -42,73 +39,72 @@ import           Repl (PrintAction, WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
-    => AuxxOptions
+       (MonadAuxxMode m, Mockable Delay m)
+    => ProtocolMagic
+    -> AuxxOptions
     -> Either WithCommandAction Text
-    -> (WorkerSpec m, OutSpecs)
-auxxPlugin auxxOptions repl = worker mempty $ \diffusion -> do
+    -> Diffusion m
+    -> m ()
+auxxPlugin pm auxxOptions repl = \diffusion -> do
     logInfo $ sformat ("Length of genesis utxo: " %int)
                       (length $ unGenesisUtxo genesisUtxo)
-    rawExec (Just Dict) auxxOptions (Just diffusion) repl
+    rawExec (Just pm) (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::
-       ( HasCompileInfo
-       , MonadIO m
+       ( MonadIO m
        , MonadCatch m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
        )
-    => Maybe (Dict (MonadAuxxMode m))
+    => Maybe ProtocolMagic
+    -> Maybe (Dict (MonadAuxxMode m))
     -> AuxxOptions
     -> Maybe (Diffusion m)
     -> Either WithCommandAction Text
     -> m ()
-rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
+rawExec pm mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Left WithCommandAction{..} -> do
         printAction "... the auxx plugin is ready"
-        forever $ withCommand $ runCmd mHasAuxxMode mDiffusion printAction
-    Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd
+        forever $ withCommand $ runCmd pm mHasAuxxMode mDiffusion printAction
+    Right cmd -> runWalletCmd pm mHasAuxxMode mDiffusion cmd
 
 runWalletCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , MonadCatch m
+       ( MonadIO m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
        )
-    => Maybe (Dict (MonadAuxxMode m))
+    => Maybe ProtocolMagic
+    -> Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)
     -> Text
     -> m ()
-runWalletCmd mHasAuxxMode mDiffusion line = do
-    runCmd mHasAuxxMode mDiffusion printAction line
+runWalletCmd pm mHasAuxxMode mDiffusion line = do
+    runCmd pm mHasAuxxMode mDiffusion printAction line
     printAction "Command execution finished"
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
 #if !(defined(mingw32_HOST_OS))
-    delay $ sec 3
+    delay (3 :: Second)
     liftIO $ exitImmediately ExitSuccess
 #endif
   where
     printAction = putText
 
 runCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , MonadCatch m
+       ( MonadIO m
        , CanLog m
        , HasLoggerName m
-       , Mockable Delay m
        )
-    => Maybe (Dict (MonadAuxxMode m))
+    => Maybe ProtocolMagic
+    -> Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)
     -> PrintAction m
     -> Text
     -> m ()
-runCmd mHasAuxxMode mDiffusion printAction line = do
-    let commandProcs = createCommandProcs mHasAuxxMode printAction mDiffusion
+runCmd pm mHasAuxxMode mDiffusion printAction line = do
+    let commandProcs = createCommandProcs pm mHasAuxxMode printAction mDiffusion
         parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
         resolveCommandProcs =
             withExceptT Lang.ppResolveErrors . ExceptT . return .

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Communication.Message
        (
        ) where
@@ -7,12 +9,15 @@ import           Universum
 import           Data.Tagged (Tagged)
 import           Node.Message.Class (Message (..))
 
-import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
-import           Pos.Communication.Types.Protocol (MsgSubscribe, MsgSubscribe1)
-import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
-                                                ReqOrRes)
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders, MsgStream,
+                                    MsgStreamBlock)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
+import           Pos.Infra.Communication.Types.Protocol (MsgSubscribe,
+                                                         MsgSubscribe1)
+import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
+                                                      InvOrData, MempoolMsg,
+                                                      ReqMsg, ReqOrRes)
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
 import           Pos.Txp.Network.Types (TxMsgContents)
 
@@ -44,6 +49,14 @@ instance Message MsgSubscribe1 where
 instance Message MsgSubscribe where
     messageCode _ = 14
     formatMessage _ = "Subscribe"
+
+instance Message MsgStream where
+    messageCode _ = 15
+    formatMessage _ = "Stream"
+
+instance Message MsgStreamBlock where
+    messageCode _ = 16
+    formatMessage _ = "StreamBlock"
 
 instance Message k => Message (ReqMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)

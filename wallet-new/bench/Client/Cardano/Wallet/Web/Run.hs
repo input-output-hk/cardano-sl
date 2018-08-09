@@ -16,7 +16,7 @@ import           Network.HTTP.Client.TLS    (mkManagerSettings)
 import           Network.TLS                (ClientParams (..), credentialLoadX509FromMemory,
                                              defaultParamsClient, onCertificateRequest,
                                              onServerCertificate, supportedCiphers)
-import           Network.TLS.Extra.Cipher   (ciphersuite_all)
+import           Network.TLS.Extra.Cipher   (ciphersuite_default)
 
 import           Bench.Cardano.Wallet.Types (CompleteConfig (..))
 
@@ -28,7 +28,7 @@ runEndpointClient
     -> IO (Either Text a)
 runEndpointClient CompleteConfig {..} realClient = do
     manager <- makeClientManager tlsPubCert tlsPrivKey
-    runClientM realClient (ClientEnv manager nodeURL) >>= \case
+    runClientM realClient (ClientEnv manager nodeURL Nothing) >>= \case
         Left problem   -> return . Left  $ toText (show problem :: String)
         Right response -> return . Right $ response
   where
@@ -52,7 +52,7 @@ makeClientManager pubCert privKey =
                 clientParams = (defaultParamsClient "localhost" "") {
                                    clientHooks = hooks,
                                    clientSupported = def {
-                                       supportedCiphers = ciphersuite_all
+                                       supportedCiphers = ciphersuite_default
                                    }
                                }
                 tlsSettings = TLSSettings clientParams

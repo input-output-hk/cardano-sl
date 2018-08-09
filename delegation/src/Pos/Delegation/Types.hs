@@ -4,7 +4,6 @@ module Pos.Delegation.Types
        ( DlgPayload (..)
        , DlgUndo (..)
        , DlgMemPool
-       , ProxySKBlockInfo
        , module Pos.Core.Delegation
        , isRevokePsk
 
@@ -19,7 +18,7 @@ import           Formatting (bprint, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Core (ComponentBlock (..), ProxySKHeavy, StakeholderId)
-import           Pos.Core.Delegation (DlgPayload (..), checkDlgPayload)
+import           Pos.Core.Delegation (DlgPayload (..), checkDlgPayload, ProxySKBlockInfo)
 import           Pos.Crypto (ProxySecretKey, PublicKey, isSelfSignedPsk)
 
 -- | Undo for the delegation component.
@@ -44,11 +43,6 @@ instance Buildable DlgUndo where
 
 -- | Map from issuer public keys to related heavy certs.
 type DlgMemPool = HashMap PublicKey ProxySKHeavy
-
--- | Heavyweight PSK with real leader public key (because heavyweight
--- psks have redelegation feature, so pskIssuerPk hPsk /= leader in
--- general case). This is used to create a block header only.
-type ProxySKBlockInfo = Maybe (ProxySKHeavy, PublicKey)
 
 -- | Checks if given PSK revokes delegation (issuer == delegate).
 isRevokePsk :: ProxySecretKey w -> Bool

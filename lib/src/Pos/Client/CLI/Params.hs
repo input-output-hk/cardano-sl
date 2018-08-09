@@ -20,10 +20,9 @@ import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Secrets (prepareUserSecret)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (VssKeyPair)
+import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
-import           Pos.Network.CLI (intNetworkConfigOpts)
 import           Pos.Ssc (SscParams (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
@@ -60,7 +59,6 @@ getNodeParams ::
        , WithLogger m
        , MonadCatch m
        , HasConfiguration
-       , HasSscConfiguration
        )
     => LoggerName
     -> CommonNodeArgs
@@ -90,5 +88,6 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
         , npStatsdParams = statsdParams
+        , npAssetLockPath = cnaAssetLockPath
         , ..
         }

@@ -25,22 +25,36 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { pwlGetWalletIds  = liftedGen
-        }
+        { _pwlCreateWallet   = \_     -> liftedGen
+        , _pwlGetWalletIds   =           liftedGen
+        , _pwlGetWallet      = \_     -> liftedGen
+        , _pwlUpdateWallet   = \_ _   -> liftedGen
+        , _pwlDeleteWallet   = \_     -> liftedGen
+
+        , _pwlCreateAccount  = \_ _   -> liftedGen
+        , _pwlGetAccounts    = \_     -> liftedGen
+        , _pwlGetAccount     = \_ _   -> liftedGen
+        , _pwlUpdateAccount  = \_ _ _ -> liftedGen
+        , _pwlDeleteAccount  = \_ _   -> liftedGen
+
+        , _pwlGetAddresses   = \_     -> liftedGen
+
+        , _pwlApplyBlocks    = \_     -> liftedGen
+        , _pwlRollbackBlocks = \_     -> liftedGen
+       }
 
     -- | A utility function.
-    liftedGen :: forall b. (MonadIO n, Arbitrary b) => n b
+    liftedGen :: forall b. (Arbitrary b) => n b
     liftedGen = liftIO . generate $ arbitrary
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall m n a. (MonadMask m, MonadIO n)
+    :: forall m n a. (MonadMask m)
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletPassiveLayer walletDiffusion =
+bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})
       (\_ -> return ())
-

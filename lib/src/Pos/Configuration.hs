@@ -23,9 +23,8 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
-import           Data.Time.Units (Microsecond, Second)
+import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (ms)
 
 type HasNodeConfiguration = Given NodeConfiguration
 
@@ -65,11 +64,11 @@ instance FromJSON NodeConfiguration where
 ----------------------------------------------------------------------------
 
 networkConnectionTimeout :: HasNodeConfiguration => Microsecond
-networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ nodeConfiguration
+networkConnectionTimeout = fromMicroseconds . (*) 1000 . fromIntegral . ccNetworkConnectionTimeout $ nodeConfiguration
 
 -- | Default is 30 seconds.
 conversationEstablishTimeout :: HasNodeConfiguration => Microsecond
-conversationEstablishTimeout = ms . fromIntegral . ccConversationEstablishTimeout $ nodeConfiguration
+conversationEstablishTimeout = fromMicroseconds . (*) 1000 . fromIntegral . ccConversationEstablishTimeout $ nodeConfiguration
 
 blockRetrievalQueueSize :: (HasNodeConfiguration, Integral a) => a
 blockRetrievalQueueSize =

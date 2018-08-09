@@ -1,6 +1,8 @@
 {-# LANGUAGE PolyKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Orphan instances for external types/classes.
 
 module Pos.Util.Orphans
@@ -29,9 +31,7 @@ module Pos.Util.Orphans
 
 import           Universum
 
-import           Control.Monad.Base (MonadBase)
 import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), unliftIO, withUnliftIO)
-import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource (MonadResource (..), ResourceT, transResourceT)
@@ -48,21 +48,12 @@ import           Data.Typeable (typeRep)
 import qualified Ether
 import qualified Formatting as F
 import qualified Language.Haskell.TH.Syntax as TH
-import           Mockable (ChannelT, Counter, Distribution, Gauge, MFunctor' (..), Mockable (..),
-                           Promise, SharedAtomicT, SharedExclusiveT, ThreadId)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
-import qualified Test.QuickCheck as QC
-import           Test.QuickCheck.Monadic (PropertyM (..))
 
 ----------------------------------------------------------------------------
 -- Orphan miscellaneous instances
 ----------------------------------------------------------------------------
-
-instance MonadReader r m => MonadReader r (PropertyM m) where
-    ask = lift ask
-    local f (MkPropertyM propertyM) =
-        MkPropertyM $ \hole -> local f <$> propertyM hole
 
 instance (TH.Lift k, TH.Lift v) => TH.Lift (HashMap k v) where
     lift x = let l = HM.toList x in [|HM.fromList l|]
@@ -87,18 +78,6 @@ instance {-# OVERLAPPABLE #-}
          (MonadTrans t, Functor (t m), Monad (t m), Rand.MonadRandom m)
          => Rand.MonadRandom (t m) where
     getRandomBytes = lift . Rand.getRandomBytes
-
--- TODO: use the 'vec' package for traversable N-products
-data Five a = Five a a a a a
-    deriving (Functor, Foldable, Traversable)
-
-five :: a -> Five a
-five a = Five a a a a a
-
-instance Rand.MonadRandom QC.Gen where
-    getRandomBytes n = do
-        Five a b c d e <- sequenceA . five $ QC.choose (minBound, maxBound)
-        pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 ----------------------------------------------------------------------------
 -- Hashable
@@ -156,8 +135,7 @@ instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
 ----------------------------------------------------------------------------
 
 instance {-# OVERLAPPABLE #-}
-    (MonadResource m, MonadTrans t, Applicative (t m),
-     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+    (MonadResource m, MonadTrans t, MonadIO (t m)) =>
         MonadResource (t m)
   where
     liftResourceT = lift . liftResourceT
@@ -191,46 +169,6 @@ instance
     modifyLoggerName = liftLocal askLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
-
-instance {-# OVERLAPPABLE #-}
-    (Monad m, MFunctor t) => MFunctor' t m n
-  where
-    hoist' = hoist
-
-instance
-    (Mockable d m, MFunctor' d (IdentityT m) m) =>
-        Mockable d (IdentityT m)
-  where
-    liftMockable dmt = IdentityT $ liftMockable $ hoist' runIdentityT dmt
-
-unTaggedTrans :: Ether.TaggedTrans tag t m a -> t m a
-unTaggedTrans (Ether.TaggedTrans tma) = tma
-
-instance
-      (Mockable d (t m), Monad (t m),
-       MFunctor' d (Ether.TaggedTrans tag t m) (t m)) =>
-          Mockable d (Ether.TaggedTrans tag t m)
-  where
-    liftMockable dmt =
-      Ether.TaggedTrans $ liftMockable $ hoist' unTaggedTrans dmt
-
-type instance ThreadId (IdentityT m) = ThreadId m
-type instance Promise (IdentityT m) = Promise m
-type instance SharedAtomicT (IdentityT m) = SharedAtomicT m
-type instance Counter (IdentityT m) = Counter m
-type instance Distribution (IdentityT m) = Distribution m
-type instance SharedExclusiveT (IdentityT m) = SharedExclusiveT m
-type instance Gauge (IdentityT m) = Gauge m
-type instance ChannelT (IdentityT m) = ChannelT m
-
-type instance ThreadId (Ether.TaggedTrans tag t m) = ThreadId m
-type instance Promise (Ether.TaggedTrans tag t m) = Promise m
-type instance SharedAtomicT (Ether.TaggedTrans tag t m) = SharedAtomicT m
-type instance Counter (Ether.TaggedTrans tag t m) = Counter m
-type instance Distribution (Ether.TaggedTrans tag t m) = Distribution m
-type instance SharedExclusiveT (Ether.TaggedTrans tag t m) = SharedExclusiveT m
-type instance Gauge (Ether.TaggedTrans tag t m) = Gauge m
-type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 
 instance MonadUnliftIO (t m) => MonadUnliftIO (Ether.TaggedTrans tag t m) where
     {-# INLINE askUnliftIO #-}

@@ -9,6 +9,7 @@
 # If COMMAND is not passed, 'args' are passed directly to cardano-auxx.
 
 base=$(dirname "$0")
+# shellcheck disable=SC1090
 . "$base"/../common-functions.sh
 
 ensure_logs
@@ -26,11 +27,11 @@ fi
 if [[ "$commands" != "" ]]; then
     suffix=" cmd --commands=\"$commands\""
 else
-    suffix=$@
+    suffix="$*"
 fi
 
 to_exec="$template $suffix"
 
 echo "$to_exec"
 
-eval $to_exec
+eval "$to_exec"

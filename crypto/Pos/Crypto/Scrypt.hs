@@ -30,6 +30,7 @@ import qualified Crypto.Scrypt as S
 import           Data.Default (Default (..))
 
 import           Pos.Binary.Class (Bi, serialize')
+import           Pos.Crypto.Orphans ()
 
 -- | This corresponds to 'ScryptParams' datatype.
 -- These parameters influence on resulting hash length, memory and time

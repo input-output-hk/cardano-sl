@@ -1,4 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Proxy transformer for tracking updates for
 -- rollback. Single-threaded.
 
@@ -8,15 +11,15 @@ module Pos.Update.Poll.RollTrans
        , execRollT
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Lens ((%=), (.=))
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List as List (find)
 import qualified Ether
-import           Universum
 
 import           Pos.Binary.Update ()
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
@@ -33,7 +36,7 @@ type RollT m = Ether.LazyStateT' USUndo m
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
-instance (HasConfiguration, MonadPoll m) => MonadPoll (RollT m) where
+instance (MonadPoll m) => MonadPoll (RollT m) where
     putBVState bv sv = ether $ do
         insertIfNotExist bv unChangedBVL getBVState
         putBVState bv sv

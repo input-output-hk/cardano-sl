@@ -4,7 +4,6 @@ module Pos.Block.Types
        ( SlogUndo (..)
        , Undo (..)
        , Blund
-       , SerializedBlund
 
        , LastKnownHeader
        , LastKnownHeaderTag
@@ -22,13 +21,14 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
+-- Bi BlockHeader
+import           Pos.Binary.Core ()
 import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
-import           Pos.DB.Class (SerializedUndo)
 import           Pos.Delegation.Types (DlgUndo)
+import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Update.Poll.Types (USUndo)
 import           Pos.Util.Util (HasLens (..))
 
@@ -45,8 +45,6 @@ instance NFData Undo
 -- | Block and its Undo.
 type Blund = (Block, Undo)
 
-type SerializedBlund = (Block, SerializedUndo)
-
 instance HasConfiguration => Buildable Undo where
     build Undo{..} =
         bprint ("Undo:\n"%
@@ -59,7 +57,7 @@ instance HasConfiguration => Buildable Undo where
 instance HasDifficulty Blund where
     difficultyL = _1 . difficultyL
 
-instance HasHeaderHash Block => HasHeaderHash Blund where
+instance HasHeaderHash Blund where
     headerHash = headerHash . fst
 
 -- | For a description of what these types mean,

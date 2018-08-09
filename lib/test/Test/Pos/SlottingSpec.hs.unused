@@ -1,6 +1,6 @@
--- | Pos.Slotting specification
+-- | Pos.Infra.Slotting specification
 
-module Test.Pos.SlottingSpec
+module Test.Pos.Infra.SlottingSpec
        ( spec
        ) where
 
@@ -13,7 +13,7 @@ import           Test.QuickCheck.Monadic (PropertyM, assert, monadic, pick, run)
 import           Universum
 
 import           Pos.Constants           (epochDuration, slotDuration)
-import           Pos.Slotting            (MonadSlots (..), getCurrentSlot)
+import           Pos.Infra.Slotting      (MonadSlots (..), getCurrentSlot)
 import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
                                           Timestamp (..), unflattenSlotId)
 

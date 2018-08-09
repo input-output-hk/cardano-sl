@@ -12,10 +12,8 @@ import qualified Control.Concurrent.STM as STM
 import           System.Wlog (WithLogger)
 
 import           Pos.DB (MonadDBRead)
-import           Pos.Lrc.Context (LrcContext)
-import           Pos.Slotting.Class (MonadSlots)
+import           Pos.Infra.Slotting.Class (MonadSlots)
 import           Pos.Ssc.Types (SscState (..))
-import           Pos.Util.Util (HasLens (..))
 
 -- Reexports
 import           Pos.Ssc.State.Global
@@ -24,10 +22,7 @@ import           Pos.Ssc.State.Local
 mkSscState
     :: forall ctx m .
        ( WithLogger m
-       , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
        , MonadDBRead m
-       , MonadIO m
        , MonadSlots ctx m
        )
     => m SscState

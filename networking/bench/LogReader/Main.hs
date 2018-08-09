@@ -1,22 +1,20 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
 
-import           Control.Applicative (empty, (<|>))
-import           Control.Exception.Safe (Exception, handle, throwString)
-import           Control.Lens (at, (%=), (^.), _2, _Just)
-import           Control.Monad (forM_)
-import           Control.Monad.State (StateT (..), evalStateT, execStateT, get, modify)
-import           Control.Monad.Trans (lift, liftIO)
-import           Control.Monad.Trans.Resource (runResourceT)
-import           Data.Conduit (Source, yield, ($$), (=$=))
+import           Control.Applicative (empty)
+import           Control.Exception.Safe (throwString)
+import           Control.Lens (at, (^.))
+import           Control.Monad.Trans (liftIO)
+import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import           Data.Conduit (ConduitT, Void, runConduit, yield, (.|))
 import           Data.Conduit.Binary (sinkFile, sourceFile)
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.List as CL
 import           Data.Conduit.Text (decode, encode, utf8)
+import           Data.Foldable (foldrM)
 import           Data.List (intersperse)
 import qualified Data.Map as M
 import           Data.Text (Text)
-import           Data.Text.Buildable (Buildable (..))
-import           Data.Typeable (Typeable)
 import           Formatting (bprint, int, right, sformat, (%))
 import qualified Formatting as F
 import           System.IO (FilePath)
@@ -28,66 +26,60 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), Meas
                                         Payload (..), Timestamp, logMessageParser,
                                         measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
-import           System.Wlog (LoggerNameBox, logError, logWarning, productionB, setupLogging,
-                              usingLoggerName)
+import           Pos.Util.Trace (Trace, Severity (..), traceWith, wlogTrace)
+import           System.Wlog (productionB, setupLogging)
 import           System.Wlog.Formatter (centiUtcTimeF)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
 
-newtype MeasureInfoDuplicateError = MeasureInfoDuplicateError (Timestamp, MeasureInfo)
-    deriving (Typeable)
-
-instance Show MeasureInfoDuplicateError where
-    show = F.formatToString F.build . build
-
-instance Buildable MeasureInfoDuplicateError where
-    build (MeasureInfoDuplicateError (was, new)) = mconcat
-        ["Duplicate measure: was "
-        , build was
-        , " but meet "
-        , build new
-        ]
-
-instance Exception MeasureInfoDuplicateError
-
-
 type RowId = Int
 
-analyze :: FilePath -> StateT Measures (LoggerNameBox IO) ()
-analyze file =
-    catchE . flip evalStateT 0 . runResourceT $
-        sourceFile file =$= CB.lines =$= CL.iterM (const $ modify succ)
-            =$= decode utf8 $$ CL.mapM_ (lift . saveMeasure)
+analyze :: Trace IO (Severity, Text) -> FilePath -> Measures -> IO Measures
+analyze logTrace file initialMeasures = runResourceT $ pipeline
+    
   where
-    saveMeasure :: Text -> StateT RowId (StateT Measures (LoggerNameBox IO)) ()
-    saveMeasure row = do
-        case parseOnly (logMessageParser measureInfoParser) row of
-            Left err -> do
-                rowNo <- get
-                logWarning $
-                    sformat ("Parse error at file "%F.build%" (line "%F.int%"): "%F.build)
-                    file rowNo err
-            Right (Just (LogMessage MeasureInfo{..})) -> lift $ do
-                at miId %= (<|> Just (miPayload, mempty))
-                at miId . _Just . _2 %= ((miEvent, miTime):)
-                --mwas <- singular (at miId . _Just . _2) . at miEvent <<.= Just miTime
-                --forM_ mwas $ \was -> throwM $ MeasureInfoDuplicateError (was, mi)
-            Right _ -> return ()
 
-    catchE = handle @_ @MeasureInfoDuplicateError $ logError . sformat F.build
+    pipelineSource :: ConduitT () (Text, RowId) (ResourceT IO) ()
+    pipelineSource =
+           sourceFile file
+        .| CB.lines
+        .| decode utf8
+        .| (CL.mapAccum withRowId 0 >> pure ())
 
+    pipelineSink :: ConduitT (Text, RowId) Void (ResourceT IO) Measures
+    pipelineSink = CL.foldM saveMeasure initialMeasures
 
-printMeasures :: FilePath -> Measures -> LoggerNameBox IO ()
-printMeasures file measures = runResourceT $
-    source $$ encode utf8 =$= sinkFile file
+    pipeline :: ResourceT IO Measures
+    pipeline = runConduit $ pipelineSource .| pipelineSink
+
+    withRowId :: Text -> RowId -> (RowId, (Text, RowId))
+    withRowId t rowid = let !rowid' = rowid + 1 in (rowid', (t, rowid))
+
+    saveMeasure :: Measures -> (Text, RowId) -> ResourceT IO Measures
+    saveMeasure !measures (row, rowid) = case parseOnly (logMessageParser measureInfoParser) row of
+        Left err -> do
+            liftIO $ traceWith logTrace $ (,) Warning $
+                sformat ("Parse error at file "%F.build%" (line "%F.int%"): "%F.build)
+                file rowid err
+            pure measures
+        Right (Just (LogMessage MeasureInfo{..})) ->
+            let alteration Nothing                    = Just (miPayload, [(miEvent, miTime)])
+                alteration (Just (miPayload', stuff)) = Just (miPayload', (miEvent, miTime) : stuff)
+                measures'  = M.alter alteration miId measures
+            in  pure measures'
+        Right _ -> pure measures
+
+printMeasures :: FilePath -> Measures -> IO ()
+printMeasures file measures = runResourceT . runConduit $
+    source .| encode utf8 .| sinkFile file
   where
     source = printHeader >> mapM_ printMeasure (M.toList measures)
 
     printHeader = printRow $ "MsgId" : "Size" : map (sformat F.build) eventsUniverse
 
     printMeasure :: Monad m
-                 => (MsgId, (Payload, [(MeasureEvent, Timestamp)])) -> Source m Text
+                 => (MsgId, (Payload, [(MeasureEvent, Timestamp)])) -> ConduitT () Text m ()
     printMeasure (mid, (Payload p, mm)) = do
         case uniqMap mm of
             Just mm' -> printRow $ sformat int mid
@@ -95,7 +87,7 @@ printMeasures file measures = runResourceT $
                           : [ maybe "-" (sformat int) $ mm' ^. at ev | ev <- eventsUniverse ]
             _ -> return ()
 
-    printRow :: Monad m => [Text] -> Source m Text
+    printRow :: Monad m => [Text] -> ConduitT () Text m ()
     printRow = yield
              . sformat (F.build%"\n")
              . mconcat
@@ -123,9 +115,9 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
     empty
 
 main :: IO ()
-main = usingLoggerName mempty $ do
+main = do
     setupLogging (Just centiUtcTimeF) productionB
+    let logTrace = wlogTrace mempty
     Args{..} <- liftIO getOptions
-    measures <- flip execStateT M.empty $
-        forM_ inputFiles analyze
+    measures <- foldrM (analyze logTrace) M.empty inputFiles
     printMeasures resultFile measures

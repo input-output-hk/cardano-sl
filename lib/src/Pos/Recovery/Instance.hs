@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | An instance of 'MonadRecoveryInfo'.
 
 module Pos.Recovery.Instance
@@ -11,11 +13,13 @@ import           Control.Monad.Except (runExceptT, throwError)
 
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core (HasCoreConfiguration, epochOrSlotG, epochOrSlotToSlot, flattenSlotId)
+import           Pos.Core (HasProtocolConstants, epochOrSlotG,
+                           epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Recovery.Info (MonadRecoveryInfo (..), SyncStatus (..))
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo (..),
+                                          SyncStatus (..))
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util (HasLens (..))
 
 instance ( Monad m
@@ -24,7 +28,7 @@ instance ( Monad m
          , MonadSlots ctx m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx RecoveryHeader
-         , HasCoreConfiguration
+         , HasProtocolConstants
          ) =>
          MonadRecoveryInfo m where
     getSyncStatus lagBehindParam =

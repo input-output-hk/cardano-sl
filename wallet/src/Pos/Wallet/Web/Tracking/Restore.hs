@@ -5,14 +5,13 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 
 import qualified Data.Map as M
-import           System.Wlog (CanLog, HasLoggerName, WithLogger, logInfo, modifyLoggerName)
+import           System.Wlog (WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Core (Address, HasConfiguration, HasDifficulty (..), headerHash)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
-import           Pos.Slotting (MonadSlotsData)
-import           Pos.StateLock (StateLock)
+import           Pos.Infra.Slotting (MonadSlotsData)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
 import           Pos.Txp.DB.Utxo (filterUtxo)
 import           Pos.Util (HasLens (..))
@@ -31,9 +30,7 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest, su
 restoreWallet :: ( WalletDbReader ctx m
                  , MonadDBRead m
                  , WithLogger m
-                 , HasLens StateLock ctx StateLock
                  , HasLens SyncQueue ctx SyncQueue
-                 , MonadMask m
                  , MonadSlotsData ctx m
                  , MonadUnliftIO m
                  ) => WalletDecrCredentials -> m ()
@@ -67,8 +64,6 @@ restoreWallet credentials = do
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.
 restoreWalletBalance :: ( WalletDbReader ctx m
-                        , HasLoggerName m
-                        , CanLog m
                         , MonadDBRead m
                         , MonadUnliftIO m
                         ) => WalletDB -> WalletDecrCredentials -> m ()

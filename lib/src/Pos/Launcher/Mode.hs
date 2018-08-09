@@ -35,16 +35,16 @@ import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
+import           Pos.Infra.Slotting (HasSlottingVar (..))
+import           Pos.Infra.Slotting.Class (MonadSlots (..))
+import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar,
+                                            currentTimeSlottingSimple,
+                                            getCurrentSlotBlockingSimple,
+                                            getCurrentSlotInaccurateSimple,
+                                            getCurrentSlotSimple)
+import           Pos.Infra.Slotting.MemState (MonadSlotsData)
+import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc.Context (LrcContext)
-import           Pos.Slotting (HasSlottingVar (..))
-import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl (SimpleSlottingStateVar,
-                                    currentTimeSlottingSimple,
-                                    getCurrentSlotBlockingSimple,
-                                    getCurrentSlotInaccurateSimple,
-                                    getCurrentSlotSimple)
-import           Pos.Slotting.MemState (MonadSlotsData)
-import           Pos.Slotting.Types (SlottingData)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
 

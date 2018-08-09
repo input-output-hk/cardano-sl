@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | TossT monad transformer. Single-threaded.
 
 module Pos.Ssc.Toss.Trans
@@ -9,7 +11,7 @@ module Pos.Ssc.Toss.Trans
        , execTossT
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, (%=), (.=))
 import qualified Ether

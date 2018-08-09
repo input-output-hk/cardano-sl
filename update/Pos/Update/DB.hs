@@ -49,18 +49,21 @@ import           Serokell.Data.Memory.Units (Byte)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Binary.Infra ()
 import           Pos.Binary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, NumSoftwareVersion,
-                           SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots)
-import           Pos.Core.Configuration (HasConfiguration, genesisBlockVersionData)
+                           SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots,
+                           HasCoreConfiguration)
+import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB, MonadDBRead (..),
                          RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, createInitSlottingData)
+import           Pos.Infra.Binary ()
+import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
+                                           SlottingData,
+                                           createInitSlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, ourAppName, ourSystemTag)
 import           Pos.Update.Constants (genesisBlockVersion, genesisSoftwareVersions)
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
@@ -97,7 +100,7 @@ getBVState :: MonadDBRead m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
-getProposalState :: (HasConfiguration, MonadDBRead m) => UpId -> m (Maybe ProposalState)
+getProposalState :: (MonadDBRead m) => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get last confirmed SoftwareVersion of given application.
@@ -134,7 +137,7 @@ data UpdateOp
     | PutSlottingData !SlottingData
     | PutEpochProposers !(HashSet StakeholderId)
 
-instance HasConfiguration => RocksBatchOp UpdateOp where
+instance HasCoreConfiguration => RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
         [ Rocks.Put (proposalKey upId) (dbSerializeValue ps)]
       where
@@ -165,7 +168,7 @@ instance HasConfiguration => RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: (HasConfiguration, MonadDB m) => m ()
+initGStateUS :: MonadDB m => m ()
 initGStateUS = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :
@@ -205,7 +208,7 @@ instance DBIteratorClass PropIter where
     iterKeyPrefix = iterationPrefix
 
 proposalSource ::
-       (HasConfiguration, MonadDBRead m)
+       (MonadDBRead m)
     => ConduitT () (IterType PropIter) (ResourceT m) ()
 proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 
@@ -213,7 +216,7 @@ proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: (HasConfiguration, MonadDBRead m, MonadUnliftIO m)
+    :: (MonadDBRead m, MonadUnliftIO m)
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId =
     runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isOld .| CL.consume
@@ -224,7 +227,7 @@ getOldProposals slotId =
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: (HasConfiguration, MonadDBRead m, MonadUnliftIO m)
+    :: (MonadDBRead m, MonadUnliftIO m)
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd =
     runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isDeep .| CL.consume
@@ -236,7 +239,7 @@ getDeepProposals cd =
 
 -- | Get states of all competing 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp ::
-       (HasConfiguration, MonadDBRead m, MonadUnliftIO m)
+       (MonadDBRead m, MonadUnliftIO m)
     => ApplicationName
     -> m [ProposalState]
 getProposalsByApp appName =

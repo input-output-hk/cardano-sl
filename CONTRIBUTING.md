@@ -1,5 +1,12 @@
 # Contributors Guide
 
+## Discussion
+
+Developer discussion can be found on the official Telegram channel [here](https://t.me/CardanoDevelopersOfficial).
+This channel is intended as a developer/contribution channel. It should not be used for customer support requests,
+comedy/memes, or price talk. Feel free to discuss current issues, future possibilities, and visions for how you
+think Cardano should progress.
+
 ## Bug Reports
 
 Please [open an issue](https://github.com/input-output-hk/cardano-sl/issues/new)
@@ -27,6 +34,12 @@ Please make sure your contributions adhere to our coding guidelines:
 Please note that Cardano SL uses a custom prelude [Universum](https://github.com/serokell/universum)
 instead of the default one.
 
+### Development Tricks
+
+Common tasks for development are kept in `Makefile`s, one per package and one for the whole project.
+Run `make help` to get assistance on custom commands.
+As an example, you can run `make ghcid-test` in the `wallet-new` package to get a test-running `ghcid` process running.
+
 ### Code Quality
 
 Cardano SL uses [HLint](https://github.com/ndmitchell/hlint) as a code quality tool.
@@ -49,11 +62,14 @@ configuration file requires `stylish-haskell` version `0.8.1.0` or newer.
 
 You can install it using `stack install stylish-haskell` command.
 
+We also use [`editorconfig`](https://editorconfig.org/) to maintain consistent indentation and maximum line length.
+You can [download a plugin](https://editorconfig.org/#download) for almost any common editor.
+
 ## Documentation
 
 Cardano SL Documentation is published at [cardanodocs.com](https://cardanodocs.com).
 
-Please note that we have a [separate repository for documentation](https://github.com/input-output-hk/cardanodocs.com/). 
+Please note that we have a [separate repository for documentation](https://github.com/input-output-hk/cardanodocs.com/).
 So if you would like to help with documentation, please [submit a pull request](https://github.com/input-output-hk/cardanodocs.com/pulls)
 with your changes/additions.
 

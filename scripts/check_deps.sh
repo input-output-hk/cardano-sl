@@ -4,22 +4,24 @@
 
 #set -xe
 
-checksum_files=""
+checksum_files=()
 
 # Find the checksum of all stack files.
-for stack_file in `find -name "stack.yaml" -not -path "./.stack-work/*" -type f`; do
-    checksum_files+="$stack_file "
-done
+while IFS= read -r -d '' stack_file
+do
+  checksum_files+=("$stack_file")
+ done < <(find . -name "stack.yaml" -not -path "./.stack-work/*" -type f -print0)
 
 # Find the checksum of all cabal files.
-for cabal_file in `find -name "*.cabal" -not -path "./.stack-work/*" -type f`; do
-    checksum_files+="$cabal_file "
-done
+while IFS= read -r -d '' cabal_file
+do
+  checksum_files+=("$cabal_file")
+done < <(find . -name "*.cabal" -not -path "./.stack-work/*" -type f -print0)
 
-total_checksum="$(md5sum $checksum_files)"
-existing_checksum=`cat ./scripts/deps_checksum`
+total_checksum="$(md5sum "${checksum_files[@]}")"
+existing_checksum=$(cat ./scripts/deps_checksum)
 
-echo $total_checksum
+echo "$total_checksum"
 #echo "The existing checksum is '$existing_checksum'"
 
 # Ignore whitespaces

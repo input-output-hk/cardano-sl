@@ -7,7 +7,7 @@ module Cardano.Wallet.Kernel.Diffusion (
 import Universum
 
 import Pos.Core
-import Pos.Diffusion.Types
+import Pos.Infra.Diffusion.Types
 
 -- | Wallet diffusion layer
 --

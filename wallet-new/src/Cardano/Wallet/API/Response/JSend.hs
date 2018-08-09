@@ -5,7 +5,7 @@ import           Universum
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
-import           Data.Swagger hiding (constructorTagModifier)
+import           Data.Swagger
 import qualified Data.Text.Buildable
 import           Test.QuickCheck (Arbitrary (..), elements)
 
@@ -15,7 +15,7 @@ data ResponseStatus =
     | ErrorStatus
     deriving (Show, Eq, Ord, Enum, Bounded)
 
-deriveJSON defaultOptions { constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
+deriveJSON defaultOptions { Data.Aeson.TH.constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
 
 instance Arbitrary ResponseStatus where
     arbitrary = elements [minBound .. maxBound]

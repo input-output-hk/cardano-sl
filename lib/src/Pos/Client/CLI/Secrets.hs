@@ -37,7 +37,7 @@ prepareUserSecret CommonNodeArgs {devGenesisSecretI} userSecret = do
         error $
         "devGenesisSecretI is specified, but no generatedSecrets is present.\n" <>
         "Try to change initializer in genesis spec"
-    predefinedRichKeys :: HasConfiguration => Maybe RichSecrets
+    predefinedRichKeys :: Maybe RichSecrets
     predefinedRichKeys
         | Just secretsRich <- genesisSecretsRich
         , Just i <- devGenesisSecretI = secretsRich ^? ix i

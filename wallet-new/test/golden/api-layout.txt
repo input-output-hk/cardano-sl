@@ -1,0 +1,48 @@
+/
+├─ addresses/
+│  ├─•
+│  ┆
+│  ├─•
+│  ┆
+│  ┆
+│  └─ <capture>/
+│     └─•
+├─ node-info/
+│  └─•
+├─ node-settings/
+│  └─•
+├─ transactions/
+│  ├─ fees/
+│  │  └─•
+│  ├─•
+│  ┆
+│  └─•
+└─ wallets/
+   ├─•
+   ┆
+   ├─•
+   ┆
+   ┆
+   ├─ <capture>/
+   │  ├─ password/
+   │  │  └─•
+   │  ├─•
+   │  ┆
+   │  ├─•
+   │  ┆
+   │  └─•
+   ┆
+   └─ <capture>/
+      └─ accounts/
+         ├─ <capture>/
+         │  ├─•
+         │  ┆
+         │  └─•
+         ┆
+         ├─•
+         ┆
+         ├─•
+         ┆
+         ┆
+         └─ <capture>/
+            └─•

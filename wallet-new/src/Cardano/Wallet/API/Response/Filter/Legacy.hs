@@ -16,7 +16,7 @@ applyFilters F.NoFilters inputData        = inputData
 applyFilters (F.FilterOp f fop) inputData = applyFilters fop (applyFilter f inputData)
 
 -- | Applies a single 'FilterOperation' on the input data, producing filtered data as output.
-applyFilter :: forall ix a m. (IsIndexOf' a ix, MonadPlus m, Indexable' a , ToIndex a ix)
+applyFilter :: forall ix a m. (IsIndexOf' a ix, MonadPlus m, ToIndex a ix)
             => F.FilterOperation ix a
             -> m a
             -> m a
@@ -38,7 +38,7 @@ applyFilter fltr inputData =
 -- A simple and unoptimised generic 'filter' function running in 'MonadPlus'
 -- See: http://conal.net/blog/posts/a-handy-generalized-filter
 filterData :: MonadPlus m => (a -> Bool) -> m a -> m a
-filterData p m = joinMaybes (liftM f m)
+filterData p m = joinMaybes (fmap f m)
  where
    f a | p a       = Just a
        | otherwise = Nothing

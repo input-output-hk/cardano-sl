@@ -19,9 +19,8 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..), VssCertificatesMap (..))
+import           Pos.Core (EpochIndex (..), SlotId (..), VssCertificatesMap (..), HasGenesisData, HasProtocolConstants)
 import           Pos.DB (MonadDBRead)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Functions (getStableCertsPure)
 import           Pos.Ssc.Mem (MonadSscMem, sscRunGlobalQuery)
@@ -43,7 +42,7 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (HasSscConfiguration, HasConfiguration, MonadSscMem ctx m, MonadIO m)
+    :: (MonadSscMem ctx m, MonadIO m, HasGenesisData, HasProtocolConstants)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view sgsVssCertificates)
@@ -53,7 +52,7 @@ getStableCerts epoch =
 ----------------------------------------------------------------------------
 
 -- | Load global state from DB by recreating it from recent blocks.
-sscLoadGlobalState :: (HasConfiguration, MonadDBRead m, WithLogger m) => m SscGlobalState
+sscLoadGlobalState :: (MonadDBRead m, WithLogger m) => m SscGlobalState
 sscLoadGlobalState = do
     logDebug "Loading SSC global state"
     gs <- DB.getSscGlobalState

@@ -30,7 +30,7 @@ module Pos.Explorer.Web.Server
        , cAddrToAddr
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at)
 import qualified Data.ByteString as BS
@@ -52,7 +52,7 @@ import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 import           Pos.DB.Block (getBlund)
 import           Pos.DB.Class (MonadDBRead)
 
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
@@ -63,11 +63,11 @@ import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex, Header
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
 import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx, txOutValue, txpTxs,
                                _txOutputs)
-import           Pos.Slotting (MonadSlots (..), getSlotStart)
+import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
 import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs,
                           withTxpLocalData)
 import           Pos.Util (divRoundUp, maybeThrow)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
@@ -103,7 +103,7 @@ explorerServeImpl
     => m Application
     -> Word16
     -> m ()
-explorerServeImpl app port = serveImpl loggingApp "*" port Nothing Nothing
+explorerServeImpl app port = serveImpl loggingApp "*" port Nothing Nothing Nothing
   where
     loggingApp = logStdoutDev <$> app
 
@@ -508,7 +508,7 @@ getGenesisSummary = do
         }
   where
     getRedeemAddressInfo
-        :: (MonadDBRead m, MonadThrow m)
+        :: MonadDBRead m
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
         currentBalance <- fromMaybe minBound <$> getAddrBalance address
@@ -608,9 +608,7 @@ getEpochSlot epochIndex slotIndex = do
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex page
     blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
-
-    pure cBlocksEntry
+    forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
   where
     blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
@@ -706,9 +704,7 @@ getStatsTxs
 getStatsTxs mPageNumber = do
     -- Get blocks from the requested page
     blocksPage <- getBlocksPage mPageNumber (Just defaultPageSizeWord)
-
-    blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
-    pure blockPageTxsInfo
+    getBlockPageTxsInfo blocksPage
   where
     getBlockPageTxsInfo
         :: (Integer, [CBlockEntry])
@@ -761,9 +757,7 @@ getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
 getMainBlockTxs cHash = do
     hash' <- unwrapOrThrow $ fromCHash cHash
     blk   <- getMainBlock hash'
-    txs   <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
-
-    pure txs
+    topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)
@@ -886,3 +880,12 @@ getEpochPagesOrThrow
     -> m Page
 getEpochPagesOrThrow epochIndex =
     getEpochPagesCSLI epochIndex >>= maybeThrow (Internal "No epoch pages.")
+
+-- Silly name for a list index-lookup function.
+atMay :: [a] -> Int -> Maybe a
+atMay xs n
+    | n < 0     = Nothing
+    | n == 0    = fmap fst (uncons xs)
+    | otherwise = case xs of
+                      []        -> Nothing
+                      (_ : xs') -> atMay xs' (n - 1)

@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             1.2.1
+version:             1.3.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -17,10 +17,8 @@ flag asserts
   manual:      True
 
 library
+  hs-source-dirs:      src
   exposed-modules:
-                       Pos.Arbitrary.Core
-                       Pos.Arbitrary.Core.Unsafe
-
                        Pos.Aeson.Core
                        Pos.Aeson.Core.Configuration
                        Pos.Aeson.Fee
@@ -30,14 +28,18 @@ library
                        Pos.Binary.Merkle
 
                        Pos.Core
+                       Pos.Core.Chrono
+                       Pos.Core.Limits
+
+                       Pos.Core.ProtocolConstants
 
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis
                        Pos.Core.Block.Main
                        Pos.Core.Block.Union
+                       Pos.Core.Block.Constructors
 
-                       Pos.Core.Class
                        Pos.Core.Common
                        Pos.Core.Configuration
                        Pos.Core.Constants
@@ -56,10 +58,6 @@ library
 
                        Pos.System.Metrics.Constants
 
-                       Pos.Util.AssertMode
-                       Pos.Util.Chrono
-                       Pos.Util.Limits
-
   other-modules:
                        -- Binary
                        Pos.Binary.Core.Address
@@ -75,11 +73,9 @@ library
                        Pos.Binary.Core.Update
 
                        -- Block
-                       Pos.Core.Block.Genesis.Chain
                        Pos.Core.Block.Genesis.Lens
                        Pos.Core.Block.Genesis.Instances
                        Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Chain
                        Pos.Core.Block.Main.Lens
                        Pos.Core.Block.Main.Instances
                        Pos.Core.Block.Main.Types
@@ -87,10 +83,23 @@ library
                        Pos.Core.Block.Union.Types
 
                        -- Common
+                       Pos.Core.Common.AddrAttributes
                        Pos.Core.Common.Address
+                       Pos.Core.Common.AddressHash
+                       Pos.Core.Common.AddrSpendingData
+                       Pos.Core.Common.AddrStakeDistribution
+                       Pos.Core.Common.BlockCount
+                       Pos.Core.Common.ChainDifficulty
+                       Pos.Core.Common.Coeff
                        Pos.Core.Common.Coin
-                       Pos.Core.Common.Fee
-                       Pos.Core.Common.Types
+                       Pos.Core.Common.CoinPortion
+                       Pos.Core.Common.Script
+                       Pos.Core.Common.SharedSeed
+                       Pos.Core.Common.SlotLeaders
+                       Pos.Core.Common.StakeholderId
+                       Pos.Core.Common.Stakes
+                       Pos.Core.Common.TxFeePolicy
+                       Pos.Core.Common.TxSizeLinear
 
                        -- Configuration
                        Pos.Core.Configuration.BlockVersionData
@@ -103,32 +112,75 @@ library
                        -- Context
                        Pos.Core.Context.PrimaryKey
 
+                       -- Delegation
+                       Pos.Core.Delegation.HeavyDlgIndex
+                       Pos.Core.Delegation.LightDlgIndices
+                       Pos.Core.Delegation.Payload
+                       Pos.Core.Delegation.Proof
+
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.Helpers
-                       Pos.Core.Genesis.Types
+                       Pos.Core.Genesis.AvvmBalances
+                       Pos.Core.Genesis.Data
+                       Pos.Core.Genesis.Delegation
+                       Pos.Core.Genesis.Initializer
+                       Pos.Core.Genesis.NonAvvmBalances
+                       Pos.Core.Genesis.ProtocolConstants
+                       Pos.Core.Genesis.Spec
+                       Pos.Core.Genesis.VssCertificatesMap
+                       Pos.Core.Genesis.WStakeholders
 
                        -- Slotting
+                       Pos.Core.Slotting.EpochIndex
+                       Pos.Core.Slotting.EpochOrSlot
+                       Pos.Core.Slotting.LocalSlotIndex
+                       Pos.Core.Slotting.SlotCount
+                       Pos.Core.Slotting.SlotId
+                       Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
-                       Pos.Core.Slotting.Types
-                       Pos.Core.Slotting.Util
 
                        -- SSC
-                       Pos.Core.Ssc.Types
-                       Pos.Core.Ssc.Util
-                       Pos.Core.Ssc.Vss
+                       Pos.Core.Ssc.Commitment
+                       Pos.Core.Ssc.CommitmentsMap
+                       Pos.Core.Ssc.Opening
+                       Pos.Core.Ssc.OpeningsMap
+                       Pos.Core.Ssc.CommitmentAndOpening
+                       Pos.Core.Ssc.Payload
+                       Pos.Core.Ssc.Proof
+                       Pos.Core.Ssc.SharesDistribution
+                       Pos.Core.Ssc.SharesMap
+                       Pos.Core.Ssc.VssCertificate
+                       Pos.Core.Ssc.VssCertificatesMap
+
+                       -- Txp
+                       Pos.Core.Txp.Tx
+                       Pos.Core.Txp.TxAux
+                       Pos.Core.Txp.TxOutAux
+                       Pos.Core.Txp.TxPayload
+                       Pos.Core.Txp.TxProof
+                       Pos.Core.Txp.TxWitness
+                       Pos.Core.Txp.Undo
 
                        -- Update
-                       Pos.Core.Update.Types
-                       Pos.Core.Update.Util
+                       Pos.Core.Update.ApplicationName
+                       Pos.Core.Update.BlockVersion
+                       Pos.Core.Update.BlockVersionData
+                       Pos.Core.Update.BlockVersionModifier
+                       Pos.Core.Update.Data
+                       Pos.Core.Update.Payload
+                       Pos.Core.Update.Proof
+                       Pos.Core.Update.Proposal
+                       Pos.Core.Update.SoftforkRule
+                       Pos.Core.Update.SoftwareVersion
+                       Pos.Core.Update.SystemTag
+                       Pos.Core.Update.Vote
+                       Pos.Core.Update.VoteId
 
   build-depends:       aeson
                      , ansi-terminal
-                     , autoexporter
                      , base
                      , base58-bytestring
-                     , binary
                      , bytestring
                      , Cabal
                      , canonical-json
@@ -147,14 +199,12 @@ library
                      , filepath
                      , fmt
                      , formatting
-                     , generic-arbitrary
                      , hashable
                      , lens
                      , log-warper >= 1.0.3
                      , memory
                      , mtl
                      , plutus-prototype
-                     , quickcheck-instances
                      , random
                      , reflection
                      , safe-exceptions
@@ -168,7 +218,6 @@ library
                      , universum
                      , unordered-containers
                      , vector
-                     , QuickCheck
 
   default-language:    Haskell2010
 
@@ -199,10 +248,88 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(asserts)
     cpp-options: -DASSERTS_ON
+
+test-suite test
+  main-is:             test.hs
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+  other-modules:
+                       Spec
+                       Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.CborSpec
+                       Test.Pos.Core.Chrono
+                       Test.Pos.Core.ChronoSpec
+                       Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.LimitsSpec
+                       Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
+
+                       Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Unsafe
+
+  build-depends:       base
+                     , bytestring
+                     , cardano-sl-binary
+                     , cardano-sl-binary-test
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-crypto-test
+                     , cardano-sl-util
+                     , cardano-sl-util-test
+                     , containers
+                     , formatting
+                     , generic-arbitrary
+                     , hspec
+                     , QuickCheck
+                     , quickcheck-instances
+                     , random
+                     , serokell-util >= 0.1.3.4
+                     , text
+                     , time-units
+                     , universum >= 0.1.11
+                     , unordered-containers
+
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

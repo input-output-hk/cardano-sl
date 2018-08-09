@@ -21,8 +21,8 @@ import           Formatting (sformat, (%))
 
 import           Pos.Binary.Core ()
 import           Pos.Block.Types (Blund)
-import           Pos.Core (BlockCount, HasConfiguration, HasDifficulty (difficultyL),
-                           HasPrevBlock (prevBlockL), HeaderHash)
+import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
+                           HasPrevBlock (prevBlockL), HeaderHash, HasGenesisHash)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)
@@ -31,12 +31,11 @@ import           Pos.DB.BlockIndex (getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, getBlock)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTip)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 type LoadHeadersMode m =
-    ( HasConfiguration
-    , MonadDBRead m
+    ( MonadDBRead m
     )
 
 ----------------------------------------------------------------------------
@@ -45,7 +44,7 @@ type LoadHeadersMode m =
 
 loadDataWhile
     :: forall m a .
-       (Monad m, HasPrevBlock a, HasConfiguration)
+       (Monad m, HasPrevBlock a, HasGenesisHash)
     => (HeaderHash -> m a)
     -> (a -> Bool)
     -> HeaderHash
@@ -66,7 +65,7 @@ loadDataWhile getter predicate start = NewestFirst <$> doIt [] start
 -- (newest one) is assumed to have depth 0.
 loadDataByDepth
     :: forall m a .
-       (Monad m, HasPrevBlock a, HasDifficulty a, HasConfiguration)
+       (Monad m, HasPrevBlock a, HasDifficulty a, HasGenesisHash)
     => (HeaderHash -> m a)
     -> (a -> Bool)
     -> BlockCount

@@ -6,6 +6,10 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 
+-- GHC gives a false positive.
+-- See inline note [redundant constraints]
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+
 -- | Some utilites for more flexible servant usage.
 
 module Pos.Util.Servant
@@ -50,7 +54,7 @@ module Pos.Util.Servant
     , applyLoggingToHandler
     ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
@@ -77,8 +81,8 @@ import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Util.LogSafe (BuildableSafe, SecuredText, buildSafe, logInfoSP, plainOrSecureF,
-                                   secretOnlyF)
+import           Pos.Infra.Util.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe,
+                                         logInfoSP, plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -114,10 +118,14 @@ class ApiHasArgClass api where
 
     -- | Name of argument.
     -- E.g. name of argument specified by @Capture "nyan"@ is /nyan/.
-    apiArgName :: Proxy api -> String
+    apiArgName
+        :: Proxy api -> String
     default apiArgName
-        :: forall n someApiType a. (KnownSymbol n, someApiType n a ~ api)
-        => Proxy (someApiType n a) -> String
+        -- Note [redundant constraint]
+        -- GHC thinks 'api ~ someApiType n a' is a redundant constraint!
+        -- It's not: it makes the 'KnownSymbol n' constraint useful.
+        :: forall n someApiType a. (KnownSymbol n, api ~ someApiType n a)
+        => Proxy api -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
 class ServerT (subApi :> res) m ~ (ApiArg subApi -> ServerT res m)
@@ -456,8 +464,10 @@ class ApiHasArgClass subApi =>
         :: BuildableSafe (ApiArgToLog subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     default toLogParamInfo
-        :: BuildableSafe (ApiArgToLog subApi)
-        => Proxy subApi -> ApiArgToLog subApi -> SecuredText
+        :: ( Buildable (ApiArg subApi)
+           , Buildable (SecureLog (ApiArg subApi))
+           )
+        => Proxy subApi -> ApiArg subApi -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s a)
@@ -483,7 +493,6 @@ instance ( ApiCanLogArg subApi ) =>
 paramRouteWithLog
     :: forall config api subApi res ctx env.
        ( api ~ (subApi :> res)
-       , HasServer (subApi :> res) ctx
        , HasServer (subApi :> LoggingApiRec config res) ctx
        , ApiHasArg subApi res
        , ApiHasArg subApi (LoggingApiRec config res)
@@ -580,7 +589,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         return $ do
             endTime <- liftIO getPOSIXTime
             return $ sformat shown (endTime - startTime)
-    inLogCtx :: MonadIO m => LoggerNameBox m a -> m a
+    inLogCtx :: LoggerNameBox m a -> m a
     inLogCtx logAction = do
         let ApiLoggingConfig{..} = reflect configP
         usingLoggerName apiLoggerName logAction

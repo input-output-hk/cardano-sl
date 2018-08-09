@@ -5,13 +5,17 @@
 -- the running program, not for the lifetime of the executable binary itself.
 
 module Pos.Launcher.Configuration
-       ( Configuration (..)
+       ( AssetLockPath (..)
+       , Configuration (..)
        , HasConfigurations
 
        , ConfigurationOptions (..)
        , defaultConfigurationOptions
 
        , withConfigurations
+
+       -- Exposed mostly for testing.
+       , readAssetLockedSrcAddrs
        ) where
 
 import           Universum
@@ -19,14 +23,19 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
                              withObject, (.:), (.:?))
 import           Data.Default (Default (..))
+import           Data.Time.Units (fromMicroseconds)
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import qualified Data.Text as Text
+
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (sec)
 import           System.FilePath (takeDirectory)
 import           System.Wlog (WithLogger, logInfo)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration ()
+import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
 
@@ -34,7 +43,7 @@ import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Delegation.Configuration
-import           Pos.Ntp.Configuration
+import           Pos.Infra.Ntp.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Txp.Configuration
 import           Pos.Update.Configuration
@@ -85,7 +94,7 @@ instance FromJSON ConfigurationOptions where
     parseJSON = withObject "ConfigurationOptions" $ \o -> do
         cfoFilePath    <- o .: "filePath"
         cfoKey         <- o .: "key"
-        cfoSystemStart <- (Timestamp . sec) <<$>> o .:? "systemStart"
+        cfoSystemStart <- (Timestamp . fromMicroseconds . (*) 1000000) <<$>> o .:? "systemStart"
         cfoSeed        <- o .:? "seed"
         pure ConfigurationOptions {..}
 
@@ -104,17 +113,37 @@ instance Default ConfigurationOptions where
 -- configuration at a given key.
 withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
-    => ConfigurationOptions
-    -> (HasConfigurations => NtpConfiguration -> m r)
+    => Maybe AssetLockPath
+    -> ConfigurationOptions
+    -> (HasConfigurations => NtpConfiguration -> ProtocolMagic -> m r)
     -> m r
-withConfigurations co@ConfigurationOptions{..} act = do
-    logInfo ("using configurations: " <> show co)
-    Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
-    let configurationDir = takeDirectory cfoFilePath
-    withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
-        withUpdateConfiguration ccUpdate $
-        withSscConfiguration ccSsc $
-        withDlgConfiguration ccDlg $
-        withTxpConfiguration ccTxp $
-        withBlockConfiguration ccBlock $
-        withNodeConfiguration ccNode $ act ccNtp
+withConfigurations mAssetLockPath cfo act = do
+    logInfo ("using configurations: " <> show cfo)
+    cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
+    assetLock <- case mAssetLockPath of
+        Nothing -> pure mempty
+        Just fp -> liftIO $ readAssetLockedSrcAddrs fp
+    let configDir = takeDirectory $ cfoFilePath cfo
+    withCoreConfigurations (ccCore cfg) configDir (cfoSystemStart cfo) (cfoSeed cfo) $
+        withUpdateConfiguration (ccUpdate cfg) $
+        withSscConfiguration (ccSsc cfg) $
+        withDlgConfiguration (ccDlg cfg) $
+        withTxpConfiguration (addAssetLock assetLock $ ccTxp cfg) $
+        withBlockConfiguration (ccBlock cfg) $
+        withNodeConfiguration (ccNode cfg) $ act (ccNtp cfg)
+
+addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
+addAssetLock bset tcfg =
+    tcfg { tcAssetLockedSrcAddrs = Set.union (tcAssetLockedSrcAddrs tcfg) bset }
+
+newtype AssetLockPath = AssetLockPath FilePath
+
+readAssetLockedSrcAddrs :: AssetLockPath -> IO (Set Address)
+readAssetLockedSrcAddrs (AssetLockPath fp) = do
+    res <- filter keepLine . fmap Text.strip . lines <$> readFile fp
+    case partitionEithers $ map decodeTextAddress res of
+        ([], xs) -> pure $ Set.fromList xs
+        (errs, _) -> error $ "Error reading assetLock file:\n" <> unlines errs
+  where
+    keepLine t =
+      not (Text.null t || "#" `Text.isPrefixOf` t)

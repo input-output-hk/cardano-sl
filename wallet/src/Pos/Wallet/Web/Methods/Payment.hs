@@ -31,8 +31,8 @@ import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..),
                            getCurrentTimestamp)
 import           Pos.Core.Txp (_txOutputs)
-import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..), checkPassMatches,
-                             hash, withSafeSignerUnsafe)
+import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner, ShouldCheckPassphrase (..),
+                             checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
 import           Pos.Txp (TxFee (..), Utxo)
 import           Pos.Util (eitherToThrow, maybeThrow)
@@ -58,20 +58,22 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 
 newPayment
     :: MonadWalletTxFull ctx m
-    => (TxAux -> m Bool)
+    => ProtocolMagic
+    -> (TxAux -> m Bool)
     -> PassPhrase
     -> AccountId
     -> CId Addr
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment submitTx passphrase srcAccount dstAddress coin policy =
+newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
     -- This is done for two reasons:
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $ do
       sendMoney
+          pm
           submitTx
           passphrase
           (AccountMoneySource srcAccount)
@@ -80,14 +82,16 @@ newPayment submitTx passphrase srcAccount dstAddress coin policy =
 
 newPaymentBatch
     :: MonadWalletTxFull ctx m
-    => (TxAux -> m Bool)
+    => ProtocolMagic
+    -> (TxAux -> m Bool)
     -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch submitTx passphrase NewBatchPayment {..} = do
+newPaymentBatch pm submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       sendMoney
+          pm
           submitTx
           passphrase
           (AccountMoneySource src)
@@ -106,18 +110,19 @@ type MonadFees ctx m =
 
 getTxFee
      :: MonadFees ctx m
-     => AccountId
+     => ProtocolMagic
+     -> AccountId
      -> CId Addr
      -> Coin
      -> InputSelectionPolicy
      -> m CCoin
-getTxFee srcAccount dstAccount coin policy = do
+getTxFee pm srcAccount dstAccount coin policy = do
     ws <- askWalletSnapshot
     let pendingAddrs = getPendingAddresses ws policy
     utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee pm pendingAddrs utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -143,7 +148,7 @@ getSomeMoneySourceAccount _ (AddressMoneySource addrId) =
     return $ addrId ^. wamAccount
 getSomeMoneySourceAccount _ (AccountMoneySource accId) = return accId
 getSomeMoneySourceAccount ws (WalletMoneySource wid) = do
-    wAddr <- maybeThrow noWallets (head (getWalletAccountIds ws wid))
+    wAddr <- maybeThrow noWallets ((fmap fst . uncons) (getWalletAccountIds ws wid))
     getSomeMoneySourceAccount ws (AccountMoneySource wAddr)
   where
     noWallets = InternalError "Wallet has no accounts"
@@ -164,13 +169,14 @@ getMoneySourceUtxo ws =
 
 sendMoney
     :: (MonadWalletTxFull ctx m)
-    => (TxAux -> m Bool)
+    => ProtocolMagic
+    -> (TxAux -> m Bool)
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney submitTx passphrase moneySource dstDistr policy = do
+sendMoney pm submitTx passphrase moneySource dstDistr policy = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
@@ -210,7 +216,7 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
     let pendingAddrs = getPendingAddresses ws policy
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx pm getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -221,7 +227,7 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ptx <- mkPendingTx ws srcWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx db submitTx ptx
+        th <$ submitAndSaveNewPtx pm db submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

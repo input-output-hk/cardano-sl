@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Functions for working with Endpoints configuration file.
 

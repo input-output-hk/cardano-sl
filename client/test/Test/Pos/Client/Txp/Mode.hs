@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Execution mode for tx creation tests.
 
 module Test.Pos.Client.Txp.Mode
@@ -16,7 +18,6 @@ import           Test.QuickCheck (Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Util (TxCreateMode)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, BlockVersionData, HasConfiguration, makePubKeyAddressBoot)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
@@ -43,16 +44,14 @@ type HasTxpConfigurations =
 
 type TxpTestMode = ReaderT BlockVersionData IO
 
-instance HasTxpConfigurations => TxCreateMode TxpTestMode
-
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestMode instances
 ----------------------------------------------------------------------------
 
-instance HasTxpConfigurations => MonadGState TxpTestMode where
+instance MonadGState TxpTestMode where
     gsAdoptedBVData = ask
 
-instance HasTxpConfigurations => MonadAddresses TxpTestMode where
+instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
     getNewAddress _ = pure fakeAddressForMonadAddresses
     getFakeChangeAddress = pure fakeAddressForMonadAddresses
@@ -80,10 +79,10 @@ type TxpTestProperty = PropertyM TxpTestMode
 
 -- Cannot write a general OVERLAPPABLE instance with MonadTrans since
 -- type families cannot be OVERLAPPABLE.
-instance HasTxpConfigurations => MonadAddresses TxpTestProperty where
+instance MonadAddresses TxpTestProperty where
     type AddrData TxpTestProperty = AddrData TxpTestMode
     getNewAddress = lift . getNewAddress
     getFakeChangeAddress = lift getFakeChangeAddress
 
-instance HasTxpConfigurations => Testable (TxpTestProperty a) where
+instance (HasTxpConfigurations, Testable a) => Testable (TxpTestProperty a) where
     property = monadic (ioProperty . flip runReaderT genesisBlockVersionData)

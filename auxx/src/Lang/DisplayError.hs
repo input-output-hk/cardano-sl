@@ -104,7 +104,7 @@ ppParseError (ParseError str (Report {..})) =
   <+> hcat (punctuate (text ", or ") $ map text expected)
   <$> renderLines
   where
-    unconsumedDesc = maybe "end of input" show . head . fmap snd $ unconsumed
+    unconsumedDesc = maybe "end of input" show . (fmap fst . uncons) . fmap snd $ unconsumed
     strLines = nonEmpty $ take spanLines . drop (spanLineStart - 1) $ lines str
     renderLines = case strLines of
         Nothing ->

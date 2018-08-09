@@ -26,8 +26,6 @@ module Test.Util
        , expected
        , fails
        , modifyTestState
-       , addFail
-       , newWork
 
        , throwLeft
 
@@ -38,11 +36,13 @@ module Test.Util
 
        ) where
 
-import           Control.Concurrent.STM (STM, atomically, check)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Exception.Safe (Exception, MonadCatch, SomeException (..), catch, finally,
-                                         throwM)
-import           Control.Lens (makeLenses, (%=))
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.Async (forConcurrently, wait, withAsync)
+import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar, takeMVar)
+import           Control.Concurrent.STM (STM, atomically, check, registerDelay)
+import           Control.Concurrent.STM.TVar (TVar, readTVar)
+import           Control.Exception (Exception, SomeException (..), catch, finally, throwIO)
+import           Control.Lens (makeLenses)
 import           Control.Monad (forM_, void)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.State.Strict (StateT)
@@ -50,17 +50,10 @@ import           Data.Binary (Binary (..))
 import qualified Data.ByteString as LBS
 import qualified Data.List as L
 import qualified Data.Set as S
-import           Data.Time.Units (Microsecond, Second, TimeUnit)
+import           Data.Time.Units (Microsecond, Second, TimeUnit, toMicroseconds)
 import           Data.Word (Word32)
 import           GHC.Generics (Generic)
-import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, Delay, concurrently, delay, forConcurrently,
-                                      wait, withAsync)
-import           Mockable.Production (Production (..))
-import           Mockable.SharedExclusive (SharedExclusive, newSharedExclusive, putSharedExclusive,
-                                           readSharedExclusive, takeSharedExclusive)
 import qualified Network.Transport as NT (Transport)
-import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.InMemory as InMemory
 import qualified Network.Transport.TCP as TCP
 import           Serokell.Util.Concurrent (modifyTVarS)
@@ -76,33 +69,31 @@ import           Node (Conversation (..), ConversationActions (..), Listener (..
                        nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
+import           Pos.Util.Trace (wlogTrace)
 
 -- | Run a computation, but kill it if it takes more than a given number of
 --   Microseconds to complete. If that happens, log using a given string
 --   prefix.
+--
+--   TODO use System.Timeout?
 timeout
-    :: ( Mockable Delay m
-       , Mockable Async m
-       , Mockable SharedExclusive m
-       , MonadCatch m
-       )
-    => String
+    :: String
     -> Microsecond
-    -> m t
-    -> m t
+    -> IO t
+    -> IO t
 timeout str us m = do
-    var <- newSharedExclusive
+    var <- newEmptyMVar
     let action = do
             t <- (fmap Right m) `catch` (\(e :: SomeException) -> return (Left e))
-            putSharedExclusive var t
+            putMVar var t
     let timeoutAction = do
-            delay us
-            putSharedExclusive var (Left . error $ str ++ " : timeout after " ++ show us)
+            threadDelay (fromIntegral us)
+            putMVar var (Left . error $ str ++ " : timeout after " ++ show us)
     withAsync action $ \_ -> do
         withAsync timeoutAction $ \_ -> do
-            choice <- readSharedExclusive var
+            choice <- readMVar var
             case choice of
-                Left e  -> throwM e
+                Left e  -> throwIO e
                 Right t -> return t
 
 -- * Parcel
@@ -169,50 +160,29 @@ instance Testable TestState where
 modifyTestState :: MonadIO m => TVar TestState -> StateT TestState STM () -> m ()
 modifyTestState ts how = liftIO . atomically $ modifyTVarS ts how
 
-addFail :: MonadIO m => TVar TestState -> String -> m ()
-addFail testState desc = modifyTestState testState $ fails %= (desc :)
-
-reportingFail :: TVar TestState -> String -> Production () -> Production ()
-reportingFail testState actionName act = do
-    act `catch` \(SomeException e) ->
-        addFail testState $ "Error thrown in " ++ actionName ++ ": " ++ show e
-
-newWork :: TVar TestState -> String -> Production () -> Production ()
-newWork testState workerName act = do
-    reportingFail testState workerName act
-
-
 -- * Misc
 
 -- I guess, errors in network-transport wasn't supposed to be processed in such way ^^
-throwLeft :: Exception e => Production (Either e a) -> Production a
+throwLeft :: Exception e => IO (Either e a) -> IO a
 throwLeft = (>>= f)
   where
-    f (Left e)  = throwM e
+    f (Left e)  = throwIO e
     f (Right a) = return a
 
 -- | Await for predicate to become True, with timeout
-awaitSTM :: TimeUnit t => t -> STM Bool -> Production ()
+awaitSTM :: TimeUnit t => t -> STM Bool -> IO ()
 awaitSTM time predicate = do
-    tvar <- liftIO $ newTVarIO False
-    let waitAndFinish = do
-            delay time
-            liftIO . atomically $ writeTVar tvar True
-    void $ concurrently waitAndFinish $ liftIO . atomically $
-        check =<< (||) <$> predicate <*> readTVar tvar
+    tvar <- registerDelay (fromIntegral (toMicroseconds time))
+    atomically (((||) <$> predicate <*> readTVar tvar) >>= check)
 
 sendAll
-    :: ( Binary msg, Message msg, MonadIO m
-       , Mockable Concurrently m
-       , Mockable Delay m
-       , Mockable Async m
-       , MonadCatch m
-       , Mockable SharedExclusive m
+    :: ( Binary msg
+       , Message msg
        )
-    => Converse BinaryP () m
+    => Converse BinaryP ()
     -> NodeId
     -> [msg]
-    -> m ()
+    -> IO ()
 sendAll converse peerId msgs =
     timeout "sendAll" 30000000 $
         void . converseWith converse peerId $
@@ -223,19 +193,16 @@ sendAll converse peerId msgs =
                     pure ()
 
 receiveAll
-    :: ( Binary msg, Message msg, MonadIO m
-       , Mockable Delay m
-       , Mockable Async m
-       , Mockable SharedExclusive m
-       , MonadCatch m
+    :: ( Binary msg
+       , Message msg
        )
-    => (msg -> m ())
-    -> Listener BinaryP () m
+    => (msg -> IO ())
+    -> Listener BinaryP ()
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll handler =
-    Listener @_ @_ @_ @Bool $ \_ _ cactions ->
+    Listener @_ @_ @Bool $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions maxBound
                       case mmsg of
                           Nothing -> pure ()
@@ -271,42 +238,42 @@ makeTCPTransport bind hostAddr port qdisc mtu = do
 -- * Test template
 
 deliveryTest :: NT.Transport
-             -> NodeEnvironment Production
+             -> NodeEnvironment
              -> TVar TestState
-             -> [NodeId -> Converse BinaryP () Production -> Production ()]
-             -> [Listener BinaryP () Production]
+             -> [NodeId -> Converse BinaryP () -> IO ()]
+             -> [Listener BinaryP ()]
              -> IO Property
-deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
+deliveryTest transport nodeEnv testState workers listeners = do
 
-    let transport = concrete transport_
+    let logTrace = wlogTrace ""
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
-    serverAddressVar <- newSharedExclusive
-    clientFinished <- newSharedExclusive
-    serverFinished <- newSharedExclusive
+    serverAddressVar <- newEmptyMVar
+    clientFinished <- newEmptyMVar
+    serverFinished <- newEmptyMVar
 
-    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng1 binaryPacking () nodeEnv $ \serverNode -> do
+    let server = node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng1 binaryPacking () nodeEnv $ \serverNode -> do
             NodeAction (const listeners) $ \_ -> do
                 -- Give our address to the client.
-                putSharedExclusive serverAddressVar (nodeId serverNode)
+                putMVar serverAddressVar (nodeId serverNode)
                 -- Don't stop until the client has finished.
-                takeSharedExclusive clientFinished
+                takeMVar clientFinished
                 -- Wait for the expected values to come, with 5 second timeout.
                 awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
                 -- Allow the client to stop.
-                putSharedExclusive serverFinished ()
+                putMVar serverFinished ()
 
-    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \_ ->
+    let client = node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \_ ->
             NodeAction (const []) $ \converse -> do
-                serverAddress <- takeSharedExclusive serverAddressVar
+                serverAddress <- takeMVar serverAddressVar
                 let act = void . forConcurrently workers $ \worker ->
                         worker serverAddress converse
                 -- Tell the server that we're done.
-                act `finally` putSharedExclusive clientFinished ()
+                act `finally` putMVar clientFinished ()
                 -- Wait until the server has finished.
-                takeSharedExclusive serverFinished
+                takeMVar serverFinished
 
     withAsync server $ \serverPromise -> do
         withAsync client $ \clientPromise -> do

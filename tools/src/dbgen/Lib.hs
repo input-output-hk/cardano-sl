@@ -24,7 +24,7 @@ import           Pos.Client.Txp (TxHistoryEntry (..))
 import           Pos.Core (Address, Coin, mkCoin)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB.GState.Common (getTip)
-import           Pos.StateLock (StateLock (..))
+import           Pos.Infra.StateLock (StateLock (..))
 import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
@@ -39,6 +39,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
+import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot, getWalletUtxo,
                                              insertIntoHistoryCache, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
@@ -48,6 +49,8 @@ import           Text.Printf (printf)
 import           CLI (CLI (..))
 import           Rendering (green, renderAccountId, say)
 import           Types (UberMonad)
+
+import           Test.Pos.Txp.Arbitrary ()
 
 --
 -- Types
@@ -324,8 +327,8 @@ generateRealTxHistE outputAddresses = do
     genTxs txOut = do
 
         _txInputs     <- NE.fromList <$> genTxIn
-        _txOutputs    <- pure $ NE.fromList txOut
-        _txAttributes <- pure (mkAttributes ())
+        let _txOutputs = NE.fromList txOut
+        let _txAttributes = mkAttributes ()
 
         pure $ UnsafeTx {..}
 
@@ -413,7 +416,7 @@ genWallet walletNum = do
 
 
 -- | Generates a new 'BackupPhrase'.
-newRandomMnemonic :: UberMonad BackupPhrase
+newRandomMnemonic :: WalletWebMode BackupPhrase
 newRandomMnemonic = do
 
     -- The size 16 should give you 12 words after bip39 encoding.

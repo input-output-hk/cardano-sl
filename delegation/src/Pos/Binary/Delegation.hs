@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Delegation types serialization.
 
 module Pos.Binary.Delegation
@@ -6,20 +8,18 @@ module Pos.Binary.Delegation
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBiCxt)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
-import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (ProxySKHeavy, StakeholderId)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Delegation.Types (DlgUndo (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''DlgUndo [
+deriveSimpleBi ''DlgUndo [
     Cons 'DlgUndo [
         Field [| duPsks            :: [ProxySKHeavy]        |],
         Field [| duPrevEpochPosted :: HashSet StakeholderId |]
     ]]
 
-instance HasConfiguration => Bi (DataMsg ProxySKHeavy) where
+instance Bi (DataMsg ProxySKHeavy) where
     encode = encode . dmContents
     decode = DataMsg <$> decode

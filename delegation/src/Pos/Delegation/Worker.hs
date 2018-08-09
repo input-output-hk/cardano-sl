@@ -8,18 +8,18 @@ import           Universum
 
 import           Control.Lens ((%=))
 import           Data.Time.Clock (UTCTime, addUTCTime)
+import           Data.Time.Units (Second)
 import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
-import           Serokell.Util (sec)
+import           System.Wlog (WithLogger)
 
-import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
 import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgMessageCacheTimeout)
 import           Pos.Delegation.Logic (DelegationStateAction, runDelegationStateAction)
-import           Pos.Reporting (MonadReporting, reportOrLogE)
-import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Infra.Diffusion.Types (Diffusion)
+import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
+import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Util (microsecondsToUTC)
 import           Pos.Util.LRU (filterLRU)
-import           Pos.Worker.Types (WorkerSpec, localWorker)
 
 -- | This is a subset of 'WorkMode'.
 type DlgWorkerConstraint ctx m
@@ -29,15 +29,16 @@ type DlgWorkerConstraint ctx m
        , Mockable Delay m
        , HasShutdownContext ctx
        , MonadDelegation ctx m
-       , MonadReporting ctx m
+       , WithLogger m
+       , MonadReporting m
        , MonadReader ctx m
        , Mockable CurrentTime m
        , HasDlgConfiguration)
 
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (DlgWorkerConstraint ctx m) => ([WorkerSpec m], OutSpecs)
-dlgWorkers = first pure $ localWorker dlgInvalidateCaches
+dlgWorkers :: (DlgWorkerConstraint ctx m) => [Diffusion m -> m ()]
+dlgWorkers = [\_ -> dlgInvalidateCaches]
 
 -- | Runs proxy caches invalidating action every second.
 dlgInvalidateCaches :: DlgWorkerConstraint ctx m => m ()
@@ -51,7 +52,7 @@ dlgInvalidateCaches =
     fix $ \loop -> do
         -- REPORT:ERROR 'reportOrLogE' in delegation worker.
         invalidate `catchAny` reportOrLogE "Delegation worker, error occurred: "
-        delay (sec 1)
+        delay (1 :: Second)
         loop
   where
     invalidate = do

@@ -33,9 +33,8 @@ import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
-import           Pos.Core.Common (ChainDifficulty, HeaderHash)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core (ChainDifficulty, HeaderHash)
+import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
 import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete), MonadDBRead (..))
@@ -99,7 +98,7 @@ instance Buildable CommonOp where
     build (PutMaxSeenDifficulty d) =
         bprint ("PutMaxSeenDifficulty ("%int%")") d
 
-instance HasConfiguration => RocksBatchOp CommonOp where
+instance HasCoreConfiguration => RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
         [Rocks.Put tipKey (dbSerializeValue h)]
     toBatchOp (PutMaxSeenDifficulty h) =

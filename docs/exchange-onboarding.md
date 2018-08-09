@@ -102,6 +102,7 @@ Before building the wallet copy `./sample-wallet-config.nix` to
 Supported options include:
 
 -   **`walletListen`:** Wallet API server
+-   **`walletDocListen`:** Wallet doc API server
 -   **`ekgListen`:** Runtime metrics server
 -   **`stateDir`:** Directory for the wallet's local state. Must be
     enclosed in double quotes.
@@ -116,6 +117,9 @@ For exchanges we recommend creating the following `custom-wallet-config.nix`:
     {
       ## Wallet API server.
       #walletListen = "127.0.0.1:8090";
+
+      ## Wallet doc API server.
+      #walletDocListen = "127.0.0.1:8091";
     
       ## Runtime metrics server.
       #ekgListen = "127.0.0.1:8000";
@@ -156,9 +160,9 @@ By default the wallet's local state goes in
 `./state-wallet-mainnet`.
 
 Build the wallet and generate the shell script to connect to
-mainnet (use `connectScripts.stagingWallet` for testnet)
+mainnet (use `connectScripts.staging.wallet` for testnet)
 
-    nix-build -A connectScripts.mainnetWallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
+    nix-build -A connectScripts.mainnet.wallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
 
 After the build finishes the generated connection script is
 available as a symlink called `./launch_2018-01-30_0d4f79eea`, or
@@ -168,9 +172,9 @@ similar. Run that symlink as a script to start the wallet.
 
 Follow the above instructions for customization and dependencies. To build a docker
 container and import the image run
-(use `connectScripts.stagingWallet` for testnet):
+(use `connectScripts.staging.wallet` for testnet):
 
-    docker load < $(nix-build --no-out-link -A dockerImages.mainnetWallet)
+    docker load < $(nix-build --no-out-link -A dockerImages.mainnet.wallet)
 
 This will create an image `cardano-container-mainnet:latest`
 (or `cardano-container-staging:latest` for testnet)
@@ -298,11 +302,11 @@ and docker containers. On systems using docker, docker > 17.12 required.
 
 ## How do I export the CA certificate for the API?
 
-The certificate is generated inside the wallet in the file `tls/server.cert`
+The certificate is generated inside the wallet in the file `tls/server/server.crt`
 
 If you are using the docker container, this can be output using the command:
 
-`docker exec -it cardano-mainnet-wallet cat /wallet/state-wallet-mainnet/tls/server.cert`
+`docker exec -it cardano-mainnet-wallet cat /wallet/state-wallet-mainnet/tls/server/server.crt`
 
 Please refer to your OS or browser documentation for how to import the CA
 certificate into your trusted `ca-certificates` file. The rest of this

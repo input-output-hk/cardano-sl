@@ -72,6 +72,7 @@ import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
+import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
@@ -80,11 +81,13 @@ import           Formatting (bprint, build, builder, fconst, formatToString,
 import qualified Formatting.Buildable
 import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           Network.HTTP.Types (parseQueryText)
+import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
-                     HasLink (toLink), MkLink, QueryFlag, QueryParam,
-                     ReflectMethod (..), ReqBody, Summary, Verb)
+                     QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
+                     Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
@@ -717,28 +720,55 @@ instance ReportDecodeError api =>
 -- Custom query flag
 -------------------------------------------------------------------------
 
+-- This type is used as a helper to implement custom query flags.
+-- Instead of using `QueryFlag "some_flag"` which should serialize
+-- into boolean flag now we can say `CustomQueryFlag "some_flag" SomeFlag`
+-- where SomeFlag has instance of Flaggable. This way we won't be using
+-- Boolean type for all flags but we can implement custom type.
 data CustomQueryFlag (sym :: Symbol) flag
 
+-- TODO (akegalj): add roundtrip test
 class Flaggable flag where
     toBool :: flag -> Bool
-
-instance ( KnownSymbol sym
-         , HasLink sub
-         , Flaggable flag
-         ) =>
-         HasLink (CustomQueryFlag sym flag :> sub) where
-    type MkLink (CustomQueryFlag sym flag :> sub) = flag -> MkLink sub
-    toLink _ l = toLink (Proxy :: Proxy (QueryFlag sym :> sub)) l . toBool
-
-instance ( KnownSymbol sym
-         , HasSwagger sub
-         , Flaggable flag
-         ) =>
-         HasSwagger (CustomQueryFlag sym flag :> sub) where
-    toSwagger _ = toSwagger (Proxy @(QueryFlag sym :> sub))
+    fromBool :: Bool -> flag
 
 instance Flaggable Bool where
     toBool = identity
+    fromBool = identity
+
+-- TODO (akegalj): this instance is almost the same as upstream HasServer instance of QueryFlag. The only difference is addition of `fromBool` function in `route` implementation. Can we somehow reuse `route` implementation of CustomQuery instead of copy-pasting it here with this small `fromBool` addition?
+instance (KnownSymbol sym, HasServer api context, Flaggable flag)
+      => HasServer (CustomQueryFlag sym flag :> api) context where
+
+  type ServerT (CustomQueryFlag sym flag :> api) m =
+    flag -> ServerT api m
+
+  hoistServerWithContext _ pc nt s = hoistServerWithContext (Proxy @api) pc nt . s
+
+  route Proxy context subserver =
+    let querytext r = parseQueryText $ rawQueryString r
+        param r = case lookup paramname (querytext r) of
+          Just Nothing  -> True  -- param is there, with no value
+          Just (Just v) -> examine v -- param with a value
+          Nothing       -> False -- param not in the query string
+    in  route (Proxy @api) context (SI.passToServer subserver $ fromBool . param)
+    where paramname = toText $ symbolVal (Proxy @sym)
+          examine v | v == "true" || v == "1" || v == "" = True
+                    | otherwise = False
+
+instance (KnownSymbol sym, Flaggable flag, HasClient m api) => HasClient m (CustomQueryFlag sym flag :> api) where
+    type Client m (CustomQueryFlag sym flag :> api) = flag -> Client m api
+
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(QueryFlag sym :> api)) req . toBool
+
+instance KnownSymbol s => ApiCanLogArg (CustomQueryFlag s a)
+instance KnownSymbol s => ApiHasArgClass (CustomQueryFlag s a)
+
+instance ( KnownSymbol sym
+         , HasSwagger sub
+         ) =>
+         HasSwagger (CustomQueryFlag sym flag :> sub) where
+    toSwagger _ = toSwagger (Proxy @(QueryFlag sym :> sub))
 
 -------------------------------------------------------------------------
 -- API construction Helpers

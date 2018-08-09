@@ -1953,6 +1953,13 @@ data ForceNtpCheck
 instance Flaggable ForceNtpCheck where
     toBool ForceNtpCheck = True
     toBool NoNtpCheck    = False
+    fromBool True  = ForceNtpCheck
+    fromBool False = NoNtpCheck
+
+deriveSafeBuildable ''ForceNtpCheck
+instance BuildableSafeGen ForceNtpCheck where
+    buildSafeGen _ ForceNtpCheck = "force ntp check"
+    buildSafeGen _ NoNtpCheck    = "no ntp check"
 
 --
 -- POST/PUT requests isomorphisms

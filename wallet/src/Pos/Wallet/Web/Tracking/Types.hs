@@ -18,7 +18,6 @@ import           Universum
 import           Control.Concurrent.STM (TQueue, writeTQueue)
 
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.StateLock (StateLock)
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.DB.GState.Lock (StateLock)
 import           Pos.Infra.Slotting (MonadSlotsData)

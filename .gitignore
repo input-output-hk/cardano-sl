@@ -42,6 +42,7 @@ GTAGS
 GRTAGS
 GPATH
 TAGS
+.projectile
 
 # Vim
 tags*
@@ -102,7 +103,6 @@ result*
 
 # remove when done debugging
 1.1.1-1-w/
-
 
 # Created by https://www.gitignore.io/api/python
 
@@ -207,3 +207,13 @@ venv.bak/
 .mypy_cache/
 
 # End of https://www.gitignore.io/api/python
+
+# Don't include config files with sensitive data or tls certs
+/faucet/test-config.json
+/faucet/tls/*
+/faucet/wallet-source.json
+/faucet/existing-wallet-details.json
+/faucet/generated-wallet-details.json
+/faucet/default.nix
+/faucet/shell.nix
+/faucet/recaptcha-secret.txt

@@ -9,6 +9,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , checkpointPending
   , checkpointBlockMeta
   , checkpointChainBrief
+  , checkpointForeign
     -- * Partial checkpoints
   , PartialCheckpoint(..)
   , fromFullCheckpoint
@@ -19,6 +20,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , pcheckpointPending
   , pcheckpointBlockMeta
   , pcheckpointChainBrief
+  , pcheckpointForeign
     -- * Unify partial and full checkpoints
   , IsCheckpoint(..)
   , cpAddressMeta
@@ -30,6 +32,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentBlockMeta
   , currentChainBrief
   , currentAddressMeta
+  , currentForeign
   ) where
 
 import           Universum
@@ -78,6 +81,13 @@ data Checkpoint = Checkpoint {
     , _checkpointPending     :: !Pending
     , _checkpointBlockMeta   :: !BlockMeta
     , _checkpointChainBrief  :: !ChainBrief
+
+      -- Foreign pending transactions are transactions that transfer funds from
+      -- /other/ wallets /to/ this wallet. An example are redemption
+      -- certificates, which (logically) transfer money from an "AVVM wallet" to
+      -- this one; crucially, this wallet would not recognize the input of a
+      -- redemption transaction as " ours ".
+    , _checkpointForeign     :: !Pending
     }
 
 makeLenses ''Checkpoint
@@ -102,6 +112,7 @@ data PartialCheckpoint = PartialCheckpoint {
     , _pcheckpointPending     :: !Pending
     , _pcheckpointBlockMeta   :: !LocalBlockMeta
     , _pcheckpointChainBrief  :: !ChainBrief
+    , _pcheckpointForeign     :: !Pending
     }
 
 makeLenses ''PartialCheckpoint
@@ -124,6 +135,7 @@ fromFullCheckpoint f cp = inj <$> f (proj cp)
         , _pcheckpointPending     =        _checkpointPending
         , _pcheckpointBlockMeta   = coerce _checkpointBlockMeta
         , _pcheckpointChainBrief  =        _checkpointChainBrief
+        , _pcheckpointForeign     =        _checkpointForeign
         }
 
     inj :: PartialCheckpoint -> Checkpoint
@@ -133,6 +145,7 @@ fromFullCheckpoint f cp = inj <$> f (proj cp)
         , _checkpointPending     =        _pcheckpointPending
         , _checkpointBlockMeta   = coerce _pcheckpointBlockMeta
         , _checkpointChainBrief  =        _pcheckpointChainBrief
+        , _checkpointForeign     =        _pcheckpointForeign
         }
 
 -- | Construct a full checkpoint from a partial checkpoint
@@ -149,6 +162,7 @@ toFullCheckpoint prev PartialCheckpoint{..} =
              , _checkpointPending     =          _pcheckpointPending
              , _checkpointBlockMeta   = withPrev _pcheckpointBlockMeta
              , _checkpointChainBrief  =          _pcheckpointChainBrief
+             , _checkpointForeign     =          _pcheckpointForeign
              }
       else error "toFullCheckpoint: checkpoints do not line up"
   where
@@ -178,6 +192,7 @@ class IsCheckpoint c where
     cpPending     :: Lens' c Pending
     cpBlockMeta   :: Lens' c LocalBlockMeta
     cpChainBrief  :: Lens' c ChainBrief
+    cpForeign     :: Lens' c Pending
 
 instance IsCheckpoint Checkpoint where
     cpUtxo        = checkpointUtxo . fromDb
@@ -185,6 +200,7 @@ instance IsCheckpoint Checkpoint where
     cpPending     = checkpointPending
     cpBlockMeta   = checkpointBlockMeta . from _Wrapped
     cpChainBrief  = checkpointChainBrief
+    cpForeign     = checkpointForeign
 
 instance IsCheckpoint PartialCheckpoint where
     cpUtxo        = pcheckpointUtxo . fromDb
@@ -192,6 +208,7 @@ instance IsCheckpoint PartialCheckpoint where
     cpPending     = pcheckpointPending
     cpBlockMeta   = pcheckpointBlockMeta
     cpChainBrief  = pcheckpointChainBrief
+    cpForeign     = pcheckpointForeign
 
 cpAddressMeta :: IsCheckpoint c => Core.Address -> Lens' c AddressMeta
 cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
@@ -209,6 +226,7 @@ currentPending     :: IsCheckpoint c =>                 Lens' (NewestFirst NonEm
 currentBlockMeta   :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) LocalBlockMeta
 currentChainBrief  :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) ChainBrief
 currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (NewestFirst NonEmpty c) AddressMeta
+currentForeign     :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Pending
 
 currentUtxo             = currentCheckpoint . cpUtxo
 currentUtxoBalance      = currentCheckpoint . cpUtxoBalance
@@ -216,6 +234,7 @@ currentPending          = currentCheckpoint . cpPending
 currentBlockMeta        = currentCheckpoint . cpBlockMeta
 currentChainBrief       = currentCheckpoint . cpChainBrief
 currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
+currentForeign          = currentCheckpoint . cpForeign
 
 {-------------------------------------------------------------------------------
   Pretty-printing

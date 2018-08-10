@@ -27,6 +27,7 @@ module Cardano.Wallet.Kernel (
   , ActiveWallet -- opaque
   , bracketActiveWallet
   , newPending
+  , newForeign
   , NewPendingError
   ) where
 
@@ -43,10 +44,10 @@ import           System.Wlog (Severity (..))
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
-import           Pos.Crypto (hash)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
-                     CancelPending (..), DB, NewPending (..), NewPendingError,
+                     CancelPending (..), DB, NewForeign (..), NewForeignError,
+                     NewPending (..), NewPendingError,
                      ObservableRollbackUseInTestsOnly (..),
                      RollbackDuringRestoration, Snapshot (..),
                      SwitchToFork (..), defDB)
@@ -231,8 +232,20 @@ newPending ActiveWallet{..} accountId tx = do
     case res of
         Left e -> return (Left e)
         Right () -> do
-            let txId = hash . taTx $ tx
-            modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton txId tx))
+            modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton tx))
+            return $ Right ()
+
+-- | Submit new foreign transaction
+--
+-- A foreign transaction is a transaction that transfers funds from /another/
+-- wallet to this one.
+newForeign :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewForeignError ())
+newForeign ActiveWallet{..} accountId tx = do
+    res <- update' (walletPassive ^. wallets) $ NewForeign accountId (InDb tx)
+    case res of
+        Left e -> return (Left e)
+        Right () -> do
+            modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton tx))
             return $ Right ()
 
 cancelPending :: PassiveWallet -> Cancelled -> IO ()

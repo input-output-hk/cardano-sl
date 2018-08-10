@@ -86,7 +86,6 @@ data IntCheckpoint h = IntCheckpoint {
     , icDlg           :: Addr -> Addr
     }
 
-
 -- | Interpretation context
 data IntCtxt h = IntCtxt {
       -- | Transaction map
@@ -126,6 +125,7 @@ liftTranslateInt :: Monad m
 liftTranslateInt ta =  IntT $ lift $ mapTranslateErrors Left ta
 
 makeLenses ''IntCtxt
+
 {-------------------------------------------------------------------------------
   Dealing with the transactions
 -------------------------------------------------------------------------------}
@@ -254,6 +254,6 @@ translate
   -> DSL.Chain h Addr
      -- | Block modifiers. These can be used to tune the chain generation to
      -- give different validating and non-validating chains.
-  -> [BlockModifier (IntT h BlockModifierException m) h Addr]
+  -> [BlockModifier (IntT h IntException m) h Addr]
   -> m (Either IntException (Chain h Addr))
 translate = undefined

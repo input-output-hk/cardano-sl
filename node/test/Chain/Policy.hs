@@ -7,13 +7,6 @@ import Chain.Validation
 import qualified UTxO.DSL as DSL
 import Universum
 
-data BlockModifierException
-
--- | Control whether to construct valid or invalid blocks.
-data GenValidity
-  = Valid
-  | Invalid
-
 -- | A block modifier.
 newtype BlockModifier genM h a = BlockModifier
   { modifyBlock :: Chain h a -> Block h a -> genM (Block h a) }
@@ -31,5 +24,5 @@ instance Monad genM => Monoid (BlockModifier genM h a) where
 -- policy, and to generate valid or valid blocks.
 data Policy genM valE = Policy
   { polValidation :: Chain DSL.IdentityAsHash Addr -> Validation valE ()
-  , polGenerator :: GenValidity -> BlockModifier genM DSL.IdentityAsHash Addr
+  , polGenerator :: BlockModifier genM DSL.IdentityAsHash Addr
   }

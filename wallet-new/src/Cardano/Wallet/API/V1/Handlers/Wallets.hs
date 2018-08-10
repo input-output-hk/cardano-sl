@@ -4,6 +4,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.V1.Handlers.Internal (computeUtxoStatistics)
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
@@ -15,6 +16,10 @@ import qualified Data.IxSet.Typed as IxSet
 
 import           Servant
 
+import qualified Control.Foldl as L
+import           Data.Map.Strict as MS
+import qualified Data.Text as T
+
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
 handlers pwl =  newWallet pwl
@@ -23,7 +28,7 @@ handlers pwl =  newWallet pwl
            :<|> deleteWallet pwl
            :<|> getWallet pwl
            :<|> updateWallet pwl
-
+           :<|> getUtxoStatistics pwl
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -97,3 +102,9 @@ updateWallet pwl wid walletUpdateRequest = do
     case res of
          Left e  -> throwM e
          Right w -> return $ single w
+
+getUtxoStatistics :: PassiveWalletLayer IO
+                  -> WalletId
+                  -> Handler (WalletResponse UtxoStatistics)
+getUtxoStatistics pwl wid = do
+    return $ single (computeUtxoStatistics [1::Integer,2,3,10,20,30,101,1001,10000])

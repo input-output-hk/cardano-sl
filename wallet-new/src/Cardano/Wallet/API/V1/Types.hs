@@ -37,6 +37,8 @@ module Cardano.Wallet.API.V1.Types (
   , WalletId (..)
   , WalletOperation (..)
   , SpendingPassword
+  , UtxoStatistics (..)
+  , HistogramBar (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
@@ -101,7 +103,9 @@ import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
 import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.IxSet.Typed as IxSet
+import           Data.Scientific (floatingOrInteger)
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
@@ -851,6 +855,82 @@ instance BuildableSafeGen Wallet where
 
 instance Buildable [Wallet] where
     build = bprint listJson
+
+
+
+--------------------------------------------------------------------------------
+-- Utxo statistics
+--------------------------------------------------------------------------------
+
+-- | Utxo statistics for the wallet.
+-- | Histogram is composed of bars that represent the bucket. The bucket is tagged by upper bound of a given bucket.
+-- | The bar value corresponds to the number of stakes
+-- | In the future the bar value could be different things:
+-- | (a) sum of stakes in a bucket
+-- | (b) avg or std of stake in a bucket
+-- | (c) topN buckets
+-- | to name a few
+newtype HistogramBar = HistogramBarCount (Text, Integer) deriving (Show, Eq, Ord, Generic)
+
+instance FromJSON HistogramBar where
+    parseJSON (Object v) =
+        case (HMS.size v, HMS.keys v, HMS.elems v) of
+            (1, [key], [Number val]) ->
+                case floatingOrInteger val of
+                    Left (_ :: Double)        -> empty
+                    Right integer             -> return $ HistogramBarCount (key, integer)
+            _                        -> empty
+    parseJSON _          = empty
+
+instance ToJSON HistogramBar where
+    toJSON (HistogramBarCount (bound, stake)) = object [bound .= stake]
+
+instance ToSchema HistogramBar where
+  declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+
+instance Arbitrary HistogramBar where
+  arbitrary =
+      let possibleBuckets = fmap show $ (zipWith (\ten toPower -> ten^toPower :: Integer) (repeat (10::Integer)) [(1::Integer)..16]) ++ [45 * (10^(15::Integer))]
+          possibleBars = zipWith (\key value -> HistogramBarCount (key, value)) possibleBuckets [0..]
+      in elements possibleBars
+
+deriveSafeBuildable ''HistogramBar
+instance BuildableSafeGen HistogramBar where
+    buildSafeGen _ (HistogramBarCount pair) =
+        bprint build pair
+
+
+data UtxoStatistics = UtxoStatistics
+  { theHistogram :: ![HistogramBar]
+  , theAllStakes :: !Integer
+  } deriving (Show, Eq, Generic, Ord)
+
+deriveJSON Serokell.defaultOptions ''UtxoStatistics
+
+instance ToSchema UtxoStatistics where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "the" (\(--^) props -> props
+            & ("histogram"            --^ "Utxo histogram for a given wallet.")
+            & ("allStakes"            --^ "All Utxo stakes for a given wallet.")
+        )
+
+instance Arbitrary UtxoStatistics where
+    arbitrary = UtxoStatistics <$> arbitrary
+                               <*> arbitrary
+
+instance Buildable [HistogramBar] where
+    build =
+        bprint listJson
+
+
+deriveSafeBuildable ''UtxoStatistics
+instance BuildableSafeGen UtxoStatistics where
+    buildSafeGen _ UtxoStatistics{..} = bprint ("{"
+        %" histogram="%build
+        %" allStakes="%build
+        %" }")
+        theHistogram
+        theAllStakes
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -2017,6 +2097,8 @@ instance Example NodeId
 instance Example ShieldedRedemptionCode
 instance Example (V1 Core.PassPhrase)
 instance Example (V1 Core.Coin)
+instance Example HistogramBar
+instance Example UtxoStatistics
 
 -- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
 -- to control the length of the examples. It is possible for the encoded length

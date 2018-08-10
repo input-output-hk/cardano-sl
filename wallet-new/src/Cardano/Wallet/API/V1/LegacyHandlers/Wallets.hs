@@ -17,6 +17,7 @@ import qualified Pos.Wallet.Web.State.Storage as V0
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
+import           Cardano.Wallet.API.V1.Handlers.Internal (computeUtxoStatistics)
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -32,6 +33,7 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic,
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 
+
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: HasConfigurations
          => ServerT Wallets.API MonadV1
@@ -41,7 +43,7 @@ handlers = newWallet
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
-
+    :<|> getUtxoStatistics
 
 -- | Pure function which returns whether or not the underlying node is
 -- \"synced enough\" to allow wallet creation/restoration. The notion of
@@ -115,7 +117,7 @@ listWallets params fops sops = do
     ws <- V0.askWalletSnapshot
     currentDepth <- V0.networkChainDifficulty
     respondWith params fops sops (IxSet.fromList <$> do
-        (V0.getWalletsWithInfo ws >>= (migrate @_ @[V1.Wallet] . map (\(w, i) -> (w,i,currentDepth)))))
+        (V0.getWalletsWithInfo ws >>= (migrate @_ @[V1.Wallet] . Universum.map (\(w, i) -> (w,i,currentDepth)))))
 
 updatePassword
     :: ( MonadWalletLogic ctx m
@@ -185,3 +187,12 @@ updateWallet wid WalletUpdate{..} = do
         -- reacquire the snapshot because we did an update
         ws' <- V0.askWalletSnapshot
         addWalletInfo ws' updated
+
+-- | Gets Utxo statistics for a wallet.
+-- | Stub, not calling data layer yet.
+getUtxoStatistics
+    :: (MonadWalletLogic ctx m)
+    => WalletId
+    -> m (WalletResponse UtxoStatistics)
+getUtxoStatistics wid = do
+    return $ single (computeUtxoStatistics [1::Integer,2,3,10,20,30,101])

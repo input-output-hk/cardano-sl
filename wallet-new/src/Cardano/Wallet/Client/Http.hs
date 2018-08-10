@@ -105,6 +105,8 @@ mkHttpClient baseUrl manager = WalletClient
         = run . getWalletR
     , updateWallet
         = \x -> run . updateWalletR x
+    , getUtxoStatistics
+        = run . getUtxoStatisticsR
     -- account endpoints
     , deleteAccount
         = \x -> unNoContent . run . deleteAccountR x
@@ -165,6 +167,7 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> deleteWalletR
         :<|> getWalletR
         :<|> updateWalletR
+        :<|> getUtxoStatisticsR
         = walletsAPI
 
     deleteAccountR

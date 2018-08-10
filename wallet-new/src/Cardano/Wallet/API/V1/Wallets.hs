@@ -37,4 +37,7 @@ type API = Tags '["Wallets"] :>
                    :> Summary "Update the Wallet identified by the given walletId."
                    :> ReqBody '[ValidJSON] (Update Wallet)
                    :> Put '[ValidJSON] (WalletResponse Wallet)
+    :<|> "wallets" :> CaptureWalletId :> "statistics" :> "utxos"
+                   :> Summary "Returns Utxo statistics for the Wallet identified by the given walletId."
+                   :> Get '[ValidJSON] (WalletResponse UtxoStatistics)
     )

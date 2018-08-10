@@ -42,6 +42,7 @@ library
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
+                       Cardano.Wallet.API.V1.Handlers.Internal
                        Cardano.Wallet.API.V1.Handlers.Transactions
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Info
@@ -179,6 +180,7 @@ library
                      , http-types
                      , ixset-typed
                      , json-sop
+                     , foldl
                      , lens
                      , log-warper
                      , memory
@@ -195,6 +197,7 @@ library
                      , stm
                      , safecopy
                      , safe-exceptions
+                     , scientific
                      , serokell-util
                      , servant
                      , servant-client

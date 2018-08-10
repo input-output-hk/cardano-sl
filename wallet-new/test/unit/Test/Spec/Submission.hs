@@ -52,9 +52,9 @@ genPending pMagic = do
     elems <- listOf (do tx  <- Txp.genTx
                         wit <- (V.fromList <$> listOf (Txp.genTxInWitness pMagic))
                         aux <- Txp.TxAux <$> pure tx <*> pure wit
-                        pure (hash tx, aux)
+                        pure aux
                     )
-    return $ Pending.fromList elems
+    return $ Pending.fromTransactions elems
 
 -- | An hardcoded 'HdAccountId'.
 myAccountId :: HdAccountId

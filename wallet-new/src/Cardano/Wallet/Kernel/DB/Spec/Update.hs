@@ -4,8 +4,10 @@
 module Cardano.Wallet.Kernel.DB.Spec.Update (
     -- * Errors
     NewPendingFailed(..)
+  , NewForeignFailed(..)
     -- * Updates
   , newPending
+  , newForeign
   , cancelPending
   , applyBlock
   , applyBlockPartial
@@ -60,6 +62,20 @@ instance Buildable NewPendingFailed where
 instance Arbitrary NewPendingFailed where
     arbitrary = pure . NewPendingInputsUnavailable . InDb $ mempty
 
+data NewForeignFailed =
+    -- | Foreign transactions are not allowed spend from this wallet
+    NewForeignInputsAvailable (InDb (Set Txp.TxIn))
+
+deriveSafeCopy 1 'base ''NewForeignFailed
+
+instance Buildable NewForeignFailed where
+    build (NewForeignInputsAvailable (InDb inputs)) =
+        bprint ("NewForeignInputsAvailable { inputs = " % listJsonIndent 4 % " }") (Set.toList inputs)
+
+-- TODO: See comments for the 'Arbitrary' instance for 'NewPendingFailed'
+instance Arbitrary NewForeignFailed where
+    arbitrary = pure . NewForeignInputsAvailable . InDb $ mempty
+
 {-------------------------------------------------------------------------------
   Wallet spec mandated updates
 -------------------------------------------------------------------------------}
@@ -86,12 +102,35 @@ newPending :: forall c. IsCheckpoint c
            -> Update' (NewestFirst NonEmpty c) NewPendingFailed ()
 newPending (InDb tx) = do
     checkpoints <- get
-    case cpCheckAvailable (Core.txIns tx) (checkpoints ^. currentCheckpoint) of
-      AllAvailable    -> put $ insertPending checkpoints
-      Unavailable ins -> throwError $ NewPendingInputsUnavailable (InDb ins)
+    let (_available, unavailable) =
+           cpCheckAvailable (Core.txIns tx) (checkpoints ^. currentCheckpoint)
+    if Set.null unavailable
+      then put $ insertPending checkpoints
+      else throwError $ NewPendingInputsUnavailable (InDb unavailable)
   where
     insertPending :: NewestFirst NonEmpty c -> NewestFirst NonEmpty c
     insertPending = currentPending %~ Pending.insert tx
+
+-- | Insert new foreign transaction
+--
+-- For foreign transactions we expect /none/ of the inputs to belong to the
+-- wallet. We may wish to relax this requirement later (or indeed get rid of
+-- the difference between these two pending sets altogether), but for now this
+-- strict separation makes it easier to see what's going on and limits the
+-- impact this has on the reasoning in the wallet spec.
+newForeign :: forall c. IsCheckpoint c
+           => InDb Txp.TxAux
+           -> Update' (NewestFirst NonEmpty c) NewForeignFailed ()
+newForeign (InDb tx) = do
+    checkpoints <- get
+    let (available, _unavailable) =
+           cpCheckAvailable (Core.txIns tx) (checkpoints ^. currentCheckpoint)
+    if Set.null available
+      then put $ insertForeign checkpoints
+      else throwError $ NewForeignInputsAvailable (InDb available)
+  where
+    insertForeign :: NewestFirst NonEmpty c -> NewestFirst NonEmpty c
+    insertForeign = currentForeign %~ Pending.insert tx
 
 -- | Cancel the input set of cancelled transactions from @all@ the 'Checkpoints'
 -- of an 'Account'.
@@ -110,6 +149,7 @@ applyBlock pb checkpoints = NewestFirst $ Checkpoint {
     , _checkpointPending     = pending'
     , _checkpointBlockMeta   = blockMeta'
     , _checkpointChainBrief  = pfbBrief pb
+    , _checkpointForeign     = foreign'
     } NE.<| getNewestFirst checkpoints
   where
     current           = checkpoints ^. currentCheckpoint
@@ -118,6 +158,7 @@ applyBlock pb checkpoints = NewestFirst $ Checkpoint {
     (utxo', balance') = updateUtxo      pb (utxo, balance)
     pending'          = updatePending   pb (current ^. checkpointPending)
     blockMeta'        = updateBlockMeta pb (current ^. checkpointBlockMeta)
+    foreign'          = updatePending   pb (current ^. checkpointForeign)
 
 -- | Like 'applyBlock', but to a list of partial checkpoints instead
 applyBlockPartial :: PrefilteredBlock
@@ -129,6 +170,7 @@ applyBlockPartial pb checkpoints = NewestFirst $ PartialCheckpoint {
     , _pcheckpointPending     = pending'
     , _pcheckpointBlockMeta   = blockMeta'
     , _pcheckpointChainBrief  = pfbBrief pb
+    , _pcheckpointForeign     = foreign'
     } NE.<| getNewestFirst checkpoints
   where
     current           = checkpoints ^. currentCheckpoint
@@ -137,6 +179,7 @@ applyBlockPartial pb checkpoints = NewestFirst $ PartialCheckpoint {
     (utxo', balance') = updateUtxo           pb (utxo, balance)
     pending'          = updatePending        pb (current ^. pcheckpointPending)
     blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
+    foreign'          = updatePending        pb (current ^. pcheckpointForeign)
 
 -- | Rollback
 --
@@ -156,6 +199,8 @@ rollback (NewestFirst (c :| c' : cs)) = NewestFirst $ Checkpoint {
     , _checkpointChainBrief  = c' ^. checkpointChainBrief
     , _checkpointPending     = Pending.union (c  ^. checkpointPending)
                                              (c' ^. checkpointPending)
+    , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
+                                             (c' ^. checkpointForeign)
     } :| cs
 
 -- | Observable rollback, used in testing only

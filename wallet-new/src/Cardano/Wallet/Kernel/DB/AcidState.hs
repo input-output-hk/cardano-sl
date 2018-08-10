@@ -12,6 +12,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , Snapshot(..)
     -- ** Spec mandated updates
   , NewPending(..)
+  , NewForeign(..)
   , CancelPending(..)
   , ApplyBlock(..)
   , SwitchToFork(..)
@@ -31,6 +32,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , ObservableRollbackUseInTestsOnly(..)
     -- * Errors
   , NewPendingError(..)
+  , NewForeignError(..)
   , RollbackDuringRestoration(..)
   ) where
 
@@ -104,11 +106,19 @@ data NewPendingError =
     -- | Some inputs are not in the wallet utxo
   | NewPendingFailed Spec.NewPendingFailed
 
+-- | Errors thrown by 'newForeign'
+data NewForeignError =
+    -- | Unknown account
+    NewForeignUnknown UnknownHdAccount
+
+    -- | Some inputs are not in the wallet utxo
+  | NewForeignFailed Spec.NewForeignFailed
 
 -- | We cannot roll back  when we don't have full historical data available
 data RollbackDuringRestoration = RollbackDuringRestoration
 
 deriveSafeCopy 1 'base ''NewPendingError
+deriveSafeCopy 1 'base ''NewForeignError
 deriveSafeCopy 1 'base ''RollbackDuringRestoration
 
 {-------------------------------------------------------------------------------
@@ -122,6 +132,14 @@ newPending accountId tx = runUpdateDiscardSnapshot . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
     zoomHdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
+
+newForeign :: HdAccountId
+           -> InDb Txp.TxAux
+           -> Update DB (Either NewForeignError ())
+newForeign accountId tx = runUpdateDiscardSnapshot . zoom dbHdWallets $
+    zoomHdAccountId NewForeignUnknown accountId $
+    zoomHdAccountCheckpoints $
+      mapUpdateErrors NewForeignFailed $ Spec.newForeign tx
 
 -- | Cancels the input transactions from the 'Checkpoints' of each of
 -- the accounts cointained in the 'Cancelled' map.
@@ -342,6 +360,7 @@ createPrefiltered initUtxoAndAddrs applyP accs = do
                 -- any blocks, the block metadata is empty
                 , _checkpointBlockMeta   = emptyBlockMeta
                 , _checkpointChainBrief  = dummyChainBrief
+                , _checkpointForeign     = Pending.empty
                 }
 
 {-------------------------------------------------------------------------------
@@ -406,6 +425,7 @@ makeAcidic ''DB [
       'snapshot
       -- Updates on the "spec state"
     , 'newPending
+    , 'newForeign
     , 'cancelPending
     , 'applyBlock
     , 'switchToFork

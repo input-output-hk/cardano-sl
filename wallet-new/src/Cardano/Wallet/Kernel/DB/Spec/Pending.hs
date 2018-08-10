@@ -19,7 +19,6 @@ module Cardano.Wallet.Kernel.DB.Spec.Pending (
   , isSubsetOf
   , disjoint
     -- * Conversions
-  , fromList
   , fromTransactions
   , toList
   , transactions
@@ -76,8 +75,8 @@ empty :: Pending
 empty = fromMap Map.empty
 
 -- | Returns a new, empty 'Pending' set.
-singleton :: Core.TxId -> Core.TxAux -> Pending
-singleton txId txAux = fromMap $ Map.singleton txId txAux
+singleton :: Core.TxAux -> Pending
+singleton txAux = fromMap $ Map.singleton (Core.txAuxId txAux) txAux
 
 insert :: Core.TxAux -> Pending -> Pending
 insert tx = liftMap $ Map.insert (hash (Core.taTx tx)) tx
@@ -102,9 +101,6 @@ disjoint (toMap -> a) (toMap -> b) =
 {-------------------------------------------------------------------------------
   Conversions
 -------------------------------------------------------------------------------}
-
-fromList :: [(Core.TxId, Core.TxAux)] -> Pending
-fromList = fromMap . Map.fromList
 
 fromTransactions :: [Core.TxAux] -> Pending
 fromTransactions = fromList . map (\tx -> (hash (Core.taTx tx), tx))
@@ -160,7 +156,13 @@ removeInputs ins = liftMap $ Map.filter aux
 
 {-------------------------------------------------------------------------------
   Internal auxiliary
+
+  These are not exported because they might break the invariant that the
+  @TxId@s match the @TxAux@s.
 -------------------------------------------------------------------------------}
+
+fromList :: [(Core.TxId, Core.TxAux)] -> Pending
+fromList = fromMap . Map.fromList
 
 fromMap :: UnderlyingMap -> Pending
 fromMap = Pending . InDb

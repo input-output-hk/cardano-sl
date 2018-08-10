@@ -15,6 +15,7 @@ module Cardano.Wallet.Kernel.Util.Core (
   , paymentAmount
   , txOuts
   , txIns
+  , txAuxId
   ) where
 
 import           Universum
@@ -85,6 +86,9 @@ txOuts tx = Map.fromList $ map (toTxInOut (hash tx)) (outs tx)
 
 txIns :: Core.TxAux -> Set Core.TxIn
 txIns = Set.fromList . NE.toList . Core._txInputs . Core.taTx
+
+txAuxId :: Core.TxAux -> Core.TxId
+txAuxId = hash . Core.taTx
 
 {-------------------------------------------------------------------------------
   Internal auxiliary

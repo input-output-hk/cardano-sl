@@ -149,8 +149,8 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
             , _checkpointPending     = Pending.empty
             , _checkpointBlockMeta   = emptyBlockMeta
             , _checkpointChainBrief  = dummyChainBrief
+            , _checkpointForeign     = Pending.empty
             }
-
 
 -- | Deletes an HD 'Account' from the data storage.
 deleteAccount :: HdAccountId

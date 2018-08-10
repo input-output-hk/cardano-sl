@@ -1,5 +1,11 @@
 {-# LANGUAGE TypeApplications #-}
-module Test.Spec.NewPayment (spec) where
+module Test.Spec.NewPayment (
+      spec
+
+    -- Public to be used by other testing modules.
+    , Fixture (..)
+    , withFixture
+  ) where
 
 import           Universum
 

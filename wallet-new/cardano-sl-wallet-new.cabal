@@ -403,6 +403,7 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.Addresses
                       Test.Spec.Fixture
+                      Test.Spec.GetTransactions
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models

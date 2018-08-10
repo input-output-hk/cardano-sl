@@ -5,6 +5,8 @@ module Cardano.Wallet.Kernel.DB.Read (
   , accountAvailableBalance
   , accountTotalBalance
   , accountAddresses
+  , accountIsTxPending
+  , accountTxSlot
   , hdWallets
   , readAddressMeta
   , walletAccounts
@@ -13,21 +15,27 @@ module Cardano.Wallet.Kernel.DB.Read (
 
 import           Universum
 
+import qualified Data.Map.Strict as Map
 import           Formatting (build, sformat)
 import           Formatting.Buildable (Buildable)
 
-import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (Address, Coin, mkCoin, unsafeAddCoin)
+import           Pos.Chain.Txp (TxId, Utxo)
+import           Pos.Core (Address, Coin, SlotId, mkCoin, unsafeAddCoin)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
+import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
+                     blockMetaSlotId, localBlockMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdAccountId,
-                     HdAddress, HdRootId, HdWallets, hdAccountId)
+                     HdAddress, HdRootId, HdWallets, UnknownHdAccount,
+                     hdAccountId)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
                      readAccountsByRootId, readAddressesByAccountId,
                      readHdAccountCurrentCheckpoint)
-import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
+import           Cardano.Wallet.Kernel.DB.Spec (IsCheckpoint, cpAddressMeta,
+                     cpBlockMeta, cpPending)
 
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -108,3 +116,42 @@ walletTotalBalance db hdRootId =
                  )
                  (mkCoin 0)
                  (walletAccounts db hdRootId)
+
+-- | Reads the current slot of a Tx in the 'HdAccount' current checkpoint.
+accountTxSlot :: DB -> HdAccountId -> TxId -> Maybe SlotId
+accountTxSlot snapshot accountId txId
+    = walletQuery' snapshot (queryTxSlotId txId accountId)
+
+-- | Checks wherher a Tx is pending in the 'HdAccount' current checkpoint.
+accountIsTxPending :: DB -> HdAccountId -> TxId -> Bool
+accountIsTxPending snapshot accountId txId
+    = walletQuery' snapshot (queryTxIsPending txId accountId)
+
+{-------------------------------------------------------------------------------
+  Pure functions that support read-only operations on an account Checkpoint.
+-------------------------------------------------------------------------------}
+txSlot :: IsCheckpoint c => TxId -> c -> (Maybe SlotId)
+txSlot txId c = Map.lookup txId slots
+  where
+    blockMeta = localBlockMeta (c ^. cpBlockMeta)
+    slots = view (blockMetaSlotId . fromDb) blockMeta
+
+isTxPending :: IsCheckpoint c => TxId -> c -> Bool
+isTxPending txId c = Pending.member txId (c ^. cpPending)
+--        view (checkpointPending . currentPending . fromDb) <$> checkpoint
+
+{-------------------------------------------------------------------------------
+  Public queries on an account.
+-------------------------------------------------------------------------------}
+queryTxSlotId :: TxId -> HdAccountId -> HdQueryErr UnknownHdAccount (Maybe SlotId)
+queryTxSlotId txId accountId db
+    = txSlot txId <$> checkpoint
+    where
+        checkpoint = readHdAccountCurrentCheckpoint accountId db
+
+queryTxIsPending :: TxId -> HdAccountId -> HdQueryErr UnknownHdAccount Bool
+queryTxIsPending txId accountId db
+    = isTxPending txId <$> checkpoint
+    where
+        checkpoint = readHdAccountCurrentCheckpoint accountId db
+

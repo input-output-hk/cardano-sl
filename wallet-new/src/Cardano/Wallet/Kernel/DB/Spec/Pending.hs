@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Pending (
     -- * Basic combinators
   , null
   , lookup
+  , member
   , empty
   , singleton
   , insert
@@ -69,6 +70,9 @@ null = Map.null . toMap
 
 lookup :: Core.TxId -> Pending -> Maybe Core.TxAux
 lookup txId = Map.lookup txId . toMap
+
+member :: Core.TxId -> Pending -> Bool
+member txid = isJust . (lookup txid)
 
 -- | Returns a new, empty 'Pending' set.
 empty :: Pending

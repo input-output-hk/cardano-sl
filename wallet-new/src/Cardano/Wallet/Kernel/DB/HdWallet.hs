@@ -662,7 +662,7 @@ zoomOrCreateHdRoot :: HdRoot
                    -> Update' HdRoot    e a
                    -> Update' HdWallets e a
 zoomOrCreateHdRoot newRoot rootId upd =
-    zoomCreate newRoot (hdWalletsRoots . at rootId) $ upd
+    zoomCreate (return newRoot) (hdWalletsRoots . at rootId) $ upd
 
 -- | Variation on 'zoomHdAccountId' that creates the 'HdAccount' if it doesn't exist
 --
@@ -674,7 +674,7 @@ zoomOrCreateHdAccount :: (HdRootId -> Update' HdWallets e ())
                       -> Update' HdWallets e a
 zoomOrCreateHdAccount checkRootExists newAccount accId upd = do
     checkRootExists $ accId ^. hdAccountIdParent
-    zoomCreate newAccount (hdWalletsAccounts . at accId) $ upd
+    zoomCreate (return newAccount) (hdWalletsAccounts . at accId) $ upd
 
 -- | Variation on 'zoomHdAddressId' that creates the 'HdAddress' if it doesn't exist
 --
@@ -686,7 +686,7 @@ zoomOrCreateHdAddress :: (HdAccountId -> Update' HdWallets e ())
                       -> Update' HdWallets e a
 zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
     checkAccountExists $ addrId ^. hdAddressIdParent
-    zoomCreate newAddress (hdWalletsAddresses . at addrId) $ upd
+    zoomCreate (return newAddress) (hdWalletsAddresses . at addrId) $ upd
 
 -- | Assume that the given HdRoot exists
 --

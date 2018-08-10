@@ -110,7 +110,7 @@ messageBackView lang message =
             $ SM.text message
         S.a ! SA.href (toUrl Dashboard)
             #! P.onClick (Navigate $ toUrl Dashboard)
-            ! SA.className "btn-back"
+            ! SA.className "pure-button pure-button-primary btn-expand"
             $ SM.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
 
 blockRow :: State -> CBlockEntry -> P.HTML Action

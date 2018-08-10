@@ -21,7 +21,8 @@ import           Cardano.Wallet.API.V1.Types
 
 handlers
     :: HasConfigurations
-    => ServerT Accounts.API MonadV1
+    => TraceNamed MonadV1
+    -> ServerT Accounts.API MonadV1
 handlers logTrace =
          deleteAccount
     :<|> getAccount logTrace

@@ -299,7 +299,7 @@ function bench_cmd {
   # First arg is the number of transactions with input from genesis block and
   # the second is the total number of transactions to be sent.
   echo -n " cmd --commands \"send-to-all-genesis $time $time $conc $delay ./tps-sent.csv\""
-  echo -n " --configuration-key bench "
+  echo -n " --configuration-key smallbench "
   echo -n " --rebuild-db "
 
   echo ''

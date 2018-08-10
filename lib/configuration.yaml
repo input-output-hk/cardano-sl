@@ -180,6 +180,45 @@ bench: &bench
           protocolMagic: 55550007
 
 
+smallbench: &smallbench
+  <<: *dev
+
+  core:
+    <<: *dev_core
+
+    genesis:
+      spec:
+        <<: *dev_core_genesis_spec
+        initializer:
+          testBalance:
+            poors:        50000
+            richmen:      3
+            richmenShare: 0.99
+            useHDAddresses: False
+            totalBalance: 6000000000
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 15000000
+          avvmBalanceFactor: 1
+          useHeavyDlg: False
+          seed: 0
+        blockVersionData:
+          <<: *dev_core_genesis_spec_blockVersionData
+          slotDuration:      20000
+          mpcThd:            0.02 # 2% of stake
+          heavyDelThd:       0.0003 # 0.03% of stake
+          updateImplicit:    10000 # slots
+          txFeePolicy:
+            txSizeLinear:
+              a: 0 # absolute minimal fees per transaction
+              b: 0 # additional minimal fees per byte of transaction size
+          unlockStakeEpoch: 0 # first epoch
+        protocolConstants:
+          <<: *dev_core_genesis_spec_protocolConstants
+          k: 6
+          protocolMagic: 55550008
+
+
 # Default configuration is development.
 
 default: *dev

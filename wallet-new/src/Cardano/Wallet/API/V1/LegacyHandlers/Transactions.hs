@@ -41,9 +41,9 @@ handlers
     -> ServerT Transactions.API MonadV1
 handlers logTrace pm txpConfig submitTx =
              newTransaction logTrace pm txpConfig submitTx
-        :<|> (allTransactions logTrace)
+        :<|> allTransactions logTrace
         :<|> estimateFees pm
-        :<|> redeemAda pm txpConfig submitTx
+        :<|> redeemAda logTrace pm txpConfig submitTx
 
 newTransaction
     :: forall ctx m
@@ -142,12 +142,13 @@ estimateFees pm Payment{..} = do
 
 redeemAda
     :: HasConfigurations
-    => ProtocolMagic
+    => TraceNamed MonadV1
+    -> ProtocolMagic
     -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> Redemption
     -> MonadV1 (WalletResponse Transaction)
-redeemAda pm txpConfig submitTx r = do
+redeemAda logTrace pm txpConfig submitTx r = do
     let ShieldedRedemptionCode seed = redemptionRedemptionCode r
         V1 spendingPassword = redemptionSpendingPassword r
         walletId = redemptionWalletId r
@@ -162,10 +163,10 @@ redeemAda pm txpConfig submitTx r = do
                     , V0.pvSeed = seed
                     , V0.pvBackupPhrase = phrase
                     }
-            V0.redeemAdaPaperVend pm txpConfig submitTx spendingPassword cpaperRedeem
+            V0.redeemAdaPaperVend logTrace pm txpConfig submitTx spendingPassword cpaperRedeem
         Nothing -> do
             let cwalletRedeem = V0.CWalletRedeem
                     { V0.crWalletId = caccountId
                     , V0.crSeed = seed
                     }
-            V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem
+            V0.redeemAda logTrace pm txpConfig submitTx spendingPassword cwalletRedeem

@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.Internal (
     PassiveWallet(..)
   , ActiveWallet(..)
   , walletKeystore
+  , walletMeta
   , wallets
   , walletLogMessage
   , walletNode
@@ -25,6 +26,7 @@ import           System.Wlog (Severity (..))
 import           Data.Acid (AcidState)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
+import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
@@ -52,6 +54,9 @@ data PassiveWallet = PassiveWallet {
 
       -- | An opaque handle to a place where we store the 'EncryptedSecretKey'.
     , _wallets          :: AcidState DB
+
+      -- | Database handle
+    , _walletMeta       :: MetaDBHandle
 
       -- | Access to the underlying node
       --

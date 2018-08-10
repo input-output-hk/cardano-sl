@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Main Toss logic.
 
 module Pos.Chain.Ssc.Toss.Logic

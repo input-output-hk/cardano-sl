@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Lang.DisplayError
     ( ppArgumentError
     , ppEvalError

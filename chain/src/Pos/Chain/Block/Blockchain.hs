@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | This module contains some general definitions related to blocks

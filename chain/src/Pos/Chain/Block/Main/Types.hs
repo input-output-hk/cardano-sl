@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Types defining the main blockchain.
 
 module Pos.Chain.Block.Main.Types

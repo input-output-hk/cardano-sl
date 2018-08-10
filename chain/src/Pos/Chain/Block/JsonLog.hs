@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Chain.Block.JsonLog
        ( jlCreatedBlock
        , jlAdoptedBlock

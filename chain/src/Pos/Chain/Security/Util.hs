@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Chain.Security.Util
        ( shouldIgnoreAddress
        , shouldIgnorePkAddress

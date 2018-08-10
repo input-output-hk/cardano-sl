@@ -1,7 +1,8 @@
-{-# OPTIONS_GHC -Wno-redundant-constraints #-} -- for the Getter instances
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeOperators   #-}
 
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-} -- for the Getter instances
 
 -- | Union of blockchain types.
 

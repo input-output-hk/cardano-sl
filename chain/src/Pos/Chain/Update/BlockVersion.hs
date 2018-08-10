@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Update system-specific functionality related to 'BlockVersion',
 -- 'BlockVersionData', 'BlockVersionModifier'.
 

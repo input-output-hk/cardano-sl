@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Calculate shared seed using info sent by nodes participating in the

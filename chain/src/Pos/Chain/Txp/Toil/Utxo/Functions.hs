@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Functions operating on UTXO (in 'UtxoM' monad).
 
 module Pos.Chain.Txp.Toil.Utxo.Functions

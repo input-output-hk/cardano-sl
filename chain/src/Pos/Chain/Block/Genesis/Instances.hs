@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Miscellaneous instances, etc. Related to the genesis blockchain of course.

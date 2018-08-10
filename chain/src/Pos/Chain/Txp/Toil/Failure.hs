@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE DeriveAnyClass  #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Toil failures.
 

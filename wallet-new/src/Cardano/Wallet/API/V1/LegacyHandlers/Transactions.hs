@@ -17,6 +17,7 @@ import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
+import qualified Pos.Wallet.Web.Methods.Redeem as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
 import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
@@ -40,6 +41,7 @@ handlers pm txpConfig submitTx =
              newTransaction pm txpConfig submitTx
         :<|> allTransactions
         :<|> estimateFees pm
+        :<|> redeemAda pm txpConfig submitTx
 
 newTransaction
     :: forall ctx m
@@ -133,3 +135,33 @@ estimateFees pm Payment{..} = do
             single <$> migrate fee
         Left err ->
             throwM (convertTxError err)
+
+redeemAda
+    :: HasConfigurations
+    => ProtocolMagic
+    -> TxpConfiguration
+    -> (TxAux -> MonadV1 Bool)
+    -> Redemption
+    -> MonadV1 (WalletResponse Transaction)
+redeemAda pm txpConfig submitTx r = do
+    let ShieldedRedemptionCode seed = redemptionRedemptionCode r
+        V1 spendingPassword = redemptionSpendingPassword r
+        walletId = redemptionWalletId r
+        accountIndex = redemptionAccountIndex r
+    accountId <- migrate (walletId, accountIndex)
+    let caccountId = V0.encodeCType accountId
+    fmap single . migrate =<< case redemptionMnemonic r of
+        Just (RedemptionMnemonic mnemonic) -> do
+            let phrase = V0.CBackupPhrase mnemonic
+            let cpaperRedeem = V0.CPaperVendWalletRedeem
+                    { V0.pvWalletId = caccountId
+                    , V0.pvSeed = seed
+                    , V0.pvBackupPhrase = phrase
+                    }
+            V0.redeemAdaPaperVend pm txpConfig submitTx spendingPassword cpaperRedeem
+        Nothing -> do
+            let cwalletRedeem = V0.CWalletRedeem
+                    { V0.crWalletId = caccountId
+                    , V0.crSeed = seed
+                    }
+            V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem

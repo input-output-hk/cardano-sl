@@ -29,4 +29,8 @@ type API = Tags '["Transactions"] :>
                         :> Summary "Estimate the fees which would originate from the payment."
                         :> ReqBody '[ValidJSON] Payment
                         :> Post '[ValidJSON] (WalletResponse EstimatedFees)
+    :<|> "transactions" :> "certificates"
+                        :> Summary "Redeem a certificate"
+                        :> ReqBody '[ValidJSON] Redemption
+                        :> Post '[ValidJSON] (WalletResponse Transaction)
     )

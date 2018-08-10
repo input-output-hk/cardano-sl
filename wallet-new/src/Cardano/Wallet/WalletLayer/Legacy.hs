@@ -120,6 +120,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
           walletPassiveLayer = walletPassiveLayer
         , pay          = \_ _ _ -> error notUsed
         , estimateFees = \_ _ _ -> error notUsed
+        , redeemAda    = \_     -> error notUsed
         }
 
 ------------------------------------------------------------

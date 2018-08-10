@@ -131,6 +131,7 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Active
                        Cardano.Wallet.WalletLayer.Kernel.Addresses
                        Cardano.Wallet.WalletLayer.Kernel.Conv
+                       Cardano.Wallet.WalletLayer.Kernel.Transactions
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
 
   other-modules:       Cardano.Wallet.WalletLayer.Kernel

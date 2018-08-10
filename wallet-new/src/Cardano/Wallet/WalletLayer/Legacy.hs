@@ -18,6 +18,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError, DeleteAccountError,
                      DeleteWalletError (..), GetAccountError, GetAccountsError,
+<<<<<<< 8625a731701f03f079344d4ef4f7de7096210ec1
                      GetWalletError (..), PassiveWalletLayer (..),
                      SliceOf (..), UpdateAccountError, UpdateWalletError (..),
                      UpdateWalletPasswordError, ValidateAddressError (..))
@@ -30,6 +31,21 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      NewAddress, NewWallet (..), PasswordUpdate, V1 (..),
                      Wallet, WalletAddress, WalletId, WalletOperation (..),
                      WalletUpdate)
+=======
+                     GetTxError (..), GetWalletError (..),
+                     PassiveWalletLayer (..), SliceOf (..), UpdateAccountError,
+                     UpdateWalletError (..), UpdateWalletPasswordError)
+
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.V1.Migration (eitherMigrate, migrate)
+import           Cardano.Wallet.API.V1.Migration.Types ()
+import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
+                     AccountUpdate, BackupPhrase (..), Address, BackupPhrase (..),
+                     NewAccount (..), NewAddress, NewWallet (..),
+                     PasswordUpdate, Transaction (..), V1 (..), Wallet, WalletAddress, 
+                     WalletId, WalletOperation (..), WalletUpdate)
+>>>>>>> [CBR-239] adds WalletLayer support for getTransactions endpoint
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -95,6 +111,8 @@ bracketPassiveWallet =
         , _pwlCreateAddress         = pwlCreateAddress
         , _pwlGetAddresses          = pwlGetAddresses
         , _pwlValidateAddress       = pwlValidateAddress
+
+        , _pwlGetTransactions = pwlGetTransactions
 
         , _pwlApplyBlocks           = pwlApplyBlocks
         , _pwlRollbackBlocks        = pwlRollbackBlocks
@@ -307,6 +325,19 @@ pwlGetAddresses = error "Not implemented!"
 
 pwlValidateAddress :: Text -> m (Either ValidateAddressError WalletAddress)
 pwlValidateAddress = error "Not implemented!"
+
+------------------------------------------------------------
+-- Transaction
+------------------------------------------------------------
+
+pwlGetTransactions :: Maybe WalletId
+                   -> Maybe AccountIndex
+                   -> Maybe (V1 Address)
+                   -> RequestParams
+                   -> FilterOperations Transaction
+                   -> SortOperations Transaction
+                   -> m (Either GetTxError (WalletResponse [Transaction]))
+pwlGetTransactions =  error "Not implemented!"
 
 ------------------------------------------------------------
 -- Apply Block

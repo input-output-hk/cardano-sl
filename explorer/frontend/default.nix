@@ -61,7 +61,7 @@ let
     echo "patching webpack.config.babel.js"
     sed -e "s/COMMIT_HASH.*/COMMIT_HASH': '\"@GITREV@\"',/" \
         -e "s/import GitRevisionPlugin.*//" \
-        -e "s/path:.*/path: process.env.out,/" \
+        -e "s/path: path.join.*/path: process.env.out,/" \
         -e "/new ProgressPlugin/d" \
         -i webpack.config.babel.js
   '';

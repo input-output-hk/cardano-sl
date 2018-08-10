@@ -131,7 +131,15 @@ module.exports = {
           fallback: 'style-loader',
           use: [
             'css-loader?importLoaders=1',
-            'postcss-loader'
+            {
+              loader: 'postcss-loader',
+              options: {
+                config: {
+                  path: './postcss.config.js'
+                }
+              }
+            }
+            // 'postcss-loader'
           ]
         }) : undefined,
       }

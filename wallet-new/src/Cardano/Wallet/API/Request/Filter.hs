@@ -175,6 +175,14 @@ findMatchingFilterOp filters =
                 Nothing ->
                     findMatchingFilterOp rest
 
+-- | Maps a function on the first argument of a FilterOperation.
+mapIx :: (ixa -> ixb) -> FilterOperation ixa a -> FilterOperation ixb a
+mapIx f fop = case fop of
+    FilterByIndex x          -> FilterByIndex (f x)
+    FilterByPredicate ford x -> FilterByPredicate ford (f x)
+    FilterByRange from to    -> FilterByRange  (f from) (f to)
+    FilterIn ls              -> FilterIn (f <$> ls)
+
 -- | Represents a filter operation on the data model.
 --
 -- The first type parameter is a type level list that describes the

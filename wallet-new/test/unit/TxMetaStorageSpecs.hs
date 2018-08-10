@@ -1,5 +1,9 @@
 {-# LANGUAGE RankNTypes #-}
-module TxMetaStorageSpecs (txMetaStorageSpecs) where
+module TxMetaStorageSpecs (
+      txMetaStorageSpecs
+    , genMeta
+    , Isomorphic (..)
+    ) where
 
 import           Universum
 
@@ -15,14 +19,14 @@ import qualified Pos.Core as Core
 
 import           Formatting (bprint)
 import           Serokell.Util.Text (listJsonIndent, pairF)
-import           Test.Hspec (shouldThrow)
+import           Test.Hspec (expectationFailure, shouldContain, shouldThrow)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary, Gen, arbitrary, forAll, vectorOf)
 import           Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
-
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 chunksOf :: Int -> [e] -> [[e]]
 chunksOf i ls = map (take i) (buildCons (splitter ls))
@@ -133,8 +137,10 @@ genMeta :: Gen (ShowThroughBuild TxMeta)
 genMeta = do
     meta <- TxMeta <$> arbitrary
                    <*> arbitrary
-                   <*> (fmap getTxEntry <$> uniqueElements 10)
-                   <*> (fmap getTxEntry <$> uniqueElements 10)
+                   <*> (fmap getTxEntry <$> uniqueElements 2)
+                   <*> (fmap getTxEntry <$> uniqueElements 2)
+                   <*> arbitrary
+                   <*> arbitrary
                    <*> arbitrary
                    <*> arbitrary
                    <*> arbitrary
@@ -155,7 +161,7 @@ instance Eq DeepEqual where
 instance Buildable DeepEqual where
     build (DeepEqual t) = build t
 
-data Isomorphic = Isomorphic TxMeta
+data Isomorphic = Isomorphic TxMeta deriving Show
 
 instance Eq Isomorphic where
     (Isomorphic t1) == (Isomorphic t2) = t1 `isomorphicTo` t2
@@ -248,7 +254,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                result <- getTxMetas hdl (Offset 0) (Limit 100) Nothing
+                (result, _) <- getTxMetas hdl (Offset 0) (Limit 100) Everything Nothing NoFilterOp NoFilterOp Nothing
                 map Isomorphic result `shouldMatchList` map Isomorphic metas
 
         it "pagination correctly limit the results" $ monadicIO $ do
@@ -256,7 +262,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                result <- getTxMetas hdl (Offset 0) (Limit 5) Nothing
+                (result, _) <- getTxMetas hdl (Offset 0) (Limit 5) Everything Nothing NoFilterOp NoFilterOp Nothing
                 length result `shouldBe` 5
 
         it "pagination correctly sorts (ascending) the results" $ monadicIO $ do
@@ -264,7 +270,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                result <- (getTxMetas hdl) (Offset 0) (Limit 10) (Just $ Sorting SortByAmount Ascending)
+                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByAmount Ascending)
                 map Isomorphic result `shouldBe` sortByAmount Ascending (map Isomorphic metas)
 
         it "pagination correctly sorts (descending) the results" $ monadicIO $ do
@@ -272,5 +278,237 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                result <- (getTxMetas hdl) (Offset 0) (Limit 10) (Just $ Sorting SortByCreationAt Descending)
+                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
                 map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic metas)
+
+        it "metadb counts total Entries properly" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 10)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                forM_ metas (putTxMeta hdl)
+                (_, total) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing NoFilterOp NoFilterOp Nothing
+                total `shouldBe` (Just 10)
+
+        it "filtering walletid works ok" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 10)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case walletIdTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasW, accFop, expectedResults) -> do
+                        forM_ metasW (putTxMeta hdl)
+                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 20) accFop Nothing NoFilterOp NoFilterOp Nothing
+                        map Isomorphic result `shouldMatchList` map Isomorphic expectedResults
+                        total `shouldBe` (Just $ length expectedResults)
+
+        it "multiple filters works ok" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 10)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case filtersTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasF, accFop, fopTimestamp, expectedResults) -> do
+                        forM_ metasF (putTxMeta hdl)
+                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 10) accFop Nothing NoFilterOp fopTimestamp Nothing
+                        map Isomorphic result `shouldMatchList` map Isomorphic expectedResults
+                        total `shouldBe` (Just $ length expectedResults)
+
+        it "pagination and filtering" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case filtersTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasF, accFop, fopTimestamp, expectedResults) -> do
+                        forM_ metasF (putTxMeta hdl)
+                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 1) accFop Nothing NoFilterOp fopTimestamp Nothing
+                        map Isomorphic expectedResults `shouldContain` map Isomorphic result
+                        total `shouldBe` (Just $ length expectedResults)
+
+        it "fitlering addresses" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddress metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (addr, m) -> do
+                        forM_ metas (putTxMeta hdl)
+                        (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        map Isomorphic result `shouldContain` [Isomorphic m]
+
+        it "returns meta with the correct address in Inputs or Outputs (SQL union)" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, m2) -> do
+                        forM_ metasA (putTxMeta hdl)
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        let iso = map Isomorphic result
+                        count `shouldSatisfy` (justbeq 2)
+                        iso  `shouldContain` [Isomorphic m1]
+                        iso  `shouldContain` [Isomorphic m2]
+
+        it "paginates meta with the correct address in Inputs or Outputs" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, m2) -> do
+                        forM_ metasA (putTxMeta hdl)
+                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        let result = result1 <> result2
+                        let iso = map Isomorphic result
+                        length result1 `shouldBe` 1
+                        length result2 `shouldSatisfy` (>= 1)
+                        count1 `shouldSatisfy` (justbeq 2)
+                        count2 `shouldSatisfy` (justbeq 2)
+                        count1 `shouldBe` count2
+                        iso  `shouldContain` [Isomorphic m1]
+                        iso  `shouldContain` [Isomorphic m2]
+
+        it "filters on txid meta with the correct address in Inputs or Outputs" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, _) -> do
+                        let txid = _txMetaId m1
+                        forM_ metasA (putTxMeta hdl)
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing
+                        count `shouldBe` (Just 1)
+                        map Isomorphic result `shouldBe` [Isomorphic m1]
+
+        it "correctly filters on txid meta with the correct address in Inputs or Outputs" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, _) -> do
+                        let txid = _txMetaId m1
+                        forM_ metasA (putTxMeta hdl)
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing
+                        count `shouldBe` (Just 1)
+                        map Isomorphic result `shouldBe` [Isomorphic m1]
+
+
+        it "pagination sorts meta with the correct address in Inputs or Outputs (SQL: union, sorting, pagination)" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, m2) -> do
+                        forM_ metasA (putTxMeta hdl)
+                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
+                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
+                        let result = filter (\m -> _txMetaId m `elem` map _txMetaId [m1, m2] ) (result1 <> result2)
+                        length result1 `shouldBe` 1
+                        length result `shouldBe` 2
+                        count1 `shouldBe` (Just 2)
+                        count2 `shouldBe` (Just 2)
+                        map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic [m1, m2])
+
+        it "applying all filters succeeds when it should" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddress metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (addr,m@ TxMeta{..}) -> do
+                        forM_ metas (putTxMeta hdl)
+                        (result, total) <- (getTxMetas hdl)
+                                (Offset 0)
+                                (Limit 5)
+                                (AccountFops _txMetaWalletId $ Just _txMetaAccountId)
+                                (Just addr)
+                                (FilterByPredicate Equal _txMetaId)
+                                (FilterByPredicate GreaterThanEqual _txMetaCreationAt)
+                                (Just $ Sorting SortByCreationAt Descending)
+                        map Isomorphic result `shouldMatchList` [Isomorphic m]
+                        total `shouldBe` (Just $ 1)
+
+        it "applying all filters rejects everything when it should" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddress metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (addr, TxMeta{..}) -> do
+                        forM_ metas (putTxMeta hdl)
+                        (result, total) <- (getTxMetas hdl)
+                                (Offset 0)
+                                (Limit 5)
+                                (AccountFops _txMetaWalletId $ Just _txMetaAccountId)
+                                (Just addr)
+                                (FilterByPredicate Equal _txMetaId)
+                                (FilterByPredicate GreaterThan _txMetaCreationAt)
+                                (Just $ Sorting SortByCreationAt Descending)
+                        map Isomorphic result `shouldBe` []
+                        total `shouldBe` (Just $ 0)
+
+justbeq :: Int -> Maybe Int -> Bool
+justbeq n mb =
+    case mb of
+        Nothing -> False
+        Just x  -> x >= n
+
+-- The following functions transform the TxMeta created by genMeta. The result follows the pattern:
+--   Nothing if the inputs [TxMeta] are less than needed
+--   Just ([TxMeta_to_be_inserted],  ... filters for getTxMetas ... , [TxMeta_expected_as_result])
+
+walletIdTransform :: [TxMeta] -> Maybe ([TxMeta], AccountFops, [TxMeta])
+walletIdTransform ls = case ls of
+    [] -> Nothing
+    [_] -> Nothing
+    a : b : rest ->
+        let wid = _txMetaWalletId a
+            fn x = x {_txMetaWalletId = wid}
+            prd m = _txMetaWalletId m == wid
+            c = fn b
+        in Just  (a : c : rest,
+                 AccountFops (_txMetaWalletId a) Nothing,
+                 a : c :  filter prd rest)
+
+filtersTransform :: [TxMeta] -> Maybe ([TxMeta], AccountFops, FilterOperation Core.Timestamp ,[TxMeta])
+filtersTransform ls = case ls of
+    [] -> Nothing
+    [_] -> Nothing
+    a : b : rest ->
+        let wid = _txMetaWalletId a
+            accid = _txMetaAccountId a
+            date = _txMetaCreationAt a
+            fn x = x {_txMetaWalletId = wid, _txMetaAccountId = accid, _txMetaCreationAt = date}
+            prd m = _txMetaWalletId m == wid && _txMetaAccountId m == accid && _txMetaCreationAt m == date
+            c = fn b
+        in Just (a : c : rest,
+                AccountFops wid (Just accid),
+                FilterByIndex date,
+                a : c :  filter prd rest)
+
+getAddress :: [TxMeta] -> Maybe (Core.Address, TxMeta)
+getAddress ls = case ls of
+    [] -> Nothing
+    m : _ ->
+        Just (addr, m)
+          where
+            (addr, _) = head $ _txMetaInputs m
+
+
+-- The address returned is found in the Inputs of the first TxMeta
+-- and the Outputs of the second.
+getAddressTransform :: [TxMeta] -> Maybe ([TxMeta], Core.Address, TxMeta, TxMeta)
+getAddressTransform ls = case ls of
+    []  -> Nothing
+    [_] -> Nothing
+    m1 : m2 : rest ->
+
+        Just (rest <> [m2', m1], addr, m1, m2')
+            where
+                (addr, _) = head $ _txMetaInputs m1
+                m2' = m2 {_txMetaOutputs = _txMetaInputs m1}

@@ -24,17 +24,19 @@ import qualified Prelude
 import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow,
-                     HasSqlValueSyntax (..), IsSql92DataTypeSyntax,
+                     HasSqlValueSyntax (..), IsSql92DataTypeSyntax, valueE,
                      varCharType)
 import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
                      Sql92SelectOrderingSyntax)
-import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
+import           Database.Beam.Query (HasSqlEqualityCheck, between_, in_, (&&.),
+                     (<.), (<=.), (==.), (>.), (>=.))
 import qualified Database.Beam.Query as SQL
 import qualified Database.Beam.Query.Internal as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings,
                      PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
-import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite)
+import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite,
+                     runBeamSqlite)
 import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax,
                      SqliteDataTypeSyntax, SqliteExpressionSyntax,
                      SqliteSelectSyntax, SqliteValueSyntax, fromSqliteCommand,
@@ -47,8 +49,10 @@ import qualified Database.SQLite.SimpleErrors.Types as Sqlite
 import           Control.Exception (throwIO, toException)
 import           Control.Lens (Getter)
 import qualified Data.Foldable as Foldable
+import           Data.List.NonEmpty (NonEmpty (..), nonEmpty)
+import qualified Data.List.NonEmpty (toList)
 import qualified Data.Map as M
-import           Data.Time.Units (fromMicroseconds, toMicroseconds)
+import           Data.Time.Units (Second, fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
                      Migration, MigrationSteps, boolean, createTable,
                      evaluateDatabase, executeMigration, field, migrationStep,
@@ -56,13 +60,17 @@ import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
-import           Cardano.Wallet.Kernel.DB.TxMeta.Types (Limit (..), Offset (..),
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types (AccountFops (..),
+                     FilterOperation (..), Limit (..), Offset (..),
                      SortCriteria (..), SortDirection (..), Sorting (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
+-- execution time should move out of WalletLayer so that we don`t depend on it.
+import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | A type modelling the underlying SQL database.
 data MetaDB f = MetaDB { _mDbMeta    :: f (Beam.TableEntity TxMetaT)
@@ -78,9 +86,9 @@ instance Database Sqlite MetaDB
 ** Primary Index: ~tx_meta_id~
 ** Secondary Indexes (for now): ~tx_meta_created_at~
 
-| tx_meta_id | tx_meta_amount | tx_meta_created_at | tx_meta_is_local | tx_meta_is_outgoing |
-|------------+----------------+--------------------+------------------+---------------------|
-| Txp.TxId  | Core.Coin      | Core.Timestamp     | Bool             | Bool                |
+| tx_meta_id | tx_meta_amount | tx_meta_created_at | tx_meta_is_local | tx_meta_is_outgoing | tx_meta_account | tx_meta_wallet
+|------------+----------------+--------------------+------------------+---------------------|-----------------|-----------------
+| Txp.TxId   | Core.Coin      | Core.Timestamp     | Bool             | Bool                | Word32          | Core.Address
 
 --}
 data TxMetaT f = TxMeta {
@@ -89,6 +97,8 @@ data TxMetaT f = TxMeta {
     , _txMetaTableCreatedAt  :: Beam.Columnar f Core.Timestamp
     , _txMetaTableIsLocal    :: Beam.Columnar f Bool
     , _txMetaTableIsOutgoing :: Beam.Columnar f Bool
+    , _txMetaTableWalletId   :: Beam.Columnar f Core.Address
+    , _txMetaTableAccountId  :: Beam.Columnar f Word32
     } deriving Generic
 
 type TxMeta = TxMetaT Identity
@@ -104,6 +114,8 @@ mkTxMeta txMeta = TxMeta {
                 , _txMetaTableCreatedAt  = txMeta ^. Kernel.txMetaCreationAt
                 , _txMetaTableIsLocal    = txMeta ^. Kernel.txMetaIsLocal
                 , _txMetaTableIsOutgoing = txMeta ^. Kernel.txMetaIsOutgoing
+                , _txMetaTableWalletId   = txMeta ^. Kernel.txMetaWalletId
+                , _txMetaTableAccountId  = txMeta ^. Kernel.txMetaAccountId
                 }
 
 instance Beamable TxMetaT
@@ -232,6 +244,10 @@ instance FromField Txp.TxId where
 
 instance FromBackendRow Sqlite Txp.TxId
 
+instance HasSqlEqualityCheck SqliteExpressionSyntax Core.Address
+
+instance HasSqlEqualityCheck SqliteExpressionSyntax Core.Timestamp
+
 instance FromField Core.Coin where
     fromField f = Core.Coin <$> fromField f
 
@@ -277,6 +293,17 @@ txId = DataType (varCharType Nothing Nothing)
 coin :: DataType SqliteDataTypeSyntax Core.Coin
 coin = DataType sqliteBigIntType
 
+walletid :: DataType SqliteDataTypeSyntax Core.Address
+walletid = DataType (varCharType Nothing Nothing)
+
+accountid :: DataType SqliteDataTypeSyntax Word32
+accountid = DataType sqliteBigIntType
+
+unlockTxId :: (TxCoinDistributionTableT f) -> Beam.Columnar f Txp.TxId
+unlockTxId x =
+    let TxIdPrimKey txid = _txCoinDistributionTxId x
+    in txid
+
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
 initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
 initialMigration () = do
@@ -285,7 +312,9 @@ initialMigration () = do
                          (field "meta_amount" coin notNull)
                          (field "meta_created_at" timestamp notNull)
                          (field "meta_is_local" boolean notNull)
-                         (field "meta_is_outgoing" boolean notNull))
+                         (field "meta_is_outgoing" boolean notNull)
+                         (field "meta_wallet_id" walletid notNull)
+                         (field "meta_account_id" accountid notNull))
            <*> createTable "tx_metas_inputs"
                  (TxInput (TxCoinDistributionTable (field "input_address" address notNull)
                                                    (field "input_coin" coin notNull)
@@ -302,12 +331,16 @@ initialMigration () = do
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
 migrateMetaDB = migrationStep "Initial migration" initialMigration
 
-
 -- | Migrates the 'MetaDB', potentially mangling the input database.
 -- TODO(adinapoli): Make it safe.
 unsafeMigrateMetaDB :: Sqlite.Connection -> IO ()
-unsafeMigrateMetaDB conn =
+unsafeMigrateMetaDB conn = do
     void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
+    -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
+    Sqlite.execute_ conn "CREATE INDEX meta_created_at ON tx_metas (meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX meta_query ON tx_metas (meta_wallet_id, meta_account_id, meta_id, meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX inputs_id ON tx_metas_inputs (meta_id)"
+    Sqlite.execute_ conn "CREATE INDEX outputs_id ON tx_metas_outputs (meta_id)"
     where
         newSqlQuery :: SqliteCommandSyntax -> Sqlite.Query
         newSqlQuery syntax =
@@ -317,10 +350,12 @@ unsafeMigrateMetaDB conn =
 -- | Simply a conveniency wrapper to avoid 'Kernel.TxMeta' to explicitly
 -- import Sqlite modules.
 newConnection :: FilePath -> IO Sqlite.Connection
-newConnection = Sqlite.open
+newConnection path = Sqlite.open path
+-- TODO: add a debug option for this: Sqlite.setTrace conn (Just putStrLn)
 
 -- | Closes an open 'Connection' to the @Sqlite@ database stored in the
 -- input 'MetaDBHandle'.
+-- Even if open failed with error, this function should be called http://www.sqlite.org/c3ref/open.html
 closeMetaDB :: Sqlite.Connection -> IO ()
 closeMetaDB = Sqlite.close
 
@@ -345,7 +380,7 @@ putTxMeta conn txMeta =
         -- transaction) in a no-op.
         handleResponse :: Sqlite.SQLiteResponse -> IO ()
         handleResponse e =
-            let txid    = txMeta ^. Kernel.txMetaId
+            let txid  = txMeta ^. Kernel.txMetaId
             in case e of
                 -- NOTE(adinapoli): It's probably possible to make this match the
                 -- Beam schema by using something like 'IsDatabaseEntity' from
@@ -393,6 +428,8 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
     , _txMetaCreationAt = _txMetaTableCreatedAt txMeta
     , _txMetaIsLocal    = _txMetaTableIsLocal txMeta
     , _txMetaIsOutgoing = _txMetaTableIsOutgoing txMeta
+    , _txMetaAccountId  = _txMetaTableAccountId txMeta
+    , _txMetaWalletId   = _txMetaTableWalletId txMeta
     }
     where
         -- | Reifies the input 'TxCoinDistributionTableT' into a tuple suitable
@@ -436,75 +473,172 @@ instance Ord OrdByCreationDate where
 getTxMetas :: Sqlite.Connection
            -> Offset
            -> Limit
+           -> AccountFops
+           -> Maybe Core.Address
+           -> FilterOperation Txp.TxId
+           -> FilterOperation Core.Timestamp
            -> Maybe Sorting
-           -> IO [Kernel.TxMeta]
-getTxMetas conn (Offset offset) (Limit limit) mbSorting = do
+           -> IO ([Kernel.TxMeta], Maybe Int)
+getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopTimestamp mbSorting = do
     res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
-        metasWithInputs  <- nonEmpty <$> SQL.runSelectReturningList paginatedInputs
-        metasWithOutputs <- nonEmpty <$> SQL.runSelectReturningList paginatedOutputs
-        return $ liftM2 (,) metasWithInputs metasWithOutputs
+
+        -- The following 3 queries are disjointed and both fetches, respectively,
+        -- @TxMeta@ @TxInput@ and @TxOutput@.
+        -- The rationale behind doing three separate queries is that SQlite does not support
+        -- array types, neither array aggregations (https://www.sqlite.org/lang_aggfunc.html).
+        -- This in particular means the list of Inputs and Outputs for each TxId must be assembled
+        -- in memory. One workarroun is to use group_concat(see link above), but this would return
+        -- the array in a string format, separated by commas.
+
+        -- The length of meta list is bounded by 50 in each realistic senario.
+        -- So the marshalling between Haskell types - UTF8 - binary SQlite types shouldn`t
+        -- be costly.
+        meta <- SQL.runSelectReturningList $ SQL.select $ do
+            case mbAddress of
+                    Nothing   -> SQL.limit_ limit $ SQL.offset_ offset $ metaQuery
+                    Just addr -> SQL.limit_ limit $ SQL.offset_ offset $ metaQueryWithAddr addr
+        input <- SQL.runSelectReturningList $ SQL.select $ do
+                input <- SQL.all_ $ _mDbInputs metaDB
+                let TxIdPrimKey txid = _txCoinDistributionTxId $ _getTxInput input
+                SQL.guard_ $ in_ txid (map (SQL.val_ . _txMetaTableId) meta)
+                pure input
+        output <- SQL.runSelectReturningList $ SQL.select $ do
+                output <- SQL.all_ $ _mDbOutputs metaDB
+                let TxIdPrimKey txid = _txCoinDistributionTxId $ _getTxOutput output
+                SQL.guard_ $ in_ txid (map (SQL.val_ . _txMetaTableId) meta)
+                pure output
+        return $ do
+             mt  <- nonEmpty meta
+             inp <- nonEmpty input
+             out <- nonEmpty output
+             return (mt, inp, out)
+
     case res of
-        Left e  -> throwIO $ Kernel.StorageFailure (toException e)
-        Right Nothing -> return []
-        Right (Just (inputs, outputs)) ->
-          let mapWithInputs  = transform inputs
-              mapWithOutputs = transform outputs
-          -- Do a final round of in-memory sorting after folding the
-          -- results. Note how this is unavoidable (without complicating
-          -- the implementation consistently) due to the fact we get
-          -- sorted data out of the DB but we need to post-process it to
-          -- construct a real 'Kernel.TxMeta'.
-          -- In practice, this is not as bad as it sounds: even though
-          -- the 'Limit' is basically unbounded as part of this function,
-          -- there exist a hard-limit as part of the wallet API, which would
-          -- ensure that the in-memory sorting will never be too expensive.
-          in return $ maybe identity (sortBy . toOrdering) mbSorting
-                    $ Foldable.foldl' (toValidKernelTxMeta mapWithInputs) mempty (M.toList mapWithOutputs)
+        Left e -> throwIO $ Kernel.StorageFailure (toException e)
+        Right Nothing -> return ([], Just 0)
+        Right (Just (meta, inputs, outputs)) ->  do
+            eiCount <- limitExecutionTimeTo (25 :: Second) (\ _ -> ()) $ mapLeft $ Sqlite.runDBAction $ runBeamSqlite conn $
+                case mbAddress of
+                    Nothing   -> SQL.runSelectReturningOne $ SQL.select metaQueryC
+                    Just addr -> SQL.runSelectReturningOne $ SQL.select $ metaQueryWithAddrC addr
+            let mapWithInputs  = transform $ map (\inp -> (unlockTxId $ _getTxInput inp, inp)) inputs
+            let mapWithOutputs = transform $ map (\out -> (unlockTxId $ _getTxOutput out, out)) outputs
+            let txMeta = toValidKernelTxMeta mapWithInputs mapWithOutputs $ Data.List.NonEmpty.toList meta
+                count = case eiCount of
+                    Left _  -> Nothing
+                    Right c -> c
+            return (txMeta, count)
+
     where
-        getTx selector = _txCoinDistributionTxId . selector
+        mapLeft :: IO (Either a b) -> IO (Either () b)
+        mapLeft m  = do
+            x <- m
+            case x of
+                Left _  -> return $ Left ()
+                Right r -> return $ Right r
 
-        metaQuery = case mbSorting of
-            Nothing  -> SQL.all_ (_mDbMeta metaDB)
-            Just (Sorting SortByCreationAt dir) ->
-                SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) $ SQL.all_ (_mDbMeta metaDB)
-            Just (Sorting SortByAmount     dir) ->
-                SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) $ SQL.all_ (_mDbMeta metaDB)
+        filters meta = do
+            SQL.guard_ $ filterAccs meta accountFops
+            SQL.guard_ $ applyFilter (_txMetaTableId meta) fopTxId
+            SQL.guard_ $ applyFilter (_txMetaTableCreatedAt meta) fopTimestamp
+            pure ()
 
-        -- The following two queries are disjointed and both fetches, respectively,
-        -- a list of tuples of type @(TxMeta, TxInput)@ and @(TxMeta, TxOutput)@.
-        -- The rationale behind doing two separate queries is that there is no elegant
-        -- way to express a 3-table join without having 'Maybe's cropping up in the
-        -- Haskell result sets, and furthermore we would have to deal with duplicates.
-        -- Doing two separate queries is yes more I/O taxing, but spares us from doing
-        -- duplicate filtering on the Haskell side.
-        paginatedInputs = SQL.select $ do
-            meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
-            inputs  <- SQL.oneToMany_ (_mDbInputs metaDB)  (getTx _getTxInput) meta
-            pure (meta, inputs)
+        filtersC meta = do
+            SQL.guard_ $ filterAccs meta accountFops
+            SQL.guard_ $ applyFilter (_txMetaTableId meta) fopTxId
+            SQL.guard_ $ applyFilter (_txMetaTableCreatedAt meta) fopTimestamp
+            pure ()
 
-        paginatedOutputs = SQL.select $ do
-            meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
-            outputs <- SQL.oneToMany_ (_mDbOutputs metaDB) (getTx _getTxOutput) meta
-            pure (meta, outputs)
+        metaQuery = do
+            let query = SQL.all_ $ _mDbMeta metaDB
+            meta <- case mbSorting of
+                    Nothing -> query
+                    Just (Sorting SortByCreationAt dir) ->
+                        SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) query
+                    Just (Sorting SortByAmount     dir) ->
+                        SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) query
+            filters meta
+            return meta
 
-        -- | Groups the inputs or the outputs under the same 'TxMeta'.
-        transform :: NonEmpty (TxMeta, a) -> M.Map OrdByCreationDate (NonEmpty a)
+        metaQueryC = SQL.aggregate_ (\_ -> SQL.as_ SQL.countAll_) $ do
+            meta <-  SQL.all_ $ _mDbMeta metaDB
+            filtersC meta
+            return meta
+
+        findAndUnion addr = do
+                let input = do
+                        inp <- SQL.all_ $ _mDbInputs metaDB
+                        SQL.guard_ $ ((_txCoinDistributionTableAddress . _getTxInput $ inp) ==. (SQL.val_ addr))
+                        pure $ _txCoinDistributionTxId $ _getTxInput inp
+                let output = do
+                        out <- SQL.all_ $ _mDbOutputs metaDB
+                        SQL.guard_ $ ((_txCoinDistributionTableAddress . _getTxOutput $ out) ==. (SQL.val_ addr))
+                        pure $ _txCoinDistributionTxId $ _getTxOutput out
+                -- union removes txId duplicates.
+                txid <- SQL.union_ input output
+                meta <- SQL.join_ (_mDbMeta metaDB)
+                        (\ mt -> ((TxIdPrimKey $ _txMetaTableId mt) ==. txid))
+                pure meta
+
+        metaQueryWithAddr addr = do
+            meta <- case mbSorting of
+                Nothing -> findAndUnion addr
+                Just (Sorting SortByCreationAt dir) ->
+                    SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) (findAndUnion addr)
+                Just (Sorting SortByAmount     dir) ->
+                    SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) (findAndUnion addr)
+            filters meta
+            return meta
+
+        metaQueryWithAddrC addr = SQL.aggregate_ (\_ -> SQL.as_ SQL.countAll_) $ do
+            meta <- findAndUnion addr
+            filtersC meta
+            pure meta
+
+        filterAccs _ Everything = SQL.QExpr (pure (valueE (sqlValueSyntax True)))
+        filterAccs meta (AccountFops rootAddr (mbAccountId)) =
+            (_txMetaTableWalletId meta ==. SQL.val_ rootAddr) &&.
+                case mbAccountId of
+                    Nothing -> SQL.QExpr (pure (valueE (sqlValueSyntax True)))
+                    Just accountId -> _txMetaTableAccountId meta ==. SQL.val_ accountId
+
+        applyFilter inputData fop =
+            let byPredicate o i = case o of
+                    Kernel.Equal            -> inputData ==. i
+                    Kernel.LesserThan       -> inputData <. i
+                    Kernel.GreaterThan      -> inputData >. i
+                    Kernel.LesserThanEqual  -> inputData <=. i
+                    Kernel.GreaterThanEqual -> inputData >=. i
+            in case fop of
+                NoFilterOp -> SQL.val_ True
+                FilterByIndex a -> byPredicate Kernel.Equal (SQL.val_ a)
+                FilterByPredicate ford a -> byPredicate ford (SQL.val_ a)
+                FilterByRange from to -> between_ inputData (SQL.val_ from) (SQL.val_ to)
+                FilterIn ls -> in_ inputData (map SQL.val_ ls)
+
+        transform :: NonEmpty (Txp.TxId, a) -> M.Map Txp.TxId (NonEmpty a)
         transform = Foldable.foldl' updateFn M.empty
 
-        updateFn :: M.Map OrdByCreationDate (NonEmpty a)
-                 -> (TxMeta, a)
-                 -> M.Map OrdByCreationDate (NonEmpty a)
-        updateFn acc (txMeta, new) =
-            M.insertWith (<>) (OrdByCreationDate txMeta) (new :| []) acc
+        updateFn :: M.Map Txp.TxId (NonEmpty a)
+                -> (Txp.TxId, a)
+                -> M.Map Txp.TxId (NonEmpty a)
+        updateFn acc (txid, new) =
+            M.insertWith (<>) txid (new :| []) acc
 
-        toValidKernelTxMeta :: M.Map OrdByCreationDate (NonEmpty TxInput)
-                            -> [Kernel.TxMeta]
-                            -> (OrdByCreationDate, NonEmpty TxOutput)
-                            -> [Kernel.TxMeta]
-        toValidKernelTxMeta inputMap acc (OrdByCreationDate t, outputs) =
-            case M.lookup (OrdByCreationDate t) inputMap of
-                 Nothing     -> acc
-                 Just inputs -> toTxMeta t inputs outputs : acc
+        toValidKernelTxMeta :: M.Map Txp.TxId (NonEmpty TxInput)
+                             -> M.Map Txp.TxId (NonEmpty TxOutput)
+                             -> [TxMeta]
+                             -> [Kernel.TxMeta]
+        toValidKernelTxMeta _ _ [] = []
+        toValidKernelTxMeta inputMap outputMap (m : meta) =
+            let txid = _txMetaTableId m
+                io = do
+                    inp <- M.lookup txid inputMap
+                    out <- M.lookup txid outputMap
+                    pure (inp, out)
+            in case io of
+                Nothing -> toValidKernelTxMeta inputMap outputMap meta
+                Just (inputs, outputs) -> toTxMeta m inputs outputs : toValidKernelTxMeta inputMap outputMap meta
 
 -- | Generates a Beam's AST fragment for use within a SQL query, to order
 -- the results of a @SELECT@.
@@ -513,17 +647,3 @@ toBeamSortDirection :: SortDirection
                     -> SQL.QOrd (Sql92SelectOrderingSyntax SqliteSelectSyntax) s a
 toBeamSortDirection Ascending  = SQL.asc_
 toBeamSortDirection Descending = SQL.desc_
-
--- | Generates a function suitable for 'sortBy' out of a 'Sorting'.
-toOrdering :: Sorting -> (Kernel.TxMeta -> Kernel.TxMeta -> Ordering)
-toOrdering (Sorting criteria dir) =
-    let comparator Ascending  = compare
-        comparator Descending = flip compare
-    in case criteria of
-            SortByCreationAt ->
-                \t1 t2 -> (comparator dir) (t1 ^. Kernel.txMetaCreationAt)
-                                           (t2 ^. Kernel.txMetaCreationAt)
-            SortByAmount ->
-                \t1 t2 -> (comparator dir) (t1 ^. Kernel.txMetaAmount)
-                                           (t2 ^. Kernel.txMetaAmount)
-

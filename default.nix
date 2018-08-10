@@ -136,7 +136,7 @@ let
       shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { inherit src; };
       hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
       stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
-      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
+      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests; };
       swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {

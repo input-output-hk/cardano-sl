@@ -33,6 +33,7 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ toRootId = V1.WalletId . sformat build . _fromDb . HD.getHdRootId
 toAccount :: Kernel.DB -> HD.HdAccount -> V1.Account
 toAccount snapshot account = V1.Account {
       accIndex     = accountIndex
-    , accAddresses = map (toAddress snapshot) addresses
+    , accAddresses = map (toAddress snapshot . view ixedIndexed) addresses
     , accAmount    = V1 accountAvailableBalance
     , accName      = account ^. HD.hdAccountName . to HD.getAccountName
     , accWalletId  = V1.WalletId (sformat build (hdRootId ^. to HD.getHdRootId . fromDb))

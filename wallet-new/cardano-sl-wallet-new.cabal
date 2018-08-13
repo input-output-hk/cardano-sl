@@ -400,7 +400,7 @@ test-suite wallet-unit-tests
                       Test.Spec.Accounts
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
-                      Test.Spec.CreateAddress
+                      Test.Spec.Addresses
                       Test.Spec.Fixture
                       Test.Spec.Kernel
                       Test.Spec.Keystore

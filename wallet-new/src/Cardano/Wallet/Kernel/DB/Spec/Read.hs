@@ -25,7 +25,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
@@ -66,7 +66,7 @@ cpAvailableBalance c =
 -- | Change outputs
 --
 -- Pending outputs paid back into addresses that belong to the wallet.
-cpChange :: IsCheckpoint c => IxSet HdAddress -> c -> Core.Utxo
+cpChange :: IsCheckpoint c => IxSet (Indexed HdAddress) -> c -> Core.Utxo
 cpChange ours cp =
     Map.union
       (Pending.change ours' $ cp ^. cpPending)
@@ -76,7 +76,7 @@ cpChange ours cp =
     ours' addr = IxSet.size (IxSet.getEQ addr ours) == 1
 
 -- | Total balance (available balance plus change)
-cpTotalBalance :: IsCheckpoint c => IxSet HdAddress -> c -> Core.Coin
+cpTotalBalance :: IsCheckpoint c => IxSet (Indexed HdAddress) -> c -> Core.Coin
 cpTotalBalance ours c =
     Core.unsafeAddCoin availableBalance changeBalance
   where

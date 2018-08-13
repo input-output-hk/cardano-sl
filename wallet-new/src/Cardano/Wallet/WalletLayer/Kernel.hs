@@ -53,7 +53,6 @@ bracketPassiveWallet logFunction keystore rocksDB f =
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
   where
-    -- | TODO(ks): Currently not implemented!
     passiveWalletLayer :: Kernel.PassiveWallet
                        -> (Actions.WalletAction Blund -> STM ())
                        -> PassiveWalletLayer n
@@ -74,7 +73,8 @@ bracketPassiveWallet logFunction keystore rocksDB f =
         , _pwlGetWallet            = \wId     -> ro $ Wallets.getWallet    wId
         , _pwlGetAccounts          = \wId     -> ro $ Accounts.getAccounts wId
         , _pwlGetAccount           = \wId acc -> ro $ Accounts.getAccount  wId acc
-        , _pwlGetAddresses         = error "Not implemented!"
+        , _pwlGetAddresses         = \rp      -> ro $ Addresses.getAddresses rp
+        , _pwlValidateAddress      = \txt     -> ro $ Addresses.validateAddress txt
         }
       where
         -- Read-only operations

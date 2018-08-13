@@ -1,5 +1,6 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
 
 -- | Infrastructure for working with indexed sets
 module Cardano.Wallet.Kernel.DB.Util.IxSet (
@@ -10,6 +11,10 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , IndicesOf
   , IxSet
   , Indexable
+  , AutoIncrementKey(..)
+  , Indexed (..)
+  , ixedIndexed
+  , ixedIndex
     -- * Building 'Indexable' instances
   , ixFun
   , ixList
@@ -20,6 +25,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , null
   , getOne
   , toMap
+  , (@>=<=)
     -- * Construction
   , fromList
   , singleton
@@ -40,12 +46,12 @@ import           Data.Foldable (Foldable)
 import qualified Data.Foldable
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.Map.Strict as Map
-import           Data.SafeCopy (SafeCopy (..))
+import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
 import qualified Data.Set as Set
 import qualified Data.Traversable
 
 -- Imports needed for the various instances
-import           Formatting (bprint, build)
+import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Pos.Core.Util.LogSafe (BuildableSafe, SecureLog, buildSafeList,
                      getSecureLog, secure)
@@ -81,6 +87,36 @@ instance HasPrimKey a => Ord (OrdByPrimKey a) where
 
 instance Buildable a => Buildable (OrdByPrimKey a) where
     build (WrapOrdByPrimKey o) = bprint build o
+
+{------------------------------------------------------------------------------
+  Indexing resources by a monotonically-increasing integer
+------------------------------------------------------------------------------}
+
+newtype AutoIncrementKey = AutoIncrementKey { getKey :: Int }
+                         deriving (Eq, Ord, Num)
+
+deriveSafeCopy 1 'base ''AutoIncrementKey
+
+instance Buildable AutoIncrementKey where
+    build (AutoIncrementKey k) = bprint ("AutoIncrementKey " % build) k
+
+data Indexed a = Indexed {
+    _ixedIndex   :: AutoIncrementKey
+  , _ixedIndexed :: a
+  }
+
+Lens.makeLenses ''Indexed
+
+instance SafeCopy a => SafeCopy (Indexed a) where
+    getCopy = error "TODO"
+    putCopy = error "TODO"
+
+instance Buildable a => Buildable (Indexed a) where
+    build (Indexed (AutoIncrementKey idx) r) =
+        bprint ("{ k = " % build %
+                ", v = " % build %
+                "}") idx r
+
 
 {-------------------------------------------------------------------------------
   Wrap IxSet
@@ -188,6 +224,13 @@ toMap = Map.mapKeysMonotonic (primKey . unwrapOrdByPrimKey)
       . IxSet.toSet
       . unwrapIxSet
 
+(@>=<=) :: (Indexable a, IsIndexOf ix a)
+        => IxSet a
+        -> (ix, ix)
+        -> IxSet a
+(WrapIxSet native) @>=<= interval = WrapIxSet (native IxSet.@>=<= interval)
+
+
 {-------------------------------------------------------------------------------
   Construction
 -------------------------------------------------------------------------------}
@@ -271,3 +314,5 @@ instance Buildable a => Buildable (IxSet a) where
 
 instance BuildableSafe a => Buildable (SecureLog (IxSet a)) where
     build = bprint (buildSafeList secure) . toList . getSecureLog
+
+

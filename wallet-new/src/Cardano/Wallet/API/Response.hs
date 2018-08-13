@@ -7,6 +7,7 @@ module Cardano.Wallet.API.Response (
   , WalletResponse(..)
   -- * Generating responses for collections
   , respondWith
+  , fromSlice
   -- * Generating responses for single resources
   , single
   , ValidJSON
@@ -28,6 +29,8 @@ import           GHC.Generics (Generic)
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
+
+import           Cardano.Wallet.WalletLayer.Types (SliceOf (..))
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -157,19 +160,32 @@ respondWith RequestParams{..} fops sorts generator = do
            }
 
 paginate :: PaginationParams -> [a] -> ([a], PaginationMetadata)
-paginate PaginationParams{..} rawResultSet =
+paginate params@PaginationParams{..} rawResultSet =
     let totalEntries = length rawResultSet
-        perPage@(PerPage pp)   = ppPerPage
-        currentPage@(Page cp)  = ppPage
-        totalPages             = max 1 $ ceiling (fromIntegral totalEntries / (fromIntegral pp :: Double))
-        metadata               = PaginationMetadata {
-                                 metaTotalPages = totalPages
-                               , metaPage = currentPage
-                               , metaPerPage = perPage
-                               , metaTotalEntries = totalEntries
-                               }
-        slice                  = take pp . drop ((cp - 1) * pp)
+        (PerPage pp) = ppPerPage
+        (Page cp)    = ppPage
+        metadata     = paginationParamsToMeta params totalEntries
+        slice        = take pp . drop ((cp - 1) * pp)
     in (slice rawResultSet, metadata)
+
+paginationParamsToMeta :: PaginationParams -> Int -> PaginationMetadata
+paginationParamsToMeta PaginationParams{..} totalEntries =
+    let perPage@(PerPage pp) = ppPerPage
+        currentPage          = ppPage
+        totalPages = max 1 $ ceiling (fromIntegral totalEntries / (fromIntegral pp :: Double))
+    in PaginationMetadata {
+      metaTotalPages = totalPages
+    , metaPage = currentPage
+    , metaPerPage = perPage
+    , metaTotalEntries = totalEntries
+    }
+
+fromSlice :: PaginationParams -> SliceOf a -> WalletResponse [a]
+fromSlice params (SliceOf theData totalEntries) = WalletResponse {
+      wrData   = theData
+    , wrStatus = SuccessStatus
+    , wrMeta   = Metadata (paginationParamsToMeta params totalEntries)
+    }
 
 
 -- | Creates a 'WalletResponse' with just a single record into it.

@@ -1,7 +1,7 @@
 ---
-title: Design Specification for Delegation and Incentives in Shelley
-subtitle: 'Status: DRAFT'
-author: Lars Brünjes, Philipp Kant
+title: Design Specification for Delegation and Incentives in Cardano
+subtitle: 'An IOHK Technical Report. Status: DRAFT'
+author: Philipp Kant, Lars Brünjes, Duncan Coutts
 documentclass: scrartcl
 toc: t
 numbersections: true
@@ -23,15 +23,14 @@ Mario Larangeira,
 Aikaterini-Panagiota Stouka.
 
 # Purpose
-This document describes the requirements and design for a
-delegation- and incentives-mechanism to be used in the Shelley release of Cardano.
+This document describes the requirements and design for a delegation
+and incentives mechanism to be used in the Shelley release of Cardano.
 
 Delegation will allow holders of Ada to transfer their rights to
-participate in the proof of stake (_PoS_) protocol to _stake
-pools_. Stake pools are run by _stake pool operators_
-(also called _pool leaders_),
-and a person delegating to a stake pool is called _delegator_, _member_, or
-_participant_ of a stake pool.
+participate in the proof of stake (_PoS_) protocol to _stake pools_.
+Stake pools are run by _stake pool operators_ (also called _pool
+leaders_), and a person delegating to a stake pool is called
+_delegator_, _member_, or _participant_ of a stake pool.
 
 Introducing delegation is important to increase the stability and
 performance of the system:
@@ -59,18 +58,23 @@ order to support and incentivise delegation.
 ## HD Wallets
 
 We will use a Hierarchical Deterministic wallet (HD wallet) structure,
-as described
-in
-[BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki).
+as described in [BIP-32].
+
+[BIP-32]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki.
 
 # Assumptions
 
 # Requirements
+
 The delegation mechanism should meet a number of requirements.  They
-can be grouped into functional requirements that the delegation system
-should provide, requirements to the security (both of the overall
-system and the funds of individual users), and existing features that
-should not be impeded when we add delegation to the system.
+can be grouped into:
+
+ * functional requirements that the delegation system should provide;
+ * requirements to the security (both of the overall system and the
+   funds of individual users);
+ * non-functional requirements; and
+ * existing features that should not be impeded when we add delegation
+   to the system.
 
 ## Functional Requirements
 
@@ -82,10 +86,10 @@ prove when they are eligible to produce a block in a given slot.
 
 ### Visibility of Delegation on the Blockchain
 
-We expect stake pools to share their rewards with the delegators.  In
-order to do this, there must be evidence for the delegation
-happening.  Furthermore, we want the sharing of rewards to be
-enforced by the protocol, so the evidence must be recorded on the
+We enable stake pools to automatically share their rewards with the
+delegators.  In order to do this, there must be evidence for the
+delegation happening.  Furthermore, we want the sharing of rewards to
+be enforced by the protocol, so the evidence must be recorded on the
 blockchain.
 
 ### Restricting Chain Delegation
@@ -192,6 +196,32 @@ Users of a cold wallet, such as a paper wallet or a hardware wallet,
 should be able to delegate the stake corresponding to the funds in the
 cold wallet without using its spending key.
 
+## Non-functional Requirements
+
+### Asymptotic space and time complexity
+
+All the changes to delegation are changes in the rules that define what it
+means to be a valid Cardano blockchain. These rules must be computable, and
+must be computable with reasonable space and time complexity. In particular
+this requires an
+
+### Minimise economic attacks
+
+An economic attack on a system arises where the costs incurred by the operators
+of a system are not covered by fees on the users of the system. Such situations
+allow users to impose costs on operators without paying that full cost
+themselves. In severe cases this can lead to operators dropping out and the
+system collapsing.
+
+Cardano currently has transaction fees which are intended to cover the
+processing and long term storage cost of transactions. There are no fees
+however for the memory cost of tracking the current accumulated chain state,
+in particular the UTxO. In addition, the new mechanisms introduced for
+delegation add additional state that must be tracked. Moving from federated
+operating to fully decentralised operation may increase the incentive to
+exploit economic attacks, so it is important to address the existing
+unaccounted operator costs as well as new costs.
+
 ## Requirements to Preserve Existing Features
 
 ### Master Recovery Key
@@ -241,6 +271,16 @@ addresses more than necessary. Ideally, we should use the necessary
 changes to the address scheme to come up with an address length that
 is even shorter than in Byron.
 
+### No lookup of old blocks
+
+The current Cardano design allows, in principle, an implementation of a
+node that discards blocks after a period of time so that it only needs
+to keep a limited number of recent blocks. This is true in part because
+nothing in the existing validation rules requires looking up arbitrary
+old blocks. All information neessary for validation can be accumulated
+in a running state, in a `foldl` style. This is a useful design
+property to retain.
+
 # User Stories
 
 ## Basic Delegation User Stories
@@ -268,11 +308,33 @@ the _staking key pair_ $K^s=(sks, vks)$.  Here, $skp$ and $sks$ are
 the private keys used for signing, and $vkp$ and $vks$ are the public
 keys used to verify signatures.
 
-An owner of funds (i.e., the owner of the payment key of those funds)
-can _delegate_ their stake to the owner of a particular staking key
-$K^s$ by declaring that the stake rights of those funds should be
-controlled by $K^s$.  There are different mechanisms for that, aimed
-for different use cases.
+Except for special classes of address with no stake rights[^no-stake],
+all addresses have stake rights corresponding to the funds at the
+address. To exercise these stake rights, and to receive staking
+rewards, each address must be associated with a _registered_ stake key.
+This involves registering a stake key on the chain and using addresses
+that refer to this stake key. Each registered stake key has a
+corresponding _reward account_ which is used to collect and claim
+staking rewards. To exercise stake rights associated with a registered
+stake key those rights must be delegated to a registered stake pool.
+This involves posting a delegation certificate on the chain identifing
+the chosen stake pool. Registered stake pools participate in the Proof
+of Stake protocol using the key for their stake pool to sign blocks.
+Only registered stake pools participate in the PoS protocol, but anyone
+can register a private stake pool for "self staking". For each stake
+pool, the set of stake keys that delegate to it are known, and staking
+rewards can be paid into the reward accounts associated with each stake
+key. Rewards can accumulate in reward accounts over multiple epochs and
+can be reclaimed as part of a tranaction using a special input type.
+
+Thus the overall structure is that addresses with stake rights are
+associated with a stake key, and the stake key delegates to a stake
+pool, and the stake pool takes part in the PoS protocol.  Private
+staking works in exactly the same way, using a stake key, and delegating,
+but using a private stake pool.
+
+[^no-stake]: Enterprise, script, bootstrap era and AVVM addresses have
+no corresponding stake rights.
 
 ## Address Structure
 
@@ -291,84 +353,128 @@ staking information.
 
 In addition to those new addresses, the system will continue to
 support _bootstrap addresses_ and _script addresses_ as introduced in
-Byron.
+Byron. Only the new base and pointer addresses carry stake rights
+however.
 
 ### Base Address
 
 A base address sets the staking rights directly to a staking key
 $(sks, vks)$, and sets $\beta = \mathcal{H}(vks)$.  The staking rights
-associated with funds held in this address are controlled by the owner
-of $sks$.
+associated with funds held in this address may be exercised by the
+owner of $sks$.
+
+Base addresses can be used in transactions without registering the
+staking key in advance, but the stake rights can only be exercised by
+registering the stake key and delegating to a stake pool.
 
 ### Pointer Address
 
 A pointer address indirectly specifies the staking key that should
 control the stake of the address.  It does so by referencing a
-delegation certificate that has been published to the blockchain.
+stake key registration that has been published to the blockchain.
 
-Concretely, for a pointer address, $\beta$ is a _certificate pointer_,
-given by the tuple $(N_\text{block}, N_\text{tx}, N_\text{cert})$,
-where $N_\text{block}$ is the number of a block in the chain, and
-$N_\text{tx}$ is the number of a transaction within that block. This
-transaction should, as its $N_\text{cert}$s metadata, contain a
-heavyweight delegation certificate[^pointer-heavyweight] (see
-\ref{certificates-on-the-blockchain} below).
+Concretely, for a pointer address, $\beta$ is a _stake key pointer_,
+given by the tuple $(N_\text{block}, N_\text{tx}, N_\text{reg})$,
+where $N_\text{block}$ is the index of a block in the chain, and
+$N_\text{tx}$ is the index of a transaction within that block. This
+transaction should, as its $N_\text{reg}$s metadata, contain a stake
+key registration. (see \ref{certificates-on-the-blockchain} below).
+
+Pointer addresses can be used in transactions even if their target is
+not an *active* stake key registration. This covers the case that the key
+was unregistered after (or indeed before) the transaction, and also
+covers pointers to targets that are plainly invalid. The reason for
+allowing such invalid targets is so that nodes need only track the
+currently active stake keys.
+
+In such cases however the stake rights cannot be exercised. To exercise
+the stake rights the stake key must be registered in advance of using
+the pointer address, and the stake key must remain registered while the
+pointer address holds funds.
 
 ### Enterprise Address
 
-Enterprise addresses allow completely opting out of participation in
-the proof of stake protocol.  This might be appropriate for exchanges,
-which control, but not own, large amounts of Ada.
+Enterprise addresses carry no stake rights whatsoever and thus using
+them allows completely opting out of participation in the proof of
+stake protocol.  Exchanges or other organisations that control large
+amounts of Ada -- but hold it on behalf of other users -- may wish to
+follow a policy of not exercising stake rights. By using enterprise
+addresses exchanges can demonstrate that they follow this policy.
 
 For enterprise addresses, $\beta$ is set to a fixed constant value,
 making them easily distinguishable from other types of addresses.
 
-When determining the stake distribution for the Follow the Satoshi
-algorithm, enterprise addresses are completely ignored.  Thus, holding
-funds in an enterprise address will not increase the chances for being
-elected as a slot leader.  Note however, that this effectively decreases
-the total amount of stake, which plays into the hands of the
-adversary.
+Since enterprise addresses are not associated with any stake key, they
+are automatically excluded from the mechanisms that influence the slot
+leadership schedule. Note however, that using addresses with no stake
+rights effectively decreases the total amount of stake, which plays
+into the hands of the adversary.
 
 ### Bootstrap Address
 
-Bootstrap addresses were introduced in Byron, and they always delegate
-their stake to a fixed set of seven staking keys, corresponding to the
-seven core nodes operated by Cardano Foundation, Emurgo, and
-IOHK[^Bootstrap].
+Bootstrap addresses were introduced in Byron. In Byron they were
+interpreted as having stake rights but those stake rights were always
+delegated to a fixed set of staking keys specified in the genesis
+block, controlled by the Cardano Foundation, Emurgo, and IOHK.
 
-[^Bootstrap]: TODO: insert detailed description of bootstrap addresses.
+Bootstrap addresses will continue to exist in Shelley, but their
+interpetation is changed subtly and their use is disincentivised.
+Their interpetation is changed from having stake rights but with forced
+delegation, to having no stake rights whatsoever. Their use is
+disincentivised since owners have the option to move their funds into
+the new base or pointer addresses that have stake rights which can be
+exercised to receive staking rewards.
 
-Bootstrap addresses will continue to exist in Shelley, but their use
-will be disincentivised.
+It is worth noting that initially bootstrap addresses and enterprise
+addresses have essentially identical behaviour.
 
 ### Script Address
 
 Another type of addresses present since Byron are script addresses.
-For those, it is hard to determine whom the funds actually belong to.
-The stake corresponding to funds in script addresses will be excluded
-from participation in the proof of stake protocol, just as is done for
-enterprise addresses.
+For those, it is hard to determine to whom the funds actually belong.
+The solution chosen for Shelly is simple: script addresses have no
+stake rights whatsoever.
 
 ### HD Wallet Structure in Shelley
 
-The wallet will be a hierarchical deterministic wallet, according to
-[BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki).
+All the Shelley address formats support hierarchical deterministic
+wallets, as per [BIP-32].
 
-Furthermore, we will require that the tree of addresses has a fixed
-depth, and that the wallet will only generate a certain number of new
-addresses before old ones have been used. These requirements allow us
-to keep wallet restoration from seed cheaper than linear in the total
-number of addresses in the blockchain. For details, see
+In particular this kind of wallet scheme allows implementations that
+can do wallet restoration from seed in time that is better than linear
+in the total number of addresses in the blockchain. For details, see
 \ref{wallet-recovery-process}.
 
-## Certificates
+[BIP-32]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 
-Certificates allow transferring stake rights to specific staking keys.
-They can either be posted to the blockchain as transaction metadata
-(stakepool registration or retirement, as well as heavyweight
-delegation certificates), or revealed upon use (lightweight
-certificates).
+## Certificates and Registrations
+
+As stated in the delegation overview: delegating stake rights involves
+two indirections: from addresses to stake keys, and from stake keys to
+stake pools.
+
+Equivalently, there are two relations: a relation between addresses and
+stake keys, and a relation between stake keys and stake pools. The base
+and pointer addresses form the entries of the first relation. The
+second relation consists of registered stake keys, registered stake
+pools and heavyweight delegation certificates as the entries relating
+the two.
+
+The registring of stake keys and stake pools, and delegating between
+them involves posting appropriate signed registrsation or delegation
+certificates to the blockchain as part of transaction metadata.
+
+There is one final form of certificate used by stake pools while
+exercising the stake rights delegated to them: lightweight delegation
+certificates. These are used simply to allow stake pools to use
+operational keys that must be kept on the operational node that creates
+blocks, while keeping their main key securely offline. A lightweight
+certificate, signed by the stake pool's main key, delegates to the
+operational key that is used to sign blocks. This lightweight
+certificate is included in the block header so that all other nodes can
+verify that the block is signed by a legitimate delegate of the slot
+leader. Thus these lightweight certificates are not posted to the chain
+in advance, but are presented when signing blocks.
 
 ### Certificates on the Blockchain
 
@@ -378,51 +484,92 @@ valid until explicitly overwritten or revoked, as an automatic expiry
 would likely increase the amount of undelegated, offline stake. The
 following certificates can be posted to the blockchain:
 
-Stakepool Registration Certificates
+ * Stake key registration certificate
+ * Stake key de-registration certificate
+ * Stake pool registration certificate
+ * Stake pool retirement certificate
+ * Heavyweight delegation certificate
 
-:   A person planning to operate a stake pool can anounce this by
-    posting a _stakepool registration certificate_ to the blockchain.
+### Stake key registration certificates
 
-    The certificate must contain the following information:
+Users wishing to exercise their rights of participation in the PoS
+protocol can register a stake key by posting a _stake key registration
+certificate_ to the blockchain.
 
-    - the public staking key, $vks_\text{delegate}$
+Stake key registration certificate
+
+:   This certificate contains:
+
+    - the public staking key $vks$
+
+    The certificate must be signed by $sks$.
+
+Stake key de-registration certificate
+
+:   This certificate contains:
+
+    - the public staking key hash $\mathcal{H}(vks)$
+
+    The certificate must be signed by $sks$.
+
+Registering a stake key introduces a corresponding stake reward
+account. The account is deleted when the stake key is de-registered.
+See \ref{stake-reward-accounts} for details on reward accounts.
+
+Registering a stake key attracts a special fee that must be included
+into the transaction that posts the certificate. This fee is in fact
+a deposit that is refundable when the stake key is de-registered (i.e.
+a corresponding negative fee in the transaction that posts the
+re-registration certificate). The deposit is to account for the costs
+of tracking the stake key and maintaining the corresponding stake
+reward account. It is also to incentivise de-registering stake keys
+that are no longer required, so that the corresponding resources can be
+released.
+
+### Stake pool registration certificates
+
+A person planning to operate a stake pool (including a private pool)
+can declare this by posting a _stakepool registration certificate_ to
+the blockchain.
+
+Stake pool Registration Certificate
+
+:   The certificate contains the following:
+
+    - the public key of the pool, $vks_\text{pool}$
+    - the public stake key hash of the pool owner/operator,
+      $\mathcal{H}(vks_\text{owner})$
     - the parameters that specify the reward sharing function of the
-    stake pool (cost and margin of the pool)[^incentives]
-    - the minimal amount of Ada that the stake pool operator promises
-    to deposit to the stake pool
-    - an address to which the rewards for the stake pool operator will
-      be sent[^stakepool-piggyback]
-    - optionally, a stake pool can include an address to which the
-      rewards of the pool that exceed the costs and margin are sent.
-      If they do, the stake pool members will not get rewards for
-      delegating, and their share will go to the specified address
-      instead. This will allow stakeholders who do not want to get
-      rewards (possibly for regulatory or tax reasons) to delegate to a
-      stake pool that benefits a charity.
+      stake pool (the cost and margin of the pool)[^incentives]
+    - optionally, a stake pool registration can specify an alternative
+      stake key reward account to pay all owner rewards into. This is
+      specified as the stake key hash $\mathcal{H}(vks_\text{rewards})$.
+      This allows stakeholders who do not want to get rewards (possibly
+      for regulatory or tax reasons) to have their stake pool's rewards
+      benefit some other party such as a charity.
+
+    The certificate must be signed by $sks_\text{owner}$.
 
     Additional, personal, information on the stake pool operator will
     be hosted separately from the blockchain, see \ref{stakepool-registration}.
 
 [^incentives]: This will be elaborated once this document is merged
-with the incentives design document.
+with the incentives design document. TODO: provide the section reference.
 
-[^stakepool-piggyback]: A priori, the rewards for the stake pool could
-also be distributed amongst the addresses that use the stake pool's
-staking key. However, this would allow anybody to piggyback on the
-stake pool by using addresses that use the stake pool's staking
-key.
+If a stakepool can foresee that it will cease operations, it can
+announce this intent by posting a _stakepool retirement certificate_.
 
-Stakepool Retirement Certificate
+Stake pool Retirement Certificate
 
-:   If a stakepool can foresee that it will cease operations, it can
-    announce this intent by posting a _stakepool retirement
-    certificate_. It contains
+:   It contains
 
     - the public staking key $vks_\text{pool}$ of the pool
     - the epoch number, starting from which the stakepool will cease
       to operate
 
     It must be signed by the staking key $sks_\text{pool}$ of the pool.
+    TODO: Which key is this? Is this the public staking key $vks_\text{pool}$
+    or the original owner? What if we have multiple signers for the cert?
 
     After the retirement epoch, any stake that is delegated to this
     stake pool will be disregarded for the PoS protocol. It will not
@@ -433,28 +580,28 @@ Stakepool Retirement Certificate
     Stakeholders who delegated to this pool should be notified and
     asked to redelegate by their wallet the next time they are online.
 
+### Heavyweight delegation certificates
+
+Users can transfer the rights of participation in the PoS protocol
+from one staking key to another, by posting a _heavyweight
+delegation certificate_ to the blockchain.
+
 Heavyweight Delegation Certificates
 
-:   Users can transfer the rights of participation in the PoS protocol
-    from one staking key to another, by posting a _heavyweight
-    delegation certificate_ to the blockchain.  A heavyweight
-    delegation certificate is a tuple containing
+:   A heavyweight delegation certificate is a tuple containing
 
     - the public staking key delegating its staking rights,
     $vks_\text{source}$
-    - the public staking key to which stake is delegated,
-    $vks_\text{delegate}$[^heavyweight-pointer]
+    - the public stake pool key to which stake is delegated,
+    $vks_\text{pool}$
 
     It must be signed by $sks_\text{source}$.
 
-Delegation Revocation Certificate
-
-:   Users might want to take control of stake that they had previously
-    delegated.  They can do that by posting a _delegation revocation
-    certificate_, containing the key for which they want to invalidate
-    previously posted delegation certificates. It must be signed by
-    the corresponding secret key. A pointer address which points to a
-    revoked certificate will not be included for leader election.
+Note that there is no corresponding delegation revocation certificate.
+If a user wishes to change their delegation choice to a different stake
+pool or their own private stake pool then they can simply post a new
+delegation certificate. The delegation certificate is revoked when the
+source stake key is de-registered.
 
 ### Lightweight Delegation Certificates
 
@@ -1171,6 +1318,43 @@ The committee for the randomness generation will be chosen in the same
 way as the slot leaders, by running FtS algorithm on the stake
 distribution.
 
+## Fees
+
+To prevent economic attacks, fees or refundable deposits should be charged
+where operators incur costs. In partcular we will have refundable deposits
+corresponding to the state that has to be tracked for UTxOs, and the various
+mechanisms involved in delegation.
+
+### Transaction fees
+
+The basic transaction fee covers the cost of processing and storage. The
+formula is
+
+$a + b x$
+
+With constants $a$ and $b$, and $x$ as the transaction size in bytes.
+
+The fixed component is to cover per-transaction overheads. The component linear
+in the size of the transaction to reflects the processing and storage cost of
+transactions.
+
+This aspect remains unchanged with delegation except to the extent that there
+are additional objects that can appear in transactions relating to delegation.
+These simply increase the size of the transaction and so are covered by the
+existing fee formula.
+
+In principle different fees could be charged for different things appearing
+in a transaction, to reflect their different processing costs. This is a future
+direction, but will not be introduced as part of delegation.
+
+### UTxO deposits
+
+
+
+### Stake account deposits
+
+
+
 ## Related Topics
 
 ### Wallet Recovery Process
@@ -1477,6 +1661,8 @@ registration:
  - The pool leader _margin_ (in $[0,1]$), indicating the additional share the
    pool leader will take from pool rewards before splitting rewards amongst
    members (see [below](#pool-leader-reward)).
+ - Proof of _ADA pledged to the pool_. This could be provided as a list of
+   addresses, signed by the corresponding secret spending keys.
 
 There will be no lower bound on the amount of ADA that has to be pledged, but
 we will see [below](#pool-rewards) that pool rewards will increase with

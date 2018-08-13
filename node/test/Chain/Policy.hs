@@ -26,3 +26,7 @@ data Policy genM valE = Policy
   { polValidation :: Chain DSL.IdentityAsHash Addr -> Validation valE ()
   , polGenerator :: BlockModifier genM DSL.IdentityAsHash Addr
   }
+
+data BlockModifierException = BlockModifierException deriving Show
+
+instance Exception BlockModifierException

@@ -144,17 +144,21 @@ instance FromJSON LoggerTree where
 mkUniq :: [LogHandler] -> [LogHandler]
 mkUniq handlers = mkUniq' handlers []
     where
+        containedIn :: LogHandler -> [LogHandler] -> Bool
+        containedIn lh lhs =
+            -- by equal name
+            any (\lh' -> _lhName lh == _lhName lh') lhs
         mkUniq' [] acc = acc
-        mkUniq' (lh:lhs) acc | lh `elem` acc = mkUniq' lhs acc
-                             | otherwise     = mkUniq' lhs (lh:acc)
+        mkUniq' (lh:lhs) acc | lh `containedIn` acc = mkUniq' lhs acc
+                             | otherwise            = mkUniq' lhs (lh:acc)
 
 instance Semigroup LoggerTree where
     lt1 <> lt2 = LoggerTree {
-                  _ltMinSeverity = _ltMinSeverity lt2
+                  _ltMinSeverity = _ltMinSeverity lt1 `min` _ltMinSeverity lt2
                 , _ltHandlers = mkUniq $ _ltHandlers lt1 <> _ltHandlers lt2
                 }
 instance Monoid LoggerTree where
-    mempty = LoggerTree { _ltMinSeverity = Debug
+    mempty = LoggerTree { _ltMinSeverity = Info
                    , _ltHandlers = [LogHandler { _lhName="console", _lhFpath=Nothing
                                                , _lhBackend=StdoutBE
                                                , _lhMinSeverity=Just Info
@@ -235,7 +239,7 @@ defaultInteractiveConfiguration minSeverity =
                 _lhBackend = StdoutBE,
                 _lhName = "console",
                 _lhFpath = Nothing,
-                _lhSecurityLevel = Just SecretLogLevel,
+                _lhSecurityLevel = Just PublicLogLevel,
                 _lhMinSeverity = Just minSeverity }
                           ]
           }

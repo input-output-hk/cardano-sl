@@ -1731,6 +1731,18 @@ Here
   - $s':=\min(s, z_0)$, where $s$ is the relative stake of the pool leader (the
     amount of ADA pledged during [pool registration](#stake-pool-registration).
 
+_Note that $\sigma$ includes the stake $s$ pledged by the pool leader._
+For example, let us assume that the total existing supply of ADA is
+$T=31,000,000,000$, and consider a pool whose pool leader pledged
+ADA 15,500,000 and who attracted another ADA 15,500,000 from his pool members.
+Then
+$$
+\begin{array}{rcccl}
+    s                  & = & \displaystyle\frac{15,500,000}{31,000,000,000}              & = & 0.0005\;\text{and} \\[5mm]
+    \sigma & = & \displaystyle\frac{15,500,000 + 15,500,000}{31,000,000,000} & = & 0.001. \\
+\end{array}
+$$
+
 The _actual_ rewards for a pool $j$ (with relative stake $\sigma_j$ and relative
 leader-stake $s_j$) which should have created $N_j$ blocks in
 that epoch and actually created $n_j\leq N_j$ out of those are
@@ -2849,6 +2861,14 @@ For reward calculations, all slots assigned to bootstrap keys will be ignored.
 This means that even for high values of $d$, pool leaders and pool members will
 get their full rewards (even though they have to do less "work" to get those
 rewards).
+
+As an example, consider a pool $A$ with 1% of stake.
+In the fully decentralized case $d=0$,
+$A$ would be elected slot leader for $0.01\cdot 21600=216$ slots per epoch on
+average. For $d=0.9$, $A$ would only be elected for 
+$0.01\cdot 0.1\cdot 21600=21.6$ slots per epoch on average,
+so $A$ would only have a tenth of the work (create 21.6 blocks instead of 216
+blocks), but get the same rewards.
 
 Parameter $d$ can be changed on an epoch-per-epoch basis, following the
 plan we'll be outlining next.

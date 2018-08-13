@@ -425,7 +425,7 @@ txMetaStorageSpecs = do
                         (result, total) <- (getTxMetas hdl)
                                 (Offset 0)
                                 (Limit 5)
-                                (AccountFops _txMetaWalletId $ Just _txMetaAccountId)
+                                (AccountFops _txMetaWalletId $ Just _txMetaAccountIx)
                                 (Just addr)
                                 (FilterByPredicate Equal _txMetaId)
                                 (FilterByPredicate GreaterThanEqual _txMetaCreationAt)
@@ -444,7 +444,7 @@ txMetaStorageSpecs = do
                         (result, total) <- (getTxMetas hdl)
                                 (Offset 0)
                                 (Limit 5)
-                                (AccountFops _txMetaWalletId $ Just _txMetaAccountId)
+                                (AccountFops _txMetaWalletId $ Just _txMetaAccountIx)
                                 (Just addr)
                                 (FilterByPredicate Equal _txMetaId)
                                 (FilterByPredicate GreaterThan _txMetaCreationAt)
@@ -481,10 +481,10 @@ filtersTransform ls = case ls of
     [_] -> Nothing
     a : b : rest ->
         let wid = _txMetaWalletId a
-            accid = _txMetaAccountId a
+            accid = _txMetaAccountIx a
             date = _txMetaCreationAt a
-            fn x = x {_txMetaWalletId = wid, _txMetaAccountId = accid, _txMetaCreationAt = date}
-            prd m = _txMetaWalletId m == wid && _txMetaAccountId m == accid && _txMetaCreationAt m == date
+            fn x = x {_txMetaWalletId = wid, _txMetaAccountIx = accid, _txMetaCreationAt = date}
+            prd m = _txMetaWalletId m == wid && _txMetaAccountIx m == accid && _txMetaCreationAt m == date
             c = fn b
         in Just (a : c : rest,
                 AccountFops wid (Just accid),

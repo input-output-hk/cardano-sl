@@ -37,7 +37,7 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import           Pos.Core as Core
 -- import           Pos.Core.Txp
 import           Pos.Crypto.Hashing
-import qualified Test.Spec.Address as Address hiding (spec)
+import qualified Test.Spec.Addresses as Addresses hiding (spec)
 -- import qualified Test.Spec.Fixture as Fixture
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..))
@@ -52,10 +52,10 @@ spec :: Spec
 spec =
     describe "GetTransactions" $ do
 
-        prop "scenario: Layer.CreateAddress -> TxMeta.putTxMeta -> Layer.getTransactions works properly. Tx status is Applying" $ withMaxSuccess 50 $
+        prop "scenario: Layer.CreateAddress -> TxMeta.putTxMeta -> Layer.getTransactions works properly." $ withMaxSuccess 50 $
             monadicIO $ do
                 testMetaSTB <- pick genMeta
-                Address.withFixture $ \keystore layer pwallet Address.Fixture{..} -> do
+                Addresses.withFixture $ \keystore layer pwallet Addresses.Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (HdRootId hdRoot) = fixtureHdRootId
                         (AccountIdHdRnd myAccountId) = fixtureAccountId
@@ -66,7 +66,7 @@ spec =
                     case decodeTextAddress wId of
                         Left _         -> expectationFailure "decodeTextAddress failed"
                         Right rootAddr -> do
-                            let meta = testMeta {_txMetaWalletId = rootAddr, _txMetaAccountId = accIdx}
+                            let meta = testMeta {_txMetaWalletId = rootAddr, _txMetaAccountIx = accIdx}
                             _ <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
                             putTxMeta (pwallet ^. Kernel.walletMeta) meta
                             (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
@@ -97,7 +97,7 @@ spec =
                                 Left l -> expectationFailure $ "returned " <> show l
                                 Right resp -> check resp
 
-        prop "scenario: Layer.pay -> TxMeta.putTxMeta -> Layer.getTransactions works properly " $ withMaxSuccess 50 $
+        prop "scenario: Layer.pay -> TxMeta.putTxMeta -> Layer.getTransactions works properly. Tx status should be Applying " $ withMaxSuccess 50 $
             monadicIO $ do
                 testMetaSTB <- pick genMeta
                 NewPayment.withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \keystore activeLayer aw NewPayment.Fixture{..} -> do
@@ -140,7 +140,7 @@ spec =
                             case decodeTextAddress wId of
                                 Left _         -> expectationFailure "decodeTextAddress failed"
                                 Right rootAddr -> do
-                                    let meta = testMeta {_txMetaId = txid, _txMetaWalletId = rootAddr, _txMetaAccountId = accIdx}
+                                    let meta = testMeta {_txMetaId = txid, _txMetaWalletId = rootAddr, _txMetaAccountIx = accIdx}
                                     _ <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
                                     -- TODO: In the future WalletLayer.pay will use putTxMeta internally.
                                     -- When this happens, we should delete it from here and rework this test.

@@ -14,6 +14,8 @@ module Cardano.Wallet.Client
     , Resp
     , hoistClient
     , liftClient
+    , onClientError
+    , withThrottlingRetry
     -- * The type of errors that the client might return
     , ClientError(..)
     , WalletError(..)
@@ -33,6 +35,7 @@ module Cardano.Wallet.Client
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Exception (Exception (..))
 import           Servant.Client (GenResponse (..), Response, ServantError (..))
 
@@ -203,72 +206,133 @@ getWalletIndexPaged wc mp mpp = getWalletIndexFilterSorts wc mp mpp NoFilters No
 getWallets :: Monad m => WalletClient m -> Resp m [Wallet]
 getWallets = paginateAll . getWalletIndexPaged
 
+-- | Natural transformation + mapping on a 'WalletClient'
+natMapClient
+    :: (forall x. m x -> n x)
+    -> (forall x. n (Either ClientError x) -> n (Either ClientError x))
+    -> WalletClient m
+    -> WalletClient n
+natMapClient phi f wc = WalletClient
+    { getAddressIndexPaginated =
+        \x -> f . phi . getAddressIndexPaginated wc x
+    , postAddress =
+        f . phi . postAddress wc
+    , getAddress =
+        f . phi . getAddress wc
+    , postWallet =
+        f . phi . postWallet wc
+    , getWalletIndexFilterSorts =
+        \x y p -> f . phi . getWalletIndexFilterSorts wc x y p
+    , updateWalletPassword =
+        \x -> f . phi . updateWalletPassword wc x
+    , deleteWallet =
+        f . phi . deleteWallet wc
+    , getWallet =
+        f . phi . getWallet wc
+    , updateWallet =
+        \x -> f . phi . updateWallet wc x
+    , getUtxoStatistics =
+        f . phi . getUtxoStatistics wc
+    , postCheckExternalWallet =
+        f . phi . postCheckExternalWallet wc
+    , postExternalWallet =
+        f . phi . postExternalWallet wc
+    , deleteExternalWallet =
+        f . phi . deleteExternalWallet wc
+    , postUnsignedTransaction =
+        f . phi . postUnsignedTransaction wc
+    , postSignedTransaction =
+        f . phi . postSignedTransaction wc
+    , deleteAccount =
+        \x -> f . phi . deleteAccount wc x
+    , getAccount =
+        \x -> f . phi . getAccount wc x
+    , getAccountIndexPaged =
+        \x mp -> f . phi . getAccountIndexPaged wc x mp
+    , postAccount =
+        \x -> f . phi . postAccount wc x
+    , updateAccount =
+        \x y -> f . phi . updateAccount wc x y
+    , redeemAda =
+        f . phi . redeemAda wc
+    , getAccountAddresses =
+        \x y p pp ff -> f $ phi $ getAccountAddresses wc x y p pp ff
+    , getAccountBalance =
+        \x -> f . phi . getAccountBalance wc x
+    , postTransaction =
+        f . phi . postTransaction wc
+    , getTransactionIndexFilterSorts =
+        \wid maid maddr mp mpp ff ->
+            f . phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp ff
+    , getTransactionFee =
+        f . phi . getTransactionFee wc
+    , getNodeSettings =
+        f $ phi $ getNodeSettings wc
+    , getNodeInfo =
+        f . phi . getNodeInfo wc
+    }
+
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
-hoistClient phi wc = WalletClient
-    { getAddressIndexPaginated =
-        \x -> phi . getAddressIndexPaginated wc x
-    , postAddress =
-        phi . postAddress wc
-    , getAddress =
-        phi . getAddress wc
-    , postWallet =
-        phi . postWallet wc
-    , getWalletIndexFilterSorts =
-        \x y p -> phi . getWalletIndexFilterSorts wc x y p
-    , updateWalletPassword =
-        \x -> phi . updateWalletPassword wc x
-    , deleteWallet =
-        phi . deleteWallet wc
-    , getWallet =
-        phi . getWallet wc
-    , updateWallet =
-        \x -> phi . updateWallet wc x
-    , getUtxoStatistics =
-         phi . getUtxoStatistics wc
-    , postCheckExternalWallet =
-        phi . postCheckExternalWallet wc
-    , postExternalWallet =
-        phi . postExternalWallet wc
-    , deleteExternalWallet =
-        phi . deleteExternalWallet wc
-    , postUnsignedTransaction =
-        phi . postUnsignedTransaction wc
-    , postSignedTransaction =
-        phi . postSignedTransaction wc
-    , deleteAccount =
-        \x -> phi . deleteAccount wc x
-    , getAccount =
-        \x -> phi . getAccount wc x
-    , getAccountIndexPaged =
-        \x mp -> phi . getAccountIndexPaged wc x mp
-    , postAccount =
-        \x -> phi . postAccount wc x
-    , updateAccount =
-        \x y -> phi . updateAccount wc x y
-    , redeemAda =
-        phi . redeemAda wc
-    , getAccountAddresses =
-        \x y p pp f -> phi $ getAccountAddresses wc x y p pp f
-    , getAccountBalance =
-        \x -> phi . getAccountBalance wc x
-    , postTransaction =
-        phi . postTransaction wc
-    , getTransactionIndexFilterSorts =
-        \wid maid maddr mp mpp f ->
-            phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
-    , getTransactionFee =
-        phi . getTransactionFee wc
-    , getNodeSettings =
-        phi (getNodeSettings wc)
-    , getNodeInfo =
-        phi . getNodeInfo wc
-    }
+hoistClient phi =
+    natMapClient phi id
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>
 -- 'WalletClient' m@.
 liftClient :: MonadIO m => WalletClient IO -> WalletClient m
 liftClient = hoistClient liftIO
+
+
+onClientError
+    :: forall m. Monad m
+    => ResponseErrorHandler m
+    -> WalletClient m
+    -> WalletClient m
+onClientError handler =
+    natMapClient id overError
+  where
+    overError :: m (Either ClientError a) -> m (Either ClientError a)
+    overError action = do
+        result <- action
+        case result of
+            Left clientError ->
+                handler clientError action
+            Right res ->
+                pure (Right res)
+
+-- | This function catches the wallet error corresponding to throttling and
+-- causes the client to wait for the specified amount of time before retrying.
+withThrottlingRetry :: forall m. MonadIO m => WalletClient m -> WalletClient m
+withThrottlingRetry = onClientError retry
+  where
+    fudgeFactor :: Word64 -> Int
+    fudgeFactor x = fromIntegral (x + ((x `div` 100) * 5)) -- add 5% to the time
+
+    retry :: ResponseErrorHandler m
+    retry err action =
+        case err of
+            ClientWalletError (RequestThrottled microsTilRetry) -> do
+                liftIO (threadDelay (fudgeFactor microsTilRetry))
+                newResult <- action
+                case newResult of
+                    Left err' ->
+                        retry err' action
+                    Right a ->
+                        pure (Right a)
+            _ ->
+                pure (Left err)
+
+-- | This type represents callbacks you can use to modify how errors are
+-- received and reported.
+type ResponseErrorHandler m
+    = forall x
+    . ClientError
+    -- ^ The error response received by the client.
+    -> m (Either ClientError x)
+    -- ^ The action that was performed, if you want to retry the request.
+    -> m (Either ClientError x)
+    -- ^ The action to
+
 
 -- | Calls 'getWalletIndexPaged' using the 'Default' values for 'Page' and
 -- 'PerPage'.

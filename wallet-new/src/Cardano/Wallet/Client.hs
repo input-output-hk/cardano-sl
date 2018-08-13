@@ -317,8 +317,8 @@ withThrottlingRetry = mapClientErrors retry
                 liftIO (threadDelay (fudgeFactor microsTilRetry))
                 newResult <- action
                 case newResult of
-                    Left err ->
-                        retry err action
+                    Left err' ->
+                        retry err' action
                     Right a ->
                         pure (Right a)
             _ ->

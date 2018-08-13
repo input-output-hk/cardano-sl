@@ -137,8 +137,7 @@ in pkgs.writeScript "demo-cluster" ''
   ${ifWallet ''
     ${utf8LocaleSetting}
     echo Launching wallet node: ${demoWallet}
-    echo -e "loggerTree:\n  severity: Debug+\n  file: wallet.log" > ${stateDir}/logs/log-config-wallet.yaml
-    ${demoWallet} --runtime-args "--logs-prefix ${stateDir}/logs --log-config ${stateDir}/logs/log-config-wallet.yaml --system-start $system_start" &> ${stateDir}/logs/wallet.output &
+    ${demoWallet} --runtime-args "--system-start $system_start" &> ${stateDir}/logs/wallet.output &
     wallet_pid=$!
 
     # Query node info until synced

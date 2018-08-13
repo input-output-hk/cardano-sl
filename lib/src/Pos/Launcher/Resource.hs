@@ -245,7 +245,7 @@ getRealLoggerConfig LoggingParams{..} =
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
         Nothing    -> identity
-        Just True  -> (<>) (defaultInteractiveConfiguration Log.Debug)
+        Just True  -> (<>) (defaultInteractiveConfiguration Log.Info)
         Just False -> identity
 
 ----------------------------------------------------------------------------

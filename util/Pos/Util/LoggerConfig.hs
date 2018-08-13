@@ -123,8 +123,8 @@ instance FromJSON LoggerTree where
                 LogHandler { _lhName = "console",
                             _lhBackend = StdoutBE,
                             _lhFpath = Nothing,
-                            _lhSecurityLevel = Just SecretLogLevel,
-                            _lhMinSeverity = Just Debug }
+                            _lhSecurityLevel = Just PublicLogLevel,
+                            _lhMinSeverity = Just Info }
         let fileHandlers =
               map (\fp ->
                 let name = T.pack fp in
@@ -155,9 +155,9 @@ instance Semigroup LoggerTree where
                 }
 instance Monoid LoggerTree where
     mempty = LoggerTree { _ltMinSeverity = Debug
-                   , _ltHandlers = [LogHandler { _lhName="node", _lhFpath=Just "node.log"
-                                               , _lhBackend=FileTextBE
-                                               , _lhMinSeverity=Just Debug
+                   , _ltHandlers = [LogHandler { _lhName="console", _lhFpath=Nothing
+                                               , _lhBackend=StdoutBE
+                                               , _lhMinSeverity=Just Info
                                                , _lhSecurityLevel=Just PublicLogLevel}]
                    }
         --  default values

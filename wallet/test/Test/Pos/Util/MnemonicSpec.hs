@@ -27,11 +27,25 @@ instance Eq CC.XPrv where
     (==) = (==) `on` CC.unXPrv
 
 type TestVector =
-    ( BL.ByteString             -- ^ Raw JSON encoding (V1)
-    , Entropy (EntropySize 12)  -- ^ Corresponding Entropy
-    , Mnemonic 12               -- ^ Corresponding Mnemonic
-    , ByteString                -- ^ Corresponding Seed
-    , AesKey                    -- ^ Corresponding AESKey
+    (
+      -- | Raw JSON encoding (V1)
+      BL.ByteString
+
+      -- | Precursor to legacy (V0) JSON encoding.
+      -- Applying 'jsonV0Compat' to this element should produce valid V0 JSON.
+    , BL.ByteString
+
+      -- | Corresponding Entropy
+    , Entropy (EntropySize 12)
+
+      -- | Corresponding Mnemonic
+    , Mnemonic 12
+
+      -- | Corresponding Seed
+    , ByteString
+
+      -- | Corresponding AESKey
+    , AesKey
     )
 
 
@@ -65,31 +79,38 @@ spec = do
         it "Can generate 128 bits entropy" $
             (length . entropyToByteString <$> genEntropy @128) `shouldReturn` 16
 
-        it "Mnemonic to JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+        it "Mnemonic to JSON" $ forM_ testVectors $ \(bytes, _, _, mnemonic, _, _) ->
             Aeson.encode mnemonic `shouldBe` bytes
 
-        it "Mnemonic from JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+        it "Mnemonic from JSON" $ forM_ testVectors $ \(bytes, _, _, mnemonic, _, _) ->
             Aeson.decode bytes `shouldBe` pure mnemonic
 
-        it "CBackupPhrase to JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+        it "CBackupPhrase to JSON" $ forM_ testVectors $ \(bytes, _, _, mnemonic, _, _) ->
             Aeson.encode (CBackupPhrase mnemonic) `shouldBe` jsonV0Compat bytes
 
-        it "CBackupPhrase from JSON" $ forM_ testVectors $ \(bytes, _, mnemonic, _, _) ->
+        it "CBackupPhrase from JSON" $ forM_ testVectors $ \(bytes, _, _, mnemonic, _, _) ->
             Aeson.decode (jsonV0Compat bytes) `shouldBe` pure (CBackupPhrase mnemonic)
 
-        it "Mnemonic to Entropy" $ forM_ testVectors $ \(_, entropy, mnemonic, _, _) ->
+        it "CBackupPhrase from legacy JSON" $ forM_ testVectors $ \(_, legacyBytes, _, mnemonic, _, _) ->
+            Aeson.decode (jsonV0Compat legacyBytes) `shouldBe` pure (CBackupPhrase mnemonic)
+
+        it "Mnemonic from legacy JSON" $ forM_ testVectors $ \(_, legacyBytes, _, _, _, _) ->
+            Aeson.decode legacyBytes `shouldSatisfy` isNothing @ (Mnemonic 12)
+
+        it "Mnemonic to Entropy" $ forM_ testVectors $ \(_, _, entropy, mnemonic, _, _) ->
             mnemonicToEntropy mnemonic `shouldBe` entropy
 
-        it "Mnemonic to Seed" $ forM_ testVectors $ \(_, _, mnemonic, seed, _) ->
+        it "Mnemonic to Seed" $ forM_ testVectors $ \(_, _, _, mnemonic, seed, _) ->
             mnemonicToSeed mnemonic `shouldBe` seed
 
-        it "Mnemonic to Seed" $ forM_ testVectors $ \(_, _, mnemonic, _, aesKey) ->
+        it "Mnemonic to Seed" $ forM_ testVectors $ \(_, _, _, mnemonic, _, aesKey) ->
             mnemonicToAesKey mnemonic `shouldBe` aesKey
 
   where
     testVectors :: [TestVector]
     testVectors =
         [ ( "[\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"abandon\",\"about\"]"
+          , "[\"abandon abandon\",\"abandon\",\"abandon\",\"abandon abandon abandon\",\"abandon\",\"abandon\",\"abandon abandon\",\"about\"]"
           , orFail $ mkEntropy'
               "\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL"
           , orFail $ mkMnemonic
@@ -98,6 +119,7 @@ spec = do
           , AesKey "\148\193\192\136\204\148S\153gyc\n\211\175E\203\217(\DC4\130\141\215\132\207*\161-\249]\ESC\138\254"
           )
         , ( "[\"letter\",\"advice\",\"cage\",\"absurd\",\"amount\",\"doctor\",\"acoustic\",\"avoid\",\"letter\",\"advice\",\"cage\",\"above\"]"
+          , "[\"letter advice cage\",\"absurd\",\"amount\",\"doctor\",\"acoustic avoid letter advice\",\"cage\",\"above\"]"
           , orFail $ mkEntropy'
               "\128\128\128\128\128\128\128\128\128\128\128\128\128\128\128\128"
           , orFail $ mkMnemonic
@@ -106,6 +128,7 @@ spec = do
           , AesKey "c\232\DC4?\DC2\199V\157\r\172\177x\141\&8\138\246l\174:^]9\249\192\149\230\180s\165\255,J"
           )
         , ( "[\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"wrong\"]"
+          , "[\"zoo\",\"zoo\",\"zoo zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo\",\"zoo zoo zoo wrong\"]"
           , orFail $ mkEntropy'
               "\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255"
           , orFail $ mkMnemonic

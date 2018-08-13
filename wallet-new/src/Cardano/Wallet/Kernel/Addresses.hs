@@ -159,4 +159,3 @@ createHdRndAddress spendingPassword esk accId pw = do
         -- The maximum number of allowed collisions.
         maxAllowedCollisions :: Word32
         maxAllowedCollisions = 1024
-

@@ -8,14 +8,9 @@ import           Universum
 import qualified Data.IxSet.Typed as IxSet
 import           Servant
 
-import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic)
-import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
-import qualified Pos.Wallet.Web.Methods.Redeem as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -25,17 +20,15 @@ import           Cardano.Wallet.API.V1.Types
 
 handlers
     :: HasConfigurations
-    => ProtocolMagic
-    -> TxpConfiguration
-    -> (TxAux -> MonadV1 Bool)
-    -> ServerT Accounts.API MonadV1
-handlers pm txpConfig submitTx =
+    => ServerT Accounts.API MonadV1
+handlers =
          deleteAccount
     :<|> getAccount
     :<|> listAccounts
     :<|> newAccount
     :<|> updateAccount
-    :<|> redeemAda pm txpConfig submitTx
+    :<|> getAccountAddresses
+    :<|> getAccountBalance
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -79,32 +72,25 @@ updateAccount wId accIdx accUpdate = do
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)
 
-redeemAda
-    :: HasConfigurations
-    => ProtocolMagic
-    -> TxpConfiguration
-    -> (TxAux -> MonadV1 Bool)
-    -> WalletId
+getAccountAddresses
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
     -> AccountIndex
-    -> Redemption
-    -> MonadV1 (WalletResponse Transaction)
-redeemAda pm txpConfig submitTx walletId accountIndex r = do
-    let ShieldedRedemptionCode seed = redemptionRedemptionCode r
-        V1 spendingPassword = redemptionSpendingPassword r
-    accountId <- migrate (walletId, accountIndex)
-    let caccountId = V0.encodeCType accountId
-    fmap single . migrate =<< case redemptionMnemonic r of
-        Just (RedemptionMnemonic mnemonic) -> do
-            let phrase = V0.CBackupPhrase mnemonic
-            let cpaperRedeem = V0.CPaperVendWalletRedeem
-                    { V0.pvWalletId = caccountId
-                    , V0.pvSeed = seed
-                    , V0.pvBackupPhrase = phrase
-                    }
-            V0.redeemAdaPaperVend pm txpConfig submitTx spendingPassword cpaperRedeem
-        Nothing -> do
-            let cwalletRedeem = V0.CWalletRedeem
-                    { V0.crWalletId = caccountId
-                    , V0.crSeed = seed
-                    }
-            V0.redeemAda pm txpConfig submitTx spendingPassword cwalletRedeem
+    -> RequestParams
+    -> FilterOperations WalletAddress
+    -> m (WalletResponse AccountAddresses)
+getAccountAddresses wId accIdx pagination filters = do
+    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount wId accIdx)
+    return resp { wrData = AccountAddresses . wrData $ resp }
+  where
+    getAddresses =
+        IxSet.fromList . accAddresses . wrData
+
+getAccountBalance
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
+    -> AccountIndex
+    -> m (WalletResponse AccountBalance)
+getAccountBalance wId accIdx = do
+    resp <- getAccount wId accIdx
+    return resp { wrData = AccountBalance . accAmount . wrData $ resp }

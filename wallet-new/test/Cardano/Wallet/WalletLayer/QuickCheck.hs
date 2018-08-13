@@ -15,10 +15,10 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      DeleteWalletError (..), GetAccountError (..),
                      GetAccountsError (..), GetWalletError (..),
                      PassiveWalletLayer (..), UpdateAccountError (..),
-                     UpdateWalletError (..), UpdateWalletPasswordError (..))
+                     UpdateWalletError (..), UpdateWalletPasswordError (..),
+                     ValidateAddressError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
-import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 
 import           Pos.Core ()
 import           Test.QuickCheck (Arbitrary, arbitrary, generate, oneof)
@@ -50,6 +50,7 @@ bracketPassiveWallet =
 
         , _pwlCreateAddress        = \_     -> liftedGen
         , _pwlGetAddresses         = \_     -> liftedGen
+        , _pwlValidateAddress      = \_     -> liftedGen
 
         , _pwlApplyBlocks          = \_     -> liftedGen
         , _pwlRollbackBlocks       = \_     -> liftedGen
@@ -76,6 +77,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
           walletPassiveLayer = walletPassiveLayer
         , pay          = \_ _ _ -> error "unimplemented"
         , estimateFees = \_ _ _ -> error "unimplemented"
+        , redeemAda    = \_ -> error "unimplemented"
         }
 
 
@@ -89,12 +91,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 instance Arbitrary CreateAccountError where
     arbitrary = oneof [ CreateAccountError <$> arbitrary
                       , pure (CreateAccountWalletIdDecodingFailed "foobar")
-                      , CreateAccountTimeLimitReached <$> arbitrary
-                      ]
-
-instance Arbitrary Kernel.CreateAccountError where
-    arbitrary = oneof [ Kernel.CreateAccountUnknownHdRoot <$> arbitrary
-                      , Kernel.CreateAccountHdRndAccountSpaceSaturated <$> arbitrary
+                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
                       ]
 
 instance Arbitrary GetAccountError where
@@ -132,3 +129,8 @@ instance Arbitrary DeleteWalletError where
 
 instance Arbitrary UpdateWalletError where
     arbitrary = oneof [ UpdateWalletWalletIdDecodingFailed <$> arbitrary ]
+
+instance Arbitrary ValidateAddressError where
+    arbitrary = oneof [ ValidateAddressDecodingFailed <$> arbitrary
+                      , ValidateAddressNotOurs <$> arbitrary
+                      ]

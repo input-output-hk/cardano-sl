@@ -17,10 +17,12 @@ module Cardano.Wallet.WalletLayer.Types
 
     , createAddress
     , getAddresses
+    , validateAddress
     , applyBlocks
     , rollbackBlocks
+    -- * A slice of a collection
+    , SliceOf(..)
     -- * Errors
-    , WalletLayerError(..)
     , CreateWalletError(..)
     , GetWalletError(..)
     , UpdateWalletError(..)
@@ -28,7 +30,9 @@ module Cardano.Wallet.WalletLayer.Types
     , DeleteWalletError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
+    , RedeemAdaError(..)
     , CreateAddressError(..)
+    , ValidateAddressError(..)
     , CreateAccountError(..)
     , GetAccountError(..)
     , GetAccountsError(..)
@@ -36,32 +40,13 @@ module Cardano.Wallet.WalletLayer.Types
     , UpdateAccountError(..)
     ) where
 
-import qualified Prelude
 import           Universum
 
 import           Control.Lens (makeLenses)
-
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
-
-import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-                     PasswordUpdate, Payment, V1 (..), Wallet, WalletId,
-                     WalletUpdate)
-
-import qualified Cardano.Wallet.Kernel.Accounts as Kernel
-import qualified Cardano.Wallet.Kernel.Addresses as Kernel
-import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
-import qualified Cardano.Wallet.Kernel.Transactions as Kernel
-import qualified Cardano.Wallet.Kernel.Wallets as Kernel
-import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
-                     (TimeExecutionLimit)
-
+import qualified Prelude
 import           Test.QuickCheck (Arbitrary (..), oneof)
-
-import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (ExpenseRegulation, InputGrouping)
 
 import           Pos.Chain.Block (Blund)
 import           Pos.Core (Coin)
@@ -69,6 +54,32 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PassPhrase)
 
+import           Cardano.Wallet.API.Request (RequestParams)
+import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
+                     AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
+                     PasswordUpdate, Payment, Redemption, V1 (..), Wallet,
+                     WalletAddress, WalletId, WalletUpdate)
+import qualified Cardano.Wallet.Kernel.Accounts as Kernel
+import qualified Cardano.Wallet.Kernel.Addresses as Kernel
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (ExpenseRegulation, InputGrouping)
+import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
+import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+                     (TimeExecutionLimit)
+
+
+data SliceOf a = SliceOf {
+      paginatedSlice :: [a]
+    -- ^ A paginated fraction of the resource
+    , paginatedTotal :: Int
+    -- ^ The total number of entries
+    }
+
+instance Arbitrary a => Arbitrary (SliceOf a) where
+    arbitrary = SliceOf <$> arbitrary <*> arbitrary
 
 ------------------------------------------------------------
 -- Errors when manipulating wallets
@@ -77,7 +88,6 @@ import           Pos.Crypto (PassPhrase)
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
     | CreateWalletFirstAccountCreationFailed Kernel.CreateAccountError
-    | CreateWalletTimeLimitReached TimeExecutionLimit
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show CreateWalletError where
@@ -87,7 +97,7 @@ instance Exception CreateWalletError
 
 instance Arbitrary CreateWalletError where
     arbitrary = oneof [ CreateWalletError <$> arbitrary
-                      , CreateWalletTimeLimitReached <$> arbitrary
+                      , CreateWalletFirstAccountCreationFailed <$> arbitrary
                       ]
 
 instance Buildable CreateWalletError where
@@ -95,8 +105,6 @@ instance Buildable CreateWalletError where
         bprint ("CreateWalletError " % build) kernelError
     build (CreateWalletFirstAccountCreationFailed kernelError) =
         bprint ("CreateWalletFirstAccountCreationFailed " % build) kernelError
-    build (CreateWalletTimeLimitReached timeLimit) =
-        bprint ("CreateWalletTimeLimitReached " % build) timeLimit
 
 data GetWalletError =
       GetWalletError (V1 Kernel.UnknownHdRoot)
@@ -175,14 +183,13 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletError " % build) kernelError
 
 ------------------------------------------------------------
--- Errors creating a new Address
+-- Errors when dealing with addresses
 ------------------------------------------------------------
 
 data CreateAddressError =
       CreateAddressError Kernel.CreateAddressError
     | CreateAddressAddressDecodingFailed Text
     -- ^ Decoding the input 'Text' as an 'Address' failed.
-    | CreateAddressTimeLimitReached TimeExecutionLimit
     deriving Eq
 
 -- | Unsound show instance needed for the 'Exception' instance.
@@ -201,8 +208,29 @@ instance Buildable CreateAddressError where
         bprint ("CreateAddressError " % build) kernelError
     build (CreateAddressAddressDecodingFailed txt) =
         bprint ("CreateAddressAddressDecodingFailed " % build) txt
-    build (CreateAddressTimeLimitReached timeLimit) =
-        bprint ("CreateAddressTimeLimitReached " % build) timeLimit
+
+data ValidateAddressError =
+      ValidateAddressDecodingFailed Text
+    -- ^ When trying to decode this raw 'Text' into a proper Cardano
+    -- 'Address' the decoding failed. Unfortunately we are not able to
+    -- provide a more accurate error description as 'decodeTextAddress' doesn't
+    -- offer such.
+    | ValidateAddressNotOurs Address
+    -- ^ The input address is a valid 'Cardano' address, but it doesn't
+    -- belong to us.
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show ValidateAddressError where
+    show = formatToString build
+
+instance Exception ValidateAddressError
+
+instance Buildable ValidateAddressError where
+    build (ValidateAddressDecodingFailed rawText) =
+        bprint ("ValidateAddressDecodingFailed " % build) rawText
+    build (ValidateAddressNotOurs address) =
+        bprint ("ValidateAddressNotOurs " % build) address
 
 ------------------------------------------------------------
 -- Errors when dealing with Accounts
@@ -212,7 +240,6 @@ data CreateAccountError =
       CreateAccountError Kernel.CreateAccountError
     | CreateAccountWalletIdDecodingFailed Text
     -- ^ Decoding the parent's 'WalletId' from a raw 'Text' failed.
-    | CreateAccountTimeLimitReached TimeExecutionLimit
     | CreateAccountFirstAddressGenerationFailed Kernel.CreateAddressError
     -- ^ When trying to create the first 'Address' to go in tandem with this
     -- 'Account', the generation failed.
@@ -229,8 +256,6 @@ instance Buildable CreateAccountError where
         bprint ("CreateAccountError " % build) kernelError
     build (CreateAccountWalletIdDecodingFailed txt) =
         bprint ("CreateAccountWalletIdDecodingFailed " % build) txt
-    build (CreateAccountTimeLimitReached timeLimit) =
-        bprint ("CreateAccountTimeLimitReached " % build) timeLimit
     build (CreateAccountFirstAddressGenerationFailed kernelError) =
         bprint ("CreateAccountFirstAddressGenerationFailed " % build) kernelError
 
@@ -303,18 +328,6 @@ instance Buildable UpdateAccountError where
         bprint ("UpdateAccountWalletIdDecodingFailed " % build) txt
 
 ------------------------------------------------------------
--- General-purpose errors which may arise when working with
--- the wallet layer
-------------------------------------------------------------
-
-data WalletLayerError =
-    InvalidAddressConversionFailed Text
-    -- ^ Trying to decode the input 'Text' into a Cardano 'Address' failed
-    deriving Show
-
-instance Exception WalletLayerError
-
-------------------------------------------------------------
 -- Passive wallet layer
 ------------------------------------------------------------
 
@@ -350,8 +363,10 @@ data PassiveWalletLayer m = PassiveWalletLayer
                                -> m (Either DeleteAccountError ())
     -- * addresses
     , _pwlCreateAddress        :: NewAddress
-                               -> m (Either CreateAddressError Address)
-    , _pwlGetAddresses         :: WalletId -> m [Address]
+                               -> m (Either CreateAddressError WalletAddress)
+    , _pwlGetAddresses         :: RequestParams -> m (SliceOf WalletAddress)
+    , _pwlValidateAddress      :: Text
+                               -> m (Either ValidateAddressError WalletAddress)
     -- * core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
@@ -424,12 +439,20 @@ deleteAccount :: forall m. PassiveWalletLayer m
               -> m (Either DeleteAccountError ())
 deleteAccount pwl = pwl ^. pwlDeleteAccount
 
-createAddress :: forall m. PassiveWalletLayer m -> NewAddress -> m (Either CreateAddressError Address)
+createAddress :: forall m. PassiveWalletLayer m
+              -> NewAddress
+              -> m (Either CreateAddressError WalletAddress)
 createAddress pwl = pwl ^. pwlCreateAddress
 
-getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
+getAddresses :: forall m. PassiveWalletLayer m
+             -> RequestParams
+             -> m (SliceOf WalletAddress)
 getAddresses pwl = pwl ^. pwlGetAddresses
 
+validateAddress :: forall m. PassiveWalletLayer m
+                -> Text
+                -> m (Either ValidateAddressError WalletAddress)
+validateAddress pwl = pwl ^. pwlValidateAddress
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks
@@ -456,16 +479,20 @@ data ActiveWalletLayer m = ActiveWalletLayer {
           -> Payment
           -- ^ The payment we need to perform.
           -> m (Either NewPaymentError Tx)
+
       -- | Estimates the fees for a payment.
-    , estimateFees   :: PassPhrase
-                     -- ^ The \"spending password\" to decrypt the 'EncryptedSecretKey'.
-                     -> InputGrouping
-                     -- ^ An preference on how to group inputs during coin selection
-                     -> ExpenseRegulation
-                     -- ^ Who pays the fee, if the sender or the receivers.
-                     -> Payment
-                     -- ^ The payment we need to perform.
-                     -> m (Either EstimateFeesError Coin)
+    , estimateFees :: PassPhrase
+                   -- ^ The \"spending password\" to decrypt the 'EncryptedSecretKey'.
+                   -> InputGrouping
+                   -- ^ An preference on how to group inputs during coin selection
+                   -> ExpenseRegulation
+                   -- ^ Who pays the fee, if the sender or the receivers.
+                   -> Payment
+                   -- ^ The payment we need to perform.
+                   -> m (Either EstimateFeesError Coin)
+
+      -- | Redeem ada
+    , redeemAda :: Redemption -> m (Either RedeemAdaError Tx)
     }
 
 ------------------------------------------------------------
@@ -475,6 +502,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
 data NewPaymentError =
       NewPaymentError Kernel.PaymentError
     | NewPaymentTimeLimitReached TimeExecutionLimit
+    | NewPaymentWalletIdDecodingFailed Text
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show NewPaymentError where
@@ -487,10 +515,14 @@ instance Buildable NewPaymentError where
         bprint ("NewPaymentError " % build) kernelErr
     build (NewPaymentTimeLimitReached ter) =
         bprint ("NewPaymentTimeLimitReached " % build) ter
+    build (NewPaymentWalletIdDecodingFailed txt) =
+        bprint ("NewPaymentWalletIdDecodingFailed " % build) txt
+
 
 data EstimateFeesError =
       EstimateFeesError Kernel.EstimateFeesError
     | EstimateFeesTimeLimitReached TimeExecutionLimit
+    | EstimateFeesWalletIdDecodingFailed Text
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show EstimateFeesError where
@@ -503,8 +535,21 @@ instance Buildable EstimateFeesError where
         bprint ("EstimateFeesError " % build) kernelErr
     build (EstimateFeesTimeLimitReached ter) =
         bprint ("EstimateFeesTimeLimitReached " % build) ter
+    build (EstimateFeesWalletIdDecodingFailed txt) =
+        bprint ("EstimateFeesWalletIdDecodingFailed " % build) txt
 
 instance Arbitrary EstimateFeesError where
     arbitrary = oneof [ EstimateFeesError <$> arbitrary
                       , EstimateFeesTimeLimitReached <$> arbitrary
                       ]
+
+-- | TODO: Will need to be extended
+data RedeemAdaError = RedeemAdaError
+
+instance Show RedeemAdaError where
+    show = formatToString build
+
+instance Exception RedeemAdaError
+
+instance Buildable RedeemAdaError where
+    build RedeemAdaError = "RedeemAdaError"

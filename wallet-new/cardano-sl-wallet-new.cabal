@@ -128,7 +128,9 @@ library
                        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                        -- * Useful for testing, especially in the fixture side.
                        Cardano.Wallet.WalletLayer.Kernel.Accounts
+                       Cardano.Wallet.WalletLayer.Kernel.Active
                        Cardano.Wallet.WalletLayer.Kernel.Addresses
+                       Cardano.Wallet.WalletLayer.Kernel.Conv
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
 
   other-modules:       Cardano.Wallet.WalletLayer.Kernel
@@ -328,6 +330,7 @@ executable wal-integr-test
                        Error
                        Util
                        WalletSpecs
+                       AccountSpecs
                        AddressSpecs
                        TransactionSpecs
                        QuickCheckSpecs
@@ -397,7 +400,7 @@ test-suite wallet-unit-tests
                       Test.Spec.Accounts
                       Test.Spec.CoinSelection
                       Test.Spec.CoinSelection.Generators
-                      Test.Spec.CreateAddress
+                      Test.Spec.Addresses
                       Test.Spec.Fixture
                       Test.Spec.Kernel
                       Test.Spec.Keystore

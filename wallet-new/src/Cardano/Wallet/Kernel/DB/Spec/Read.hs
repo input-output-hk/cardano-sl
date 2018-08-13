@@ -25,7 +25,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
@@ -45,15 +45,13 @@ cpAvailableUtxo c =
 
 data Availability = AllAvailable | Unavailable (Set Core.TxIn)
 
--- | Check whether the specified inputs are all available
---
--- Returns the inputs that are not available, if any
-cpCheckAvailable :: IsCheckpoint c => Set Core.TxIn -> c -> Availability
-cpCheckAvailable ins c
-  | Set.null unavailable = AllAvailable
-  | otherwise            = Unavailable unavailable
+-- | Returns the sets of available and unavailable inputs
+cpCheckAvailable :: IsCheckpoint c
+                 => Set Core.TxIn -> c -> (Set Core.TxIn, Set Core.TxIn)
+cpCheckAvailable ins c = Set.partition isAvailable ins
   where
-    unavailable = ins Set.\\ Map.keysSet (cpAvailableUtxo c)
+    isAvailable :: Core.TxIn -> Bool
+    isAvailable inp = inp `Map.member` cpAvailableUtxo c
 
 -- | Balance of the available UTxO
 cpAvailableBalance :: IsCheckpoint c => c -> Core.Coin
@@ -68,14 +66,17 @@ cpAvailableBalance c =
 -- | Change outputs
 --
 -- Pending outputs paid back into addresses that belong to the wallet.
-cpChange :: IsCheckpoint c => IxSet HdAddress -> c -> Core.Utxo
-cpChange ours = Pending.change ours' . view cpPending
+cpChange :: IsCheckpoint c => IxSet (Indexed HdAddress) -> c -> Core.Utxo
+cpChange ours cp =
+    Map.union
+      (Pending.change ours' $ cp ^. cpPending)
+      (Pending.change ours' $ cp ^. cpForeign)
   where
     ours' :: Core.Address -> Bool
     ours' addr = IxSet.size (IxSet.getEQ addr ours) == 1
 
 -- | Total balance (available balance plus change)
-cpTotalBalance :: IsCheckpoint c => IxSet HdAddress -> c -> Core.Coin
+cpTotalBalance :: IsCheckpoint c => IxSet (Indexed HdAddress) -> c -> Core.Coin
 cpTotalBalance ours c =
     Core.unsafeAddCoin availableBalance changeBalance
   where

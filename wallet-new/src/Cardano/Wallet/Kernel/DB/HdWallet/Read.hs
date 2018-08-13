@@ -40,7 +40,8 @@ import           Pos.Core (Address, Coin, sumCoins)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet,
+                     ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}
@@ -103,7 +104,7 @@ readAllHdAccounts :: HdQuery (IxSet HdAccount)
 readAllHdAccounts = view hdWalletsAccounts
 
 -- | Meta-information and total balance of /all/ addresses
-readAllHdAddresses :: HdQuery (IxSet HdAddress)
+readAllHdAddresses :: HdQuery (IxSet (Indexed HdAddress))
 readAllHdAddresses = view hdWalletsAddresses
 
 {-------------------------------------------------------------------------------
@@ -117,13 +118,15 @@ readAccountsByRootId rootId =
     $ IxSet.getEQ rootId . readAllHdAccounts
 
 -- | All addresses in the given wallet
-readAddressesByRootId :: HdRootId -> HdQueryErr UnknownHdRoot (IxSet HdAddress)
+readAddressesByRootId :: HdRootId
+                      -> HdQueryErr UnknownHdRoot (IxSet (Indexed HdAddress))
 readAddressesByRootId rootId =
       check (readHdRoot rootId)
     $ IxSet.getEQ rootId . readAllHdAddresses
 
 -- | All addresses in the given account
-readAddressesByAccountId :: HdAccountId -> HdQueryErr UnknownHdAccount (IxSet HdAddress)
+readAddressesByAccountId :: HdAccountId
+                         -> HdQueryErr UnknownHdAccount (IxSet (Indexed HdAddress))
 readAddressesByAccountId accId =
       check (readHdAccount accId)
     $ IxSet.getEQ accId . readAllHdAddresses
@@ -162,15 +165,15 @@ readHdAccountCurrentCheckpoint accId db =
 readHdAddress :: HdAddressId -> HdQueryErr UnknownHdAddress HdAddress
 readHdAddress addrId = aux . view (at addrId) . readAllHdAddresses
   where
-    aux :: Maybe a -> Either UnknownHdAddress a
-    aux = maybe (Left (UnknownHdAddress addrId)) Right
+    aux :: Maybe (Indexed a) -> Either UnknownHdAddress a
+    aux = maybe (Left (UnknownHdAddress addrId)) (Right . view ixedIndexed)
 
 -- | Look up the specified address by its associated Cardano's 'Address'.
 readHdAddressByCardanoAddress :: Address -> HdQueryErr UnknownHdAddress HdAddress
 readHdAddressByCardanoAddress cardanoAddr = do
     aux . IxSet.getEQ cardanoAddr . readAllHdAddresses
   where
-    aux :: IxSet HdAddress -> Either UnknownHdAddress HdAddress
+    aux :: IxSet (Indexed HdAddress) -> Either UnknownHdAddress HdAddress
     aux ixset = case IxSet.getOne ixset of
-                     Just x  -> Right x
+                     Just x  -> Right (view ixedIndexed x)
                      Nothing -> Left (UnknownHdCardanoAddress cardanoAddr)

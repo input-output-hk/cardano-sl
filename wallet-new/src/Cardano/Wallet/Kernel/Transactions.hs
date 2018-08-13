@@ -205,7 +205,7 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = do
         -- | Monadic computation to generate a new change 'Address'. This will
         -- run after coin selection, when we create the final transaction as
         -- part of 'mkTx'.
-        genChangeAddr :: IO Address
+        genChangeAddr :: IO (Address)
         genChangeAddr = do
             res <- Kernel.createAddress spendingPassword
                                         (AccountIdHdRnd accountId)
@@ -213,6 +213,8 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = do
             case res of
                  Right addr -> pure addr
                  Left err   -> throwM err
+
+
 
 -- | Special monad used to process the payments, which randomness is derived
 -- from a fixed seed obtained from hashing the payees. This guarantees that

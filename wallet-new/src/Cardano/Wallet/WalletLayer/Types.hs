@@ -17,13 +17,12 @@ module Cardano.Wallet.WalletLayer.Types
 
     , createAddress
     , getAddresses
+    , validateAddress
 
     , getTransactions
 
     , applyBlocks
     , rollbackBlocks
-    -- * A slice of a collection
-    , SliceOf(..)
     -- * Errors
     , CreateWalletError(..)
     , GetWalletError(..)
@@ -60,7 +59,7 @@ import           Pos.Crypto (PassPhrase)
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
-import           Cardano.Wallet.API.Response (WalletResponse)
+import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
                      PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
@@ -75,17 +74,6 @@ import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (TimeExecutionLimit)
-
-
-data SliceOf a = SliceOf {
-      paginatedSlice :: [a]
-    -- ^ A paginated fraction of the resource
-    , paginatedTotal :: Int
-    -- ^ The total number of entries
-    }
-
-instance Arbitrary a => Arbitrary (SliceOf a) where
-    arbitrary = SliceOf <$> arbitrary <*> arbitrary
 
 ------------------------------------------------------------
 -- Errors when manipulating wallets
@@ -341,7 +329,6 @@ data GetTxError =
       GetTxMissingWalletIdError
     | GetTxAddressDecodingFailed Text
     | GetTxInvalidSortingOperaration String
-    -- throwM MissingRequiredParams { requiredParams = pure ("wallet_id", "WalletId") }
 
 instance Show GetTxError where
     show = formatToString build
@@ -362,18 +349,6 @@ instance Arbitrary GetTxError where
                       ]
 
 instance Exception GetTxError
-
-------------------------------------------------------------
--- General-purpose errors which may arise when working with
--- the wallet layer
-------------------------------------------------------------
-
-data WalletLayerError =
-    InvalidAddressConversionFailed Text
-    -- ^ Trying to decode the input 'Text' into a Cardano 'Address' failed
-    deriving Show
-
-instance Exception WalletLayerError
 
 ------------------------------------------------------------
 -- Passive wallet layer

@@ -4,6 +4,8 @@ module Cardano.Wallet.WalletLayer.Kernel.Transactions (
 
 import           Universum
 
+import           Control.Monad.Except
+
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
@@ -31,52 +33,48 @@ getTransactions :: MonadIO m
                 -> FilterOperations V1.Transaction
                 -> SortOperations V1.Transaction
                 -> m (Either GetTxError (WalletResponse [V1.Transaction]))
-getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = liftIO $ do
+getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = liftIO $ runExceptT $ do 
     let PaginationParams{..}  = rpPaginationParams params
     let PerPage pp = ppPerPage
     let Page cp = ppPage
-    case castAccountFiltering mbWalletId mbAccountIndex of
-        Left err          -> return $ Left err
-        Right accountFops -> do
-            case castSorting sop of
-                Left err -> return $ Left err
-                Right mbSorting -> do
-                    db <- Kernel.getWalletSnapshot wallet
-                    -- check Pos.Core.ProtocolConstants, Core.blkSecurityParam
-                    let k = (2000 :: Word)           -- TODO: retrieve this constant from Core
-                    let currentSlot = (1000 :: Word) -- TODO: retrieve this constant from Core ??
-                    (meta, mbTotalEntries) <- TxMeta.getTxMetas
-                        (wallet ^. Kernel.walletMeta)
-                        (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
-                        (TxMeta.Limit . fromIntegral $ pp)
-                        accountFops
-                        (unV1 <$> mbAddress)
-                        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
-                        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
-                        mbSorting
-                    let txs = map (metaToTx db k currentSlot) meta
-                    return $ Right $ respond params txs mbTotalEntries
+    accountFops <- castAccountFiltering mbWalletId mbAccountIndex
+    mbSorting <- castSorting sop
+    db <- liftIO $ Kernel.getWalletSnapshot wallet
+    -- check Pos.Core.ProtocolConstants, Core.blkSecurityParam
+    let k = (2000 :: Word)           -- TODO: retrieve this constant from Core
+    let currentSlot = (1000 :: Word) -- TODO: retrieve this constant from Core ??
+    (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
+        (wallet ^. Kernel.walletMeta)
+        (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
+        (TxMeta.Limit . fromIntegral $ pp)
+        accountFops
+        (unV1 <$> mbAddress)
+        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
+        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
+        mbSorting
+    let txs = map (metaToTx db k currentSlot) meta
+    return $ respond params txs mbTotalEntries
 
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
-castAccountFiltering :: Maybe V1.WalletId -> Maybe V1.AccountIndex -> Either GetTxError TxMeta.AccountFops
+castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops
 castAccountFiltering mbWalletId mbAccountIndex =
     case (mbWalletId, mbAccountIndex) of
-        (Nothing, Nothing) -> Right TxMeta.Everything
-        (Nothing, Just _)  -> Left GetTxMissingWalletIdError
+        (Nothing, Nothing) -> return TxMeta.Everything
+        (Nothing, Just _)  -> throwError GetTxMissingWalletIdError
         -- AccountIndex doesn`t uniquely identify an Account, so we shouldn`t continue without a WalletId.
         (Just (V1.WalletId wId), _) ->
             case decodeTextAddress wId of
-                Left _         -> Left $ GetTxAddressDecodingFailed wId
-                Right rootAddr -> Right $ TxMeta.AccountFops rootAddr mbAccountIndex
+                Left _         -> throwError $ GetTxAddressDecodingFailed wId
+                Right rootAddr -> return $ TxMeta.AccountFops rootAddr mbAccountIndex
 
 -- This function reads at most the head of the SortOperations and expects to find "created_at".
-castSorting :: S.SortOperations V1.Transaction -> Either GetTxError (Maybe TxMeta.Sorting)
-castSorting S.NoSorts = Right Nothing
+castSorting :: Monad m => S.SortOperations V1.Transaction -> ExceptT GetTxError m (Maybe TxMeta.Sorting)
+castSorting S.NoSorts = return Nothing
 castSorting (S.SortOp (sop :: S.SortOperation ix V1.Transaction) _) =
     case symbolVal (Proxy @(IndexToQueryParam V1.Transaction ix)) of
-        "created_at" -> Right $ Just $ TxMeta.Sorting TxMeta.SortByCreationAt (castSortingDirection sop)
-        txt -> Left $ GetTxInvalidSortingOperaration txt
+        "created_at" -> return $ Just $ TxMeta.Sorting TxMeta.SortByCreationAt (castSortingDirection sop)
+        txt -> throwError $ GetTxInvalidSortingOperaration txt
 
 castSortingDirection :: S.SortOperation ix a -> TxMeta.SortDirection
 castSortingDirection (S.SortByIndex srt _) = case srt of
@@ -116,7 +114,7 @@ metaToTx db k current TxMeta{..} =
 
         where
             hdAccountId = HD.HdAccountId (HD.HdRootId $ InDb _txMetaWalletId)
-                                        (HD.HdAccountIx _txMetaAccountId)
+                                        (HD.HdAccountIx _txMetaAccountIx)
 
             toPayDistr :: (Address, Coin) -> V1.PaymentDistribution
             toPayDistr (addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)
@@ -139,12 +137,11 @@ buildDynamicTxMeta mSlot k currentSlot isPending = case isPending of
 
 
 -- | We don`t fitler in memory, so totalEntries is unknown, unless TxMeta Database counts them for us.
--- It is possible due to some error, to have length ls < Page.
+-- It is possible due to some error, to have length ls < Page. 
+-- One scenario for this is when a Tx is found without Inputs.
 respond :: RequestParams -> [a] -> Maybe Int -> (WalletResponse [a])
 respond RequestParams{..} ls mbTotalEntries =
-    let totalEntries = case mbTotalEntries of
-            Nothing -> 0
-            Just t  -> t
+    let totalEntries = fromMaybe 0 mbTotalEntries
         PaginationParams{..}  = rpPaginationParams
         perPage@(PerPage pp)  = ppPerPage
         currentPage           = ppPage

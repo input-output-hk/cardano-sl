@@ -14,14 +14,6 @@ import           Servant
 
 import           Data.Coerce (coerce)
 
-import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (ExpenseRegulation (..), InputGrouping (..))
-import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp,
-                     paymentAmount)
-import qualified Cardano.Wallet.WalletLayer as WalletLayer
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer,
-                     PassiveWalletLayer)
-
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
                      defaultInputSelectionPolicy)
 import           Pos.Core (Address)
@@ -37,7 +29,8 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp,
                      paymentAmount)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer)
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer,
+                     PassiveWalletLayer)
 
 handlers :: ActiveWalletLayer IO -> ServerT Transactions.API Handler
 handlers aw = newTransaction aw

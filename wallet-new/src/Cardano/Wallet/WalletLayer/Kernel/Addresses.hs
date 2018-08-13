@@ -12,6 +12,7 @@ import           Data.Coerce (coerce)
 
 import           Pos.Core (Address, decodeTextAddress)
 
+import           Cardano.Wallet.API.Response (SliceOf (..))
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..),
                      PaginationParams (..), PerPage (..))
@@ -30,7 +31,7 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (AccountId (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
 import           Cardano.Wallet.WalletLayer.Types (CreateAddressError (..),
-                     SliceOf (..), ValidateAddressError (..))
+                     ValidateAddressError (..))
 
 createAddress :: MonadIO m
               => Kernel.PassiveWallet

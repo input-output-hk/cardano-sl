@@ -10,6 +10,10 @@ module Cardano.Wallet.API.Response (
   , fromSlice
   -- * Generating responses for single resources
   , single
+
+  -- * A slice of a collection
+  , SliceOf(..)
+
   , ValidJSON
   ) where
 
@@ -29,8 +33,6 @@ import           GHC.Generics (Generic)
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
-
-import           Cardano.Wallet.WalletLayer.Types (SliceOf (..))
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -84,6 +86,17 @@ data WalletResponse a = WalletResponse
   , wrMeta   :: Metadata
   -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic, Functor)
+
+data SliceOf a = SliceOf {
+    paginatedSlice :: [a]
+  -- ^ A paginated fraction of the resource
+  , paginatedTotal :: Int
+  -- ^ The total number of entries
+  }
+
+instance Arbitrary a => Arbitrary (SliceOf a) where
+  arbitrary = SliceOf <$> arbitrary <*> arbitrary
+
 
 deriveJSON Serokell.defaultOptions ''WalletResponse
 

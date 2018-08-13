@@ -13,12 +13,12 @@ import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
 
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
 import qualified Data.IxSet.Typed as IxSet
+import           Pos.Chain.Txp (Utxo)
+import           Pos.Core.Common (Coin (..))
+import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 
+import qualified Data.Map.Strict as M (elems)
 import           Servant
-
-import qualified Control.Foldl as L
-import           Data.Map.Strict as MS
-import qualified Data.Text as T
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
@@ -107,4 +107,17 @@ getUtxoStatistics :: PassiveWalletLayer IO
                   -> WalletId
                   -> Handler (WalletResponse UtxoStatistics)
 getUtxoStatistics pwl wid = do
-    return $ single (computeUtxoStatistics [1::Integer,2,3,10,20,30,101,1001,10000])
+    res <- liftIO $ WalletLayer.getUtxos pwl wid
+    case res of
+         Left e  -> throwM e
+         Right w ->
+             let
+                 extractValue :: TxOutAux ->  Word64
+                 extractValue = getCoin . txOutValue . toaOut
+                 utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
+                 utxosCoinValuesForAllAccounts pairs =
+                     concat $ map (\pair -> map extractValue (M.elems $ snd pair) ) pairs
+             in do
+                 return $ single (computeUtxoStatistics $ utxosCoinValuesForAllAccounts w)
+
+    --return $ single (computeUtxoStatistics [1::Integer,2,3,10,20,30,101,1001,10000])

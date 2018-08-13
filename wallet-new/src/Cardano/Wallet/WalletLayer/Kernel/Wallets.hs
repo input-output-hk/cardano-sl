@@ -5,6 +5,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , deleteWallet
     , getWallet
     , getWallets
+    , getWalletUtxos
     ) where
 
 import           Universum
@@ -14,6 +15,7 @@ import           Data.Coerce (coerce)
 import           Data.Time.Units (Second)
 import           Formatting (build, sformat)
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (decodeTextAddress, mkCoin)
 import           Pos.Crypto.Signing
 
@@ -25,7 +27,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAllHdRoots,
                      readHdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
-import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
+import           Cardano.Wallet.Kernel.DB.Read (accountUtxo, hdWallets)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -33,9 +35,11 @@ import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
+import           Cardano.Wallet.WalletLayer.Kernel.Accounts (getAccounts)
 import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
-                     DeleteWalletError (..), GetWalletError (..),
-                     UpdateWalletError (..), UpdateWalletPasswordError (..))
+                     DeleteWalletError (..), GetUtxosError (..),
+                     GetWalletError (..), UpdateWalletError (..),
+                     UpdateWalletPasswordError (..))
 
 createWallet :: MonadIO m
              => Kernel.PassiveWallet
@@ -159,6 +163,22 @@ getWallets db =
     let allRoots = readAllHdRoots (hdWallets db)
     in IxSet.fromList . map (toV1Wallet db) . IxSet.toList $ allRoots
 
+
+-- | Gets Utxos per account of a wallet.
+getWalletUtxos :: Kernel.DB
+               -> V1.WalletId
+               -> Either GetUtxosError [(V1.Account, Utxo)]
+getWalletUtxos db (V1.WalletId wId) =
+    case decodeTextAddress wId of
+        Left _ -> Left (GetWalletUtxosWalletIdDecodingFailed wId)
+        Right rootAddr -> do
+            case getAccounts db (V1.WalletId wId) of
+                Left accountsError -> Left (GetUtxosErrorFromGetAccountsError accountsError)
+                Right accountsIxSet ->
+                    let hdRootId = HD.HdRootId . InDb $ rootAddr
+                        hdAccountId accountIndex = HD.HdAccountId hdRootId (HD.HdAccountIx accountIndex)
+                    in Right ( map (\acc -> (acc, accountUtxo db (hdAccountId $ V1.accIndex acc) ) ) $ IxSet.toList accountsIxSet )
+
 {------------------------------------------------------------------------------
   General utility functions on the wallets.
 ------------------------------------------------------------------------------}
@@ -196,4 +216,3 @@ toV1Wallet db hdRoot =
 fromV1AssuranceLevel :: V1.AssuranceLevel -> HD.AssuranceLevel
 fromV1AssuranceLevel V1.NormalAssurance = HD.AssuranceLevelNormal
 fromV1AssuranceLevel V1.StrictAssurance = HD.AssuranceLevelStrict
-

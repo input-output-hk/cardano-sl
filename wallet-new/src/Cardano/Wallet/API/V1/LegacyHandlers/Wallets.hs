@@ -195,4 +195,4 @@ getUtxoStatistics
     => WalletId
     -> m (WalletResponse UtxoStatistics)
 getUtxoStatistics wid = do
-    return $ single (computeUtxoStatistics [1::Integer,2,3,10,20,30,101])
+    return $ single (computeUtxoStatistics [1::Word64,2,3,10,20,30,101])

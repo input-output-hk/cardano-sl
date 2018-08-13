@@ -17,6 +17,7 @@ module Cardano.Wallet.WalletLayer.Types
 
     , createAddress
     , getAddresses
+    , getUtxos
     , applyBlocks
     , rollbackBlocks
     -- * Errors
@@ -34,6 +35,7 @@ module Cardano.Wallet.WalletLayer.Types
     , GetAccountsError(..)
     , DeleteAccountError(..)
     , UpdateAccountError(..)
+    , GetUtxosError(..)
     ) where
 
 import qualified Prelude
@@ -64,6 +66,7 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation, InputGrouping)
 
 import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Coin)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx)
@@ -119,6 +122,23 @@ instance Buildable GetWalletError where
         bprint ("GetWalletErrorNotFound " % build) walletId
     build (GetWalletWalletIdDecodingFailed txt) =
         bprint ("GetWalletWalletIdDecodingFailed " % build) txt
+
+data GetUtxosError =
+      GetWalletUtxosWalletIdDecodingFailed Text
+    | GetUtxosErrorFromGetAccountsError GetAccountsError
+    deriving Eq
+
+instance Show GetUtxosError where
+    show = formatToString build
+
+instance Exception GetUtxosError
+
+instance Buildable GetUtxosError where
+    build (GetUtxosErrorFromGetAccountsError getAccountsError) =
+        bprint build getAccountsError
+    build (GetWalletUtxosWalletIdDecodingFailed txt) =
+        bprint ("GetWalletUtxosWalletIdDecodingFailed " % build) txt
+
 
 data UpdateWalletError =
       UpdateWalletError (V1 Kernel.UnknownHdRoot)
@@ -352,6 +372,8 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlCreateAddress        :: NewAddress
                                -> m (Either CreateAddressError Address)
     , _pwlGetAddresses         :: WalletId -> m [Address]
+    -- * utxos
+    , _pwlGetUtxos             :: WalletId -> m (Either GetUtxosError [(Account, Utxo)])
     -- * core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
@@ -429,6 +451,11 @@ createAddress pwl = pwl ^. pwlCreateAddress
 
 getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
 getAddresses pwl = pwl ^. pwlGetAddresses
+
+getUtxos :: forall m. PassiveWalletLayer m
+          -> WalletId
+          -> m (Either GetUtxosError [(Account, Utxo)])
+getUtxos pwl = pwl ^. pwlGetUtxos
 
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()

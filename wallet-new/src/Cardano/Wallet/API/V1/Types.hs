@@ -39,6 +39,7 @@ module Cardano.Wallet.API.V1.Types (
   , SpendingPassword
   , UtxoStatistics (..)
   , HistogramBar (..)
+  --, AccountUtxo (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
@@ -144,6 +145,7 @@ import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
+--import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
@@ -870,7 +872,7 @@ instance Buildable [Wallet] where
 -- | (b) avg or std of stake in a bucket
 -- | (c) topN buckets
 -- | to name a few
-newtype HistogramBar = HistogramBarCount (Text, Integer) deriving (Show, Eq, Ord, Generic)
+newtype HistogramBar = HistogramBarCount (Text, Word64) deriving (Show, Eq, Ord, Generic)
 
 instance FromJSON HistogramBar where
     parseJSON (Object v) =
@@ -890,7 +892,7 @@ instance ToSchema HistogramBar where
 
 instance Arbitrary HistogramBar where
   arbitrary =
-      let possibleBuckets = fmap show $ (zipWith (\ten toPower -> ten^toPower :: Integer) (repeat (10::Integer)) [(1::Integer)..16]) ++ [45 * (10^(15::Integer))]
+      let possibleBuckets = fmap show $ (zipWith (\ten toPower -> ten^toPower :: Word64) (repeat (10::Word64)) [(1::Word64)..16]) ++ [45 * (10^(15::Word64))]
           possibleBars = zipWith (\key value -> HistogramBarCount (key, value)) possibleBuckets [0..]
       in elements possibleBars
 
@@ -902,7 +904,7 @@ instance BuildableSafeGen HistogramBar where
 
 data UtxoStatistics = UtxoStatistics
   { theHistogram :: ![HistogramBar]
-  , theAllStakes :: !Integer
+  , theAllStakes :: !Word64
   } deriving (Show, Eq, Generic, Ord)
 
 deriveJSON Serokell.defaultOptions ''UtxoStatistics
@@ -2099,6 +2101,7 @@ instance Example (V1 Core.PassPhrase)
 instance Example (V1 Core.Coin)
 instance Example HistogramBar
 instance Example UtxoStatistics
+--instance Example AccountUtxo
 
 -- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
 -- to control the length of the examples. It is possible for the encoded length

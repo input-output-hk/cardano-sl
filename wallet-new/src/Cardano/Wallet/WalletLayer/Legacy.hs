@@ -94,6 +94,8 @@ bracketPassiveWallet =
         , _pwlCreateAddress         = pwlCreateAddress
         , _pwlGetAddresses          = pwlGetAddresses
 
+        , _pwlGetUtxos              = error "Method not implemented for legacy handler"
+
         , _pwlApplyBlocks           = pwlApplyBlocks
         , _pwlRollbackBlocks        = pwlRollbackBlocks
         }

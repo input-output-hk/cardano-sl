@@ -102,6 +102,11 @@ bracketPassiveWallet logFunction keystore rocksDB f =
             , _pwlCreateAddress  = Addresses.createAddress wallet
             , _pwlGetAddresses   = error "Not implemented!"
 
+            , _pwlGetUtxos =
+                    \walletId -> do
+                        snapshot <- liftIO (Kernel.getWalletSnapshot wallet)
+                        return (Wallets.getWalletUtxos snapshot walletId)
+
             , _pwlApplyBlocks    = invokeIO . Actions.ApplyBlocks
             , _pwlRollbackBlocks = invokeIO . Actions.RollbackBlocks
             }

@@ -21,7 +21,8 @@ import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig (BackendKind (..), LogHandler (..),
                      LogSecurityLevel (..), LoggerConfig (..), LoggerTree (..),
-                     defaultInteractiveConfiguration, defaultTestConfiguration)
+                     defaultInteractiveConfiguration, defaultTestConfiguration,
+                     lcLoggerTree, ltMinSeverity)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 
@@ -177,6 +178,26 @@ spec = describe "Logging" $ do
         `shouldBe`
         (mempty :: LoggerConfig)
 
+    it "compose LoggerConfig - minimum of severities" $ do
+        let lc1 = (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                        , _lcLoggerTree = LoggerTree {_ltMinSeverity = Info,
+                             _ltHandlers = [LogHandler {_lhName = "file1.log", _lhFpath = Just "file1.log",
+                                                        _lhSecurityLevel = Just PublicLogLevel,
+                                                        _lhBackend = FileTextBE,
+                                                        _lhMinSeverity = Just Info
+                                                       }]}
+                        })
+            lc2 = (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                        , _lcLoggerTree = LoggerTree {_ltMinSeverity = Warning,
+                             _ltHandlers = [LogHandler {_lhName = "file2.log", _lhFpath = Just "file2.log",
+                                                        _lhSecurityLevel = Just PublicLogLevel,
+                                                        _lhBackend = FileTextBE,
+                                                        _lhMinSeverity = Just Error
+                                                       }]}
+                        })
+            lc3 = lc1 <> lc2
+        lc3 ^. lcLoggerTree . ltMinSeverity `shouldBe` Info
+
     it "compose complex LoggerConfig" $
         ( (defaultInteractiveConfiguration Debug) <>
           (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
@@ -185,9 +206,9 @@ spec = describe "Logging" $ do
         (defaultInteractiveConfiguration Debug) <>
           (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
                         , _lcLoggerTree = LoggerTree {_ltMinSeverity = Debug,
-                             _ltHandlers = [LogHandler {_lhName = "node", _lhFpath = Just "node.log",
+                             _ltHandlers = [LogHandler {_lhName = "console", _lhFpath = Nothing,
                                                         _lhSecurityLevel = Just PublicLogLevel,
-                                                        _lhBackend = FileTextBE,
+                                                        _lhBackend = StdoutBE,
                                                         _lhMinSeverity = Just Debug
                                                        }]}
                         })

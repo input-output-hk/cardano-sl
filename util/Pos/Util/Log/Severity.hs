@@ -10,7 +10,7 @@ import           Universum
 
 
 data Severity = Debug | Info | Warning | Notice | Error
-                deriving (Generic, Show, Eq)
+                deriving (Generic, Show, Eq, Ord)
 
 instance ToJSON Severity
 -- | Handwritten 'FromJSON' instance because the log config files
@@ -28,4 +28,4 @@ instance FromJSON Severity where
                     "Warning"  -> pure Warning
                     "Error+"   -> pure Error
                     "Error"    -> pure Error
-                    _          -> pure Debug  -- catch all
+                    _          -> pure Info   -- catch all

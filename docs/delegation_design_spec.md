@@ -445,8 +445,6 @@ can do wallet restoration from seed in time that is better than linear
 in the total number of addresses in the blockchain. For details, see
 \ref{wallet-recovery-process}.
 
-[BIP-32]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
-
 ## Certificates and Registrations
 
 As stated in the delegation overview: delegating stake rights involves
@@ -460,23 +458,11 @@ second relation consists of registered stake keys, registered stake
 pools and heavyweight delegation certificates as the entries relating
 the two.
 
-The registring of stake keys and stake pools, and delegating between
-them involves posting appropriate signed registrsation or delegation
-certificates to the blockchain as part of transaction metadata.
-
-There is one final form of certificate used by stake pools while
-exercising the stake rights delegated to them: lightweight delegation
-certificates. These are used simply to allow stake pools to use
-operational keys that must be kept on the operational node that creates
-blocks, while keeping their main key securely offline. A lightweight
-certificate, signed by the stake pool's main key, delegates to the
-operational key that is used to sign blocks. This lightweight
-certificate is included in the block header so that all other nodes can
-verify that the block is signed by a legitimate delegate of the slot
-leader. Thus these lightweight certificates are not posted to the chain
-in advance, but are presented when signing blocks.
-
 ### Certificates on the Blockchain
+
+The registering of stake keys and stake pools, and delegating between
+them involves posting appropriate signed registration or delegation
+certificates to the blockchain as part of transaction metadata.
 
 Certificates can be publicly announced to all participants by posting
 them to the blockchain, as transaction metadata. They will remain
@@ -490,7 +476,16 @@ following certificates can be posted to the blockchain:
  * Stake pool retirement certificate
  * Heavyweight delegation certificate
 
-### Stake key registration certificates
+There is one form of certificate which is not posted to the blockchain
+in advance, but is presented when it is used:
+
+ * Lightweight delegation certificates
+
+Although this last kind is a delegation certificate it is quite
+different from the others which are used to define the delegation
+relation.
+
+### Stake key Registration Certificates
 
 Users wishing to exercise their rights of participation in the PoS
 protocol can register a stake key by posting a _stake key registration
@@ -526,7 +521,7 @@ reward account. It is also to incentivise de-registering stake keys
 that are no longer required, so that the corresponding resources can be
 released.
 
-### Stake pool registration certificates
+### Stake Pool Registration Certificates
 
 A person planning to operate a stake pool (including a private pool)
 can declare this by posting a _stakepool registration certificate_ to
@@ -580,7 +575,7 @@ Stake pool Retirement Certificate
     Stakeholders who delegated to this pool should be notified and
     asked to redelegate by their wallet the next time they are online.
 
-### Heavyweight delegation certificates
+### Heavyweight Delegation Certificates
 
 Users can transfer the rights of participation in the PoS protocol
 from one staking key to another, by posting a _heavyweight
@@ -605,19 +600,36 @@ source stake key is de-registered.
 
 ### Lightweight Delegation Certificates
 
-In addition to certificates posted on the blockchain, the system will
-also support _lightweight delegation certificates_.  They specify
-that the staking rights are transferred from a source key
-$vks_\text{source}$ to a delegate key $vks_\text{delegate}$.  In
-contrast to heavyweight certificates, they are not posted to the
-blockchain, but instead included in the block header when a block is
-signed with $sks_\text{delegate}$ (or in a message of the coin-tossing
-algorithm when $sks_\text{source}$ is elected as a member of the
-committe for randomness generation).
+Lightweight delegation certificates are used by stake pools at the
+point of exercising stake rights including:
+
+ * signing blocks
+ * signing messages in the VSS protocol
+ * signing votes for protocol update proposals
 
 The purpose of lightweight certificates is to enable stake pool
-operators to mitigate key exposure, \ref{mitigate-key-exposure}.  The
-setup is as follows:
+operators to mitigate key exposure, see Section \ref{mitigate-key-exposure}.
+They allow stake pools to use a _hot_/_cold_ key arrangement:
+operational (or _hot_) keys are kept on the operational nodes that take
+part in the protocols, while the main (or _cold_) is kept securely
+offline. A lightweight certificate, signed by the stake pool's
+cold key, delegates to the hot key that is used to sign messages in the
+protocols (block header, VSS message or vote). This lightweight
+certificate is included in the message so that all other nodes can
+verify that the message is signed by a legitimate delegate of the owner
+of the cold key[^like-tls].
+
+[^like-tls]: This is much the same setup as with TLS certificates:
+there are known root certificates but the server's operational
+certificate is presented inband.
+
+Specifically, a lightweight delegation certificate specifies that the
+staking rights are transferred from a source key $vks_\text{source}$ to
+a delegate key $vks_\text{delegate}$.  They are included in the message 
+(e.g. block header) and the message itself is signed with
+$sks_\text{delegate}$.
+
+In detail, the hot/cold key setup is as follows:
 
 - The stake pool operator registers their stake pool, using a key
   $vks_\text{cold}$.  This _cold key_ is kept securely and off-line.
@@ -636,11 +648,10 @@ setup is as follows:
   $C'$, delegating the staking rights to a new hot key
   $vks_{\text{hot}'}$.
 
-  In order to render $sks_\text{hot}$ useless, it must be established
-  that $C'$ takes precedence over $C$.  For this purpose, the
-  lightweight delegation certificate will have an additional integer
-  field, and certificates with a larger value for this field will take
-  precedence.
+In order to render $sks_\text{hot}$ useless, it must be established 
+that $C'$ takes precedence over $C$.  For this purpose, the lightweight
+delegation certificate will have an additional integer field, and
+certificates with a larger value for this field will take precedence.
 
 ### Chain Delegation
 

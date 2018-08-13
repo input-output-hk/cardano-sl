@@ -445,6 +445,21 @@ can do wallet restoration from seed in time that is better than linear
 in the total number of addresses in the blockchain. For details, see
 \ref{wallet-recovery-process}.
 
+## Address Recognition
+
+Wallets will recognise addresses that belong to them just as they
+would without delegation, by looking only at the $\mathcal{H}({vkp})$
+part of the address.
+
+After a wallet recognises an address for which it controls the payment
+key, it will check whether the staking object $\beta$ is set according
+to the current delegation preference of the wallet. If there is a
+discrepancy, it will alert the user, and ask them whether they want to
+re-delegate according to the current delegation preferences.
+
+This check protects against the malleability attack in
+\ref{address-nonmalleability}.
+
 ## Certificates and Registrations
 
 As stated in the delegation overview: delegating stake rights involves
@@ -653,24 +668,6 @@ that $C'$ takes precedence over $C$.  For this purpose, the lightweight
 delegation certificate will have an additional integer field, and
 certificates with a larger value for this field will take precedence.
 
-### Chain Delegation
-
-Chain delegation is the notion of having multiple certificates chained
-together, so that the source key of one certificate is the delegate
-key of the previous one.
-
-We will only allow a very simple form of chain delegation, where we
-have zero or one of each of the following certificates, in that order:
-
-1. heavyweight certificate
-2. stake pool registration certificate
-3. lightweight certificate
-
-This restricted pattern of chain delegation allows us to satisfy all
-requirements, but avoids problematic cycles in the graph of delegation
-certificates, and makes it easier for the nodes to track the
-delegation patterns.
-
 ### Certificate Precedence and Validity
 
 The following rules determine precedence and validity of
@@ -714,7 +711,33 @@ purpose of establishing precedence:
 - A lightweight certificate with a higher counter overrides one with a
   lower counter.
 
-### Additional Local Node State
+## Delegation Relations
+
+TODO: expand this section to describe in more detail what the delegation
+relations are, and how we use those to compute the stake distribution.
+
+### Chain Delegation
+
+Chain delegation is the notion of having multiple certificates chained
+together, so that the source key of one certificate is the delegate
+key of the previous one.
+
+While the delegation research paper in principle allows a significant
+degree of flexibility with delegation, our chosen design is quite
+restrictive and uses a fixed pattern of delegation. In order, we have:
+
+We will only allow a very simple form of chain delegation, where we
+have zero or one of each of the following certificates, in that order:
+
+ 1. a base or pointer address
+ 2. a heavyweight delegation certificate
+ 3. optionally, a lightweight certificate
+
+This restricted pattern of chain delegation allows us to satisfy all
+requirements, but avoids problematic cycles in the graph of delegation
+certificates, and makes it simple for nodes to track the delegation.
+
+## State Tracking for delegation
 
 It is not sufficient for certificates to be posted to the blockchain:
 since nodes will need to validate signatures on new blocks in a timely
@@ -725,7 +748,7 @@ resorting to the blockchain itself. Distributing rewards
 Nodes will have to maintain the following local databases as they
 process blocks:
 
-#### Stake Pools
+### Stake Pools
 
 Pointer addresses (\ref{pointer-address}) need to reference a specific
 stake pool registration certificate. Since this is part of the
@@ -741,7 +764,14 @@ Access patterns:
   a given pool)
 - Bulk listing to display active stake pools to the user
 
-#### Active Heavyweight Certificates
+In addition a small amount of state needs to be maintained to validate
+lightweight certificates. The state tracked for each stake pool
+includes an integer representing the highest counter field seen so far
+in a valid certificate. This is consulted to validate lightweight
+certificates and updated when larger counter values are presented in a
+valid certificate.
+
+### Active Heavyweight Certificates
 
 All valid heavyweight certificates need to be kept in a local
 database.
@@ -756,7 +786,7 @@ certificate came into effect, via their certificate index. Old
 certificates (revoked or overriden) can be dropped from the database
 once the rewards for their last active epoch have been distributed.
 
-#### Addresses and Associated Balances per Staking Key
+### Addresses and Associated Balances per Staking Key
 
 **TODO**: Verify that we indeed have to do this. It should also be
   possible to traverse the UTxO directly in the Follow-the-Satoshi
@@ -788,7 +818,7 @@ Note that directly tracking the stake for each key, including
 heavyweight certificates, would be problematic in case a heavyweight
 certificate is overridden or revoked.
 
-#### Updating Local State
+### Updating Local State
 
 **TODO: Update this section, it is probably out of date and assumes a
   more complicated scheme which we started with. Possibly, the
@@ -854,198 +884,165 @@ certificate is overridden or revoked.
 <!-- should be incentives for actions that keep it small, such as removing -->
 <!-- certificates that are no longer needed. -->
 
-## Delegation Scenarios
+## Slot leader schedule and VSS committee selection
 
-### Stakepool Registration
+The process of leader election has to be modified to take delegation
+into account.
 
-Publicly announcing a stake pool for other people to delegate to
-requires two steps: posting a stakepool registration certificate to
-the blockchain, and providing additional verifiable personal information.
+When the schedule for the next epoch has to be constructed, the nodes
+will compute the stake per staking key, taking into account all
+pointer addresses and valid heavyweight delegation certificates. The
+result is passed to the Follow the Satoshi (_FtS_) algorithm to choose
+a leader for each slot in the next epoch[^sorted-randoms].
 
-The second step is essential to establish trust in a stake pool.
-However, storing personal information directly on the blockchain would
-lead to violation of legislation like the GDPR, so instead of
-including it in the certificate, it will be stored on an external
-key-value store, using $\mathcal{H}(vks)$ as key.  The integrity of the
-data can be ensured by requiring it to be signed with $sks$.
+[^sorted-randoms]: This can be done traversing the stake distribution
+only once, if we generate a list of _sorted_ random numbers, traverse
+it in lockstep with the stake distribution, and then shuffle the
+resulting list of leaders).
 
-A stake pool operator can change its costs and margin by replacing the
-registration certificate of the pool with a new one. This allows
-operators to react, for example, to a change in its costs or the
-exchange rate of Ada. A wallet that is delegating funds to this stake
-pool should notify the user of such a change whenever it detects it,
-and ask whether the delegation should be reconsidered.
+Most stake pool leaders will use lightweight certificates in order to
+protect the key to which their members delegated. A block for a slot
+where the key $vks_\text{leader}$ has been elected as leader will be
+considered valid by all nodes if either
 
-The rewards that a stake pool gets depend on a deposit of funds that
-the stake pool operator themself provides. This adds a cost to
-creating a competitive stake pool, and protects against Sybil attacks
-on the stake pool level
-(\ref{sybil-attack-protection-at-stake-pool-level}). All funds in base
-addresses with $vks$ as the staking key are considered to belong to
-this deposit.
+- The block is signed by $vks_\text{leader}$
+- The block is signed by $vks_\text{hot}$ and contains, in its
+  header, a lightweight certificate that transfers the staking rights
+  from $vks_\text{leader}$ to $vks_\text{hot}$
 
-A stake pool operator will pledge to deposit a certain amount of Ada
-to the pool when registering a pool. This pledge is important:
-otherwise, an adversarial stake pool operator could circumvent the
-Sybil protection of the deposit, by placing a deposit in a pool until
-it attracted stake, and then simply moving the stake to the next
-pool. The pledge will be enforced at the point of leader election;
-stake pools that have a deposit less than what they pledged will be
-excluded from the election, and as a consequence forfeit their rewards
-for that epoch[^allow-underfunded].
+In case there are more than one block for the current slot, each of
+which are signed using a lightweight certificate, the newest
+certificate (as per the included counter) takes precedence.
 
-[^allow-underfunded]: We could also just deny the rewards for this
-pool, but still let it take part in the protocol.
+The committee for the randomness generation will be chosen in the same
+way as the slot leaders, by running FtS algorithm on the stake
+distribution.
 
-Note that it will still be possible for a stake pool operator to
-decrease the amount of stake that they pledge to the pool, but this
-will require them to post a new certificate, which will notify the
-stakeholders that delegated to the pool, possibly triggering a
-re-delegation.
+## Transition from Bootstrap Phase
 
-In addition to the above, we will also require pool operators
-to include a list of IP-adresses and/or domain names in the registration
-certificate, pointing to publicly reachable _relay nodes_ under their control.
-(It is necessary to have a sufficient number of such publicly reachable nodes
-in order to establish a reliable peer-to-peer network.)
-We will use no technical mechanism to check the validity and availability
-of these relay nodes, but will rely on social pressure instead: People
-contemplating joining a pool will check the published data
-and will put little trust in operators who publish fake or unreliable addresses.
+As of the time this document is written, Cardano is in the "bootstrap
+phase", where the network is not decentralised, but federated.  All
+stake is automatically delegated to seven stakeholders, by requiring
+that all the outputs of transactions are to bootstrap addresses (see
+\ref{bootstrap-address})[^TODO]. Those stakeholders have posted one
+heavyweight delegation certificate to the blockchain, giving control
+to seven nodes (the _core nodes_) controlled by Cardano Foundation,
+Emurgo, and IOHK.  During the bootstrap phase, rewards are not
+collected.
 
-_Remark_: Due to the nature of our Incentives Mechanism 
-(see [below](#design-of-incentives)), 
-very large stakeholders are incentivized to split their stake and create
-several pools.
-For a future version of Cardano, we plan to facilitate this by allowing such
-stakeholders to set up all their pools with a single certificate.
-For the present version, however, these pools will have to be created manually.
-This seems justified, given that there is only a handful of such very large
-stakeholders and seeing as such a feature would unnecessarily complicate
-engineering.
+[^TODO]: Check with Erik that this is indeed how it currently works.
 
-### Display of Stake Pools in the Wallet
+The transition from bootstrap phase to delegation is performed by
+dropping the restriction of using bootstrap addresses as transaction
+outputs.  Moving stake rights away from the core nodes to stake pools
+or individual users will require user action.  This is a deliberate
+choice: if we, for example, transferred all the stake rights to users
+at the end of the bootstrap phase, we would risk to have a large
+portion of the overall stake become offline, since most users will
+neither be online, nor delegate immediately.  This would pose a risk
+to both the performance and, worse, the integrity of the system.
 
-The wallet software will keep a list of all the stakepool registration
-certificates it finds.  For each, it will perform a lookup of the
-contained $sks$ to retrieve the corresponding metadata to display to
-the user.
+The obvious drawback of keeping the stake rights with the core nodes
+until the users intervene is that it will lead to a lesser degree of
+decentralisation in the transition period between bootstrap phase and
+full decentralisation.  We will probably counter this by incentivising
+the users to delegate away from the core nodes.  This could be done by
+having the core nodes collect none or fewer rewards (and thus sharing
+fewer rewards with delegators).
 
-In order to prevent relying on a central party to host this key value
-store, it will be possible to register multiple servers in the wallet,
-and each of those will be queried.  Anybody will have the opportunity
-to run a stakepool registration server, and announce its existence off
-band.
+TODO: Needs definitive input from incentives stream regarding how to
+incentivise users to delegate away from code nodes.
 
-In order for stakeholders to be able to delegate their stake to a
-pool, the wallet will provide a listing of stake pools, in a section
-of the UI called the _delegation centre_. This listing
-will be ordered by the rewards that a user should expect if they were
-to delegate to that pool. Since those expected rewards depend not only
-on the costs and margin set by the stake pool operator, but also on
-the performance of the pool and on the amount of stake that it has
-accumulated, this will prefer pools that are reliable, and have not
-yet reached saturation. In other words, the users selfish interest to pick a
-stake pool that is promising large rewards is aligned with the goal of
-placing the system in the hands of a number of reliable stake pool
-operators, and of avoiding centralisation. The influence of the stake
-pool operator's deposit on the rewards provides protection against a
-Sybil attack on the stake pool level
-(\ref{sybil-attack-protection-at-stake-pool-level}).
+TODO: this section needs to be properly reconciled and merged with the
+following section:
 
-For estimating the rewards shared by a pool, the wallet needs to
-predict the performance of the pool, i.e. the ratio of blocks that the
-pool added to the chain and the number of slots it was elected as
-leader. This is done by assuming the performance to be consant, and
-using the performance during the last epoch, which is visible from the
-blockchain.
+## Transition to Decentralization
 
-In order to prevent a slight difference in the expected returns to
-result in people conglomerating to a single stake pool, filling it
-rapidly, the order of the list of stake pools will be jittered: for
-each stake pool, the wallet will draw a random number $r$ close to
-$1$, and multiply the expected returns by $r$. I propose to draw $r$
-uniformly from the interval $[0.95, 1.05]$, but this choice is
-arbitrary and should be re-evaluated during the operation of the
-testnet.
+In order to guarantee system stability,
+we must be sure that stakepool operators are "doing their job" sufficiently well
+before relinquishing control to them.
+Instead of having a simple "switch" from a centralized system controlled by a
+handful of bootstrap keys to a fully decentralized one,
+we propose a _transition phase_.
 
-Since the actual amount of stake that the leader themself uses for the
-pool might change at any point in time, the ordering of pools will use
-the amount of stake that the leader _pledged_ when registering the
-pool, not the amount of stake that the leader currently put into the
-pool. However, pools where the current deposit is smaller than the
-amount pledged are expected to give zero rewards, and will end up at
-the end of the list.
+### Motivation
 
-### Basic Delegation
+Cardano _chain growth quality_ is only guaranteed when for all time widows of
+4320 slots, a block has been created for at least 2160 (half of them).
+At the moment, the bootstrap nodes are responsible for block creation,
+but in a fully decentralized system, this will be the pool leaders'
+responsibility.
 
-When a user has chosen a stake pool $P$ to delegate to,
-a heavyweight delegate certificate must be created and registered.
-New addresses that the wallet generates will be pointer addresses
-(\ref{pointer-address}) pointing to this delegation certificate.
-This will cause all the funds that the wallet will receive to
-those addresses to be delegated to $P$.
+In the beginning, there might be technical problems or other issues preventing
+the pool leaders from creating sufficiently many blocks,
+so we want to make the transition gradual,
+monitoring system performance and being able to temporarily delay or even
+revert decentralization in case of an emergency.
 
-Additionally, the wallet will provide the option to automatically
-re-delegate all funds currently in the wallet to $P$. If this option
-is chosen, the wallet will create a new address (pointing to $P$), and
-transfer the funds it controls to this new address. Note that a single
-transaction can have multiple inputs, so this will not require a large
-number of transactions, and incur only moderate costs, as required by
-\ref{cheap-re-delegation}.
+### Proposal
 
-Using delegation via pointer addresses does not obviously link
-addresses of the same wallet, as required by \ref{maintain-privacy},
-though it does group addresses that delegate to the same
-pool. Choosing the option of automatically re-delegating _does_ link
-addresses, by using bulk transaction, but that option is not
-required.
+We propose to introduce a new parameter $d\in[0,1]$,
+which controls the ratio of slots created by the bootstrap keys --
+all other slots will follow the rules outlined in this specification.
+So $d=1$ corresponds to the present "bootstrap era"
+state, whereas $d=0$ corresponds to full decentralization as
+described in this document.
+Starting with $d=1$ and gradually going down to $d=0$ allows for a smooth transition
+period.
 
-### Delegation of Cold Wallets
+For a given value of $d$, during the election of slot leaders for the current
+epoch, election will follow the normal process with probability $1-d$, whereas
+one of the bootstrap keys will be elected with probability $d$.
 
-Using pointer addresses for delegation requires the owner to move funds to a new
-address in order to re-delegate. For hot wallets, this is fine, but
-not so for cold wallets: cold wallets are meant to be placed in a
-vault or buried underground for long-term safe storage, while the
-owner might still want to re-delegate the funds therein from time to
-time.
+For reward calculations, all slots assigned to bootstrap keys will be ignored.
+This means that even for high values of $d$, pool leaders and pool members will
+get their full rewards (even though they have to do less "work" to get those
+rewards).
 
-In order to facilitate re-delegation of funds stored in a cold wallet,
-cold wallets will use base addresses (\ref{base-address}) with one
-common staking key $(sks, vks)$. In order to (re-) delegate, the
-owner of the wallet will use a hot wallet to issue a transaction
-containing a delegation certificate using $sks$. The second wallet only
-needs to contain a small amount of funds to pay for the necessary
-transaction fees, so the requirement of it being a hot wallet is not a
-significant security risk.
+As an example, consider a pool $A$ with 1% of stake.
+In the fully decentralized case $d=0$,
+$A$ would be elected slot leader for $0.01\cdot 21600=216$ slots per epoch on
+average. For $d=0.9$, $A$ would only be elected for 
+$0.01\cdot 0.1\cdot 21600=21.6$ slots per epoch on average,
+so $A$ would only have a tenth of the work (create 21.6 blocks instead of 216
+blocks), but get the same rewards.
 
-### Individual Staking
+Parameter $d$ can be changed on an epoch-per-epoch basis, following the
+plan we'll be outlining next.
 
-Stakeholders are not required to delegate their stake to a pool. If
-they wish to run their own node, they should use base addresses with a
-common staking key, and use that key to sign blocks with their
-node.
+### Plan
 
-In addition, they _can_ post a stake pool registration certificate,
-with a margin of $m=1$ (for which they are not required to upload any
-personal information). Usually, this should not be necessary. However,
-without the registration certificate, it is possible for a third party
-to piggy-back on such a private node, by using addresses in their
-wallet that use the same staking key. The rewards distribution
-mechanism will not be able to discern which addresses truly belong to
-the stakeholder operating the node, so the third party will get some
-rewards for this not-asked-for delegation.
+We plan to start with $d=0.9$ and then decrease $d$ by $0.1$ each epoch,
+_provided pool leader block creation is sufficient to guarantee chain growth
+quality_.
 
-Posting a "private" registration certificate with $m=1$ will ensure
-that all rewards are sent to the address specified in the certificate.
+If block creation is insufficient, we will halt lowering $d$ (or even increase
+$d$ again) until we have reason to believe that the problem has been understood
+and fixed.
 
-**TODO**: We might want to consider _not_ giving rewards to people
-  managing their own stake without a private staking pool, since that
-  could make the implementation simpler (not having two mechanisms for
-  the same thing). It would also give us a mechanism, for free, to
-  exclude the core nodes from getting rewards.
+In order to decide whether block creation is sufficient, we will estimate the
+probability that at least 2160 out of every 4320 blocks would be created.
+If this probability is high enough (for example greater than $1 - 10^{-10}$),
+block creation will be deemed sufficient.
 
-### Rewards
+For the estimation, we use the 
+[Beta-Binomial Distribution](https://en.wikipedia.org/wiki/Beta-binomial_distribution):
+Given the number of slots $a$ that have been faithfully created and the number
+$b$ of slots that have been missed (counting from the beginning of the
+transition period) and using
+[Bayes' Prior $B(1,1)$](https://en.wikipedia.org/wiki/Beta_distribution#Bayes'_prior_probability_(Beta(1,1))),
+the probability in question is $P(X\geq 2160)$, where $X$ is drawn from the
+Beta-Binomial distribution with parameters $(a + 1)$, $(b + 1)$ and $4320$.
+
+For example, in the very first transitional epoch, 10% of slots, i.e. 2160
+slots, will be given to pool leaders. If at least 1261 out of these 2160 slots
+are properly created, above estimation (with $a\geq 1261$ and 
+$b\leq 2160-1261=899$) leads to $P(X\geq 2160)\geq 1-10^{-10}$, so we will
+proceed with $d=0.8$ in the second epoch.
+If however at least 900 slots are missed, we will keep $d$ at $0.9$ for the time
+being.
+
+## Rewards
 
 For the smooth operation of the system, it is beneficial to have a
 large portion of the stake delegated to a set of reliable stake
@@ -1223,6 +1220,42 @@ but their use will be disincentivised. This aligns the individual
 user's short-term interest of receiving rewards with the overall goal
 of reaching decentralisation of the system.
 
+## Fees
+
+To prevent economic attacks, fees or refundable deposits should be charged
+where operators incur costs. In partcular we will have refundable deposits
+corresponding to the state that has to be tracked for UTxOs, and the various
+mechanisms involved in delegation.
+
+### Transaction fees
+
+The basic transaction fee covers the cost of processing and storage. The
+formula is
+
+$a + b x$
+
+With constants $a$ and $b$, and $x$ as the transaction size in bytes.
+
+The fixed component is to cover per-transaction overheads. The component linear
+in the size of the transaction to reflects the processing and storage cost of
+transactions.
+
+This aspect remains unchanged with delegation except to the extent that there
+are additional objects that can appear in transactions relating to delegation.
+These simply increase the size of the transaction and so are covered by the
+existing fee formula.
+
+In principle different fees could be charged for different things appearing
+in a transaction, to reflect their different processing costs. This is a future
+direction, but will not be introduced as part of delegation.
+
+### UTxO deposits
+
+
+
+### Stake account deposits
+
+
 ## Stale Stake
 
 Over time, we expect that an increasing amount of stake will become
@@ -1280,95 +1313,7 @@ again if it became stale before the slot number mentioned in the
 heartbeat. Including the slot number in the heartbeat prevents a
 malicious third party from re-using a previous heartbeat message.
 
-## Address Recognition
-
-Wallets will recognise addresses that belong to them just as they
-would without delegation, by looking only at the $\mathcal{H}({vkp})$
-part of the address.
-
-After a wallet recognises an address for which it controls the payment
-key, it will check whether the staking object $\beta$ is set according
-to the current delegation preference of the wallet. If there is a
-discrepancy, it will alert the user, and ask them whether they want to
-re-delegate according to the current delegation preferences.
-
-This check protects against the malleability attack in
-\ref{address-nonmalleability}.
-
-## Leader election, Block Validity, and Randomness Generation
-
-The process of leader election has to be modified to take delegation
-into account.
-
-When the schedule for the next epoch has to be constructed, the nodes
-will compute the stake per staking key, taking into account all
-pointer addresses and valid heavyweight delegation certificates. The
-result is passed to the Follow the Satoshi (_FtS_) algorithm to choose
-a leader for each slot in the next epoch[^sorted-randoms].
-
-[^sorted-randoms]: This can be done traversing the stake distribution
-only once, if we generate a list of _sorted_ random numbers, traverse
-it in lockstep with the stake distribution, and then shuffle the
-resulting list of leaders).
-
-Most stake pool leaders will use lightweight certificates in order to
-protect the key to which their members delegated. A block for a slot
-where the key $vks_\text{leader}$ has been elected as leader will be
-considered valid by all nodes if either
-
-- The block is signed by $vks_\text{leader}$
-- The block is signed by $vks_\text{hot}$ and contains, in its
-  header, a lightweight certificate that transfers the staking rights
-  from $vks_\text{leader}$ to $vks_\text{hot}$
-
-In case there are more than one block for the current slot, each of
-which are signed using a lightweight certificate, the newest
-certificate (as per the included counter) takes precedence.
-
-The committee for the randomness generation will be chosen in the same
-way as the slot leaders, by running FtS algorithm on the stake
-distribution.
-
-## Fees
-
-To prevent economic attacks, fees or refundable deposits should be charged
-where operators incur costs. In partcular we will have refundable deposits
-corresponding to the state that has to be tracked for UTxOs, and the various
-mechanisms involved in delegation.
-
-### Transaction fees
-
-The basic transaction fee covers the cost of processing and storage. The
-formula is
-
-$a + b x$
-
-With constants $a$ and $b$, and $x$ as the transaction size in bytes.
-
-The fixed component is to cover per-transaction overheads. The component linear
-in the size of the transaction to reflects the processing and storage cost of
-transactions.
-
-This aspect remains unchanged with delegation except to the extent that there
-are additional objects that can appear in transactions relating to delegation.
-These simply increase the size of the transaction and so are covered by the
-existing fee formula.
-
-In principle different fees could be charged for different things appearing
-in a transaction, to reflect their different processing costs. This is a future
-direction, but will not be introduced as part of delegation.
-
-### UTxO deposits
-
-
-
-### Stake account deposits
-
-
-
-## Related Topics
-
-### Wallet Recovery Process
+## Wallet Recovery Process
 
 Wallet recovery is the process of reconstructing a wallet from the
 root key.  In order to reconstruct a wallet, all addresses belonging
@@ -1409,7 +1354,7 @@ that will allow us to do a kind of exponential search for the
 addresses of the wallet.
 
 
-#### Trees of Depth 1
+### Trees of Depth 1
 
 To simplify, let us consider a wallet where the HD wallet tree is of
 depth 1, so that each address has an index $i \in \mathbb{N}$.  We
@@ -1454,7 +1399,7 @@ Early Finish and Memoisation
     than $\bar{i}$.  In addition, we should consider memoising the
     spending keys and/or lookups.
 
-#### Taller Trees
+### Taller Trees
 
 This scheme can be generalised for trees of larger depth.  The current
 wallet in Cardano has a fixed depth of 2.  Each address in this wallet
@@ -1520,7 +1465,7 @@ After setting the delegation preferences of the newly restored wallet,
 the wallet software should encourage the user to visit the delegation
 centre to make sure that this choice is still competitive.
 
-#### Maximal Address Gap
+### Maximal Address Gap
 
 As explained above, the wallet recovery process depends on a
 defined constant for the maximal address gap.
@@ -1530,41 +1475,196 @@ The wallet software needs to be aware of this constant so that
 it will not create undiscoverable addresses and so that it can
 warn the owner when it reaches the limit.
 
+# Delegation Scenarios
 
-### Transition from Bootstrap Phase
+## Stakepool Registration
 
-As of the time this document is written, Cardano is in the "bootstrap
-phase", where the network is not decentralised, but federated.  All
-stake is automatically delegated to seven stakeholders, by requiring
-that all the outputs of transactions are to bootstrap addresses (see
-\ref{bootstrap-address})[^TODO]. Those stakeholders have posted one
-heavyweight delegation certificate to the blockchain, giving control
-to seven nodes (the _core nodes_) controlled by Cardano Foundation,
-Emurgo, and IOHK.  During the bootstrap phase, rewards are not
-collected.
+Publicly announcing a stake pool for other people to delegate to
+requires two steps: posting a stakepool registration certificate to
+the blockchain, and providing additional verifiable personal information.
 
-[^TODO]: Check with Erik that this is indeed how it currently works.
+The second step is essential to establish trust in a stake pool.
+However, storing personal information directly on the blockchain would
+lead to violation of legislation like the GDPR, so instead of
+including it in the certificate, it will be stored on an external
+key-value store, using $\mathcal{H}(vks)$ as key.  The integrity of the
+data can be ensured by requiring it to be signed with $sks$.
 
-The transition from bootstrap phase to delegation is performed by
-dropping the restriction of using bootstrap addresses as transaction
-outputs.  Moving stake rights away from the core nodes to stake pools
-or individual users will require user action.  This is a deliberate
-choice: if we, for example, transferred all the stake rights to users
-at the end of the bootstrap phase, we would risk to have a large
-portion of the overall stake become offline, since most users will
-neither be online, nor delegate immediately.  This would pose a risk
-to both the performance and, worse, the integrity of the system.
+A stake pool operator can change its costs and margin by replacing the
+registration certificate of the pool with a new one. This allows
+operators to react, for example, to a change in its costs or the
+exchange rate of Ada. A wallet that is delegating funds to this stake
+pool should notify the user of such a change whenever it detects it,
+and ask whether the delegation should be reconsidered.
 
-The obvious drawback of keeping the stake rights with the core nodes
-until the users intervene is that it will lead to a lesser degree of
-decentralisation in the transition period between bootstrap phase and
-full decentralisation.  We will probably counter this by incentivising
-the users to delegate away from the core nodes.  This could be done by
-having the core nodes collect none or fewer rewards (and thus sharing
-fewer rewards with delegators).
+The rewards that a stake pool gets depend on a deposit of funds that
+the stake pool operator themself provides. This adds a cost to
+creating a competitive stake pool, and protects against Sybil attacks
+on the stake pool level
+(\ref{sybil-attack-protection-at-stake-pool-level}). All funds in base
+addresses with $vks$ as the staking key are considered to belong to
+this deposit.
 
-TODO: Needs definitive input from incentives stream regarding how to
-incentivise users to delegate away from code nodes.
+A stake pool operator will pledge to deposit a certain amount of Ada
+to the pool when registering a pool. This pledge is important:
+otherwise, an adversarial stake pool operator could circumvent the
+Sybil protection of the deposit, by placing a deposit in a pool until
+it attracted stake, and then simply moving the stake to the next
+pool. The pledge will be enforced at the point of leader election;
+stake pools that have a deposit less than what they pledged will be
+excluded from the election, and as a consequence forfeit their rewards
+for that epoch[^allow-underfunded].
+
+[^allow-underfunded]: We could also just deny the rewards for this
+pool, but still let it take part in the protocol.
+
+Note that it will still be possible for a stake pool operator to
+decrease the amount of stake that they pledge to the pool, but this
+will require them to post a new certificate, which will notify the
+stakeholders that delegated to the pool, possibly triggering a
+re-delegation.
+
+In addition to the above, we will also require pool operators
+to include a list of IP-adresses and/or domain names in the registration
+certificate, pointing to publicly reachable _relay nodes_ under their control.
+(It is necessary to have a sufficient number of such publicly reachable nodes
+in order to establish a reliable peer-to-peer network.)
+We will use no technical mechanism to check the validity and availability
+of these relay nodes, but will rely on social pressure instead: People
+contemplating joining a pool will check the published data
+and will put little trust in operators who publish fake or unreliable addresses.
+
+_Remark_: Due to the nature of our Incentives Mechanism 
+(see [below](#design-of-incentives)), 
+very large stakeholders are incentivized to split their stake and create
+several pools.
+For a future version of Cardano, we plan to facilitate this by allowing such
+stakeholders to set up all their pools with a single certificate.
+For the present version, however, these pools will have to be created manually.
+This seems justified, given that there is only a handful of such very large
+stakeholders and seeing as such a feature would unnecessarily complicate
+engineering.
+
+## Display of Stake Pools in the Wallet
+
+The wallet software will keep a list of all the stakepool registration
+certificates it finds.  For each, it will perform a lookup of the
+contained $sks$ to retrieve the corresponding metadata to display to
+the user.
+
+In order to prevent relying on a central party to host this key value
+store, it will be possible to register multiple servers in the wallet,
+and each of those will be queried.  Anybody will have the opportunity
+to run a stakepool registration server, and announce its existence off
+band.
+
+In order for stakeholders to be able to delegate their stake to a
+pool, the wallet will provide a listing of stake pools, in a section
+of the UI called the _delegation centre_. This listing
+will be ordered by the rewards that a user should expect if they were
+to delegate to that pool. Since those expected rewards depend not only
+on the costs and margin set by the stake pool operator, but also on
+the performance of the pool and on the amount of stake that it has
+accumulated, this will prefer pools that are reliable, and have not
+yet reached saturation. In other words, the users selfish interest to pick a
+stake pool that is promising large rewards is aligned with the goal of
+placing the system in the hands of a number of reliable stake pool
+operators, and of avoiding centralisation. The influence of the stake
+pool operator's deposit on the rewards provides protection against a
+Sybil attack on the stake pool level
+(\ref{sybil-attack-protection-at-stake-pool-level}).
+
+For estimating the rewards shared by a pool, the wallet needs to
+predict the performance of the pool, i.e. the ratio of blocks that the
+pool added to the chain and the number of slots it was elected as
+leader. This is done by assuming the performance to be consant, and
+using the performance during the last epoch, which is visible from the
+blockchain.
+
+In order to prevent a slight difference in the expected returns to
+result in people conglomerating to a single stake pool, filling it
+rapidly, the order of the list of stake pools will be jittered: for
+each stake pool, the wallet will draw a random number $r$ close to
+$1$, and multiply the expected returns by $r$. I propose to draw $r$
+uniformly from the interval $[0.95, 1.05]$, but this choice is
+arbitrary and should be re-evaluated during the operation of the
+testnet.
+
+Since the actual amount of stake that the leader themself uses for the
+pool might change at any point in time, the ordering of pools will use
+the amount of stake that the leader _pledged_ when registering the
+pool, not the amount of stake that the leader currently put into the
+pool. However, pools where the current deposit is smaller than the
+amount pledged are expected to give zero rewards, and will end up at
+the end of the list.
+
+## Basic Delegation
+
+When a user has chosen a stake pool $P$ to delegate to,
+a heavyweight delegate certificate must be created and registered.
+New addresses that the wallet generates will be pointer addresses
+(\ref{pointer-address}) pointing to this delegation certificate.
+This will cause all the funds that the wallet will receive to
+those addresses to be delegated to $P$.
+
+Additionally, the wallet will provide the option to automatically
+re-delegate all funds currently in the wallet to $P$. If this option
+is chosen, the wallet will create a new address (pointing to $P$), and
+transfer the funds it controls to this new address. Note that a single
+transaction can have multiple inputs, so this will not require a large
+number of transactions, and incur only moderate costs, as required by
+\ref{cheap-re-delegation}.
+
+Using delegation via pointer addresses does not obviously link
+addresses of the same wallet, as required by \ref{maintain-privacy},
+though it does group addresses that delegate to the same
+pool. Choosing the option of automatically re-delegating _does_ link
+addresses, by using bulk transaction, but that option is not
+required.
+
+## Delegation of Cold Wallets
+
+Using pointer addresses for delegation requires the owner to move funds to a new
+address in order to re-delegate. For hot wallets, this is fine, but
+not so for cold wallets: cold wallets are meant to be placed in a
+vault or buried underground for long-term safe storage, while the
+owner might still want to re-delegate the funds therein from time to
+time.
+
+In order to facilitate re-delegation of funds stored in a cold wallet,
+cold wallets will use base addresses (\ref{base-address}) with one
+common staking key $(sks, vks)$. In order to (re-) delegate, the
+owner of the wallet will use a hot wallet to issue a transaction
+containing a delegation certificate using $sks$. The second wallet only
+needs to contain a small amount of funds to pay for the necessary
+transaction fees, so the requirement of it being a hot wallet is not a
+significant security risk.
+
+## Individual Staking
+
+Stakeholders are not required to delegate their stake to a pool. If
+they wish to run their own node, they should use base addresses with a
+common staking key, and use that key to sign blocks with their
+node.
+
+In addition, they _can_ post a stake pool registration certificate,
+with a margin of $m=1$ (for which they are not required to upload any
+personal information). Usually, this should not be necessary. However,
+without the registration certificate, it is possible for a third party
+to piggy-back on such a private node, by using addresses in their
+wallet that use the same staking key. The rewards distribution
+mechanism will not be able to discern which addresses truly belong to
+the stakeholder operating the node, so the third party will get some
+rewards for this not-asked-for delegation.
+
+Posting a "private" registration certificate with $m=1$ will ensure
+that all rewards are sent to the address specified in the certificate.
+
+**TODO**: We might want to consider _not_ giving rewards to people
+  managing their own stake without a private staking pool, since that
+  could make the implementation simpler (not having two mechanisms for
+  the same thing). It would also give us a mechanism, for free, to
+  exclude the core nodes from getting rewards.
 
 # Design of Incentives
 
@@ -2829,89 +2929,3 @@ Disadvantages:
   which we would only deposit once, and withdraw from once -- in other words,
   we’d have reinvented UTxO entries, and the accumulation does not help.
 
-Transition to Decentralization
-==============================
-
-In order to guarantee system stability,
-we must be sure that stakepool operators are "doing their job" sufficiently well
-before relinquishing control to them.
-Instead of having a simple "switch" from a centralized system controlled by a
-handful of bootstrap keys to a fully decentralized one,
-we propose a _transition phase_.
-
-## Motivation
-
-Cardano _chain growth quality_ is only guaranteed when for all time widows of
-4320 slots, a block has been created for at least 2160 (half of them).
-At the moment, the bootstrap nodes are responsible for block creation,
-but in a fully decentralized system, this will be the pool leaders'
-responsibility.
-
-In the beginning, there might be technical problems or other issues preventing
-the pool leaders from creating sufficiently many blocks,
-so we want to make the transition gradual,
-monitoring system performance and being able to temporarily delay or even
-revert decentralization in case of an emergency.
-
-## Proposal
-
-We propose to introduce a new parameter $d\in[0,1]$,
-which controls the ratio of slots created by the bootstrap keys --
-all other slots will follow the rules outlined in this specification.
-So $d=1$ corresponds to the present "bootstrap era"
-state, whereas $d=0$ corresponds to full decentralization as
-described in this document.
-Starting with $d=1$ and gradually going down to $d=0$ allows for a smooth transition
-period.
-
-For a given value of $d$, during the election of slot leaders for the current
-epoch, election will follow the normal process with probability $1-d$, whereas
-one of the bootstrap keys will be elected with probability $d$.
-
-For reward calculations, all slots assigned to bootstrap keys will be ignored.
-This means that even for high values of $d$, pool leaders and pool members will
-get their full rewards (even though they have to do less "work" to get those
-rewards).
-
-As an example, consider a pool $A$ with 1% of stake.
-In the fully decentralized case $d=0$,
-$A$ would be elected slot leader for $0.01\cdot 21600=216$ slots per epoch on
-average. For $d=0.9$, $A$ would only be elected for 
-$0.01\cdot 0.1\cdot 21600=21.6$ slots per epoch on average,
-so $A$ would only have a tenth of the work (create 21.6 blocks instead of 216
-blocks), but get the same rewards.
-
-Parameter $d$ can be changed on an epoch-per-epoch basis, following the
-plan we'll be outlining next.
-
-## Plan
-
-We plan to start with $d=0.9$ and then decrease $d$ by $0.1$ each epoch,
-_provided pool leader block creation is sufficient to guarantee chain growth
-quality_.
-
-If block creation is insufficient, we will halt lowering $d$ (or even increase
-$d$ again) until we have reason to believe that the problem has been understood
-and fixed.
-
-In order to decide whether block creation is sufficient, we will estimate the
-probability that at least 2160 out of every 4320 blocks would be created.
-If this probability is high enough (for example greater than $1 - 10^{-10}$),
-block creation will be deemed sufficient.
-
-For the estimation, we use the 
-[Beta-Binomial Distribution](https://en.wikipedia.org/wiki/Beta-binomial_distribution):
-Given the number of slots $a$ that have been faithfully created and the number
-$b$ of slots that have been missed (counting from the beginning of the
-transition period) and using
-[Bayes' Prior $B(1,1)$](https://en.wikipedia.org/wiki/Beta_distribution#Bayes'_prior_probability_(Beta(1,1))),
-the probability in question is $P(X\geq 2160)$, where $X$ is drawn from the
-Beta-Binomial distribution with parameters $(a + 1)$, $(b + 1)$ and $4320$.
-
-For example, in the very first transitional epoch, 10% of slots, i.e. 2160
-slots, will be given to pool leaders. If at least 1261 out of these 2160 slots
-are properly created, above estimation (with $a\geq 1261$ and 
-$b\leq 2160-1261=899$) leads to $P(X\geq 2160)\geq 1-10^{-10}$, so we will
-proceed with $d=0.8$ in the second epoch.
-If however at least 900 slots are missed, we will keep $d$ at $0.9$ for the time
-beeing.

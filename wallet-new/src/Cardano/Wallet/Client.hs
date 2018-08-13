@@ -35,9 +35,9 @@ module Cardano.Wallet.Client
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Exception (Exception (..))
 import           Servant.Client (GenResponse (..), Response, ServantError (..))
-import Control.Concurrent (threadDelay)
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination

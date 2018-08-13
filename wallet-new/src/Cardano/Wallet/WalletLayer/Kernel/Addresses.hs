@@ -12,10 +12,10 @@ import           Data.Coerce (coerce)
 
 import           Pos.Core (Address, decodeTextAddress)
 
-import           Cardano.Wallet.API.Response (SliceOf (..))
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..),
                      PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Response (SliceOf (..))
 import           Cardano.Wallet.API.V1.Types (V1 (..), WalletAddress (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel

@@ -28,10 +28,11 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration (eitherMigrate, migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, BackupPhrase (..), Address, BackupPhrase (..),
+                     AccountUpdate, Address, BackupPhrase (..),
                      NewAccount (..), NewAddress, NewWallet (..),
-                     PasswordUpdate, Transaction (..), V1 (..), Wallet, WalletAddress, 
-                     WalletId, WalletOperation (..), WalletUpdate)
+                     PasswordUpdate, Transaction (..), V1 (..), Wallet,
+                     WalletAddress, WalletId, WalletOperation (..),
+                     WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))

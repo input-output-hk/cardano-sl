@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Spec.GetTransactions (spec) where
+
 
 import           Universum
 
@@ -46,6 +48,7 @@ import           TxMetaStorageSpecs (Isomorphic (..), genMeta)
 import           Util.Buildable (ShowThroughBuild (..))
 
 
+{-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec

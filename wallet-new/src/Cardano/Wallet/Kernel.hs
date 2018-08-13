@@ -104,7 +104,7 @@ handlesOpen :: IO WalletHandles
 handlesOpen = do
     db <- openMemoryState defDB
     metadb <- openMetaDB ":memory:" -- TODO: Eventually :memory: should be replaced with the real path.
-    migrateMetaDB metadb
+    migrateMetaDB metadb            -- TODO: this will be run with asynchronous exceptions masked.
     return $ Handles db metadb
 
 handlesClose :: WalletHandles -> IO ()

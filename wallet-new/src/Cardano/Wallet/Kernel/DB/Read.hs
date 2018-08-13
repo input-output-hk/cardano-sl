@@ -138,7 +138,6 @@ txSlot txId c = Map.lookup txId slots
 
 isTxPending :: IsCheckpoint c => TxId -> c -> Bool
 isTxPending txId c = Pending.member txId (c ^. cpPending)
---        view (checkpointPending . currentPending . fromDb) <$> checkpoint
 
 {-------------------------------------------------------------------------------
   Public queries on an account.

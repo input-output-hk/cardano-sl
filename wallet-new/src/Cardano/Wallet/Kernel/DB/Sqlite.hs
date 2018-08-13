@@ -98,7 +98,7 @@ data TxMetaT f = TxMeta {
     , _txMetaTableIsLocal    :: Beam.Columnar f Bool
     , _txMetaTableIsOutgoing :: Beam.Columnar f Bool
     , _txMetaTableWalletId   :: Beam.Columnar f Core.Address
-    , _txMetaTableAccountId  :: Beam.Columnar f Word32
+    , _txMetaTableAccountIx  :: Beam.Columnar f Word32
     } deriving Generic
 
 type TxMeta = TxMetaT Identity
@@ -115,7 +115,7 @@ mkTxMeta txMeta = TxMeta {
                 , _txMetaTableIsLocal    = txMeta ^. Kernel.txMetaIsLocal
                 , _txMetaTableIsOutgoing = txMeta ^. Kernel.txMetaIsOutgoing
                 , _txMetaTableWalletId   = txMeta ^. Kernel.txMetaWalletId
-                , _txMetaTableAccountId  = txMeta ^. Kernel.txMetaAccountId
+                , _txMetaTableAccountIx  = txMeta ^. Kernel.txMetaAccountIx
                 }
 
 instance Beamable TxMetaT
@@ -296,10 +296,10 @@ coin = DataType sqliteBigIntType
 walletid :: DataType SqliteDataTypeSyntax Core.Address
 walletid = DataType (varCharType Nothing Nothing)
 
-accountid :: DataType SqliteDataTypeSyntax Word32
-accountid = DataType sqliteBigIntType
+accountix :: DataType SqliteDataTypeSyntax Word32
+accountix = DataType sqliteBigIntType
 
-unlockTxId :: (TxCoinDistributionTableT f) -> Beam.Columnar f Txp.TxId
+unlockTxId :: TxCoinDistributionTableT f -> Beam.Columnar f Txp.TxId
 unlockTxId x =
     let TxIdPrimKey txid = _txCoinDistributionTxId x
     in txid
@@ -314,7 +314,7 @@ initialMigration () = do
                          (field "meta_is_local" boolean notNull)
                          (field "meta_is_outgoing" boolean notNull)
                          (field "meta_wallet_id" walletid notNull)
-                         (field "meta_account_id" accountid notNull))
+                         (field "meta_account_ix" accountix notNull))
            <*> createTable "tx_metas_inputs"
                  (TxInput (TxCoinDistributionTable (field "input_address" address notNull)
                                                    (field "input_coin" coin notNull)
@@ -338,7 +338,7 @@ unsafeMigrateMetaDB conn = do
     void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
     -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
     Sqlite.execute_ conn "CREATE INDEX meta_created_at ON tx_metas (meta_created_at)"
-    Sqlite.execute_ conn "CREATE INDEX meta_query ON tx_metas (meta_wallet_id, meta_account_id, meta_id, meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX meta_query ON tx_metas (meta_wallet_id, meta_account_ix, meta_id, meta_created_at)"
     Sqlite.execute_ conn "CREATE INDEX inputs_id ON tx_metas_inputs (meta_id)"
     Sqlite.execute_ conn "CREATE INDEX outputs_id ON tx_metas_outputs (meta_id)"
     where
@@ -351,11 +351,11 @@ unsafeMigrateMetaDB conn = do
 -- import Sqlite modules.
 newConnection :: FilePath -> IO Sqlite.Connection
 newConnection path = Sqlite.open path
--- TODO: add a debug option for this: Sqlite.setTrace conn (Just putStrLn)
 
 -- | Closes an open 'Connection' to the @Sqlite@ database stored in the
 -- input 'MetaDBHandle'.
 -- Even if open failed with error, this function should be called http://www.sqlite.org/c3ref/open.html
+-- TODO: provide a brucket style interface to ensure this.
 closeMetaDB :: Sqlite.Connection -> IO ()
 closeMetaDB = Sqlite.close
 
@@ -420,16 +420,16 @@ putTxMeta conn txMeta =
 
 -- | Converts a database-fetched 'TxMeta' into a domain-specific 'Kernel.TxMeta'.
 toTxMeta :: TxMeta -> NonEmpty TxInput -> NonEmpty TxOutput -> Kernel.TxMeta
-toTxMeta txMeta inputs outputs = Kernel.TxMeta {
-      _txMetaId         = _txMetaTableId txMeta
-    , _txMetaAmount     = _txMetaTableAmount txMeta
+toTxMeta TxMeta{..} inputs outputs = Kernel.TxMeta {
+      _txMetaId         = _txMetaTableId
+    , _txMetaAmount     = _txMetaTableAmount
     , _txMetaInputs     = fmap (reify . _getTxInput) inputs
     , _txMetaOutputs    = fmap (reify . _getTxOutput) outputs
-    , _txMetaCreationAt = _txMetaTableCreatedAt txMeta
-    , _txMetaIsLocal    = _txMetaTableIsLocal txMeta
-    , _txMetaIsOutgoing = _txMetaTableIsOutgoing txMeta
-    , _txMetaAccountId  = _txMetaTableAccountId txMeta
-    , _txMetaWalletId   = _txMetaTableWalletId txMeta
+    , _txMetaCreationAt = _txMetaTableCreatedAt
+    , _txMetaIsLocal    = _txMetaTableIsLocal
+    , _txMetaIsOutgoing = _txMetaTableIsOutgoing
+    , _txMetaWalletId   = _txMetaTableWalletId
+    , _txMetaAccountIx  = _txMetaTableAccountIx
     }
     where
         -- | Reifies the input 'TxCoinDistributionTableT' into a tuple suitable
@@ -596,11 +596,11 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
             pure meta
 
         filterAccs _ Everything = SQL.QExpr (pure (valueE (sqlValueSyntax True)))
-        filterAccs meta (AccountFops rootAddr (mbAccountId)) =
+        filterAccs meta (AccountFops rootAddr (mbAccountIx)) =
             (_txMetaTableWalletId meta ==. SQL.val_ rootAddr) &&.
-                case mbAccountId of
+                case mbAccountIx of
                     Nothing -> SQL.QExpr (pure (valueE (sqlValueSyntax True)))
-                    Just accountId -> _txMetaTableAccountId meta ==. SQL.val_ accountId
+                    Just accountIx -> _txMetaTableAccountIx meta ==. SQL.val_ accountIx
 
         applyFilter inputData fop =
             let byPredicate o i = case o of

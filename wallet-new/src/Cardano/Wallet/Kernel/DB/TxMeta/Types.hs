@@ -14,7 +14,7 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   , txMetaIsLocal
   , txMetaIsOutgoing
   , txMetaWalletId
-  , txMetaAccountId
+  , txMetaAccountIx
 
   -- * Transaction storage
   , MetaDBHandle (..)
@@ -100,8 +100,8 @@ data TxMeta = TxMeta {
       -- The Wallet that added this Tx.
     , _txMetaWalletId   :: Core.Address
 
-      -- The account that added this Tx
-    , _txMetaAccountId  :: Word32
+      -- The account index that added this Tx
+    , _txMetaAccountIx  :: Word32
     } deriving Show
 
 makeLenses ''TxMeta
@@ -119,7 +119,7 @@ exactlyEqualTo t1 t2 =
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
         , t1 ^. txMetaWalletId == t2 ^. txMetaWalletId
-        , t1 ^. txMetaAccountId == t2 ^. txMetaAccountId
+        , t1 ^. txMetaAccountIx == t2 ^. txMetaAccountIx
         ]
 
 -- | Lenient equality for two 'TxMeta': two 'TxMeta' are equal if they have
@@ -136,13 +136,13 @@ isomorphicTo t1 t2 =
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
         , t1 ^. txMetaWalletId == t2 ^. txMetaWalletId
-        , t1 ^. txMetaAccountId == t2 ^. txMetaAccountId
+        , t1 ^. txMetaAccountIx == t2 ^. txMetaAccountIx
         ]
 
-type AccountId = Word32
+type AccountIx = Word32
 type WalletId = Core.Address
--- | Filter Operations on Accounts. This is hiererchical: you can`t have AccountId without WalletId.
-data AccountFops = Everything | AccountFops WalletId (Maybe AccountId)
+-- | Filter Operations on Accounts. This is hiererchical: you can`t have AccountIx without WalletId.
+data AccountFops = Everything | AccountFops WalletId (Maybe AccountIx)
 
 data InvariantViolation =
         DuplicatedTransactionWithDifferentHash Txp.TxId
@@ -194,7 +194,7 @@ instance Buildable TxMeta where
                            " isLocal = " % F.build %
                            " isOutgoing = " % F.build %
                            " walletId = " % F.build %
-                           " accountId = " % F.build
+                           " accountIx = " % F.build
                           ) (txMeta ^. txMetaId)
                             (txMeta ^. txMetaAmount)
                             (txMeta ^. txMetaInputs)
@@ -203,7 +203,7 @@ instance Buildable TxMeta where
                             (txMeta ^. txMetaIsLocal)
                             (txMeta ^. txMetaIsOutgoing)
                             (txMeta ^. txMetaWalletId)
-                            (txMeta ^. txMetaAccountId)
+                            (txMeta ^. txMetaAccountIx)
 
 instance Buildable [TxMeta] where
     build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta
@@ -259,6 +259,14 @@ data MetaDBHandle = MetaDBHandle {
     , migrateMetaDB :: IO ()
     , getTxMeta     :: Txp.TxId -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
-    , getTxMetas    :: Offset -> Limit -> AccountFops -> Maybe Core.Address ->
-        FilterOperation Txp.TxId -> FilterOperation Core.Timestamp -> Maybe Sorting -> IO ([TxMeta], Maybe Int)
+    , getTxMetas    :: Offset -- ^ Pagination: the starting offset of results.
+                    -> Limit  -- ^ An upper limit of the length of [TxMeta] returned.
+                    -> AccountFops -- ^ Filters on the Account. This may specidy an Account or a Wallet.
+                    -> Maybe Core.Address -- ^ Filters on the Addres.
+                    -> FilterOperation Txp.TxId -- ^ Filters on the TxId of the Tx.
+                    -> FilterOperation Core.Timestamp -- ^ Filters on the creation timestamp of the Tx.
+                    -> Maybe Sorting -- ^ Sorting of the results.
+                    -> IO ([TxMeta], Maybe Int) -- ^ the result in the form (results, totalEntries).
+                                                -- totalEntries may be Nothing, because counting can
+                                                -- be an expensive operation.
     }

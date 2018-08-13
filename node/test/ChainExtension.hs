@@ -12,10 +12,10 @@ spec :: Spec
 spec = do
   describe "Chain extension verification" $ do
     it "New block must specify previous block as predecessor" $
-      undefined
+      pending
 
     it "New block does not live in a slot in the past" $
-      undefined
+      pending
 
     it "Issuer is the slot leader" $
-      undefined
+      pending

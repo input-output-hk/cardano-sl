@@ -10,7 +10,7 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 
-import           Cardano.Wallet.API.V1.Types
+-- import           Cardano.Wallet.API.V1.Types
 
 import qualified ChainExtension as CE
 import qualified Translation as Tr

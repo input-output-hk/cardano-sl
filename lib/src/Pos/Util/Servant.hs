@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TypeFamilies              #-}
@@ -56,19 +57,17 @@ module Pos.Util.Servant
     , serverHandlerL
     , serverHandlerL'
     , inRouteServer
-
-    , applyLoggingToHandler
     ) where
 
 import           Universum hiding (id)
 
-import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
-import           Control.Monad.Except (ExceptT (..), MonadError (..))
+import           Control.Monad.Except (ExceptT (..), MonadError (..),
+                     catchError, throwError)
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
-import           Data.Reflection (Reifies (..), reflect)
+import           Data.Reflection (Reifies (..))
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (bprint, build, builder, fconst, formatToString,
@@ -86,10 +85,11 @@ import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
                      Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
-import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Infra.Util.LogSafe (BuildableSafe, SecureLog, SecuredText,
-                     buildSafe, logInfoSP, plainOrSecureF, secretOnlyF)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Log.LogSafe (BuildableSafe, SecureLog, SecuredText,
+                     buildSafe, plainOrSecureF, secretOnlyF)
+import           Pos.Util.Trace.Named (TraceNamed, logInfoSP, natTrace)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -359,8 +359,9 @@ data LoggingApi config api
 data LoggingApiRec config api
 
 newtype ApiLoggingConfig = ApiLoggingConfig
-    { apiLoggerName :: LoggerName
-    } deriving Show
+    {
+      apiLogTrace :: Log.LoggerName
+    }
 
 -- | Used to incrementally collect info about passed parameters.
 data ApiParamsLogInfo
@@ -569,13 +570,14 @@ applyServantLogging
        , Reifies config ApiLoggingConfig
        , ReflectMethod (method :: k)
        )
-    => Proxy config
+    => TraceNamed m
+    -> Proxy config
     -> Proxy method
     -> ApiParamsLogInfo
     -> (a -> Text)
     -> m a
     -> m a
-applyServantLogging configP methodP paramsInfo showResponse action = do
+applyServantLogging logTrace _{-configP-} methodP paramsInfo showResponse action = do
     timer <- mkTimer
     reqId <- nextRequestId
     catchErrors reqId timer $ do
@@ -599,10 +601,9 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         return $ do
             endTime <- liftIO getPOSIXTime
             return $ sformat shown (endTime - startTime)
-    inLogCtx :: LoggerNameBox m a -> m a
-    inLogCtx logAction = do
+{-    logTrace = do
         let ApiLoggingConfig{..} = reflect configP
-        usingLoggerName apiLoggerName logAction
+        (natTrace liftIO apiLogTrace) -}
     eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->
@@ -611,15 +612,14 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                     (colorizeDull White ":>")
                     (securedParamsInfo sl)
         ApiNoParamsLogInfo why -> Left why
-    reportRequest :: MonadIO m => RequestId -> m ()
     reportRequest reqId =
         case eParamLogs of
             Left e ->
-                inLogCtx $ logInfoSP $ \sl ->
+                logInfoSP logTrace $ \sl ->
                     sformat ("\n"%stext%secretOnlyF sl (" "%stext))
                         (colorizeDull Red "Unexecuted request due to error") e
             Right paramLogs -> do
-                inLogCtx $ logInfoSP $ \sl ->
+                logInfoSP logTrace $ \sl ->
                     sformat ("\n"%stext%" "%stext%"\n"%build)
                         cmethod
                         (colorizeDull White $ "Request " <> pretty reqId)
@@ -627,7 +627,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     responseTag reqId = "Response " <> pretty reqId
     reportResponse reqId timer resp = do
         durationText <- timer
-        inLogCtx $ logInfoSP $ \sl ->
+        logInfoSP logTrace $ \sl ->
             sformat ("\n    "%stext%" "%stext%" "%stext
                     %plainOrSecureF sl (stext%stext) (fconst ""%fconst ""))
                 (colorizeDull White $ responseTag reqId)
@@ -641,7 +641,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     servantErrHandler reqId timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        inLogCtx $ logInfoSP $ \_sl ->
+        logInfoSP logTrace $ \_sl ->
             sformat ("\n    "%stext%" "%stext%" "%stext)
                 (colorizeDull White $ responseTag reqId)
                 (colorizeDull Red errMsg)
@@ -649,7 +649,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         throwError err
     exceptionsHandler reqId timer e = do
         durationText <- timer
-        inLogCtx $ logInfoSP $ \_sl ->
+        logInfoSP logTrace $ \_sl ->
             sformat ("\n    "%stext%" "%shown%" "%stext)
                 (colorizeDull Red $ responseTag reqId)
                 e
@@ -662,37 +662,49 @@ applyLoggingToHandler
        , Reifies config ApiLoggingConfig
        , ReflectMethod method
        )
-    => Proxy config -> Proxy (method :: k) -> (ApiParamsLogInfo, Handler a) -> Handler a
-applyLoggingToHandler configP methodP (paramsInfo, handler) =
+    => TraceNamed (ExceptT ServantErr IO)
+    -> Proxy config
+    -> Proxy (method :: k)
+    -> (ApiParamsLogInfo, Handler a)
+    -> Handler a
+applyLoggingToHandler logTrace configP methodP (paramsInfo, handler) =
     handler & serverHandlerL %~ withLogging paramsInfo
   where
     display = sformat build . WithTruncatedLog
-    withLogging params = applyServantLogging configP methodP params display
+    withLogging params = applyServantLogging logTrace configP methodP params display
 
 instance ( HasServer (Verb mt st ct a) ctx
          , Reifies config ApiLoggingConfig
          , ReflectMethod mt
+         , SI.HasContextEntry ctx (TraceNamed IO)
          , Buildable (WithTruncatedLog a)
          ) =>
          HasLoggingServer config (Verb (mt :: k) (st :: Nat) (ct :: [*]) a) ctx where
-    routeWithLog =
-        inRouteServer @(Verb mt st ct a) route $
-        applyLoggingToHandler (Proxy @config) (Proxy @mt)
+    routeWithLog pr ct del =
+        let logTrace = SI.getContextEntry ct :: TraceNamed IO
+         in
+            inRouteServer @(Verb mt st ct a) route (
+                applyLoggingToHandler (natTrace liftIO logTrace) (Proxy @config) (Proxy @mt)
+            ) pr ct del
 
 instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
          , HasServer (VerbMod mod (Verb mt st ct a)) ctx
          , ModifiesApiRes mod
          , ReflectMethod mt
          , Reifies config ApiLoggingConfig
+         , SI.HasContextEntry ctx (TraceNamed IO)
          , Buildable (WithTruncatedLog $ ApiModifiedRes mod a)
          ) =>
          HasLoggingServer config (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
-    routeWithLog =
-        -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
-        inRouteServer @(Verb mt st ct $ ApiModifiedRes mod a) route $
-        \(paramsInfo, handler) ->
-            handler & serverHandlerL' %~ modifyApiResult (Proxy @mod)
-                    & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
+    routeWithLog pr ct del =
+        let logTrace = SI.getContextEntry ct :: TraceNamed IO
+         in
+            -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
+            inRouteServer @(Verb mt st ct $ ApiModifiedRes mod a) route (
+                \(paramsInfo, handler) ->
+                     handler & serverHandlerL' %~ modifyApiResult (Proxy @mod)
+                            & applyLoggingToHandler (natTrace liftIO logTrace) (Proxy @config) (Proxy @mt) . (paramsInfo, )
+                ) pr ct del
 
 instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where

@@ -16,7 +16,7 @@ import           Pos.Infra.Communication.Protocol (ConversationActions,
                      OutSpecs, VerInfo (..), checkProtocolMagic,
                      checkingInSpecs, messageCode)
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Util.Trace (Severity, Trace)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- TODO automatically provide a 'recvLimited' here by using the
 -- 'MessageLimited'?
@@ -27,7 +27,7 @@ listenerConv
        , Message snd
        , Message rcv
        )
-    => Trace IO (Severity, Text)
+    => TraceNamed IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> (VerInfo -> NodeId -> ConversationActions snd rcv -> IO ())
     -> (ListenerSpec, OutSpecs)

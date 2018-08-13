@@ -25,7 +25,6 @@ import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..))
-import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
@@ -46,6 +45,7 @@ import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -158,16 +158,16 @@ data GetHeadersFromManyToError = GHFBadInput Text deriving (Show,Generic)
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo ::
        ( MonadDBRead m
-       , WithLogger m
        )
-    => Maybe Word          -- ^ Optional limit on how many to bring in.
+    => TraceNamed m
+    -> Maybe Word          -- ^ Optional limit on how many to bring in.
     -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
     -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
-    logDebug $
-        sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
+getHeadersFromManyTo logTrace0 mLimit checkpoints startM = runExceptT $ do
+    lift $ logDebug logTrace $
+        sformat (listJson%", start: "%build)
                 checkpoints startM
     tip <- lift DB.getTipHeader
     let tipHash = headerHash tip
@@ -182,7 +182,7 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
     let inMainCheckpointsHashes = map headerHash inMainCheckpoints
     when (tipHash `elem` inMainCheckpointsHashes) $
         throwLocal "found checkpoint that is equal to our tip"
-    logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
+    lift $ logDebug logTrace $ "got checkpoints in main chain"
 
     if (tip ^. prevBlockL . headerHashG) `elem` inMainCheckpointsHashes
         -- Optimization for the popular case "just get me the newest
@@ -201,9 +201,10 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
                 maybe (throwLocal "loadHeadersUpWhile returned empty list") pure $
                 _NewestFirst nonEmpty $
                 toNewestFirst $ over _OldestFirst (drop 1) up
-            logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+            lift $ logDebug logTrace $ "loaded non-empty list of headers, returning"
             pure res
   where
+    logTrace = appendName "getHeadersFromManyTo" logTrace0
     mLimitInt :: Maybe Int
     mLimitInt = fromIntegral <$> mLimit
 

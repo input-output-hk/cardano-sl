@@ -30,8 +30,6 @@ import           Universum
 
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
-                     logWarning, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (LocalSlotIndex, SlotId (..), Timestamp (..), slotIdF)
@@ -48,6 +46,8 @@ import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logInfo, logNotice, logWarning)
 import           Pos.Util.Util (maybeThrow)
 
 
@@ -103,48 +103,46 @@ type MonadOnNewSlot ctx m =
     , MonadReader ctx m
     , MonadSlots ctx m
     , MonadMask m
-    , WithLogger m
     , MonadReporting m
     , HasShutdownContext ctx
     , MonadRecoveryInfo ctx m
     )
 
--- | Run given action as soon as new slot starts, passing SlotId to
--- it.
+-- | Run given action as soon as new slot starts, passing SlotId to it.
 onNewSlot
     :: MonadOnNewSlot ctx m
-    => OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlot = onNewSlotImpl False
+    => TraceNamed m -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlot logTrace = onNewSlotImpl logTrace False
 
 onNewSlotWithLogging
     :: MonadOnNewSlot ctx m
-    => OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlotWithLogging = onNewSlotImpl True
+    => TraceNamed m -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotWithLogging logTrace = onNewSlotImpl logTrace True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
     :: forall ctx m. MonadOnNewSlot ctx m
-    => Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlotImpl withLogging params action =
+    => TraceNamed m -> Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotImpl logTrace withLogging params action =
     impl `catch` workerHandler
   where
-    impl = onNewSlotDo withLogging Nothing params actionWithCatch
+    impl = onNewSlotDo logTrace withLogging Nothing params actionWithCatch
     -- [CSL-198] TODO: consider removing it.
     actionWithCatch s = action s `catch` actionHandler
     actionHandler :: SomeException -> m ()
     -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
-    actionHandler = reportOrLogE "onNewSlotImpl: "
+    actionHandler = reportOrLogE logTrace "onNewSlotImpl: "
     workerHandler :: SomeException -> m ()
     workerHandler e = do
         -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
-        reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
+        reportOrLogE logTrace "Error occurred in 'onNewSlot' worker itself: " e
         delay =<< getNextEpochSlotDuration
-        onNewSlotImpl withLogging params action
+        onNewSlotImpl logTrace withLogging params action
 
 onNewSlotDo
     :: MonadOnNewSlot ctx m
-    => Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId onsp action = do
+    => TraceNamed m -> Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotDo logTrace withLogging expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
 
     let nextSlot = succ curSlot
@@ -156,17 +154,17 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
           NoTerminationPolicy -> a
           NewSlotTerminationPolicy name ->
               whenNothingM_ (timeout timeToWait a) $
-                  logWarning $ sformat
+                  logWarning logTrace $ sformat
                   ("Action "%stext%
                    " hasn't finished before new slot started") name
 
     when (onspStartImmediately onsp) $ applyTimeout $ action curSlot
 
     when (timeToWait > 0) $ do
-        when withLogging $ logTTW timeToWait
+        logTTW timeToWait
         delay timeToWait
     let newParams = onsp { onspStartImmediately = True }
-    onNewSlotDo withLogging (Just nextSlot) newParams action
+    onNewSlotDo logTrace withLogging (Just nextSlot) newParams action
   where
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most
@@ -185,27 +183,28 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
     shortDelay = 42
     recoveryRefreshDelay :: Millisecond
     recoveryRefreshDelay = 150
-    logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
-                 sformat ("Waiting for "%shown%" before new slot") timeToWait
+    logTTW timeToWait = logDebug (appendName "slotting" logTrace) $ sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: MonadOnNewSlot ctx m => m ()
-logNewSlotWorker =
-    onNewSlotWithLogging defaultOnNewSlotParams $ \slotId -> do
-        modifyLoggerName (<> "slotting") $
-            logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
+logNewSlotWorker
+    :: MonadOnNewSlot ctx m
+    => TraceNamed m
+    ->  m ()
+logNewSlotWorker logTrace =
+    onNewSlotWithLogging logTrace defaultOnNewSlotParams $ \slotId -> do
+        logNotice (appendName "slotting" logTrace) $ sformat ("New slot has just started: " %slotIdF) slotId
 
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.
 waitSystemStart
     :: ( MonadSlotsData ctx m
-       , WithLogger m
        , MonadSlots ctx m)
-    => m ()
-waitSystemStart = do
+    => TraceNamed m
+    -> m ()
+waitSystemStart logTrace = do
     start <- getSystemStartM
     cur <- currentTimeSlotting
     let Timestamp waitPeriod = start - cur
     when (cur < start) $ do
-        logInfo $ sformat ("Waiting "%int%" seconds for system start") $
+        logInfo logTrace $ sformat ("Waiting "%int%" seconds for system start") $
             waitPeriod `div` fromMicroseconds 1000000
         delay waitPeriod

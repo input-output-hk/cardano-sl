@@ -57,7 +57,6 @@ Library
                       , hashable
                       , kademlia
                       , lens
-                      , log-warper
                       , monad-control
                       , mtl
                       , network
@@ -142,7 +141,6 @@ executable bench-sender
                      , cardano-sl-util
                      , contravariant
                      , lens
-                     , log-warper
                      , MonadRandom
                      , mtl
                      , network-transport
@@ -151,6 +149,7 @@ executable bench-sender
                      , random
                      , safe-exceptions
                      , serokell-util
+                     , text
                      , time
                      , time-units
   hs-source-dirs:      bench/Sender
@@ -202,7 +201,6 @@ executable bench-log-reader
                      , containers
                      , formatting
                      , lens
-                     , log-warper
                      , mtl
                      , optparse-simple
                      , resourcet
@@ -241,7 +239,6 @@ test-suite cardano-sl-networking-test
                      , hspec >= 2.1.10
                      , hspec-core
                      , lens >= 4.14
-                     , log-warper
                      , mtl >= 2.2.1
                      , network-transport
                      , network-transport-tcp

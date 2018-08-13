@@ -22,11 +22,6 @@ module Ntp.Util
     , foldThese
     , pairThese
 
-    , ntpTrace
-    , logDebug
-    , logInfo
-    , logWarning
-    , logError
     ) where
 
 import           Control.Exception (Exception, IOException, catch, throw)
@@ -39,7 +34,6 @@ import           Data.Foldable (traverse_)
 import           Data.List (find)
 import           Data.Semigroup (First (..), Last (..), Option (..),
                      Semigroup (..))
-import           Data.Text (Text)
 import           Data.These (These (..))
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo,
@@ -50,26 +44,14 @@ import           Network.Socket (AddrInfo,
                      addrFlags, addrSocketType)
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as Socket.ByteString (sendTo)
-import qualified System.Wlog as Wlog
 
 import           Ntp.Packet (NtpPacket)
-import           Pos.Util.Trace (Trace, traceWith, wlogTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
+                     logError, logInfo, logWarning)
 
 
-ntpTrace :: Trace IO (Wlog.Severity, Text)
-ntpTrace = wlogTrace "NtpClient"
-
-logWarning :: Text -> IO ()
-logWarning msg = traceWith ntpTrace (Wlog.Warning, msg)
-
-logInfo :: Text -> IO ()
-logInfo msg = traceWith ntpTrace (Wlog.Info, msg)
-
-logDebug :: Text -> IO ()
-logDebug msg = traceWith ntpTrace (Wlog.Debug, msg)
-
-logError :: Text -> IO ()
-logError msg = traceWith ntpTrace (Wlog.Error, msg)
+ntpTrace :: TraceNamed IO -> TraceNamed IO
+ntpTrace = appendName "NtpClient"
 
 data AddrFamily = IPv4 | IPv6
     deriving Show
@@ -143,8 +125,9 @@ ntpPort = 123
 -- |
 -- Returns a list of alternatives. At most of length two,
 -- at most one ipv6 / ipv4 address.
-resolveHost :: String -> IO (Maybe Addresses)
-resolveHost host = do
+resolveHost :: TraceNamed IO -> String -> IO (Maybe Addresses)
+resolveHost logTrace0 host = do
+    let logTrace = ntpTrace logTrace0
     let hints = Socket.defaultHints
             { addrSocketType = Datagram
             , addrFlags = [AI_ADDRCONFIG]  -- since we use @AF_INET@ family
@@ -156,13 +139,13 @@ resolveHost host = do
     let maddr = getOption $ foldMap fn addrInfos
     case maddr of
         Nothing ->
-            logWarning $ sformat ("Host "%shown%" is not resolved") host
+            logWarning logTrace $ sformat ("Host "%shown%" is not resolved") host
         Just addr ->
             let g :: First (WithAddrFamily t SockAddr) -> [SockAddr]
                 g (First a) = [runWithAddrFamily a]
                 addrs :: [SockAddr]
                 addrs = foldThese . bimap g g $ addr
-            in logInfo $ sformat ("Host "%shown%" is resolved: "%shown)
+            in logInfo logTrace $ sformat ("Host "%shown%" is resolved: "%shown)
                     host addrs
     return maddr
     where
@@ -175,9 +158,9 @@ resolveHost host = do
                 Option $ Just $ That $ First $ (WithIPv4 $ Socket.addrAddress addr)
             _               -> mempty
 
-resolveNtpHost :: String -> IO (Maybe Addresses)
-resolveNtpHost host = do
-    addr <- resolveHost host
+resolveNtpHost :: TraceNamed IO -> String -> IO (Maybe Addresses)
+resolveNtpHost logTrace host = do
+    addr <- resolveHost logTrace host
     return $ fmap (bimap adjustPort adjustPort) addr
     where
         adjustPort :: First (WithAddrFamily t SockAddr) -> First (WithAddrFamily t SockAddr)
@@ -189,12 +172,13 @@ replacePort port (SockAddrInet6 _ flow host scope) = SockAddrInet6 port flow hos
 replacePort _    sockAddr                          = sockAddr
 
 createAndBindSock
-    :: AddrFamily
+    :: TraceNamed IO
+    -> AddrFamily
     -- ^ indicates which socket family to create, either @AF_INET6@ or @AF_INET@
     -> [AddrInfo]
     -- ^ list of local addresses
     -> IO (Maybe Sockets)
-createAndBindSock addressFamily addrs =
+createAndBindSock logTrace addressFamily addrs =
     traverse createDo (selectAddr addrs)
   where
     selectAddr :: [AddrInfo] -> Maybe AddrInfo
@@ -207,7 +191,7 @@ createAndBindSock addressFamily addrs =
         sock <- Socket.socket (addrFamily addr) Datagram Socket.defaultProtocol
         Socket.setSocketOption sock ReuseAddr 1
         Socket.bind sock (addrAddress addr)
-        logInfo $
+        logInfo (ntpTrace logTrace) $
             sformat ("Created socket (family/addr): "%shown%"/"%shown)
                     (addrFamily addr) (addrAddress addr)
         case addressFamily of
@@ -257,11 +241,12 @@ sendTo sock bs addr = case fmap (foldThese . bimap fn fn) $ pairThese sock addr 
 -- |
 -- Low level primitive which sends a request to a single NTP server.
 sendPacket
-    :: Sockets
+    :: TraceNamed IO
+    -> Sockets
     -> NtpPacket
     -> [Addresses]
     -> IO ()
-sendPacket sock packet addrs = do
+sendPacket logTrace0 sock packet addrs = do
     let bs = LBS.toStrict $ encode $ packet
     traverse_
         (\addr ->
@@ -270,21 +255,22 @@ sendPacket sock packet addrs = do
         )
         addrs
   where
+    logTrace = ntpTrace logTrace0
     handleSendToException :: Addresses -> SendToException -> IO ()
     handleSendToException addr e@NoMatchingSocket =
-        logError $ sformat
+        logError logTrace $ sformat
             ("sendPacket SendToException: "%shown%" "%shown%": "%shown) addr sock e
     handleSendToException addr (SendToIOException addressFamily ioerr) = do
-        logError $ sformat
+        logError logTrace $ sformat
             ("sendPacket IOError: "%shown%" "%shown%": "%shown) addr sock ioerr
         case (addr, addressFamily) of
             -- try to send the packet to the other address in case the current
             -- system does not support IPv4/6.
             (These _ r, IPv6) -> do
-                logDebug $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst r)
-                sendPacket sock packet [That r]
+                logDebug logTrace $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst r)
+                sendPacket logTrace0 sock packet [That r]
             (These l _, IPv4) -> do
-                logDebug $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst l)
-                sendPacket sock packet [This  l]
+                logDebug logTrace $ sformat ("sendPacket re-sending using: "%shown) (runWithAddrFamily $ getFirst l)
+                sendPacket logTrace0 sock packet [This  l]
             _                  ->
-                logDebug "sendPacket: not retrying"
+                logDebug logTrace "sendPacket: not retrying"

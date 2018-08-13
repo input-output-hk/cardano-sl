@@ -154,7 +154,7 @@ usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
-  stack exec -- cardano-node                                             \
+  stack exec -- cardano-node-simple                                      \
     --db-path node-db0                                                   \
     --rebuild-db                                                         \
     --keyfile secrets/secret-1.key                                       \

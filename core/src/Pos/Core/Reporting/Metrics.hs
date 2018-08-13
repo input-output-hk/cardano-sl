@@ -19,10 +19,10 @@ import           Formatting (Format, build, sformat)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
 -- function (see below).
@@ -103,13 +103,12 @@ noReportMonitor converter debugFormat st =
 -- | Update the value stored in the 'MetricMonitor's gauge.  Report
 -- this value if it should be reported according to 'MetricMonitor'.
 recordValue ::
-       ( MonadIO m
-       , WithLogger m
-       )
-    => MetricMonitor value
+       MonadIO m
+    => TraceNamed m
+    -> MetricMonitor value
     -> value
     -> m ()
-recordValue MetricMonitor {..} v = do
+recordValue logTrace MetricMonitor {..} v = do
     let MetricMonitorState {..} = mmState
     let vInt = mmConvertValue v
     liftIO $ Gauge.set mmsGauge vInt
@@ -117,7 +116,7 @@ recordValue MetricMonitor {..} v = do
     curTime <- currentTime
     lastReportedValue <- readTVarIO mmsLastReportedValue
     case mmReportMisbehaviour (curTime - lastReportTime) lastReportedValue v of
-        Nothing -> whenJust mmDebugFormat $ logDebug . flip sformat v
+        Nothing -> whenJust mmDebugFormat $ (logDebug logTrace) . flip sformat v
         Just _ -> do
             atomically $ do
                 writeTVar mmsLastReportTime curTime

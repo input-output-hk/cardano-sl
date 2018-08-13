@@ -19,7 +19,6 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (runExceptT, throwError)
 import           Formatting (bprint, build, sformat, stext, (%))
 import qualified Formatting.Buildable
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core (SlotCount, SlotId, epochOrSlotG, epochOrSlotToSlot,
                      flattenSlotId, slotIdF, slotSecurityParam)
@@ -27,6 +26,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Slotting.Class (MonadSlots (getCurrentSlot))
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Util.Util (HasLens (..))
 
 newtype TipSlot = TipSlot SlotId
@@ -141,14 +141,15 @@ getSyncStatusK = getSyncStatus lagBehindParam
 -- kinda synchronized with the network.  It is useful for workers
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo ctx m, WithLogger m)
-    => Text -> m () -> m ()
-recoveryCommGuard actionName action =
+    :: (MonadRecoveryInfo ctx m)
+    => TraceNamed m
+    -> Text -> m () -> m ()
+recoveryCommGuard logTrace actionName action =
     getSyncStatusK >>= \case
         SSKindaSynced -> action
         status ->
-            logDebug $
-            sformat ("recoveryCommGuard: we are skipping action '"%stext%
+            logDebug logTrace $
+                sformat ("recoveryCommGuard: we are skipping action '"%stext%
                      "', because "%build) actionName status
 
 -- | This function checks that last known block is more than K slots

@@ -16,6 +16,7 @@ import           Test.QuickCheck (Gen, arbitrary)
 import           Test.QuickCheck.Monadic (forAllM, monadicIO, pick, run)
 
 import           Pos.Crypto (EncryptedSecretKey, hash, safeKeyGen)
+import           Pos.Util.Trace (noTrace)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Keystore (DeletePolicy (..), Keystore)
@@ -29,7 +30,7 @@ import           Util.Buildable (ShowThroughBuild (..))
 -- | Creates and operate on a keystore. The 'Keystore' is created in a temporary
 -- directory and garbage-collected from the Operating System.
 withKeystore :: (Keystore -> IO a) -> IO a
-withKeystore = Keystore.bracketTestKeystore
+withKeystore = Keystore.bracketTestKeystore noTrace
 
 genKeypair :: Gen ( ShowThroughBuild WalletId
                   , ShowThroughBuild EncryptedSecretKey
@@ -56,13 +57,13 @@ spec =
     describe "Keystore to store UserSecret(s)" $ do
         it "creating a brand new one works" $ do
             nukeKeystore "test_keystore.key"
-            Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \_ks ->
+            Keystore.bracketKeystore noTrace KeepKeystoreIfEmpty "test_keystore.key" $ \_ks ->
                 return ()
             doesFileExist "test_keystore.key" `shouldReturn` True
 
         it "destroying a keystore (completely) works" $ do
             nukeKeystore "test_keystore.key"
-            Keystore.bracketKeystore RemoveKeystoreIfEmpty "test_keystore.key" $ \_ks ->
+            Keystore.bracketKeystore noTrace RemoveKeystoreIfEmpty "test_keystore.key" $ \_ks ->
                 return ()
             doesFileExist "test_keystore.key" `shouldReturn` False
 
@@ -86,9 +87,9 @@ spec =
             (STB wid, STB esk) <- pick genKeypair
             run $ do
                 nukeKeystore "test_keystore.key"
-                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 ->
+                Keystore.bracketKeystore noTrace KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 ->
                     Keystore.insert wid esk keystore1
-                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
+                Keystore.bracketKeystore noTrace KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
                     mbKey <- Keystore.lookup wid keystore2
                     (fmap hash mbKey) `shouldBe` (Just (hash esk))
 
@@ -104,9 +105,9 @@ spec =
             (STB wid, STB esk) <- pick genKeypair
             run $ do
                 nukeKeystore "test_keystore.key"
-                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 -> do
+                Keystore.bracketKeystore noTrace KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 -> do
                     Keystore.insert wid esk keystore1
                     Keystore.delete wid keystore1
-                Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
+                Keystore.bracketKeystore noTrace KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
                     mbKey <- Keystore.lookup wid keystore2
                     (fmap hash mbKey) `shouldBe` Nothing

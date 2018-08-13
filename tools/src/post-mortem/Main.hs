@@ -6,10 +6,15 @@ import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Csv as C (encode)
 import           Data.List (last)
 import qualified Data.Map.Strict as M
+import           Formatting (sformat, shown, (%))
 import           System.FilePath
 import           System.IO (hPutStrLn)
 import           Text.Printf (hPrintf)
 
+import           Pos.Util.Log (Severity (Debug), loggerBracket, setupLogging)
+import           Pos.Util.LoggerConfig (defaultStdErrConfiguration)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo,
+                     namedTrace)
 import           Pos.Util.Util (histogram)
 
 import           Options
@@ -18,41 +23,50 @@ import           Types
 
 
 main :: IO ()
-main = parseOptions >>= \case
-    Overview sampleProb logDirs -> do
-        showLogDirs logDirs
-        err $ "sample probability: " ++ show sampleProb
-        err ""
-        xs <- forM logDirs $ flip processLogDirOverview sampleProb
-        chart xs "times.svg"
-        err "wrote times chart"
-        BSL.writeFile "times.csv" (C.encode $ foldl' (\ acc (_, m) -> getData m ++  acc) [] xs)
-        err "wrote times csv"
-    Focus txHash logDir         -> do
-        err $ "transaction hash: " ++ show txHash
-        err $ "logs directory: " ++ show logDir
-        let focusFile = ("focus_" ++ extractName logDir ++ "_" ++ toString txHash) <.> "csv"
-        runJSONFold logDir (focusF txHash) >>= focusToCSV focusFile
-        err $ "wrote result to " ++ show focusFile
-    TxRelay logDirs             -> do
-        showLogDirs logDirs
-        err ""
-        for_ logDirs processLogDirTxRelay
-    Throughput txWindow waitWindow logDirs   -> do
-        showLogDirs logDirs
-        err $ "tx window: " ++ show txWindow
-        err $ "wait window: " ++ show waitWindow
-        err ""
-        for_ logDirs $ processLogDirThroughput txWindow waitWindow
+main = do
+    lh <- setupLogging $ defaultStdErrConfiguration Debug
+    let logTrace = appendName "post-mortem" $ namedTrace lh
 
-showLogDirs :: [FilePath] -> IO ()
-showLogDirs logDirs = do
-    err "log directories: "
-    for_ logDirs $ \d -> err $ " - " ++ show d
+    loggerBracket lh "post-mortem" $ liftIO $ do
+        parseOptions >>= \case
+            Overview sampleProb logDirs -> do
+                showLogDirs logTrace logDirs
+                logInfo logTrace $ sformat ("sample probability: " % shown) sampleProb
+                logInfo logTrace ""
+                xs <- forM logDirs $ flip (processLogDirOverview logTrace) sampleProb
+                chart xs "times.svg"
+                logInfo logTrace "wrote times chart"
+                BSL.writeFile "times.csv" (C.encode $ foldl' (\ acc (_, m) -> getData m ++  acc) [] xs)
+                logInfo logTrace "wrote times csv"
+            Focus txHash logDir         -> do
+                logInfo logTrace $ sformat ("transaction hash: " % shown) txHash
+                logInfo logTrace $ sformat ("logs directory: " % shown) logDir
+                let focusFile = ("focus_" ++ extractName logDir ++ "_" ++ toString txHash) <.> "csv"
+                runJSONFold logDir (focusF txHash) >>= focusToCSV focusFile
+                logInfo logTrace $ sformat ("wrote result to " % shown) focusFile
+            TxRelay logDirs             -> do
+                showLogDirs logTrace logDirs
+                logInfo logTrace ""
+                for_ logDirs $ processLogDirTxRelay logTrace
+            Throughput txWindow waitWindow logDirs   -> do
+                showLogDirs logTrace logDirs
+                logInfo logTrace $ sformat ("tx window: " % shown) txWindow
+                logInfo logTrace $ sformat ("wait window: " % shown) waitWindow
+                logInfo logTrace ""
+                for_ logDirs $ processLogDirThroughput logTrace txWindow waitWindow
 
-processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))
-processLogDirOverview logDir sampleProb = do
-    err $ "processing log directory " ++ show logDir ++ " ..."
+showLogDirs :: MonadIO m => TraceNamed m -> [FilePath] -> m ()
+showLogDirs logTrace logDirs = do
+    logInfo logTrace "log directories: "
+    for_ logDirs $ \d -> logInfo logTrace $ sformat (" - " % shown) d
+
+processLogDirOverview
+    :: TraceNamed IO
+    -> FilePath
+    -> Double
+    -> IO (String, Map TxHash (Maybe Timestamp))
+processLogDirOverview logTrace logDir sampleProb = do
+    logInfo logTrace $ sformat ("processing log directory " % shown % " ...") logDir
 
     (rc, g, mp, cr, ft) <-
         runJSONFold logDir $ (,,,,) <$> receivedCreatedF
@@ -63,57 +77,54 @@ processLogDirOverview logDir sampleProb = do
     let total    = M.size rc
         included = sort $ mapMaybe snd $ M.toList rc
         lost     = total - length included
-    err $ "total number of received transactions: " ++ show total
-    err $ "included in blockchain: " ++ show (length included)
-    err $ "lost transactions: " ++ show lost
-    err $ "blocks in chain: " ++ show (length cr)
-    err $ "mem pool entries: " ++ show (length mp)
+    logInfo logTrace $ sformat ("total number of received transactions: " % shown) total
+    logInfo logTrace $ sformat ("included in blockchain: " % shown) (length included)
+    logInfo logTrace $ sformat ("lost transactions: " % shown) lost
+    logInfo logTrace $ sformat ("blocks in chain: " % shown) (length cr)
+    logInfo logTrace $ sformat ("mem pool entries: " % shown) (length mp)
 
     let dirName   = extractName logDir
     let graphFile = getName "graph" dirName "png"
     b <- writeGraph graphFile g
-    when b $ err $ "wrote graph png to " ++ show graphFile
+    when b $ logInfo logTrace $ sformat ("wrote graph png to " % shown) graphFile
 
     let csvFile = getName "csv" dirName "csv"
     txCntInChainMemPoolToCSV csvFile sampleProb cr mp
-    err $ "wrote csv file to " ++ show csvFile
+    logInfo logTrace $ sformat ("wrote csv file to " % shown) csvFile
     let reportFile = getName "report" dirName "txt"
     void (reportTxFate reportFile ft)
-    err $ "wrote report file to " ++ show reportFile
-    err $ "processing log directory " ++ show logDir ++ " done"
-    err ""
+    logInfo logTrace $ sformat ("wrote report file to " % shown) reportFile
+    logInfo logTrace $ sformat ("processing log directory " % shown % " done") logDir
+    logInfo logTrace ""
     return (dirName, rc)
 
-processLogDirTxRelay :: FilePath -> IO ()
-processLogDirTxRelay logDir = do
-    err $ "processing log directory " ++ show logDir ++ " ..."
+processLogDirTxRelay :: TraceNamed IO -> FilePath -> IO ()
+processLogDirTxRelay logTrace logDir = do
+    logInfo logTrace $ sformat ("processing log directory " % shown %  " ...") logDir
     m <- runJSONFold logDir txReceivedF
-    err $ "total number of received transactions: " ++ show (M.size m)
+    logInfo logTrace $ sformat ("total number of received transactions: " % shown) (M.size m)
     let xs         = sortBy (compare `on` \(_, ys) -> negate $ length ys) $ M.toList m
         dirName    = extractName logDir
         relaysFile = getName "relays" dirName "txt"
     withFile relaysFile WriteMode $ \h ->
         for_ xs $ \(tx, ys) ->
             hPutStrLn h $ toString tx ++ ": " ++ show ys
-    err $ "wrote relay data to " ++ show relaysFile
+    logInfo logTrace $ sformat ("wrote relay data to " % shown) relaysFile
     let hist     = M.toList $ histogram $ map (length . snd) xs
         histFile = getName "histogram" dirName "txt"
     withFile histFile WriteMode $ \h ->
         for_ hist $ uncurry $ hPrintf h "%4d:%6d\n"
-    err $ "wrote histogram to " ++ show histFile
+    logInfo logTrace $ sformat ("wrote histogram to " % shown) histFile
 
-processLogDirThroughput :: Double -> Double -> FilePath -> IO ()
-processLogDirThroughput txWindow waitWindow logDir = do
-    err $ "processing log directory " ++ show logDir ++ " ..."
+processLogDirThroughput :: TraceNamed IO -> Double -> Double -> FilePath -> IO ()
+processLogDirThroughput logTrace txWindow waitWindow logDir = do
+    logInfo logTrace $ sformat ("processing log directory " % shown % " ...") logDir
     (xs, ys) <- runJSONFold logDir $ (,) <$> txCntInChainF <*> memPoolF
-    err $ "chain length: " ++ show (length xs) ++ " block(s)"
-    err $ show (length ys) ++ " mem pool event(s)"
+    logInfo logTrace $ sformat ("chain length: " % shown % " block(s)") (length xs)
+    logInfo logTrace $ sformat (shown % " mem pool event(s)") (length ys)
     let svgFile = getName "throughput" (extractName logDir) "svg"
     throughput svgFile txWindow waitWindow 1000 xs ys
-    err $ "wrote chart to " ++ show svgFile
-
-err :: String -> IO ()
-err = hPutStrLn stderr
+    logInfo logTrace $ sformat ("wrote chart to " % shown) svgFile
 
 getName :: FilePath -> String -> String -> FilePath
 getName template name ext =

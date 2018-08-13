@@ -10,7 +10,6 @@ import           Universum
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, (%))
 import           Network.Kademlia (takeSnapshot)
-import           System.Wlog (WithLogger, logNotice)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize)
@@ -23,10 +22,10 @@ import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
+import           Pos.Util.Trace.Named (TraceNamed, logNotice)
 
 type DhtWorkMode ctx m =
-    ( WithLogger m
-    , MonadSlots ctx m
+    ( MonadSlots ctx m
     , MonadIO m
     , MonadUnliftIO m
     , MonadMask m
@@ -38,19 +37,22 @@ type DhtWorkMode ctx m =
 
 dhtWorkers
     :: DhtWorkMode ctx m
-    => KademliaDHTInstance -> [Diffusion m -> m ()]
-dhtWorkers kademliaInst@KademliaDHTInstance {..} =
-    [ dumpKademliaStateWorker kademliaInst ]
+    => TraceNamed m
+    -> KademliaDHTInstance -> [Diffusion m -> m ()]
+dhtWorkers logTrace kademliaInst@KademliaDHTInstance {..} =
+    [ dumpKademliaStateWorker logTrace kademliaInst ]
 
 dumpKademliaStateWorker
     :: DhtWorkMode ctx m
-    => KademliaDHTInstance
+    => TraceNamed m
+    -> KademliaDHTInstance
     -> Diffusion m
     -> m ()
-dumpKademliaStateWorker kademliaInst = \_ -> onNewSlot onsp $ \slotId ->
-    when (isTimeToDump slotId) $ recoveryCommGuard "dump kademlia state" $ do
+dumpKademliaStateWorker logTrace kademliaInst =
+    \_ -> onNewSlot logTrace onsp $ \slotId ->
+    when (isTimeToDump slotId) $ recoveryCommGuard logTrace "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
-        logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
+        logNotice logTrace $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
         case dumpFile of

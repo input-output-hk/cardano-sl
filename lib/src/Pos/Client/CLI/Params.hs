@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.Yaml as Yaml
-import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Chain.Ssc (SscParams (..))
@@ -25,6 +24,8 @@ import           Pos.Crypto (VssKeyPair)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
+import           Pos.Util.Log (LoggerName)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
 
@@ -57,7 +58,6 @@ getKeyfilePath CommonNodeArgs {..}
 
 getNodeParams ::
        ( MonadIO m
-       , WithLogger m
        , MonadCatch m
        , HasConfiguration
        )
@@ -67,8 +67,8 @@ getNodeParams ::
     -> m NodeParams
 getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
-        prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
-    npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
+        prepareUserSecret noTrace cArgs =<< peekUserSecret noTrace (getKeyfilePath cArgs)
+    npNetworkConfig <- intNetworkConfigOpts noTrace networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)

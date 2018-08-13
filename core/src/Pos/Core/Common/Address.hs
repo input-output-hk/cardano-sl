@@ -138,9 +138,6 @@ instance Bi Address where
                                                 <*> (addrAttributes <$> pxy)
                                                 <*> (addrType       <$> pxy) )
 
-instance Buildable [Address] where
-    build = bprint listJson
-
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize
 
@@ -196,6 +193,9 @@ addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
 
 instance Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
+
+instance Buildable [Address] where
+    build = bprint listJson
 
 -- | Specialized formatter for 'Address'.
 addressF :: Format r (Address -> r)

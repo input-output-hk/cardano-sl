@@ -16,12 +16,11 @@ module Pos.Wallet.Web.Tracking.Types
 import           Universum
 
 import           Control.Concurrent.STM (TQueue, writeTQueue)
-import           System.Wlog (WithLogger)
 
 import           Pos.Core (HasConfiguration)
 import           Pos.DB.Class (MonadDBRead (..))
+import           Pos.DB.GState.Lock (StateLock)
 import           Pos.Infra.Slotting (MonadSlotsData)
-import           Pos.Infra.StateLock (StateLock)
 import           Pos.Util (HasLens (..))
 
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
@@ -31,8 +30,7 @@ import           Pos.Wallet.Web.State.State (RestorationBlockDepth (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials)
 
 type BlockLockMode ctx m =
-     ( WithLogger m
-     , MonadDBRead m
+     ( MonadDBRead m
      , MonadReader ctx m
      , HasLens StateLock ctx StateLock
      , MonadMask m
@@ -41,7 +39,6 @@ type BlockLockMode ctx m =
 type WalletTrackingEnv ctx m =
      ( WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
-     , WithLogger m
      , HasConfiguration
      , MonadThrow m
      , MonadDBRead m

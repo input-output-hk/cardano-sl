@@ -13,6 +13,7 @@ import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
+import           Pos.Util.Trace.Named (TraceNamed)
 
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
@@ -40,19 +41,20 @@ import           Servant
 handlers :: ( HasConfigurations
             , HasCompileInfo
             )
-            => (forall a. MonadV1 a -> Handler a)
+            => TraceNamed MonadV1
+            -> (forall a. MonadV1 a -> Handler a)
             -> ProtocolMagic
             -> TxpConfiguration
             -> Diffusion MonadV1
             -> TVar NtpStatus
             -> Server V1.API
-handlers naturalTransformation pm txpConfig diffusion ntpStatus =
-         hoist' (Proxy @Addresses.API) Addresses.handlers
-    :<|> hoist' (Proxy @Wallets.API) Wallets.handlers
-    :<|> hoist' (Proxy @Accounts.API) Accounts.handlers
-    :<|> hoist' (Proxy @Transactions.API) (Transactions.handlers pm txpConfig sendTx')
+handlers logTrace naturalTransformation pm txpConfig diffusion ntpStatus =
+         hoist' (Proxy @Addresses.API) (Addresses.handlers logTrace)
+    :<|> hoist' (Proxy @Wallets.API) (Wallets.handlers logTrace)
+    :<|> hoist' (Proxy @Accounts.API) (Accounts.handlers logTrace)
+    :<|> hoist' (Proxy @Transactions.API) (Transactions.handlers logTrace pm txpConfig sendTx')
     :<|> hoist' (Proxy @Settings.API) Settings.handlers
-    :<|> hoist' (Proxy @Info.API) (Info.handlers diffusion ntpStatus)
+    :<|> hoist' (Proxy @Info.API) (Info.handlers logTrace diffusion ntpStatus)
   where
     hoist'
         :: forall (api :: *). HasServer api '[]

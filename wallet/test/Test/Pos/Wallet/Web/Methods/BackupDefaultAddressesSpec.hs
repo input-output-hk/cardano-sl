@@ -9,6 +9,7 @@ import           Universum
 
 import           Pos.Launcher (HasConfigurations)
 
+import           Pos.Util.Trace (noTrace)
 import           Pos.Wallet.Web.ClientTypes (CWallet (..))
 import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
 import           Test.Hspec (Spec, describe)
@@ -28,7 +29,7 @@ restoreWalletAddressFromBackupSpec :: HasConfigurations => Spec
 restoreWalletAddressFromBackupSpec =
     walletPropertySpec restoreWalletAddressFromBackupDesc $ do
         walletBackup   <- pick arbitrary
-        restoredWallet <- lift $ restoreWalletFromBackup walletBackup
+        restoredWallet <- lift $ restoreWalletFromBackup noTrace walletBackup
         let noOfAccounts = cwAccountsNumber restoredWallet
         assertProperty (noOfAccounts > 0) $ "Exported wallet has no accounts!"
   where

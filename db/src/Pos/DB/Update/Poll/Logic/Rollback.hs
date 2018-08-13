@@ -13,16 +13,19 @@ import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
                      USUndo (..))
 import           Pos.Core.Update (ApplicationName, BlockVersion,
                      NumSoftwareVersion, SoftwareVersion (..), UpId)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
 rollbackUS
     :: forall m . MonadPoll m
-    => USUndo -> m ()
+    => TraceNamed IO
+    -> USUndo -> m ()
 -- Note: here we use explicit pattern-matching which forces us to
 -- enumerate all fields to avoid situation when we add something new
 -- to 'USUndo' and forget to consider it in 'rollbackUS'.
-rollbackUS (USUndo changedBlockVersions
+rollbackUS logTrace
+           (USUndo changedBlockVersions
                    lastAdoptedBV
                    changedActiveProposals
                    changedConfirmedSVs
@@ -39,7 +42,7 @@ rollbackUS (USUndo changedBlockVersions
     -- because setAdoptedBV takes state from Poll, not as argument.
     mapM_ setOrDelBV $ HM.toList changedBlockVersions
     -- Rollback last adopted
-    whenJust lastAdoptedBV setAdoptedBV
+    whenJust lastAdoptedBV (setAdoptedBV logTrace)
     whenJust prevProposers setEpochProposers
     whenJust slottingData setSlottingData
   where

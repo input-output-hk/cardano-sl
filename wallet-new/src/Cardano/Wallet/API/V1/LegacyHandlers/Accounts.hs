@@ -8,6 +8,7 @@ import           Universum
 import qualified Data.IxSet.Typed as IxSet
 import           Servant
 
+import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
@@ -20,15 +21,16 @@ import           Cardano.Wallet.API.V1.Types
 
 handlers
     :: HasConfigurations
-    => ServerT Accounts.API MonadV1
-handlers =
+    => TraceNamed MonadV1
+    -> ServerT Accounts.API MonadV1
+handlers logTrace =
          deleteAccount
-    :<|> getAccount
-    :<|> listAccounts
-    :<|> newAccount
-    :<|> updateAccount
-    :<|> getAccountAddresses
-    :<|> getAccountBalance
+    :<|> getAccount logTrace
+    :<|> listAccounts logTrace
+    :<|> newAccount logTrace
+    :<|> updateAccount logTrace
+    :<|> getAccountAddresses logTrace
+    :<|> getAccountBalance logTrace
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -38,16 +40,16 @@ deleteAccount wId accIdx =
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountIndex -> m (WalletResponse Account)
-getAccount wId accIdx =
-    single <$> (migrate (wId, accIdx) >>= V0.getAccount >>= migrate)
+    => TraceNamed m -> WalletId -> AccountIndex -> m (WalletResponse Account)
+getAccount logTrace wId accIdx =
+    single <$> (migrate (wId, accIdx) >>= V0.getAccount logTrace >>= migrate)
 
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> RequestParams -> m (WalletResponse [Account])
-listAccounts wId params = do
+    => TraceNamed m -> WalletId -> RequestParams -> m (WalletResponse [Account])
+listAccounts logTrace wId params = do
     wid' <- migrate wId
-    oldAccounts <- V0.getAccounts (Just wid')
+    oldAccounts <- V0.getAccounts logTrace (Just wid')
     newAccounts <- migrate @[V0.CAccount] @[Account] oldAccounts
     respondWith params
         (NoFilters :: FilterOperations Account)
@@ -56,31 +58,32 @@ listAccounts wId params = do
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> NewAccount -> m (WalletResponse Account)
-newAccount wId nAccount@NewAccount{..} = do
+    => TraceNamed m -> WalletId -> NewAccount -> m (WalletResponse Account)
+newAccount logTrace wId nAccount@NewAccount{..} = do
     let (V1 spendingPw) = fromMaybe (V1 mempty) naccSpendingPassword
     accInit <- migrate (wId, nAccount)
-    cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
+    cAccount <- V0.newAccount logTrace V0.RandomSeed spendingPw accInit
     single <$> (migrate cAccount)
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
-updateAccount wId accIdx accUpdate = do
+    => TraceNamed m -> WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
+updateAccount logTrace wId accIdx accUpdate = do
     newAccId <- migrate (wId, accIdx)
     accMeta <- migrate accUpdate
-    cAccount <- V0.updateAccount newAccId accMeta
+    cAccount <- V0.updateAccount logTrace newAccId accMeta
     single <$> (migrate cAccount)
 
 getAccountAddresses
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> AccountIndex
     -> RequestParams
     -> FilterOperations WalletAddress
     -> m (WalletResponse AccountAddresses)
-getAccountAddresses wId accIdx pagination filters = do
-    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount wId accIdx)
+getAccountAddresses logTrace wId accIdx pagination filters = do
+    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount logTrace wId accIdx)
     return resp { wrData = AccountAddresses . wrData $ resp }
   where
     getAddresses =
@@ -88,9 +91,10 @@ getAccountAddresses wId accIdx pagination filters = do
 
 getAccountBalance
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId
+    => TraceNamed m
+    -> WalletId
     -> AccountIndex
     -> m (WalletResponse AccountBalance)
-getAccountBalance wId accIdx = do
-    resp <- getAccount wId accIdx
+getAccountBalance logTrace wId accIdx = do
+    resp <- getAccount logTrace wId accIdx
     return resp { wrData = AccountBalance . accAmount . wrData $ resp }

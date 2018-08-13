@@ -26,12 +26,13 @@ module Pos.Infra.Reporting.Methods
 import           Universum
 
 import           Control.Exception (ErrorCall (..), Exception (..))
-import           System.Wlog (Severity (..), WithLogger, logMessage)
 
 import           Pos.Core.Exception (CardanoFatalError)
 import           Pos.Core.Reporting (MonadReporting (..), Reporter (..),
                      noReporter, reportError, reportInfo)
 import           Pos.DB.Error (DBError (..))
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace.Named (TraceNamed, logMessage)
 
 ----------------------------------------------------------------------------
 -- Exception handling
@@ -46,11 +47,11 @@ import           Pos.DB.Error (DBError (..))
 --
 -- NOTE: it doesn't rethrow an exception. If you are sure you need it,
 -- you can rethrow it by yourself.
-reportOrLog :: (WithLogger m, MonadReporting m) => Severity -> Text -> SomeException -> m ()
-reportOrLog severity prefix exc =
+reportOrLog :: MonadReporting m => TraceNamed m -> Log.Severity -> Text -> SomeException -> m ()
+reportOrLog logTrace severity prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
-        Nothing  -> logMessage severity $ prefix <> pretty exc
+        Nothing  -> logMessage logTrace severity $ prefix <> pretty exc
   where
     tryCast ::
            forall e. Exception e
@@ -58,9 +59,9 @@ reportOrLog severity prefix exc =
     tryCast = toText . displayException <$> fromException @e exc
 
 -- | A version of 'reportOrLog' which uses 'Error' severity.
-reportOrLogE :: (WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
-reportOrLogE = reportOrLog Error
+reportOrLogE :: MonadReporting m => TraceNamed m -> Text -> SomeException -> m ()
+reportOrLogE logTrace = reportOrLog logTrace Log.Error
 
 -- | A version of 'reportOrLog' which uses 'Warning' severity.
-reportOrLogW :: (WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
-reportOrLogW = reportOrLog Warning
+reportOrLogW :: MonadReporting m => TraceNamed m -> Text -> SomeException -> m ()
+reportOrLogW logTrace = reportOrLog logTrace Log.Warning

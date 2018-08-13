@@ -16,7 +16,8 @@
 #
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
-RICH_NODES=3 CONC=4 NUM_TXS="$1" CONFIG_KEY="bench" scripts/launch/demo.sh 6 "$(dirname "$0")/topology" rich_poor
+# nodes wait for three minutes before creating blocks
+system_start=$(($(date +%s) + 60*3)) RICH_NODES=3 CONC=4 NUM_TXS="$1" CONFIG_KEY="smallbench" scripts/launch/demo.sh 6 "$(dirname "$0")/topology" rich_poor
 
 # transaction generator generates file tps-sent.csv
 #

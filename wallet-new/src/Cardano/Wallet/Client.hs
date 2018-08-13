@@ -15,6 +15,7 @@ module Cardano.Wallet.Client
     , hoistClient
     , liftClient
     , mapClientErrors
+    , withThrottlingRetry
     -- * The type of errors that the client might return
     , ClientError(..)
     , V1Errors.WalletError(..)
@@ -36,6 +37,7 @@ import           Universum
 
 import           Control.Exception (Exception (..))
 import           Servant.Client (GenResponse (..), Response, ServantError (..))
+import Control.Concurrent (threadDelay)
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
@@ -299,6 +301,28 @@ mapClientErrors handler wc = WalletClient
                 handler clientError action
             Right res ->
                 pure (Right res)
+
+-- | This function catches the wallet error corresponding to throttling and
+-- causes the client to wait for the specified amount of time before retrying.
+withThrottlingRetry :: forall m. MonadIO m => WalletClient m -> WalletClient m
+withThrottlingRetry = mapClientErrors retry
+  where
+    fudgeFactor :: Word64 -> Int
+    fudgeFactor x = fromIntegral (x + ((x `div` 100) * 5)) -- add 5% to the time
+
+    retry :: ResponseErrorHandler m
+    retry err action =
+        case err of
+            ClientWalletError (V1Errors.RequestThrottled microsTilRetry) -> do
+                liftIO (threadDelay (fudgeFactor microsTilRetry))
+                newResult <- action
+                case newResult of
+                    Left err ->
+                        retry err action
+                    Right a ->
+                        pure (Right a)
+            _ ->
+                pure (Left err)
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>
 -- 'WalletClient' m@.

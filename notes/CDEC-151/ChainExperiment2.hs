@@ -1,4 +1,5 @@
-{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 module ChainExperiment2 where
 
@@ -256,20 +257,74 @@ invVolatile (Volatile blocks (Just tip)) =
 
 chainBackwardsFrom :: Map BlockId (Block, Maybe BlockId)
                    -> BlockId
-                   -> [Block]
+                   -> [Block] -- ^ newest first
 chainBackwardsFrom blocks bid =
     case Map.lookup bid blocks of
       Nothing    -> []
       Just (b,_) -> b : chainBackwardsFrom blocks (prevBlockId b)
 
+-- |
+-- @'chainBackwardsFrom'@ returns a list of blocks ordered from newest to
+-- oldest.
+invChainBackwardFrom
+    :: Map BlockId (Block, Maybe BlockId)
+    -> Bool
+invChainBackwardFrom blocks =
+    all (\bid -> go (chainBackwardsFrom blocks bid)) (Map.keys blocks)
+    where
+    go :: [Block] -> Bool
+    go []  = True
+    go [_] = True
+    go (x : y : ys) = prevBlockId x == blockId y && go (y : ys)
+
+chainBackwardsFromTo
+    :: Map BlockId (Block, Maybe BlockId)
+    -> BlockId
+    -- ^ from
+    -> BlockId
+    -- ^ to
+    -> Maybe [Block]
+    -- ^ newest first, it is guaranteed that the list ends on the block after
+    -- @toBid@ block
+chainBackwardsFromTo blocks fromBid toBid =
+    case Map.lookup fromBid blocks of
+        Nothing -> Nothing
+        Just (b, _)
+            | blockId b == toBid
+                -> Just []
+            | otherwise
+                -> fmap (b :) $ chainBackwardsFromTo blocks (prevBlockId b) toBid
+
 chainBackwardsFrom' :: Map BlockId (Block, Maybe BlockId)
                     -> BlockId
-                    -> [(Block, Maybe BlockId)]
+                    -> [(Block, Maybe BlockId)] -- ^ newest first
 chainBackwardsFrom' blocks bid =
     case Map.lookup bid blocks of
       Nothing      -> []
       Just e@(b,_) -> e : chainBackwardsFrom' blocks (prevBlockId b)
 
+
+chainForwardFrom :: Map BlockId (Block, Maybe BlockId)
+                 -> BlockId
+                 -> [Block] -- ^ oldest first
+chainForwardFrom blocks blockId = go blockId []
+    where
+    go :: BlockId -> [Block] -> [Block]
+    go bid !acu = case Map.lookup bid blocks of
+        Nothing                 -> []
+        Just (block, Nothing)   -> [block]
+        Just (block, Just bid') -> go bid' (block : acu)
+
+-- |
+-- @'chainForwardFrom'@ returns a list of blocks ordered from  oldest to newest.
+invChainForwardForm
+    :: Map BlockId (Block, Maybe BlockId)
+    -> Bool
+invChainForwardForm blocks = all (\blockId -> go $ chainForwardFrom blocks blockId) (Map.keys blocks)
+    where
+    go []  = True
+    go [_] = True
+    go (x : y : ys) = blockId x == prevBlockId y && go (y : ys)
 
 --
 -- The abstraction function
@@ -346,6 +401,9 @@ switchForkVolatile :: Int -> [Block] -> Volatile -> Volatile
 switchForkVolatile _rollback _newblocks (Volatile _ Nothing) =
     error "switchForkVolatile: precondition violation"
 
+-- TODO: perhaps we shouldn't remove blocks too eagerly or maybe we should have
+-- a cache of blocks at some level so we don't need to redownload in case of two
+-- competing tines.
 switchForkVolatile rollback newblocks (Volatile blocks (Just tip)) =
     Volatile blocks' (Just tip')
   where
@@ -450,7 +508,6 @@ data ReaderState  = ReaderState {
      }
   deriving (Eq, Show)
 
-
 invChainProducerState :: ChainProducerState -> Bool
 invChainProducerState (ChainProducerState cs rs) =
     invChainState cs
@@ -551,6 +608,101 @@ readerInstruction cps rid =
     Nothing
   where
     r = lookupReader cps rid
+
+readerInstructions
+    :: ChainProducerState
+    -> ReaderId
+    -> [ConsumeChain Block]
+readerInstructions cps@(ChainProducerState (ChainState (Volatile blocks _)) _) rid =
+    let ReaderState{readerIntersection, readerHead} = lookupReader cps rid
+        ccs = map RollForward $ chainForwardFrom blocks (snd readerHead)
+    in if readerIntersection == readerHead
+        then ccs
+        else case chainBackwardsFromTo blocks (snd readerHead) (snd readerIntersection) of
+            Nothing -> []
+            Just bs -> (fmap (RollBackward . blockPoint) bs) ++ ccs
+
+-- |
+-- Rollback pointers if we are switching to another tine (which will remove
+-- blocks from volatile fork).
+-- This function must be run before `switchForkVolatile` otherwise we will loose
+-- pointers.
+--
+-- Assumptions:
+--  * rollback should be shallower than the length of the tine,
+--    otherewise pointers might get out of range
+normalizeChainProducerState
+    :: ChainUpdate
+    -> ChainProducerState
+    -> ChainProducerState
+normalizeChainProducerState (AddBlock _) cps = cps
+normalizeChainProducerState _ (ChainProducerState {chainState=ChainState (Volatile _ Nothing)})
+    = error "normalizeChainState: precondition validation"
+normalizeChainProducerState
+    (RollBack p)
+    (cps@ChainProducerState
+        { chainState   = cs@(ChainState (Volatile blocks (Just tip)))
+        , chainReaders = rs
+        })
+    = case takeUntil p $ chainBackwardsFrom blocks tip of
+        []     -> cps
+        (b:bs) ->
+            let newPoint = blockPoint b
+            in ChainProducerState
+                { chainState   = cs
+                , chainReaders = foldl' (updateReaderStates newPoint) rs bs
+                }
+    where
+    -- take blocks until the point is met (including)
+    takeUntil :: Point -> [Block] -> [Block]
+    takeUntil p = go []
+        where
+        go xs [] = xs
+        go xs (b : bs) =
+            if blockPoint b == p
+                then b : xs
+                else go (b : xs) bs
+
+    updatePointer
+        :: Block -- ^ block which will be rolled back
+        -> Point -- ^ new point
+        -> Point -- ^ current point
+        -> Point -- ^ updated point
+    updatePointer b newPoint oldPoint =
+        if blockPoint b == oldPoint
+            then newPoint
+            else oldPoint
+
+    updateReaderStates :: Point -> [ReaderState] -> Block -> [ReaderState]
+    updateReaderStates newPoint rs b = map (updateReaderState newPoint b) rs
+
+    updateReaderState :: Point -> Block -> ReaderState -> ReaderState
+    updateReaderState newPoint b ReaderState {readerIntersection, readerHead, readerId}
+        = ReaderState
+            { readerIntersection = updatePointer b newPoint readerIntersection
+            , readerHead         = updatePointer b newPoint readerHead
+            , readerId
+            }
+
+applyChainProducerUpdate :: ChainUpdate -> ChainProducerState -> ChainProducerState
+applyChainProducerUpdate cu (cps@ChainProducerState {chainState, chainReaders})
+    = (normalizeChainProducerState cu cps) { chainState = applyChainStateUpdate cu chainState }
+
+invApplyChainProducerUpdate :: ChainUpdate -> ChainProducerState ->  Bool
+invApplyChainProducerUpdate cu cps = case applyChainProducerUpdate cu cps of
+    ChainProducerState
+        { chainState    = ChainState (Volatile blocks _)
+        , chainReaders
+        } -> and
+            [
+              -- all pointers should be still in volatile chain
+              and [ Map.member intersectionBlockId blocks && Map.member readerBlockId blocks
+                  | ReaderState
+                      { readerIntersection = (_, intersectionBlockId)
+                      , readerHead         = (_, readerBlockId)
+                      } <- chainReaders
+                  ]
+            ]
 
 data ConsumeChain block = RollForward  block
                         | RollBackward Point

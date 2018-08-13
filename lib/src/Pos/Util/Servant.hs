@@ -764,12 +764,6 @@ instance (KnownSymbol sym, Flaggable flag, HasClient m api) => HasClient m (Cust
 instance KnownSymbol s => ApiCanLogArg (CustomQueryFlag s a)
 instance KnownSymbol s => ApiHasArgClass (CustomQueryFlag s a)
 
-instance ( KnownSymbol sym
-         , HasSwagger sub
-         ) =>
-         HasSwagger (CustomQueryFlag sym flag :> sub) where
-    toSwagger _ = toSwagger (Proxy @(QueryFlag sym :> sub))
-
 -------------------------------------------------------------------------
 -- API construction Helpers
 -------------------------------------------------------------------------

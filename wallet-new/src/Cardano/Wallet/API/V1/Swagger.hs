@@ -26,7 +26,7 @@ import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Servant (LoggingApi)
+import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
@@ -41,8 +41,9 @@ import           Data.Swagger.Declare
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Typeable
+import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation
-import           Servant (Handler, ServantErr (..), Server)
+import           Servant (Handler, QueryFlag, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
@@ -195,16 +196,42 @@ instance ToParamSchema Core.Address where
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
 
+instance ( KnownSymbol sym
+         , HasSwagger sub
+         ) =>
+         HasSwagger (CustomQueryFlag sym flag :> sub) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @(QueryFlag sym :> sub))
+        in swgr & over (operationsOf swgr . parameters) (map toDescription)
+          where
+            toDescription :: Referenced Param -> Referenced Param
+            toDescription (Inline p@(_paramName -> pName)) =
+                case M.lookup pName customQueryFlagToDescription of
+                    Nothing -> Inline p
+                    Just d  -> Inline (p & description .~ Just d)
+            toDescription x = x
 
 --
 -- Descriptions
 --
+
+customQueryFlagToDescription :: Map T.Text T.Text
+customQueryFlagToDescription = M.fromList [
+    ("force_ntp_check", forceNtpCheckDescription)
+  ]
 
 requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
   ]
+
+-- TODO: it would be nice to read ntp configuration directly here to fetcvh
+-- 30 seconds wait time instead of hardcoding it here.
+forceNtpCheckDescription :: T.Text
+forceNtpCheckDescription = [text|
+In some cases, Daedalus needs to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP client responds or it will timout if NTP client is not available within **30** seconds.
+|]
 
 pageDescription :: T.Text
 pageDescription = [text|

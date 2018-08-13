@@ -1760,7 +1760,7 @@ instance ToSchema TimeInfo where
     declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
         "differenceFromNtpServer"
         --^ ("The difference in microseconds between the node time and the NTP "
-          <> "server. This value will be null if the NTP server is pending or "
+          <> "server. This value will be null if the NTP server is "
           <> "unavailable.")
 
 instance Arbitrary TimeInfo where

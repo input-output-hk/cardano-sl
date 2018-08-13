@@ -14,6 +14,7 @@ module Cardano.Wallet.Client
     , Resp
     , hoistClient
     , liftClient
+    , mapClientErrors
     -- * The type of errors that the client might return
     , ClientError(..)
     , V1Errors.WalletError(..)
@@ -226,6 +227,78 @@ hoistClient phi wc = WalletClient
     , getNodeInfo =
         phi (getNodeInfo wc)
     }
+
+-- | This type represents callbacks you can use to modify how errors are
+-- received and reported.
+type ResponseErrorHandler m
+    = forall x
+    . ClientError
+    -- ^ The error response received by the client.
+    -> m (Either ClientError x)
+    -- ^ The action that was performed, if you want to retry the request.
+    -> m (Either ClientError x)
+    -- ^ The action to
+
+mapClientErrors
+    :: forall m. Monad m
+    => ResponseErrorHandler m
+    -> WalletClient m
+    -> WalletClient m
+mapClientErrors handler wc = WalletClient
+    { getAddressIndexPaginated =
+        \x -> overError . getAddressIndexPaginated wc x
+    , postAddress =
+        \a ->
+            overError $ postAddress wc a
+    , getAddress =
+        overError . getAddress wc
+    , postWallet =
+        overError . postWallet wc
+    , getWalletIndexFilterSorts =
+        \x y p -> overError . getWalletIndexFilterSorts wc x y p
+    , updateWalletPassword =
+        \x -> overError . updateWalletPassword wc x
+    , deleteWallet =
+        overError . deleteWallet wc
+    , getWallet =
+        overError . getWallet wc
+    , updateWallet =
+        \x -> overError . updateWallet wc x
+    , deleteAccount =
+        \x -> overError . deleteAccount wc x
+    , getAccount =
+        \x -> overError . getAccount wc x
+    , getAccountIndexPaged =
+        \x mp -> overError . getAccountIndexPaged wc x mp
+    , postAccount =
+        \x -> overError . postAccount wc x
+    , updateAccount =
+        \x y -> overError . updateAccount wc x y
+    , redeemAda =
+        \x y -> overError . redeemAda wc x y
+    , postTransaction =
+        overError . postTransaction wc
+    , getTransactionIndexFilterSorts =
+        \wid maid maddr mp mpp f ->
+            overError . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
+    , getTransactionFee =
+        overError . getTransactionFee wc
+    , getNodeSettings =
+        overError (getNodeSettings wc)
+    , getNodeInfo =
+        overError (getNodeInfo wc)
+    }
+  where
+    overError
+        :: m (Either ClientError a)
+        -> m (Either ClientError a)
+    overError action = do
+        result <- action
+        case result of
+            Left clientError ->
+                handler clientError action
+            Right res ->
+                pure (Right res)
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>
 -- 'WalletClient' m@.

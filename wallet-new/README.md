@@ -73,25 +73,53 @@ $ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yam
 
 From there, you can browse the API documentation for V0 and V1 through the following URLs:
 
-- http://localhost:8090/docs/v0/index/
-- http://localhost:8090/docs/v1/index/
+- https://localhost:8091/docs/v0/index/
+- https://localhost:8091/docs/v1/index/
+
+
+You may also run a simple cURL command to check whether the node is up-and-running:
+
+```
+$ curl https://localhost:8090/api/v1/node-info \
+   --cacert scripts/tls-files/ca.crt \
+   --cert scripts/tls-files/client.pem
+```
+
+> *NOTE* 
+>
+> Every node running a wallet API needs x509 certificates for enabling TLS support. By default,
+> those certificates are located in `./scripts/tls-files`. Use them if you need a CA or a
+> client certificate. 
+
+
+## Local Cluster
+
+Running a node against `mainnet_staging` may not be ideal for testing. The node will also need
+time to synchronize and won't run the full API capabilities until having done so. To cope with
+this, one may run a local cluster of nodes, acting upon a fresh database, speeding up most of
+the operations. To run a local cluster, _nix_ is your friend:
+
+```
+$ nix-build -A demoCluster -o run-demo --arg useStackBinaries true && ./run-demo
+```
+
+This will run a local cluster after having set up a fresh environment for it in `./state-demo`.
+There are some files of interest in this folder you may need like the tls certificates or the
+logging configurations. 
+
 
 ### HTTPS
 
 By default, wallet backend only accepts HTTPS connections:
 
 ```
-$ curl localhost:8090/docs/v1/index/
+$ curl localhost:8090/api/v1/node-info
 This server only accepts secure HTTPS connections.
 ```
 
-We should provide our `ca.crt`:
+Read the documentation about TLS authentication in [docs/tls-authentication.md](../docs/tls-authentication.md)
+for details about how to contact a wallet node with TLS. 
 
-```
-$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/
-```
-
-But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.
 
 ### Swagger Specification
 
@@ -126,7 +154,7 @@ $ stack test cardano-sl-wallet-new
 Wallet integration tests can be run using this command (from the project *root* directory):
 
 ```
-$ nix-build release.nix -A walletIntegrationTests
+$ nix-build release.nix -A walletIntegrationTests --arg useStackBinaries true 
 ```
 
 ## Developing
@@ -152,7 +180,8 @@ Now use following command (from the `cardano-sl` *root* directory):
 $ curl -X POST                                  \
        -H "Content-Type: application/json"      \
        -d '"PATH_TO_SECRET_KEY"'                \
-       --cacert scripts/tls-files/ca.crt
+       --cacert scripts/tls-files/ca.crt        \
+       --cert scripts/tls-files/client.pem      \
        https://localhost:8090/api/wallets/keys
 ```
 
@@ -217,6 +246,7 @@ using environment variables as follows:
 LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
 ```
 
+
 ##### API returns `415  Unsupported Media Type`
 
 The wallet's API can be quite picky about media-types and expect both a given type and an
@@ -232,3 +262,10 @@ value:
 ```
 application/json;charset=utf-8
 ```
+
+
+##### API returns `error:14094416:SSL routines:ssl3_read_bytes:sslv3 alert certificate unknown`
+
+You're missing a valid client certificate to contact the node. For development, you may run the
+node with `--no-client-auth` or provide a valid corresponding client x509 certificates. More
+information in [docs/tls-authentication.md](../docs/tls-authentication.md).

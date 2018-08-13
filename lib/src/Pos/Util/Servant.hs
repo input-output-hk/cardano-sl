@@ -82,7 +82,7 @@ import           Formatting (bprint, build, builder, fconst, formatToString,
                      sformat, shown, stext, string, (%))
 import qualified Formatting.Buildable
 import           GHC.IO.Unsafe (unsafePerformIO)
-import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
@@ -98,10 +98,8 @@ import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Infra.Util.LogSafe (BuildableSafe, SecureLog, SecuredText,
-                     buildSafe, logInfoSP, plainOrSecureF, secretOnlyF)
-
-import           GHC.TypeLits (Symbol)
+import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
+                     logInfoSP, plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -729,7 +727,6 @@ instance ReportDecodeError api =>
 -- Boolean type for all flags but we can implement custom type.
 data CustomQueryFlag (sym :: Symbol) flag
 
--- TODO (akegalj): add roundtrip test
 class Flaggable flag where
     toBool :: flag -> Bool
     fromBool :: Bool -> flag
@@ -765,12 +762,6 @@ instance (KnownSymbol sym, Flaggable flag, HasClient m api) => HasClient m (Cust
 
 instance KnownSymbol s => ApiCanLogArg (CustomQueryFlag s a)
 instance KnownSymbol s => ApiHasArgClass (CustomQueryFlag s a)
-
-instance ( KnownSymbol sym
-         , HasSwagger sub
-         ) =>
-         HasSwagger (CustomQueryFlag sym flag :> sub) where
-    toSwagger _ = toSwagger (Proxy @(QueryFlag sym :> sub))
 
 -------------------------------------------------------------------------
 -- API construction Helpers

@@ -51,8 +51,7 @@ genPending :: Core.ProtocolMagic -> Gen Pending
 genPending pMagic = do
     elems <- listOf (do tx  <- Txp.genTx
                         wit <- (V.fromList <$> listOf (Txp.genTxInWitness pMagic))
-                        aux <- Txp.TxAux <$> pure tx <*> pure wit
-                        pure aux
+                        Txp.TxAux <$> pure tx <*> pure wit
                     )
     return $ Pending.fromTransactions elems
 

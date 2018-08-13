@@ -357,7 +357,7 @@ updateStakes :: forall m. MonadError IntException m
              -> ResolvedBlock
              -> StakesMap -> m StakesMap
 updateStakes gs (ResolvedBlock txs _) =
-    foldr (>=>) return $ map go txs
+    foldr ((>=>) . go) return txs
   where
     go :: ResolvedTx -> StakesMap -> m StakesMap
     go (ResolvedTx ins outs) =

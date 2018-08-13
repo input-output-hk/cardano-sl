@@ -21,7 +21,7 @@ import qualified Generics.SOP as SOP
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, secure, unsecure)
 import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 import           Servant

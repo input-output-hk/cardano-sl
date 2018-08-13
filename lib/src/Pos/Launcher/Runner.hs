@@ -7,11 +7,6 @@
 module Pos.Launcher.Runner
        ( -- * High level runners
          runRealMode
-
-       , elimRealMode
-
-       -- * Exported for custom usage in CLI utils
-       , runServer
        ) where
 
 import           Universum
@@ -34,7 +29,6 @@ import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants)
-import           Pos.Core.JsonLog (jsonLog)
 import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
@@ -56,7 +50,8 @@ import           Pos.Logic.Types (Logic, hoistLogic)
 import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, natTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
@@ -76,12 +71,14 @@ runRealMode
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode pm txpConfig nr@NodeResources {..} act = runServer
+runRealMode logTrace0 pm txpConfig nr@NodeResources {..} act = runServer
+    logTrace
     pm
     ncNodeParams
     (EkgNodeMetrics nrEkgStore)
@@ -94,26 +91,30 @@ runRealMode pm txpConfig nr@NodeResources {..} act = runServer
     securityParams = bcSecurityParams npBehaviorConfig
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
+    logTrace = appendName "realMode" logTrace0
+    logTrace' :: TraceNamed (RealMode ext)
+    logTrace' = natTrace liftIO logTrace
     logic :: Logic (RealMode ext)
-    logic = logicFull pm txpConfig ourStakeholderId securityParams jsonLog
+    logic = logicFull logTrace' noTrace pm txpConfig ourStakeholderId securityParams -- TODO jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode logTrace pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO (elimRealMode pm nr diffusion) diffusion
-         in elimRealMode pm nr diffusion (act diffusion')
+        let diffusion' = hoistDiffusion liftIO (elimRealMode logTrace pm nr diffusion) diffusion
+        in elimRealMode logTrace pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding an IO.
 elimRealMode
-    :: forall t ext
-     . HasCompileInfo
-    => ProtocolMagic
+    :: forall t ext.
+       ( HasCompileInfo)
+    => TraceNamed IO
+    -> ProtocolMagic
     -> NodeResources ext
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode pm NodeResources {..} diffusion action = do
+elimRealMode logTrace pm NodeResources {..} diffusion action = do
     Mtl.runReaderT action (rmc nrJsonLogConfig)
   where
     NodeContext {..} = nrContext
@@ -124,7 +125,7 @@ elimRealMode pm NodeResources {..} diffusion action = do
         { prpServers         = npReportServers
         , prpLoggerConfig    = ncLoggerConfig
         , prpCompileTimeInfo = compileInfo
-        , prpTrace           = wlogTrace "reporter"
+        , prpTrace           = (appendName "reporter" logTrace)
         , prpProtocolMagic   = pm
         }
     rmc jlConf = RealModeContext
@@ -151,14 +152,15 @@ runServer
        , HasNodeConfiguration
        , HasUpdateConfiguration
        )
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> NodeParams
     -> EkgNodeMetrics
     -> ShutdownContext
     -> (Diffusion IO -> Logic IO)
     -> (Diffusion IO -> IO t)
     -> IO t
-runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
+runServer logTrace pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
     diffusionLayerFull fdconf
                        npNetworkConfig
                        (Just ekgNodeMetrics)
@@ -179,7 +181,7 @@ runServer pm NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShut
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
-        , fdcTrace = wlogTrace "diffusion"
+        , fdcTrace = (appendName "diffusion" logTrace)
         , fdcStreamWindow = streamWindow
         }
     exitOnShutdown action = do

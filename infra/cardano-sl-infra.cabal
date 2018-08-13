@@ -4,8 +4,9 @@ synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -29,13 +30,10 @@ library
                         Pos.Infra.Reporting.Exceptions
                         Pos.Infra.Reporting.Health.Types
                         Pos.Infra.Reporting.Http
+                        Pos.Infra.Reporting.Logfiles
                         Pos.Infra.Reporting.Methods
                         Pos.Infra.Reporting.NodeInfo
                         Pos.Infra.Reporting.Statsd
-                        Pos.Infra.Reporting.Wlog
-
-                        -- StateLock
-                        Pos.Infra.StateLock
 
                         -- Slotting
                         Pos.Infra.Slotting
@@ -105,7 +103,6 @@ library
 
                         -- Pos.Util
                         Pos.Infra.Util.JsonLog.Events
-                        Pos.Infra.Util.LogSafe
                         Pos.Infra.Util.Monitor
                         Pos.Infra.Util.TimeLimit
                         Pos.Infra.Util.TimeWarp
@@ -145,7 +142,6 @@ library
                       , iproute
                       , kademlia
                       , lens
-                      , log-warper >= 1.0.3
                       , mtl
                       , network-info
                       , network-transport

@@ -25,8 +25,9 @@ import           Formatting (build, sformat, (%))
 import           Network.Wai (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets as WS
-import           System.Wlog (logError, logNotice, usingLoggerName)
 
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logError,
+                     logNotice)
 import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Wallet.Aeson ()
 import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
@@ -38,23 +39,24 @@ import           Pos.Wallet.Web.Sockets.Types
 initWSConnections :: MonadIO m => m CS.ConnectionsVar
 initWSConnections = newTVarIO def
 
-closeWSConnection :: MonadIO m => CS.ConnectionTag -> CS.ConnectionsVar -> m ()
-closeWSConnection tag var = liftIO $ usingLoggerName "closeWSConnection" $ do
+closeWSConnection :: MonadIO m => TraceNamed m -> CS.ConnectionTag -> CS.ConnectionsVar -> m ()
+closeWSConnection logTrace0 tag var = do
+    let logTrace = appendName "closeWSConnection" logTrace0
     maybeConn <- atomically $ CS.deregisterConnection tag var
     case maybeConn of
         Nothing   ->
-            logError $ sformat ("Attempted to close an unknown connection with tag "%build) tag
+            logError logTrace $ sformat ("Attempted to close an unknown connection with tag "%build) tag
         Just conn -> do
             liftIO $ WS.sendClose conn ConnectionClosed
-            logNotice $ sformat ("Closed WS connection with tag "%build) tag
+            logNotice logTrace $ sformat ("Closed WS connection with tag "%build) tag
 
 closeWSConnections :: MonadIO m => CS.ConnectionsVar -> m ()
 closeWSConnections var = liftIO $ do
     conns <- atomically $ swapTVar var def
     for_ (CS.listConnections conns) $ flip WS.sendClose ConnectionClosed
 
-appendWSConnection :: CS.ConnectionsVar -> WS.ServerApp
-appendWSConnection var pending = do
+appendWSConnection :: TraceNamed IO -> CS.ConnectionsVar -> WS.ServerApp
+appendWSConnection logTrace var pending = do
     conn <- WS.acceptRequest pending
     bracket (atomically $ CS.registerConnection conn var) releaseResources $ \_ -> do
         sendWS conn ConnectionOpened
@@ -63,13 +65,13 @@ appendWSConnection var pending = do
   where
     ignoreData :: WSConnection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources :: MonadIO m => CS.ConnectionTag -> m ()
-    releaseResources tag = closeWSConnection tag var
+    releaseResources :: CS.ConnectionTag -> IO ()
+    releaseResources tag = closeWSConnection logTrace tag var
 
 -- FIXME: we have no authentication and accept all incoming connections.
 -- Possible solution: reject pending connection if WS handshake doesn't have valid auth session token.
-upgradeApplicationWS :: CS.ConnectionsVar -> Application -> Application
-upgradeApplicationWS var = websocketsOr WS.defaultConnectionOptions (appendWSConnection var)
+upgradeApplicationWS :: TraceNamed IO -> CS.ConnectionsVar -> Application -> Application
+upgradeApplicationWS logTrace var = websocketsOr WS.defaultConnectionOptions (appendWSConnection logTrace var)
 
 -- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
 -- sendClose = send WS.sendClose

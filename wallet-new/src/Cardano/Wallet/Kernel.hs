@@ -39,11 +39,11 @@ import           Data.Acid (AcidState)
 import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
-import           System.Wlog (Severity (..))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), DB, NewForeign (..), NewForeignError,
@@ -78,16 +78,16 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 -- Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => (Severity -> Text -> IO ())
+                     => TraceNamed IO
                      -> Keystore
                      -> NodeStateAdaptor IO
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet logMsg keystore node f =
+bracketPassiveWallet logTrace keystore node f =
     bracket (liftIO $ openMemoryState defDB)
             (\_ -> return ())
             (\db ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore db node)
+                  (liftIO $ initPassiveWallet logTrace keystore db node)
                   (\_ -> return ())
                   f)
 
@@ -103,13 +103,13 @@ withKeystore pw action = action (pw ^. walletKeystore)
 -------------------------------------------------------------------------------}
 
 -- | Initialise Passive Wallet with empty Wallets collection
-initPassiveWallet :: (Severity -> Text -> IO ())
+initPassiveWallet :: TraceNamed IO
                   -> Keystore
                   -> AcidState DB
                   -> NodeStateAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore db node = do
-    return $ PassiveWallet logMessage keystore db node
+initPassiveWallet logTrace keystore db node = do
+    return $ PassiveWallet logTrace keystore db node
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -117,7 +117,7 @@ initPassiveWallet logMessage keystore db node = do
 -- called when the node is initialized (when run in the node proper).
 init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
-    _walletLogMessage Info $ "Passive Wallet kernel initialized."
+    logInfo _walletLogMessage $ "Passive Wallet kernel initialized."
 
 {-------------------------------------------------------------------------------
   Passive Wallet API implementation
@@ -193,7 +193,7 @@ bracketActiveWallet walletProtocolMagic walletPassive walletDiffusion runActiveW
     bracket
       (return ActiveWallet{..})
       (\_ -> liftIO $ do
-                 (_walletLogMessage walletPassive) Error "stopping the wallet submission layer..."
+                 logError (_walletLogMessage walletPassive) "stopping the wallet submission layer..."
                  cancel submissionLayerTicker
       )
       runActiveWallet

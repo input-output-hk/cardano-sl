@@ -71,6 +71,7 @@ import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB,
                      encodeWithKeyPrefix)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -241,9 +242,10 @@ getDeepProposals cd =
 -- | Get states of all competing 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp ::
        (MonadDBRead m, MonadUnliftIO m)
-    => ApplicationName
+    => TraceNamed IO
+    -> ApplicationName
     -> m [ProposalState]
-getProposalsByApp appName =
+getProposalsByApp _ appName =
     runConduitRes $ mapOutput snd proposalSource .| CL.filter matchesName .| CL.consume
   where
     matchesName e = appName == (svAppName $ upSoftwareVersion $ psProposal e)

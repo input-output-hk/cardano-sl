@@ -36,7 +36,6 @@ import qualified Data.Set as S
 import           Data.Tagged (Tagged, untag)
 import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
-import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG)
 import           Pos.Chain.Update (BlockVersionState (..),
@@ -59,6 +58,8 @@ import           Pos.Core.Update (BlockVersion (..), BlockVersionData (..),
                      BlockVersionModifier (..), SoftforkRule (..), UpId,
                      UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logNotice,
+                     natTrace)
 
 
 
@@ -180,11 +181,12 @@ canBeAdoptedPure BlockVersion { bvMajor = givenMajor
 -- Apart from that, 'ConfirmedProposalState' of proposals with this
 -- block version are updated.
 adoptBlockVersion
-    :: MonadPoll m
-    => HeaderHash -> BlockVersion -> m ()
-adoptBlockVersion winningBlk bv = do
-    setAdoptedBV bv
-    logNotice $ sformat logFmt bv winningBlk
+    :: (MonadIO m, MonadPoll m)
+    => TraceNamed IO
+    -> HeaderHash -> BlockVersion -> m ()
+adoptBlockVersion logTrace winningBlk bv = do
+    setAdoptedBV logTrace bv
+    logNotice (natTrace liftIO logTrace) $ sformat logFmt bv winningBlk
     mapM_ processConfirmed =<< getConfirmedProposals
   where
     processConfirmed cps
@@ -360,20 +362,21 @@ isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum 
 -- | Apply vote to UndecidedProposalState, thus modifing mutable data,
 -- i. e. votes and stakes.
 voteToUProposalState
-    :: (MonadError PollVerFailure m, WithLogger m)
-    => PublicKey
+    :: (MonadError PollVerFailure m)
+    => TraceNamed m
+    -> PublicKey
     -> Coin
     -> Bool
     -> UndecidedProposalState
     -> m UndecidedProposalState
-voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
+voteToUProposalState logTrace voter stake decision ups@UndecidedProposalState {..} = do
     let upId = hash upsProposal
     -- We need to find out new state of vote (it can be a fresh vote or revote).
     let oldVote = upsVotes ^. at voter
     let oldPositive = maybe False isPositiveVote oldVote
     let oldNegative = maybe False (not . isPositiveVote) oldVote
     let combinedMaybe = decision `combineVotes` oldVote
-    logDebug $ sformat (
+    logDebug logTrace $ sformat (
         "New vote: upId = "%build%",\
         \voter = "%build%",\
         \vote = "%build%",\
@@ -400,7 +403,7 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
             | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
     -- We add a new vote with update state to set of votes.
     let newVotes = HM.insert voter combined upsVotes
-    logDebug $
+    logDebug logTrace $
         sformat ("Stakes of proposal "%build%" after vote: \
                  \positive "%build%",\
                  \negative: "%build)

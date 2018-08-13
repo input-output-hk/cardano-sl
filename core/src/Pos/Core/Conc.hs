@@ -27,7 +27,6 @@ import qualified Control.Concurrent as Conc
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Time.Units (Microsecond, TimeUnit, convertUnit,
                      toMicroseconds)
-import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 import           UnliftIO.Async (async, cancel, concurrently, forConcurrently,
                      mapConcurrently, race, wait, withAsync,
@@ -49,8 +48,9 @@ delay :: (TimeUnit t, MonadIO m)
          -> m ()
 delay time = liftIO (Conc.threadDelay (fromIntegral (toMicroseconds time)))
 
--- | This function is analogous to `System.Timeout.timeout`. It's
--- based on `race` and `delay`.
+-- | This function is analogous to `System.Timeout.timeout`, it's
+-- based on `Race` and `Delay`.
+-- TODO mhueschen - make sure this is equivalent to the old method
 timeout :: (TimeUnit t, MonadUnliftIO m) => t -> m a -> m (Maybe a)
 timeout t ma = rightToMaybe <$> race (delay t) ma
 
@@ -60,7 +60,3 @@ newSharedAtomic = newMVar
 
 modifySharedAtomic :: MonadUnliftIO m => MVar a -> (a -> m (a, b)) -> m b
 modifySharedAtomic = modifyMVar
-
-instance HasLoggerName IO where
-    askLoggerName = return "*production*"
-    modifyLoggerName = const id

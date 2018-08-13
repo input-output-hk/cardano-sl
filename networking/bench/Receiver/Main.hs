@@ -13,20 +13,21 @@ import           Control.Exception (throwIO)
 import           Control.Exception.Safe (throwString)
 import           Control.Monad (unless)
 
-import           Data.Functor.Contravariant (contramap)
-import           Data.Text (Text)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen)
 
 import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..),
-                     loadLogConfig, logMeasure)
+                     logMeasure)
 import qualified Network.Transport.TCP as TCP
 import           Node (ConversationActions (..), Listener (..), NodeAction (..),
                      defaultNodeEnvironment, noReceiveDelay, node,
                      simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig
 import           Pos.Util.Trace (Severity (..), Trace, wlogTrace)
+import           Pos.Util.Trace.Named (appendName, setupLogging)
 import           ReceiverOptions (Args (..), argsParser)
 
 main :: IO ()
@@ -39,7 +40,12 @@ main = do
             argsParser
             empty
 
-    loadLogConfig logsPrefix logConfig
+    lc1 <- case logConfig of
+              Nothing  -> return $ defaultInteractiveConfiguration Log.Debug
+              Just lc0 -> parseLoggerConfig lc0
+    lc <- setLogPrefix logsPrefix lc1
+    logTrace <- setupLogging lc "bench-receiver"
+
     setLocaleEncoding utf8
 
     transport <- do
@@ -50,23 +56,17 @@ main = do
 
     let prng = mkStdGen 0
 
-    node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
-        NodeAction (const [pingListener noPong]) $ \_ -> do
+    node (appendName "node" logTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
+        NodeAction (const [pingListener logTrace noPong]) $ \_ -> do
             threadDelay (duration * 1000000)
   where
 
-    logTrace :: Trace IO (Severity, Text)
-    logTrace = wlogTrace "receiver"
-
-    logTrace' :: Trace IO Text
-    logTrace' = contramap ((,) Info) logTrace
-
-    pingListener noPong =
+    pingListener logTrace noPong =
         Listener $ \_ _ cactions -> do
             (mid, payload) <- recv cactions maxBound >>= \case
                 Just (Ping mid payload) -> return (mid, payload)
                 _ -> throwString "Expected a ping"
-            logMeasure logTrace' PingReceived mid payload
+            logMeasure (appendName "ping" logTrace) PingReceived mid payload
             unless noPong $ do
-                logMeasure logTrace' PongSent mid payload
+                logMeasure (appendName "pong" logTrace) PongSent mid payload
                 send cactions (Pong mid payload)

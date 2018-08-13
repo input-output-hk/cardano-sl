@@ -9,7 +9,6 @@ import           Universum
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (def)
 import           System.Random (mkStdGen, randomIO)
-import           System.Wlog (logInfo)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -17,24 +16,27 @@ import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Core (genesisData)
 import           Pos.Core.Genesis (gdBootStakeholders)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
+import           Pos.DB.GState.Lock (Priority (..), withStateLock)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
                      tgpTxCountRange)
-import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)
 
 
 generateBlocks :: MonadAuxxMode m
-               => ProtocolMagic
+               => TraceNamed IO
+               -> ProtocolMagic
                -> TxpConfiguration
-               -> GenBlocksParams -> m ()
-generateBlocks pm txpConfig GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
+               -> GenBlocksParams -> m ()                                -- JSON logging Trace
+generateBlocks logTrace pm txpConfig GenBlocksParams{..} = withStateLock noTrace HighPriority ApplyBlock $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
-    logInfo $ "Generating with seed " <> show seed
+    liftIO $ logInfo logTrace $ "Generating with seed " <> show seed
 
     allSecrets <- mkAllSecretsSimple . map encToSecret <$> getSecretKeysPlain
 
@@ -49,7 +51,7 @@ generateBlocks pm txpConfig GenBlocksParams{..} = withStateLock HighPriority App
                 , _bgpSkipNoKey       = True
                 , _bgpTxpGlobalSettings = txpGlobalSettings pm txpConfig
                 }
-    withCompileInfo $ evalRandT (genBlocks pm txpConfig bgenParams (const ())) (mkStdGen seed)
+    withCompileInfo $ evalRandT (genBlocks logTrace pm txpConfig bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
-    logInfo $ "Generated with seed " <> show seed
+    liftIO $ logInfo logTrace $ "Generated with seed " <> show seed

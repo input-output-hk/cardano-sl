@@ -10,23 +10,25 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
+import           Control.Monad.Morph (generalize)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration, Utxo)
 import           Pos.Core (EpochIndex, Timestamp)
-import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
+                     withStateLock)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
                      txProcessTransactionAbstract)
 import           Pos.DB.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra,
                      withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                     StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 import           Pos.Util.Util (HasLens')
 
 import           Pos.Explorer.Core (TxExtra (..))
@@ -45,28 +47,30 @@ eTxProcessTransaction ::
        ( ETxpLocalWorkMode ctx m
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-       , CanJsonLog m
        )
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransaction pm txpConfig itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock pm txpConfig itw
+eTxProcessTransaction _ pm txpConfig itw =
+    withStateLock noTrace LowPriority ProcessTransaction $
+        \__tip -> eTxProcessTransactionNoLock noTrace pm txpConfig itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)
-    => ProtocolMagic
+    => TraceNamed Identity
+    -> ProtocolMagic
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock pm txpConfig itw = getCurrentSlot >>= \case
+eTxProcessTransactionNoLock logTrace pm txpConfig itw = getCurrentSlot >>= \case
     Nothing   -> pure $ Left ToilSlotUnknown
     Just slot -> do
         -- First get the current @SlotId@ so we can calculate the time.
         -- Then get when that @SlotId@ started and use that as a time for @Tx@.
         mTxTimestamp <- getSlotStart slot
-        txProcessTransactionAbstract buildContext (processTx' mTxTimestamp) itw
+        txProcessTransactionAbstract (natTrace generalize logTrace) buildContext (processTx' mTxTimestamp) itw
   where
     buildContext :: Utxo -> TxAux -> m ExplorerExtraLookup
     buildContext utxo = buildExplorerExtraLookup utxo . one
@@ -78,17 +82,18 @@ eTxProcessTransactionNoLock pm txpConfig itw = getCurrentSlot >>= \case
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure ELocalToilM ()
     processTx' mTxTimestamp bvd epoch tx =
-        eProcessTx pm txpConfig bvd epoch tx (TxExtra Nothing mTxTimestamp)
+        eProcessTx noTrace pm txpConfig bvd epoch tx (TxExtra Nothing mTxTimestamp)
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
     :: forall ctx m . (ETxpLocalWorkMode ctx m)
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> TxpConfiguration
     -> m ()
-eTxNormalize pm txpConfig = do
+eTxNormalize _ pm txpConfig = do
     extras <- MM.insertionsMap . view eemLocalTxsExtra <$> withTxpLocalData getTxpExtra
     txNormalizeAbstract buildExplorerExtraLookup (normalizeToil' extras)
   where
@@ -100,4 +105,4 @@ eTxNormalize pm txpConfig = do
         -> ELocalToilM ()
     normalizeToil' extras bvd epoch txs =
         let toNormalize = HM.toList $ HM.intersectionWith (,) txs extras
-        in eNormalizeToil pm txpConfig bvd epoch toNormalize
+        in eNormalizeToil noTrace pm txpConfig bvd epoch toNormalize

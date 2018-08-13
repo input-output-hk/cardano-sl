@@ -10,15 +10,14 @@ module Pos.Network.Block.WorkMode
 import           Universum
 
 import           Data.Default (Default)
-import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
                      LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Core.Context (HasPrimaryKey)
-import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.DB.Block (LrcModeFull)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
                      TxpHolderTag)
 import           Pos.DB.Update (UpdateContext)
@@ -26,7 +25,6 @@ import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
@@ -72,9 +70,6 @@ type BlockWorkMode ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasLens' ctx UpdateContext
-
-    , CanJsonLog m
-    , WithLogger m
 
     , HasBlockConfiguration
     )

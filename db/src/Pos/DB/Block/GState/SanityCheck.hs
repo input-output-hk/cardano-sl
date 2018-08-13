@@ -6,31 +6,29 @@ module Pos.DB.Block.GState.SanityCheck
 
 import           Universum
 
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.DB.Txp (sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 sanityCheckDB ::
        ( MonadMask m
-       , WithLogger m
        , MonadDBRead m
        , MonadUnliftIO m
        )
-    => m ()
-sanityCheckDB = inAssertMode sanityCheckGStateDB
+    => TraceNamed IO -> m ()
+sanityCheckDB logTrace = inAssertMode $ sanityCheckGStateDB $ natTrace liftIO logTrace
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB ::
        forall m.
        ( MonadDBRead m
        , MonadUnliftIO m
-       , WithLogger m
        )
-    => m ()
-sanityCheckGStateDB = do
-    sanityCheckStakes
-    sanityCheckUtxo =<< getRealTotalStake
+    => TraceNamed m -> m ()
+sanityCheckGStateDB logTrace = do
+    sanityCheckStakes logTrace
+    sanityCheckUtxo logTrace =<< getRealTotalStake

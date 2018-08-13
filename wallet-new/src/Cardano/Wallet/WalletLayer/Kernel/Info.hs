@@ -13,8 +13,9 @@ import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 
-getNodeInfo :: MonadIO m => Kernel.ActiveWallet -> m V1.NodeInfo
-getNodeInfo aw = liftIO $ do
+getNodeInfo :: MonadIO m => Kernel.ActiveWallet -> V1.ForceNtpCheck -> m V1.NodeInfo
+getNodeInfo aw _ = liftIO $ do
+    -- TODO Force NtpCheck in new data-layer
     V1.NodeInfo
       <$> (pure $ V1.mkSyncPercentage 100) -- TODO (Restoration [CBR-243])
       <*> (pure $ Nothing)                 -- TODO (Restoration [CBR-243])

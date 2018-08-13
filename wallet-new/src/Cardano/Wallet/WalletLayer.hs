@@ -39,8 +39,8 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, NewAccount,
-                     NewAddress, NewWallet, NodeInfo, NodeSettings,
+                     AccountIndex, AccountUpdate, Address, ForceNtpCheck,
+                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
                      PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
                      Wallet, WalletAddress, WalletId, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -441,7 +441,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
       --
       -- This lives in the active wallet layer as the node info endpoint returns
       -- status information about the diffusion layer
-    , getNodeInfo :: m NodeInfo
+    , getNodeInfo :: ForceNtpCheck -> m NodeInfo
     }
 
 ------------------------------------------------------------

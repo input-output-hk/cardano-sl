@@ -38,9 +38,7 @@ in pkgs.writeScript "integration-tests" ''
   then
     echo "EXIT_STATUS is 0 => verify asset-locked source addresses"
     grep "transaction list is empty after filtering out asset-locked source addresses" state-demo/logs/core*.log
-    #EXIT_STATUS=$?
-    # we fail anyway temporarily to get the log files
-    EXIT_STATUS=1
+    EXIT_STATUS=$?
   fi
   stop_cardano
 ''

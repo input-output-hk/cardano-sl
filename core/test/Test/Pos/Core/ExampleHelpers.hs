@@ -81,7 +81,6 @@ module Test.Pos.Core.ExampleHelpers
 import           Universum
 
 import qualified Crypto.SCRAPE as Scrape
-import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
@@ -146,7 +145,7 @@ import           Pos.Crypto (AbstractHash (..), EncShare (..),
                      redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
                      sign, toVssPublicKey)
 import           Pos.Crypto.Signing (ProxyCert (..), ProxySecretKey (..),
-                     PublicKey (..), RedeemPublicKey (..))
+                     PublicKey (..))
 
 import           Test.Pos.Core.Gen (genProtocolConstants)
 import           Test.Pos.Crypto.Bi (getBytes)
@@ -630,17 +629,19 @@ exampleGenesisConfiguration_GCSpec =
 
 exampleGenesisAvvmBalances :: GenesisAvvmBalances
 exampleGenesisAvvmBalances =
-    GenesisAvvmBalances {getGenesisAvvmBalances =
-        (HM.fromList [(RedeemPublicKey (Ed25519.PublicKey fstRedKey)
-                     , Coin {getCoin = 36524597913081152})
-                     ,(RedeemPublicKey (Ed25519.PublicKey  sndRedKey)
-                     ,Coin {getCoin = 37343863242999412})
-                     ]) }
-  where
-    fstRedKey = hexToBS "e2a1773a2a82d10c30890cbf84eccbdc1aaaee9204\
-                        \96424d36e868039d9cb519"
-    sndRedKey = hexToBS "9cdabcec332abbc6fdf883ca5bf3a8afddca69bfea\
-                        \c14c013304da88ac032fe6"
+    GenesisAvvmBalances
+        { getGenesisAvvmBalances = HM.fromList
+            [ ( exampleRedeemPublicKey' (0, 32)
+              , Coin {getCoin = 36524597913081152}
+              )
+            , ( exampleRedeemPublicKey' (32, 32)
+              , Coin {getCoin = 37343863242999412}
+              )
+            ]
+        }
+    where
+        exampleRedeemPublicKey' :: (Int, Int) -> RedeemPublicKey
+        exampleRedeemPublicKey' (m, n) = fromJust (fst <$> redeemDeterministicKeyGen (getBytes m n))
 
 exampleSharedSeed :: SharedSeed
 exampleSharedSeed = SharedSeed (getBytes 8 32)

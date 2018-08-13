@@ -93,7 +93,7 @@ prepareAddressFixture = do
         Right v1Wallet <- Wallets.createWallet pw newWalletRq
         -- Get all the available accounts
         db <- Kernel.getWalletSnapshot pw
-        let Right accs = Accounts.getAccounts db (V1.walId v1Wallet)
+        let Right accs = Accounts.getAccounts (V1.walId v1Wallet) db
         let (acc : _) = IxSet.toList accs
         let newAddressRq = V1.NewAddress spendingPassword (V1.accIndex acc) (V1.walId v1Wallet)
         res <- Addresses.createAddress pw newAddressRq
@@ -193,8 +193,6 @@ spec = describe "Addresses" $ do
                              return $ (bimap STB STB res1) `shouldBe` (bimap STB STB (Left err))
                          Left (WalletLayer.CreateAddressAddressDecodingFailed _) ->
                              fail "Layer & Kernel mismatch: impossible error, CreateAddressAddressDecodingFailed"
-                         Left (WalletLayer.CreateAddressTimeLimitReached _) ->
-                             fail "The layer request exceeded the allocated time quota."
                          Right _ -> do
                              -- If we get and 'Address', let's check that this is the case also for
                              -- the kernel run. Unfortunately we cannot compare the two addresses for equality

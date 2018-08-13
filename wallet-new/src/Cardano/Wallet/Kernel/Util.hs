@@ -96,19 +96,10 @@ toss p = (< p) <$> QC.choose (0, 1)
   Access and return the state
 -------------------------------------------------------------------------------}
 
--- | Modifies the 'State' @st@ with the supplied 'Setter' and returns it.
+-- | Modify the state and return the new state
 modifyAndGetNew :: MonadState s m => (s -> s) -> m s
-modifyAndGetNew f = do
-    st <- get
-    let st' = f st
-    put st'
-    return st'
+modifyAndGetNew f = state $ \old -> let new = f old in (new, new)
 
--- | Modifies the 'State' @st@ with the supplied 'Setter' and returns the old
--- copy.
+-- | Modify the state and return the old state
 modifyAndGetOld :: MonadState s m => (s -> s) -> m s
-modifyAndGetOld f = do
-    st <- get
-    let st' = f st
-    put st'
-    return st
+modifyAndGetOld f = state $ \old -> let new = f old in (old, new)

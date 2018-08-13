@@ -78,6 +78,9 @@ data SliceOf a = SliceOf {
     -- ^ The total number of entries
     }
 
+instance Arbitrary a => Arbitrary (SliceOf a) where
+    arbitrary = SliceOf <$> arbitrary <*> arbitrary
+
 ------------------------------------------------------------
 -- Errors when manipulating wallets
 ------------------------------------------------------------

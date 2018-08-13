@@ -313,7 +313,6 @@ test-suite test
                      , containers
                      , cryptonite
                      , deepseq
-                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hedgehog

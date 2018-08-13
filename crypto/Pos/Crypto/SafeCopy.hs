@@ -11,11 +11,8 @@ import           Universum
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import           Crypto.Hash (HashAlgorithm)
-import qualified Crypto.Sign.Ed25519 as EDS25519
-
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
-
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
@@ -35,10 +32,6 @@ deriveSafeCopySimple 0 'base ''CC.EncryptedKey
 deriveSafeCopySimple 0 'base ''CC.XSignature
 deriveSafeCopySimple 0 'base ''CC.XPub
 deriveSafeCopySimple 0 'base ''CC.XPrv
-
-deriveSafeCopySimple 0 'base ''EDS25519.PublicKey
-deriveSafeCopySimple 0 'base ''EDS25519.SecretKey
-deriveSafeCopySimple 0 'base ''EDS25519.Signature
 
 deriveSafeCopySimple 0 'base ''PublicKey
 deriveSafeCopySimple 0 'base ''SecretKey

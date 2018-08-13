@@ -15942,7 +15942,6 @@ license = stdenv.lib.licenses.mit;
 , cryptonite
 , cryptonite-openssl
 , data-default
-, ed25519
 , formatting
 , generic-arbitrary
 , hashable
@@ -15988,7 +15987,6 @@ cereal
 cryptonite
 cryptonite-openssl
 data-default
-ed25519
 formatting
 hashable
 lens
@@ -27178,7 +27176,6 @@ license = stdenv.lib.licenses.bsd3;
   mkDerivation
 , base
 , bytestring
-, fetchgit
 , ghc-prim
 , stdenv
 }:
@@ -27186,13 +27183,9 @@ mkDerivation {
 
 pname = "ed25519";
 version = "0.0.5.0";
-src = fetchgit {
-
-url = "https://github.com/thoughtpolice/hs-ed25519";
-sha256 = "0fah4vkmqdkjsdh3s3x27yfaif2fbdg6049xvp54b5mh50yvxkfq";
-rev = "da4247b5b3420120e20451e6a252e2a2ca15b43c";
-
-};
+sha256 = "d8a5958ebfa9309790efade64275dc5c441b568645c45ceed1b0c6ff36d6156d";
+revision = "2";
+editedCabalFile = "1cq6h3jqkb1kvd9fjfhsllg5gq78sdiyf2gy9862xhlbv6wil19f";
 libraryHaskellDepends = [
 base
 bytestring
@@ -27200,7 +27193,7 @@ ghc-prim
 ];
 doHaddock = false;
 doCheck = false;
-homepage = "https://thoughtpolice.github.com/hs-ed25519";
+homepage = "http://thoughtpolice.github.com/hs-ed25519";
 description = "Ed25519 cryptographic signatures";
 license = stdenv.lib.licenses.mit;
 

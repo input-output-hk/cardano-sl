@@ -59,7 +59,7 @@ let
 
     # Patch the build recipe for nix
     echo "patching webpack.config.babel.js"
-    sed -e "s/COMMIT_HASH.*/COMMIT_HASH': '\"@GITREV@\"',/" \
+    sed -e "s/COMMIT_HASH.*/COMMIT_HASH': '\"${gitrev}\"',/" \
         -e "s/import GitRevisionPlugin.*//" \
         -e "s/path:.*/path: process.env.out,/" \
         -e "/new ProgressPlugin/d" \

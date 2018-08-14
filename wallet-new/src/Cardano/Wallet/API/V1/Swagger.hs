@@ -226,11 +226,11 @@ requestParameterToDescription = M.fromList [
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
   ]
 
--- TODO: it would be nice to read ntp configuration directly here to fetcvh
+-- TODO: it would be nice to read ntp configuration directly here to fetch
 -- 30 seconds wait time instead of hardcoding it here.
 forceNtpCheckDescription :: T.Text
 forceNtpCheckDescription = [text|
-In some cases, Daedalus needs to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP client responds or it will timout if NTP client is not available within **30** seconds.
+In some cases, API Clients need to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP client responds or it will timout if NTP client is not available within **30** seconds.
 |]
 
 pageDescription :: T.Text

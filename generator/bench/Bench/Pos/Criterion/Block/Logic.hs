@@ -223,7 +223,7 @@ runBenchmark = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo id $ \pm txpConfig _ -> do
+        withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo id $ \pm _ txpConfig _ -> do
                 let tp = TestParams
                         { _tpStartTime = Timestamp (convertUnit startTime)
                         , _tpBlockVersionData = genesisBlockVersionData

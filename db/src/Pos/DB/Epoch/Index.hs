@@ -49,7 +49,7 @@ padIndex epochSlots = go
 getSlotIndexOffsetN :: FilePath -> LocalSlotIndex -> IO Word64
 getSlotIndexOffsetN path (UnsafeLocalSlotIndex i) =
     withBinaryFile path ReadMode $ \h -> do
-        hSeek h AbsoluteSeek (fromIntegral $ i * 8)
+        hSeek h AbsoluteSeek (fromIntegral i * 8)
         decode <$> BL.hGet h 8
 
 getEpochBlockOffset :: FilePath -> LocalSlotIndex -> IO (Maybe Word64)

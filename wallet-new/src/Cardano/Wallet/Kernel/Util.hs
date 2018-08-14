@@ -7,6 +7,7 @@ module Cardano.Wallet.Kernel.Util (
   , disjoint
   , withoutKeys
   , restrictKeys
+  , markMissingMapEntries
     -- * Dealing with OldestFirst/NewestFirst
   , liftOldestFirstF
   , liftNewestFirstF
@@ -22,7 +23,8 @@ module Cardano.Wallet.Kernel.Util (
 
 import           Universum
 
-import qualified Data.Map as Map
+import qualified Data.Map.Merge.Strict as Map.Merge
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Pos.Core.Chrono
 import qualified Test.QuickCheck as QC
@@ -55,6 +57,15 @@ m `withoutKeys` s = m `Map.difference` Map.fromSet (const ()) s
 
 restrictKeys :: Ord k => Map k a -> Set k -> Map k a
 m `restrictKeys` s = m `Map.intersection` Map.fromSet (const ()) s
+
+-- | @markMissingMapEntries mustExist@ adds a 'Nothing' value for each key
+-- in @mustExist@ that doesn't exist in the input map.
+markMissingMapEntries :: Ord k => Map k b -> Map k a -> Map k (Maybe a)
+markMissingMapEntries =
+    Map.Merge.merge
+      (Map.Merge.mapMaybeMissing     $ \_k _b   -> Just $ Nothing)
+      (Map.Merge.mapMaybeMissing     $ \_k    a -> Just $ Just a)
+      (Map.Merge.zipWithMaybeMatched $ \_k _b a -> Just $ Just a)
 
 {-------------------------------------------------------------------------------
   Dealing with OldestFirst/NewestFirst

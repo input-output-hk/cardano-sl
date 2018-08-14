@@ -41,7 +41,6 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 import           Data.Acid (Query, Update, makeAcidic)
-import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
@@ -63,9 +62,11 @@ import           Cardano.Wallet.Kernel.DB.Spec
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
+import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
 {-------------------------------------------------------------------------------
@@ -166,49 +167,65 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 
 -- | Apply prefiltered block (indexed by HdAccountId) to the matching accounts.
 --
--- The prefiltered block should be indexed by AccountId, with each prefiltered block
--- containing only inputs and outputs relevant to the account. Since HdAccountId embeds HdRootId,
--- it unambiguously places an Account in the Wallet/Account hierarchy. The AccountIds here could
--- therefor refer to an Account in /any/ Wallet (not only sibling accounts in a single wallet).
-
+-- The prefiltered block should be indexed by AccountId, with each prefiltered
+-- block containing only inputs and outputs relevant to the account. Since
+-- HdAccountId embeds HdRootId, it unambiguously places an Account in the
+-- Wallet/Account hierarchy. The AccountIds here could therefor refer to an
+-- Account in /any/ Wallet (not only sibling accounts in a single wallet).
+--
 -- NOTE:
--- * Calls to 'applyBlock' must be sequentialized by the caller
--- (although concurrent calls to 'applyBlock' cannot interfere with each
--- other, 'applyBlock' must be called in the right order.)
+--
+-- * Calls to 'applyBlock' must be sequentialized by the caller (although
+--   concurrent calls to 'applyBlock' cannot interfere with each other,
+--   'applyBlock' must be called in the right order.)
 --
 -- * Since a block may reference wallet accounts that do not exist yet locally,
--- we need to create such 'missing' accounts. (An Account might not exist locally
--- if it was created on another node instance of this wallet).
+--   we need to create such 'missing' accounts. (An Account might not exist
+--   locally if it was created on another node instance of this wallet).
 --
--- * For every address encountered in the block outputs, create an HdAddress if it
--- does not already exist.
+-- * For every address encountered in the block outputs, create an HdAddress if
+--   it does not already exist.
+--
+-- * 'applyBlock' should be called /even if the map of prefiltered blocks is
+--   empty/. This is important because for blocks that don't change we still
+--   need to push a new checkpoint.
 applyBlock :: Map HdAccountId PrefilteredBlock -> Update DB ()
-applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $ do
-    blocksByAccount' <- fillInEmptyBlock blocksByAccount
-    createPrefiltered
-        initUtxoAndAddrs
-        updateAccount
-        blocksByAccount'
+applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
+    updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
   where
-    updateAccount :: PrefilteredBlock -> Update' HdAccount Void ()
-    updateAccount pb =
-        matchHdAccountCheckpoints
-          (modify $ Spec.applyBlock        pb)
-          (modify $ Spec.applyBlockPartial pb)
+    mkUpdates :: IxSet HdAccount -> [AccountUpdate Void]
+    mkUpdates existingAccounts =
+          map mkUpdate
+        . Map.toList
+        . markMissingMapEntries (IxSet.toMap existingAccounts)
+        $ blocksByAccount
 
-    -- Initial UTxO and addresses for a new account
+    -- The account update
     --
-    -- NOTE: When we initialize the kernel, we look at the genesis UTxO and create
-    -- an initial balance for all accounts that we recognize as ours. This means
-    -- that when we later discover a new account that is also ours, it cannot appear
-    -- in the genesis UTxO, because if it did, we would already have seen it (the
-    -- genesis UTxO is static, after all). Hence we use empty initial utxo for
-    -- accounts discovered during 'applyBlock' (and 'switchToFork')
-    --
-    -- The Addrs need to be created during account initialisation and so we pass
-    -- them here.
-    initUtxoAndAddrs :: PrefilteredBlock -> (Utxo, [AddrWithId])
-    initUtxoAndAddrs pb = (Map.empty, pfbAddrs pb)
+    -- NOTE: When we initialize the kernel, we look at the genesis UTxO and
+    -- create an initial balance for all accounts that we recognize as ours.
+    -- This means that when we later discover a new account that is also ours,
+    -- it cannot appear in the genesis UTxO, because if it did, we would already
+    -- have seen it (the genesis UTxO is static, after all). Hence we use empty
+    -- initial utxo for accounts discovered during 'applyBlock' (and
+    -- 'switchToFork')
+    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock) -> AccountUpdate Void
+    mkUpdate (accId, mPB) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateAddrs = pfbAddrs pb
+        , accountUpdateNew   =
+            AccountUpdateNew {
+                accountUpdateUtxo  = Map.empty
+              , accountUpdateBrief = dummyChainBrief
+              }
+        , accountUpdate      =
+            matchHdAccountCheckpoints
+              (modify $ Spec.applyBlock        pb)
+              (modify $ Spec.applyBlockPartial pb)
+        }
+      where
+        pb :: PrefilteredBlock
+        pb = fromMaybe (emptyPrefilteredBlock dummyChainBrief) mPB
 
 -- | Switch to a fork
 --
@@ -219,34 +236,46 @@ applyBlock blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $ do
 switchToFork :: Int
              -> [Map HdAccountId PrefilteredBlock]
              -> Update DB (Either RollbackDuringRestoration ())
-switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $ do
-    blocks' <- mapM fillInEmptyBlock blocks
-    createPrefiltered
-        initUtxoAndAddrs
-        updateAccount
-        (distribute blocks')
+switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
+    updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
   where
-    updateAccount :: [PrefilteredBlock]
-                  -> Update' HdAccount RollbackDuringRestoration ()
-    updateAccount pbs =
-        matchHdAccountCheckpoints
-          (modify $ Spec.switchToFork n (OldestFirst pbs))
-          (throwError RollbackDuringRestoration)
+    mkUpdates :: IxSet HdAccount -> [AccountUpdate RollbackDuringRestoration]
+    mkUpdates existingAccounts =
+          map mkUpdate
+        . Map.toList
+        . redistribute
+        . map (markMissingMapEntries (IxSet.toMap existingAccounts))
+        $ blocks
+
+    mkUpdate :: (HdAccountId, [Maybe PrefilteredBlock])
+             -> AccountUpdate RollbackDuringRestoration
+    mkUpdate (accId, mPBs) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateAddrs = concatMap pfbAddrs pbs
+        , accountUpdateNew   =
+            AccountUpdateNew {
+                accountUpdateUtxo  = Map.empty
+              , accountUpdateBrief = dummyChainBrief
+              }
+        , accountUpdate      =
+            matchHdAccountCheckpoints
+              (modify $ Spec.switchToFork n (OldestFirst pbs))
+              (throwError RollbackDuringRestoration)
+        }
+      where
+        pbs :: [PrefilteredBlock]
+        pbs = map (fromMaybe (emptyPrefilteredBlock dummyChainBrief)) mPBs
 
     -- The natural result of prefiltering each block is a list of maps, but
     -- in order to apply them to each account, we want a map of lists
     --
-    -- NOTE: We have to be careful to /first/ use 'fillInEmptyBlock' to make
-    -- sure that if, say, the first and third slot both contain a block for
+    -- NOTE: We have to be careful to /first/ use 'markMissingMapEntries' to
+    -- make sure that if, say, the first and third slot both contain a block for
     -- account A, but the second does not, we end up with an empty block
     -- inserted for slot 2.
-    distribute :: [Map HdAccountId PrefilteredBlock]
-               -> Map HdAccountId [PrefilteredBlock]
-    distribute = Map.unionsWith (++) . map (Map.map (:[]))
-
-    -- See comments in 'applyBlock'
-    initUtxoAndAddrs :: [PrefilteredBlock] -> (Utxo, [AddrWithId])
-    initUtxoAndAddrs pbs = (Map.empty, concatMap pfbAddrs pbs)
+    redistribute :: [Map HdAccountId (Maybe PrefilteredBlock)]
+                 -> Map HdAccountId [Maybe PrefilteredBlock]
+    redistribute = Map.unionsWith (++) . map (Map.map (:[]))
 
 -- | Observable rollback, used for tests only
 --
@@ -264,104 +293,105 @@ observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
 
 -- | Create an HdWallet with HdRoot, possibly with HdAccounts and HdAddresses.
 --
---  Given prefiltered utxo's, by account, create an HdAccount for each account,
---  along with HdAddresses for all utxo outputs.
+-- Given prefiltered utxo's, by account, create an HdAccount for each account,
+-- along with HdAddresses for all utxo outputs.
 --
--- NOTE: since the genesis Utxo does not come into being through regular transactions,
---       there is no block metadata to record when we create a wallet
+-- NOTE: since the genesis Utxo does not come into being through regular
+-- transactions, there is no block metadata to record when we create a wallet.
 createHdWallet :: HdRoot
                -> Map HdAccountId (Utxo,[AddrWithId])
                -> Update DB (Either HD.CreateHdRootError ())
 createHdWallet newRoot utxoByAccount =
     runUpdateDiscardSnapshot . zoom dbHdWallets $ do
-          HD.createHdRoot newRoot
-          createPrefiltered
-              identity
-              (\_ -> return ()) -- we just want to create the accounts
-              utxoByAccount
+      HD.createHdRoot newRoot
+      updateAccounts $ map mkUpdate (Map.toList utxoByAccount)
+  where
+    mkUpdate :: (HdAccountId, (Utxo, [AddrWithId]))
+             -> AccountUpdate HD.CreateHdRootError
+    mkUpdate (accId, (utxo, addrs)) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateNew   =
+            AccountUpdateNew {
+                accountUpdateUtxo  = utxo
+              , accountUpdateBrief = dummyChainBrief
+              }
+        , accountUpdateAddrs = addrs
+        , accountUpdate      = return () -- just need to create it, no more
+        }
 
 {-------------------------------------------------------------------------------
-  Internal auxiliary: apply a function to a prefiltered block/utxo
+  Internal: support for updating accounts
 -------------------------------------------------------------------------------}
 
--- | Given a map from account IDs, add default values for all accounts in
--- the wallet that aren't given a value in the map
-fillInDefaults :: forall p e.
-                  (HdAccount -> p)   -- ^ Default value
-               -> Map HdAccountId p  -- ^ Map with values per account
-               -> Update' HdWallets e (Map HdAccountId p)
-fillInDefaults def accs =
-    aux . IxSet.toMap <$> use hdWalletsAccounts
-  where
-    aux :: Map HdAccountId HdAccount -> Map HdAccountId p
-    aux = Map.Merge.merge newAccount needsDefault valueForExistingAcc accs
-
-    newAccount :: Map.Merge.SimpleWhenMissing HdAccountId p p
-    newAccount = Map.Merge.mapMaybeMissing $ \_accId p -> Just p
-
-    needsDefault :: Map.Merge.SimpleWhenMissing HdAccountId HdAccount p
-    needsDefault = Map.Merge.mapMaybeMissing $ \_accId acc -> Just (def acc)
-
-    valueForExistingAcc :: Map.Merge.SimpleWhenMatched HdAccountId p HdAccount p
-    valueForExistingAcc = Map.Merge.zipWithMatched $ \_accId p _acc -> p
-
--- | Specialization of 'fillInDefaults' for prefiltered blocks
-fillInEmptyBlock :: Map HdAccountId PrefilteredBlock
-                 -> Update' HdWallets e (Map HdAccountId PrefilteredBlock)
-fillInEmptyBlock = fillInDefaults $ \_ -> emptyPrefilteredBlock dummyChainBrief
-
--- | For each of the specified accounts, create them if they do not exist,
--- and apply the specified function.
+-- | All the information we need to update an account
 --
--- NOTE: Any accounts that aren't in the map are simply skilled. See
--- 'fillInDefaults'.
-createPrefiltered :: forall p e.
-                     (p -> (Utxo,[AddrWithId]))
-                      -- ^ Initial UTxO (when we are creating the account),
-                      -- as well as set of addresses the account should have
-                  -> (p -> Update' HdAccount e ())
-                      -- ^ Function to apply to the account
-                  -> Map HdAccountId p
-                  -> Update' HdWallets e ()
-createPrefiltered initUtxoAndAddrs applyP accs = do
-      forM_ (Map.toList accs) $ \(accId, p) -> do
-        let utxo  :: Utxo
-            addrs :: [AddrWithId]
-            (utxo, addrs) = initUtxoAndAddrs p
+-- See 'updateAccount' or 'updateAccounts'.
+data AccountUpdate e = AccountUpdate {
+      -- | Account to update
+      accountUpdateId    :: !HdAccountId
 
-        -- apply the update to the account
-        zoomOrCreateHdAccount
-            assumeHdRootExists
-            (newAccount accId utxo)
-            accId
-            (applyP p)
+      -- | Information needed when we need to create the account from scratch
+    , accountUpdateNew   :: !AccountUpdateNew
 
-        -- create addresses (if they don't exist)
-        forM_ addrs $ \(addressId, address) -> do
-            let newAddress :: HdAddress
-                newAddress = HD.initHdAddress addressId (InDb address)
+      -- | Set of addresses that should exist in this account
+      --
+      -- We make sure that these addresses exist even if the account itself
+      -- does not need to be created.
+      --
+      -- NOTE: At the moment these addresses are created /after/ the
+      -- update has been run.
+    , accountUpdateAddrs :: ![AddrWithId]
 
-            zoomOrCreateHdAddress
-                assumeHdAccountExists -- we created it above
-                newAddress
-                addressId
-                (return ())
+      -- | The update to run
+    , accountUpdate      :: !(Update' HdAccount e ())
+    }
 
-        where
-            newAccount :: HdAccountId -> Utxo -> HdAccount
-            newAccount accId' utxo' = HD.initHdAccount accId' (firstCheckpoint utxo')
+-- | Information we need to create new accounts
+--
+-- See 'AccountUpdate'.
+data AccountUpdateNew = AccountUpdateNew {
+      -- | 'UTxO' to use to create the first checkpoint
+      accountUpdateUtxo  :: !Utxo
 
-            firstCheckpoint :: Utxo -> Checkpoint
-            firstCheckpoint utxo' = Checkpoint {
-                  _checkpointUtxo        = InDb utxo'
-                , _checkpointUtxoBalance = InDb $ Core.utxoBalance utxo'
-                , _checkpointPending     = Pending.empty
-                -- Since this is the first checkpoint before we have applied
-                -- any blocks, the block metadata is empty
-                , _checkpointBlockMeta   = emptyBlockMeta
-                , _checkpointChainBrief  = dummyChainBrief
-                , _checkpointForeign     = Pending.empty
-                }
+      -- | 'ChainBrief' to use to create the first checkpoint
+    , accountUpdateBrief :: !ChainBrief
+    }
+
+-- | Brand new account (if one needs to be created)
+accountUpdateCreate :: HdAccountId -> AccountUpdateNew -> HdAccount
+accountUpdateCreate accId AccountUpdateNew{..} =
+    HD.initHdAccount accId firstCheckpoint
+  where
+    firstCheckpoint :: Checkpoint
+    firstCheckpoint = Checkpoint {
+          _checkpointUtxo        = InDb accountUpdateUtxo
+        , _checkpointUtxoBalance = InDb $ Core.utxoBalance accountUpdateUtxo
+        , _checkpointPending     = Pending.empty
+        , _checkpointForeign     = Pending.empty
+        , _checkpointBlockMeta   = emptyBlockMeta
+        , _checkpointChainBrief  = accountUpdateBrief
+        }
+
+updateAccount :: AccountUpdate e -> Update' HdWallets e ()
+updateAccount AccountUpdate{..} = do
+    zoomOrCreateHdAccount
+        assumeHdRootExists
+        (accountUpdateCreate accountUpdateId accountUpdateNew)
+        accountUpdateId
+        accountUpdate
+    mapM_ createAddress accountUpdateAddrs
+  where
+    -- Create address (if needed)
+    createAddress :: AddrWithId -> Update' HdWallets e ()
+    createAddress (addressId, address) =
+        zoomOrCreateHdAddress
+            assumeHdAccountExists -- we just created it
+            (HD.initHdAddress addressId (InDb address))
+            addressId
+            (return ())
+
+updateAccounts :: [AccountUpdate e] -> Update' HdWallets e ()
+updateAccounts = mapM_ updateAccount
 
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations

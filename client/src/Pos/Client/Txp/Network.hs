@@ -6,6 +6,7 @@
 module Pos.Client.Txp.Network
        ( TxMode
        , prepareMTx
+       , prepareUnsignedTx
        , prepareRedemptionTx
        , submitTxRaw
        , sendTxOuts
@@ -21,12 +22,12 @@ import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy,
                      PendingAddresses (..), TxCreateMode, TxError (..),
-                     createMTx, createRedemptionTx)
+                     createMTx, createRedemptionTx, createUnsignedTx)
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
                      unsafeAddCoin)
-import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..), TxOut (..),
-                     TxOutAux (..), txaF)
+import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxMsgContents (..),
+                     TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
                      redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)
@@ -58,6 +59,20 @@ prepareMTx
 prepareMTx pm hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
     eitherToThrow =<< createMTx pm pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
+
+-- | Construct unsigned Tx
+prepareUnsignedTx
+    :: TxMode m
+    => ProtocolMagic
+    -> PendingAddresses
+    -> InputSelectionPolicy
+    -> NonEmpty Address
+    -> NonEmpty TxOutAux
+    -> Address
+    -> m (Either TxError (Tx, NonEmpty TxOut))
+prepareUnsignedTx pm pendingAddrs inputSelectionPolicy addrs outputs changeAddress = do
+    utxo <- getOwnUtxos (toList addrs)
+    createUnsignedTx pm pendingAddrs inputSelectionPolicy utxo outputs changeAddress
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

@@ -46,7 +46,8 @@ import           Servant (Handler, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
-import           Servant.Swagger.UI.ReDoc (redocSchemaUIServer)
+import           Servant.Swagger.UI.Core (swaggerSchemaUIServerImpl)
+import           Servant.Swagger.UI.ReDoc (redocFiles)
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen
 import           Test.QuickCheck.Random
@@ -822,7 +823,34 @@ leverage the API capabilities.
 swaggerSchemaUIServer
     :: (Server api ~ Handler Swagger)
     => Swagger -> Server (SwaggerSchemaUI' dir api)
-swaggerSchemaUIServer = redocSchemaUIServer
+swaggerSchemaUIServer =
+    swaggerSchemaUIServerImpl redocIndexTemplate redocFiles
+  where
+    redocIndexTemplate :: Text
+    redocIndexTemplate = [text|
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>ReDoc</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { margin: 0; padding: 0; }
+    </style>
+    <script>
+        // Force Strict-URL Routing for assets relative paths
+        (function onload() {
+            if (!window.location.href.endsWith("/")) {
+                window.location.href += "/";
+            }
+        }());
+    </script>
+  </head>
+  <body>
+    <redoc spec-url="../SERVANT_SWAGGER_UI_SCHEMA"></redoc>
+    <script src="redoc.min.js"> </script>
+  </body>
+</html>|]
 
 --
 -- The API

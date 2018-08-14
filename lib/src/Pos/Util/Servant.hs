@@ -725,7 +725,6 @@ instance ReportDecodeError api =>
 -- Boolean type for all flags but we can implement custom type.
 data CustomQueryFlag (sym :: Symbol) flag
 
--- TODO (akegalj): add roundtrip test
 class Flaggable flag where
     toBool :: flag -> Bool
     fromBool :: Bool -> flag

@@ -80,7 +80,7 @@ import           Formatting (bprint, build, builder, fconst, formatToString,
                      sformat, shown, stext, string, (%))
 import qualified Formatting.Buildable
 import           GHC.IO.Unsafe (unsafePerformIO)
-import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
@@ -98,8 +98,6 @@ import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
                      logInfoSP, plainOrSecureF, secretOnlyF)
-
-import           GHC.TypeLits (Symbol)
 
 -------------------------------------------------------------------------
 -- Utility functions

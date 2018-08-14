@@ -28,6 +28,7 @@ import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Chain.Txp (Utxo)
+import           Pos.Core.Slotting (SlotId)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import qualified Pos.Core.Txp as Txp
@@ -140,15 +141,16 @@ cancelPending :: forall c. IsCheckpoint c
 cancelPending txids = map (cpPending %~ Pending.delete txids)
 
 -- | Apply the prefiltered block to the specified wallet
-applyBlock :: PrefilteredBlock
+applyBlock :: SlotId
+           -> PrefilteredBlock
            -> NewestFirst NonEmpty Checkpoint
            -> NewestFirst NonEmpty Checkpoint
-applyBlock pb checkpoints = NewestFirst $ Checkpoint {
+applyBlock slotId pb checkpoints = NewestFirst $ Checkpoint {
       _checkpointUtxo        = InDb utxo'
     , _checkpointUtxoBalance = InDb balance'
     , _checkpointPending     = pending'
     , _checkpointBlockMeta   = blockMeta'
-    , _checkpointChainBrief  = pfbBrief pb
+    , _checkpointSlotId      = InDb slotId
     , _checkpointForeign     = foreign'
     } NE.<| getNewestFirst checkpoints
   where
@@ -161,15 +163,16 @@ applyBlock pb checkpoints = NewestFirst $ Checkpoint {
     foreign'          = updatePending   pb (current ^. checkpointForeign)
 
 -- | Like 'applyBlock', but to a list of partial checkpoints instead
-applyBlockPartial :: PrefilteredBlock
+applyBlockPartial :: SlotId
+                  -> PrefilteredBlock
                   -> NewestFirst NonEmpty PartialCheckpoint
                   -> NewestFirst NonEmpty PartialCheckpoint
-applyBlockPartial pb checkpoints = NewestFirst $ PartialCheckpoint {
+applyBlockPartial slotId pb checkpoints = NewestFirst $ PartialCheckpoint {
       _pcheckpointUtxo        = InDb utxo'
     , _pcheckpointUtxoBalance = InDb balance'
     , _pcheckpointPending     = pending'
     , _pcheckpointBlockMeta   = blockMeta'
-    , _pcheckpointChainBrief  = pfbBrief pb
+    , _pcheckpointSlotId      = InDb slotId
     , _pcheckpointForeign     = foreign'
     } NE.<| getNewestFirst checkpoints
   where
@@ -196,7 +199,7 @@ rollback (NewestFirst (c :| c' : cs)) = NewestFirst $ Checkpoint {
       _checkpointUtxo        = c' ^. checkpointUtxo
     , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
     , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
-    , _checkpointChainBrief  = c' ^. checkpointChainBrief
+    , _checkpointSlotId      = c' ^. checkpointSlotId
     , _checkpointPending     = Pending.union (c  ^. checkpointPending)
                                              (c' ^. checkpointPending)
     , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
@@ -215,14 +218,20 @@ observableRollbackUseInTestsOnly = rollback
 -- Since rollback is only supported on wallets that are up to date wrt to
 -- the underlying node, the same goes for 'switchToFork'.
 switchToFork :: Int  -- ^ Number of blocks to rollback
-             -> OldestFirst [] PrefilteredBlock  -- ^ Blocks to apply
+             -> OldestFirst [] (SlotId, PrefilteredBlock) -- ^ Blocks to apply
              -> NewestFirst NonEmpty Checkpoint
              -> NewestFirst NonEmpty Checkpoint
 switchToFork = \n bs -> applyBlocks (getOldestFirst bs) . rollbacks n
   where
-    applyBlocks []     = identity
-    applyBlocks (b:bs) = applyBlocks bs . applyBlock b
+    applyBlocks :: [(SlotId, PrefilteredBlock)]
+                -> NewestFirst NonEmpty Checkpoint
+                -> NewestFirst NonEmpty Checkpoint
+    applyBlocks []               = identity
+    applyBlocks ((slotId, b):bs) = applyBlocks bs . applyBlock slotId b
 
+    rollbacks :: Int
+              -> NewestFirst NonEmpty Checkpoint
+              -> NewestFirst NonEmpty Checkpoint
     rollbacks 0 = identity
     rollbacks n = rollbacks (n - 1) . rollback
 

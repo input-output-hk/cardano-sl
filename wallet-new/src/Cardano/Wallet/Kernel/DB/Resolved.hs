@@ -8,22 +8,21 @@ module Cardano.Wallet.Kernel.DB.Resolved (
   , rtxInputs
   , rtxOutputs
   , rbTxs
-  , rbBrief
+  , rbSlotId
   ) where
 
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import qualified Data.Map as Map
--- import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, (%))
 import           Formatting.Buildable
 
 import           Serokell.Util (listJson, mapJson)
 
+import           Pos.Core (SlotId)
 import qualified Pos.Chain.Txp as Core
 
-import           Cardano.Wallet.Kernel.ChainState
 import           Cardano.Wallet.Kernel.DB.InDb
 
 {-------------------------------------------------------------------------------
@@ -59,13 +58,8 @@ data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
       _rbTxs   :: ![ResolvedTx]
 
-      -- | The chain state after applying this block
-      --
-      -- NOTE: The tip in the chain brief should correspond to the block we
-      -- just applied.
-      --
-      -- TODO: Ideally we'd have an assertion somehow checking that.
-    , _rbBrief :: !ChainBrief
+      -- | Slot ID of this block
+    , _rbSlotId :: !SlotId
     }
 
 makeLenses ''ResolvedTx

@@ -239,8 +239,6 @@ instance Arbitrary HdAddressId where
 -- address indices.
 --
 -- NOTE: We do not store the encrypted key of the wallet.
---
--- TODO: synchronization state
 data HdRoot = HdRoot {
       -- | Wallet ID
       _hdRootId          :: HdRootId

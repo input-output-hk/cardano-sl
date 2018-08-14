@@ -148,9 +148,6 @@ initHdRoot rootId name hasPass assurance created = HdRoot {
 --
 -- It is the responsibility of the caller to check the wallet's spending
 -- password.
---
--- TODO: If any key derivation is happening when creating accounts, should we
--- store a public key or an address or something?
 initHdAccount :: HdAccountId
               -> Checkpoint
               -> HdAccount

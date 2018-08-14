@@ -71,10 +71,6 @@ data ResolvedBlock = ResolvedBlock {
 makeLenses ''ResolvedTx
 makeLenses ''ResolvedBlock
 
--- TODO: Why are these necessary? and if they're not, get rid of InDb
---deriveSafeCopy 1 'base ''ResolvedTx
---deriveSafeCopy 1 'base ''ResolvedBlock
-
 {-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}

@@ -53,8 +53,6 @@ newTransaction :: ActiveWalletLayer IO
                -> Handler (WalletResponse Transaction)
 newTransaction aw payment@Payment{..} = do
 
-    -- TODO(adn) If the wallet is being restored, we need to disallow any @Payment@ from
-    -- being submitted.
     -- NOTE(adn) The 'SenderPaysFee' option will become configurable as part
     -- of CBR-291.
     res <- liftIO $ (WalletLayer.pay aw) (maybe mempty coerce pmtSpendingPassword)

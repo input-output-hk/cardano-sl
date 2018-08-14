@@ -355,7 +355,7 @@ newConnection path = Sqlite.open path
 -- | Closes an open 'Connection' to the @Sqlite@ database stored in the
 -- input 'MetaDBHandle'.
 -- Even if open failed with error, this function should be called http://www.sqlite.org/c3ref/open.html
--- TODO: provide a brucket style interface to ensure this.
+-- TODO: provide a bracket style interface to ensure this.
 closeMetaDB :: Sqlite.Connection -> IO ()
 closeMetaDB = Sqlite.close
 

@@ -137,10 +137,10 @@ dev: &dev
 
   wallet: &dev_wallet
     # Configuration options for throttling the API. Items at the top level
-    # apply as a default setting to all requests. By default, throttling is
-    # disabled. To enable throttling, include this key and values into the
-    # file.
-    #
+    # apply as a default setting to all requests. A 'null' value indicates that
+    # throttling is disabled.  To enable throttling, change the null value for
+    # the keys that are commented out below.
+    throttle: null
     # throttle:
     # # Number of requests per throttling period.
     #   rate: 200
@@ -348,6 +348,9 @@ mainnet_base: &mainnet_base
       - organization: "Input Output HK"
         commonName: "Daedalus Wallet"
         expiryDays: 365
+
+  wallet: &mainnet_base_wallet
+    throttle: null
 
 ##############################################################################
 ##                                                                          ##

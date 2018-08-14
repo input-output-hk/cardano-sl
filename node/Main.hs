@@ -23,8 +23,8 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI as CLI
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
-                     loggerBracket, runNodeReal, withConfigurations,
-                     WalletConfiguration)
+                     WalletConfiguration, loggerBracket, runNodeReal,
+                     withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)

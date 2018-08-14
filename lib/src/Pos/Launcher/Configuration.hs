@@ -88,9 +88,9 @@ instance ToJSON WalletConfiguration where
     toJSON = genericToJSON defaultOptions
 
 data ThrottleSettings = ThrottleSettings
-    { tsRate :: !Int
+    { tsRate   :: !Int
     , tsPeriod :: !Int
-    , tsBurst :: !Int
+    , tsBurst  :: !Int
     } deriving (Show, Generic)
 
 defaultThrottleSettings :: ThrottleSettings

@@ -25,9 +25,9 @@ import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
                      topologyDequeuePolicy, topologyEnqueuePolicy,
                      topologyFailurePolicy)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
-                     NodeResources (..), bracketNodeResources, loggerBracket,
-                     lpConsoleLog, runNode, runRealMode, withConfigurations,
-                     WalletConfiguration)
+                     NodeResources (..), WalletConfiguration,
+                     bracketNodeResources, loggerBracket, lpConsoleLog,
+                     runNode, runRealMode, withConfigurations)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))

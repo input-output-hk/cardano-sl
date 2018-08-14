@@ -37,6 +37,7 @@
 |Main.hs|NodeContext |lib/src/Pos/Context/Context.hs|
 |Main.hs|CommonNodeArgs |lib/src/Pos/Client/CLI/NodeOptions.hs|
 
+
 ## `binary` package
 ### File path prefix: src/Pos/Binary/
 | File | Types | Type Definition Location |
@@ -119,6 +120,25 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Txp/Toil/UtxoSpec.hs|UnsafeTx|core/src/Pos/Core/Txp/Tx.hs|
 |Txp/Toil/UtxoSpec.hs|TxOutAux|core/src/Pos/Core/Txp/TxOutAux.hs|
 |Txp/Toil/UtxoSpec.hs|ToilVerFailure (ToilWitnessDoesntMatch)|chain/src/Pos/Chain/Txp/Toil/Failure.hs|
+
+## `crypto` package
+### File path prefix: Pos/Crypto/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Scrypt.hs|ScryptParamsBuilder {..}|Same module|
+|SafeCopy.hs|ProxySignature{..}|crypto/Pos/Crypto/Signing/Types/Signing.hs|
+|Signing/Types/Signing.hs|UnsafeProxySecretKey {..}| Same module|
+|Signing/Types/Signing.hs|ProxySignature{..}|crypto/Pos/Crypto/Signing/Types/Signing.hs|
+|SecretSharing.hs|SecretProof{..}| Same module|
+|Signing/Signing.hs|ProxySignature{..}|crypto/Pos/Crypto/Signing/Types/Signing.hs|
+
+### File path prefix: test/Test/Pos/Crypto/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Arbitrary.hs|SharedSecrets| Same module|
+|CryptoSpec2.hs|UnsafeProxySecretKey|crypto/Pos/Crypto/Signing/Types/Signing.hs|
 
 ## `networking` package
 ### File path prefix: src/Network/

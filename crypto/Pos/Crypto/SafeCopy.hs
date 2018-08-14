@@ -1,4 +1,6 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Crypto.SafeCopy

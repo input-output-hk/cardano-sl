@@ -7,9 +7,13 @@ module Test.Pos.DB.Epoch.Index
 import           Universum
 
 import           Data.Maybe (catMaybes)
-import           Hedgehog
+import           Hedgehog (MonadGen, Property, PropertyT, checkSequential,
+                     discover, forAll, property, (===))
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+import           System.FilePath ((</>))
+import           System.IO (hClose)
+import           System.IO.Temp (withSystemTempDirectory)
 
 import           Pos.Core (LocalSlotIndex (..), SlotCount (..),
                      localSlotIndices)
@@ -46,10 +50,12 @@ lookupProperty epochSlots = do
                         maybeOffsets
 
     -- Write the index and fetch back all the values
-    fetchedOffsets <- liftIO $ do
-        writeEpochIndex epochSlots "test.index" index
-        traverse (getEpochBlockOffset "test.index")
-            $ localSlotIndices epochSlots
+    fetchedOffsets <- liftIO .
+        withSystemTempDirectory "index-test" $ \ dirPath -> do
+            let indexPath = dirPath </> "test.index"
+            writeEpochIndex epochSlots indexPath index
+            traverse (getEpochBlockOffset indexPath)
+                    $ localSlotIndices epochSlots
 
     -- Compare the original set of offsets to the fetched ones
     fetchedOffsets === maybeOffsets

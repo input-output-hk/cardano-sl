@@ -11,7 +11,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
-import           Cardano.Wallet.WalletLayer.Types (GetTxError (..))
+import           Cardano.Wallet.WalletLayer (GetTxError (..))
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request

@@ -30,8 +30,8 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 -- import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 -- import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import           Cardano.Wallet.WalletLayer (walletPassiveLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
-import           Cardano.Wallet.WalletLayer.Types
 
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -175,5 +175,3 @@ spec =
                                     case eiResp of
                                         Left l -> expectationFailure $ "returned " <> show l
                                         Right resp -> check resp
-
-

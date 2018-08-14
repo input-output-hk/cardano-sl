@@ -28,9 +28,9 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation (..), InputGrouping (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp,
                      paymentAmount)
-import qualified Cardano.Wallet.WalletLayer as WalletLayer
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer,
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 handlers :: ActiveWalletLayer IO -> ServerT Transactions.API Handler
 handlers aw = newTransaction aw

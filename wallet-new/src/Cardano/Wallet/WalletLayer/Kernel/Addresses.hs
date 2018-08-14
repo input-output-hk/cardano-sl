@@ -29,9 +29,9 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (AutoIncrementKey (..),
                      Indexed (..), IxSet, ixedIndexed, (@>=<=))
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (AccountId (..))
-import           Cardano.Wallet.WalletLayer.Kernel.Conv
-import           Cardano.Wallet.WalletLayer.Types (CreateAddressError (..),
+import           Cardano.Wallet.WalletLayer (CreateAddressError (..),
                      ValidateAddressError (..))
+import           Cardano.Wallet.WalletLayer.Kernel.Conv
 
 createAddress :: MonadIO m
               => Kernel.PassiveWallet

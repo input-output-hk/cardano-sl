@@ -50,8 +50,8 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      WalletStartupOptions (..), getWalletNodeOptions,
                      walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer,
-                     bracketKernelPassiveWallet)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
@@ -134,7 +134,7 @@ actionWithNewWallet pm txpConfig sscParams nodeParams params =
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
-          bracketKernelPassiveWallet logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
+          WalletLayer.Kernel.bracketPassiveWallet logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
             Kernel.init passiveWallet
             Kernel.Mode.runWalletMode pm
                                       txpConfig

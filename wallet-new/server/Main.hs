@@ -68,13 +68,14 @@ defaultLoggerName = "node"
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  => ProtocolMagic
+                 -> WalletConfiguration
                  -> TxpConfiguration
                  -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> WalletBackendParams
                  -> IO ()
-actionWithWallet pm txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
+actionWithWallet pm walletConfig txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
@@ -108,8 +109,8 @@ actionWithWallet pm txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackend
     plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
-                , Plugins.legacyWalletBackend pm txpConfig wArgs ntpStatus
-                , Plugins.walletDocumentation wArgs
+                , Plugins.legacyWalletBackend pm walletConfig txpConfig wArgs ntpStatus
+                , Plugins.walletDocumentation walletConfig wArgs
                 , Plugins.acidCleanupWorker wArgs
                 , Plugins.syncWalletWorker
                 , Plugins.resubmitterPlugin pm txpConfig
@@ -118,12 +119,13 @@ actionWithWallet pm txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackend
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => ProtocolMagic
+                    -> WalletConfiguration
                     -> TxpConfiguration
                     -> SscParams
                     -> NodeParams
                     -> NewWalletBackendParams
                     -> IO ()
-actionWithNewWallet pm txpConfig sscParams nodeParams params =
+actionWithNewWallet pm walletConfig txpConfig sscParams nodeParams params =
     bracketNodeResources
         nodeParams
         sscParams
@@ -160,7 +162,7 @@ actionWithNewWallet pm txpConfig sscParams nodeParams params =
     -- in the legacy wallet (see 'actionWithWallet').
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w = mconcat [ Plugins.walletBackend pm params w ]
+    plugins w = mconcat [ Plugins.walletBackend pm walletConfig params w ]
 
     -- Extract the logger name from node parameters
     --
@@ -182,9 +184,9 @@ startEdgeNode wso =
       (sscParams, nodeParams) <- getParameters walletConfig txpConfig ntpConfig
       case wsoWalletBackendParams wso of
         WalletLegacy legacyParams ->
-          actionWithWallet pm txpConfig sscParams nodeParams ntpConfig legacyParams
+          actionWithWallet pm walletConfig txpConfig sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet pm txpConfig sscParams nodeParams newParams
+          actionWithNewWallet pm walletConfig txpConfig sscParams nodeParams newParams
   where
     getParameters :: HasConfigurations
                   => WalletConfiguration

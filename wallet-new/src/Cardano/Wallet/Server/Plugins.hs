@@ -55,7 +55,8 @@ import           Pos.Context (HasNodeContext)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
-import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Launcher.Configuration (HasConfigurations,
+                     WalletConfiguration(..), ThrottleSettings(..))
 import           Pos.Util (lensOf)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
@@ -98,9 +99,10 @@ conversation wArgs = map const (pluginsMonitoringApi wArgs)
 
 walletDocumentation
     :: (HasConfigurations, HasCompileInfo)
-    => WalletBackendParams
+    => WalletConfiguration
+    -> WalletBackendParams
     -> Plugin WalletWebMode
-walletDocumentation WalletBackendParams {..} = pure $ \_ ->
+walletDocumentation walletConfiguration WalletBackendParams {..} = pure $ \_ ->
     walletDocumentationImpl
         application
         walletDocAddress
@@ -111,18 +113,20 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
     application :: WalletWebMode Application
     application = do
         let app = Servant.serve API.walletDocAPI LegacyServer.walletDocServer
-        withMiddleware walletRunMode app
+        withMiddleware walletConfiguration walletRunMode app
     tls =
         if isDebugMode walletRunMode then Nothing else walletTLSParams
 
 -- | A @Plugin@ to start the wallet backend API.
-legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
-                    => ProtocolMagic
-                    -> TxpConfiguration
-                    -> WalletBackendParams
-                    -> TVar NtpStatus
-                    -> Plugin WalletWebMode
-legacyWalletBackend pm txpConfig WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
+legacyWalletBackend
+    :: (HasConfigurations, HasCompileInfo)
+    => ProtocolMagic
+    -> WalletConfiguration
+    -> TxpConfiguration
+    -> WalletBackendParams
+    -> TVar NtpStatus
+    -> Plugin WalletWebMode
+legacyWalletBackend pm walletConfiguration txpConfig WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
         logInfo $ sformat ("Production mode for API: "%build)
             walletProductionApi
@@ -150,7 +154,7 @@ legacyWalletBackend pm txpConfig WalletBackendParams {..} ntpStatus = pure $ \di
         logInfo "Wallet Web API has STARTED!"
         wsConn <- getWalletWebSockets
         ctx <- V0.walletWebModeContext
-        withMiddleware walletRunMode
+        withMiddleware walletConfiguration walletRunMode
             $ upgradeApplicationWS wsConn
             $ Servant.serve API.walletAPI
             $ LegacyServer.walletServer
@@ -198,11 +202,13 @@ legacyWalletBackend pm txpConfig WalletBackendParams {..} ntpStatus = pure $ \di
 -- | A 'Plugin' to start the wallet REST server
 --
 -- NOTE: There is no web socket support in the new wallet for now.
-walletBackend :: ProtocolMagic
-              -> NewWalletBackendParams
-              -> (PassiveWalletLayer IO, PassiveWallet)
-              -> Plugin Kernel.WalletMode
-walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
+walletBackend
+    :: ProtocolMagic
+    -> WalletConfiguration
+    -> NewWalletBackendParams
+    -> (PassiveWalletLayer IO, PassiveWallet)
+    -> Plugin Kernel.WalletMode
+walletBackend protocolMagic walletConfiguration (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
@@ -222,7 +228,7 @@ walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (pa
     getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
         logInfo "New wallet API has STARTED!"
-        withMiddleware walletRunMode $
+        withMiddleware walletConfiguration walletRunMode $
             Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env IO a -> IO a
@@ -251,23 +257,31 @@ syncWalletWorker = pure $ const $
 -- a Swagger editor, locally.
 withMiddleware
     :: MonadIO m
-    => RunMode
+    => WalletConfiguration
+    -> RunMode
     -> Application
     -> m Application
-withMiddleware wrm app = do
-    st <- liftIO $ Throttle.initThrottler
+withMiddleware walletConfiguration wrm app = do
+    throttling <- case ccThrottle walletConfiguration of
+        Nothing ->
+            pure identity
+        Just ts -> do
+            throttler <- liftIO $ Throttle.initThrottler
+            pure (Throttle.throttle (throttleSettings ts) throttler)
     pure
         . (if isDebugMode wrm then corsMiddleware else identity)
-        . Throttle.throttle throttleSettings st
+        . throttling
         $ app
   where
-    throttleSettings = Throttle.defaultThrottleSettings
+    throttleSettings ts = Throttle.defaultThrottleSettings
         { Throttle.onThrottled = \microsTilRetry ->
             responseLBS
                 Http.status429
                 [ ("Content-Type", "application/json") ]
                 (encode (V1.RequestThrottled microsTilRetry))
-        , Throttle.throttleRate = 200
+        , Throttle.throttleRate = fromIntegral $ tsRate ts
+        , Throttle.throttlePeriod = fromIntegral $ tsPeriod ts
+        , Throttle.throttleBurst = fromIntegral $ tsBurst ts
         }
 
 corsMiddleware :: Middleware

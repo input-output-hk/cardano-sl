@@ -154,7 +154,7 @@ $ stack test cardano-sl-wallet-new
 Wallet integration tests can be run using this command (from the project *root* directory):
 
 ```
-$ nix-build release.nix -A walletIntegrationTests --arg useStackBinaries true 
+$ nix-build release.nix -A tests.walletIntegration --arg useStackBinaries true 
 ```
 
 ## Developing

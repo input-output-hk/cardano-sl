@@ -56,7 +56,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Launcher.Configuration (HasConfigurations,
-                     WalletConfiguration(..), ThrottleSettings(..))
+                     ThrottleSettings (..), WalletConfiguration (..))
 import           Pos.Util (lensOf)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)

@@ -1,7 +1,10 @@
+{-# LANGUAGE GADTs #-}
+
 -- | Transaction metadata conform the wallet specification
 module Cardano.Wallet.Kernel.DB.TxMeta.Types (
     -- * Transaction metadata
     TxMeta(..)
+
     -- ** Lenses
   , txMetaId
   , txMetaAmount
@@ -10,11 +13,16 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   , txMetaCreationAt
   , txMetaIsLocal
   , txMetaIsOutgoing
+  , txMetaWalletId
+  , txMetaAccountIx
 
   -- * Transaction storage
   , MetaDBHandle (..)
 
   -- * Filtering and sorting primitives
+  , AccountFops (..)
+  , FilterOperation (..)
+  , FilterOrdering (..)
   , Limit (..)
   , Offset (..)
   , Sorting (..)
@@ -88,7 +96,13 @@ data TxMeta = TxMeta {
       --
       -- A transaction is outgoing when it decreases the wallet's balance.
     , _txMetaIsOutgoing :: Bool
-    }
+
+      -- The Wallet that added this Tx.
+    , _txMetaWalletId   :: Core.Address
+
+      -- The account index that added this Tx
+    , _txMetaAccountIx  :: Word32
+    } deriving Show
 
 makeLenses ''TxMeta
 
@@ -104,6 +118,8 @@ exactlyEqualTo t1 t2 =
         , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
+        , t1 ^. txMetaWalletId == t2 ^. txMetaWalletId
+        , t1 ^. txMetaAccountIx == t2 ^. txMetaAccountIx
         ]
 
 -- | Lenient equality for two 'TxMeta': two 'TxMeta' are equal if they have
@@ -119,8 +135,14 @@ isomorphicTo t1 t2 =
         , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
+        , t1 ^. txMetaWalletId == t2 ^. txMetaWalletId
+        , t1 ^. txMetaAccountIx == t2 ^. txMetaAccountIx
         ]
 
+type AccountIx = Word32
+type WalletId = Core.Address
+-- | Filter Operations on Accounts. This is hiererchical: you can`t have AccountIx without WalletId.
+data AccountFops = Everything | AccountFops WalletId (Maybe AccountIx)
 
 data InvariantViolation =
         DuplicatedTransactionWithDifferentHash Txp.TxId
@@ -170,7 +192,9 @@ instance Buildable TxMeta where
                            " outputs = " % F.later mapBuilder %
                            " creationAt = " % F.build %
                            " isLocal = " % F.build %
-                           " isOutgoing = " % F.build
+                           " isOutgoing = " % F.build %
+                           " walletId = " % F.build %
+                           " accountIx = " % F.build
                           ) (txMeta ^. txMetaId)
                             (txMeta ^. txMetaAmount)
                             (txMeta ^. txMetaInputs)
@@ -178,6 +202,8 @@ instance Buildable TxMeta where
                             (txMeta ^. txMetaCreationAt)
                             (txMeta ^. txMetaIsLocal)
                             (txMeta ^. txMetaIsOutgoing)
+                            (txMeta ^. txMetaWalletId)
+                            (txMeta ^. txMetaAccountIx)
 
 instance Buildable [TxMeta] where
     build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta
@@ -204,6 +230,27 @@ data SortCriteria =
     | SortByAmount
     -- ^ Sort the 'TxMeta' by the amount of money they hold.
 
+data FilterOperation a =
+    NoFilterOp
+    -- ^ No filter operation provided
+    | FilterByIndex a
+    -- ^ Filter by index (e.g. equal to)
+    | FilterByPredicate FilterOrdering a
+    -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
+    | FilterByRange a a
+    -- ^ Filter by range, in the form [from,to]
+    | FilterIn [a]
+    deriving (Show, Eq)
+
+data FilterOrdering =
+      Equal
+    | GreaterThan
+    | GreaterThanEqual
+    | LesserThan
+    | LesserThanEqual
+    deriving (Show, Eq, Enum, Bounded)
+
+
 -- | An opaque handle to the underlying storage, which can be easily instantiated
 -- to a more concrete implementation like a Sqlite database, or even a pure
 -- K-V store.
@@ -212,5 +259,14 @@ data MetaDBHandle = MetaDBHandle {
     , migrateMetaDB :: IO ()
     , getTxMeta     :: Txp.TxId -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
-    , getTxMetas    :: Offset -> Limit -> Maybe Sorting -> IO [TxMeta]
+    , getTxMetas    :: Offset -- ^ Pagination: the starting offset of results.
+                    -> Limit  -- ^ An upper limit of the length of [TxMeta] returned.
+                    -> AccountFops -- ^ Filters on the Account. This may specidy an Account or a Wallet.
+                    -> Maybe Core.Address -- ^ Filters on the Addres.
+                    -> FilterOperation Txp.TxId -- ^ Filters on the TxId of the Tx.
+                    -> FilterOperation Core.Timestamp -- ^ Filters on the creation timestamp of the Tx.
+                    -> Maybe Sorting -- ^ Sorting of the results.
+                    -> IO ([TxMeta], Maybe Int) -- ^ the result in the form (results, totalEntries).
+                                                -- totalEntries may be Nothing, because counting can
+                                                -- be an expensive operation.
     }

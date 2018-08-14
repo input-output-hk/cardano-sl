@@ -18,10 +18,11 @@ module Cardano.Wallet.WalletLayer.Types
     , createAddress
     , getAddresses
     , validateAddress
+
+    , getTransactions
+
     , applyBlocks
     , rollbackBlocks
-    -- * A slice of a collection
-    , SliceOf(..)
     -- * Errors
     , CreateWalletError(..)
     , GetWalletError(..)
@@ -36,6 +37,7 @@ module Cardano.Wallet.WalletLayer.Types
     , CreateAccountError(..)
     , GetAccountError(..)
     , GetAccountsError(..)
+    , GetTxError(..)
     , DeleteAccountError(..)
     , UpdateAccountError(..)
     ) where
@@ -54,11 +56,14 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PassPhrase)
 
-import           Cardano.Wallet.API.Request (RequestParams)
+import           Cardano.Wallet.API.Request (RequestParams (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
+import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
+import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
                      AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-                     PasswordUpdate, Payment, Redemption, V1 (..), Wallet,
-                     WalletAddress, WalletId, WalletUpdate)
+                     PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
+                     Wallet, WalletAddress, WalletId, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -69,17 +74,6 @@ import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (TimeExecutionLimit)
-
-
-data SliceOf a = SliceOf {
-      paginatedSlice :: [a]
-    -- ^ A paginated fraction of the resource
-    , paginatedTotal :: Int
-    -- ^ The total number of entries
-    }
-
-instance Arbitrary a => Arbitrary (SliceOf a) where
-    arbitrary = SliceOf <$> arbitrary <*> arbitrary
 
 ------------------------------------------------------------
 -- Errors when manipulating wallets
@@ -328,6 +322,35 @@ instance Buildable UpdateAccountError where
         bprint ("UpdateAccountWalletIdDecodingFailed " % build) txt
 
 ------------------------------------------------------------
+-- Errors when getting Transactions
+------------------------------------------------------------
+
+data GetTxError =
+      GetTxMissingWalletIdError
+    | GetTxAddressDecodingFailed Text
+    | GetTxInvalidSortingOperaration String
+
+instance Show GetTxError where
+    show = formatToString build
+
+instance Buildable GetTxError where
+    build GetTxMissingWalletIdError =
+        bprint "GetTxMissingWalletIdError "
+    build (GetTxAddressDecodingFailed txt) =
+        bprint ("GetTxAddressDecodingFailed " % build) txt
+    build (GetTxInvalidSortingOperaration txt) =
+        bprint ("GetTxInvalidSortingOperaration " % build) txt
+
+
+instance Arbitrary GetTxError where
+    arbitrary = oneof [ pure GetTxMissingWalletIdError
+                      , pure (GetTxAddressDecodingFailed "by_amount")
+                      , pure (GetTxInvalidSortingOperaration "123")
+                      ]
+
+instance Exception GetTxError
+
+------------------------------------------------------------
 -- Passive wallet layer
 ------------------------------------------------------------
 
@@ -367,6 +390,11 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlGetAddresses         :: RequestParams -> m (SliceOf WalletAddress)
     , _pwlValidateAddress      :: Text
                                -> m (Either ValidateAddressError WalletAddress)
+
+    -- * transactions
+    , _pwlGetTransactions :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
+        -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
+
     -- * core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
@@ -453,6 +481,10 @@ validateAddress :: forall m. PassiveWalletLayer m
                 -> Text
                 -> m (Either ValidateAddressError WalletAddress)
 validateAddress pwl = pwl ^. pwlValidateAddress
+
+getTransactions :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe AccountIndex
+    -> Maybe (V1 Address) -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
+getTransactions pwl = pwl ^. pwlGetTransactions
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks

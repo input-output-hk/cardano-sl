@@ -18,17 +18,20 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), CreateAddressError (..),
                      CreateWalletError, DeleteAccountError,
                      DeleteWalletError (..), GetAccountError, GetAccountsError,
-                     GetWalletError (..), PassiveWalletLayer (..),
-                     SliceOf (..), UpdateAccountError, UpdateWalletError (..),
-                     UpdateWalletPasswordError, ValidateAddressError (..))
+                     GetTxError (..), GetWalletError (..),
+                     PassiveWalletLayer (..), UpdateAccountError,
+                     UpdateWalletError (..), UpdateWalletPasswordError,
+                     ValidateAddressError)
 
-import           Cardano.Wallet.API.Request (RequestParams)
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration (eitherMigrate, migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, BackupPhrase (..), NewAccount (..),
-                     NewAddress, NewWallet (..), PasswordUpdate, V1 (..),
-                     Wallet, WalletAddress, WalletId, WalletOperation (..),
+                     AccountUpdate, Address, BackupPhrase (..),
+                     NewAccount (..), NewAddress, NewWallet (..),
+                     PasswordUpdate, Transaction (..), V1 (..), Wallet,
+                     WalletAddress, WalletId, WalletOperation (..),
                      WalletUpdate)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -95,6 +98,8 @@ bracketPassiveWallet =
         , _pwlCreateAddress         = pwlCreateAddress
         , _pwlGetAddresses          = pwlGetAddresses
         , _pwlValidateAddress       = pwlValidateAddress
+
+        , _pwlGetTransactions = pwlGetTransactions
 
         , _pwlApplyBlocks           = pwlApplyBlocks
         , _pwlRollbackBlocks        = pwlRollbackBlocks
@@ -307,6 +312,19 @@ pwlGetAddresses = error "Not implemented!"
 
 pwlValidateAddress :: Text -> m (Either ValidateAddressError WalletAddress)
 pwlValidateAddress = error "Not implemented!"
+
+------------------------------------------------------------
+-- Transaction
+------------------------------------------------------------
+
+pwlGetTransactions :: Maybe WalletId
+                   -> Maybe AccountIndex
+                   -> Maybe (V1 Address)
+                   -> RequestParams
+                   -> FilterOperations Transaction
+                   -> SortOperations Transaction
+                   -> m (Either GetTxError (WalletResponse [Transaction]))
+pwlGetTransactions =  error "Not implemented!"
 
 ------------------------------------------------------------
 -- Apply Block

@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
-module Test.Spec.Addresses (spec) where
+module Test.Spec.Addresses (spec, withFixture, Fixture(..)) where
 
 import           Universum
 

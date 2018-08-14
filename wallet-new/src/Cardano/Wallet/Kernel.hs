@@ -23,6 +23,8 @@ module Cardano.Wallet.Kernel (
   , getWalletSnapshot
     -- ** Pure getters acting on a DB snapshot
   , module Getters
+
+  , walletMeta
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
@@ -56,6 +58,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
+import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
@@ -83,13 +86,29 @@ bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      -> NodeStateAdaptor IO
                      -> (PassiveWallet -> m a) -> m a
 bracketPassiveWallet logMsg keystore node f =
-    bracket (liftIO $ openMemoryState defDB)
-            (\_ -> return ())
-            (\db ->
+    bracket (liftIO $ handlesOpen)
+            (liftIO . handlesClose)
+            (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore db node)
+                  (liftIO $ initPassiveWallet logMsg keystore handles node)
                   (\_ -> return ())
                   f)
+
+
+data WalletHandles = Handles {
+    hAcid :: AcidState DB,
+    hMeta :: MetaDBHandle
+}
+
+handlesOpen :: IO WalletHandles
+handlesOpen = do
+    db <- openMemoryState defDB
+    metadb <- openMetaDB ":memory:" -- TODO: Eventually :memory: should be replaced with the real path.
+    migrateMetaDB metadb            -- TODO: this will be run with asynchronous exceptions masked.
+    return $ Handles db metadb
+
+handlesClose :: WalletHandles -> IO ()
+handlesClose (Handles _ meta) = closeMetaDB meta
 
 {-------------------------------------------------------------------------------
   Manage the Wallet's ESKs
@@ -105,11 +124,11 @@ withKeystore pw action = action (pw ^. walletKeystore)
 -- | Initialise Passive Wallet with empty Wallets collection
 initPassiveWallet :: (Severity -> Text -> IO ())
                   -> Keystore
-                  -> AcidState DB
+                  -> WalletHandles
                   -> NodeStateAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore db node = do
-    return $ PassiveWallet logMessage keystore db node
+initPassiveWallet logMessage keystore Handles{..} node = do
+    return $ PassiveWallet logMessage keystore hAcid hMeta node
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --

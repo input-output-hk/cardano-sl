@@ -131,6 +131,7 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Active
                        Cardano.Wallet.WalletLayer.Kernel.Addresses
                        Cardano.Wallet.WalletLayer.Kernel.Conv
+                       Cardano.Wallet.WalletLayer.Kernel.Transactions
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
 
   other-modules:       Cardano.Wallet.WalletLayer.Kernel
@@ -402,6 +403,7 @@ test-suite wallet-unit-tests
                       Test.Spec.CoinSelection.Generators
                       Test.Spec.Addresses
                       Test.Spec.Fixture
+                      Test.Spec.GetTransactions
                       Test.Spec.Kernel
                       Test.Spec.Keystore
                       Test.Spec.Models

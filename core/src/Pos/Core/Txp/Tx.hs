@@ -1,3 +1,6 @@
+
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Core.Txp.Tx
        ( Tx (..)
        , checkTx

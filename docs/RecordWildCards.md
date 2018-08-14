@@ -121,17 +121,91 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Txp/Toil/UtxoSpec.hs|TxOutAux|core/src/Pos/Core/Txp/TxOutAux.hs|
 |Txp/Toil/UtxoSpec.hs|ToilVerFailure (ToilWitnessDoesntMatch)|chain/src/Pos/Chain/Txp/Toil/Failure.hs|
 
+## `core` package
+### File path prefix: src/Pos/Core/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Genesis/Data.hs|GenesisData |Same module
+|Genesis/Canonical.hs|SchemaError| Same module
+|Genesis/Initializer.hs|GenesisInitializer |Same module
+|Genesis/Initializer.hs|TestnetBalanceOptions |Same module
+|Genesis/Generate.hs|GenesisInitializer|core/src/Pos/Core/Genesis/Initializer.hs
+|Genesis/Generate.hs|TestnetBalanceOptions|core/src/Pos/Core/Genesis/Initializer.hs
+|Genesis/Generate.hs|RichSecrets |Same module
+|Genesis/Generate.hs|FakeAvvmOptions|core/src/Pos/Core/Genesis/Initializer.hs
+|Update/Payload.hs|UpdatePayload |Same module
+|Configuration.hs|CoreConfiguration|src/Pos/Core/Configuration/Core.hs
+|Configuration.hs|GenesisConfiguration (GCSrc)|src/Pos/Core/Configuration/Core.hs
+|Configuration.hs|GeneratedGenesisData |src/Pos/Core/Genesis/Generate.hs
+|Update/BlockVersionModifier.hs|BlockVersionModifier | Same module
+|Update/Data.hs|UpdateData  | Same module
+|Genesis/ProtocolConstants.hs|GenesisProtocolConstants | Same module
+|Genesis/ProtocolConstants.hs|ProtocolConstants |src/Pos/Core/ProtocolConstants.hs
+|Update/SoftforkRule.hs|SoftforkRule |Same module
+|Update/BlockVersion.hs|BlockVersion |Same module
+|Update/SoftwareVersion.hs|SoftwareVersion |Same module
+|Update/Vote.hs|UnsafeUpdateProposal  | Same module
+|Update/Vote.hs|UnsafeUpdateVote |Same module
+|Update/Util.hs|BlockVersionModifier |src/Pos/Core/Update/BlockVersionModifier.hs
+|Update/Util.hs|SoftforkRule |src/Pos/Core/Update/SoftforkRule.hs
+|Update/Util.hs|UnsafeUpdateProposal |src/Pos/Core/Update/Vote.hs
+|Reporting/MemState.hs|MisbehaviorMetrics|Same module
+|Update/BlockVersionData.hs|BlockVersionData |Same module
+|Attributes.hs|Attributes| Same module
+|Reporting/Metrics.hs|MetricMonitorState  | Same module
+|Reporting/Metrics.hs|MetricMonitor | Same module
+|Update/Types.hs|SoftwareVersion |src/Pos/Core/Update/SoftwareVersion.hs
+|Update/Types.hs|BlockVersion |src/Pos/Core/Update/BlockVersion.hs
+|Update/Types.hs|SoftforkRule |src/Pos/Core/Update/SoftforkRule.hs
+|Update/Types.hs|BlockVersionData |src/Pos/Core/Update/BlockVersionData.hs
+|Update/Types.hs|BlockVersionModifier |src/Pos/Core/Update/BlockVersionModifier.hs
+|Update/Types.hs|UnsafeUpdateProposal |src/Pos/Core/Update/Vote.hs
+|Update/Types.hs|UpdateData |src/Pos/Core/Update/Data.hs
+|Update/Types.hs|UnsafeUpdateVote |src/Pos/Core/Update/Vote.hs
+|Update/Types.hs|UpdatePayload |src/Pos/Core/Update/Payload.hs
+|Delegation/HeavyDlgIndex.hs|UnsafeProxySecretKey|crypto/Pos/Crypto/Signing/Types/Signing.hs
+|Txp/TxAux.hs|TxAux|core/src/Pos/Core/Txp/TxAux.hs
+|Txp/TxProof.hs|UnsafeTxPayload |core/src/Pos/Core/Txp/TxPayload.hs
+|Txp/TxPayload.hs|UnsafeTxPayload |core/src/Pos/Core/Txp/TxPayload.hs
+|Ssc/Commitment.hs|Commitment|core/src/Pos/Core/Ssc/Commitment.hs
+|Txp/TxWitness.hs|TxSigData | Same module
+|Ssc/VssCertificate.hs|UnsafeVssCertificate | Same module
+|Txp/Tx.hs|UnsafeTx|Same module
+|Txp/Tx.hs|TxOut |Same module
+|Common/Script.hs|Script | Same module
+|Common/TxFeePolicy.hs|TxFeePolicyUnknown {}|Same module
+|Common/AddrAttributes.hs|AddrAttributes |Same module
+|Slotting/TimeDiff.hs|TimeDiff|Same module
+|Slotting/SlotId.hs|SlotId |Same module
+|Common/Address.hs|AddrAttributes |core/src/Pos/Core/Common/Address.hs
+|Common/Address.hs|AddrType (ATUnknown)| core/src/Pos/Core/Common/AddrSpendingData.hs
+|Common/Address.hs|AddrAttributes |core/src/Pos/Core/Common/Address.hs
+|Common/Address.hs|Address|Same module
+|Slotting/Timestamp.hs|Timestamp|Same module
+|Slotting/Util.hs|EpochSlottingData |core/src/Pos/Core/Slotting/Types.hs
+|Slotting/EpochOrSlot.hs|SlotId |src/Pos/Core/Slotting/SlotId.hs
+
+### File path prefix: test/Test/Pos/Core/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Arbitrary/Unsafe.hs|Address |core/src/Pos/Core/Common/Address.hs|
+|Arbitrary.hs|TestnetBalanceOptions |core/src/Pos/Core/Genesis/Initializer.hs|
+|Arbitrary.hs|FakeAvvmOptions |core/src/Pos/Core/Genesis/Initializer.hs|
+|Arbitrary.hs|TxFeePolicyTxSizeLinear|core/src/Pos/Core/Common/TxFeePolicy.hs|
+
 ## `crypto` package
 ### File path prefix: Pos/Crypto/
 
 | File | Types | Type Definition Location |
 | --- | --- | ---|
-|Scrypt.hs|ScryptParamsBuilder {..}|Same module|
-|SafeCopy.hs|ProxySignature{..}|crypto/Pos/Crypto/Signing/Types/Signing.hs|
-|Signing/Types/Signing.hs|UnsafeProxySecretKey {..}| Same module|
-|Signing/Types/Signing.hs|ProxySignature{..}|crypto/Pos/Crypto/Signing/Types/Signing.hs|
-|SecretSharing.hs|SecretProof{..}| Same module|
-|Signing/Signing.hs|ProxySignature{..}|crypto/Pos/Crypto/Signing/Types/Signing.hs|
+|Scrypt.hs|ScryptParamsBuilder |Same module|
+|SafeCopy.hs|ProxySignature|crypto/Pos/Crypto/Signing/Types/Signing.hs|
+|Signing/Types/Signing.hs|UnsafeProxySecretKey | Same module|
+|Signing/Types/Signing.hs|ProxySignature|crypto/Pos/Crypto/Signing/Types/Signing.hs|
+|SecretSharing.hs|SecretProof| Same module|
+|Signing/Signing.hs|ProxySignature|crypto/Pos/Crypto/Signing/Types/Signing.hs|
 
 ### File path prefix: test/Test/Pos/Crypto/
 

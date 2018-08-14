@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Canonical encoding of 'GenesisData'.

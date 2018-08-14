@@ -250,7 +250,6 @@ library
                        NoImplicitPrelude
                        OverloadedStrings
                        RankNTypes
-                       RecordWildCards
                        TypeApplications
                        TypeFamilies
                        TupleSections
@@ -353,7 +352,6 @@ test-suite test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns

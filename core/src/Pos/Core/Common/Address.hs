@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Functionality related to 'Address' data type and related types.
 
 module Pos.Core.Common.Address

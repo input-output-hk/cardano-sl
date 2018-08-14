@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE DeriveLift      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Core types related to update system.
 

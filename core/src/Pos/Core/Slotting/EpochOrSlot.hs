@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Pos.Core.Slotting.EpochOrSlot

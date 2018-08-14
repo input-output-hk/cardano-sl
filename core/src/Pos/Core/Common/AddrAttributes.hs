@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Core.Common.AddrAttributes
        ( AddrAttributes (..)
        ) where

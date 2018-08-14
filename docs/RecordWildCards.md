@@ -120,3 +120,9 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Txp/Toil/UtxoSpec.hs|TxOutAux|core/src/Pos/Core/Txp/TxOutAux.hs|
 |Txp/Toil/UtxoSpec.hs|ToilVerFailure (ToilWitnessDoesntMatch)|chain/src/Pos/Chain/Txp/Toil/Failure.hs|
 
+## `util` package
+### File path prefix: Pos/Util/
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|CompileInfo.hs|CompileTimeInfo|Same module|
+|Timer.hs|Timer|Same module|

@@ -11,9 +11,24 @@ import           Universum
 import           Data.Binary (Binary, decode, encode)
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BL
+import           Formatting (build, sformat, (%))
 import           System.IO (IOMode (..), SeekMode (..), hSeek, withBinaryFile)
 
 import           Pos.Core (LocalSlotIndex (..), SlotCount, localSlotIndices)
+
+header :: BL.ByteString
+header = "EPOCH INDEX V1"
+
+headerLength :: Num a => a
+headerLength = fromIntegral $ BL.length header
+
+hCheckHeader :: FilePath -> Handle -> IO ()
+hCheckHeader fpath h = do
+    hSeek h AbsoluteSeek 0
+    headerBytes <- BL.hGet h headerLength
+    when (headerBytes /= header) $ error $ sformat
+        ("Invalid header in epoch index file " % build)
+        fpath
 
 data SlotIndexOffset = SlotIndexOffset
     { sioSlotIndex :: !Word16
@@ -30,6 +45,7 @@ writeEpochIndex :: SlotCount -> FilePath -> [SlotIndexOffset] -> IO ()
 writeEpochIndex epochSlots path =
     withBinaryFile path WriteMode
         . flip B.hPutBuilder
+        . (B.lazyByteString header <>)
         . foldMap (B.lazyByteString . encode . sioOffset)
         . padIndex epochSlots
 
@@ -47,9 +63,10 @@ padIndex epochSlots = go
                          | otherwise                        = x : go xs (y : ys)
 
 getSlotIndexOffsetN :: FilePath -> LocalSlotIndex -> IO Word64
-getSlotIndexOffsetN path (UnsafeLocalSlotIndex i) =
-    withBinaryFile path ReadMode $ \h -> do
-        hSeek h AbsoluteSeek (fromIntegral i * 8)
+getSlotIndexOffsetN fpath (UnsafeLocalSlotIndex i) =
+    withBinaryFile fpath ReadMode $ \h -> do
+        hCheckHeader fpath h
+        hSeek h AbsoluteSeek (headerLength + fromIntegral i * 8)
         decode <$> BL.hGet h 8
 
 getEpochBlockOffset :: FilePath -> LocalSlotIndex -> IO (Maybe Word64)

@@ -15686,7 +15686,6 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , deepseq
 , deriving-compat
-, ed25519
 , ekg-core
 , ether
 , exceptions
@@ -15819,7 +15818,6 @@ cardano-sl-util-test
 containers
 cryptonite
 deepseq
-ed25519
 formatting
 generic-arbitrary
 hedgehog

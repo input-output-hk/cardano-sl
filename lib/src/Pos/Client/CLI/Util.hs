@@ -41,7 +41,7 @@ import           Pos.Core.Genesis (GenesisData, gdStartTime)
 import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Launcher.Configuration (Configuration (..),
-                     HasConfigurations)
+                     HasConfigurations, WalletConfiguration)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Wlog (LoggerConfig (..), WithLogger, logInfo,
                      parseLoggerConfig, productionB)
@@ -54,12 +54,13 @@ printInfoOnStart ::
        (HasConfigurations, WithLogger m, MonadIO m)
     => CommonNodeArgs
     -> GenesisData
+    -> WalletConfiguration
     -> NtpConfiguration
     -> TxpConfiguration
     -> m ()
-printInfoOnStart CommonNodeArgs {..} genesisData ntpConfig txpConfig = do
+printInfoOnStart CommonNodeArgs {..} genesisData walletConfig ntpConfig txpConfig = do
     whenJust cnaDumpGenesisDataPath $ dumpGenesisData genesisData True
-    when cnaDumpConfiguration $ dumpConfiguration ntpConfig txpConfig
+    when cnaDumpConfiguration $ dumpConfiguration walletConfig ntpConfig txpConfig
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -109,10 +110,11 @@ dumpGenesisData genesisData canonical path = do
 -- | Dump our configuration into stdout and exit.
 dumpConfiguration
     :: (HasConfigurations, MonadIO m)
-    => NtpConfiguration
+    => WalletConfiguration
+    -> NtpConfiguration
     -> TxpConfiguration
     -> m ()
-dumpConfiguration ntpConfig txpConfig = do
+dumpConfiguration walletConfig ntpConfig txpConfig = do
     let conf =
             Configuration
             { ccCore = coreConfiguration
@@ -123,6 +125,7 @@ dumpConfiguration ntpConfig txpConfig = do
             , ccTxp = txpConfig
             , ccBlock = blockConfiguration
             , ccNode = nodeConfiguration
+            , ccWallet = walletConfig
             }
     putText . decodeUtf8 . Yaml.encode $ conf
     exitSuccess

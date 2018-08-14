@@ -58,10 +58,11 @@ main = do
 
 action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath conf $ \coreConfig txpConfig ntpConfig ->
+    withConfigurations blPath conf $ \coreConfig walletConfig txpConfig ntpConfig ->
     withCompileInfo $ do
         CLI.printInfoOnStart cArgs
                              (configGenesisData coreConfig)
+                             walletConfig
                              ntpConfig
                              txpConfig
         logInfo $ "Explorer is enabled!"

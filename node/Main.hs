@@ -23,7 +23,8 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core as Core (Config (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
-                     loggerBracket, runNodeRealSimple, withConfigurations)
+                     WalletConfiguration, loggerBracket, runNodeRealSimple,
+                     withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
@@ -52,11 +53,12 @@ action
        )
     => SimpleNodeArgs
     -> Core.Config
+    -> WalletConfiguration
     -> TxpConfiguration
     -> NtpConfiguration
     -> IO ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig txpConfig ntpConfig = do
-    CLI.printInfoOnStart cArgs (configGenesisData coreConfig) ntpConfig txpConfig
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig walletConfig txpConfig ntpConfig = do
+    CLI.printInfoOnStart cArgs (configGenesisData coreConfig) walletConfig ntpConfig txpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName
                                        cArgs

@@ -198,7 +198,7 @@ main = do
         fn :: GenesisData -> GenesisData
         fn gd = gd { gdProtocolConsts = (gdProtocolConsts gd) { gpcK = baK args } }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !coreConfig !txpConfig !_ -> do
+        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !coreConfig !_ !txpConfig !_ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
                     , _tpBlockVersionData = configBlockVersionData coreConfig

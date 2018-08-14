@@ -230,7 +230,7 @@ runBenchmark = do
             }
     withCompileInfo
         $ withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo id
-        $ \coreConfig txpConfig _ -> do
+        $ \coreConfig _ txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
                     , _tpBlockVersionData = configBlockVersionData coreConfig

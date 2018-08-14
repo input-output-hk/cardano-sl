@@ -103,7 +103,7 @@ main = do
     action args
 
 action :: CLIOptions -> IO ()
-action cli@CLIOptions{..} = withConfigurations Nothing conf $ \coreConfig _ _ -> do
+action cli@CLIOptions{..} = withConfigurations Nothing conf $ \coreConfig _ _ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
     liftIO $ putText $ render uom printMode sizes

@@ -164,7 +164,7 @@ main = do
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
     usingLoggerName "keygen"
         $ withConfigurations Nothing koConfigurationOptions
-        $ \coreConfig _ _ -> do
+        $ \coreConfig _ _ _ -> do
               logInfo "Processing command"
               generatedSecrets <- configGeneratedSecretsThrow coreConfig
               case koCommand of

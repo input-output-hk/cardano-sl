@@ -14539,12 +14539,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-report-server";
-version = "0.4.10";
+version = "0.5.10";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-report-server.git";
-sha256 = "0chhbnrl68aqjfhkqvq53v572zsg52mj8pjxl3n7nnbc006cqs49";
-rev = "81eea7361a75923f9402fcb7840fb36722dbf88e";
+sha256 = "1gk0wbwl0pkq8xjq6znvc699zpv3xgzgxncsb4wncpjimjlf7dk5";
+rev = "43622ed083887c60609e030cef6eadcd3dbd7b67";
 
 };
 isLibrary = true;

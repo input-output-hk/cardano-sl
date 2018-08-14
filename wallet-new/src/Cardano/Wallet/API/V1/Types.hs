@@ -1948,7 +1948,7 @@ instance Arbitrary Redemption where
 data ForceNtpCheck
     = ForceNtpCheck
     | NoNtpCheck
-    deriving (Eq)
+    deriving (Eq, Show, Enum, Bounded)
 
 instance Flaggable ForceNtpCheck where
     toBool ForceNtpCheck = True
@@ -1960,6 +1960,9 @@ deriveSafeBuildable ''ForceNtpCheck
 instance BuildableSafeGen ForceNtpCheck where
     buildSafeGen _ ForceNtpCheck = "force ntp check"
     buildSafeGen _ NoNtpCheck    = "no ntp check"
+
+instance Arbitrary ForceNtpCheck where
+    arbitrary = elements [minBound .. maxBound]
 
 --
 -- POST/PUT requests isomorphisms

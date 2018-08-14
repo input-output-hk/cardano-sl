@@ -120,6 +120,46 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Txp/Toil/UtxoSpec.hs|TxOutAux|core/src/Pos/Core/Txp/TxOutAux.hs|
 |Txp/Toil/UtxoSpec.hs|ToilVerFailure (ToilWitnessDoesntMatch)|chain/src/Pos/Chain/Txp/Toil/Failure.hs|
 
+## `networking` package
+### File path prefix: src/Network/
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|QDisc/Fair.hs|FairQDisc|Same module|
+|QDisc/Simulation.hs|SimulationParameters| Same module|
+|QDisc/Simulation.hs|Scenario| Same module|
+|Broadcast/OutboundQueue/Types.hs|Peers | Same module|
+|Broadcast/OutboundQueue/Types.hs|Routes| Same module|
+|Broadcast/OutboundQueue/Demo.hs|Node| Same module|
+|Broadcast/OutboundQueue/Demo.hs|MsgObj| Same module|
+|Broadcast/OutboundQueue/Demo.hs|NodeId| Same module|
+|Broadcast/OutboundQueue/ConcurrentMultiQueue.hs|MultiQueue| Same module|
+|Broadcast/OutboundQueue.hs|Packet| Same module|
+|Broadcast/OutboundQueue.hs|OutQ | Same module|
+|Broadcast/OutboundQueue.hs|QHealth | Same module|
+|Broadcast/OutboundQueue.hs|NodeWithStats| Same module|
+|Broadcast/OutboundQueue.hs|ThreadRegistry (TR)| Same module|
+|Broadcast/OutboundQueue.hs|Signal| Same module|
+
+### File path prefix: none
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|src/Node/Message/Class.hs|Packing | Same module|
+|src/Ntp/Packet.hs|NtpPacket| Same module|
+|src/Node/Internal.hs|Node| Same module|
+|src/Node/Internal.hs|PeerStatistics| Same module|
+|src/Bench/Network/Commons.hs|MeasureInfo|Same module|
+|src/Ntp/Client.hs|NtpConfiguration |Same module|
+|src/Ntp/Client.hs|NtpClient|Same module|
+|bench/Receiver/Main.hs|Args |networking/bench/Receiver/ReceiverOptions.hs|
+|bench/Sender/Main.hs|Args |networking/bench/Receiver/ReceiverOptions.hs|
+|bench/LogReader/Main.hs|MeasureInfo|src/Bench/Network/Commons.hs|
+|bench/LogReader/Main.hs|Args|networking/bench/Receiver/ReceiverOptions.hs|
+|test/Test/NtpSpec.hs|NtpPacket |src/Ntp/Packet.hs|
+|test/Test/NtpSpec.hs|NtpPacketWithOffset| Same module|
+|test/Test/Network/Broadcast/OutboundQueueSpec.hs|Peers|src/Network/Broadcast/OutboundQueue/Types.hs|
+|test/Test/Util.hs|TestState|Same module|
+
+
 ## `util` package
 ### File path prefix: Pos/Util/
 | File | Types | Type Definition Location |

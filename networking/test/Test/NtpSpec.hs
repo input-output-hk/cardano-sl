@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Test.NtpSpec

@@ -13,7 +13,7 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BL
 import           System.IO (IOMode (..), SeekMode (..), hSeek, withBinaryFile)
 
-import           Pos.Core (LocalSlotIndex (..))
+import           Pos.Core (LocalSlotIndex (..), SlotCount, localSlotIndices)
 
 data SlotIndexOffset = SlotIndexOffset
     { sioSlotIndex :: !Word16
@@ -26,16 +26,20 @@ instance Binary SlotIndexOffset
 --
 --   To make it dense we pad the list with @maxBound :: Word64@ whenever we see
 --   a missing @LocalSlotIndex@
-writeEpochIndex :: FilePath -> [SlotIndexOffset] -> IO ()
-writeEpochIndex path =
+writeEpochIndex :: SlotCount -> FilePath -> [SlotIndexOffset] -> IO ()
+writeEpochIndex epochSlots path =
     withBinaryFile path WriteMode
         . flip B.hPutBuilder
         . foldMap (B.lazyByteString . encode . sioOffset)
-        . padIndex
+        . padIndex epochSlots
 
 -- | Pad a list of @SlotIndexOffset@s ordered by @LocalSlotIndex@
-padIndex :: [SlotIndexOffset] -> [SlotIndexOffset]
-padIndex = go (flip SlotIndexOffset maxBound <$> [0 .. 21599])
+padIndex :: SlotCount -> [SlotIndexOffset] -> [SlotIndexOffset]
+padIndex epochSlots = go
+    (   flip SlotIndexOffset maxBound
+    .   getSlotIndex
+    <$> localSlotIndices epochSlots
+    )
   where
     go [] _  = []
     go xs [] = xs

@@ -102,11 +102,6 @@ modifyName k = contramap f
 appendName :: Log.LoggerName -> TraceNamed m -> TraceNamed m
 appendName lname = modifyName (\e -> [lname] <> e)
 
-{-
-setName :: Log.LoggerName -> TraceNamed m -> TraceNamed m
-setName name = modifyName (const name)
--}
-
 named :: Trace m (LogNamed i) -> Trace m i
 named = contramap (LogNamed mempty)
 

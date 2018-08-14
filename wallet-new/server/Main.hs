@@ -135,7 +135,7 @@ actionWithNewWallet logTrace pm txpConfig sscParams nodeParams params =
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
-          bracketKernelPassiveWallet logTrace keystore rocksDB $ \walletLayer passiveWallet -> do
+          bracketKernelPassiveWallet logTrace keystore nodeState $ \walletLayer passiveWallet -> do
             Kernel.init passiveWallet
             Kernel.Mode.runWalletMode logTrace
                                       pm

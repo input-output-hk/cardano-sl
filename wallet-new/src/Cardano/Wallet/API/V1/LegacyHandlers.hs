@@ -51,7 +51,7 @@ handlers :: ( HasConfigurations
 handlers logTrace naturalTransformation pm txpConfig diffusion ntpStatus =
          hoist' (Proxy @Addresses.API) (Addresses.handlers logTrace)
     :<|> hoist' (Proxy @Wallets.API) (Wallets.handlers logTrace)
-    :<|> hoist' (Proxy @Accounts.API) (Accounts.handlers logTrace pm txpConfig sendTx')
+    :<|> hoist' (Proxy @Accounts.API) (Accounts.handlers logTrace)
     :<|> hoist' (Proxy @Transactions.API) (Transactions.handlers logTrace pm txpConfig sendTx')
     :<|> hoist' (Proxy @Settings.API) Settings.handlers
     :<|> hoist' (Proxy @Info.API) (Info.handlers logTrace diffusion ntpStatus)

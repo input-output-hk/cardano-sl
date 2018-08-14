@@ -8,6 +8,7 @@ import           Universum
 import qualified Data.IxSet.Typed as IxSet
 import           Servant
 
+import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
@@ -28,8 +29,8 @@ handlers logTrace =
     :<|> listAccounts logTrace
     :<|> newAccount logTrace
     :<|> updateAccount logTrace
-    :<|> getAccountAddresses
-    :<|> getAccountBalance
+    :<|> getAccountAddresses logTrace
+    :<|> getAccountBalance logTrace
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)

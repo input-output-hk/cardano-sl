@@ -9,7 +9,7 @@ import           Control.Concurrent (threadDelay)
 import           Data.Text (append, replicate)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
-import           Test.Hspec (Spec, describe, it)
+import           Test.Hspec (Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess)
 import           Test.QuickCheck (Property, property)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
@@ -19,7 +19,10 @@ import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
                      logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
-import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.LoggerConfig (BackendKind (..), LogHandler (..),
+                     LogSecurityLevel (..), LoggerConfig (..), LoggerTree (..),
+                     defaultInteractiveConfiguration, defaultTestConfiguration,
+                     lcLoggerTree, ltMinSeverity)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 
@@ -38,7 +41,7 @@ prop_large =
         (diffTime,_) <- run (run_logging Debug 100 200 100)
         assert (diffTime > 0)
 
--- | Count as many lines as you itented to log.
+-- | Count as many lines as you intended to log.
 prop_lines :: Property
 prop_lines =
     monadicIO $ do
@@ -48,7 +51,7 @@ prop_lines =
         -- multiply by 5 because we log 5 different messages (n0 * n1) times
         assert (linesLogged == n0 * n1 * 5)
 
--- | Count as many lines as you itented to log.
+-- | Count as many lines as you intended to log.
 prop_sev :: Property
 prop_sev =
     monadicIO $ do
@@ -61,7 +64,6 @@ prop_sev =
 run_logging :: Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
         startTime <- getPOSIXTime
-{- -}
         lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
             usingLoggerName lh "test_log" $
@@ -71,7 +73,6 @@ run_logging sev n n0 n1= do
                     logNotice msg
                     logWarning msg
                     logError msg
-{- -}
         endTime <- getPOSIXTime
         threadDelay $ fromIntegral (5000 * n0)
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
@@ -81,7 +82,7 @@ run_logging sev n n0 n1= do
         return (diffTime, linesLogged)
         where msg :: Text
               msg = replicate n "abcdefghijklmnopqrstuvwxyz"
-----
+
 prop_sevS :: Property
 prop_sevS =
     monadicIO $ do
@@ -94,7 +95,6 @@ prop_sevS =
 run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_loggingS sev n n0 n1= do
         startTime <- getPOSIXTime
-{- -}
         lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
             usingLoggerName lh "test_log" $
@@ -105,7 +105,6 @@ run_loggingS sev n n0 n1= do
                     logWarningS lh msg
                     logErrorS   lh msg
 
-{- -}
         endTime <- getPOSIXTime
         threadDelay 0500000
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
@@ -156,7 +155,7 @@ spec = describe "Logging" $ do
         property prop_large
 
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
-      it "lines counted as logged must be equal to how many was itended to be written" $
+      it "lines counted as logged must be equal to how many was intended to be written" $
         property prop_lines
 
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
@@ -172,3 +171,45 @@ spec = describe "Logging" $ do
 
     it "demonstrating bracket logging" $
         example_bracket
+
+    it "compose default LoggerConfig" $
+        ((mempty :: LoggerConfig) <> (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                                             , _lcLoggerTree = mempty }))
+        `shouldBe`
+        (mempty :: LoggerConfig)
+
+    it "compose LoggerConfig - minimum of severities" $ do
+        let lc1 = (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                        , _lcLoggerTree = LoggerTree {_ltMinSeverity = Info,
+                             _ltHandlers = [LogHandler {_lhName = "file1.log", _lhFpath = Just "file1.log",
+                                                        _lhSecurityLevel = Just PublicLogLevel,
+                                                        _lhBackend = FileTextBE,
+                                                        _lhMinSeverity = Just Info
+                                                       }]}
+                        })
+            lc2 = (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                        , _lcLoggerTree = LoggerTree {_ltMinSeverity = Warning,
+                             _ltHandlers = [LogHandler {_lhName = "file2.log", _lhFpath = Just "file2.log",
+                                                        _lhSecurityLevel = Just PublicLogLevel,
+                                                        _lhBackend = FileTextBE,
+                                                        _lhMinSeverity = Just Error
+                                                       }]}
+                        })
+            lc3 = lc1 <> lc2
+        lc3 ^. lcLoggerTree . ltMinSeverity `shouldBe` Info
+
+    it "compose complex LoggerConfig" $
+        ( (defaultInteractiveConfiguration Debug) <>
+          (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                                             , _lcLoggerTree = mempty }))
+        `shouldBe`
+        (defaultInteractiveConfiguration Debug) <>
+          (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
+                        , _lcLoggerTree = LoggerTree {_ltMinSeverity = Debug,
+                             _ltHandlers = [LogHandler {_lhName = "console", _lhFpath = Nothing,
+                                                        _lhSecurityLevel = Just PublicLogLevel,
+                                                        _lhBackend = StdoutBE,
+                                                        _lhMinSeverity = Just Debug
+                                                       }]}
+                        })
+

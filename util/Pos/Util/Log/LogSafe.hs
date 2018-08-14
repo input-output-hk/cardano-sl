@@ -1,12 +1,4 @@
-{-# LANGUAGE DataKinds                 #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE KindSignatures            #-}
-{-# LANGUAGE Rank2Types                #-}
-{-# LANGUAGE TypeFamilies              #-}
-
 -- | Safe/secure logging
-
 module Pos.Util.Log.LogSafe
        ( -- * Logging functions
          SelectiveLogWrapped(..)
@@ -131,8 +123,8 @@ logItemS
 logItemS lhandler a ns loc sev cond msg = do
     mayle <- liftIO $ getLogEnv lhandler
     case mayle of
-        Nothing              -> error "logging not yet initialized. Abort."
-        Just le@K.LogEnv{..} -> do
+        Nothing -> error "logging not yet initialized. Abort."
+        Just le -> do
             maycfg <- liftIO $ getConfig lhandler
             let cfg = case maycfg of
                     Nothing -> error "No Configuration for logging found. Abort."
@@ -150,7 +142,6 @@ logItemS lhandler a ns loc sev cond msg = do
                     <*> (K._logEnvTimer le)
                     <*> pure ((K._logEnvApp le) <> ns)
                     <*> pure loc
-                -- forM_ (filter cond (elems (K._logEnvScribes le))) $ \ KC.ScribeHandle {..} -> atomically (KC.tryWriteTBQueue KC.shChan (NewItem item))
                 let lhs = cfg ^. lcLoggerTree ^. ltHandlers ^.. each
                 forM_ (filterWithSafety cond lhs) (\ lh -> do
                     case lookup (lh ^. lhName) (K._logEnvScribes le) of
@@ -181,14 +172,6 @@ instance (K.KatipContext m) => K.KatipContext (SelectiveLogWrapped s m) where
     getKatipNamespace = lift K.getKatipNamespace
 
     localKatipNamespace f a = lift $ K.localKatipNamespace f $ getSecureLogWrapped a
-
--- instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
---     askLoggerName' = SelectiveLogWrapped askLoggerName'
---     modifyLoggerName' foo (SelectiveLogWrapped m) =
---         SelectiveLogWrapped (modifyLoggerName' foo m)
-
--- instance (CanLog m) => CanLog (SelectiveLogWrapped s m) where
---     dispatchMessage n s t = lift $ dispatchMessage n s t
 
 execSecureLogWrapped :: Proxy s -> SelectiveLogWrapped s m a -> m a
 execSecureLogWrapped _ (SelectiveLogWrapped act) = act

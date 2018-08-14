@@ -47,13 +47,13 @@ import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..), Reporter (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Core.StateLock (StateLock)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.GState.Lock (StateLock)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,

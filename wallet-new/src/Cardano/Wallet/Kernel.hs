@@ -41,7 +41,6 @@ import           Data.Acid (AcidState)
 import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
-import           System.Wlog (Severity (..))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Chrono (OldestFirst)

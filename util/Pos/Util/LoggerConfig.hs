@@ -59,7 +59,7 @@ deriving instance FromJSON BackendKind
 data RotationParameters = RotationParameters
     { _rpLogLimit  :: !Word64  -- ^ max size of file in bytes
     , _rpKeepFiles :: !Word    -- ^ number of files to keep
-    } deriving (Generic, Show)
+    } deriving (Generic, Show, Eq)
 
 instance ToJSON RotationParameters
 instance FromJSON RotationParameters where
@@ -92,7 +92,7 @@ data LogHandler = LogHandler
       -- ^ describes the backend (scribe for katip) to be loaded
     , _lhMinSeverity   :: !(Maybe Severity)
       -- ^ the minimum severity to be logged
-    } deriving (Generic,Show)
+    } deriving (Generic, Show, Eq)
 
 instance ToJSON LogHandler
 instance FromJSON LogHandler where
@@ -111,7 +111,7 @@ makeLenses ''LogHandler
 data LoggerTree = LoggerTree
     { _ltMinSeverity :: !Severity
     , _ltHandlers    :: ![LogHandler]
-    } deriving (Generic, Show)
+    } deriving (Generic, Show, Eq)
 
 instance ToJSON LoggerTree
 instance FromJSON LoggerTree where
@@ -123,8 +123,8 @@ instance FromJSON LoggerTree where
                 LogHandler { _lhName = "console",
                             _lhBackend = StdoutBE,
                             _lhFpath = Nothing,
-                            _lhSecurityLevel = Just SecretLogLevel,
-                            _lhMinSeverity = Just Debug }
+                            _lhSecurityLevel = Just PublicLogLevel,
+                            _lhMinSeverity = Just Info }
         let fileHandlers =
               map (\fp ->
                 let name = T.pack fp in
@@ -141,12 +141,27 @@ instance FromJSON LoggerTree where
         (_ltMinSeverity :: Severity) <- o .: "severity" .!= Debug
         return LoggerTree{..}
 
-instance Semigroup LoggerTree
+mkUniq :: [LogHandler] -> [LogHandler]
+mkUniq handlers = mkUniq' handlers []
+    where
+        containedIn :: LogHandler -> [LogHandler] -> Bool
+        containedIn lh lhs =
+            -- by equal name
+            any (\lh' -> _lhName lh == _lhName lh') lhs
+        mkUniq' [] acc = acc
+        mkUniq' (lh:lhs) acc | lh `containedIn` acc = mkUniq' lhs acc
+                             | otherwise            = mkUniq' lhs (lh:acc)
+
+instance Semigroup LoggerTree where
+    lt1 <> lt2 = LoggerTree {
+                  _ltMinSeverity = _ltMinSeverity lt1 `min` _ltMinSeverity lt2
+                , _ltHandlers = mkUniq $ _ltHandlers lt1 <> _ltHandlers lt2
+                }
 instance Monoid LoggerTree where
-    mempty = LoggerTree { _ltMinSeverity = Debug
-                   , _ltHandlers = [LogHandler { _lhName="node", _lhFpath=Just "node.log"
-                                               , _lhBackend=FileTextBE
-                                               , _lhMinSeverity=Just Debug
+    mempty = LoggerTree { _ltMinSeverity = Info
+                   , _ltHandlers = [LogHandler { _lhName="console", _lhFpath=Nothing
+                                               , _lhBackend=StdoutBE
+                                               , _lhMinSeverity=Just Info
                                                , _lhSecurityLevel=Just PublicLogLevel}]
                    }
         --  default values
@@ -159,7 +174,7 @@ data LoggerConfig = LoggerConfig
     { _lcRotation   :: !(Maybe RotationParameters)
     , _lcLoggerTree :: !LoggerTree
     , _lcBasePath   :: !(Maybe FilePath)
-    } deriving (Generic, Show)
+    } deriving (Generic, Show, Eq)
 
 instance ToJSON LoggerConfig
 instance FromJSON LoggerConfig where
@@ -169,7 +184,12 @@ instance FromJSON LoggerConfig where
         _lcBasePath <- o .:? "logdir"
         return LoggerConfig{..}
 
-instance Semigroup LoggerConfig
+instance Semigroup LoggerConfig where
+    lc1 <> lc2 = LoggerConfig {
+                  _lcRotation = _lcRotation  lc1
+                , _lcLoggerTree = _lcLoggerTree lc1 <> _lcLoggerTree lc2
+                , _lcBasePath = _lcBasePath lc1
+                }
 instance Monoid LoggerConfig where
     mempty = LoggerConfig { _lcRotation = Just RotationParameters {
                                             _rpLogLimit = 10 * 1024 * 1024,
@@ -219,7 +239,7 @@ defaultInteractiveConfiguration minSeverity =
                 _lhBackend = StdoutBE,
                 _lhName = "console",
                 _lhFpath = Nothing,
-                _lhSecurityLevel = Just SecretLogLevel,
+                _lhSecurityLevel = Just PublicLogLevel,
                 _lhMinSeverity = Just minSeverity }
                           ]
           }

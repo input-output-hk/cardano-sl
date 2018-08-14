@@ -25,9 +25,9 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Core.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
                      firstHardened)
+import           Pos.DB.GState.Lock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..),

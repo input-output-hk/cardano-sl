@@ -22,8 +22,9 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Launcher (NodeParams (..), NodeResources (..),
-                     bpLoggingParams, bracketNodeResources, loggerBracket,
-                     lpDefaultName, runNode, withConfigurations)
+                     WalletConfiguration, bpLoggingParams,
+                     bracketNodeResources, loggerBracket, lpDefaultName,
+                     runNode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
                      ConfigurationOptions, HasConfigurations)
 import           Pos.Util (logException)
@@ -177,8 +178,8 @@ startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> IO ()
 startEdgeNode wso =
-  withConfigurations blPath conf $ \pm txpConfig ntpConfig -> do
-      (sscParams, nodeParams) <- getParameters txpConfig ntpConfig
+  withConfigurations blPath conf $ \pm walletConfig txpConfig ntpConfig -> do
+      (sscParams, nodeParams) <- getParameters walletConfig txpConfig ntpConfig
       case wsoWalletBackendParams wso of
         WalletLegacy legacyParams ->
           actionWithWallet pm txpConfig sscParams nodeParams ntpConfig legacyParams
@@ -186,16 +187,17 @@ startEdgeNode wso =
           actionWithNewWallet pm txpConfig sscParams nodeParams newParams
   where
     getParameters :: HasConfigurations
-                  => TxpConfiguration
+                  => WalletConfiguration
+                  -> TxpConfiguration
                   -> NtpConfiguration
                   -> IO (SscParams, NodeParams)
-    getParameters txpConfig ntpConfig = do
+    getParameters walletConfig txpConfig ntpConfig = do
 
       currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart (wsoNodeArgs wso) ntpConfig txpConfig
+      CLI.printInfoOnStart (wsoNodeArgs wso) walletConfig ntpConfig txpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)

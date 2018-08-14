@@ -135,6 +135,21 @@ dev: &dev
         commonName: "Daedalus Wallet"
         expiryDays: 365
 
+  wallet: &dev_wallet
+    # Configuration options for throttling the API. Items at the top level
+    # apply as a default setting to all requests. By default, throttling is
+    # disabled. To enable throttling, include this key and values into the
+    # file.
+    #
+    # throttle:
+    # # Number of requests per throttling period.
+    #   rate: 200
+    #   # Amount of microseconds in a throttling period.
+    #   period: 1_000_000
+    #   # The burst rate of concurrent requests. This allows end users to
+    #   # temporarily exceed the request rate.
+    #   burst: 30
+
 ##############################################################################
 ##                                                                          ##
 ##   Benchmarking config                                                    ##

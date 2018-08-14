@@ -7,6 +7,10 @@
 module Pos.Launcher.Configuration
        ( AssetLockPath (..)
        , Configuration (..)
+       , WalletConfiguration(..)
+       , defaultWalletConfiguration
+       , ThrottleSettings(..)
+       , defaultThrottleSettings
        , HasConfigurations
 
        , ConfigurationOptions (..)
@@ -59,12 +63,47 @@ data Configuration = Configuration
     , ccTxp    :: !TxpConfiguration
     , ccBlock  :: !BlockConfiguration
     , ccNode   :: !NodeConfiguration
+    , ccWallet :: !WalletConfiguration
     } deriving (Show, Generic)
 
 instance FromJSON Configuration where
     parseJSON = genericParseJSON defaultOptions
 
 instance ToJSON Configuration where
+    toJSON = genericToJSON defaultOptions
+
+data WalletConfiguration = WalletConfiguration
+    { ccThrottle :: !(Maybe ThrottleSettings)
+    } deriving (Show, Generic)
+
+defaultWalletConfiguration :: WalletConfiguration
+defaultWalletConfiguration = WalletConfiguration
+    { ccThrottle = Nothing
+    }
+
+instance FromJSON WalletConfiguration where
+    parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON WalletConfiguration where
+    toJSON = genericToJSON defaultOptions
+
+data ThrottleSettings = ThrottleSettings
+    { tsRate :: !Int
+    , tsPeriod :: !Int
+    , tsBurst :: !Int
+    } deriving (Show, Generic)
+
+defaultThrottleSettings :: ThrottleSettings
+defaultThrottleSettings = ThrottleSettings
+    { tsRate = 30
+    , tsPeriod = 1000000
+    , tsBurst = 30
+    }
+
+instance FromJSON ThrottleSettings where
+    parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON ThrottleSettings where
     toJSON = genericToJSON defaultOptions
 
 type HasConfigurations =
@@ -119,7 +158,7 @@ withConfigurationsM
     -> (GenesisData -> GenesisData)
     -- ^ change genesis data; this is useful if some parameters are passed as
     -- comand line arguments for some tools (profiling executables, benchmarks).
-    -> (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> m r)
+    -> (HasConfigurations => ProtocolMagic -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurationsM logName mAssetLockPath cfo fn act = do
     logInfo' ("using configurations: " <> show cfo)
@@ -133,7 +172,8 @@ withConfigurationsM logName mAssetLockPath cfo fn act = do
         withSscConfiguration (ccSsc cfg) $
         withDlgConfiguration (ccDlg cfg) $
         withBlockConfiguration (ccBlock cfg) $
-        withNodeConfiguration (ccNode cfg) $ \ pm -> act pm (addAssetLock assetLock $ ccTxp cfg) (ccNtp cfg)
+        withNodeConfiguration (ccNode cfg) $ \ pm ->
+            act pm (ccWallet cfg) (addAssetLock assetLock $ ccTxp cfg) (ccNtp cfg)
 
     where
     logInfo' :: Text -> m ()
@@ -143,7 +183,7 @@ withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
     => Maybe AssetLockPath
     -> ConfigurationOptions
-    -> (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> m r)
+    -> (HasConfigurations => ProtocolMagic -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurations mAssetLockPath cfo act = do
     loggerName <- askLoggerName

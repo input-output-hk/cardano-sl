@@ -8,7 +8,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
-import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
 import qualified Data.IxSet.Typed as IxSet

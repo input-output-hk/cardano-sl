@@ -124,7 +124,6 @@ library
                        Cardano.Wallet.Util
 
                        Cardano.Wallet.WalletLayer
-                       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                        -- * Useful for testing, especially in the fixture side.
                        Cardano.Wallet.WalletLayer.Kernel.Accounts
@@ -133,11 +132,10 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Conv
                        Cardano.Wallet.WalletLayer.Kernel.Transactions
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
-
-  other-modules:       Cardano.Wallet.WalletLayer.Kernel
-                       Cardano.Wallet.WalletLayer.Legacy
+                       Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Error
-                       Paths_cardano_sl_wallet_new
+
+  other-modules:       Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
 
   build-depends:       base

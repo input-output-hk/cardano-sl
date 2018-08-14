@@ -24,10 +24,10 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAccountsByRootId,
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
-import           Cardano.Wallet.WalletLayer.Kernel.Conv
-import           Cardano.Wallet.WalletLayer.Types (CreateAccountError (..),
+import           Cardano.Wallet.WalletLayer (CreateAccountError (..),
                      DeleteAccountError (..), GetAccountError (..),
                      GetAccountsError (..), UpdateAccountError (..))
+import           Cardano.Wallet.WalletLayer.Kernel.Conv
 
 createAccount :: MonadIO m
               => Kernel.PassiveWallet

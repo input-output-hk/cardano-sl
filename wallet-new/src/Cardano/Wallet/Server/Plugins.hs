@@ -30,7 +30,8 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      RunMode, WalletBackendParams (..), isDebugMode,
                      walletAcidInterval, walletDbOptions)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
-                     PassiveWalletLayer, bracketKernelActiveWallet)
+                     PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 import qualified Pos.Wallet.Web.Error.Types as V0
 
 import           Control.Exception (fromException)
@@ -203,7 +204,7 @@ walletBackend protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (pa
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-        bracketKernelActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
+        WalletLayer.Kernel.bracketActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
           ctx <- view shutdownContext
           let
             portCallback :: Word16 -> IO ()

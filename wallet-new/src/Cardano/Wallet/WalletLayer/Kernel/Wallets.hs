@@ -29,10 +29,10 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
-import           Cardano.Wallet.WalletLayer.Kernel.Conv
-import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
+import           Cardano.Wallet.WalletLayer (CreateWalletError (..),
                      DeleteWalletError (..), GetWalletError (..),
                      UpdateWalletError (..), UpdateWalletPasswordError (..))
+import           Cardano.Wallet.WalletLayer.Kernel.Conv
 
 createWallet :: MonadIO m
              => Kernel.PassiveWallet

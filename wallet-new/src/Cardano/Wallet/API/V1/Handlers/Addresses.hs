@@ -7,8 +7,8 @@ import           Universum
 
 import           Servant
 
-import           Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer)
-import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response

@@ -20,11 +20,11 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      InputGrouping, newOptions)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import           Cardano.Wallet.WalletLayer (EstimateFeesError (..),
+                     NewPaymentError (..), RedeemAdaError (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
-import           Cardano.Wallet.WalletLayer.Types (EstimateFeesError (..),
-                     NewPaymentError (..), RedeemAdaError (..))
 
 -- | Generates a new transaction @and submit it as pending@.
 pay :: MonadIO m

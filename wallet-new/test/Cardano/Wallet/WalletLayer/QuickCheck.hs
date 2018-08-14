@@ -10,7 +10,7 @@ import           Universum
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
                      DeleteWalletError (..), GetAccountError (..),
                      GetAccountsError (..), GetWalletError (..),

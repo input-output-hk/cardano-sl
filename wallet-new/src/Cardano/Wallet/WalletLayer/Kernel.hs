@@ -25,13 +25,13 @@ import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      fromRawResolvedBlock)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
+                     PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Active as Active
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     PassiveWalletLayer (..))
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.

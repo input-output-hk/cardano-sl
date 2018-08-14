@@ -118,24 +118,26 @@ in pkgs.writeScript "demo-cluster" ''
   echo "Launching a demo cluster..."
   for i in {1..${builtins.toString numCoreNodes}}
   do
-    node_args="--db-path ${stateDir}/core-db$i --rebuild-db ${if launchGenesis then "--keyfile ${stateDir}/genesis-keys/generated-keys/rich/key$((i - 1)).sk" else "--genesis-secret $i"} --listen 127.0.0.1:$((3000 + i)) --json-log ${stateDir}/logs/core$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey} ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
+    echo -e "loggerTree:\n  severity: Debug+\n  file: core$i.log" > ${stateDir}/logs/log-config-node$i.yaml
+    node_args="--db-path ${stateDir}/core-db$i --rebuild-db ${if launchGenesis then "--keyfile ${stateDir}/genesis-keys/generated-keys/rich/key$((i - 1)).sk" else "--genesis-secret $i"} --listen 127.0.0.1:$((3000 + i)) --json-log ${stateDir}/logs/core$i.json --logs-prefix ${stateDir}/logs --log-config ${stateDir}/logs/log-config-node$i.yaml --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey} ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
     echo Launching core node $i: cardano-node-simple $node_args
-    ${stackExec}cardano-node-simple $node_args &> ${stateDir}/logs/core$i.log &
+    ${stackExec}cardano-node-simple $node_args &> ${stateDir}/logs/core$i.output &
     core_pid[$i]=$!
 
   done
   for i in {1..${builtins.toString numRelayNodes}}
   do
-    node_args="--db-path ${stateDir}/relay-db$i --rebuild-db --listen 127.0.0.1:$((3100 + i)) --json-log ${stateDir}/logs/relay$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id relay$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey}"
+    echo -e "loggerTree:\n  severity: Debug+\n  file: relay$i.log" > ${stateDir}/logs/log-config-relay$i.yaml
+    node_args="--db-path ${stateDir}/relay-db$i --rebuild-db --listen 127.0.0.1:$((3100 + i)) --json-log ${stateDir}/logs/relay$i.json --logs-prefix ${stateDir}/logs --log-config ${stateDir}/logs/log-config-relay$i.yaml --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id relay$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey}"
     echo Launching relay node $i: cardano-node-simple $node_args
-    ${stackExec}cardano-node-simple $node_args &> ${stateDir}/logs/relay$i.log &
+    ${stackExec}cardano-node-simple $node_args &> ${stateDir}/logs/relay$i.output &
     relay_pid[$i]=$!
 
   done
   ${ifWallet ''
     ${utf8LocaleSetting}
     echo Launching wallet node: ${demoWallet}
-    ${demoWallet} --runtime-args "--system-start $system_start" &> ${stateDir}/logs/wallet.log &
+    ${demoWallet} --runtime-args "--system-start $system_start" &> ${stateDir}/logs/wallet.output &
     wallet_pid=$!
 
     # Query node info until synced

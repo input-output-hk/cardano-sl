@@ -55,7 +55,7 @@ packages:
 
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
+    commit: 43622ed083887c60609e030cef6eadcd3dbd7b67 # master 0.5.10
   extra-dep: true
 
 - location:

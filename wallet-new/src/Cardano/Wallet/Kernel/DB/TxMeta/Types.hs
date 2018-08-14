@@ -47,11 +47,13 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
+import qualified Data.Text.Lazy.Builder as B
 import           Formatting (bprint, shown, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
 import           Pos.Crypto (shortHashF)
-import           Serokell.Util.Text (listJsonIndent, mapBuilder)
+import           Serokell.Util.Text (listBuilderJSON, listJsonIndent,
+                     mapBuilder)
 import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)
 
 import qualified Pos.Core as Core
@@ -76,7 +78,7 @@ data TxMeta = TxMeta {
     , _txMetaAmount     :: Core.Coin
 
       -- | Transaction inputs
-    , _txMetaInputs     :: NonEmpty (Core.Address, Core.Coin)
+    , _txMetaInputs     :: NonEmpty (Core.Address, Core.Coin, Txp.TxId, Word32)
 
       -- | Transaction outputs
     , _txMetaOutputs    :: NonEmpty (Core.Address, Core.Coin)
@@ -186,7 +188,7 @@ uniqueElements size = do
 instance Buildable TxMeta where
     build txMeta = bprint (" id = "%shortHashF%
                            " amount = " % F.build %
-                           " inputs = " % F.later mapBuilder %
+                           " inputs = " % F.later quadBuilder %
                            " outputs = " % F.later mapBuilder %
                            " creationAt = " % F.build %
                            " isLocal = " % F.build %
@@ -202,6 +204,14 @@ instance Buildable TxMeta where
                             (txMeta ^. txMetaIsOutgoing)
                             (txMeta ^. txMetaWalletId)
                             (txMeta ^. txMetaAccountIx)
+
+quadBuilder
+    :: (Traversable t, Buildable a, Buildable b, Buildable c, Buildable d)
+    => t (a, b, c, d) -> B.Builder
+quadBuilder = listBuilderJSON . fmap go
+    where
+        go (a, b, c, d) = bprint ("(" % F.build % ", " % F.build % ", "
+              % F.build % ", " % F.build % ")") a b c d
 
 instance Buildable [TxMeta] where
     build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta

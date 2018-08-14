@@ -99,7 +99,8 @@ bracketPassiveWallet =
         , _pwlGetAddresses          = pwlGetAddresses
         , _pwlValidateAddress       = pwlValidateAddress
 
-        , _pwlGetTransactions = pwlGetTransactions
+        , _pwlGetTransactions       = pwlGetTransactions
+        , _pwlGetTxFromMeta         = \ _ -> error "TODO"
 
         , _pwlApplyBlocks           = pwlApplyBlocks
         , _pwlRollbackBlocks        = pwlRollbackBlocks

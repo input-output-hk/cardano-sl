@@ -61,27 +61,21 @@ getWallet = view wcWallet_L
 -------------------------------------------------------------------------------}
 
 -- | Callback for new blocks
---
--- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
--- wrap things in Cardano specific types.
 walletApplyBlocks :: PassiveWalletLayer IO
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
-walletApplyBlocks _w _bs = do
-    lift $ applyBlocks _w _bs
+walletApplyBlocks w bs = do
+    lift $ applyBlocks w bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
 
 -- | Callback for rollbacks
---
--- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
--- wrap things in Cardano specific types.
 walletRollbackBlocks :: PassiveWalletLayer IO
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
-walletRollbackBlocks _w _bs = do
-    lift $ rollbackBlocks _w _bs
+walletRollbackBlocks w bs = do
+    lift $ rollbackBlocks w bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty

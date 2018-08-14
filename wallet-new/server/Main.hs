@@ -127,10 +127,6 @@ actionWithNewWallet pm txpConfig sscParams nodeParams params =
         sscParams
         (txpGlobalSettings pm txpConfig)
         (initNodeDBs pm epochSlots) $ \nr -> do
-      -- TODO: Will probably want to extract some parameters from the
-      -- 'NewWalletBackendParams' to construct or initialize the wallet
-
-      -- TODO(ks): Currently using non-implemented layer for wallet layer.
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do

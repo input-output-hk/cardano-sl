@@ -250,7 +250,7 @@ runCoinSelT opts pickUtxo policy request utxo = do
             originalOuts = case outs of
                                []   -> error "runCoinSelT: empty list of outputs"
                                o:os -> o :| os
-        -- TODO: We should shuffle allOuts
+        -- TODO: We should shuffle allOuts CBR-380
         return . Right $ CoinSelFinalResult allInps
                                             originalOuts
                                             (concatMap coinSelChange css)

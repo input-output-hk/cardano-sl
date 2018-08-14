@@ -73,8 +73,6 @@ data TxMeta = TxMeta {
       _txMetaId         :: Txp.TxId
 
       -- | Total amount
-      --
-      -- TODO: What does this mean?
     , _txMetaAmount     :: Core.Coin
 
       -- | Transaction inputs

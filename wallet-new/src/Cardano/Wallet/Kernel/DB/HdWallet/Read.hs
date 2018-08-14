@@ -2,11 +2,6 @@
 --
 -- NOTE: These are pure functions, which are intended to work on a snapshot
 -- of the database. They are intended to support the V1 wallet API.
---
--- TODO: We need to think about which layer will have the responsibility for
--- filtering and sorting. If we want the 'IxSet' stuff to be local to the
--- "Kernel.DB" namespace (which would be a good thing), then filtering and
--- sorting (and maybe even pagination) will need to happen here.
 module Cardano.Wallet.Kernel.DB.HdWallet.Read (
     -- | * Infrastructure
     HdQuery

@@ -103,7 +103,7 @@ data WalletHandles = Handles {
 handlesOpen :: IO WalletHandles
 handlesOpen = do
     db <- openMemoryState defDB
-    metadb <- openMetaDB ":memory:" -- TODO: Eventually :memory: should be replaced with the real path.
+    metadb <- openMetaDB ":memory:" -- TODO: CBR-378
     migrateMetaDB metadb            -- TODO: this will be run with asynchronous exceptions masked.
     return $ Handles db metadb
 
@@ -144,7 +144,7 @@ init PassiveWallet{..} = do
 
 -- | Prefilter the block for each esk in the `WalletESK` map.
 --   Return a unified Map of accountId and prefiltered blocks (representing multiple ESKs)
--- TODO(@uroboros/ryan) optimisation: we are prefiltering the block n times for n keys, change this to be a single pass
+-- TODO: Improve performance (CBR-379)
 prefilterBlock' :: PassiveWallet
                 -> ResolvedBlock
                 -> IO (Map HdAccountId PrefilteredBlock)

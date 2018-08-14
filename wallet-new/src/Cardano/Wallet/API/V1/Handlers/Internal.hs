@@ -8,7 +8,7 @@ import           Prelude
 import           Cardano.Wallet.API.V1.Types
 
 import qualified Control.Foldl as L
-import           Data.Map.Strict as MS
+import qualified Data.Map.Strict as MS
 import qualified Data.Text as T
 import           Data.Word
 
@@ -28,7 +28,7 @@ data BoundType = Log10 | Haphazard
 generateBounds :: BoundType -> [Word64]
 generateBounds bType =
     case bType of
-        Log10 -> (zipWith (\ten toPower -> ten^toPower :: Word64) (repeat (10::Word64)) [(1::Word64)..16]) ++ [45 * (10^(15::Word64))]
+        Log10 -> ( map (\toPower -> 10^toPower :: Word64) [(1::Word64)..16] ) ++ [45 * (10^(15::Word64))]
         Haphazard -> [10, 100, 1000, 10000]
 
 

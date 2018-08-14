@@ -13,15 +13,19 @@ import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
                      DeleteWalletError (..), GetAccountError (..),
-                     GetAccountsError (..), GetWalletError (..),
-                     PassiveWalletLayer (..), UpdateAccountError (..),
-                     UpdateWalletError (..), UpdateWalletPasswordError (..))
+                     GetAccountsError (..), GetUtxosError (..),
+                     GetWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError (..), UpdateWalletError (..),
+                     UpdateWalletPasswordError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
+import           Pos.Core.Txp (TxIn (..), TxOut, TxOutAux)
 
 import           Pos.Core ()
-import           Test.QuickCheck (Arbitrary, arbitrary, generate, oneof)
+import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary, choose,
+                     generate, genericShrink, oneof, scale)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -50,6 +54,8 @@ bracketPassiveWallet =
 
         , _pwlCreateAddress        = \_     -> liftedGen
         , _pwlGetAddresses         = \_     -> liftedGen
+
+        , _pwlGetUtxos             = \_     -> liftedGen
 
         , _pwlApplyBlocks          = \_     -> liftedGen
         , _pwlRollbackBlocks       = \_     -> liftedGen
@@ -132,3 +138,27 @@ instance Arbitrary DeleteWalletError where
 
 instance Arbitrary UpdateWalletError where
     arbitrary = oneof [ UpdateWalletWalletIdDecodingFailed <$> arbitrary ]
+
+
+instance Arbitrary GetUtxosError where
+    arbitrary = oneof [ GetWalletUtxosWalletIdDecodingFailed <$> arbitrary
+                      , GetUtxosErrorFromGetAccountsError <$> arbitrary
+                      ]
+
+genTxIn :: Gen TxIn
+genTxIn = oneof
+    [ TxInUtxo <$> arbitrary <*> arbitrary
+    , TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary
+    ]
+
+instance Arbitrary TxIn where
+    arbitrary = genTxIn
+    shrink = genericShrink
+
+instance Arbitrary TxOutAux where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary TxOut where
+    arbitrary = genericArbitrary
+    shrink = genericShrink

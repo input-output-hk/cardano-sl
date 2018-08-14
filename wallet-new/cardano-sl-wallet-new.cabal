@@ -577,6 +577,7 @@ test-suite wallet-new-specs
                     , formatting
                     , hedgehog
                     , hspec
+                    , generic-arbitrary
                     , lens
                     , QuickCheck
                     , quickcheck-instances

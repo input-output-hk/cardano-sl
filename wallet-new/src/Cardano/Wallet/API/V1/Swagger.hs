@@ -47,7 +47,8 @@ import           Servant (Handler, QueryFlag, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
-import           Servant.Swagger.UI.ReDoc (redocSchemaUIServer)
+import           Servant.Swagger.UI.Core (swaggerSchemaUIServerImpl)
+import           Servant.Swagger.UI.ReDoc (redocFiles)
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen
 import           Test.QuickCheck.Random
@@ -733,8 +734,8 @@ curl -X POST \
   --cacert ./scripts/tls-files/ca.crt \
   --cert ./scripts/tls-files/client.pem \
   -d '{
-	"walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
-	"accountIndex": 2147483648
+        "walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
+        "accountIndex": 2147483648
 }'
 ```
 
@@ -829,6 +830,24 @@ curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AV
   --cert ./scripts/tls-files/client.pem
 ```
 
+
+Getting Utxo statistics
+---------------------------------
+
+You can get Utxo statistics of a given wallet using
+ [`GET /api/v1/wallets/{{walletId}}/statistics/utxos`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1statistics~1utxos%2Fget)
+```
+curl -X GET \
+  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/statistics/utxos \
+  -H 'Accept: application/json;charset=utf-8' \
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
+```
+
+```json
+$readUtxoStatistics
+```
+
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully
 leverage the API capabilities.
 |]
@@ -843,13 +862,40 @@ leverage the API capabilities.
     readFees             = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
     readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
     readTransactions     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
-
+    readUtxoStatistics   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse UtxoStatistics)
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
 swaggerSchemaUIServer
     :: (Server api ~ Handler Swagger)
     => Swagger -> Server (SwaggerSchemaUI' dir api)
-swaggerSchemaUIServer = redocSchemaUIServer
+swaggerSchemaUIServer =
+    swaggerSchemaUIServerImpl redocIndexTemplate redocFiles
+    where
+        redocIndexTemplate :: Text
+        redocIndexTemplate = [text|
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>ReDoc</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { margin: 0; padding: 0; }
+    </style>
+    <script>
+        // Force Strict-URL Routing for assets relative paths
+        (function onload() {
+            if (!window.location.href.endsWith("/")) {
+                window.location.href += "/";
+            }
+        }());
+    </script>
+  </head>
+  <body>
+    <redoc spec-url="../SERVANT_SWAGGER_UI_SCHEMA"></redoc>
+    <script src="redoc.min.js"> </script>
+  </body>
+</html>|]
 
 --
 -- The API

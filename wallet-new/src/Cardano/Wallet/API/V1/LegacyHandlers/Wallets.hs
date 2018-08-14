@@ -189,10 +189,10 @@ updateWallet wid WalletUpdate{..} = do
         addWalletInfo ws' updated
 
 -- | Gets Utxo statistics for a wallet.
--- | Stub, not calling data layer yet.
+-- | Stub, not calling data layer.
 getUtxoStatistics
     :: (MonadWalletLogic ctx m)
     => WalletId
     -> m (WalletResponse UtxoStatistics)
-getUtxoStatistics wid = do
-    return $ single (computeUtxoStatistics [1::Word64,2,3,10,20,30,101])
+getUtxoStatistics _ = do
+    return $ single (computeUtxoStatistics [])

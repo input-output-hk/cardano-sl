@@ -187,3 +187,34 @@ transactionSpecs wRef wc = do
             etxn <- postTransaction wc payment
 
             void $ etxn `shouldPrism` _Left
+{-- Uncomment when new Client is Handler based rather than LegacyHandler based
+        it "posted transactions gives rise to nonempty Utxo histogram" $ do
+            genesis <- genesisWallet wc
+            (fromAcct, _) <- firstAccountAndId wc genesis
+
+            wallet <- sampleWallet wRef wc
+            (_, toAddr) <- firstAccountAndId wc wallet
+
+            let payment val = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId genesis
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = V1 (Core.mkCoin val)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+
+            void $ postTransaction wc (payment 1)
+            threadDelay 120000000
+            eresp1 <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics1 <- fmap wrData eresp1 `shouldPrism` _Right
+            let possibleBuckets = fmap show $ (zipWith (\ten toPower -> ten^toPower :: Word64) (repeat (10::Word64)) [(1::Word64)..16]) ++ [45 * (10^(15::Word64))]
+            let histogram1 = zipWith (\key value -> HistogramBarCount (key, value)) possibleBuckets ([1::Word64] ++ (repeat 0))
+            let allStakes1 = 1
+            utxoStatistics1 `shouldBe` UtxoStatistics histogram1 allStakes1
+
+--}

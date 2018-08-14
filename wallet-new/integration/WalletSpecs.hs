@@ -53,6 +53,17 @@ walletSpecs _ wc = do
                 }
 
             eresp `shouldPrism_` _Right
+
+        it "creating wallet gives rise to an empty Utxo histogram" $ do
+            newWallet <- randomWallet CreateWallet
+            wallet <- createWalletCheck wc newWallet
+
+            eresp <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            let possibleBuckets = fmap show $ ( map (\toPower -> 10^toPower :: Word64) [(1::Word64)..16] ) ++ [45 * (10^(15::Word64))]
+            let histogram = map (\ x -> curry HistogramBarCount x 0) possibleBuckets
+            let allStakes = 0
+            utxoStatistics `shouldBe` UtxoStatistics histogram allStakes
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

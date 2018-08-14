@@ -17774,8 +17774,10 @@ license = stdenv.lib.licenses.mit;
 , directory
 , exceptions
 , filepath
+, foldl
 , formatting
 , gauge
+, generic-arbitrary
 , generics-sop
 , hedgehog
 , hspec
@@ -17803,6 +17805,7 @@ license = stdenv.lib.licenses.mit;
 , retry
 , safe-exceptions
 , safecopy
+, scientific
 , serokell-util
 , servant
 , servant-client
@@ -17883,6 +17886,7 @@ data-default
 data-default-class
 directory
 exceptions
+foldl
 formatting
 generics-sop
 http-api-data
@@ -17905,6 +17909,7 @@ resourcet
 retry
 safe-exceptions
 safecopy
+scientific
 serokell-util
 servant
 servant-client
@@ -17997,6 +18002,7 @@ data-default
 directory
 filepath
 formatting
+generic-arbitrary
 hedgehog
 hspec
 ixset-typed

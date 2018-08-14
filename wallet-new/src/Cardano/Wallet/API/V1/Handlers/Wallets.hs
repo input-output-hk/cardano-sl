@@ -116,8 +116,6 @@ getUtxoStatistics pwl wid = do
                  extractValue = getCoin . txOutValue . toaOut
                  utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
                  utxosCoinValuesForAllAccounts pairs =
-                     concat $ map (\pair -> map extractValue (M.elems $ snd pair) ) pairs
+                     concatMap (\pair -> map extractValue (M.elems $ snd pair) ) pairs
              in do
                  return $ single (computeUtxoStatistics $ utxosCoinValuesForAllAccounts w)
-
-    --return $ single (computeUtxoStatistics [1::Integer,2,3,10,20,30,101,1001,10000])

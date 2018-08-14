@@ -17,6 +17,9 @@ import Data.Monoid (Sum(..))
 newtype Addr = Addr Int
   deriving (Eq, Ord, Show)
 
+-- | Block hash
+newtype BlockHash = BlockHash Int
+
 -- | Function with finite support. Note that the paper defines these as taking
 --   values in a Semiring, but there's nothing intrinsic to that constraint and
 --   Monoid is in the standard libraries.
@@ -101,7 +104,7 @@ trDSL t = DSL.Transaction
 
 data Block h a = Block
   { -- | Previous block hash
-    blockPred :: h (Block h a)
+    blockPred :: BlockHash
     -- | Slot occupied by this block
   , blockSlot:: SlotId
     -- | The address issuing this block.

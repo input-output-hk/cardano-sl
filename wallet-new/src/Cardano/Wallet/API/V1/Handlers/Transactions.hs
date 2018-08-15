@@ -62,7 +62,6 @@ newTransaction aw payment@Payment{..} = liftIO $ do
     case res of
          Left err -> throwM err
          Right (_, meta) -> single <$> WalletLayer.getTxFromMeta (WalletLayer.walletPassiveLayer aw) meta
-    where
 
 getTransactionsHistory :: PassiveWalletLayer IO
                        -> Maybe WalletId

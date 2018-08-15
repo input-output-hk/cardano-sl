@@ -41,9 +41,8 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     accountFops <- castAccountFiltering mbWalletId mbAccountIndex
     mbSorting <- castSorting sop
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    -- check Pos.Core.ProtocolConstants, Core.blkSecurityParam
-    let k = (2000 :: Word)           -- TODO: retrieve this constant from Core
-    let currentSlot = (1000 :: Word) -- TODO: retrieve this constant from Core ??
+    k <- liftIO getk
+    currentSlot <- liftIO getCurrentSlotL
     (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
         (wallet ^. Kernel.walletMeta)
         (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
@@ -62,9 +61,17 @@ toTransaction :: MonadIO m
                -> m V1.Transaction
 toTransaction wallet meta = liftIO $ do
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    let k = (2000 :: Word)           -- TODO: retrieve this constant from Core
-    let currentSlot = (1000 :: Word) -- TODO: retrieve this constant from Core ??
+    k <- getk
+    currentSlot <- getCurrentSlotL
     return $ metaToTx db k currentSlot meta
+
+-- TODO(kde): retrieve this constant from Core
+getk :: IO Word
+getk = return 2000
+
+-- TODO(kde): retrieve this constant from Core ??
+getCurrentSlotL :: IO Word
+getCurrentSlotL = return 1000
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
 castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops

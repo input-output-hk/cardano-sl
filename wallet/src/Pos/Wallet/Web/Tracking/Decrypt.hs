@@ -19,12 +19,12 @@ import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
 import           Serokell.Util (enumerate)
 
+import           Pos.Chain.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..),
+                     TxUndo, toaOut, txOutAddress)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address (..), ChainDifficulty, Timestamp,
                      aaPkDerivationPath, addrAttributesUnwrapped,
                      makeRootPubKeyAddress)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..), TxUndo,
-                     toaOut, txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, WithHash (..),
                      deriveHDPassphrase, encToPublic, unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)

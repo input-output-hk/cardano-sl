@@ -27,10 +27,9 @@ import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson, listJsonIndent)
 
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (UtxoModifier)
+import           Pos.Chain.Txp (TxId, UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address)
-import           Pos.Core.Txp (TxId)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
                      deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Modifier (MapModifier)

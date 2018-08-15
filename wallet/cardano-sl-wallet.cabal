@@ -243,6 +243,7 @@ test-suite cardano-wallet-test
                      , cardano-crypto
                      , cardano-sl
                      , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test

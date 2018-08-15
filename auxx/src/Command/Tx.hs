@@ -34,7 +34,8 @@ import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Txp (topsortTxAuxes)
+import           Pos.Chain.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
+                     TxOutAux (..), topsortTxAuxes, txaF)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
@@ -45,8 +46,6 @@ import           Pos.Core.Conc (concurrently, currentTime, delay,
                      forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Pos.Core.Configuration (genesisBlockVersionData,
                      genesisSecretKeys)
-import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
-                     TxOutAux (..), txaF)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,
                      encToPublic, fakeSigner, hash, safeToPublic, toPublic,

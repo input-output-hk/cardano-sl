@@ -1,3 +1,6 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
+
 -- | Specification of Pos.Chain.LrcPure (which is basically a pure
 -- version of 'Pos.Chain.Lrc').
 

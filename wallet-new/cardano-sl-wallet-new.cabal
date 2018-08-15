@@ -155,6 +155,7 @@ library
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -476,6 +477,7 @@ test-suite wallet-unit-tests
                     , cardano-sl
                     , cardano-sl-binary
                     , cardano-sl-chain
+                    , cardano-sl-chain-test
                     , cardano-sl-client
                     , cardano-sl-core
                     , cardano-sl-core-test

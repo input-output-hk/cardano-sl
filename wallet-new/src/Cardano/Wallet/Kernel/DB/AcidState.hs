@@ -47,10 +47,9 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (TxAux, TxId, Utxo)
 import           Pos.Core (SlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Txp (TxAux, TxId)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD

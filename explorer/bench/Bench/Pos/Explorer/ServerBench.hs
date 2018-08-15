@@ -20,8 +20,8 @@ import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
+import           Test.Pos.Chain.Txp.Arbitrary.Unsafe ()
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Arbitrary.Txp.Unsafe ()
 
 ----------------------------------------------------------------
 -- Mocked functions

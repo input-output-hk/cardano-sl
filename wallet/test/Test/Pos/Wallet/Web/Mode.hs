@@ -48,6 +48,7 @@ import           Pos.Chain.Block (HasSlogGState (..), LastKnownHeader,
                      LastKnownHeaderTag)
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
+import           Pos.Chain.Txp (TxAux)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
                      getPublicDefault, getSecretDefault,
                      modifyPublicPureDefault, modifySecretPureDefault)
@@ -60,7 +61,6 @@ import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..),
                      largestHDAddressBoot)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB

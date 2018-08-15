@@ -12,9 +12,9 @@ import           Data.Conduit (mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Txp (toaOut, txOutAddress)
 import           Pos.Core (AddrAttributes (..), Address (..),
                      addrAttributesUnwrapped)
-import           Pos.Core.Txp (toaOut, txOutAddress)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
                      unpackHDAddressAttr)
 import           Pos.DB.Class (DBTag (GStateDB), MonadDBRead, dbIterSource)

@@ -19,9 +19,8 @@ import           Servant.Generic (AsServerT, GenericProduct, ToServant,
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 

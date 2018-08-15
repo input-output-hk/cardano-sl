@@ -6,11 +6,10 @@ import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Servant
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0

@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Test.Pos.Chain.Block.Bi
        ( tests
        ) where
@@ -26,15 +28,15 @@ import           Pos.Crypto (Hash, SignTag (..), abstractHash, createPsk, hash,
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Chain.Block.Gen
+import           Test.Pos.Chain.Txp.Example (exampleTxPayload, exampleTxProof)
 import           Test.Pos.Core.ExampleHelpers (exampleBlockVersion,
                      exampleChainDifficulty, exampleEpochIndex,
                      exampleLightDlgIndices, examplePublicKey,
                      exampleSecretKey, exampleSecretKeys, exampleSlotId,
                      exampleSlotLeaders, exampleSoftwareVersion,
-                     exampleSscPayload, exampleSscProof, exampleTxPayload,
-                     exampleTxProof, exampleUpdatePayload, exampleUpdateProof,
-                     feedPM, feedPMC, staticHeavyDlgIndexes,
-                     staticProxySKHeavys)
+                     exampleSscPayload, exampleSscProof, exampleUpdatePayload,
+                     exampleUpdateProof, feedPM, feedPMC,
+                     staticHeavyDlgIndexes, staticProxySKHeavys)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
 

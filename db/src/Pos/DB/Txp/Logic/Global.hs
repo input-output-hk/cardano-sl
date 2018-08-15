@@ -25,15 +25,15 @@ import           Formatting (build, sformat, (%))
 import           Pos.Chain.Block (ComponentBlock (..))
 import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      GlobalToilM, GlobalToilState (..), StakesView (..),
-                     ToilVerFailure, TxpConfiguration (..), Utxo, UtxoM,
-                     UtxoModifier, applyToil, defGlobalToilState,
-                     flattenTxPayload, gtsUtxoModifier, rollbackToil,
-                     runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
+                     ToilVerFailure, TxAux, TxUndo, TxpConfiguration (..),
+                     TxpUndo, Utxo, UtxoM, UtxoModifier, applyToil,
+                     defGlobalToilState, flattenTxPayload, gtsUtxoModifier,
+                     rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup,
+                     verifyToil)
 import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic,
                      epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
-import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
 import           Pos.DB.GState.Stakes (getRealStake, getRealTotalStake)

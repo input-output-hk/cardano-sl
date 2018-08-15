@@ -21,7 +21,8 @@ import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Txp (TxFee (..), TxpConfiguration, Utxo)
+import           Pos.Chain.Txp (TxAux (..), TxFee (..), TxOut (..),
+                     TxpConfiguration, Utxo, _txOutputs)
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
@@ -32,7 +33,6 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
-import           Pos.Core.Txp (TxAux (..), TxOut (..), _txOutputs)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
                      ShouldCheckPassphrase (..), checkPassMatches, hash,
                      withSafeSignerUnsafe)

@@ -30,11 +30,10 @@ import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (MemPool (..), ToilVerFailure, TxpConfiguration,
-                     UndoMap, UtxoModifier)
+import           Pos.Chain.Txp (MemPool (..), ToilVerFailure, TxAux, TxId,
+                     TxpConfiguration, UndoMap, UtxoModifier)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlots (..))
-import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.DB.Txp.MemState.Types (GenericTxpLocalData (..))

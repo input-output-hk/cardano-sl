@@ -20,7 +20,6 @@ module Test.Pos.Core.ExampleHelpers
         , exampleGenesisConfiguration_GCSrc
         , exampleGenesisDelegation
         , exampleGenesisInitializer
-        , exampleHashTx
         , exampleInnerSharesMap
         , exampleLightDlgIndices
         , exampleOpening
@@ -29,7 +28,6 @@ module Test.Pos.Core.ExampleHelpers
         , exampleProxySKBlockInfo
         , examplePublicKey
         , exampleRedeemPublicKey
-        , exampleRedeemSignature
         , exampleScript
         , exampleSecretKey
         , exampleSecretKeys
@@ -45,17 +43,6 @@ module Test.Pos.Core.ExampleHelpers
         , exampleStakeholderIds
         , exampleStakesList
         , exampleSystemTag
-        , exampleTxId
-        , exampleTxInList
-        , exampleTxInUnknown
-        , exampleTxInUtxo
-        , exampleTxPayload
-        , exampleTxProof
-        , exampleTxOut
-        , exampleTxOutList
-        , exampleTxSig
-        , exampleTxSigData
-        , exampleTxWitness
         , exampleUpdateData
         , exampleUpdatePayload
         , exampleUpdateProof
@@ -91,7 +78,6 @@ import qualified Data.Map as M
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Data.Time.Units (Millisecond)
-import qualified Data.Vector as V
 import qualified Hedgehog as H
 import           Serokell.Data.Memory.Units (Byte)
 import qualified Serokell.Util.Base16 as B16
@@ -102,11 +88,10 @@ import           Pos.Core.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), Address (..), BlockCount (..),
                      ChainDifficulty (..), Coeff (..), Coin (..),
-                     CoinPortion (..), IsBootstrapEraAddr (..), Script (..),
-                     ScriptVersion, SharedSeed (..), SlotLeaders,
-                     StakeholderId, StakesList, TxFeePolicy (..),
-                     TxSizeLinear (..), addressHash, coinPortionDenominator,
-                     makeAddress, makePubKeyAddress, mkMultiKeyDistr)
+                     CoinPortion (..), Script (..), ScriptVersion,
+                     SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
+                     TxFeePolicy (..), TxSizeLinear (..), addressHash,
+                     coinPortionDenominator, makeAddress, mkMultiKeyDistr)
 import           Pos.Core.Configuration
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
                      ProxySKBlockInfo, ProxySKHeavy)
@@ -114,7 +99,6 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisAvvmBalances (..), GenesisDelegation (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      GenesisSpec (..), TestnetBalanceOptions (..))
-import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, VssMaxTTL (..),
                      VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
@@ -126,10 +110,6 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                      VssCertificatesMap (..), mkCommitmentsMap,
                      mkVssCertificate, mkVssCertificatesMap,
                      randCommitmentAndOpening)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
-                     TxInWitness (..), TxOut (..), TxPayload (..),
-                     TxProof (..), TxSig, TxSigData (..), TxWitness,
-                     mkTxPayload)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), BlockVersionModifier (..),
                      SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
@@ -137,14 +117,13 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateProof, UpdateProposal, UpdateProposalToSign (..),
                      UpdateVote (..), VoteId, mkUpdateProof,
                      mkUpdateProposalWSign, mkUpdateVoteSafe)
-import           Pos.Crypto (AbstractHash (..), EncShare (..),
-                     HDAddressPayload (..), Hash, ProtocolMagic (..),
-                     RedeemPublicKey, RedeemSignature, SafeSigner (..),
+import           Pos.Crypto (EncShare (..), HDAddressPayload (..),
+                     ProtocolMagic (..), RedeemPublicKey, SafeSigner (..),
                      Secret (..), SecretKey (..), SecretProof (..),
                      SignTag (..), VssKeyPair, VssPublicKey (..), abstractHash,
                      decryptShare, deterministic, deterministicVssKeyGen, hash,
-                     redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
-                     sign, toVssPublicKey)
+                     redeemDeterministicKeyGen, safeCreatePsk, sign,
+                     toVssPublicKey)
 import           Pos.Crypto.Signing (ProxyCert (..), ProxySecretKey (..),
                      PublicKey (..), RedeemPublicKey (..))
 
@@ -319,11 +298,6 @@ examplePublicKeys offset count = map (toKey . (*offset)) [0..count-1]
 exampleRedeemPublicKey :: RedeemPublicKey
 exampleRedeemPublicKey = fromJust (fst <$> redeemDeterministicKeyGen (getBytes 0 32))
 
-exampleRedeemSignature :: RedeemSignature TxSigData
-exampleRedeemSignature = redeemSign (ProtocolMagic 0) SignForTestingOnly rsk exampleTxSigData
-    where
-        rsk = fromJust (snd <$> redeemDeterministicKeyGen (getBytes 0 32))
-
 -- In order to get the key starting at byte 10, we generate two with offsets of 10
 -- between them and take the second.
 exampleSecretKey :: SecretKey
@@ -393,46 +367,6 @@ exampleSystemTags :: Int -> Int -> [SystemTag]
 exampleSystemTags offset count = map (toSystemTag . (*offset)) [0..count-1]
   where
     toSystemTag start = SystemTag (getText start 16)
-
-exampleTxAux :: TxAux
-exampleTxAux = TxAux tx exampleTxWitness
-  where
-    tx = UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ())
-
-exampleTxId :: TxId
-exampleTxId = exampleHashTx
-
-exampleTxInList :: (NonEmpty TxIn)
-exampleTxInList = fromList [exampleTxInUtxo]
-
-exampleTxInUnknown :: TxIn
-exampleTxInUnknown = TxInUnknown 47 ("forty seven" :: ByteString)
-
-exampleTxInUtxo :: TxIn
-exampleTxInUtxo = TxInUtxo exampleHashTx 47 -- TODO: loop here
-
-exampleTxOut :: TxOut
-exampleTxOut = TxOut (makePubKeyAddress (IsBootstrapEraAddr True) pkey) (Coin 47)
-    where
-        Right pkey = PublicKey <$> CC.xpub (getBytes 0 64)
-
-exampleTxOutList :: (NonEmpty TxOut)
-exampleTxOutList = fromList [exampleTxOut]
-
-exampleTxProof :: TxProof
-exampleTxProof = TxProof 32 mroot hashWit
-  where
-    mroot = mtRoot $ mkMerkleTree [(UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ()))]
-    hashWit = hash $ [(V.fromList [(PkWitness examplePublicKey exampleTxSig)])]
-
-exampleTxSig :: TxSig
-exampleTxSig = sign (ProtocolMagic 0) SignForTestingOnly exampleSecretKey exampleTxSigData
-
-exampleTxSigData :: TxSigData
-exampleTxSigData = TxSigData exampleHashTx
-
-exampleTxWitness :: TxWitness
-exampleTxWitness = V.fromList [(PkWitness examplePublicKey exampleTxSig)]
 
 exampleUpAttributes :: UpAttributes
 exampleUpAttributes = exampleAttributes
@@ -540,14 +474,8 @@ staticText
 getText :: Int -> Int -> Text
 getText offset len = T.take len $ T.drop offset staticText
 
-exampleTxPayload :: TxPayload
-exampleTxPayload = mkTxPayload [exampleTxAux]
-
 exampleSoftwareVersion :: SoftwareVersion
 exampleSoftwareVersion = SoftwareVersion (ApplicationName "Golden") 99
-
-exampleHashTx :: Hash Tx
-exampleHashTx = coerce (hash "golden" :: Hash Text)
 
 exampleSscProof :: SscProof
 exampleSscProof = CommitmentsProof (hash exampleCommitmentsMap)

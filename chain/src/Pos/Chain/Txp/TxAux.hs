@@ -1,4 +1,4 @@
-module Pos.Core.Txp.TxAux
+module Pos.Chain.Txp.TxAux
        ( TxAux (..)
        , txaF
        , checkTxAux
@@ -14,8 +14,8 @@ import           Serokell.Util.Text (listJsonIndent)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 
-import           Pos.Core.Txp.Tx
-import           Pos.Core.Txp.TxWitness
+import           Pos.Chain.Txp.Tx
+import           Pos.Chain.Txp.TxWitness
 
 -- | Transaction + auxiliary data
 data TxAux = TxAux

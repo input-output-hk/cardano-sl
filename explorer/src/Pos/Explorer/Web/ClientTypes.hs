@@ -72,6 +72,8 @@ import           Pos.Binary (biSize)
 import           Pos.Chain.Block (MainBlock, Undo (..), gbHeader, gbhConsensus,
                      headerHash, mainBlockSlot, mainBlockTxPayload, mcdSlot,
                      prevBlockL)
+import           Pos.Chain.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                     TxUndo, txpTxs, _txOutputs)
 import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
                      SlotId (..), StakeholderId, Timestamp, addressF,
                      coinToInteger, decodeTextAddress, getEpochIndex,
@@ -79,8 +81,6 @@ import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin,
                      unsafeSubCoin)
 import           Pos.Core.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
-import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
-                     txpTxs, _txOutputs)
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.DB.Lrc as LrcDB (getLeader)
 import qualified Pos.GState as GS

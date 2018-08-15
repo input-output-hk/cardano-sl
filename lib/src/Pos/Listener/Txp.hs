@@ -18,8 +18,8 @@ import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
-import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
+import           Pos.Chain.Txp (TxAux (..), TxId, TxMsgContents (..),
+                     TxpConfiguration)
 import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)

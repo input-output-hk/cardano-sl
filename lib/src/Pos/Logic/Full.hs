@@ -22,13 +22,13 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),
                      TossModifier, ldModifier, sscRunLocalQuery,
                      tmCertificates, tmCommitments, tmOpenings, tmShares)
-import           Pos.Chain.Txp (MemPool (..), TxpConfiguration)
+import           Pos.Chain.Txp (MemPool (..), TxAux (..), TxMsgContents (..),
+                     TxpConfiguration)
 import           Pos.Communication (NodeId)
 import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
-import           Pos.Core.Txp (TxAux (..), TxMsgContents (..))
 import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
                      UpdateVote (..))
 import           Pos.Crypto (ProtocolMagic, hash)

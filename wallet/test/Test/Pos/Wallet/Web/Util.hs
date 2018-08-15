@@ -38,7 +38,8 @@ import           Test.QuickCheck.Monadic (assert, pick)
 
 import           Pos.Chain.Block (Blund, LastKnownHeaderTag, blockHeader,
                      headerHashG)
-import           Pos.Chain.Txp (TxpConfiguration, Utxo)
+import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..),
+                     TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
@@ -46,7 +47,6 @@ import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
                      ShouldCheckPassphrase (..), emptyPassphrase,
                      firstHardened)
@@ -64,7 +64,7 @@ import           Pos.Infra.Util.JsonLog.Events
                      (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
                      genBlockGenParams)
-import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (assertProperty,
                      maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)

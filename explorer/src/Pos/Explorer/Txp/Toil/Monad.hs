@@ -36,9 +36,8 @@ import           Control.Monad.State.Strict (mapStateT)
 import           System.Wlog (NamedPureLogger)
 
 import           Pos.Chain.Txp (ExtendedGlobalToilM, ExtendedLocalToilM,
-                     StakesLookupF)
+                     StakesLookupF, TxId)
 import           Pos.Core (Address, Coin)
-import           Pos.Core.Txp (TxId)
 import           Pos.Explorer.Core (AddrHistory, TxExtra)
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..),
                      ExplorerExtraModifier, eemAddrBalances, eemAddrHistories,

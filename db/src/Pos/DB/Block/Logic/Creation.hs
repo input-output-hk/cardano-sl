@@ -31,7 +31,8 @@ import qualified Pos.Chain.Block as BC
 import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
-import           Pos.Chain.Txp (TxpConfiguration, emptyTxPayload)
+import           Pos.Chain.Txp (TxAux (..), TxpConfiguration, emptyTxPayload,
+                     mkTxPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
@@ -43,7 +44,6 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Ssc (SscPayload)
-import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (ProtocolMagic, SecretKey)

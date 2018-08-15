@@ -30,11 +30,11 @@ import           Pos.Chain.Block.Union (Block, BlockHeader (..),
                      MainConsensusData (..), MainToSign (..),
                      mainBlockEBDataProof)
 import           Pos.Chain.Ssc (verifySscPayload)
+import           Pos.Chain.Txp (checkTxPayload)
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (checkSscPayload)
-import           Pos.Core.Txp (checkTxPayload)
 import           Pos.Core.Update (checkSoftwareVersion, checkUpdatePayload)
 import           Pos.Crypto (ProtocolMagic, ProxySignature (..), SignTag (..),
                      checkSig, hash, isSelfSignedPsk, proxyVerify)

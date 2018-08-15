@@ -25,7 +25,7 @@ import           Formatting.Buildable (Buildable (..))
 
 import           Pos.Chain.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
                      mbWitnesses)
-import           Pos.Core.Txp (Tx, TxAux (..), TxIn (..), txInputs)
+import           Pos.Chain.Txp (Tx, TxAux (..), TxIn (..), txInputs)
 
 import           Formatting (bprint, (%))
 import qualified Formatting as F

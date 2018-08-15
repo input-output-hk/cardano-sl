@@ -31,12 +31,11 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock,
                      headerHash, mainBlockSlot, mainBlockTxPayload)
-import           Pos.Chain.Txp (topsortTxs)
+import           Pos.Chain.Txp (Tx, topsortTxs, txpTxs)
 import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
                      difficultyL, epochIndexL, getChainDifficulty)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst)
-import           Pos.Core.Txp (Tx, txpTxs)
 import           Pos.Crypto (withHash)
 import           Pos.DB.BatchOp (SomeBatchOp (..))
 import           Pos.DB.Block (MonadBListener (..))

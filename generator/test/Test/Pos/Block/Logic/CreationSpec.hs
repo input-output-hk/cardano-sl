@@ -20,13 +20,13 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (BlockHeader, MainBlock)
 import           Pos.Chain.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
+import           Pos.Chain.Txp (TxAux)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (HasConfiguration, SlotId (..), blkSecurityParam,
                      genesisBlockVersionData, pcEpochSlots, protocolConstants,
                      unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Ssc (SscPayload (..), mkVssCertificatesMapLossy)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
@@ -35,9 +35,9 @@ import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Chain.Ssc.Arbitrary (commitmentMapEpochGen,
                      vssCertificateEpochGen)
+import           Test.Pos.Chain.Txp.Arbitrary (GoodTx, goodTxToTxAux)
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
-import           Test.Pos.Core.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 

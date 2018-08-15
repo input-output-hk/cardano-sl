@@ -70,6 +70,14 @@ library
                        Pos.Chain.Txp.Toil.Utxo
                        Pos.Chain.Txp.Toil.Utxo.Functions
                        Pos.Chain.Txp.Toil.Utxo.Util
+                       Pos.Chain.Txp.Tx
+                       Pos.Chain.Txp.TxAux
+                       Pos.Chain.Txp.TxMsg
+                       Pos.Chain.Txp.TxOutAux
+                       Pos.Chain.Txp.TxPayload
+                       Pos.Chain.Txp.TxProof
+                       Pos.Chain.Txp.TxWitness
+                       Pos.Chain.Txp.Undo
 
                        Pos.Chain.Lrc.Fts
                        Pos.Chain.Lrc.Types
@@ -207,14 +215,19 @@ test-suite test
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
                        Test.Pos.Chain.Ssc.Arbitrary
+                       Test.Pos.Chain.Txp.Arbitrary
+                       Test.Pos.Chain.Txp.Arbitrary.Unsafe
+                       Test.Pos.Chain.Txp.Bi
                        Test.Pos.Chain.Txp.CoreSpec
                        Test.Pos.Chain.Txp.Gen
                        Test.Pos.Chain.Txp.Json
+                       Test.Pos.Chain.Txp.Example
                        Test.Pos.Chain.Txp.Toil.UtxoSpec
                        Test.Pos.Chain.Update.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary.Core
 
   build-depends:       base
+                     , base16-bytestring
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary
@@ -227,6 +240,7 @@ test-suite test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , data-default
                      , fmt
                      , formatting
                      , generic-arbitrary
@@ -242,29 +256,8 @@ test-suite test
                      , unordered-containers
                      , vector
   default-language:    Haskell2010
-  default-extensions:  DeriveDataTypeable
-                       DeriveGeneric
-                       GeneralizedNewtypeDeriving
-                       StandaloneDeriving
-                       FlexibleContexts
-                       FlexibleInstances
-                       MultiParamTypeClasses
-                       FunctionalDependencies
-                       DefaultSignatures
-                       NoImplicitPrelude
+  default-extensions:  NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
-                       TypeApplications
-                       TupleSections
-                       ViewPatterns
-                       LambdaCase
-                       MultiWayIf
-                       ConstraintKinds
-                       UndecidableInstances
-                       BangPatterns
-                       TemplateHaskell
-                       ScopedTypeVariables
-                       MonadFailDesugaring
 
 benchmark block-bench
   main-is:             block-bench.hs
@@ -277,6 +270,7 @@ benchmark block-bench
                        Test.Pos.Chain.Block.Arbitrary.Generate
                        Test.Pos.Chain.Delegation.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
+                       Test.Pos.Chain.Txp.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary.Core
 
@@ -292,6 +286,7 @@ benchmark block-bench
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
                      , cardano-sl-util-test
+                     , data-default
                      , deepseq
                      , formatting
                      , generic-arbitrary
@@ -299,3 +294,6 @@ benchmark block-bench
                      , text
                      , universum
                      , unordered-containers
+                     , vector
+  default-extensions:  NoImplicitPrelude
+                       OverloadedStrings

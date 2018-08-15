@@ -17,11 +17,11 @@ import           System.Metrics.Gauge (Gauge)
 
 import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
                      MainBlockHeader)
+import           Pos.Chain.Txp (TxAux)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,

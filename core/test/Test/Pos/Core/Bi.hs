@@ -17,13 +17,13 @@ import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 
 import           Cardano.Crypto.Wallet (xpub)
-import           Pos.Binary.Class (Bi, Case (..), LengthOf, Raw (..),
-                     SizeOverride (..), szCases)
+import           Pos.Binary.Class (Bi, Case (..), Raw (..), SizeOverride (..),
+                     szCases)
 import           Pos.Core.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), AddrType (..),
                      BlockCount (..), ChainDifficulty (..), Coeff (..),
-                     Coin (..), CoinPortion (..), Script (..), ScriptVersion,
+                     Coin (..), CoinPortion (..), ScriptVersion,
                      SharedSeed (..), StakeholderId, TxFeePolicy (..),
                      TxSizeLinear (..))
 import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo)
@@ -32,12 +32,9 @@ import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
                      TimeDiff (..), Timestamp (..))
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..))
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
-                     TxOut (..), TxOutAux (..), TxSigData (..))
 import           Pos.Core.Update (ApplicationName (..), SoftforkRule (..))
-import           Pos.Crypto (AbstractHash (..), Hash, ProtocolMagic (..),
-                     PublicKey (..), SignTag (..), Signature, abstractHash,
-                     hash, redeemDeterministicKeyGen, sign)
+import           Pos.Crypto (AbstractHash (..), Hash, PublicKey (..),
+                     abstractHash, hash, redeemDeterministicKeyGen)
 
 
 import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
@@ -48,23 +45,18 @@ import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
                      exampleAddress3, exampleAddress4, exampleBlockVersion,
                      exampleBlockVersionData, exampleBlockVersionModifier,
                      exampleCommitment, exampleCommitmentSignature,
-                     exampleCommitmentsMap, exampleEpochIndex, exampleHashTx,
+                     exampleCommitmentsMap, exampleEpochIndex,
                      exampleInnerSharesMap, exampleLightDlgIndices,
                      exampleOpening, exampleOpeningsMap,
-                     exampleProxySKBlockInfo, examplePublicKey,
-                     exampleRedeemPublicKey, exampleRedeemSignature,
-                     exampleScript, exampleSecretKey,
+                     exampleProxySKBlockInfo, examplePublicKey, exampleScript,
                      exampleSharesDistribution, exampleSignedCommitment,
                      exampleSlotId, exampleSlotLeaders, exampleSoftwareVersion,
                      exampleSscPayload, exampleSscProof, exampleStakeholderId,
-                     exampleStakesList, exampleSystemTag, exampleTxId,
-                     exampleTxInList, exampleTxInUnknown, exampleTxInUtxo,
-                     exampleTxOut, exampleTxOutList, exampleTxProof,
-                     exampleTxSig, exampleTxSigData, exampleTxWitness,
-                     exampleUpAttributes, exampleUpId, exampleUpdateData,
-                     exampleUpdatePayload, exampleUpdateProof,
-                     exampleUpdateProposal, exampleUpdateProposalToSign,
-                     exampleUpdateVote, exampleVoteId, exampleVssCertificate,
+                     exampleStakesList, exampleSystemTag, exampleUpAttributes,
+                     exampleUpId, exampleUpdateData, exampleUpdatePayload,
+                     exampleUpdateProof, exampleUpdateProposal,
+                     exampleUpdateProposalToSign, exampleUpdateVote,
+                     exampleVoteId, exampleVssCertificate,
                      exampleVssCertificatesHash, exampleVssCertificatesMap,
                      feedPC, feedPM, staticHeavyDlgIndexes,
                      staticProxySKHeavys)
@@ -733,197 +725,6 @@ roundTripTimestamp :: Property
 roundTripTimestamp = eachOf 50 genTimestamp roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
--- Tx
---------------------------------------------------------------------------------
-
-golden_Tx :: Property
-golden_Tx = goldenTestBi tx "test/golden/Tx"
-    where
-        tx = UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ())
-
-roundTripTx :: Property
-roundTripTx = eachOf 50 genTx roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxAttributes
---------------------------------------------------------------------------------
-
-golden_TxAttributes :: Property
-golden_TxAttributes = goldenTestBi txA "test/golden/TxAttributes"
-    where
-        txA = mkAttributes ()
-
-
-roundTripTxAttributes :: Property
-roundTripTxAttributes = eachOf 10 genTxAttributes roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxAux
---------------------------------------------------------------------------------
-
-roundTripTxAux :: Property
-roundTripTxAux = eachOf 100 (feedPM genTxAux) roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- Tx Hash
---------------------------------------------------------------------------------
-
-golden_HashTx :: Property
-golden_HashTx = goldenTestBi exampleHashTx "test/golden/HashTx"
-
-roundTripHashTx :: Property
-roundTripHashTx = eachOf 50 genTxHash roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxIn
---------------------------------------------------------------------------------
-
-
-golden_TxInUtxo :: Property
-golden_TxInUtxo = goldenTestBi exampleTxInUtxo "test/golden/TxIn_Utxo"
-
-golden_TxInUnknown :: Property
-golden_TxInUnknown = goldenTestBi exampleTxInUnknown "test/golden/TxIn_Unknown"
-
-roundTripTxIn :: Property
-roundTripTxIn = eachOf 100 genTxIn roundTripsBiBuildable
-
-
---------------------------------------------------------------------------------
--- TxId
---------------------------------------------------------------------------------
-
-golden_TxId :: Property
-golden_TxId = goldenTestBi exampleTxId "test/golden/TxId"
-
-roundTripTxId :: Property
-roundTripTxId = eachOf 50 genTxId roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxInList
---------------------------------------------------------------------------------
-
-golden_TxInList :: Property
-golden_TxInList = goldenTestBi exampleTxInList "test/golden/TxInList"
-
-roundTripTxInList :: Property
-roundTripTxInList = eachOf 50 genTxInList roundTripsBiShow
-
---------------------------------------------------------------------------------
--- TxInWitness
---------------------------------------------------------------------------------
-
-golden_PkWitness :: Property
-golden_PkWitness = goldenTestBi pkWitness "test/golden/TxInWitness_PkWitness"
-     where
-        pkWitness = PkWitness examplePublicKey exampleTxSig
-
-golden_ScriptWitness :: Property
-golden_ScriptWitness = goldenTestBi scriptWitness "test/golden/TxInWitness_ScriptWitness"
-    where
-        scriptWitness = ScriptWitness validatorScript redeemerScript
-        validatorScript = Script 47 "serialized script"
-        redeemerScript = Script 47 "serialized script"
-
-
-golden_RedeemWitness :: Property
-golden_RedeemWitness = goldenTestBi redeemWitness "test/golden/TxInWitness_RedeemWitness"
-    where
-        redeemWitness = RedeemWitness exampleRedeemPublicKey exampleRedeemSignature
-
-golden_UnknownWitnessType :: Property
-golden_UnknownWitnessType = goldenTestBi unkWitType "test/golden/TxInWitness_UnknownWitnessType"
-    where
-        unkWitType = UnknownWitnessType 47 "forty seven"
-
--- 4000 because this should generate 1000 for each constructor
-
-roundTripTxInWitness :: Property
-roundTripTxInWitness = eachOf 50 (feedPM genTxInWitness) roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxOutList
---------------------------------------------------------------------------------
-
-golden_TxOutList :: Property
-golden_TxOutList = goldenTestBi exampleTxOutList "test/golden/TxOutList"
-
-roundTripTxOutList :: Property
-roundTripTxOutList = eachOf 50 genTxOutList roundTripsBiShow
-
---------------------------------------------------------------------------------
--- TxOut
---------------------------------------------------------------------------------
-
-golden_TxOut :: Property
-golden_TxOut = goldenTestBi exampleTxOut "test/golden/TxOut"
-
-roundTripTxOut :: Property
-roundTripTxOut = eachOf 50 genTxOut roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxOutAux
---------------------------------------------------------------------------------
-
-golden_TxOutAux :: Property
-golden_TxOutAux =  goldenTestBi txOutAux "test/golden/TxOutAux"
-    where
-        txOutAux = TxOutAux exampleTxOut
-
-roundTripTxOutAux :: Property
-roundTripTxOutAux = eachOf 50 genTxOutAux roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxPayload
---------------------------------------------------------------------------------
-
-roundTripTxPayload :: Property
-roundTripTxPayload = eachOf 50 (feedPM genTxPayload) roundTripsBiShow
-
---------------------------------------------------------------------------------
--- TxProof
---------------------------------------------------------------------------------
-
-golden_TxProof :: Property
-golden_TxProof =  goldenTestBi exampleTxProof "test/golden/TxProof"
-
-roundTripTxProof :: Property
-roundTripTxProof = eachOf 50 (feedPM genTxProof) roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxSig
---------------------------------------------------------------------------------
-
-golden_TxSig :: Property
-golden_TxSig = goldenTestBi txSigGold "test/golden/TxSig"
-    where
-        txSigGold = sign (ProtocolMagic 0) SignForTestingOnly
-                         exampleSecretKey exampleTxSigData
-
-roundTripTxSig :: Property
-roundTripTxSig = eachOf 50 (feedPM genTxSig) roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- TxSigData
---------------------------------------------------------------------------------
-
-golden_TxSigData :: Property
-golden_TxSigData = goldenTestBi exampleTxSigData "test/golden/TxSigData"
-
-roundTripTxSigData :: Property
-roundTripTxSigData = eachOf 50 genTxSigData roundTripsBiShow
-
---------------------------------------------------------------------------------
--- TxWitness
---------------------------------------------------------------------------------
-
-golden_TxWitness :: Property
-golden_TxWitness = goldenTestBi exampleTxWitness "test/golden/TxWitness"
-
-roundTripTxWitness :: Property
-roundTripTxWitness = eachOf 20 (feedPM genTxWitness) roundTripsBiShow
-
---------------------------------------------------------------------------------
 -- UpAttributes
 --------------------------------------------------------------------------------
 
@@ -1068,9 +869,6 @@ sizeEstimates :: H.Group
 sizeEstimates =
   let check :: forall a. (Show a, Bi a) => Gen a -> Property
       check g = sizeTest $ scfg { gen = g }
-      pm = ProtocolMagic 0
-      knownTxIn (TxInUnknown _ _) = False
-      knownTxIn _                 = True
       pkOrRedeem (PubKeyASD _) = True
       pkOrRedeem (RedeemASD _) = True
       pkOrRedeem _             = False
@@ -1082,16 +880,10 @@ sizeEstimates =
                       SizeConstant (szCases [ Case "min" 1, Case "max" 1024 ]))
       portionSize  = (typeRep (Proxy @(Map (AbstractHash Blake2b_224 PublicKey) CoinPortion)),
                       SizeConstant (szCases [ Case "min" 1, Case "max" 1024 ]))
-      txSigSize    = (typeRep (Proxy @(Signature TxSigData))
-                     , SizeConstant 66)
-      scriptSize   = (typeRep (Proxy @Script),
-                      SizeConstant $ szCases [ Case "loScript" 1
-                                             , Case "hiScript" 255 ])
 
   in H.Group "Encoded size bounds for core types."
         [ ("Coin"                 , check genCoin)
         , ("BlockCount"           , check genBlockCount)
-        , ("TxId"                 , check genTxId)
         , ("Attributes ()"        , sizeTest $ scfg
               { gen = genAttributes (pure ())
               , addlCtx = M.fromList [ attrUnitSize ]
@@ -1115,45 +907,6 @@ sizeEstimates =
                      SelectCases ["PubKeyASD", "RedeemASD"])
                   ] })
         , ("AddrType"             , check genAddrType)
-        , ("Tx"                   , sizeTest $ scfg
-              { gen = genTx
-              , addlCtx = M.fromList [ attrUnitSize, attrAddrSize ]
-              , computedCtx = \tx -> M.fromList
-                  [ (typeRep (Proxy @(LengthOf [TxIn])),
-                     SizeConstant (fromIntegral $ length $ _txInputs tx))
-                  , (typeRep (Proxy @(LengthOf [TxOut])),
-                     SizeConstant (fromIntegral $ length $ _txOutputs tx))
-                  ]
-              })
-        , ("TxIn"                 , check (Gen.filter knownTxIn genTxIn))
-        , ("TxOut"                , sizeTest $ scfg
-              { gen = genTxOut
-              , addlCtx = M.fromList [ attrAddrSize ]
-              })
-        , ("TxAux"                , sizeTest $ scfg
-              { gen = genTxAux pm
-              , addlCtx = M.fromList [ attrUnitSize
-                                     , attrAddrSize
-                                     , scriptSize
-                                     , txSigSize ]
-              , computedCtx = \(TxAux tx witness) -> M.fromList
-                  [ (typeRep (Proxy @(LengthOf [TxIn])),
-                     SizeConstant (fromIntegral $ length $ _txInputs tx))
-                  , (typeRep (Proxy @(LengthOf (Vector TxInWitness))),
-                     SizeConstant (fromIntegral $ length witness))
-                  , (typeRep (Proxy @(LengthOf [TxOut])),
-                     SizeConstant (fromIntegral $ length $ _txOutputs tx))
-                  ]
-              })
-        , ("TxInWitness"          , sizeTest $ scfg
-              { gen = genTxInWitness pm
-              , addlCtx = M.fromList [ txSigSize, scriptSize ]
-              })
-        , ("TxSigData"            , check genTxSigData)
-        , ("Signature TxSigData"  , sizeTest $ scfg
-              { gen = genTxSig pm
-              , addlCtx = M.fromList [ txSigSize ]
-              })
         ]
 
 -----------------------------------------------------------------------

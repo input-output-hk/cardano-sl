@@ -8,9 +8,9 @@ import qualified Data.Map as M
 import           System.Wlog (WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Chain.Block (headerHash)
-import           Pos.Chain.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
+import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..), genesisUtxo,
+                     unGenesisUtxo, utxoToModifier)
 import           Pos.Core (Address, HasConfiguration, HasDifficulty (..))
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.DB.Txp.Utxo (filterUtxo)

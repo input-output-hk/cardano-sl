@@ -64,10 +64,10 @@ import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, mainBlockTxPayload)
+import           Pos.Chain.Txp (Tx (..), TxOut (..), TxOutAux (..),
+                     txOutAddress, txpTxs)
 import           Pos.Core (Address)
 import           Pos.Core.Chrono (getOldestFirst)
-import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
-                     txpTxs)
 import           Pos.Crypto (hash, withHash)
 import           Pos.DB.Block (getBlund)
 import qualified Pos.DB.Block as DB

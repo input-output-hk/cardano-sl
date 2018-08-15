@@ -20,14 +20,13 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (logError)
 
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration,
-                     extendGlobalToilM, extendLocalToilM, topsortTxs)
+import           Pos.Chain.Txp (ToilVerFailure (..), Tx (..), TxAux (..), TxId,
+                     TxOut (..), TxOutAux (..), TxUndo, TxpConfiguration,
+                     extendGlobalToilM, extendLocalToilM, topsortTxs, _TxOut)
 import qualified Pos.Chain.Txp as Txp
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
                      Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..),
-                     TxOutAux (..), TxUndo, _TxOut)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))

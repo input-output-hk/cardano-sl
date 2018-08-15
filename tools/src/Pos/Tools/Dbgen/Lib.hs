@@ -56,7 +56,7 @@ import           Pos.Tools.Dbgen.CLI (CLI (..))
 import           Pos.Tools.Dbgen.Rendering (green, renderAccountId, say)
 import           Pos.Tools.Dbgen.Types (UberMonad)
 
-import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Chain.Txp.Arbitrary ()
 
 --
 -- Types

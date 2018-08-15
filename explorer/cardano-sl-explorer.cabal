@@ -404,6 +404,7 @@ benchmark cardano-explorer-bench
   build-depends:       QuickCheck
                      , base
                      , cardano-sl
+                     , cardano-sl-chain-test
                      , cardano-sl-core-test
                      , cardano-sl-explorer
                      , criterion

@@ -11,10 +11,10 @@ import           Pos.Chain.Block.Blockchain (gbHeader, gbhPrevBlock)
 import           Pos.Chain.Block.Genesis (genBlockEpoch)
 import           Pos.Chain.Block.Union (Block, HeaderHash, headerHash,
                      headerHashF, mainBlockSlot, mainBlockTxPayload)
+import           Pos.Chain.Txp (txpTxs)
 import           Pos.Core (HasConfiguration, SlotId (..), getEpochIndex,
                      getSlotIndex, mkLocalSlotIndex)
 import           Pos.Core.JsonLog.LogEvents (JLBlock (..), JLEvent (..))
-import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)
 
 -- | Return event of created block.

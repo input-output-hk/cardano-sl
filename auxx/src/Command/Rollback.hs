@@ -14,10 +14,9 @@ import           Formatting (build, int, sformat, string, (%))
 import           System.Wlog (logInfo)
 
 import           Pos.Chain.Block (Blund, mainBlockTxPayload)
-import           Pos.Chain.Txp (flattenTxPayload)
+import           Pos.Chain.Txp (TxAux, flattenTxPayload)
 import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (BypassSecurityCheck (..),
                      ShouldCallBListener (..), rollbackBlocksUnsafe)

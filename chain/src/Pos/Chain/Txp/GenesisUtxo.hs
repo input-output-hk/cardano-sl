@@ -13,11 +13,12 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 
 import           Pos.Chain.Txp.Toil (GenesisUtxo (..), utxoToStakes)
+import           Pos.Chain.Txp.Tx (TxIn (..), TxOut (..))
+import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
 import           Pos.Core (Address, Coin, HasGenesisData, StakesMap,
                      genesisData, makeRedeemAddress)
 import           Pos.Core.Genesis (GenesisData (..), getGenesisAvvmBalances,
                      getGenesisNonAvvmBalances)
-import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (unsafeHash)
 
 

@@ -15335,6 +15335,7 @@ license = stdenv.lib.licenses.mit;
 , aeson-options
 , array
 , base
+, base16-bytestring
 , bytestring
 , Cabal
 , cardano-crypto
@@ -15453,6 +15454,7 @@ cpphs
 ];
 testHaskellDepends = [
 base
+base16-bytestring
 bytestring
 cardano-crypto
 cardano-sl-binary
@@ -15464,6 +15466,7 @@ cardano-sl-crypto-test
 cardano-sl-util
 cardano-sl-util-test
 containers
+data-default
 fmt
 formatting
 generic-arbitrary
@@ -15488,6 +15491,7 @@ cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-util-test
 criterion
+data-default
 deepseq
 formatting
 generic-arbitrary
@@ -15496,6 +15500,7 @@ random
 text
 universum
 unordered-containers
+vector
 ];
 doHaddock = false;
 description = "Cardano SL - transaction processing";
@@ -15506,6 +15511,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, base16-bytestring
 , bytestring
 , cardano-crypto
 , cardano-sl-binary
@@ -15517,6 +15523,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto-test
 , cardano-sl-util-test
 , containers
+, data-default
 , formatting
 , generic-arbitrary
 , hedgehog
@@ -15526,6 +15533,7 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , universum
 , unordered-containers
+, vector
 }:
 mkDerivation {
 
@@ -15539,6 +15547,7 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 base
+base16-bytestring
 bytestring
 cardano-crypto
 cardano-sl-binary
@@ -15550,6 +15559,7 @@ cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-util-test
 containers
+data-default
 formatting
 generic-arbitrary
 hedgehog
@@ -15558,6 +15568,7 @@ random
 reflection
 universum
 unordered-containers
+vector
 ];
 doHaddock = false;
 description = "Cardano SL - arbitrary instances for cardano-sl-chain";
@@ -16447,6 +16458,7 @@ cpphs
 benchmarkHaskellDepends = [
 base
 cardano-sl
+cardano-sl-chain-test
 cardano-sl-core-test
 criterion
 QuickCheck
@@ -17155,6 +17167,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
@@ -17232,6 +17245,7 @@ base
 bytestring
 cardano-sl
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -17276,6 +17290,7 @@ cardano-report-server
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -17569,6 +17584,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-crypto
 , cardano-sl
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
@@ -17716,6 +17732,7 @@ bytestring
 cardano-crypto
 cardano-sl
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -17773,6 +17790,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
@@ -17886,6 +17904,7 @@ cardano-crypto
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -18003,6 +18022,7 @@ cardano-sl
 cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test

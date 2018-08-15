@@ -18,14 +18,14 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, stext, (%))
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..),
+                     TxpConfiguration)
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
                      PendingAddresses (..), isCheckedTxError)
 import           Pos.Core.Chrono (getNewestFirst, toNewestFirst)
 import           Pos.Core.Common (Coin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (PassPhrase, ProtocolMagic, hash)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId)

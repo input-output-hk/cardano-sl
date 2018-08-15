@@ -70,8 +70,8 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types (AccountFops (..),
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 -- execution time should move out of WalletLayer so that we don`t depend on it.
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -615,9 +615,8 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
                         pure $ _outputTableTxId out
                 -- union removes txId duplicates.
                 txid <- SQL.union_ input output
-                meta <- SQL.join_ (_mDbMeta metaDB)
-                        (\ mt -> ((TxIdPrimKey $ _txMetaTableId mt) ==. txid))
-                pure meta
+                SQL.join_ (_mDbMeta metaDB)
+                    (\ mt -> ((TxIdPrimKey $ _txMetaTableId mt) ==. txid))
 
         metaQueryWithAddr addr = do
             meta <- case mbSorting of

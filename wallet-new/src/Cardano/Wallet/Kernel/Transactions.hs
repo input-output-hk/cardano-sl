@@ -31,11 +31,10 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
+                     TxOut (..), TxOutAux (..), Utxo)
 import           Pos.Core (Address, Coin, unsafeSubCoin)
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
-                     TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
                      ShouldCheckPassphrase (..), hash)
 

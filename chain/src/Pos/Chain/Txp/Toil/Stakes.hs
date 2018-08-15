@@ -19,10 +19,13 @@ import           System.Wlog (logDebug)
 import           Pos.Chain.Txp.Base (txOutStake)
 import           Pos.Chain.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
                      setStake, setTotalStake)
+import           Pos.Chain.Txp.Tx (Tx (..))
+import           Pos.Chain.Txp.TxAux (TxAux (..))
+import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
+import           Pos.Chain.Txp.Undo (TxUndo)
 import           Pos.Core (HasGenesisData, StakesList, coinToInteger,
                      genesisData, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 
 -- | Apply transactions to stakes.
 applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()

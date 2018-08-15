@@ -29,16 +29,15 @@ import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
-                     MemPool, ToilVerFailure (..), TxpConfiguration (..),
-                     UndoMap, Utxo, UtxoLookup, UtxoModifier, extendLocalToilM,
-                     mpLocalTxs, normalizeToil, processTx, topsortTxs,
-                     utxoToLookup)
+                     MemPool, ToilVerFailure (..), TxAux (..), TxId, TxUndo,
+                     TxpConfiguration (..), UndoMap, Utxo, UtxoLookup,
+                     UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
+                     processTx, topsortTxs, utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))
-import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))

@@ -24,10 +24,10 @@ import           Formatting (sformat, stext, (%))
 import           Serokell.Util (listChunkedJson, listJsonIndent)
 import           System.Wlog (WithLogger, logDebug)
 
+import           Pos.Chain.Txp (TxId)
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, ChainDifficulty, timestampToPosix)
-import           Pos.Core.Txp (TxId)
 import           Pos.Infra.Util.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)

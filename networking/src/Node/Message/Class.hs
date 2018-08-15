@@ -35,7 +35,7 @@ import qualified Formatting as F
 import           Node.Message.Decoder (Decoder, hoistDecoder)
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
-import           Pos.Core.Txp (TxMsgContents)
+import           Pos.Chain.Txp (TxMsgContents)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
 
 -- * Message name

@@ -10,9 +10,9 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Core.Txp (TxMsgContents (..))
+import           Pos.Chain.Txp (TxMsgContents (..))
 
-import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Chain.Txp.Arbitrary ()
 
 instance Arbitrary TxMsgContents where
     arbitrary = genericArbitrary

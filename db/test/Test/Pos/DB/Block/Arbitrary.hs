@@ -12,8 +12,8 @@ import           Pos.Chain.Block (SlogUndo, Undo (..))
 import           Pos.Core (HasProtocolConstants)
 
 import           Test.Pos.Chain.Delegation.Arbitrary ()
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.DB.Update.Arbitrary ()
 
 instance Arbitrary SlogUndo where

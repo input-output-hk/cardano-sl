@@ -123,13 +123,12 @@ import           Formatting ((%))
 import qualified Formatting as F
 import qualified Formatting.Buildable
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (AddrCoinMap, Utxo, UtxoModifier,
+import           Pos.Chain.Txp (AddrCoinMap, TxAux, TxId, Utxo, UtxoModifier,
                      applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
                      VssMinTTL (..))
-import           Pos.Core.Txp (TxAux, TxId)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,

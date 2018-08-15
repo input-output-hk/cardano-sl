@@ -21,13 +21,17 @@ library
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
+                       Test.Pos.Chain.Txp.Arbitrary
+                       Test.Pos.Chain.Txp.Arbitrary.Unsafe
+                       Test.Pos.Chain.Txp.Bi
+                       Test.Pos.Chain.Txp.Example
                        Test.Pos.Chain.Txp.Gen
-                       Test.Pos.Chain.Txp.Json
                        Test.Pos.Chain.Update.Arbitrary
 
   other-modules:       Test.Pos.Chain.Update.Arbitrary.Core
 
   build-depends:       base
+                     , base16-bytestring
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary-test
@@ -39,6 +43,7 @@ library
                      , cardano-sl-crypto-test
                      , cardano-sl-util-test
                      , containers
+                     , data-default
                      , formatting
                      , generic-arbitrary
                      , hedgehog
@@ -47,32 +52,12 @@ library
                      , reflection
                      , universum
                      , unordered-containers
+                     , vector
 
   default-language:    Haskell2010
 
-  default-extensions:  DeriveDataTypeable
-                       DeriveGeneric
-                       GeneralizedNewtypeDeriving
-                       StandaloneDeriving
-                       FlexibleContexts
-                       FlexibleInstances
-                       MultiParamTypeClasses
-                       FunctionalDependencies
-                       DefaultSignatures
-                       NoImplicitPrelude
+  default-extensions:  NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
-                       TypeApplications
-                       TupleSections
-                       ViewPatterns
-                       LambdaCase
-                       MultiWayIf
-                       ConstraintKinds
-                       UndecidableInstances
-                       BangPatterns
-                       TemplateHaskell
-                       ScopedTypeVariables
-                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -O2

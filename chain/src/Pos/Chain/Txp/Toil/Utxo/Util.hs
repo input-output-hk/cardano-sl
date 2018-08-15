@@ -18,10 +18,11 @@ import qualified Data.Map.Strict as M
 import           Pos.Chain.Txp.Base (addrBelongsTo, addrBelongsToSet,
                      txOutStake)
 import           Pos.Chain.Txp.Toil.Types (Utxo)
+import           Pos.Chain.Txp.Tx (TxOut (txOutValue), _TxOut)
+import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
 import           Pos.Core (Address, Coin, HasGenesisData, StakesMap,
                      genesisData, sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
-import           Pos.Core.Txp (TxOut (txOutValue), TxOutAux (..), _TxOut)
 
 -- | Select only TxOuts for given address
 filterUtxoByAddr :: Address -> Utxo -> Utxo

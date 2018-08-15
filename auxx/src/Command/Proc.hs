@@ -16,7 +16,7 @@ import           System.Wlog (CanLog, HasLoggerName, logError, logInfo,
                      logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxOut (..), TxpConfiguration)
 import           Pos.Chain.Update (BlockVersionModifier (..))
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
@@ -26,7 +26,6 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Delegation (HeavyDlgIndex (..))
-import           Pos.Core.Txp (TxOut (..))
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase,
                      encToPublic, fullPublicKeyF, hashHexF, noPassEncrypt,

@@ -35,12 +35,12 @@ import           Pos.Chain.Block (BlockBodyAttributes, BlockHeader (..),
 import           Pos.Core (ProtocolConstants, ProtocolMagic)
 import           Pos.Core.Attributes (mkAttributes)
 
+import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof)
 import           Test.Pos.Core.Gen (genBlockVersion, genChainDifficulty,
                      genDlgPayload, genEpochIndex, genHeavyDlgIndex,
                      genLightDlgIndices, genSlotId, genSlotLeaders,
                      genSoftwareVersion, genSscPayload, genSscProof,
-                     genTextHash, genTxPayload, genTxProof, genUpdatePayload,
-                     genUpdateProof)
+                     genTextHash, genUpdatePayload, genUpdateProof)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genProxySignature,
                      genPublicKey, genSecretKey, genSignature)
 

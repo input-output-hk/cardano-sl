@@ -17,14 +17,16 @@ import qualified Data.HashSet as HS
 import           Data.List (zipWith)
 import qualified Data.Map.Strict as M
 
+import           Pos.Chain.Txp.Tx (TxOut (..))
+import           Pos.Chain.Txp.TxAux (TxAux (..))
+import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
+import           Pos.Chain.Txp.TxPayload (TxPayload (..), mkTxPayload)
 import           Pos.Core (AddrStakeDistribution (..), Address (..), Coin,
                      CoinPortion, StakeholderId, StakesList,
                      aaStakeDistribution, addrAttributesUnwrapped,
                      applyCoinPortionDown, coinToInteger, mkCoin, sumCoins,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisWStakeholders (..))
-import           Pos.Core.Txp (TxAux (..), TxOut (..), TxOutAux (..),
-                     TxPayload (..), mkTxPayload)
 import           Pos.Crypto (hash)
 import           Pos.Crypto.Random (deterministic, randomNumber)
 

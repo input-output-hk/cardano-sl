@@ -36,6 +36,7 @@ executable dbgen
    build-depends:      base >= 4.7 && < 5
                      , acid-state-exts
                      , cardano-sl
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -554,6 +555,7 @@ library
                      , ansi-terminal
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test

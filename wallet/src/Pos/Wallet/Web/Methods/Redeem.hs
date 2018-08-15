@@ -12,11 +12,10 @@ import           Universum
 import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import qualified Serokell.Util.Base64 as B64
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux (..), TxOut (..), TxpConfiguration)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
 import           Pos.Core (getCurrentTimestamp)
-import           Pos.Core.Txp (TxAux (..), TxOut (..))
 import           Pos.Crypto (PassPhrase, ProtocolMagic, aesDecrypt, hash,
                      redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)

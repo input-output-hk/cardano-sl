@@ -86,7 +86,6 @@ import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
 import           Pos.Core (Timestamp)
 import           Pos.Core.Common (Address, Coin)
-import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
 
 ----------------------------------------------------------------------------
@@ -349,9 +348,6 @@ instance Buildable (SecureLog Address) where
 
 instance Buildable (SecureLog Word32) where
     build _ = "<bytes>"
-
-instance Buildable (SecureLog TxId) where
-    build _ = "<txid>"
 
 instance Buildable (SecureLog Timestamp) where
     build _ = "<timestamp>"

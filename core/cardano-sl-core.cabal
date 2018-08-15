@@ -55,7 +55,6 @@ library
                        Pos.Core.Script
                        Pos.Core.Slotting
                        Pos.Core.Ssc
-                       Pos.Core.Txp
                        Pos.Core.Update
 
                        Pos.Core.Util.LogSafe
@@ -153,16 +152,6 @@ library
                        Pos.Core.Ssc.SharesMap
                        Pos.Core.Ssc.VssCertificate
                        Pos.Core.Ssc.VssCertificatesMap
-
-                       -- Txp
-                       Pos.Core.Txp.Tx
-                       Pos.Core.Txp.TxAux
-                       Pos.Core.Txp.TxMsg
-                       Pos.Core.Txp.TxOutAux
-                       Pos.Core.Txp.TxPayload
-                       Pos.Core.Txp.TxProof
-                       Pos.Core.Txp.TxWitness
-                       Pos.Core.Txp.Undo
 
                        -- Update
                        Pos.Core.Update.ApplicationName

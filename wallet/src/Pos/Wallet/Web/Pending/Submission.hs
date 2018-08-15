@@ -20,12 +20,11 @@ import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
 import           System.Wlog (WithLogger, logDebug, logInfo)
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF)

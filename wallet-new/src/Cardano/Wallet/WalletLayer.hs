@@ -52,9 +52,9 @@ import qualified Prelude
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (Tx)
 import           Pos.Core (Coin)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PassPhrase)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))

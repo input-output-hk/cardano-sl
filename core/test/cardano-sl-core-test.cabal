@@ -21,8 +21,6 @@ library
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
                        Test.Pos.Core.Arbitrary.Slotting
-                       Test.Pos.Core.Arbitrary.Txp
-                       Test.Pos.Core.Arbitrary.Txp.Unsafe
                        Test.Pos.Core.Json
 
   build-depends:       QuickCheck
@@ -88,4 +86,3 @@ library
   ghc-options:
                        -O2
                        -Wall
-

@@ -62,8 +62,11 @@ import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 import           Pos.Chain.Txp.Toil.Types (MemPool, StakesView, UndoMap,
                      UtxoLookup, UtxoModifier, mpLocalTxs, mpSize, svStakes,
                      svTotal)
+import           Pos.Chain.Txp.Tx (TxId, TxIn)
+import           Pos.Chain.Txp.TxAux (TxAux)
+import           Pos.Chain.Txp.TxOutAux (TxOutAux)
+import           Pos.Chain.Txp.Undo (TxUndo)
 import           Pos.Core.Common (Coin, StakeholderId)
-import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
 

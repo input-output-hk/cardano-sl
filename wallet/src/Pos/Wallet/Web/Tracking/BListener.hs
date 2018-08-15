@@ -22,10 +22,9 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
                      blockHeader, getBlockHeader, headerSlotL,
                      mainBlockTxPayload, prevBlockL, undoTx)
-import           Pos.Chain.Txp (flattenTxPayload)
+import           Pos.Chain.Txp (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Core (Timestamp, difficultyL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
 import           Pos.DB.Block (MonadBListener (..))
 import           Pos.DB.Class (MonadDBRead)

@@ -24,13 +24,12 @@ import           Test.QuickCheck.Monadic (pick, run)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (mainBlockTxPayload)
 import qualified Pos.Chain.Lrc as Lrc
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (TxAux, TxpConfiguration (..), mkTxPayload)
 import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash,
                      blkSecurityParam, coinF, epochSlots, genesisData,
                      genesisSecretKeysPoor, genesisSecretKeysRich)
 import           Pos.Core.Genesis (GenesisData (..), GenesisInitializer (..),
                      TestnetBalanceOptions (..))
-import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
 import qualified Pos.DB.Block as Lrc

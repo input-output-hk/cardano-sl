@@ -23,15 +23,15 @@ import           System.Random (RandomGen (..))
 
 import           Pos.AllSecrets (asSecretKeys, asSpendingData,
                      unInvAddrSpendingData, unInvSecretsMap)
-import           Pos.Chain.Txp (TxpConfiguration, Utxo, execUtxoM, utxoToLookup)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                     TxOutAux (..), TxpConfiguration, Utxo, execUtxoM,
+                     utxoToLookup)
 import qualified Pos.Chain.Txp as Utxo
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      createGenericTx, makeMPubKeyTxAddrs)
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
                      SlotId (..), addressHash, coinToInteger,
                      makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
-                     TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..),
                      fakeSigner, hash, toPublic)
 import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)

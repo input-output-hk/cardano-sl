@@ -38,10 +38,10 @@ import           System.IO.Unsafe (unsafePerformIO)
 import qualified Utils.Names as PL
 
 import qualified Pos.Binary.Class as Bi
+import           Pos.Chain.Txp.TxWitness (TxSigData (..))
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (Script (..), ScriptVersion)
 import           Pos.Core.Script ()
-import           Pos.Core.Txp (TxSigData (..))
 
 {- NOTE
 

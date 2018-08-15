@@ -1,4 +1,4 @@
-module Pos.Core.Txp.TxOutAux
+module Pos.Chain.Txp.TxOutAux
        ( TxOutAux (..)
        ) where
 
@@ -10,7 +10,7 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Txp.Tx (TxOut)
+import           Pos.Chain.Txp.Tx (TxOut)
 
 -- | Transaction output and auxilary data corresponding to it.
 -- [CSL-366] Add more data.

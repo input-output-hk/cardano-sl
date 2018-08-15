@@ -20,10 +20,11 @@ import           Serokell.Util (listJson)
 import           Pos.Chain.Block.Union (HeaderHash)
 import           Pos.Chain.Script (PlutusError)
 import           Pos.Chain.Txp.Toil.Types (TxFee)
+import           Pos.Chain.Txp.Tx (TxIn, TxOut (..))
+import           Pos.Chain.Txp.TxWitness (TxInWitness)
 import           Pos.Core (Address, ScriptVersion, TxFeePolicy,
                      addressDetailedF, addressF)
 import           Pos.Core.Attributes (UnparsedFields)
-import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
 import           Pos.Util (DisallowException)
 
 ----------------------------------------------------------------------------

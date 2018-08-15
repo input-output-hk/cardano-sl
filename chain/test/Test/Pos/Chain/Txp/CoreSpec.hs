@@ -1,3 +1,6 @@
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
+
 -- | Specification for transaction-related core functions
 -- (Pos.Chain.Txp.Core).
 
@@ -18,14 +21,14 @@ import           Test.QuickCheck (NonNegative (..), Positive (..), Property,
                      (===))
 import           Test.QuickCheck.Gen (Gen)
 
-import           Pos.Chain.Txp (topsortTxs)
+import           Pos.Chain.Txp (Tx (..), TxIn (..), TxOut (..), checkTx,
+                     topsortTxs)
 import           Pos.Core (mkCoin)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
 import           Pos.Crypto (hash, whData, withHash)
 import           Pos.Util (_neHead)
 
-import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 spec :: Spec

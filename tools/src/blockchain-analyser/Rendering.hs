@@ -14,9 +14,9 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, BlockHeader (..), Undo,
                      blockHeaderHash, getBlockHeader, mbTxs, _gbBody,
                      _gbhConsensus, _mcdLeaderKey)
+import           Pos.Chain.Txp (Tx)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
                      SlotId (..), getEpochIndex, getEpochOrSlot)
-import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PublicKey)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
 import           Text.Tabl (Alignment (..), Decoration (..),

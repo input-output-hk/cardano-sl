@@ -1,4 +1,4 @@
-module Pos.Core.Txp.Tx
+module Pos.Chain.Txp.Tx
        ( Tx (..)
        , checkTx
        , txInputs
@@ -43,6 +43,7 @@ import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
 import           Pos.Core.Attributes (Attributes, areAttributesKnown)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF,
                      coinToInteger, decodeTextAddress, integerToCoin)
+import           Pos.Core.Util.LogSafe (SecureLog (..))
 import           Pos.Crypto (Hash, decodeAbstractHash, hash, hashHexF,
                      shortHashF)
 import           Pos.Util.Util (toAesonError)
@@ -125,6 +126,9 @@ checkTx it =
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
+
+instance Buildable (SecureLog TxId) where
+    build _ = "<txid>"
 
 --------------------------------------------------------------------------------
 -- TxAttributes

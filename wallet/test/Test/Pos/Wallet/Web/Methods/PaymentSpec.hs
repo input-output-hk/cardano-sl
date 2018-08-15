@@ -22,12 +22,12 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Chain.Txp (TxFee (..), TxpConfiguration)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..),
+                     TxpConfiguration, _TxOut)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
 import           Pos.Core (Address, Coin, TxFeePolicy (..), mkCoin, sumCoins,
                      unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
 import           Pos.Core.Update (bvdTxFeePolicy)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))

@@ -24,15 +24,19 @@ import           Pos.Chain.Txp.Toil.Failure (ToilVerFailure (..),
                      TxOutVerFailure (..), WitnessVerFailure (..))
 import           Pos.Chain.Txp.Toil.Monad (UtxoM, utxoDel, utxoGet, utxoPut)
 import           Pos.Chain.Txp.Toil.Types (TxFee (..))
+import           Pos.Chain.Txp.Tx (Tx (..), TxAttributes, TxIn (..), TxOut (..),
+                     isTxInUnknown)
+import           Pos.Chain.Txp.TxAux (TxAux (..))
+import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
+import           Pos.Chain.Txp.TxWitness (TxInWitness (..), TxSigData (..),
+                     TxWitness)
+import           Pos.Chain.Txp.Undo (TxUndo)
 import           Pos.Core (AddrType (..), Address (..), integerToCoin,
                      isRedeemAddress, isUnknownAddressType, sumCoins)
 import           Pos.Core.Attributes (Attributes (attrRemain),
                      areAttributesKnown)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress,
                      checkScriptAddress)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..),
-                     TxInWitness (..), TxOut (..), TxOutAux (..),
-                     TxSigData (..), TxUndo, TxWitness, isTxInUnknown)
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..),
                      checkSig, hash, redeemCheckSig)
 import           Pos.Crypto.Configuration (ProtocolMagic)

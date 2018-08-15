@@ -29,10 +29,10 @@ import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Chain.Txp (Utxo)
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Slotting (SlotId)
-import qualified Pos.Core.Txp as Txp
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb

@@ -22,9 +22,9 @@ import qualified Data.Map.Strict as M
 import           Data.Acid (update)
 import           Formatting (build, formatToString, sformat)
 
+import           Pos.Chain.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
                      deriveLvl2KeyPair, mkCoin)
-import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      safeDeterministicKeyGen)
 

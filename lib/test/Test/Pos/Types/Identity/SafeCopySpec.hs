@@ -8,13 +8,13 @@ import           Universum
 
 import           Test.Hspec (Spec, describe)
 
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import qualified Pos.Core.Ssc as Ssc
-import qualified Pos.Core.Txp as Txp
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.Infra.Arbitrary.Txp ()
 
 spec :: Spec

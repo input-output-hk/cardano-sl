@@ -10,10 +10,9 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
                      headerSlotL)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxUndo, TxpConfiguration)
 import           Pos.Core (HasConfiguration, SlotId (..), epochIndexL)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Txp (ProcessBlundsSettings (..), TxpBlund,

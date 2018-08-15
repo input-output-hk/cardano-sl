@@ -12,8 +12,8 @@ import           Universum
 
 import           System.Wlog (LoggerName)
 
+import           Pos.Chain.Txp (TxOut (..))
 import           Pos.Core (Address, unsafeIntegerToCoin)
-import           Pos.Core.Txp (TxOut (..))
 
 -- | Factory to create `TxOut`
 -- | It is mostly taken from `makeTxOutAux` in `Test.Pos.Client.Txp.UtilSpec`

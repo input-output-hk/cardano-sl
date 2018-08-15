@@ -44,7 +44,8 @@ import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
-                     exampleAddress, exampleBlockVersion,
+                     exampleAddress, exampleAddress1, exampleAddress2,
+                     exampleAddress3, exampleAddress4, exampleBlockVersion,
                      exampleBlockVersionData, exampleBlockVersionModifier,
                      exampleCommitment, exampleCommitmentSignature,
                      exampleCommitmentsMap, exampleEpochIndex, exampleHashTx,
@@ -78,7 +79,19 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip)
 -- Address
 --------------------------------------------------------------------------------
 golden_Address :: Property
-golden_Address = goldenTestBi exampleAddress "test/golden/Address"
+golden_Address = goldenTestBi exampleAddress "test/golden/bi/Address0"
+
+golden_Address1 :: Property
+golden_Address1 = goldenTestBi exampleAddress1 "test/golden/bi/Address1"
+
+golden_Address2 :: Property
+golden_Address2 = goldenTestBi exampleAddress2 "test/golden/bi/Address2"
+
+golden_Address3 :: Property
+golden_Address3 = goldenTestBi exampleAddress3 "test/golden/bi/Address3"
+
+golden_Address4 :: Property
+golden_Address4 = goldenTestBi exampleAddress4 "test/golden/bi/Address4"
 
 roundTripAddressBi :: Property
 roundTripAddressBi = eachOf 1000 genAddress roundTripsBiBuildable

@@ -35,91 +35,106 @@ let
     testTarget = "--show-details=streaming";
   });
 
-  cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+  requiredOverlay = self: super: {
+    srcroot = ./.;
+    cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
+      configureFlags = (drv.configureFlags or []) ++ [
+        "-f-asserts"
+      ];
+    });
+    cardano-sl = overrideCabal super.cardano-sl (drv: {
+      # production full nodes shouldn't use wallet as it means different constants
+      configureFlags = (drv.configureFlags or []) ++ [
+        "-f-asserts"
+      ];
+      # waiting on load-command size fix in dyld
+      doCheck = ! pkgs.stdenv.isDarwin;
+      passthru = {
+        inherit enableProfiling;
+      };
+    });
+    cardano-sl-wallet-static = justStaticExecutablesGitRev super.cardano-sl-wallet;
+    cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
+    cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
+    cardano-sl-auxx = justStaticExecutablesGitRev super.cardano-sl-auxx;
+    cardano-sl-wallet-new = justStaticExecutablesGitRev super.cardano-sl-wallet-new;
+    cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
+    cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
+    cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
+    cardano-sl-tools = justStaticExecutablesGitRev (overrideCabal super.cardano-sl-tools (drv: {
+      # waiting on load-command size fix in dyld
+      doCheck = ! pkgs.stdenv.isDarwin;
+    }));
+    # Undo configuration-nix.nix change to hardcode security binary on darwin
+    # This is needed for macOS binary not to fail during update system (using http-client-tls)
+    # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
+    x509-system = overrideDerivation super.x509-system (drv: {
+      postPatch = ":";
+    });
+
+    # TODO: get rid of pthreads option once cryptonite 0.25 is released
+    # DEVOPS-393: https://github.com/haskell-crypto/cryptonite/issues/193
+    cryptonite = appendPatch (appendConfigureFlag super.cryptonite "--ghc-option=-optl-pthread") ./pkgs/cryptonite-segfault-blake.patch;
+
+    # Due to https://github.com/input-output-hk/stack2nix/issues/56
+    hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
+    mkDerivation = args: super.mkDerivation (args // {
+      enableLibraryProfiling = enableProfiling;
+      enableExecutableProfiling = enableProfiling;
+      # Static linking for everything to work around
+      # https://ghc.haskell.org/trac/ghc/ticket/14444
+      # This will be the default in nixpkgs since
+      # https://github.com/NixOS/nixpkgs/issues/29011
+      enableSharedExecutables = false;
+    } // optionalAttrs (args ? src) {
+      src = localLib.cleanSourceTree args.src;
+    });
+  };
+  benchmarkOverlay = self: super: {
+    mkDerivation = args: super.mkDerivation (args // optionalAttrs (localLib.isCardanoSL args.pname) {
+      # Enables building but not running of benchmarks for all
+      # cardano-sl packages when enableBenchmarks argument is true.
+      doBenchmark = true;
+      configureFlags = (args.configureFlags or []) ++ ["--enable-benchmarks"];
+    } // optionalAttrs (localLib.isBenchmark args) {
+      # Provide a dummy installPhase for benchmark packages.
+      installPhase = "mkdir -p $out";
+    });
+  };
+
+  debugOverlay = self: super: {
+    mkDerivation = args: super.mkDerivation (args // {
+      # TODO: DEVOPS-355
+      dontStrip = true;
+      configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" "--profiling-detail=toplevel-functions"];
+    });
+  };
+
+  dontCheckOverlay = self: super: {
+    mkDerivation = args: super.mkDerivation (args // {
+      doCheck = false;
+    });
+  };
+
+  cardanoPkgsBase = ((import ./pkgs { inherit pkgs; }).override {
     ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
       patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
     });
-    overrides = self: super: {
-      srcroot = ./.;
-      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-        configureFlags = (drv.configureFlags or []) ++ [
-          "-f-asserts"
-        ];
-      });
-
-      cardano-sl = overrideCabal super.cardano-sl (drv: {
-        # production full nodes shouldn't use wallet as it means different constants
-        configureFlags = (drv.configureFlags or []) ++ [
-          "-f-asserts"
-        ];
-        # waiting on load-command size fix in dyld
-        doCheck = ! pkgs.stdenv.isDarwin;
-        passthru = {
-          inherit enableProfiling;
-        };
-      });
-
-      cardano-sl-wallet-static = justStaticExecutablesGitRev super.cardano-sl-wallet;
-      cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
-      cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
-      cardano-sl-auxx = justStaticExecutablesGitRev super.cardano-sl-auxx;
-      cardano-sl-wallet-new = justStaticExecutablesGitRev super.cardano-sl-wallet-new;
-      cardano-sl-tools = justStaticExecutablesGitRev (overrideCabal super.cardano-sl-tools (drv: {
-        # waiting on load-command size fix in dyld
-        doCheck = ! pkgs.stdenv.isDarwin;
-      }));
-
-      cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
-      cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
-      cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
-
-      # Undo configuration-nix.nix change to hardcode security binary on darwin
-      # This is needed for macOS binary not to fail during update system (using http-client-tls)
-      # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
-      x509-system = overrideDerivation super.x509-system (drv: {
-        postPatch = ":";
-      });
-
-      # TODO: get rid of pthreads option once cryptonite 0.25 is released
-      # DEVOPS-393: https://github.com/haskell-crypto/cryptonite/issues/193
-      cryptonite = appendPatch (appendConfigureFlag super.cryptonite "--ghc-option=-optl-pthread") ./pkgs/cryptonite-segfault-blake.patch;
-
-      # Due to https://github.com/input-output-hk/stack2nix/issues/56
-      hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
-
-      mkDerivation = args: super.mkDerivation (args // {
-        enableLibraryProfiling = enableProfiling;
-        enableExecutableProfiling = enableProfiling;
-        # Static linking for everything to work around
-        # https://ghc.haskell.org/trac/ghc/ticket/14444
-        # This will be the default in nixpkgs since
-        # https://github.com/NixOS/nixpkgs/issues/29011
-        enableSharedExecutables = false;
-      } // optionalAttrs (enableBenchmarks && localLib.isCardanoSL args.pname) ({
-        # Enables building but not running of benchmarks for all
-        # cardano-sl packages when enableBenchmarks argument is true.
-        doBenchmark = true;
-        configureFlags = (args.configureFlags or []) ++ ["--enable-benchmarks"];
-      } // optionalAttrs (localLib.isBenchmark args) {
-        # Provide a dummy installPhase for benchmark packages.
-        installPhase = "mkdir -p $out";
-      }) // optionalAttrs (args ? src) {
-        src = localLib.cleanSourceTree args.src;
-      } // optionalAttrs enableDebugging {
-        # TODO: DEVOPS-355
-        dontStrip = true;
-        configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" "--profiling-detail=toplevel-functions"];
-      } // optionalAttrs (forceDontCheck == true) {
-        doCheck = false;
-      });
-    };
   });
+
+  activeOverlays = [ requiredOverlay ]
+      ++ optional enableBenchmarks benchmarkOverlay
+      ++ optional enableDebugging debugOverlay
+      ++ optional forceDontCheck dontCheckOverlay;
+
+  cardanoPkgs = builtins.foldl' (pkgs: overlay: pkgs.extend overlay) cardanoPkgsBase activeOverlays;
   connect = let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
   other = rec {
+    testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; };

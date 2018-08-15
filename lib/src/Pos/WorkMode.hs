@@ -50,6 +50,7 @@ import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
 import           Pos.Util.Lens (postfixLFields)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Trace (natTrace, noTrace)
+import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
@@ -108,6 +109,9 @@ instance HasPrimaryKey (RealModeContext ext) where
 
 instance HasMisbehaviorMetrics (RealModeContext ext) where
     misbehaviorMetrics = rmcNodeContext_L . misbehaviorMetrics
+
+instance HasUserPublic (RealModeContext ext) where
+    userPublic = rmcNodeContext_L . userPublic
 
 instance HasUserSecret (RealModeContext ext) where
     userSecret = rmcNodeContext_L . userSecret

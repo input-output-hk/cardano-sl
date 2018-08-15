@@ -18,20 +18,21 @@ import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
-import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
+import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      fromRawResolvedBlock)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
+                     PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Active as Active
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
-                     PassiveWalletLayer (..))
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -77,6 +78,7 @@ bracketPassiveWallet logTrace keystore rocksDB f =
         , _pwlGetAddresses         = \rp      -> ro $ Addresses.getAddresses rp
         , _pwlValidateAddress      = \txt     -> ro $ Addresses.validateAddress txt
         , _pwlGetTransactions      = Transactions.getTransactions w
+        , _pwlGetTxFromMeta        = Transactions.toTransaction w
         }
       where
         -- Read-only operations
@@ -91,8 +93,8 @@ bracketPassiveWallet logTrace keystore rocksDB f =
     blundToResolvedBlock :: Blund -> Maybe ResolvedBlock
     blundToResolvedBlock (b,u)
         = rightToJust b <&> \mainBlock ->
-            fromRawResolvedBlock dummyChainBrief
-            $ UnsafeRawResolvedBlock mainBlock spentOutputs'
+            fromRawResolvedBlock $
+              UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
             spentOutputs' = map (map fromJust) $ undoTx u
             rightToJust   = either (const Nothing) Just

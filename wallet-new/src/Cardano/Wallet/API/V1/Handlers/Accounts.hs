@@ -14,8 +14,8 @@ import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
-import           Cardano.Wallet.WalletLayer.Types (PassiveWalletLayer)
-import qualified Cardano.Wallet.WalletLayer.Types as WalletLayer
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 handlers :: PassiveWalletLayer IO -> ServerT Accounts.API Handler
 handlers w =  deleteAccount w

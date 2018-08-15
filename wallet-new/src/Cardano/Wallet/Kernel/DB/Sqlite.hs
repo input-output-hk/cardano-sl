@@ -18,14 +18,19 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
 
     -- * Unsafe functions
     , unsafeMigrateMetaDB
+
+    -- * testing
+    , mkInputs
+    , fromInputs
+    , mkOutputs
+    , fromOutputs
     ) where
 
-import qualified Prelude
 import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow,
-                     HasSqlValueSyntax (..), IsSql92DataTypeSyntax, valueE,
-                     varCharType)
+                     HasSqlValueSyntax (..), IsSql92DataTypeSyntax, intType,
+                     valueE, varCharType)
 import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
                      Sql92SelectOrderingSyntax)
 import           Database.Beam.Query (HasSqlEqualityCheck, between_, in_, (&&.),
@@ -47,10 +52,9 @@ import qualified Database.SQLite.SimpleErrors as Sqlite
 import qualified Database.SQLite.SimpleErrors.Types as Sqlite
 
 import           Control.Exception (throwIO, toException)
-import           Control.Lens (Getter)
 import qualified Data.Foldable as Foldable
 import           Data.List.NonEmpty (NonEmpty (..), nonEmpty)
-import qualified Data.List.NonEmpty (toList)
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as M
 import           Data.Time.Units (Second, fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
@@ -83,11 +87,10 @@ instance Database Sqlite MetaDB
 {--
 
 * Table 1: ~tx_metas~
-** Primary Index: ~tx_meta_id~
-** Secondary Indexes (for now): ~tx_meta_created_at~
+** Primary kehy: ~tx_meta_id~
 
 | tx_meta_id | tx_meta_amount | tx_meta_created_at | tx_meta_is_local | tx_meta_is_outgoing | tx_meta_account | tx_meta_wallet
-|------------+----------------+--------------------+------------------+---------------------|-----------------|-----------------
+|------------+----------------+--------------------+------------------+---------------------+-----------------+-----------------
 | Txp.TxId   | Core.Coin      | Core.Timestamp     | Bool             | Bool                | Word32          | Core.Address
 
 --}
@@ -129,84 +132,132 @@ instance Beamable (PrimaryKey TxMetaT)
 {--
 
 * Table 2: ~tx_meta_inputs~
-** Primary Index: ~tx_meta_input_address~
-** Secondary Indexes: ~tx_meta_id~
+** Primary key: ~input_id~, ~input_foreign_txid~, ~input_foreign_index~
 
-| tx_meta_input_address | tx_meta_coin | tx_meta_id |
-|-----------------------+--------------+------------|
-| Core.Address          | Core.Coin    | Txp.TxId  |
+input_id   | input_address | input_coin | input_foreign_txid | input_foreign_index
+-----------|---------------+------------+--------------------+--------------------
+Txp.TxId   | Core.Address  | Core.Coin  | Txp.TxId           | Word32
 
-** Table 3: ~tx_meta_outputs~
-** Primary Index: ~tx_meta_output_address~
-** Secondary Indexes: ~tx_meta_id~
-
-| tx_meta_output_address | tx_meta_coin | tx_meta_id |
-|------------------------+--------------+------------|
-| Core.Address           | Core.Coin    | Txp.TxId  |
 
 --}
 
-data TxCoinDistributionTableT f = TxCoinDistributionTable {
-      _txCoinDistributionTableAddress :: Beam.Columnar f Core.Address
-    , _txCoinDistributionTableCoin    :: Beam.Columnar f Core.Coin
-    , _txCoinDistributionTxId         :: Beam.PrimaryKey TxMetaT f
-    } deriving Generic
-
-type TxCoinDistributionTable = TxCoinDistributionTableT Identity
-
-instance Beamable TxCoinDistributionTableT
-
 -- | The inputs' table.
-newtype TxInputT f = TxInput  {
-  _getTxInput  :: (TxCoinDistributionTableT f)
-  } deriving Generic
+data TxInputT f = TxInputT {
+      _inputTableTxId         :: Beam.PrimaryKey TxMetaT f
+    , _inputTableAddress      :: Beam.Columnar f Core.Address
+    , _inputTableCoin         :: Beam.Columnar f Core.Coin
+    , _inputTableForeignTxid  :: Beam.Columnar f Txp.TxId
+    , _inputTableForeignIndex :: Beam.Columnar f Word32
+    } deriving Generic
 
 type TxInput = TxInputT Identity
 
 instance Beamable TxInputT
 
 instance Table TxInputT where
-    data PrimaryKey TxInputT f = TxInputPrimKey (Beam.Columnar f Core.Address) (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey (TxInput i) = TxInputPrimKey (_txCoinDistributionTableAddress i) (_txCoinDistributionTxId i)
+    data PrimaryKey TxInputT f = TxInputPrimKey
+                         (Beam.PrimaryKey TxMetaT f)
+                         (Beam.Columnar f Txp.TxId)
+                         (Beam.Columnar f Word32) deriving Generic
+    primaryKey TxInputT{..} = TxInputPrimKey
+                         (_inputTableTxId)
+                         (_inputTableForeignTxid)
+                         (_inputTableForeignIndex)
 
 instance Beamable (PrimaryKey TxInputT)
 
--- | Generalisation of 'mkInputs' and 'mkOutputs'.
-mkCoinDistribution :: forall a. Kernel.TxMeta
-                   -> (Getter Kernel.TxMeta (NonEmpty (Core.Address, Core.Coin)))
-                   -> (TxCoinDistributionTable -> a)
-                   -> NonEmpty a
-mkCoinDistribution txMeta getter builder =
-    let distribution  = txMeta ^. getter
-        txid          = txMeta ^. Kernel.txMetaId
-    in fmap (mk txid) distribution
-  where
-      mk :: Txp.TxId -> (Core.Address, Core.Coin) -> a
-      mk tid (addr, amount) = builder (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
-
 -- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
 mkInputs :: Kernel.TxMeta -> NonEmpty TxInput
-mkInputs txMeta = mkCoinDistribution txMeta Kernel.txMetaInputs TxInput
+mkInputs Kernel.TxMeta{..}  = toTxInput <$> _txMetaInputs
+    where
+        toTxInput :: (Core.Address, Core.Coin, Txp.TxId, Word32) -> TxInput
+        toTxInput (addr, coin, fTxId, fIndex) =
+            TxInputT {
+              _inputTableTxId = TxIdPrimKey _txMetaId
+            , _inputTableAddress = addr
+            , _inputTableCoin = coin
+            , _inputTableForeignTxid = fTxId
+            , _inputTableForeignIndex = fIndex
+            }
 
--- | The outputs' table.
-newtype TxOutputT f = TxOutput {
-  _getTxOutput :: (TxCoinDistributionTableT f)
-  } deriving Generic
+fromInputs :: NonEmpty TxInput -> NonEmpty (Core.Address, Core.Coin, Txp.TxId, Word32)
+fromInputs ls = go <$> ls
+    where
+        go TxInputT{..} = (_inputTableAddress, _inputTableCoin,
+                          _inputTableForeignTxid, _inputTableForeignIndex)
+
+getTxIdfromInput :: (TxInputT f) -> Beam.Columnar f Txp.TxId
+getTxIdfromInput inp =
+    let TxIdPrimKey txid = _inputTableTxId inp
+    in txid
+
+{--
+
+** Table 3: ~tx_meta_outputs~
+** Primary Key: ~output_id~, ~output_index~
+
+output_id   | output_address | output_coin | output_index
+------------|----------------+-------------+--------------------
+Txp.TxId    | Core.Address   | Core.Coin   | Word32
+
+--}
+
+-- | The outputs' table. Order of fields is important for right Ord instance.
+data TxOutputT f = TxOutputT {
+          _outputTableTxId    :: Beam.PrimaryKey TxMetaT f
+        , _outputTableIndex   :: Beam.Columnar f Word32
+        , _outputTableAddress :: Beam.Columnar f Core.Address
+        , _outputTableCoin    :: Beam.Columnar f Core.Coin
+    } deriving Generic
 
 type TxOutput = TxOutputT Identity
+
+forOrder :: TxOutputT f0
+         -> (Beam.Columnar f0 Txp.TxId, Beam.Columnar f0 Word32,
+             Beam.Columnar f0 Core.Address, Beam.Columnar f0 Core.Coin)
+forOrder t@TxOutputT{..} = (getTxIdfromOutput t, _outputTableIndex, _outputTableAddress, _outputTableCoin)
+
+instance Eq TxOutput where
+    a == b = (forOrder a) == (forOrder b)
+
+instance Ord TxOutput where
+    compare a b = compare (forOrder a) (forOrder b)
 
 instance Beamable TxOutputT
 
 instance Table TxOutputT where
-    data PrimaryKey TxOutputT f = TxOutputPrimKey (Beam.Columnar f Core.Address) (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey (TxOutput o) = TxOutputPrimKey (_txCoinDistributionTableAddress o) (_txCoinDistributionTxId o)
+    data PrimaryKey TxOutputT f = TxOutputPrimKey
+                (Beam.PrimaryKey TxMetaT f)
+                (Beam.Columnar f Word32) deriving Generic
+    primaryKey TxOutputT{..} = TxOutputPrimKey _outputTableTxId _outputTableIndex
 
 instance Beamable (PrimaryKey TxOutputT)
 
--- | Convenient constructor of a list of 'TxOutput from a 'Kernel.TxMeta'.
+-- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
+-- The list returned should ensure the uniqueness of Indexes.
 mkOutputs :: Kernel.TxMeta -> NonEmpty TxOutput
-mkOutputs txMeta = mkCoinDistribution txMeta Kernel.txMetaOutputs TxOutput
+mkOutputs Kernel.TxMeta{..} = toTxOutput <$> NonEmpty.zip _txMetaOutputs (NonEmpty.fromList [0..])
+    where
+        toTxOutput :: ((Core.Address, Core.Coin), Word32) -> TxOutput
+        toTxOutput ((addr, coin), index) =
+            TxOutputT {
+              _outputTableTxId = TxIdPrimKey _txMetaId
+            , _outputTableIndex = index
+            , _outputTableAddress = addr
+            , _outputTableCoin = coin
+            }
 
+-- | The invarint here is that the list of TxOutput should have all the same
+-- TxId and include all indexes starting from 0.
+fromOutputs :: NonEmpty TxOutput -> NonEmpty (Core.Address, Core.Coin)
+fromOutputs ls = go <$> NonEmpty.sort ls
+  where
+    go TxOutputT {..} = (_outputTableAddress, _outputTableCoin)
+
+getTxIdfromOutput :: (TxOutputT f) -> Beam.Columnar f Txp.TxId
+getTxIdfromOutput out =
+    let TxIdPrimKey txid = _outputTableTxId out
+    in txid
 
 -- Orphans & other boilerplate
 
@@ -231,7 +282,6 @@ instance HasSqlValueSyntax SqliteValueSyntax Core.Timestamp where
 
 instance HasSqlValueSyntax SqliteValueSyntax Core.Address where
     sqlValueSyntax addr = sqlValueSyntax (sformat Core.addressF addr)
-
 
 instance HasSqlEqualityCheck SqliteExpressionSyntax Txp.TxId
 
@@ -275,56 +325,58 @@ metaDB = unCheckDatabase (evaluateDatabase migrateMetaDB)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Address'(es) as
 -- varchars of arbitrary length.
-address :: DataType SqliteDataTypeSyntax Core.Address
-address = DataType (varCharType Nothing Nothing)
+addressDT :: DataType SqliteDataTypeSyntax Core.Address
+addressDT = DataType (varCharType Nothing Nothing)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Timestamp'(s) as
 -- SQLite BIG INTEGER.
-timestamp :: DataType SqliteDataTypeSyntax Core.Timestamp
-timestamp = DataType sqliteBigIntType
+timestampDT :: DataType SqliteDataTypeSyntax Core.Timestamp
+timestampDT = DataType sqliteBigIntType
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Txp.TxId(s) as
 -- varchars of arbitrary length.
-txId :: IsSql92DataTypeSyntax syntax => DataType syntax Txp.TxId
-txId = DataType (varCharType Nothing Nothing)
+txIdDT :: IsSql92DataTypeSyntax syntax => DataType syntax Txp.TxId
+txIdDT = DataType (varCharType Nothing Nothing)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Coin(s) as
 -- SQLite BIG INTEGER.
-coin :: DataType SqliteDataTypeSyntax Core.Coin
-coin = DataType sqliteBigIntType
+coinDT :: DataType SqliteDataTypeSyntax Core.Coin
+coinDT = DataType sqliteBigIntType
 
-walletid :: DataType SqliteDataTypeSyntax Core.Address
-walletid = DataType (varCharType Nothing Nothing)
+outputIndexDT :: DataType SqliteDataTypeSyntax Word32
+outputIndexDT = DataType intType
 
-accountix :: DataType SqliteDataTypeSyntax Word32
-accountix = DataType sqliteBigIntType
+walletidDT :: DataType SqliteDataTypeSyntax Core.Address
+walletidDT = DataType (varCharType Nothing Nothing)
 
-unlockTxId :: TxCoinDistributionTableT f -> Beam.Columnar f Txp.TxId
-unlockTxId x =
-    let TxIdPrimKey txid = _txCoinDistributionTxId x
-    in txid
+accountixDT :: DataType SqliteDataTypeSyntax Word32
+accountixDT = DataType intType
 
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
 initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
 initialMigration () = do
     MetaDB <$> createTable "tx_metas"
-                 (TxMeta (field "meta_id" txId notNull unique)
-                         (field "meta_amount" coin notNull)
-                         (field "meta_created_at" timestamp notNull)
+                 (TxMeta (field "meta_id" txIdDT notNull unique)
+                         (field "meta_amount" coinDT notNull)
+                         (field "meta_created_at" timestampDT notNull)
                          (field "meta_is_local" boolean notNull)
                          (field "meta_is_outgoing" boolean notNull)
-                         (field "meta_wallet_id" walletid notNull)
-                         (field "meta_account_ix" accountix notNull))
+                         (field "meta_wallet_id" walletidDT notNull)
+                         (field "meta_account_ix" accountixDT notNull))
            <*> createTable "tx_metas_inputs"
-                 (TxInput (TxCoinDistributionTable (field "input_address" address notNull)
-                                                   (field "input_coin" coin notNull)
-                                                   (TxIdPrimKey (field "meta_id" txId notNull))
-                          ))
+                 (TxInputT (TxIdPrimKey (field "meta_id" txIdDT notNull))
+                                                   (field "input_address" addressDT notNull)
+                                                   (field "input_coin" coinDT notNull)
+                                                   (field "input_foreign_id" txIdDT notNull)
+                                                   (field "input_foreign_index" outputIndexDT notNull)
+                          )
            <*> createTable "tx_metas_outputs"
-                 (TxOutput (TxCoinDistributionTable (field "output_address" address notNull)
-                                                    (field "output_coin" coin notNull)
-                                                    (TxIdPrimKey (field "meta_id" txId notNull))
-                           ))
+                 (TxOutputT (TxIdPrimKey (field "meta_id" txIdDT notNull))
+                                                    (field "output_index" outputIndexDT notNull)
+                                                    (field "output_address" addressDT notNull)
+                                                    (field "output_coin" coinDT notNull)
+
+                           )
 
 --- | The full list of migrations available for this 'MetaDB'.
 -- For a more interesting migration, see: https://github.com/tathougies/beam/blob/d3baf0c77b76b008ad34901b47a818ea79439529/beam-postgres/examples/Pagila/Schema.hs#L17-L19
@@ -339,8 +391,8 @@ unsafeMigrateMetaDB conn = do
     -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
     Sqlite.execute_ conn "CREATE INDEX meta_created_at ON tx_metas (meta_created_at)"
     Sqlite.execute_ conn "CREATE INDEX meta_query ON tx_metas (meta_wallet_id, meta_account_ix, meta_id, meta_created_at)"
-    Sqlite.execute_ conn "CREATE INDEX inputs_id ON tx_metas_inputs (meta_id)"
-    Sqlite.execute_ conn "CREATE INDEX outputs_id ON tx_metas_outputs (meta_id)"
+    Sqlite.execute_ conn "CREATE INDEX inputs_address ON tx_metas_inputs (input_address)"
+    Sqlite.execute_ conn "CREATE INDEX outputs_address ON tx_metas_outputs (output_address)"
     where
         newSqlQuery :: SqliteCommandSyntax -> Sqlite.Query
         newSqlQuery syntax =
@@ -369,8 +421,8 @@ putTxMeta conn txMeta =
     in do
         res <- Sqlite.withTransaction conn $ Sqlite.runDBAction $ runBeamSqlite conn $ do
             SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
-            SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues (toList inputs)
-            SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues (toList outputs)
+            SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues (NonEmpty.toList inputs)
+            SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues (NonEmpty.toList outputs)
         case res of
              Left e   -> handleResponse e
              Right () -> return ()
@@ -386,11 +438,11 @@ putTxMeta conn txMeta =
                 -- Beam schema by using something like 'IsDatabaseEntity' from
                 -- 'Database.Beam.Schema.Tables', but we have a test to catch
                 -- regression in this area.
-                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas_inputs.input_address, tx_metas_inputs.meta_id") -> do
+                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas_inputs.meta_id, tx_metas_inputs.input_foreign_id, tx_metas_inputs.input_foreign_index") -> do
                    let err = Kernel.DuplicatedInputIn txid
                    throwIO $ Kernel.InvariantViolated err
 
-                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas_outputs.output_address, tx_metas_outputs.meta_id") -> do
+                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas_outputs.meta_id, tx_metas_outputs.output_index") -> do
                    let err = Kernel.DuplicatedOutputIn txid
                    throwIO $ Kernel.InvariantViolated err
 
@@ -417,26 +469,19 @@ putTxMeta conn txMeta =
 
                 _ -> throwIO $ Kernel.StorageFailure (toException e)
 
-
 -- | Converts a database-fetched 'TxMeta' into a domain-specific 'Kernel.TxMeta'.
 toTxMeta :: TxMeta -> NonEmpty TxInput -> NonEmpty TxOutput -> Kernel.TxMeta
 toTxMeta TxMeta{..} inputs outputs = Kernel.TxMeta {
       _txMetaId         = _txMetaTableId
     , _txMetaAmount     = _txMetaTableAmount
-    , _txMetaInputs     = fmap (reify . _getTxInput) inputs
-    , _txMetaOutputs    = fmap (reify . _getTxOutput) outputs
+    , _txMetaInputs     = fromInputs inputs
+    , _txMetaOutputs    = fromOutputs outputs
     , _txMetaCreationAt = _txMetaTableCreatedAt
     , _txMetaIsLocal    = _txMetaTableIsLocal
     , _txMetaIsOutgoing = _txMetaTableIsOutgoing
     , _txMetaWalletId   = _txMetaTableWalletId
     , _txMetaAccountIx  = _txMetaTableAccountIx
     }
-    where
-        -- | Reifies the input 'TxCoinDistributionTableT' into a tuple suitable
-        -- for a 'Kernel.TxMeta'.
-        reify :: TxCoinDistributionTable -> (Core.Address, Core.Coin)
-        reify coinDistr = (,) (_txCoinDistributionTableAddress coinDistr)
-                              (_txCoinDistributionTableCoin coinDistr)
 
 -- | Fetches a 'Kernel.TxMeta' from the database, given its 'Txp.TxId'.
 getTxMeta :: Sqlite.Connection -> Txp.TxId -> IO (Maybe Kernel.TxMeta)
@@ -455,20 +500,13 @@ getTxMeta conn txid = do
     where
         txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txid)
         getInputs  = SQL.select $ do
-            coinDistr <- SQL.all_ (_mDbInputs metaDB)
-            SQL.guard_ ((_txCoinDistributionTxId . _getTxInput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txid))
-            pure coinDistr
+            txInput <- SQL.all_ (_mDbInputs metaDB)
+            SQL.guard_ ((_inputTableTxId txInput) ==. (SQL.val_ $ TxIdPrimKey txid))
+            pure txInput
         getOutputs = SQL.select $ do
-            coinDistr <- SQL.all_ (_mDbOutputs metaDB)
-            SQL.guard_ ((_txCoinDistributionTxId . _getTxOutput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txid))
-            pure coinDistr
-
-
-newtype OrdByCreationDate = OrdByCreationDate { _ordByCreationDate :: TxMeta } deriving (Show, Eq)
-
-instance Ord OrdByCreationDate where
-    compare a b = compare (_txMetaTableCreatedAt . _ordByCreationDate $ a)
-                          (_txMetaTableCreatedAt . _ordByCreationDate $ b)
+            txOutput <- SQL.all_ (_mDbOutputs metaDB)
+            SQL.guard_ ((_outputTableTxId txOutput) ==. (SQL.val_ $ TxIdPrimKey txid))
+            pure txOutput
 
 getTxMetas :: Sqlite.Connection
            -> Offset
@@ -495,17 +533,18 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         -- be costly.
         meta <- SQL.runSelectReturningList $ SQL.select $ do
             case mbAddress of
-                    Nothing   -> SQL.limit_ limit $ SQL.offset_ offset $ metaQuery
-                    Just addr -> SQL.limit_ limit $ SQL.offset_ offset $ metaQueryWithAddr addr
+                Nothing   -> SQL.limit_ limit $ SQL.offset_ offset $ metaQuery
+                Just addr -> SQL.limit_ limit $ SQL.offset_ offset $ metaQueryWithAddr addr
+        let txids = map (SQL.val_ . _txMetaTableId) meta
         input <- SQL.runSelectReturningList $ SQL.select $ do
                 input <- SQL.all_ $ _mDbInputs metaDB
-                let TxIdPrimKey txid = _txCoinDistributionTxId $ _getTxInput input
-                SQL.guard_ $ in_ txid (map (SQL.val_ . _txMetaTableId) meta)
+                let txid = getTxIdfromInput input
+                SQL.guard_ $ in_ txid txids
                 pure input
         output <- SQL.runSelectReturningList $ SQL.select $ do
                 output <- SQL.all_ $ _mDbOutputs metaDB
-                let TxIdPrimKey txid = _txCoinDistributionTxId $ _getTxOutput output
-                SQL.guard_ $ in_ txid (map (SQL.val_ . _txMetaTableId) meta)
+                let txid = getTxIdfromOutput output
+                SQL.guard_ $ in_ txid txids
                 pure output
         return $ do
              mt  <- nonEmpty meta
@@ -517,21 +556,21 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         Left e -> throwIO $ Kernel.StorageFailure (toException e)
         Right Nothing -> return ([], Just 0)
         Right (Just (meta, inputs, outputs)) ->  do
-            eiCount <- limitExecutionTimeTo (25 :: Second) (\ _ -> ()) $ mapLeft $ Sqlite.runDBAction $ runBeamSqlite conn $
+            eiCount <- limitExecutionTimeTo (25 :: Second) (\ _ -> ()) $ ignoreLeft $ Sqlite.runDBAction $ runBeamSqlite conn $
                 case mbAddress of
                     Nothing   -> SQL.runSelectReturningOne $ SQL.select metaQueryC
                     Just addr -> SQL.runSelectReturningOne $ SQL.select $ metaQueryWithAddrC addr
-            let mapWithInputs  = transform $ map (\inp -> (unlockTxId $ _getTxInput inp, inp)) inputs
-            let mapWithOutputs = transform $ map (\out -> (unlockTxId $ _getTxOutput out, out)) outputs
-            let txMeta = toValidKernelTxMeta mapWithInputs mapWithOutputs $ Data.List.NonEmpty.toList meta
+            let mapWithInputs  = transform $ map (\inp -> (getTxIdfromInput inp, inp)) inputs
+            let mapWithOutputs = transform $ map (\out -> (getTxIdfromOutput out, out)) outputs
+            let txMeta = toValidKernelTxMeta mapWithInputs mapWithOutputs $ NonEmpty.toList meta
                 count = case eiCount of
                     Left _  -> Nothing
                     Right c -> c
             return (txMeta, count)
 
     where
-        mapLeft :: IO (Either a b) -> IO (Either () b)
-        mapLeft m  = do
+        ignoreLeft :: IO (Either a b) -> IO (Either () b)
+        ignoreLeft m  = do
             x <- m
             case x of
                 Left _  -> return $ Left ()
@@ -568,12 +607,12 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         findAndUnion addr = do
                 let input = do
                         inp <- SQL.all_ $ _mDbInputs metaDB
-                        SQL.guard_ $ ((_txCoinDistributionTableAddress . _getTxInput $ inp) ==. (SQL.val_ addr))
-                        pure $ _txCoinDistributionTxId $ _getTxInput inp
+                        SQL.guard_ $ ((_inputTableAddress inp) ==. (SQL.val_ addr))
+                        pure $ _inputTableTxId inp
                 let output = do
                         out <- SQL.all_ $ _mDbOutputs metaDB
-                        SQL.guard_ $ ((_txCoinDistributionTableAddress . _getTxOutput $ out) ==. (SQL.val_ addr))
-                        pure $ _txCoinDistributionTxId $ _getTxOutput out
+                        SQL.guard_ $ ((_outputTableAddress out) ==. (SQL.val_ addr))
+                        pure $ _outputTableTxId out
                 -- union removes txId duplicates.
                 txid <- SQL.union_ input output
                 meta <- SQL.join_ (_mDbMeta metaDB)

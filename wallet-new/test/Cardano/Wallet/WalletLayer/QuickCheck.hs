@@ -10,7 +10,7 @@ import           Universum
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..),
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
                      DeleteWalletError (..), GetAccountError (..),
                      GetAccountsError (..), GetWalletError (..),
@@ -52,7 +52,8 @@ bracketPassiveWallet =
         , _pwlGetAddresses         = \_     -> liftedGen
         , _pwlValidateAddress      = \_     -> liftedGen
 
-        , _pwlGetTransactions = \_ _ _ _ _ _ -> liftedGen
+        , _pwlGetTransactions      = \_ _ _ _ _ _ -> liftedGen
+        , _pwlGetTxFromMeta        = \_ -> liftedGen
 
         , _pwlApplyBlocks          = \_     -> liftedGen
         , _pwlRollbackBlocks       = \_     -> liftedGen

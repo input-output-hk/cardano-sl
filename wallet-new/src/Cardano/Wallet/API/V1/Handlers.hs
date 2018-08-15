@@ -9,8 +9,8 @@ import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
 import qualified Cardano.Wallet.API.V1.Handlers.Transactions as Transactions
 import qualified Cardano.Wallet.API.V1.Handlers.Wallets as Wallets
 
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
-import           Cardano.Wallet.WalletLayer.Types (walletPassiveLayer)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
+                     walletPassiveLayer)
 
 
 handlers :: ActiveWalletLayer IO -> Server V1.API

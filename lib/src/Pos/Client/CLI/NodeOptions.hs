@@ -40,6 +40,7 @@ data CommonNodeArgs = CommonNodeArgs
     , cnaAssetLockPath       :: !(Maybe FilePath)
     -- these two arguments are only used in development mode
     , devGenesisSecretI      :: !(Maybe Int)
+    , publicKeyfilePath      :: !FilePath
     , keyfilePath            :: !FilePath
     , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
@@ -80,6 +81,11 @@ commonNodeArgsParser = do
                   long    "genesis-secret" <>
                   metavar "INT" <>
                   help    "Used genesis secret key index."
+    publicKeyfilePath <- strOption $
+        long    "pubkeyfile" <>
+        metavar "FILEPATH" <>
+        value   "public.key" <>
+        help    "Path to file with public key (we use it for external wallets)."
     keyfilePath <- strOption $
         long    "keyfile" <>
         metavar "FILEPATH" <>

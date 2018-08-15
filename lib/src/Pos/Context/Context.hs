@@ -49,6 +49,7 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerConfig (LoggerConfig)
+import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
 
@@ -82,6 +83,8 @@ data NodeContext = NodeContext
     -- Stored hash is a hash of last applied block.
     , ncStateLockMetrics    :: !(StateLockMetrics MemPoolModifyReason)
     -- ^ A set of callbacks for 'StateLock'.
+    , ncUserPublic          :: !(TVar UserPublic)
+    -- ^ Public keys (and path to file) which are used to identify external wallets.
     , ncUserSecret          :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
     , ncBlockRetrievalQueue :: !BlockRetrievalQueue
@@ -151,6 +154,9 @@ instance HasShutdownContext NodeContext where
 
 instance HasLens UpdateContext NodeContext UpdateContext where
     lensOf = ncUpdateContext_L
+
+instance HasUserPublic NodeContext where
+    userPublic = ncUserPublic_L
 
 instance HasUserSecret NodeContext where
     userSecret = ncUserSecret_L

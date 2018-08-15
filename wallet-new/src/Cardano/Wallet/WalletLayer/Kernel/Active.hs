@@ -19,12 +19,13 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
                      InputGrouping, newOptions)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import           Cardano.Wallet.WalletLayer (EstimateFeesError (..),
+                     NewPaymentError (..), RedeemAdaError (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
-import           Cardano.Wallet.WalletLayer.Types (EstimateFeesError (..),
-                     NewPaymentError (..), RedeemAdaError (..))
 
 -- | Generates a new transaction @and submit it as pending@.
 pay :: MonadIO m
@@ -33,7 +34,7 @@ pay :: MonadIO m
     -> InputGrouping
     -> ExpenseRegulation
     -> V1.Payment
-    -> m (Either NewPaymentError Tx)
+    -> m (Either NewPaymentError (Tx, TxMeta))
 pay activeWallet pw grouping regulation payment = liftIO $
     limitExecutionTimeTo (60 :: Second) NewPaymentTimeLimitReached $
       runExceptT $ do

@@ -3,12 +3,13 @@
 module Cardano.Wallet.Kernel.DB.Spec (
     -- * Checkpoint
     Checkpoint(..)
+  , initCheckpoint
     -- ** Lenses
   , checkpointUtxo
   , checkpointUtxoBalance
   , checkpointPending
   , checkpointBlockMeta
-  , checkpointChainBrief
+  , checkpointSlotId
   , checkpointForeign
     -- * Partial checkpoints
   , PartialCheckpoint(..)
@@ -19,7 +20,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , pcheckpointUtxoBalance
   , pcheckpointPending
   , pcheckpointBlockMeta
-  , pcheckpointChainBrief
+  , pcheckpointSlotId
   , pcheckpointForeign
     -- * Unify partial and full checkpoints
   , IsCheckpoint(..)
@@ -30,7 +31,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentUtxoBalance
   , currentPending
   , currentBlockMeta
-  , currentChainBrief
+  , currentSlotId
   , currentAddressMeta
   , currentForeign
   ) where
@@ -49,11 +50,12 @@ import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst)
 
-import           Cardano.Wallet.Kernel.ChainState
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
-import           Cardano.Wallet.Kernel.DB.Spec.Pending
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Util (neHead)
+import           Cardano.Wallet.Kernel.Util.Core as Core
 
 {-------------------------------------------------------------------------------
   Wallet state as mandated by the spec
@@ -80,7 +82,13 @@ data Checkpoint = Checkpoint {
     , _checkpointUtxoBalance :: !(InDb Core.Coin)
     , _checkpointPending     :: !Pending
     , _checkpointBlockMeta   :: !BlockMeta
-    , _checkpointChainBrief  :: !ChainBrief
+
+     -- | Slot ID associated with this checkpoint
+     --
+     -- This is used for restoration to know (1) when we bridged the gap between
+     -- the partial current checkpoints and the full historical checkpoints and
+     -- (2) to be able to report how synchronization progress
+    , _checkpointSlotId      :: !(InDb Core.SlotId)
 
       -- Foreign pending transactions are transactions that transfer funds from
       -- /other/ wallets /to/ this wallet. An example are redemption
@@ -93,6 +101,27 @@ data Checkpoint = Checkpoint {
 makeLenses ''Checkpoint
 
 deriveSafeCopy 1 'base ''Checkpoint
+
+-- | Initial checkpoint for an account
+--
+-- This takes a UTxO as argument to allow for wallets that are given an initial
+-- UTxO in the genesis block (note that we never roll back past the initial
+-- checkpoint).
+--
+-- The slot ID for all initial checkpoints is always set to slot 0 of epoch 0.
+-- One way to think about this is that semantically we regard all accounts to
+-- be created at the beginning of time.
+initCheckpoint :: Core.Utxo -> Checkpoint
+initCheckpoint utxo = Checkpoint {
+      _checkpointUtxo        = InDb utxo
+    , _checkpointUtxoBalance = InDb $ Core.utxoBalance utxo
+    , _checkpointPending     = Pending.empty
+    , _checkpointForeign     = Pending.empty
+    , _checkpointBlockMeta   = emptyBlockMeta
+    , _checkpointSlotId      = InDb $ Core.SlotId
+                                 (Core.EpochIndex 0)
+                                 (Core.UnsafeLocalSlotIndex 0)
+    }
 
 {-------------------------------------------------------------------------------
   Partial checkpoints
@@ -111,7 +140,7 @@ data PartialCheckpoint = PartialCheckpoint {
     , _pcheckpointUtxoBalance :: !(InDb Core.Coin)
     , _pcheckpointPending     :: !Pending
     , _pcheckpointBlockMeta   :: !LocalBlockMeta
-    , _pcheckpointChainBrief  :: !ChainBrief
+    , _pcheckpointSlotId      :: !(InDb Core.SlotId)
     , _pcheckpointForeign     :: !Pending
     }
 
@@ -134,7 +163,7 @@ fromFullCheckpoint f cp = inj <$> f (proj cp)
         , _pcheckpointUtxoBalance =        _checkpointUtxoBalance
         , _pcheckpointPending     =        _checkpointPending
         , _pcheckpointBlockMeta   = coerce _checkpointBlockMeta
-        , _pcheckpointChainBrief  =        _checkpointChainBrief
+        , _pcheckpointSlotId      =        _checkpointSlotId
         , _pcheckpointForeign     =        _checkpointForeign
         }
 
@@ -144,7 +173,7 @@ fromFullCheckpoint f cp = inj <$> f (proj cp)
         , _checkpointUtxoBalance =        _pcheckpointUtxoBalance
         , _checkpointPending     =        _pcheckpointPending
         , _checkpointBlockMeta   = coerce _pcheckpointBlockMeta
-        , _checkpointChainBrief  =        _pcheckpointChainBrief
+        , _checkpointSlotId      =        _pcheckpointSlotId
         , _checkpointForeign     =        _pcheckpointForeign
         }
 
@@ -155,19 +184,32 @@ fromFullCheckpoint f cp = inj <$> f (proj cp)
 -- the checkpoints line up.
 toFullCheckpoint :: Checkpoint -> PartialCheckpoint -> Checkpoint
 toFullCheckpoint prev PartialCheckpoint{..} =
-    if _pcheckpointChainBrief `chainBriefSucceeds` _checkpointChainBrief prev
+    if _pcheckpointSlotId `succeeds` _checkpointSlotId prev
       then Checkpoint {
                _checkpointUtxo        =          _pcheckpointUtxo
              , _checkpointUtxoBalance =          _pcheckpointUtxoBalance
              , _checkpointPending     =          _pcheckpointPending
              , _checkpointBlockMeta   = withPrev _pcheckpointBlockMeta
-             , _checkpointChainBrief  =          _pcheckpointChainBrief
+             , _checkpointSlotId      =          _pcheckpointSlotId
              , _checkpointForeign     =          _pcheckpointForeign
              }
       else error "toFullCheckpoint: checkpoints do not line up"
   where
     withPrev :: LocalBlockMeta -> BlockMeta
     withPrev = appendBlockMeta (_checkpointBlockMeta prev)
+
+    -- We cannot check whether this is the _direct_ successor, since
+    --
+    -- 1. We don't know how many blocks in an epoch
+    --    (though we could conceivably pass that in as an argument)
+    -- 2. We may be skipping an EBB
+    succeeds :: InDb Core.SlotId -> InDb Core.SlotId -> Bool
+    InDb a `succeeds` InDb b = or [
+          Core.siEpoch a > Core.siEpoch b
+        , and [ Core.siEpoch a == Core.siEpoch b
+              , Core.siSlot  a >  Core.siSlot  b
+              ]
+        ]
 
 {-------------------------------------------------------------------------------
   Unify over full and partial checkpoints
@@ -191,7 +233,7 @@ class IsCheckpoint c where
     cpUtxoBalance :: Lens' c Core.Coin
     cpPending     :: Lens' c Pending
     cpBlockMeta   :: Lens' c LocalBlockMeta
-    cpChainBrief  :: Lens' c ChainBrief
+    cpSlotId      :: Lens' c Core.SlotId
     cpForeign     :: Lens' c Pending
 
 instance IsCheckpoint Checkpoint where
@@ -199,7 +241,7 @@ instance IsCheckpoint Checkpoint where
     cpUtxoBalance = checkpointUtxoBalance . fromDb
     cpPending     = checkpointPending
     cpBlockMeta   = checkpointBlockMeta . from _Wrapped
-    cpChainBrief  = checkpointChainBrief
+    cpSlotId      = checkpointSlotId . fromDb
     cpForeign     = checkpointForeign
 
 instance IsCheckpoint PartialCheckpoint where
@@ -207,7 +249,7 @@ instance IsCheckpoint PartialCheckpoint where
     cpUtxoBalance = pcheckpointUtxoBalance . fromDb
     cpPending     = pcheckpointPending
     cpBlockMeta   = pcheckpointBlockMeta
-    cpChainBrief  = pcheckpointChainBrief
+    cpSlotId      = pcheckpointSlotId . fromDb
     cpForeign     = pcheckpointForeign
 
 cpAddressMeta :: IsCheckpoint c => Core.Address -> Lens' c AddressMeta
@@ -224,7 +266,7 @@ currentUtxo        :: IsCheckpoint c =>                 Lens' (NewestFirst NonEm
 currentUtxoBalance :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Core.Coin
 currentPending     :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Pending
 currentBlockMeta   :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) LocalBlockMeta
-currentChainBrief  :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) ChainBrief
+currentSlotId      :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Core.SlotId
 currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (NewestFirst NonEmpty c) AddressMeta
 currentForeign     :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Pending
 
@@ -232,7 +274,7 @@ currentUtxo             = currentCheckpoint . cpUtxo
 currentUtxoBalance      = currentCheckpoint . cpUtxoBalance
 currentPending          = currentCheckpoint . cpPending
 currentBlockMeta        = currentCheckpoint . cpBlockMeta
-currentChainBrief       = currentCheckpoint . cpChainBrief
+currentSlotId           = currentCheckpoint . cpSlotId
 currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
 currentForeign          = currentCheckpoint . cpForeign
 

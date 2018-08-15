@@ -7,69 +7,39 @@
 module Cardano.Wallet.Kernel (
     -- * Passive wallet
     PassiveWallet -- opaque
-  , DB -- opaque
-  , WalletId
   , bracketPassiveWallet
   , init
+    -- ** Lenses
   , walletLogMessage
   , walletPassive
-    -- ** Respond to block chain events
-  , applyBlock
-  , applyBlocks
-  , switchToFork
-    -- *** Testing
-  , observableRollbackUseInTestsOnly
-    -- ** The only effectful getter you will ever need
-  , getWalletSnapshot
-    -- ** Pure getters acting on a DB snapshot
-  , module Getters
-
   , walletMeta
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
-  , newPending
-  , newForeign
-  , NewPendingError
   ) where
 
 import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
+import           Control.Concurrent.MVar (modifyMVar)
 import           Data.Acid (AcidState)
-import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 
 import           Pos.Core (ProtocolMagic)
-import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
 
-import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
-                     CancelPending (..), DB, NewForeign (..), NewForeignError,
-                     NewPending (..), NewPendingError,
-                     ObservableRollbackUseInTestsOnly (..),
-                     RollbackDuringRestoration, Snapshot (..),
-                     SwitchToFork (..), defDB)
-import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.DB.InDb
-import           Cardano.Wallet.Kernel.DB.Read as Getters
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
+import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
-                     prefilterBlock)
-import           Cardano.Wallet.Kernel.Submission (Cancelled, WalletSubmission,
-                     addPending, defaultResubmitFunction, exponentialBackoff,
+import           Cardano.Wallet.Kernel.Pending (cancelPending)
+import           Cardano.Wallet.Kernel.Submission (WalletSubmission,
+                     defaultResubmitFunction, exponentialBackoff,
                      newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
-import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 
@@ -112,13 +82,6 @@ handlesClose :: WalletHandles -> IO ()
 handlesClose (Handles _ meta) = closeMetaDB meta
 
 {-------------------------------------------------------------------------------
-  Manage the Wallet's ESKs
--------------------------------------------------------------------------------}
-
-withKeystore :: forall a. PassiveWallet -> (Keystore -> IO a) -> IO a
-withKeystore pw action = action (pw ^. walletKeystore)
-
-{-------------------------------------------------------------------------------
   Wallet Initialisers
 -------------------------------------------------------------------------------}
 
@@ -138,60 +101,6 @@ initPassiveWallet logTrace keystore Handles{..} node = do
 init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
     logInfo _walletLogMessage $ "Passive Wallet kernel initialized."
-
-{-------------------------------------------------------------------------------
-  Passive Wallet API implementation
--------------------------------------------------------------------------------}
-
--- | Prefilter the block for each esk in the `WalletESK` map.
---   Return a unified Map of accountId and prefiltered blocks (representing multiple ESKs)
--- TODO: Improve performance (CBR-379)
-prefilterBlock' :: PassiveWallet
-                -> ResolvedBlock
-                -> IO (Map HdAccountId PrefilteredBlock)
-prefilterBlock' pw b =
-    withKeystore pw $ \ks ->
-        (Map.unions . map prefilterBlock_) <$> Keystore.toList ks
-    where
-        prefilterBlock_ (wid,esk) = prefilterBlock wid esk b
-
--- | Notify all the wallets in the PassiveWallet of a new block
-applyBlock :: PassiveWallet
-           -> ResolvedBlock
-           -> IO ()
-applyBlock pw@PassiveWallet{..} b
-    = do
-        blocksByAccount <- prefilterBlock' pw b
-        -- apply block to all Accounts in all Wallets
-        update' _wallets $ ApplyBlock blocksByAccount
-
--- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
---
---   TODO(@matt-noonan) this will be the responsibility of the worker thread (as part of CBR-243: Wallet restoration)
-applyBlocks :: PassiveWallet
-            -> OldestFirst [] ResolvedBlock
-            -> IO ()
-applyBlocks = mapM_ . applyBlock
-
--- | Switch to a new fork
---
--- NOTE: The Ouroboros protocol says that this is only valid if the number of
--- resolved blocks exceeds the length of blocks to roll back.
-switchToFork :: PassiveWallet
-             -> Int             -- ^ Number of blocks to roll back
-             -> [ResolvedBlock] -- ^ Blocks in the new fork
-             -> IO (Either RollbackDuringRestoration ())
-switchToFork pw@PassiveWallet{..} n bs = do
-    blockssByAccount <- mapM (prefilterBlock' pw) bs
-    update' _wallets $ SwitchToFork n blockssByAccount
-
--- | Observable rollback
---
--- Only used for tests. See 'switchToFork'.
-observableRollbackUseInTestsOnly :: PassiveWallet
-                                 -> IO (Either RollbackDuringRestoration ())
-observableRollbackUseInTestsOnly PassiveWallet{..} =
-    update' _wallets $ ObservableRollbackUseInTestsOnly
 
 {-------------------------------------------------------------------------------
   Active wallet
@@ -238,40 +147,3 @@ bracketActiveWallet walletProtocolMagic walletPassive walletDiffusion runActiveW
             unless (Map.null cancelled) $
                 cancelPending walletPassive cancelled
             sendTransactions toSend
-
--- | Submit a new pending transaction
---
--- Will fail if the HdAccountId does not exist or if some inputs of the
--- new transaction are not available for spending.
---
--- If the pending transaction is successfully added to the wallet state, the
--- submission layer is notified accordingly.
-newPending :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewPendingError ())
-newPending ActiveWallet{..} accountId tx = do
-    res <- update' (walletPassive ^. wallets) $ NewPending accountId (InDb tx)
-    case res of
-        Left e -> return (Left e)
-        Right () -> do
-            modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton tx))
-            return $ Right ()
-
--- | Submit new foreign transaction
---
--- A foreign transaction is a transaction that transfers funds from /another/
--- wallet to this one.
-newForeign :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewForeignError ())
-newForeign ActiveWallet{..} accountId tx = do
-    res <- update' (walletPassive ^. wallets) $ NewForeign accountId (InDb tx)
-    case res of
-        Left e -> return (Left e)
-        Right () -> do
-            modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton tx))
-            return $ Right ()
-
-cancelPending :: PassiveWallet -> Cancelled -> IO ()
-cancelPending passiveWallet cancelled =
-    update' (passiveWallet ^. wallets) $ CancelPending (fmap InDb cancelled)
-
--- | The only effectful query on this 'PassiveWallet'.
-getWalletSnapshot :: PassiveWallet -> IO DB
-getWalletSnapshot pw = query' (pw ^. wallets) Snapshot

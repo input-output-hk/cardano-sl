@@ -27,7 +27,7 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (nodeStateUnavailable)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
-import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 
 genSpendingPassword :: PropertyM IO (Maybe V1.SpendingPassword)
 genSpendingPassword =
@@ -38,7 +38,7 @@ withLayer :: MonadIO m
           -> PropertyM IO a
 withLayer cc = do
     liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet noTrace keystore nodeStateUnavailable $ \layer wallet -> do
+        WalletLayer.Kernel.bracketPassiveWallet noTrace keystore nodeStateUnavailable $ \layer wallet -> do
             cc layer wallet
 
 type GenPassiveWalletFixture x = PropertyM IO (PassiveWallet -> IO x)
@@ -51,7 +51,7 @@ withPassiveWalletFixture :: MonadIO m
 withPassiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet noTrace keystore nodeStateUnavailable $ \layer wallet -> do
+        WalletLayer.Kernel.bracketPassiveWallet noTrace keystore nodeStateUnavailable $ \layer wallet -> do
             fixtures <- generateFixtures wallet
             cc keystore layer wallet fixtures
 
@@ -62,9 +62,9 @@ withActiveWalletFixture :: MonadIO m
 withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
-        WalletLayer.bracketKernelPassiveWallet noTrace keystore nodeStateUnavailable $ \passiveLayer passiveWallet -> do
+        WalletLayer.Kernel.bracketPassiveWallet noTrace keystore nodeStateUnavailable $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \pm -> do
-                WalletLayer.bracketKernelActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
+                WalletLayer.Kernel.bracketActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
                     fixtures <- generateFixtures keystore activeWallet
                     cc keystore activeLayer activeWallet fixtures
     where

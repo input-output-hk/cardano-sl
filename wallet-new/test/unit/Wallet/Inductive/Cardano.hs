@@ -14,9 +14,6 @@ module Wallet.Inductive.Cardano (
 
 import           Universum
 
-import qualified Cardano.Wallet.Kernel as Kernel
-import           Cardano.Wallet.Kernel.Types
-import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, (%))
@@ -27,11 +24,16 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
-import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
+import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
+import qualified Cardano.Wallet.Kernel.Read as Kernel
+import           Cardano.Wallet.Kernel.Types
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import           Util.Buildable
 import           Util.Validated
@@ -237,7 +239,7 @@ equivalentT activeWallet esk = \mkWallet w ->
                       -> RawResolvedBlock
                       -> TranslateT EquivalenceViolation m ()
     walletApplyBlockT ctxt accountId block = do
-        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock dummyChainBrief block)
+        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
         checkWalletState ctxt accountId
 
     walletNewPendingT :: InductiveCtxt h
@@ -245,7 +247,9 @@ equivalentT activeWallet esk = \mkWallet w ->
                       -> RawResolvedTx
                       -> TranslateT EquivalenceViolation m ()
     walletNewPendingT ctxt accountId tx = do
-        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx)
+        -- meta <- liftIO $ Kernel.toMeta accountId tx
+        -- TODO: should meta history be tested here?
+        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx) Nothing
         checkWalletState ctxt accountId
 
     walletRollbackT :: InductiveCtxt h

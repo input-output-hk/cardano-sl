@@ -18,6 +18,8 @@ data CLI = CLI
     -- ^ The path to the config file
     , nodePath          :: FilePath
     -- ^ The path to a valid rocksdb database.
+    , publicKeyPath     :: FilePath
+    -- ^ The path to the file with public keys (for external wallets).
     , secretKeyPath     :: FilePath
     -- ^ The path to the secret key from the database.
     , walletPath        :: FilePath
@@ -46,6 +48,9 @@ instance ParseRecord CLI where
                                       ))
               <*> (strOption (long "nodeDB" <> metavar "rocksdb-path"
                              <> help "A path to a valid rocksdb database."
+                                      ))
+              <*> (strOption (long "publicKey" <> metavar "public-key-path"
+                             <> help "A path to a a file with public keys (for external wallets)."
                                       ))
               <*> (strOption (long "secretKey" <> metavar "secret-key-path"
                              <> help "A path to a valid secreate key for the database."

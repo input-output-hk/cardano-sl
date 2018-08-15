@@ -23,13 +23,13 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Chain.Block (MainBlock, gbBody, mbTxs, mbWitnesses)
+import           Pos.Chain.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
+                     mbWitnesses)
 import           Pos.Core.Txp (Tx, TxAux (..), TxIn (..), txInputs)
 
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 
-import           Cardano.Wallet.Kernel.ChainState
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
@@ -93,8 +93,8 @@ type ResolvedBlockInputs = [ResolvedTxInputs]
 -- Constructor is marked as unsafe because the caller should make sure that
 -- invariant 'invRawResolvedTx' holds.
 data RawResolvedTx = UnsafeRawResolvedTx {
-      rawResolvedTx       :: TxAux
-    , rawResolvedTxInputs :: ResolvedTxInputs
+      rawResolvedTx       :: !TxAux
+    , rawResolvedTxInputs :: !ResolvedTxInputs
     }
 
 -- | Invariant for 'RawResolvedTx'
@@ -116,13 +116,13 @@ mkRawResolvedTx txAux ins =
 -- invariant 'invRawResolvedBlock' holds.
 data RawResolvedBlock = UnsafeRawResolvedBlock {
       -- | The underlying 'MainBlock'
-      rawResolvedBlock       :: MainBlock
+      rawResolvedBlock       :: !MainBlock
 
       -- | Resolved inputs
       --
       -- Working with these inputs is more convenient using a 'ResolvedBlock';
       -- see 'fromRawResolvedBlock'.
-    , rawResolvedBlockInputs :: ResolvedBlockInputs
+    , rawResolvedBlockInputs :: !ResolvedBlockInputs
     }
 
 -- | Invariant for 'RawResolvedBlock'
@@ -163,11 +163,11 @@ fromRawResolvedTx rtx = ResolvedTx {
     inps :: NonEmpty TxIn
     inps = tx ^. txInputs
 
-fromRawResolvedBlock :: ChainBrief -> RawResolvedBlock -> ResolvedBlock
-fromRawResolvedBlock brief rb = ResolvedBlock {
-      _rbTxs   = zipWith aux (getBlockTxs b)
-                             (rawResolvedBlockInputs rb)
-    , _rbBrief = brief
+fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
+fromRawResolvedBlock rb = ResolvedBlock {
+      _rbTxs    = zipWith aux (getBlockTxs b)
+                              (rawResolvedBlockInputs rb)
+    , _rbSlotId = b ^. mainBlockSlot
     }
   where
     b = rawResolvedBlock rb

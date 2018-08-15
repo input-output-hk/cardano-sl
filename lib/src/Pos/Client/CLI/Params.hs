@@ -26,6 +26,7 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util.Log (LoggerName)
 import           Pos.Util.Trace (noTrace)
+import           Pos.Util.UserPublic (peekUserPublic)
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
 
@@ -68,6 +69,7 @@ getNodeParams ::
 getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
         prepareUserSecret noTrace cArgs =<< peekUserSecret noTrace (getKeyfilePath cArgs)
+    userPublic <- peekUserPublic noTrace publicKeyfilePath
     npNetworkConfig <- intNetworkConfigOpts noTrace networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
@@ -76,6 +78,7 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
+        , npUserPublic = userPublic
         , npUserSecret = userSecret
         , npBaseParams = getBaseParams defaultLoggerName cArgs
         , npJLFile = jlPath

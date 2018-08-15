@@ -1,106 +1,74 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Pos.Core.Bi
        ( tests
-
-       -- Example data
-       , exampleBlockVersion
-       , exampleChainDifficulty
-       , exampleEpochIndex
-       , exampleLightDlgIndices
-       , examplePublicKey
-       , exampleSecretKey
-       , exampleSecretKeys
-       , exampleSlotId
-       , exampleSlotLeaders
-       , exampleSoftwareVersion
-       , exampleSscPayload
-       , exampleSscProof
-       , exampleTxPayload
-       , exampleTxProof
-       , exampleUpdatePayload
-       , exampleUpdateProof
-       , staticHeavyDlgIndexes
-       , staticProxySKHeavys
-
-       -- Helpers
-       , feedPM
-       , feedPMC
        ) where
 
 import           Universum
 
-import           Cardano.Crypto.Wallet (xprv, xpub)
 import           Crypto.Hash (Blake2b_224)
-import qualified Crypto.SCRAPE as Scrape
-import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import           Data.List (zipWith4, (!!))
-import           Data.List.NonEmpty (fromList)
+import           Data.List ((!!))
 import qualified Data.Map as M
-import           Data.Maybe (fromJust)
-import qualified Data.Text as T
-import           Data.Time.Units (Millisecond, fromMicroseconds)
+import           Data.Time.Units (fromMicroseconds)
 import           Data.Typeable (typeRep)
-import qualified Data.Vector as V
 import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 
+import           Cardano.Crypto.Wallet (xpub)
 import           Pos.Binary.Class (Bi, Case (..), LengthOf, Raw (..),
-                     SizeOverride (..), asBinary, szCases)
+                     SizeOverride (..), szCases)
 import           Pos.Core.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), AddrType (..),
                      BlockCount (..), ChainDifficulty (..), Coeff (..),
-                     Coin (..), CoinPortion (..), IsBootstrapEraAddr (..),
-                     Script (..), ScriptVersion, SharedSeed (..), SlotLeaders,
-                     StakeholderId, StakesList, TxFeePolicy (..),
-                     TxSizeLinear (..), addressHash, makeAddress,
-                     makePubKeyAddress)
-import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
-                     LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
+                     Coin (..), CoinPortion (..), Script (..), ScriptVersion,
+                     SharedSeed (..), StakeholderId, TxFeePolicy (..),
+                     TxSizeLinear (..))
+import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
-                     SlotId (..), TimeDiff (..), Timestamp (..))
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                     InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
-                     SignedCommitment, SscPayload (..), SscProof (..),
-                     VssCertificate (..), VssCertificatesHash,
-                     VssCertificatesMap (..), mkCommitmentsMap,
-                     mkVssCertificate, mkVssCertificatesMap,
-                     randCommitmentAndOpening)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
-                     TxInWitness (..), TxOut (..), TxOutAux (..),
-                     TxPayload (..), TxProof (..), TxSig, TxSigData (..),
-                     TxWitness, mkTxPayload)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
-                     BlockVersionData (..), BlockVersionModifier (..),
-                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
-                     UpAttributes, UpId, UpdateData (..), UpdatePayload (..),
-                     UpdateProof, UpdateProposal, UpdateProposalToSign (..),
-                     UpdateVote (..), VoteId, mkUpdateProof,
-                     mkUpdateProposalWSign, mkUpdateVoteSafe)
-import           Pos.Crypto (AbstractHash (..), EncShare (..),
-                     HDAddressPayload (..), Hash, ProtocolMagic (..),
-                     PublicKey (..), RedeemPublicKey, RedeemSignature,
-                     SafeSigner (..), Secret (..), SecretKey (..),
-                     SecretProof (..), SignTag (..), Signature, VssKeyPair,
-                     VssPublicKey (..), abstractHash, decryptShare,
-                     deterministic, deterministicVssKeyGen, hash,
-                     redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
-                     sign, toVssPublicKey)
+                     TimeDiff (..), Timestamp (..))
+import           Pos.Core.Ssc (SscPayload (..), SscProof (..))
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
+                     TxOut (..), TxOutAux (..), TxSigData (..))
+import           Pos.Core.Update (ApplicationName (..), SoftforkRule (..))
+import           Pos.Crypto (AbstractHash (..), Hash, ProtocolMagic (..),
+                     PublicKey (..), SignTag (..), Signature, abstractHash,
+                     hash, redeemDeterministicKeyGen, sign)
 
-import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
+import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
+                     exampleAddress, exampleBlockVersion,
+                     exampleBlockVersionData, exampleBlockVersionModifier,
+                     exampleCommitment, exampleCommitmentSignature,
+                     exampleCommitmentsMap, exampleEpochIndex, exampleHashTx,
+                     exampleInnerSharesMap, exampleLightDlgIndices,
+                     exampleOpening, exampleOpeningsMap,
+                     exampleProxySKBlockInfo, examplePublicKey,
+                     exampleRedeemPublicKey, exampleRedeemSignature,
+                     exampleScript, exampleSecretKey,
+                     exampleSharesDistribution, exampleSignedCommitment,
+                     exampleSlotId, exampleSlotLeaders, exampleSoftwareVersion,
+                     exampleSscPayload, exampleSscProof, exampleStakeholderId,
+                     exampleStakesList, exampleSystemTag, exampleTxId,
+                     exampleTxInList, exampleTxInUnknown, exampleTxInUtxo,
+                     exampleTxOut, exampleTxOutList, exampleTxProof,
+                     exampleTxSig, exampleTxSigData, exampleTxWitness,
+                     exampleUpAttributes, exampleUpId, exampleUpdateData,
+                     exampleUpdatePayload, exampleUpdateProof,
+                     exampleUpdateProposal, exampleUpdateProposalToSign,
+                     exampleUpdateVote, exampleVoteId, exampleVssCertificate,
+                     exampleVssCertificatesHash, exampleVssCertificatesMap,
+                     feedPC, feedPM, staticHeavyDlgIndexes,
+                     staticProxySKHeavys)
 import           Test.Pos.Core.Gen
 import           Test.Pos.Crypto.Bi (getBytes)
-import           Test.Pos.Crypto.Gen (genProtocolMagic)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
 
@@ -110,11 +78,7 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip)
 -- Address
 --------------------------------------------------------------------------------
 golden_Address :: Property
-golden_Address = goldenTestBi a "test/golden/Address"
-  where
-    a = makeAddress exampleAddrSpendingData_PubKey attrs
-    attrs = AddrAttributes hap BootstrapEraDistr
-    hap = Just (HDAddressPayload (getBytes 32 32))
+golden_Address = goldenTestBi exampleAddress "test/golden/Address"
 
 roundTripAddressBi :: Property
 roundTripAddressBi = eachOf 1000 genAddress roundTripsBiBuildable
@@ -1086,419 +1050,6 @@ golden_VssCertificatesMap = goldenTestBi (exampleVssCertificatesMap 10 4) "test/
 
 roundTripVssCertificatesMap :: Property
 roundTripVssCertificatesMap = eachOf 10 (feedPM genVssCertificatesMap) roundTripsBiShow
-
-
---------------------------------------------------------------------------------
--- Helpers
---------------------------------------------------------------------------------
-
-feedPM :: (ProtocolMagic -> H.Gen a) -> H.Gen a
-feedPM genA = genA =<< genProtocolMagic
-
-feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a
-feedPC genA = genA =<< genProtocolConstants
-
-feedPMC :: (ProtocolMagic -> ProtocolConstants -> H.Gen a) -> H.Gen a
-feedPMC genA = do
-    pm <- genProtocolMagic
-    pc <- genProtocolConstants
-    genA pm pc
-
-
---------------------------------------------------------------------------------
--- Example golden datatypes
---------------------------------------------------------------------------------
-
-exampleAttributes :: Attributes ()
-exampleAttributes = mkAttributes ()
-
-exampleBlockVersion :: BlockVersion
-exampleBlockVersion = BlockVersion 1 1 1
-
-exampleBlockVersionData :: BlockVersionData
-exampleBlockVersionData = BlockVersionData
-                              (999 :: ScriptVersion)
-                              (999 :: Millisecond)
-                              (999 :: Byte)
-                              (999 :: Byte)
-                              (999 :: Byte)
-                              (999 :: Byte)
-                              (CoinPortion 99)
-                              (CoinPortion 99)
-                              (CoinPortion 99)
-                              (CoinPortion 99)
-                              (99 :: FlatSlotId)
-                              sfrule
-                              (TxFeePolicyTxSizeLinear tslin)
-                              (EpochIndex 99)
-    where
-        tslin = TxSizeLinear c1' c2'
-        c1' = Coeff (MkFixed 999)
-        c2' = Coeff (MkFixed 77)
-        sfrule = (SoftforkRule (CoinPortion 99) (CoinPortion 99) (CoinPortion 99))
-
-exampleChainDifficulty :: ChainDifficulty
-exampleChainDifficulty = ChainDifficulty (BlockCount 9999)
-
-exampleCommitment :: Commitment
-exampleCommitment = fst exampleCommitmentOpening
-
-exampleCommitmentOpening :: (Commitment, Opening)
-exampleCommitmentOpening =
-  let numKeys   = 128 :: Int
-      -- parties   = 20 :: Integer
-      threshold = 15 :: Integer
-      vssKeys   = replicate numKeys exampleVssPublicKey
-  in  deterministic "commitmentOpening"
-      $ randCommitmentAndOpening threshold (fromList vssKeys)
-
-exampleCommitmentSignature :: CommitmentSignature
-exampleCommitmentSignature =
-    sign
-      (ProtocolMagic 0)
-      SignForTestingOnly
-      exampleSecretKey
-      (exampleEpochIndex, exampleCommitment)
-
-exampleCommitmentsMap :: CommitmentsMap
-exampleCommitmentsMap =
-    let numCommitments = 1
-        signedCommitments = replicate numCommitments exampleSignedCommitment
-    in  mkCommitmentsMap signedCommitments
-
-exampleEpochIndex :: EpochIndex
-exampleEpochIndex = EpochIndex 14
-
-exampleOpening :: Opening
-exampleOpening = snd exampleCommitmentOpening
-
-exampleOpeningsMap :: OpeningsMap
-exampleOpeningsMap =
-    let mapSize = 1
-        stakeholderIds = replicate mapSize exampleStakeholderId
-        openings = replicate mapSize exampleOpening
-    in  HM.fromList $ zip stakeholderIds openings
-
-exampleSafeSigner :: Int -> SafeSigner
-exampleSafeSigner offset = staticSafeSigners!!offset
-
-exampleSharesDistribution :: SharesDistribution
-exampleSharesDistribution =
-    let mapSize = 1
-        stakeholderIds = replicate mapSize exampleStakeholderId
-        word16s = [1337]
-    in  HM.fromList $ zip stakeholderIds word16s
-
-exampleSignedCommitment :: SignedCommitment
-exampleSignedCommitment =
-    (examplePublicKey, exampleCommitment, exampleCommitmentSignature)
-
-exampleStakeholderId :: StakeholderId
-exampleStakeholderId = abstractHash examplePublicKey :: StakeholderId
-
-exampleStakeholderIds :: Int -> Int -> [StakeholderId]
-exampleStakeholderIds offset l = map abstractHash $ examplePublicKeys offset l
-
-exampleVssKeyPairs :: Int -> Int -> [VssKeyPair]
-exampleVssKeyPairs offset count = map (toPair . (*offset)) [0..count]
-    where
-        toPair start = deterministicVssKeyGen (getBytes start 32)
-
-exampleVssPublicKey :: VssPublicKey
-exampleVssPublicKey = toVssPublicKey mkVssKeyPair
-  where
-    mkVssKeyPair = deterministicVssKeyGen $ (getBytes 0 32)
-
-exampleVssPublicKeys :: Int -> Int -> [VssPublicKey]
-exampleVssPublicKeys offset count = map (toKey . (*offset)) [0..count]
-    where
-        toKey start = toVssPublicKey . deterministicVssKeyGen $ (getBytes start 32)
-
-exampleBlockVersionModifier :: BlockVersionModifier
-exampleBlockVersionModifier = BlockVersionModifier
-                              (Just (999 :: ScriptVersion))
-                              (Just (999 :: Millisecond))
-                              (Just (999 :: Byte))
-                              (Just (999 :: Byte))
-                              (Just (999 :: Byte))
-                              (Just (999 :: Byte))
-                              (Just $ CoinPortion 99)
-                              (Just $ CoinPortion 99)
-                              (Just $ CoinPortion 99)
-                              (Just $ CoinPortion 99)
-                              (Just (99 :: FlatSlotId))
-                              (Just sfrule')
-                              (Just $ TxFeePolicyTxSizeLinear tslin')
-                              (Just $ EpochIndex 99)
-    where
-        tslin' = TxSizeLinear co1 co2
-        co1 = Coeff (MkFixed 999)
-        co2 = Coeff (MkFixed 77)
-        sfrule' = (SoftforkRule (CoinPortion 99) (CoinPortion 99) (CoinPortion 99))
-
-exampleSlotId :: SlotId
-exampleSlotId = SlotId (EpochIndex 11) (UnsafeLocalSlotIndex 47)
-
-exampleAddrSpendingData_PubKey :: AddrSpendingData
-exampleAddrSpendingData_PubKey = PubKeyASD examplePublicKey
-
-examplePublicKey :: PublicKey
-examplePublicKey = pk
-  where [pk] = examplePublicKeys 16 1 -- 16 could be any number, as we take the first key
-
-examplePublicKeys :: Int -> Int -> [PublicKey]
-examplePublicKeys offset count = map (toKey . (*offset)) [0..count-1]
-  where
-    toKey start = let Right pk = PublicKey <$> xpub (getBytes start 64)
-                   in pk
-
-exampleRedeemPublicKey :: RedeemPublicKey
-exampleRedeemPublicKey = fromJust (fst <$> redeemDeterministicKeyGen (getBytes 0 32))
-
-exampleRedeemSignature :: RedeemSignature TxSigData
-exampleRedeemSignature = redeemSign (ProtocolMagic 0) SignForTestingOnly rsk exampleTxSigData
-    where
-        rsk = fromJust (snd <$> redeemDeterministicKeyGen (getBytes 0 32))
-
--- In order to get the key starting at byte 10, we generate two with offsets of 10
--- between them and take the second.
-exampleSecretKey :: SecretKey
-exampleSecretKey = (exampleSecretKeys 10 2) !! 1
-
-exampleSecretKeys :: Int -> Int -> [SecretKey]
-exampleSecretKeys offset count = map (toKey . (*offset)) [0..count-1]
-  where
-    toKey start = let Right sk = SecretKey <$> xprv (getBytes start 128)
-                   in sk
-
--- Lifted from genSharedSecret in `Pos.Crypto.SecretSharing`.
--- added `deterministic` in third guard.
-
-exampleSharedSecret
-    :: Scrape.Threshold -> NonEmpty VssPublicKey -> (Secret, SecretProof, [(VssPublicKey, EncShare)])
-exampleSharedSecret t ps
-    | t <= 1     = error "genSharedSecret: threshold must be > 1"
-    | t >= n - 1 = error "genSharedSecret: threshold must be > n-1"
-    | otherwise  = convertRes . deterministic "ss" $ Scrape.escrow t (coerce sorted)
-  where
-    n = fromIntegral (length ps)
-    sorted = sort (toList ps)
-    convertRes (gen, secret, shares, comms, proof, pproofs) =
-        (coerce secret,
-         SecretProof gen proof pproofs comms,
-         zip sorted (coerce shares))
-
--- Not sure why you don't use `VssPublicKey` for the `InnerSharesMap`
--- as you use `VssPublicKey`s to generate `DecShare`s.
-
-exampleInnerSharesMap :: Scrape.Threshold -> Int -> InnerSharesMap
-exampleInnerSharesMap count offset =
-    HM.fromList $ zipWith
-                      (\x y -> ((addressHash x), fromList [asBinary y]))
-                          (pubKeys)
-                          (decShares)
-        where
-          -- generate VssPublicKey and VssSecretKey pairs.
-          vssKeyPairs = exampleVssKeyPairs offset $ fromIntegral (count+1)
-          -- generate SharedSecrets from the VssPublicKeys generated above.
-          ss = exampleSharedSecret (count) (fromList $ map toVssPublicKey vssKeyPairs)
-          -- filter `VssPublicKeys`s and their corresponding `EncShare`s.
-          encShares (_, _, pKeSlist) = map snd pKeSlist
-          -- generate `PublicKey`s
-          pubKeys = examplePublicKeys 1 $ fromIntegral (count+1)
-          -- generate `DecShares`
-          decShares =
-            [deterministic "ss" $ decryptShare pr es | pr <- vssKeyPairs, es <- encShares ss]
-
-exampleScript :: Script
-exampleScript = Script 601 (getBytes 4 32)
-
-exampleStakesList :: StakesList
-exampleStakesList = zip sis coins
-  where
-    sis   = map abstractHash (examplePublicKeys 15 3)
-    coins = map Coin [79, 44, 9999999]
-
-exampleSlotLeaders :: SlotLeaders
-exampleSlotLeaders = map abstractHash (fromList (examplePublicKeys 16 3))
-
-exampleSystemTag :: SystemTag
-exampleSystemTag = (exampleSystemTags 0 1) !! 0
-
-exampleSystemTags :: Int -> Int -> [SystemTag]
-exampleSystemTags offset count = map (toSystemTag . (*offset)) [0..count-1]
-  where
-    toSystemTag start = SystemTag (getText start 16)
-
-exampleTxAux :: TxAux
-exampleTxAux = TxAux tx exampleTxWitness
-  where
-    tx = UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ())
-
-exampleTxId :: TxId
-exampleTxId = exampleHashTx
-
-exampleTxInList :: (NonEmpty TxIn)
-exampleTxInList = fromList [exampleTxInUtxo]
-
-exampleTxInUnknown :: TxIn
-exampleTxInUnknown = TxInUnknown 47 ("forty seven" :: ByteString)
-
-exampleTxInUtxo :: TxIn
-exampleTxInUtxo = TxInUtxo exampleHashTx 47 -- TODO: loop here
-
-exampleTxOut :: TxOut
-exampleTxOut = TxOut (makePubKeyAddress (IsBootstrapEraAddr True) pkey) (Coin 47)
-    where
-        Right pkey = PublicKey <$> xpub (getBytes 0 64)
-
-exampleTxOutList :: (NonEmpty TxOut)
-exampleTxOutList = fromList [exampleTxOut]
-
-exampleTxProof :: TxProof
-exampleTxProof = TxProof 32 mroot hashWit
-  where
-    mroot = mtRoot $ mkMerkleTree [(UnsafeTx exampleTxInList exampleTxOutList (mkAttributes ()))]
-    hashWit = hash $ [(V.fromList [(PkWitness examplePublicKey exampleTxSig)])]
-
-exampleTxSig :: TxSig
-exampleTxSig = sign (ProtocolMagic 0) SignForTestingOnly exampleSecretKey exampleTxSigData
-
-exampleTxSigData :: TxSigData
-exampleTxSigData = TxSigData exampleHashTx
-
-exampleTxWitness :: TxWitness
-exampleTxWitness = V.fromList [(PkWitness examplePublicKey exampleTxSig)]
-
-exampleUpAttributes :: UpAttributes
-exampleUpAttributes = exampleAttributes
-
-exampleUpdateData :: UpdateData
-exampleUpdateData = (exampleUpdateDatas 10 2) !! 1
-
-exampleUpdateDatas :: Int -> Int -> [UpdateData]
-exampleUpdateDatas offset count = map (toUpdateData . (*offset)) [0..count-1]
-  where
-    toUpdateData start =
-      let h = hash $ Raw (getBytes start 128)
-      in  UpdateData h h h h
-
-exampleUpId :: UpId
-exampleUpId = hash exampleUpdateProposal
-
-exampleUpdatePayload :: UpdatePayload
-exampleUpdatePayload = UpdatePayload up uv
-  where
-    up = Just exampleUpdateProposal
-    uv = [exampleUpdateVote]
-
-exampleUpdateProof :: UpdateProof
-exampleUpdateProof = mkUpdateProof exampleUpdatePayload
-
-exampleUpdateProposal :: UpdateProposal
-exampleUpdateProposalToSign :: UpdateProposalToSign
-(exampleUpdateProposal, exampleUpdateProposalToSign) =
-    ( mkUpdateProposalWSign pm bv bvm sv hm ua ss
-    , UpdateProposalToSign bv bvm sv hm ua )
-  where
-    pm  = ProtocolMagic 0
-    bv  = exampleBlockVersion
-    bvm = exampleBlockVersionModifier
-    sv  = exampleSoftwareVersion
-    hm  = HM.fromList $ zip (exampleSystemTags 10 5) (exampleUpdateDatas 10 5)
-    ua  = exampleUpAttributes
-    ss  = exampleSafeSigner 0
-
-exampleUpdateVote :: UpdateVote
-exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
-  where
-    pm = ProtocolMagic 0
-    ss = exampleSafeSigner 0
-    ui = exampleUpId
-    ar = True
-
--- | ```type VoteId = (UpId, PublicKey, Bool)```
-exampleVoteId :: VoteId
-exampleVoteId = (exampleUpId, examplePublicKey, False)
-
-exampleVssCertificate :: VssCertificate
-exampleVssCertificate =
-    mkVssCertificate
-        (ProtocolMagic 0)
-        exampleSecretKey
-        (asBinary (toVssPublicKey $ deterministicVssKeyGen ("golden" :: ByteString)))
-        (EpochIndex 11)
-
-exampleVssCertificates :: Int -> Int -> [VssCertificate]
-exampleVssCertificates offset num =  map vssCert [0..num-1]
-    where
-        secretKeyList = (exampleSecretKeys offset num)
-        vssCert index = mkVssCertificate
-                           (ProtocolMagic 0)
-                           (secretKeyList !! index)
-                           (asBinary (toVssPublicKey $ deterministicVssKeyGen (getBytes index 128)))
-                           (EpochIndex 122)
-
-exampleVssCertificatesMap :: Int -> Int -> VssCertificatesMap
-exampleVssCertificatesMap offset num = mkVssCertificatesMap $ exampleVssCertificates offset num
-
-
-exampleVssCertificatesHash :: Int -> Int -> VssCertificatesHash
-exampleVssCertificatesHash offset len =
-    hash . getVssCertificatesMap $ exampleVssCertificatesMap offset len
-
-
-staticHeavyDlgIndexes :: [HeavyDlgIndex]
-staticHeavyDlgIndexes = map (HeavyDlgIndex . EpochIndex) [5,1,3,27,99,247]
-
-staticProtocolMagics :: [ProtocolMagic]
-staticProtocolMagics = map ProtocolMagic [0..5]
-
-staticProxySKHeavys :: [ProxySKHeavy]
-staticProxySKHeavys = zipWith4 safeCreatePsk
-                               staticProtocolMagics staticSafeSigners
-                               (examplePublicKeys 1 6) staticHeavyDlgIndexes
-
-staticSafeSigners :: [SafeSigner]
-staticSafeSigners = map FakeSigner (exampleSecretKeys 1 6)
-
--- | Changing existing values in this string will break existing golden
--- tests, but it us OK to append more data to the end.
-staticText :: Text
-staticText
-    = "Kmyw4lDSE5S4fSH6etNouiXezCyEjKc3tG4ja0kFjO8qzai26ZMPUEJfEy15ox5kJ0uKD\
-    \bi7i6dLXkuesVZ9JfHgjrctsLFt2NvovXnchsOvX05Y6LohlTNt5mkPFhUoXu1EZSJTIy\
-    \3fTU53b412r4AEusD7tcdRgH47yTr5hMO63bJnYBbmNperLHfiT1lP0MLQLh1J1DfoYBs\
-    \auoJOzvtAgvjHo6UFttnK6vZ3Cknpuob6uMS2MkJKmuoQsqsAYcRDWbJ2Rgw4bm2ndTM4\
-    \zFfuRDKvdrL6sDkuPNPYqxMWlqnXjSbU0eLtceZuKgXLHR8cdvsEvywt4JaZUQhnbq3Vl\
-    \7nZqcXdoi4XGTCgSGcGp8N0SDVhvkVh0QF1RVpWPnOMyYISJvuaHfo1zXMdq9tEdtJfID"
-
-getText :: Int -> Int -> Text
-getText offset len = T.take len $ T.drop offset staticText
-
-exampleTxPayload :: TxPayload
-exampleTxPayload = mkTxPayload [exampleTxAux]
-
-exampleSoftwareVersion :: SoftwareVersion
-exampleSoftwareVersion = SoftwareVersion (ApplicationName "Golden") 99
-
-exampleHashTx :: Hash Tx
-exampleHashTx = coerce (hash "golden" :: Hash Text)
-
-exampleSscProof :: SscProof
-exampleSscProof = CommitmentsProof (hash exampleCommitmentsMap)
-                                   (exampleVssCertificatesHash 10 4)
-
-exampleSscPayload :: SscPayload
-exampleSscPayload = SharesPayload exampleSharesMap (exampleVssCertificatesMap 10 4)
-  where
-    exampleSharesMap = HM.fromList $ [(exampleStakeholderId, exampleInnerSharesMap 3 1)]
-
-exampleProxySKBlockInfo :: ProxySKBlockInfo
-exampleProxySKBlockInfo = Just (staticProxySKHeavys !! 0, examplePublicKey)
-
-exampleLightDlgIndices :: LightDlgIndices
-exampleLightDlgIndices = LightDlgIndices (EpochIndex 7, EpochIndex 88)
 
 sizeEstimates :: H.Group
 sizeEstimates =

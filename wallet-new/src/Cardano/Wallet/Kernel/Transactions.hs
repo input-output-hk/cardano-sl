@@ -37,7 +37,6 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
                      ShouldCheckPassphrase (..), hash)
 
-import           Cardano.Wallet.Kernel (getWalletSnapshot, newPending)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
                      CoinSelFinalResult (..), CoinSelectionOptions,
@@ -57,6 +56,8 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
                      walletKeystore)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.Pending (newPending)
+import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,

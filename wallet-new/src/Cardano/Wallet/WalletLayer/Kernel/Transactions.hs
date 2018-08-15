@@ -6,13 +6,9 @@ module Cardano.Wallet.WalletLayer.Kernel.Transactions (
 import           Universum
 
 import           Control.Monad.Except
+import           GHC.TypeLits (symbolVal)
 
-import qualified Cardano.Wallet.Kernel as Kernel
-import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
-import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta (..))
-import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
-import           Cardano.Wallet.WalletLayer (GetTxError (..))
+import           Pos.Core as Core
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request
@@ -22,8 +18,13 @@ import qualified Cardano.Wallet.API.Request.Sort as S
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types (V1 (..), unV1)
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           GHC.TypeLits (symbolVal)
-import           Pos.Core as Core
+import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta (..))
+import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
+import qualified Cardano.Wallet.Kernel.Internal as Kernel
+import qualified Cardano.Wallet.Kernel.Read as Kernel
+import           Cardano.Wallet.WalletLayer (GetTxError (..))
 
 getTransactions :: MonadIO m
                 => Kernel.PassiveWallet

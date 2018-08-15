@@ -3,22 +3,24 @@ module Test.Spec.Addresses (spec, withFixture, Fixture(..)) where
 
 import           Universum
 
+import           Control.Lens (to)
+import           Control.Monad.Except (runExceptT)
+import           Data.Acid (update)
+import qualified Data.ByteString as B
+import qualified Data.Map.Strict as M
+import           Formatting (build, sformat)
+import           Servant.Server
+
 import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
-import qualified Data.ByteString as B
-import qualified Data.Map.Strict as M
-
-import           Control.Lens (to)
-import           Data.Acid (update)
-import           Formatting (build, sformat)
-
 import           Pos.Core (Address)
 import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
 
-import qualified Cardano.Wallet.Kernel as Kernel
+import           Cardano.Wallet.API.V1.Handlers.Addresses as Handlers
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
@@ -32,21 +34,17 @@ import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
-
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
-import qualified Test.Spec.Wallets as Wallets
-
-import           Cardano.Wallet.API.V1.Handlers.Addresses as Handlers
-import qualified Cardano.Wallet.API.V1.Types as V1
-import           Control.Monad.Except (runExceptT)
-import           Servant.Server
 
 import qualified Test.Spec.Fixture as Fixture
+import qualified Test.Spec.Wallets as Wallets
+
 import           Util.Buildable (ShowThroughBuild (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

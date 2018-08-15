@@ -25,7 +25,6 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
                      safeDeterministicKeyGen)
 
-import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
@@ -40,6 +39,7 @@ import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
+import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 

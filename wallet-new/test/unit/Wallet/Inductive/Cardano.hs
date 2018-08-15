@@ -14,9 +14,6 @@ module Wallet.Inductive.Cardano (
 
 import           Universum
 
-import qualified Cardano.Wallet.Kernel as Kernel
-import           Cardano.Wallet.Kernel.Types
-import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, (%))
@@ -27,10 +24,16 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
+import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
+import qualified Cardano.Wallet.Kernel.Read as Kernel
+import           Cardano.Wallet.Kernel.Types
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import           Util.Buildable
 import           Util.Validated

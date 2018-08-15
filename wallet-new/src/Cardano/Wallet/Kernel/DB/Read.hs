@@ -7,8 +7,9 @@ module Cardano.Wallet.Kernel.DB.Read (
   , accountAddresses
   , accountIsTxPending
   , accountTxSlot
-  , hdWallets
   , readAddressMeta
+  , hdWallets
+  , walletIds
   , walletAccounts
   , walletTotalBalance
   ) where
@@ -27,18 +28,18 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
                      blockMetaSlotId, localBlockMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdAccountId,
                      HdAddress, HdRootId, HdWallets, UnknownHdAccount,
-                     hdAccountId)
+                     hdAccountId, hdRootId, hdWalletsRoots)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
                      readAccountsByRootId, readAddressesByAccountId,
                      readHdAccountCurrentCheckpoint)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (IsCheckpoint, cpAddressMeta,
                      cpBlockMeta, cpPending)
-
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
                               Wallet getters
@@ -91,10 +92,6 @@ accountAddresses :: DB -> HdAccountId -> IxSet (Indexed HdAddress)
 accountAddresses snapshot accountId
     = walletQuery' snapshot (readAddressesByAccountId accountId)
 
--- | Returns the total balance for this 'HdAccountId'.
-hdWallets :: DB -> HdWallets
-hdWallets snapshot = snapshot ^. dbHdWallets
-
 -- | Reads the given 'Address' in the 'HdAccount' current checkpoint.
 readAddressMeta :: DB -> HdAccountId -> Address -> AddressMeta
 readAddressMeta snapshot accountId cardanoAddress
@@ -102,20 +99,30 @@ readAddressMeta snapshot accountId cardanoAddress
     where
         checkpoint = readHdAccountCurrentCheckpoint accountId
 
--- | Returns all the accounts for a 'HdRoot', given its 'HdRootId'.
+-- | All HdWallets
+hdWallets :: DB -> HdWallets
+hdWallets snapshot = snapshot ^. dbHdWallets
+
+-- | All 'WalletId'
+walletIds :: DB -> [WalletId]
+walletIds db = map (WalletIdHdRnd . view hdRootId)
+             $ IxSet.toList
+             $ db ^. dbHdWallets . hdWalletsRoots
+
+-- | All the accounts for a 'HdRoot', given its 'HdRootId'.
 walletAccounts :: DB -> HdRootId -> IxSet HdAccount
 walletAccounts snapshot rootId
     = walletQuery' snapshot (readAccountsByRootId rootId)
 
 -- | Computes the total balance for this wallet, given its 'HdRootId'.
 walletTotalBalance :: DB -> HdRootId -> Coin
-walletTotalBalance db hdRootId =
+walletTotalBalance db rootId =
     IxSet.foldl' (\total account ->
                       total `unsafeAddCoin`
                       accountTotalBalance db (account ^. hdAccountId)
                  )
                  (mkCoin 0)
-                 (walletAccounts db hdRootId)
+                 (walletAccounts db rootId)
 
 -- | Reads the current slot of a Tx in the 'HdAccount' current checkpoint.
 accountTxSlot :: DB -> HdAccountId -> TxId -> Maybe SlotId
@@ -153,4 +160,3 @@ queryTxIsPending txId accountId db
     = isTxPending txId <$> checkpoint
     where
         checkpoint = readHdAccountCurrentCheckpoint accountId db
-

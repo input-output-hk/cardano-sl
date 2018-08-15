@@ -63,10 +63,11 @@ library
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
-                       Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.Accounts
+                       Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.Addresses
                        Cardano.Wallet.Kernel.BIP39
+                       Cardano.Wallet.Kernel.BListener
                        Cardano.Wallet.Kernel.ChainState
                        Cardano.Wallet.Kernel.CoinSelection
                        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -100,7 +101,9 @@ library
                        Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.NodeStateAdaptor
+                       Cardano.Wallet.Kernel.Pending
                        Cardano.Wallet.Kernel.PrefilterTx
+                       Cardano.Wallet.Kernel.Read
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Transactions

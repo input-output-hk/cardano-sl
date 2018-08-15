@@ -16089,10 +16089,13 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , aeson
 , base
+, binary
 , bytestring
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-chain
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-util
 , concurrent-extra
@@ -16107,6 +16110,7 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
+, hedgehog
 , lens
 , log-warper
 , lrucache
@@ -16121,6 +16125,7 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , tagged
+, temporary
 , text
 , time-units
 , transformers
@@ -16141,6 +16146,7 @@ configureFlags = [
 libraryHaskellDepends = [
 aeson
 base
+binary
 bytestring
 cardano-sl-binary
 cardano-sl-chain
@@ -16180,6 +16186,16 @@ unordered-containers
 ];
 libraryToolDepends = [
 cpphs
+];
+testHaskellDepends = [
+base
+cardano-sl-binary-test
+cardano-sl-core
+cardano-sl-core-test
+filepath
+hedgehog
+temporary
+universum
 ];
 doHaddock = false;
 description = "Cardano SL - basic DB interfaces";

@@ -27,7 +27,6 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
-import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -237,7 +236,7 @@ equivalentT activeWallet esk = \mkWallet w ->
                       -> RawResolvedBlock
                       -> TranslateT EquivalenceViolation m ()
     walletApplyBlockT ctxt accountId block = do
-        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock dummyChainBrief block)
+        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
         checkWalletState ctxt accountId
 
     walletNewPendingT :: InductiveCtxt h

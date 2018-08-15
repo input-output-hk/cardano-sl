@@ -18,7 +18,6 @@ import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
-import           Cardano.Wallet.Kernel.ChainState (dummyChainBrief)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
@@ -91,8 +90,8 @@ bracketPassiveWallet logFunction keystore rocksDB f =
     blundToResolvedBlock :: Blund -> Maybe ResolvedBlock
     blundToResolvedBlock (b,u)
         = rightToJust b <&> \mainBlock ->
-            fromRawResolvedBlock dummyChainBrief
-            $ UnsafeRawResolvedBlock mainBlock spentOutputs'
+            fromRawResolvedBlock $
+              UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
             spentOutputs' = map (map fromJust) $ undoTx u
             rightToJust   = either (const Nothing) Just

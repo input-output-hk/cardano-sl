@@ -31,12 +31,11 @@ import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
                      eskToWalletDecrCredentials, selectOwnAddresses)
 
-import           Cardano.Wallet.Kernel.ChainState (ChainBrief (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
-                     ResolvedInput, ResolvedTx, rbBrief, rbTxs, rtxInputs,
+                     ResolvedInput, ResolvedTx, rbSlotId, rbTxs, rtxInputs,
                      rtxOutputs)
 
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -65,9 +64,6 @@ data PrefilteredBlock = PrefilteredBlock {
 
       -- | Prefiltered block metadata
     , pfbMeta    :: !LocalBlockMeta
-
-      -- | Chain brief
-    , pfbBrief   :: !ChainBrief
     }
 
 deriveSafeCopy 1 'base ''PrefilteredBlock
@@ -77,13 +73,12 @@ deriveSafeCopy 1 'base ''PrefilteredBlock
 -- An empty prefiltered block is what we get when we filter a block for a
 -- particular account and there is nothing in the block that is of
 -- relevance to that account
-emptyPrefilteredBlock :: ChainBrief -> PrefilteredBlock
-emptyPrefilteredBlock brief = PrefilteredBlock {
+emptyPrefilteredBlock :: PrefilteredBlock
+emptyPrefilteredBlock = PrefilteredBlock {
       pfbInputs  = Set.empty
     , pfbOutputs = Map.empty
     , pfbAddrs   = []
     , pfbMeta    = emptyLocalBlockMeta
-    , pfbBrief   = brief
     }
 
 type WalletKey = (WalletId, WalletDecrCredentials)
@@ -245,13 +240,13 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 -- | Prefilter the transactions of a resolved block for the given wallet.
 --
 --   Returns prefiltered blocks indexed by HdAccountId.
-prefilterBlock :: WalletId
+prefilterBlock :: ResolvedBlock
+               -> WalletId
                -> EncryptedSecretKey
-               -> ResolvedBlock
                -> Map HdAccountId PrefilteredBlock
-prefilterBlock wid esk block =
+prefilterBlock block wid esk =
       Map.fromList
-    $ map (mkPrefBlock (block ^. rbBrief) inpAll outAll)
+    $ map (mkPrefBlock (block ^. rbSlotId) inpAll outAll)
     $ Set.toList accountIds
   where
     wdc :: WalletDecrCredentials
@@ -269,17 +264,16 @@ prefilterBlock wid esk block =
 
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
-mkPrefBlock :: ChainBrief
+mkPrefBlock :: SlotId
             -> Map HdAccountId (Set TxIn)
             -> Map HdAccountId (Map TxIn (TxOutAux, AddressSummary))
             -> HdAccountId
             -> (HdAccountId, PrefilteredBlock)
-mkPrefBlock brief inps outs accId = (accId, PrefilteredBlock {
+mkPrefBlock slotId inps outs accId = (accId, PrefilteredBlock {
         pfbInputs  = inps'
       , pfbOutputs = outs'
       , pfbAddrs   = addrs''
       , pfbMeta    = blockMeta'
-      , pfbBrief   = brief
       })
     where
         fromAddrSummary :: AddressSummary -> AddrWithId
@@ -291,7 +285,6 @@ mkPrefBlock brief inps outs accId = (accId, PrefilteredBlock {
         (outs', addrs') = fromUtxoSummary (byAccountId accId Map.empty outs)
 
         addrs''    = nub $ map fromAddrSummary addrs'
-        slotId     = cbSlotId brief
         blockMeta' = mkBlockMeta slotId addrs'
 
 mkBlockMeta :: SlotId -> [AddressSummary] -> LocalBlockMeta

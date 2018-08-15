@@ -6,7 +6,6 @@ module Cardano.Wallet.Kernel.ChainState (
   , applyChainStateModifier
     -- * Chain brief
   , ChainBrief(..)
-  , dummyChainBrief
   , getChainBrief
   , chainBriefSucceeds
     -- * Restoration
@@ -24,21 +23,19 @@ import           Pos.Chain.Block (Block, BlockHeader, HeaderHash, blockHeader,
 import           Pos.Chain.Update (BlockVersionData (..),
                      ConfirmedProposalState (..), HasUpdateConfiguration,
                      genesisBlockVersion, genesisSoftwareVersions, ourAppName)
-import           Pos.Core (EpochIndex (..), HasConfiguration,
-                     LocalSlotIndex (..), ScriptVersion, SlotId (..))
+import           Pos.Core (HasConfiguration, ScriptVersion, SlotId (..))
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisHash)
 import           Pos.Core.Slotting (getEpochOrSlot, unEpochOrSlot)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionModifier (..), NumSoftwareVersion,
                      SoftwareVersion (..), UpdateProposal (..))
-import           Pos.Crypto.Hashing (unsafeHash)
 import           Pos.DB.Class (getBlock)
 import           Pos.DB.Update (getAdoptedBVFull, getConfirmedProposals,
                      getConfirmedSV)
 
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
-import           Serokell.Data.Memory.Units (Byte, fromBytes)
+import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (mapJson)
 
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (LockContext,
@@ -121,20 +118,6 @@ data ChainBrief = ChainBrief {
       -- while locking the node state, that they will be consistent with each
       -- other. That might be overly optimistic.
     , cbState    :: !ChainState
-    }
-
--- | Dummy value that can be used as a placeholder
-dummyChainBrief :: ChainBrief
-dummyChainBrief = ChainBrief {
-      cbTip      = unsafeHash ()
-    , cbSlotId   = SlotId (EpochIndex 0) (UnsafeLocalSlotIndex 0)
-    , cbPrevMain = unsafeHash ()
-    , cbState    = ChainState {
-          csBlockVersion    = BlockVersion 0 0 0
-        , csSoftwareVersion = SoftwareVersion (ApplicationName "dummyChainBrief") 0
-        , csScriptVersion   = 0
-        , csMaxTxSize       = fromBytes 65536
-        }
     }
 
 -- | Get 'ChainBrief' for current chain tip

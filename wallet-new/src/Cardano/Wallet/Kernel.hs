@@ -43,9 +43,10 @@ import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 import           System.Wlog (Severity (..))
 
-import           Pos.Core (ProtocolMagic)
+import           Pos.Core (ProtocolMagic, SlotId)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Txp (TxAux (..))
+import           Pos.Crypto (EncryptedSecretKey)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      CancelPending (..), DB, NewForeign (..), NewForeignError,
@@ -56,7 +57,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Read as Getters
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbSlotId)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -142,17 +143,22 @@ init PassiveWallet{..} = do
   Passive Wallet API implementation
 -------------------------------------------------------------------------------}
 
--- | Prefilter the block for each esk in the `WalletESK` map.
---   Return a unified Map of accountId and prefiltered blocks (representing multiple ESKs)
+-- | Prefilter the block for each account.
+--
 -- TODO: Improve performance (CBR-379)
+-- TODO: This not be defined in terms of they keystore (CBR-341)
 prefilterBlock' :: PassiveWallet
                 -> ResolvedBlock
-                -> IO (Map HdAccountId PrefilteredBlock)
+                -> IO (SlotId, Map HdAccountId PrefilteredBlock)
 prefilterBlock' pw b =
-    withKeystore pw $ \ks ->
-        (Map.unions . map prefilterBlock_) <$> Keystore.toList ks
-    where
-        prefilterBlock_ (wid,esk) = prefilterBlock wid esk b
+    withKeystore pw $ \ks -> aux <$> Keystore.toList ks
+  where
+    aux :: [(WalletId, EncryptedSecretKey)]
+        -> (SlotId, Map HdAccountId PrefilteredBlock)
+    aux ws = (
+        b ^. rbSlotId
+      , Map.unions $ map (uncurry (prefilterBlock b)) ws
+      )
 
 -- | Notify all the wallets in the PassiveWallet of a new block
 applyBlock :: PassiveWallet
@@ -160,9 +166,9 @@ applyBlock :: PassiveWallet
            -> IO ()
 applyBlock pw@PassiveWallet{..} b
     = do
-        blocksByAccount <- prefilterBlock' pw b
+        (slotId, blocksByAccount) <- prefilterBlock' pw b
         -- apply block to all Accounts in all Wallets
-        update' _wallets $ ApplyBlock blocksByAccount
+        update' _wallets $ ApplyBlock (InDb slotId) blocksByAccount
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
 --

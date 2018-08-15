@@ -51,7 +51,7 @@ toInputGrouping v1GroupingPolicy =
 newTransaction :: ActiveWalletLayer IO
                -> Payment
                -> Handler (WalletResponse Transaction)
-newTransaction aw payment@Payment{..} = do
+newTransaction aw payment@Payment{..} = liftIO $ do
 
     -- NOTE(adn) The 'SenderPaysFee' option will become configurable as part
     -- of CBR-291.
@@ -61,26 +61,8 @@ newTransaction aw payment@Payment{..} = do
                                          payment
     case res of
          Left err -> throwM err
-         Right tx -> do
-             now <- liftIO getCurrentTimestamp
-             -- NOTE(adn) As part of [CBR-239], we could simply fetch the
-             -- entire 'Transaction' as part of the TxMeta.
-             -- TODO: Once we fix this here, we should also change it in
-             -- 'redeemAda' in "Cardano.Wallet.API.V1.Handlers.Accounts".
-             return $ single Transaction {
-                               txId            = V1 (hash tx)
-                             , txConfirmations = 0
-                             , txAmount        = V1 (paymentAmount $ _txOutputs tx)
-                             , txInputs        = error "TODO, see [CBR-324]"
-                             , txOutputs       = fmap outputsToDistribution (_txOutputs tx)
-                             , txType          = error "TODO, see [CBR-324]"
-                             , txDirection     = OutgoingTransaction
-                             , txCreationTime  = V1 now
-                             , txStatus        = Creating
-                             }
+         Right (_, meta) -> single <$> WalletLayer.getTxFromMeta (WalletLayer.walletPassiveLayer aw) meta
     where
-        outputsToDistribution :: TxOut -> PaymentDistribution
-        outputsToDistribution (TxOut addr amount) = PaymentDistribution (V1 addr) (V1 amount)
 
 getTransactionsHistory :: PassiveWalletLayer IO
                        -> Maybe WalletId

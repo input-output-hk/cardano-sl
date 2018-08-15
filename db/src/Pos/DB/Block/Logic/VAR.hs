@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Center of where block verification/application/rollback happens.
 -- Unifies VAR for all components (slog, ssc, txp, dlg, us).
 

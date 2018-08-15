@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Functions operation on 'SlogContext' and its subtypes.
 
 module Pos.DB.Block.Slog.Context

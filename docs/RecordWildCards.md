@@ -214,6 +214,63 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Arbitrary.hs|SharedSecrets| Same module|
 |CryptoSpec2.hs|UnsafeProxySecretKey|crypto/Pos/Crypto/Signing/Types/Signing.hs|
 
+## `db` package
+### File path prefix: src/Pos/DB/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Update/Poll/Logic/Softfork.hs|BlockVersionState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Softfork.hs|BlockVersionData |core/src/Pos/Core/Update/Types.hs|
+|Update/Poll/Logic/Version.hs|UnsafeUpdateProposal |src/Pos/Core/Update/Vote.hs|
+|Update/Logic/Local.hs|MemState |db/src/Pos/DB/Update/MemState/Types.hs|
+|Update/Logic/Local.hs|MemPool |db/src/Pos/DB/Update/MemState/Types.hs|
+|Update/Logic/Local.hs|SlotId|src/Pos/Core/Slotting/SlotId.hs|
+|Update/Poll/Logic/Apply.hs|UpdatePayload |src/Pos/Core/Update/Payload.hs|
+|Update/Poll/Logic/Apply.hs|UnsafeUpdateProposal |src/Pos/Core/Update/Vote.hs|
+|Update/Poll/Logic/Apply.hs|UndecidedProposalState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Apply.hs|BlockVersionData |core/src/Pos/Core/Update/Types.hs|
+|Update/Poll/Logic/Apply.hs|DecidedProposalState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Apply.hs|DpsExtra |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Apply.hs|UpsExtra |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Logic/Global.hs|PollModifier |chain/src/Pos/Chain/Update/Poll/Modifier.hs|
+|Update/Poll/Logic/Base.hs|BlockVersion |src/Pos/Core/Update/BlockVersion.hs|
+|Update/Poll/Logic/Base.hs|SoftforkRule |src/Pos/Core/Update/SoftforkRule.hs|
+|Update/Poll/Logic/Base.hs|UndecidedProposalState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Rollback.hs|SoftwareVersion |src/Pos/Core/Update/SoftwareVersion.hs|
+|Update/Poll/PollState.hs|PollModifier |chain/src/Pos/Chain/Update/Poll/Modifier.hs|
+|Update/Poll/PollState.hs|PollState |db/src/Pos/DB/Update/Poll/PollState.hs|
+|Update/GState.hs|SoftwareVersion |src/Pos/Core/Update/SoftwareVersion.hs|
+|Update/GState.hs|ConfirmedProposalState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Normalize.hs|UndecidedProposalState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Logic/Normalize.hs|DecidedProposalState |chain/src/Pos/Chain/Update/Poll/Types.hs|
+|Update/Poll/Pure.hs|SoftwareVersion |src/Pos/Core/Update/SoftwareVersion.hs|
+|Update/MemState/Functions.hs|UpdatePayload |src/Pos/Core/Update/Payload.hs|
+|Block/Slog/Context.hs|SlogGState |chain/src/Pos/Chain/Block/Slog/Types.hs|
+|Block/Slog/Context.hs|SlogContext |chain/src/Pos/Chain/Block/Slog/Types.hs|
+|Block/Slog/Context.hs|SlogGState |chain/src/Pos/Chain/Block/Slog/Types.hs|
+|Update/MemState/Types.hs|MemState|db/src/Pos/DB/Update/MemState/Types.hs|
+|Rocks/Functions.hs|NodeDBs |db/src/Pos/DB/Rocks/Types.hs|
+|Rocks/Functions.hs|DB |db/src/Pos/DB/Rocks/Types.hs|
+|Block/Slog/Logic.hs|BlockVersion |src/Pos/Core/Update/BlockVersion.hs|
+|Block/Logic/Types.hs|VerifyBlocksContext | Same module|
+|Block/Logic/Internal.hs|TxpGlobalSettings |db/src/Pos/DB/Txp/Settings.hs|
+|Block/Logic/VAR.hs|TxpGlobalSettings |db/src/Pos/DB/Txp/Settings.hs|
+|Delegation/Logic/VAR.hs|DlgUndo|chain/src/Pos/Chain/Delegation/Types.hs|
+|Txp/Logic/Local.hs|ToilVerFailure |chain/src/Pos/Chain/Txp/Toil/Failure.hs|
+|Txp/Logic/Local.hs|LocalToilState |chain/src/Pos/Chain/Txp/Toil/Monad.hs|
+|Txp/Logic/Local.hs|TxpLocalData|db/src/Pos/DB/Txp/MemState/Types.hs|
+|Txp/Logic/Global.hs|ProcessBlundsSettings |db/src/Pos/DB/Txp/Logic/Global.hs|
+|Txp/Logic/Global.hs|GlobalToilState |chain/src/Pos/Chain/Txp/Toil/Monad.hs|
+|GState/Lock.hs|StateLockMetrics |db/src/Pos/DB/GState/Lock.hs|
+|Ssc/SecretStorage.hs|SscSecretStorage |chain/src/Pos/Chain/Ssc/Types.hs|
+|Ssc/Logic/Local.hs|SlotId |src/Pos/Core/Slotting/SlotId.hs|
+|Lrc/Context.hs|LrcContext | Same module|
+|Lrc/Context.hs|LrcSyncData | Same module|
+|BatchOp.hs|DB |db/src/Pos/DB/Rocks/Types.hs|
+
+
+
+
 ## `networking` package
 ### File path prefix: src/Network/
 | File | Types | Type Definition Location |

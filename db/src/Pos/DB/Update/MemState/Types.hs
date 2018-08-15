@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Types which are stored in memory.
 
 module Pos.DB.Update.MemState.Types

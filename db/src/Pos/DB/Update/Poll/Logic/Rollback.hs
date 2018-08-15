@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Rollback logic in Poll.
 

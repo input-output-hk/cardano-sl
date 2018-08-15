@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Pure Poll
 
 module Pos.DB.Update.Poll.Pure

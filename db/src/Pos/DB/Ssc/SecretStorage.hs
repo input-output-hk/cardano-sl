@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.DB.Ssc.SecretStorage
        ( getOurCommitment
        , getOurOpening

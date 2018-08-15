@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Logic of local data processing in Update System.
 
 module Pos.DB.Update.Logic.Local

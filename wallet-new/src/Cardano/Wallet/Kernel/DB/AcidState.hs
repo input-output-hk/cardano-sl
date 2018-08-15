@@ -47,8 +47,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Pos.Core (SlotId)
 import           Pos.Chain.Txp (Utxo)
+import           Pos.Core (SlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import qualified Pos.Core.Txp as Txp
 

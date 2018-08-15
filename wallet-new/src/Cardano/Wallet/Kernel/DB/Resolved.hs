@@ -20,8 +20,8 @@ import           Formatting.Buildable
 
 import           Serokell.Util (listJson, mapJson)
 
-import           Pos.Core (SlotId)
 import qualified Pos.Chain.Txp as Core
+import           Pos.Core (SlotId)
 
 import           Cardano.Wallet.Kernel.DB.InDb
 
@@ -56,7 +56,7 @@ data ResolvedTx = ResolvedTx {
 -- represented here.
 data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
-      _rbTxs   :: ![ResolvedTx]
+      _rbTxs    :: ![ResolvedTx]
 
       -- | Slot ID of this block
     , _rbSlotId :: !SlotId

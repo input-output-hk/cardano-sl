@@ -143,7 +143,6 @@ library
                      , memory
                      , mmorph
                      , mtl
-                     , reflection
                      , resourcet
                      , rocksdb-haskell-ng
                      , safe-exceptions

@@ -38,7 +38,6 @@ library
                      , hashable
                      , lens
                      , micro-recursion-schemes
-                     , mtl
                      , safecopy
                      , safe-exceptions
                      , serokell-util
@@ -99,7 +98,6 @@ test-suite test
 
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
-                     , aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -107,14 +105,6 @@ test-suite test
                      , cborg
                      , cereal
                      , containers
-                     , cryptonite
-                     , data-default
-                     , directory
-                     , file-embed
-                     , extra
-                     , filepath
-                     , filelock
-                     , fmt
                      , formatting
                      , generic-arbitrary
                      , half
@@ -126,7 +116,6 @@ test-suite test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
-                     , template-haskell
                      , text
                      , formatting
                      , time-units

@@ -186,34 +186,21 @@ benchmark cardano-sl-verification-bench
   main-is:              Main.hs
   other-modules:        Bench.Pos.Criterion.Block.Logic
   type:                 exitcode-stdio-1.0
-  build-depends:        async
-                      , base
+  build-depends:        base
                       , cardano-sl
-                      , cardano-sl-binary
                       , cardano-sl-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-generator
-                      , cardano-sl-infra
-                      , cardano-sl-networking
                       , cardano-sl-util
                       , containers
                       , criterion
-                      , cryptonite
-                      , data-default
-                      , ether
-                      , lens
                       , log-warper
-                      , lrucache
                       , MonadRandom
-                      , mtl
-                      , QuickCheck
                       , random
                       , time-units
                       , universum >= 0.1.11
-                      , unliftio-core
-                      , unordered-containers
                       , serokell-util
   default-language:     Haskell2010
   ghc-options:          -threaded
@@ -254,8 +241,7 @@ benchmark cardano-sl-verification-bench
 executable cardano-sl-verification-bench-exe
   hs-source-dirs:       app
   main-is:              VerificationBench.hs
-  build-depends:        async
-                      , base
+  build-depends:        base
                       , bytestring
                       , cardano-sl
                       , cardano-sl-binary
@@ -264,30 +250,19 @@ executable cardano-sl-verification-bench-exe
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-generator
-                      , cardano-sl-infra
-                      , cardano-sl-networking
                       , cardano-sl-util
                       , containers
                       , criterion
-                      , cryptonite
-                      , data-default
                       , deepseq
                       , directory
-                      , ether
                       , formatting
-                      , lens
                       , log-warper
-                      , lrucache
                       , MonadRandom
-                      , mtl
                       , optparse-applicative
-                      , QuickCheck
                       , random
                       , text
                       , time-units
                       , universum >= 0.1.11
-                      , unliftio-core
-                      , unordered-containers
   default-language:     Haskell2010
   ghc-options:        -threaded
                       -rtsopts

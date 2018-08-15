@@ -19,18 +19,14 @@ library
                        Test.Pos.Cbor.RefImpl
 
   build-depends:       QuickCheck
-                     , aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-util-test
                      , cborg
                      , cereal
-                     , cryptonite
                      , containers
-                     , directory
                      , cryptonite
-                     , filepath
                      , formatting
                      , half
                      , hedgehog
@@ -40,7 +36,6 @@ library
                      , quickcheck-instances
                      , safecopy
                      , serokell-util
-                     , template-haskell
                      , text
                      , universum
 

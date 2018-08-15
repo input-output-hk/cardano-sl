@@ -197,7 +197,6 @@ library
   build-depends:       aeson
                      , aeson-options
                      , ansi-terminal
-                     , async
                      , base
                      , base58-bytestring
                      , bytestring
@@ -315,8 +314,7 @@ test-suite test
                        Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
 
-  build-depends:       aeson
-                     , base
+  build-depends:       base
                      , base16-bytestring
                      , bytestring
                      , cardano-crypto

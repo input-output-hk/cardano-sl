@@ -25,7 +25,6 @@ library
                        Test.Pos.Core.Json
 
   build-depends:       QuickCheck
-                     , aeson
                      , base
                      , base16-bytestring
                      , bytestring
@@ -41,7 +40,6 @@ library
                      , cryptonite
                      , data-default
                      , ed25519
-                     , formatting
                      , generic-arbitrary
                      , hedgehog
                      , pvss

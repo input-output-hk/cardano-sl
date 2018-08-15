@@ -225,7 +225,6 @@ test-suite test
                   , async
                   , base
                   , bytestring
-                  , cardano-sl-binary
                   , cardano-sl-binary-test
                   , cardano-sl-chain
                   , cardano-sl-chain-test

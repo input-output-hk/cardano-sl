@@ -204,7 +204,6 @@ executable cardano-launcher
                      , bytestring
                      , cardano-report-server >= 0.2.1
                      , cardano-sl
-                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
@@ -220,7 +219,6 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , safe-exceptions
-                     , serokell-util
                      , silently
                      , text
                      , time-units

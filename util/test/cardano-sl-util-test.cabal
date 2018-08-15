@@ -41,7 +41,6 @@ library
                      , mtl
                      , pretty-show
                      , quickcheck-instances
-                     , tagged
                      , template-haskell
                      , text
                      , time-units

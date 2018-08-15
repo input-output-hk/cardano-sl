@@ -175,7 +175,6 @@ library
                       , lens
                       , log-warper >= 1.1.1
                       , memory
-                      , mmorph
                       , monad-control
                       , mtl
                       , neat-interpolation
@@ -213,8 +212,6 @@ library
                       , x509-store
                       , x509-validation
                       , yaml
-                      -- https://issues.serokell.io/issue/DEVOPS-230
-                      , cpphs
                       -- Required for common test modules
                       , cborg
 
@@ -406,7 +403,6 @@ benchmark cardano-bench-criterion
                      , network-transport
                      , network-transport-inmemory
                      , optparse-applicative
-                     , time-units
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

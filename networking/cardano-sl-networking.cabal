@@ -49,23 +49,19 @@ Library
                       , cardano-sl-core
                       , cardano-sl-util
                       , containers
-                      , cryptonite
                       , binary >= 0.8
                       , bytestring
-                      , exceptions
                       , formatting
                       , hashable
                       , kademlia
                       , lens
                       , log-warper
-                      , monad-control
                       , mtl
                       , network
                       , network-transport
                       , network-transport-tcp
                       , mtl >= 2.2.1
                       , random
-                      , resourcet
                       , universum
                       , safe-exceptions
                       , stm

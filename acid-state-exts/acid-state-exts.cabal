@@ -23,27 +23,16 @@ Library
                        Serokell.AcidState.Instances
                        Serokell.AcidState.Util
 
-  Build-depends:       array,
+  Build-depends:
                        acid-state,
                        base >= 4 && < 5,
-                       bytestring >= 0.10.2,
-                       cereal >= 0.4.1.0,
-                       containers,
                        directory,
-                       filelock,
                        filepath,
                        exceptions,
-                       extensible-exceptions,
                        extra,
-                       hashable,
                        mtl,
-                       network,
                        safecopy >= 0.9.4,
-                       stm >= 2.4,
-                       template-haskell,
-                       th-expand-syns >= 0.4.1 && < 0.5,
-                       time-units,
-                       unordered-containers
+                       time-units
 
   if os(windows)
      Build-depends:       Win32

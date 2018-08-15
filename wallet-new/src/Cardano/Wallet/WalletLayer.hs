@@ -20,6 +20,7 @@ module Cardano.Wallet.WalletLayer
     , validateAddress
 
     , getTransactions
+    , getTxFromMeta
 
     , applyBlocks
     , rollbackBlocks
@@ -69,6 +70,7 @@ import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation, InputGrouping)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
@@ -392,8 +394,9 @@ data PassiveWalletLayer m = PassiveWalletLayer
                                -> m (Either ValidateAddressError WalletAddress)
 
     -- * transactions
-    , _pwlGetTransactions :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
+    , _pwlGetTransactions      :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
         -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
+    , _pwlGetTxFromMeta        :: TxMeta -> m Transaction
 
     -- * core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
@@ -486,6 +489,9 @@ getTransactions :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe Acc
     -> Maybe (V1 Address) -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
 getTransactions pwl = pwl ^. pwlGetTransactions
 
+getTxFromMeta :: forall m. PassiveWalletLayer m -> TxMeta -> m Transaction
+getTxFromMeta pwl = pwl ^. pwlGetTxFromMeta
+
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks
 
@@ -510,7 +516,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
           -- ^ Who pays the fee, if the sender or the receivers.
           -> Payment
           -- ^ The payment we need to perform.
-          -> m (Either NewPaymentError Tx)
+          -> m (Either NewPaymentError (Tx, TxMeta))
 
       -- | Estimates the fees for a payment.
     , estimateFees :: PassPhrase

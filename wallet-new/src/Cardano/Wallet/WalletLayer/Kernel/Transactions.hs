@@ -1,5 +1,6 @@
 module Cardano.Wallet.WalletLayer.Kernel.Transactions (
-    getTransactions
+      getTransactions
+    , toTransaction
 ) where
 
 import           Universum
@@ -40,9 +41,8 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     accountFops <- castAccountFiltering mbWalletId mbAccountIndex
     mbSorting <- castSorting sop
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    -- check Pos.Core.ProtocolConstants, Core.blkSecurityParam
-    let k = (2000 :: Word)           -- TODO: retrieve this constant from Core
-    let currentSlot = (1000 :: Word) -- TODO: retrieve this constant from Core ??
+    k <- liftIO getk
+    currentSlot <- liftIO getCurrentSlotL
     (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
         (wallet ^. Kernel.walletMeta)
         (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
@@ -55,6 +55,23 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     let txs = map (metaToTx db k currentSlot) meta
     return $ respond params txs mbTotalEntries
 
+toTransaction :: MonadIO m
+               => Kernel.PassiveWallet
+               -> TxMeta
+               -> m V1.Transaction
+toTransaction wallet meta = liftIO $ do
+    db <- liftIO $ Kernel.getWalletSnapshot wallet
+    k <- getk
+    currentSlot <- getCurrentSlotL
+    return $ metaToTx db k currentSlot meta
+
+-- TODO(kde): retrieve this constant from Core
+getk :: IO Word
+getk = return 2000
+
+-- TODO(kde): retrieve this constant from Core ??
+getCurrentSlotL :: IO Word
+getCurrentSlotL = return 1000
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
 castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops
@@ -104,8 +121,8 @@ metaToTx db k current TxMeta{..} =
         txId = V1 _txMetaId,
         txConfirmations = confirmations,
         txAmount = V1 _txMetaAmount,
-        txInputs = toPayDistr <$> _txMetaInputs,
-        txOutputs = toPayDistr <$> _txMetaOutputs,
+        txInputs = inputsToPayDistr <$> _txMetaInputs,
+        txOutputs = outputsToPayDistr <$> _txMetaOutputs,
         txType = if _txMetaIsLocal then V1.LocalTransaction else V1.ForeignTransaction,
         txDirection = if _txMetaIsOutgoing then V1.OutgoingTransaction else V1.IncomingTransaction,
         txCreationTime = V1 _txMetaCreationAt,
@@ -116,8 +133,11 @@ metaToTx db k current TxMeta{..} =
             hdAccountId = HD.HdAccountId (HD.HdRootId $ InDb _txMetaWalletId)
                                         (HD.HdAccountIx _txMetaAccountIx)
 
-            toPayDistr :: (Address, Coin) -> V1.PaymentDistribution
-            toPayDistr (addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)
+            inputsToPayDistr :: (Address, Coin, a , b) -> V1.PaymentDistribution
+            inputsToPayDistr (addr, c, _, _) = V1.PaymentDistribution (V1 addr) (V1 c)
+
+            outputsToPayDistr :: (Address, Coin) -> V1.PaymentDistribution
+            outputsToPayDistr (addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)
 
             mSlot = Kernel.accountTxSlot db hdAccountId _txMetaId
             isPending = Kernel.accountIsTxPending db hdAccountId _txMetaId
@@ -138,7 +158,7 @@ buildDynamicTxMeta mSlot k currentSlot isPending = case isPending of
 
 -- | We don`t fitler in memory, so totalEntries is unknown, unless TxMeta Database counts them for us.
 -- It is possible due to some error, to have length ls < Page.
--- One scenario for this is when a Tx is found without Inputs.
+-- This can happen when a Tx is found without Inputs.
 respond :: RequestParams -> [a] -> Maybe Int -> (WalletResponse [a])
 respond RequestParams{..} ls mbTotalEntries =
     let totalEntries = fromMaybe 0 mbTotalEntries

@@ -39,6 +39,7 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
 
   -- * Internals useful for testing
   , uniqueElements
+  , quadF
   ) where
 
 import           Universum
@@ -47,11 +48,13 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
+import qualified Data.Text.Lazy.Builder as B
 import           Formatting (bprint, shown, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
 import           Pos.Crypto (shortHashF)
-import           Serokell.Util.Text (listJsonIndent, mapBuilder)
+import           Serokell.Util.Text (listBuilderJSON, listJsonIndent,
+                     mapBuilder)
 import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)
 
 import qualified Pos.Core as Core
@@ -76,7 +79,7 @@ data TxMeta = TxMeta {
     , _txMetaAmount     :: Core.Coin
 
       -- | Transaction inputs
-    , _txMetaInputs     :: NonEmpty (Core.Address, Core.Coin)
+    , _txMetaInputs     :: NonEmpty (Core.Address, Core.Coin, Txp.TxId, Word32)
 
       -- | Transaction outputs
     , _txMetaOutputs    :: NonEmpty (Core.Address, Core.Coin)
@@ -121,15 +124,15 @@ exactlyEqualTo t1 t2 =
         ]
 
 -- | Lenient equality for two 'TxMeta': two 'TxMeta' are equal if they have
--- the same data, even if in different order.
--- NOTE: This check might be slightly expensive as it's logaritmic in the
--- number of inputs & outputs, as it requires sorting.
+-- the same data, same outputs in the same and same inputs even if in different order.
+-- NOTE: This check might be slightly expensive as it's nlogn in the
+-- number of inputs, as it requires sorting.
 isomorphicTo :: TxMeta -> TxMeta -> Bool
 isomorphicTo t1 t2 =
     and [ t1 ^. txMetaId == t2 ^. txMetaId
         , t1 ^. txMetaAmount == t2 ^. txMetaAmount
         , NonEmpty.sort (t1 ^. txMetaInputs)  == NonEmpty.sort (t2 ^. txMetaInputs)
-        , NonEmpty.sort (t1 ^. txMetaOutputs) == NonEmpty.sort (t2 ^. txMetaOutputs)
+        , t1 ^. txMetaOutputs == t2 ^. txMetaOutputs
         , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
@@ -186,7 +189,7 @@ uniqueElements size = do
 instance Buildable TxMeta where
     build txMeta = bprint (" id = "%shortHashF%
                            " amount = " % F.build %
-                           " inputs = " % F.later mapBuilder %
+                           " inputs = " % F.later tQuadBuilder %
                            " outputs = " % F.later mapBuilder %
                            " creationAt = " % F.build %
                            " isLocal = " % F.build %
@@ -202,6 +205,20 @@ instance Buildable TxMeta where
                             (txMeta ^. txMetaIsOutgoing)
                             (txMeta ^. txMetaWalletId)
                             (txMeta ^. txMetaAccountIx)
+
+tQuadBuilder
+    :: (Traversable t, Buildable a, Buildable b, Buildable c, Buildable d)
+    => t (a, b, c, d) -> B.Builder
+tQuadBuilder = listBuilderJSON . fmap quadBuilder
+
+quadBuilder
+    :: (Buildable a, Buildable b, Buildable c, Buildable d)
+    => (a, b, c, d) -> B.Builder
+quadBuilder (a, b, c, d) = bprint ("(" % F.build % ", " % F.build % ", "
+      % F.build % ", " % F.build % ")") a b c d
+
+quadF :: (Buildable a, Buildable b, Buildable c, Buildable d) => F.Format r ((a,b,c,d) -> r)
+quadF = F.later quadBuilder
 
 instance Buildable [TxMeta] where
     build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta

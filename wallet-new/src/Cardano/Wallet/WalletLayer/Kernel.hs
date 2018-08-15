@@ -76,6 +76,7 @@ bracketPassiveWallet logFunction keystore rocksDB f =
         , _pwlGetAddresses         = \rp      -> ro $ Addresses.getAddresses rp
         , _pwlValidateAddress      = \txt     -> ro $ Addresses.validateAddress txt
         , _pwlGetTransactions      = Transactions.getTransactions w
+        , _pwlGetTxFromMeta        = Transactions.toTransaction w
         }
       where
         -- Read-only operations

@@ -1,5 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
-module TxMetaStorageSpecs (
+module TxMetaStorageSpecs
+
+ (
       txMetaStorageSpecs
     , genMeta
     , Isomorphic (..)
@@ -7,6 +9,7 @@ module TxMetaStorageSpecs (
 
 import           Universum
 
+import qualified Cardano.Wallet.Kernel.DB.Sqlite as SQlite
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Control.Exception.Safe (bracket)
 import qualified Data.List as List
@@ -16,6 +19,7 @@ import           Formatting.Buildable (build)
 import qualified Prelude
 
 import qualified Pos.Core as Core
+import           Pos.Core.Txp (TxId)
 
 import           Formatting (bprint)
 import           Serokell.Util.Text (listJsonIndent, pairF)
@@ -52,65 +56,51 @@ withTemporaryDb action = bracket acquire release action
        release :: MetaDBHandle -> m ()
        release = liftIO . closeMetaDB
 
-
 -- | Generates two 'TxMeta' which are @almost@ identical, if not in the
--- arrangement of their inputs & outputs.
+-- arrangement of their inputs.
 genSimilarTxMetas :: Gen (ShowThroughBuild TxMeta, ShowThroughBuild TxMeta)
 genSimilarTxMetas = do
     inputs  <- uniqueElements 5
-    outputs <- uniqueElements 5
+    outputs <- NonEmpty.fromList <$> vectorOf 5 arbitrary
     blueprint <- unSTB <$> genMeta
     let t1 = blueprint & over txMetaInputs  (const inputs)
                        . over txMetaOutputs (const outputs)
     let t2 = blueprint & over txMetaInputs  (const (NonEmpty.reverse inputs))
-                       . over txMetaOutputs (const (NonEmpty.reverse outputs))
+                       . over txMetaOutputs (const (outputs)) -- order is important for outputs.
     return (STB t1, STB t2)
 
--- | Synthetic @newtype@ used to generate unique inputs and outputs as part of
+-- | Synthetic @newtype@ used to generate unique inputs as part of
 -- 'genMetas'. The reason why it is necessary is because the stock implementation
--- of 'Eq' for '(Core.Address, Core.Coin)' would of course declare two tuples
--- equal if their elements are.
--- However, this is too \"strong\" for our 'uniqueElements' generator, which
--- would consider these two unique:
---
--- ("123", 10)
--- ("123", 0)
---
--- This would of course break our persistent storage, because inserting "123"
--- twice would trigger the primary key uniqueness violation.
-newtype TxEntry = TxEntry { getTxEntry :: (Core.Address, Core.Coin) }
+-- of 'Eq' would of course declare two tuples equal if their elements are.
+-- However, this is too \"strong\" for our 'uniqueElements' generator.
 
-instance Eq TxEntry where
-    (TxEntry (a1, _)) == (TxEntry (a2, _)) = a1 == a2
+newtype Input = Input { getInput :: (Core.Address, Core.Coin, TxId, Word32) }
 
--- | This is a totally bonkers 'Ord' instance (as it doesn't really make sense
--- to order anything by an 'Address' value, but it's necessary for the sake
--- of the input and output generation. In particular, writing the following
--- will introduce a bug later on:
---
--- instance Ord TxEntry where
---     compare (TxEntry (_, c1)) (TxEntry (_, c2)) = compare c1 c2
---
--- This will speed up the tests considerably, but it comes with a fatal flaw:
--- later on, once generating unique inputs & outputs as part of 'uniqueElements',
--- we rely on a 'Set' (and thus an 'Ord' instance) to generate unique elements.
--- But the instance above will 'compare' the two 'Coin' values and in turn
--- piggyback on equality for Coins, essentially trashing the invariant we
--- describe above as the entire @raison d'etre@ for the 'TxEntry' type.
-instance Ord TxEntry where
-    compare (TxEntry (a1, _)) (TxEntry (a2, _)) = compare a1 a2
+-- | Eq is defined on the primary keys of Inputs.
+instance Eq Input where
+    (Input (_, _, id1, ix1)) == (Input (_, _, id2, ix2)) = (id1, ix1) == (id2, ix2)
 
-instance Arbitrary TxEntry where
-    arbitrary = TxEntry  <$> arbitrary
+-- | This ensures that Inputs generated for the same Tx from getMetas, do not
+-- double spend as they don`t use the same output.
+instance Ord Input where
+    compare (Input (_, _, id1, ix1)) (Input (_, _, id2, ix2)) = compare (id1, ix1) (id2, ix2)
 
-instance Buildable TxEntry where
-    build (TxEntry b) = bprint pairF b
+instance Arbitrary Input where
+    arbitrary = Input <$> arbitrary
 
-instance Buildable (Int, TxEntry) where
+instance Buildable Input where
+    build (Input b) = bprint quadF b
+
+instance Buildable (Int, Input) where
     build b = bprint pairF b
 
-instance Buildable [TxEntry] where
+instance Buildable [Input] where
     build = bprint (listJsonIndent 4)
+
+newtype Output = Output { getOutput :: (Core.Address, Core.Coin) }
+
+instance Arbitrary Output where
+    arbitrary = Output  <$> arbitrary
 
 -- | Handy generator which make sure we are generating 'TxMeta' which all
 -- have distinct inputs and outptus.
@@ -118,14 +108,14 @@ genMetas :: Int -> Gen [ShowThroughBuild TxMeta]
 genMetas size = do
     metas  <- map unSTB <$> vectorOf size genMeta
     inputs  <- chunksOf 3 . toList <$> uniqueElements (length metas * 3)
-    outputs <- chunksOf 3 . toList <$> uniqueElements (length metas * 3)
+    outputs <- chunksOf 3 . toList <$> vectorOf (length metas * 3) arbitrary
     return $ map (STB . mkTx) (Prelude.zip3 metas inputs outputs)
 
     where
-        mkTx :: (TxMeta, [TxEntry], [TxEntry])
+        mkTx :: (TxMeta, [Input], [Output])
              -> TxMeta
         mkTx (tMeta, i, o) =
-            case liftM2 (,) (nonEmpty . map getTxEntry $ i) (nonEmpty . map getTxEntry $ o) of
+            case liftM2 (,) (nonEmpty . map getInput $ i) (nonEmpty . map getOutput $ o) of
                  Nothing -> error "mkTx: the impossible happened, invariant violated."
                  Just (inputs, outputs) ->
                      tMeta & over txMetaInputs  (const inputs)
@@ -137,8 +127,8 @@ genMeta :: Gen (ShowThroughBuild TxMeta)
 genMeta = do
     meta <- TxMeta <$> arbitrary
                    <*> arbitrary
-                   <*> (fmap getTxEntry <$> uniqueElements 2)
-                   <*> (fmap getTxEntry <$> uniqueElements 2)
+                   <*> (fmap getInput  <$> uniqueElements 2)
+                   <*> (fmap getOutput <$> NonEmpty.fromList <$> vectorOf 2 arbitrary)
                    <*> arbitrary
                    <*> arbitrary
                    <*> arbitrary
@@ -199,7 +189,7 @@ txMetaStorageSpecs :: Spec
 txMetaStorageSpecs = do
     describe "uniqueElements generator" $ do
         it "generates unique inputs" $ monadicIO $ do
-            (inputs :: NonEmpty (ShowThroughBuild TxEntry)) <- pick (uniqueElements 30)
+            (inputs :: NonEmpty (ShowThroughBuild Input)) <- pick (uniqueElements 30)
             assert (not $ hasDupes . map unSTB . toList $ inputs)
 
     describe "TxMeta equality" $ do
@@ -214,6 +204,17 @@ txMetaStorageSpecs = do
             $ forAll genSimilarTxMetas
             $ \(STB t1, STB t2) -> t1 `isomorphicTo` t2
 
+        it "fromInputs . mkInputs should keep same inputs" $ monadicIO $ do
+            meta <- unSTB <$> pick genMeta
+            let ls = SQlite.fromInputs . SQlite.mkInputs $ meta
+            return $ Isomorphic meta{_txMetaInputs = ls} `shouldBe` Isomorphic meta
+
+
+        it "fromOutputs . mkOutputs should keep the same ordered outputs" $ monadicIO $ do
+            meta <- unSTB <$> pick genMeta
+            let ls = SQlite.fromOutputs . SQlite.mkOutputs $ meta
+            return $ meta{_txMetaOutputs = ls} `exactlyEqualTo` meta
+
     describe "TxMeta storage" $ do
 
         it "can store a TxMeta and retrieve it back" $ monadicIO $ do
@@ -222,7 +223,7 @@ txMetaStorageSpecs = do
                 let testMeta = unSTB testMetaSTB
                 void $ putTxMeta hdl testMeta
                 mbTx <- getTxMeta hdl (testMeta ^. txMetaId)
-                fmap DeepEqual mbTx `shouldBe` Just (DeepEqual testMeta)
+                Isomorphic <$> mbTx `shouldBe` Just (Isomorphic testMeta)
 
         it "yields Nothing when calling getTxMeta, if a TxMeta is not there" $ monadicIO $ do
             testMetaSTB <- pick genMeta
@@ -239,7 +240,7 @@ txMetaStorageSpecs = do
                 putTxMeta hdl testMeta `shouldReturn` ()
                 putTxMeta hdl testMeta `shouldReturn` ()
 
-        it "inserting two tx with the same tx, but different content is an error" $ monadicIO $ do
+        it "inserting two tx with the same TxId, but different content is an error" $ monadicIO $ do
             testMetaSTB <- pick genMeta
             run $ withTemporaryDb $ \hdl -> do
                 let meta1 = unSTB testMetaSTB
@@ -294,7 +295,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 case walletIdTransform metas of
-                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasW, accFop, expectedResults) -> do
                         forM_ metasW (putTxMeta hdl)
                         (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 20) accFop Nothing NoFilterOp NoFilterOp Nothing
@@ -306,7 +307,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 case filtersTransform metas of
-                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasF, accFop, fopTimestamp, expectedResults) -> do
                         forM_ metasF (putTxMeta hdl)
                         (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 10) accFop Nothing NoFilterOp fopTimestamp Nothing
@@ -330,7 +331,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 case getAddress metas of
-                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Nothing -> error "txMeta was found with less elements than it should"
                     Just (addr, m) -> do
                         forM_ metas (putTxMeta hdl)
                         (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
@@ -341,7 +342,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 case getAddressTransform metas of
-                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasA, addr, m1, m2) -> do
                         forM_ metasA (putTxMeta hdl)
                         (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
@@ -349,6 +350,23 @@ txMetaStorageSpecs = do
                         count `shouldSatisfy` (justbeq 2)
                         iso  `shouldContain` [Isomorphic m1]
                         iso  `shouldContain` [Isomorphic m2]
+
+        it "txs with same address in both inputs and outputs are reported once (SQL union removes duplicates)" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform' metas of
+                    Nothing -> error "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, m2) -> do
+                        forM_ metasA (putTxMeta hdl)
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        let iso = map Isomorphic result
+                        count `shouldSatisfy` (justbeq 2)
+                        iso  `shouldContain` [Isomorphic m1]
+                        iso  `shouldContain` [Isomorphic m2]
+                        let sameTxIdWithM2 = filter (\m -> _txMetaId m == _txMetaId m2) result
+                        map Isomorphic sameTxIdWithM2 `shouldBe` [Isomorphic m2]
+
 
         it "paginates meta with the correct address in Inputs or Outputs" $ monadicIO $ do
             testMetasSTB <- pick (genMetas 5)
@@ -497,7 +515,7 @@ getAddress ls = case ls of
     m : _ ->
         Just (addr, m)
           where
-            (addr, _) = head $ _txMetaInputs m
+            (addr, _, _, _) = head $ _txMetaInputs m
 
 
 -- The address returned is found in the Inputs of the first TxMeta
@@ -510,5 +528,18 @@ getAddressTransform ls = case ls of
 
         Just (rest <> [m2', m1], addr, m1, m2')
             where
-                (addr, _) = head $ _txMetaInputs m1
-                m2' = m2 {_txMetaOutputs = _txMetaInputs m1}
+                (addr, coin, _, _) = head $ _txMetaInputs m1
+                m2' = m2 {_txMetaOutputs = NonEmpty.fromList [(addr, coin)]}
+
+-- The address returned is found in the Inputs of the first TxMeta
+-- and the Outputs of the second.
+getAddressTransform' :: [TxMeta] -> Maybe ([TxMeta], Core.Address, TxMeta, TxMeta)
+getAddressTransform' ls = case ls of
+    []  -> Nothing
+    [_] -> Nothing
+    m1 : m2 : rest ->
+
+        Just (rest <> [m2', m1], addr, m1, m2')
+            where
+                (addr, coin, _, _) = head $ _txMetaInputs m1
+                m2' = m2 {_txMetaOutputs = NonEmpty.fromList [(addr, coin)], _txMetaInputs = _txMetaInputs m1}

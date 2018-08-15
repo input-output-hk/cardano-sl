@@ -245,12 +245,15 @@ bracketActiveWallet walletProtocolMagic walletPassive walletDiffusion runActiveW
 --
 -- If the pending transaction is successfully added to the wallet state, the
 -- submission layer is notified accordingly.
-newPending :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewPendingError ())
-newPending ActiveWallet{..} accountId tx = do
+newPending :: ActiveWallet -> HdAccountId -> TxAux -> Maybe TxMeta ->  IO (Either NewPendingError ())
+newPending ActiveWallet{..} accountId tx mbMeta = do
     res <- update' (walletPassive ^. wallets) $ NewPending accountId (InDb tx)
     case res of
         Left e -> return (Left e)
         Right () -> do
+            case mbMeta of
+                Just meta -> putTxMeta (walletPassive ^. walletMeta) meta
+                Nothing   -> pure ()
             modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton tx))
             return $ Right ()
 
@@ -258,12 +261,13 @@ newPending ActiveWallet{..} accountId tx = do
 --
 -- A foreign transaction is a transaction that transfers funds from /another/
 -- wallet to this one.
-newForeign :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewForeignError ())
-newForeign ActiveWallet{..} accountId tx = do
+newForeign :: ActiveWallet -> HdAccountId -> TxAux -> TxMeta -> IO (Either NewForeignError ())
+newForeign ActiveWallet{..} accountId tx meta = do
     res <- update' (walletPassive ^. wallets) $ NewForeign accountId (InDb tx)
     case res of
         Left e -> return (Left e)
         Right () -> do
+            putTxMeta (walletPassive ^. walletMeta) meta
             modifyMVar_ walletSubmission (return . addPending accountId (Pending.singleton tx))
             return $ Right ()
 

@@ -23,13 +23,11 @@ module Cardano.Wallet.Kernel.Keystore (
     , delete
     -- * Queries on a keystore
     , lookup
-    -- * Conversions
-    , toList
     -- * Tests handy functions
     , bracketTestKeystore
     ) where
 
-import           Universum hiding (toList)
+import           Universum
 
 import           Control.Concurrent (modifyMVar_, withMVar)
 import           Control.Monad.Trans.Identity (IdentityT (..), runIdentityT)
@@ -229,14 +227,3 @@ deleteKey walletId us =
     let mbEsk = lookupKey us walletId
         erase = Data.List.deleteBy (\a b -> hash a == hash b)
     in maybe us (\esk -> us & over usKeys (erase esk)) mbEsk
-
-{-------------------------------------------------------------------------------
-  Converting a Keystore into container types
--------------------------------------------------------------------------------}
-
--- | Returns all the 'EncryptedSecretKey' known to this 'Keystore'.
-toList :: Keystore -> IO [(WalletId, EncryptedSecretKey)]
-toList (Keystore ks) =
-    withMVar ks $ \(InternalStorage us) -> do
-        let kss = us ^. usKeys
-        return $ map (\k -> (WalletIdHdRnd (eskToHdRootId k), k)) kss

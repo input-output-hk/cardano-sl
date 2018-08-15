@@ -6,49 +6,42 @@ module Test.Spec.GetTransactions (spec) where
 
 import           Universum
 
+import           Control.Lens (to)
+import           Formatting (build, sformat)
+
 import           Test.Hspec (Spec, describe, expectationFailure, shouldBe,
                      shouldMatchList)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (withMaxSuccess)
 import           Test.QuickCheck.Monadic (monadicIO, pick)
 
-import           Control.Lens (to)
-import           Formatting (build, sformat)
+import           Pos.Core as Core
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Response
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation (..), InputGrouping (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountIx (..),
                      HdRootId (..), hdAccountIdIx)
-
--- import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
--- import qualified Cardano.Wallet.Kernel.Transactions as Kernel
+import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
--- import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import           Cardano.Wallet.WalletLayer (walletPassiveLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
-import           Cardano.Wallet.API.Response
-import qualified Cardano.Wallet.API.V1.Types as V1
-
-import           Pos.Core as Core
--- import           Pos.Core.Txp
--- import           Pos.Crypto.Hashing
-import qualified Test.Spec.Addresses as Addresses hiding (spec)
--- import qualified Test.Spec.Fixture as Fixture
+import qualified Test.Spec.Addresses as Addresses
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..))
 import qualified Test.Spec.NewPayment as NewPayment
+
 import           TxMetaStorageSpecs (Isomorphic (..), genMeta)
 import           Util.Buildable (ShowThroughBuild (..))
 
-
-{-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
@@ -165,5 +158,3 @@ spec =
                             case eiResp of
                                 Left l -> expectationFailure $ "returned " <> show l
                                 Right resp -> check resp
-
-

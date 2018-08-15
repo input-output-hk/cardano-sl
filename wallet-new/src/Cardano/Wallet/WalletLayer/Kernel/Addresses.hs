@@ -18,7 +18,6 @@ import           Cardano.Wallet.API.Request.Pagination (Page (..),
 import           Cardano.Wallet.API.Response (SliceOf (..))
 import           Cardano.Wallet.API.V1.Types (V1 (..), WalletAddress (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read
@@ -28,6 +27,8 @@ import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (AutoIncrementKey (..),
                      Indexed (..), IxSet, ixedIndexed, (@>=<=))
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import qualified Cardano.Wallet.Kernel.Internal as Kernel
+import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..))
 import           Cardano.Wallet.WalletLayer (CreateAddressError (..),
                      ValidateAddressError (..))

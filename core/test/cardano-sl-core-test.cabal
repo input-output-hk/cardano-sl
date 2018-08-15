@@ -16,6 +16,7 @@ library
   exposed-modules:
                        Test.Pos.Core.Bi
                        Test.Pos.Core.Chrono
+                       Test.Pos.Core.ExampleHelpers
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe

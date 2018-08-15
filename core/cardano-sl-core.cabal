@@ -288,6 +288,7 @@ test-suite test
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
                        Test.Pos.Core.EnumEmpTest
+                       Test.Pos.Core.ExampleHelpers
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Json
                        Test.Pos.Core.LimitsSpec

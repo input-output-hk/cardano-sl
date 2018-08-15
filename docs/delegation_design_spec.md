@@ -462,17 +462,6 @@ This check protects against the malleability attack in
 
 ## Certificates and Registrations
 
-As stated in the delegation overview: delegating stake rights involves
-two indirections: from addresses to stake keys, and from stake keys to
-stake pools.
-
-Equivalently, there are two relations: a relation between addresses and
-stake keys, and a relation between stake keys and stake pools. The base
-and pointer addresses form the entries of the first relation. The
-second relation consists of registered stake keys, registered stake
-pools and heavyweight delegation certificates as the entries relating
-the two.
-
 ### Certificates on the Blockchain
 
 The registering of stake keys and stake pools, and delegating between
@@ -713,8 +702,63 @@ purpose of establishing precedence:
 
 ## Delegation Relations
 
-TODO: expand this section to describe in more detail what the delegation
-relations are, and how we use those to compute the stake distribution.
+As stated in the delegation overview: delegating stake rights involves
+two indirections: from addresses to stake keys, and from stake keys to
+stake pools.
+
+Equivalently, there are two relations: a relation between addresses and
+stake keys, and a relation between stake keys and stake pools. The base
+and pointer addresses form the entries of the first relation. The
+second relation consists of registered stake keys, registered stake
+pools and heavyweight delegation certificates as the entries relating
+the two.
+
+### Address Delegation Relation
+
+The address delegation relation is a relation between addresses and stake keys,
+specifically stake key hashes.
+
+This relation can be defined in terms of the current UTxO and the current set
+of registered stake keys. For all base addresses in the UTxO, the stake key
+hash is given directly, so this need only be filtered by the current set of
+registered stake keys. For pointer addresses in the UTxO we select those where
+their pointer points to a currently registered stake key and select the
+associated stake key hash.
+
+TODO: state this formally as well.
+
+### Stake Key Delegation Relation
+
+The stake key delegation relation is a relation between stake keys and stake
+pools, or more specifically stake keys hashes and stake pool key hashes.
+
+The relation is defined by the active set of heavyweight delegation
+certificates, filtered by the set of active stake pools. The active heavyweight
+delegation certificates already excludes those where the source stake key has
+been de-registered.
+
+TODO: state this formally as well.
+
+### Overall Stake Distribution
+
+Ouroboros requires a stake distribution to use as the basis of defining the
+slot leader schedule for the next epoch.
+
+The overall stake distribution is the set of all registered stake pools and
+their aggregate stake from all addresses that are delegated to them.
+
+This can be defined by taking the composition of the address delegation
+relation and the stake key delegation relation, giving the relation between
+addresses and stake pools. The final distribution is formed by taking the
+transaction outputs from the UTxO and selecting all the addresses related to
+each stake pool and aggregating all the coins.
+
+TODO: state this formally as well.
+
+Note that defining the stake distribution in this way is in contrast to using
+the follow the Satoshi algorithm. This definition automatically excludes all
+addresses that hold no stake, and excludes addresses with stake rights but that
+have not correctly registered their stake key or delegation choice.
 
 ### Chain Delegation
 

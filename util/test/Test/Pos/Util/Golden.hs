@@ -2,13 +2,13 @@ module Test.Pos.Util.Golden where
 
 import           Universum
 
-import           Data.Aeson (ToJSON, encode)
-import qualified Data.ByteString as BS
+import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import qualified Data.ByteString.Lazy as LB
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
 import           Hedgehog (Gen, Group, Property, PropertyT, TestLimit,
                      discoverPrefix, forAll, property, withTests, (===))
+import           Hedgehog.Internal.Property (failWith)
 import           Hedgehog.Internal.TH (TExpQ)
 import           Language.Haskell.TH (ExpQ, Q, loc_filename, runIO)
 import           Language.Haskell.TH.Syntax (qLocation)
@@ -28,11 +28,15 @@ embedGoldenTest :: FilePath -> ExpQ
 embedGoldenTest path =
     makeRelativeToTestDir ("golden/" <> path) >>= embedStringFile
 
-goldenTestJSON :: (ToJSON a, HasCallStack) => a -> FilePath -> Property
+goldenTestJSON :: (Eq a, FromJSON a, HasCallStack, Show a, ToJSON a)
+               => a -> FilePath -> Property
 goldenTestJSON x path = withFrozenCallStack $ do
     withTests 1 . property $ do
-        goldenJSON <- liftIO $ BS.readFile path
-        (LB.toStrict $ encode x) === goldenJSON
+        bs <- liftIO (LB.readFile path)
+        encode x === bs
+        case eitherDecode bs of
+            Left err -> failWith Nothing $ "could not decode: " <> show err
+            Right x' -> x === x'
 
 makeRelativeToTestDir :: FilePath -> Q FilePath
 makeRelativeToTestDir rel = do

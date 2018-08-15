@@ -23,6 +23,7 @@ import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
+import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.WalletLayer (GetTxError (..))
 
@@ -42,8 +43,8 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     accountFops <- castAccountFiltering mbWalletId mbAccountIndex
     mbSorting <- castSorting sop
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    k <- liftIO getk
-    currentSlot <- liftIO getCurrentSlotL
+    sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
+    currentSlot <- liftIO $ Node.getTipSlotId (wallet ^. Kernel.walletNode)
     (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
         (wallet ^. Kernel.walletMeta)
         (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
@@ -53,26 +54,18 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
         (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
         (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
         mbSorting
-    let txs = map (metaToTx db k currentSlot) meta
+    let txs = map (metaToTx db sc currentSlot) meta
     return $ respond params txs mbTotalEntries
 
 toTransaction :: MonadIO m
-               => Kernel.PassiveWallet
-               -> TxMeta
-               -> m V1.Transaction
+              => Kernel.PassiveWallet
+              -> TxMeta
+              -> m V1.Transaction
 toTransaction wallet meta = liftIO $ do
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    k <- getk
-    currentSlot <- getCurrentSlotL
-    return $ metaToTx db k currentSlot meta
-
--- TODO(kde): retrieve this constant from Core
-getk :: IO Word
-getk = return 2000
-
--- TODO(kde): retrieve this constant from Core ??
-getCurrentSlotL :: IO Word
-getCurrentSlotL = return 1000
+    sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
+    currentSlot <- Node.getTipSlotId (wallet ^. Kernel.walletNode)
+    return $ metaToTx db sc currentSlot meta
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
 castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops
@@ -116,11 +109,11 @@ castFilterOrd pr = case pr of
     F.LesserThan       -> TxMeta.LesserThan
     F.LesserThanEqual  -> TxMeta.LesserThanEqual
 
-metaToTx :: Kernel.DB -> Word -> Word -> TxMeta -> V1.Transaction
-metaToTx db k current TxMeta{..} =
+metaToTx :: Kernel.DB -> SlotCount -> SlotId -> TxMeta -> V1.Transaction
+metaToTx db slotCount current TxMeta{..} =
     V1.Transaction {
         txId = V1 _txMetaId,
-        txConfirmations = confirmations,
+        txConfirmations = fromIntegral confirmations,
         txAmount = V1 _txMetaAmount,
         txInputs = inputsToPayDistr <$> _txMetaInputs,
         txOutputs = outputsToPayDistr <$> _txMetaOutputs,
@@ -131,8 +124,8 @@ metaToTx db k current TxMeta{..} =
     }
 
         where
-            hdAccountId = HD.HdAccountId (HD.HdRootId $ InDb _txMetaWalletId)
-                                        (HD.HdAccountIx _txMetaAccountIx)
+            hdRootId    = HD.HdRootId $ InDb _txMetaWalletId
+            hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx _txMetaAccountIx)
 
             inputsToPayDistr :: (Address, Coin, a , b) -> V1.PaymentDistribution
             inputsToPayDistr (addr, c, _, _) = V1.PaymentDistribution (V1 addr) (V1 c)
@@ -143,19 +136,22 @@ metaToTx db k current TxMeta{..} =
             mSlot = Kernel.accountTxSlot db hdAccountId _txMetaId
             isPending = Kernel.accountIsTxPending db hdAccountId _txMetaId
 
-            (status, confirmations) = buildDynamicTxMeta mSlot k current isPending
+            assuranceLevel = Kernel.walletAssuranceLevel db hdRootId
+            (status, confirmations) = buildDynamicTxMeta assuranceLevel slotCount mSlot current isPending
 
-buildDynamicTxMeta :: Maybe SlotId -> Word -> Word -> Bool -> (V1.TransactionStatus, Word)
-buildDynamicTxMeta mSlot k currentSlot isPending = case isPending of
+buildDynamicTxMeta :: HD.AssuranceLevel -> SlotCount -> Maybe SlotId -> SlotId -> Bool -> (V1.TransactionStatus, Word64)
+buildDynamicTxMeta assuranceLevel slotCount mSlot currentSlot isPending = case isPending of
     True  -> (V1.Applying, 0)
     False ->
         case mSlot of
         Nothing     -> (V1.WontApply, 0)
-        Just (SlotId (EpochIndex w64) (UnsafeLocalSlotIndex w16)) ->
-            case ((fromIntegral currentSlot) - w64*(fromIntegral k) + (fromIntegral w16) >= fromIntegral k) of -- TODO: fix
-            True  -> (V1.InNewestBlocks, fromIntegral w64) -- TODO: fix
-            False -> (V1.Persisted, fromIntegral w16)      -- TODO: fix
-
+        Just confirmedIn ->
+            let currentSlot'  = flattenSlotIdExplicit slotCount currentSlot
+                confirmedIn'  = flattenSlotIdExplicit slotCount confirmedIn
+                confirmations = currentSlot' - confirmedIn'
+            in case (confirmations < getBlockCount (HD.assuredBlockDepth assuranceLevel)) of
+               True  -> (V1.InNewestBlocks, confirmations)
+               False -> (V1.Persisted, confirmations)
 
 -- | We don`t fitler in memory, so totalEntries is unknown, unless TxMeta Database counts them for us.
 -- It is possible due to some error, to have length ls < Page.

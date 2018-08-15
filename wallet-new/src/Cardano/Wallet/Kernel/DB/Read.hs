@@ -12,6 +12,7 @@ module Cardano.Wallet.Kernel.DB.Read (
   , walletIds
   , walletAccounts
   , walletTotalBalance
+  , walletAssuranceLevel
   ) where
 
 import           Universum
@@ -26,12 +27,13 @@ import           Pos.Core (Address, Coin, SlotId, mkCoin, unsafeAddCoin)
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
                      blockMetaSlotId, localBlockMeta)
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccount, HdAccountId,
-                     HdAddress, HdRootId, HdWallets, UnknownHdAccount,
-                     hdAccountId, hdRootId, hdWalletsRoots)
+import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdAccount,
+                     HdAccountId, HdAddress, HdRootId, HdWallets,
+                     UnknownHdAccount, UnknownHdRoot, hdAccountId,
+                     hdRootAssurance, hdRootId, hdWalletsRoots)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
                      readAccountsByRootId, readAddressesByAccountId,
-                     readHdAccountCurrentCheckpoint)
+                     readHdAccountCurrentCheckpoint, readHdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (IsCheckpoint, cpAddressMeta,
                      cpBlockMeta, cpPending)
@@ -53,6 +55,9 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 -------------------------------------------------------------------------------}
 
+-- | Run a query, throwing any errors as pure exceptions
+--
+-- TODO: It would be much better if we didn't introduce pure exceptions here..
 walletQuery' :: forall e a. (Buildable e)
              => DB
              -> HdQueryErr e a
@@ -124,6 +129,11 @@ walletTotalBalance db rootId =
                  (mkCoin 0)
                  (walletAccounts db rootId)
 
+-- | Assurance level of the given root ID
+walletAssuranceLevel :: DB -> HdRootId -> AssuranceLevel
+walletAssuranceLevel snapshot rootId =
+    walletQuery' snapshot (queryAssuranceLevel rootId)
+
 -- | Reads the current slot of a Tx in the 'HdAccount' current checkpoint.
 accountTxSlot :: DB -> HdAccountId -> TxId -> Maybe SlotId
 accountTxSlot snapshot accountId txId
@@ -137,6 +147,7 @@ accountIsTxPending snapshot accountId txId
 {-------------------------------------------------------------------------------
   Pure functions that support read-only operations on an account Checkpoint.
 -------------------------------------------------------------------------------}
+
 txSlot :: IsCheckpoint c => TxId -> c -> (Maybe SlotId)
 txSlot txId c = Map.lookup txId slots
   where
@@ -149,6 +160,10 @@ isTxPending txId c = Pending.member txId (c ^. cpPending)
 {-------------------------------------------------------------------------------
   Public queries on an account.
 -------------------------------------------------------------------------------}
+
+queryAssuranceLevel :: HdRootId -> HdQueryErr UnknownHdRoot AssuranceLevel
+queryAssuranceLevel rootId = fmap (view hdRootAssurance) <$> readHdRoot rootId
+
 queryTxSlotId :: TxId -> HdAccountId -> HdQueryErr UnknownHdAccount (Maybe SlotId)
 queryTxSlotId txId accountId db
     = txSlot txId <$> checkpoint

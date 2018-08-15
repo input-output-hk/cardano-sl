@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdAccountIx(..)
   , HdAddressIx(..)
   , AssuranceLevel(..)
+  , assuredBlockDepth
   , HasSpendingPassword(..)
     -- * HD wallet types proper
   , HdWallets(..)
@@ -145,12 +146,17 @@ instance Arbitrary HdAddressIx where
     arbitrary = HdAddressIx <$> arbitrary
 
 -- | Wallet assurance level
---
--- TODO: document what these levels mean (in particular, how it does translate
--- to the depth required before a transaction is marked as Persisted?)
 data AssuranceLevel =
     AssuranceLevelNormal
   | AssuranceLevelStrict
+
+-- | Interpretation of 'AssuranceLevel'
+--
+-- This is adopted from the legacy wallet, which claims that these values
+-- are taken from <https://cardanodocs.com/cardano/transaction-assurance/>
+assuredBlockDepth :: AssuranceLevel -> Core.BlockCount
+assuredBlockDepth AssuranceLevelNormal = 9
+assuredBlockDepth AssuranceLevelStrict = 15
 
 instance Buildable AssuranceLevel where
     build AssuranceLevelNormal = "normal"

@@ -18,18 +18,16 @@ import           Universum
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (SafeCopy (..))
 
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash, blockHeader,
-                     headerHash, prevBlockL)
+import           Pos.Chain.Block (HeaderHash, gbHeader, headerHash,
+                     mainBlockSlot, prevBlockL)
 import           Pos.Chain.Update (BlockVersionData (..),
                      ConfirmedProposalState (..), HasUpdateConfiguration,
                      genesisBlockVersion, genesisSoftwareVersions, ourAppName)
 import           Pos.Core (HasConfiguration, ScriptVersion, SlotId (..))
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisHash)
-import           Pos.Core.Slotting (getEpochOrSlot, unEpochOrSlot)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionModifier (..), NumSoftwareVersion,
                      SoftwareVersion (..), UpdateProposal (..))
-import           Pos.DB.Class (getBlock)
 import           Pos.DB.Update (getAdoptedBVFull, getConfirmedProposals,
                      getConfirmedSV)
 
@@ -40,7 +38,7 @@ import           Serokell.Util (mapJson)
 
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (LockContext,
                      NodeConstraints, NodeStateAdaptor, WithNodeState,
-                     withNodeState)
+                     mostRecentMainBlock, withNodeState)
 
 {-------------------------------------------------------------------------------
   Chain state and state modifiers
@@ -131,24 +129,28 @@ getChainBrief :: HasCallStack
               => NodeStateAdaptor IO
               -> LockContext
               -> IO (Maybe ChainBrief)
-getChainBrief node lc = withNodeState node $ \withLock -> do
-    (tip, (bv, bvd), sv) <- withLock lc $ \tip ->
-            (tip,,)
+getChainBrief node lc = do
+    (tip, (bv, bvd), sv, genHash) <- withNodeState node $ \withLock ->
+      withLock lc $ \tip ->
+            (tip,,,)
         <$> getAdoptedBVFull
         <*> getVersionOrThrow
+        <*> pure genesisHash -- while we are in scope
 
-    mMainBlock <- findMainBlock tip
+    mMainBlock <- mostRecentMainBlock node tip
     case mMainBlock of
       Nothing ->
         return Nothing
-      Just (slotId, hdr) -> do
-        mPrevMain <- findMainBlock (hdr ^. prevBlockL)
+      Just mainBlock -> do
+        let slotId = mainBlock ^. mainBlockSlot
+            hdr    = mainBlock ^. gbHeader
+        mPrevMain <- mostRecentMainBlock node (hdr ^. prevBlockL)
         return $ Just ChainBrief {
             cbSlotId   = slotId
           , cbTip      = headerHash hdr
           , cbPrevMain = case mPrevMain of
-                           Just (_slotId, prevMain) -> headerHash prevMain
-                           Nothing                  -> genesisHash
+                           Just prevMain -> headerHash prevMain
+                           Nothing       -> genHash
           , cbState    = ChainState {
                 csBlockVersion    = bv
               , csScriptVersion   = bvdScriptVersion bvd
@@ -157,43 +159,12 @@ getChainBrief node lc = withNodeState node $ \withLock -> do
               }
           }
   where
-    findMainBlock :: NodeConstraints
-                  => HeaderHash
-                  -> WithNodeState IO (Maybe (SlotId, BlockHeader))
-    findMainBlock hdrHash
-      | hdrHash == genesisHash = return Nothing
-      | otherwise = do
-          block <- getBlockOrThrow hdrHash
-          let hdr = block ^. blockHeader
-          case unEpochOrSlot (getEpochOrSlot hdr) of
-            Right slotId ->
-              return $ Just (slotId, hdr)
-            Left _epochIndex ->
-              -- We found an EBB. We get the previous block and loop.
-              --
-              -- It is possible, in theory, that the previous block will again
-              -- be an EBB, if there were no regular blocks in this epoch at
-              -- all. In that case, we keep looking. Indeed, we may reach
-              -- the genesis block, in which case no regular blocks exist on
-              -- the block chain at all. We assume that only regular blocks
-              -- can change the block version data (@bv@, @bvd@) and software
-              -- version (@sv@), so that these two values remain valid
-              -- throughout this search.
-              findMainBlock (hdr ^. prevBlockL)
-
     getVersionOrThrow :: NodeConstraints => WithNodeState IO SoftwareVersion
     getVersionOrThrow = do
         mSV <- getConfirmedSV ourAppName
         case mSV of
           Nothing -> throwM $ ChainStateMissingVersion callStack ourAppName
           Just sv -> return $ SoftwareVersion ourAppName sv
-
-    getBlockOrThrow :: NodeConstraints => HeaderHash -> WithNodeState IO Block
-    getBlockOrThrow hdrHash = do
-        mBlock <- getBlock hdrHash
-        case mBlock of
-          Nothing    -> throwM $ ChainStateInvalidHash callStack hdrHash
-          Just block -> return block
 
 -- | @a `chainBriefSucceeds` b@ is true when @a@ is the successor of @b@.
 chainBriefSucceeds :: ChainBrief -> ChainBrief -> Bool
@@ -275,8 +246,7 @@ getChainStateRestoration node lc = do
 -------------------------------------------------------------------------------}
 
 data ChainStateException =
-    ChainStateInvalidHash    CallStack HeaderHash
-  | ChainStateMissingVersion CallStack ApplicationName
+    ChainStateMissingVersion CallStack ApplicationName
   deriving (Show)
 
 instance Exception ChainStateException

@@ -14,6 +14,12 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
     -- * Locking
   , Lock
   , LockContext(..)
+    -- * Specific queries
+  , mostRecentMainBlock
+  , getTipHeader
+  , getTipSlotId
+  , getSecurityParameter
+  , getMaxTxSize
     -- * Support for tests
   , NodeStateUnavailable(..)
   , nodeStateUnavailable
@@ -24,18 +30,24 @@ import           Universum
 import           Control.Lens (lens)
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
                      askUnliftIO, unliftIO, withUnliftIO)
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Chain.Block (HeaderHash, headerHash)
-import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash, MainBlock,
+                     blockHeader, headerHash, mainBlockSlot, prevBlockL)
+import           Pos.Chain.Update (HasUpdateConfiguration, bvdMaxTxSize)
 import           Pos.Context (NodeContext (..))
-import           Pos.Core.Configuration (HasConfiguration, HasProtocolConstants)
-import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlots (..))
+import           Pos.Core (ProtocolConstants (pcK))
+import           Pos.Core.Configuration (HasConfiguration, HasProtocolConstants,
+                     genesisHash, protocolConstants)
+import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
+                     LocalSlotIndex (..), MonadSlots (..), SlotId (..))
 import qualified Pos.DB.Block as DB
-import           Pos.DB.BlockIndex (getTipHeader)
-import           Pos.DB.Class (MonadDBRead (..))
+import qualified Pos.DB.BlockIndex as Core
+import           Pos.DB.Class (MonadDBRead (..), getBlock)
 import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
 import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.DB.Update (getAdoptedBVData)
 import qualified Pos.Infra.Slotting.Impl.Simple as S
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util (HasLens (..), lensOf')
@@ -210,9 +222,88 @@ newNodeStateAdaptor nr = Adaptor $ \act ->
 -- NOTE: If we wanted to use 'withStateLock' instead we would need to
 -- capture additional node context.
 withLock :: (NodeConstraints, MonadIO m, MonadMask m) => Lock (WithNodeState m)
-withLock AlreadyLocked f = headerHash <$> getTipHeader >>= f
+withLock AlreadyLocked f = headerHash <$> Core.getTipHeader >>= f
 withLock NotYetLocked  f = Wrap $ withStateLockNoMetrics LowPriority
                                 $ unwrap . f
+
+{-------------------------------------------------------------------------------
+  Specific queries
+-------------------------------------------------------------------------------}
+
+-- | Get the most recent main block starting at the specified header
+--
+-- Returns nothing if there are no (regular) blocks on the blockchain yet.
+mostRecentMainBlock :: forall m. (MonadIO m, MonadCatch m)
+                    => NodeStateAdaptor m
+                    -> HeaderHash
+                    -> m (Maybe MainBlock)
+mostRecentMainBlock node = \hdrHash -> withNodeState node $ \_lock ->
+    go hdrHash
+  where
+    go :: NodeConstraints
+       => HeaderHash
+       -> WithNodeState m (Maybe MainBlock)
+    go hdrHash
+      | hdrHash == genesisHash = return Nothing
+      | otherwise = do
+          block <- getBlockOrThrow hdrHash
+          case block of
+            Right mainBlock ->
+              return $ Just mainBlock
+            Left _ebb -> do
+              -- We found an EBB. We get the previous block and loop.
+              --
+              -- It is possible, in theory, that the previous block will again
+              -- be an EBB, if there were no regular blocks in this epoch at
+              -- all. In that case, we keep looking. Indeed, we may reach
+              -- the genesis block, in which case no regular blocks exist on
+              -- the block chain at all. We assume that only regular blocks
+              -- can change the block version data (@bv@, @bvd@) and software
+              -- version (@sv@), so that these two values remain valid
+              -- throughout this search.
+               go (block ^. blockHeader ^. prevBlockL)
+
+    getBlockOrThrow :: NodeConstraints => HeaderHash -> WithNodeState m Block
+    getBlockOrThrow hdrHash = do
+        mBlock <- getBlock hdrHash
+        case mBlock of
+          Nothing    -> throwM $ MissingBlock callStack hdrHash
+          Just block -> return block
+
+-- | Get the header of the tip of the chain
+getTipHeader :: (MonadIO m, MonadCatch m) => NodeStateAdaptor m -> m BlockHeader
+getTipHeader node = withNodeState node $ \_lock -> Core.getTipHeader
+
+-- | Get the slot ID of the chain tip
+--
+-- Returns slot 0 in epoch 0 if there are no blocks yet.
+getTipSlotId :: (MonadIO m, MonadCatch m) => NodeStateAdaptor m -> m SlotId
+getTipSlotId node = do
+    hdrHash <- headerHash <$> getTipHeader node
+    aux <$> mostRecentMainBlock node hdrHash
+  where
+    aux :: Maybe MainBlock -> SlotId
+    aux (Just mainBlock) = mainBlock ^. mainBlockSlot
+    aux Nothing          = SlotId (EpochIndex 0) (UnsafeLocalSlotIndex 0)
+
+-- | Get the security parameter (@k@)
+getSecurityParameter :: Monad m => NodeStateAdaptor m -> m Int
+getSecurityParameter node = withNodeState node $ \_lock ->
+    return $ pcK protocolConstants
+
+-- | Get maximum transaction size
+getMaxTxSize :: (MonadIO m, MonadCatch m) => NodeStateAdaptor m -> m Byte
+getMaxTxSize node =
+    fmap bvdMaxTxSize $ withNodeState node $ \_lock -> getAdoptedBVData
+
+-- | Thrown if we cannot find a previous block
+--
+-- If this ever happens it indicates a serious problem: the blockchain as
+-- stored in the node is not correct.
+data MissingBlock = MissingBlock CallStack HeaderHash
+  deriving (Show)
+
+instance Exception MissingBlock
 
 {-------------------------------------------------------------------------------
   Support for tests

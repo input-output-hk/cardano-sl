@@ -88,9 +88,9 @@ instance ToJSON WalletConfiguration where
     toJSON = genericToJSON defaultOptions
 
 data ThrottleSettings = ThrottleSettings
-    { tsRate   :: !Int
-    , tsPeriod :: !Int
-    , tsBurst  :: !Int
+    { tsRate   :: !Word64
+    , tsPeriod :: !Word64
+    , tsBurst  :: !Word64
     } deriving (Show, Generic)
 
 defaultThrottleSettings :: ThrottleSettings
@@ -172,7 +172,7 @@ withConfigurationsM logName mAssetLockPath cfo fn act = do
         withSscConfiguration (ccSsc cfg) $
         withDlgConfiguration (ccDlg cfg) $
         withBlockConfiguration (ccBlock cfg) $
-        withNodeConfiguration (ccNode cfg) $ \ pm ->
+        withNodeConfiguration (ccNode cfg) $ \pm ->
             act pm (ccWallet cfg) (addAssetLock assetLock $ ccTxp cfg) (ccNtp cfg)
 
     where

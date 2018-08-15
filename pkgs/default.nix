@@ -17764,6 +17764,7 @@ license = stdenv.lib.licenses.mit;
 , aeson-pretty
 , async
 , base
+, base58-bytestring
 , beam-core
 , beam-migrate
 , beam-sqlite
@@ -17877,6 +17878,7 @@ aeson-options
 aeson-pretty
 async
 base
+base58-bytestring
 beam-core
 beam-migrate
 beam-sqlite

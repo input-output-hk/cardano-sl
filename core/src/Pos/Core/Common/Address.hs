@@ -18,6 +18,7 @@ module Pos.Core.Common.Address
        , checkRedeemAddress
 
        -- * Encoding
+       , addrToBase58
        , encodeAddr
        , encodeAddrCRC32
 
